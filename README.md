@@ -26,6 +26,8 @@ This command generates static content into the `build` directory and can be serv
 
 ### Deployment
 
+If there is the first time you deploy the website, you need to update permissions for `Workflow permissions` in `Settings` tab of your repository. You must enable `Write` permission for `Workflows` section.
+
 Using SSH:
 
 ```
