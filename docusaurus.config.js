@@ -78,6 +78,7 @@ const config = {
                         label: 'Tutorial',
                     },
                     { to: '/blog', label: 'Blog', position: 'left' },
+                    {to: '/cv', label: 'CV', position: 'left'},
                     {
                         href: 'https://github.com/TienNHM',
                         label: 'GitHub',
