@@ -31,7 +31,7 @@ const config = {
     // metadata like html lang. For example, if your site is Chinese, you may want
     // to replace "en" with "zh-Hans".
     i18n: {
-        defaultLocale: 'vi',
+        defaultLocale: 'en',
         locales: ['vi', 'en'],
     },
 
@@ -59,6 +59,22 @@ const config = {
         ],
     ],
 
+    plugins: [
+        [
+            'ideal-image',
+            /** @type {import('@docusaurus/plugin-ideal-image').PluginOptions} */
+            ({
+                quality: 70,
+                max: 1030,
+                min: 640,
+                steps: 2,
+                // Use false to debug, but it incurs huge perf costs
+                disableInDev: true,
+            }),
+        ],
+        '@docusaurus/theme-mermaid',
+    ],
+
     themeConfig:
         /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
         ({
@@ -78,7 +94,8 @@ const config = {
                         label: 'Tutorial',
                     },
                     { to: '/blog', label: 'Blog', position: 'left' },
-                    {to: '/cv', label: 'CV', position: 'left'},
+                    { to: '/showcase', label: 'Showcase', position: 'left' },
+                    { to: '/cv', label: 'CV', position: 'left' },
                     {
                         href: 'https://github.com/TienNHM',
                         label: 'GitHub',
