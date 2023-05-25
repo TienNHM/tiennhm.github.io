@@ -96,6 +96,7 @@ const config = {
                     { to: '/blog', label: 'Blog', position: 'left' },
                     { to: '/showcase', label: 'Showcase', position: 'left' },
                     { to: '/cv', label: 'CV', position: 'left' },
+                    { to: '/community', label: 'Community', position: 'left' },
                     {
                         href: 'https://github.com/TienNHM',
                         label: 'GitHub',
