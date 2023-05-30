@@ -99,8 +99,9 @@ const config = {
                     { to: '/community', label: 'Community', position: 'left' },
                     {
                         href: 'https://github.com/TienNHM',
-                        label: 'GitHub',
+                        // label: 'GitHub',
                         position: 'right',
+                        className: "header-github-link",
                     },
                 ],
             },
