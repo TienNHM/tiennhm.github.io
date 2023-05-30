@@ -51,7 +51,6 @@ function restoreUserState(userState: UserState | null) {
     scrollTopPosition: 0,
     focusedElementId: undefined,
   };
-  // @ts-expect-error: if focusedElementId is undefined it returns null
   document.getElementById(focusedElementId)?.focus();
   window.scrollTo({top: scrollTopPosition});
 }
@@ -331,7 +330,7 @@ export default function Showcase(): JSX.Element {
   return (
     <Layout title={TITLE} description={DESCRIPTION}>
       <main className="margin-vert--lg">
-        <ShowcaseHeader />
+        {/* <ShowcaseHeader /> */}
         <ShowcaseFilters />
         <ShowcaseCards />
       </main>
