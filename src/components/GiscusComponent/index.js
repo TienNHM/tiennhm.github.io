@@ -2,6 +2,8 @@ import React from 'react';
 import Giscus from "@giscus/react";
 import { useColorMode } from '@docusaurus/theme-common';
 
+// Ref: https://giscus.app/vi
+
 export default function GiscusComponent() {
   const { colorMode } = useColorMode();
 
@@ -11,9 +13,9 @@ export default function GiscusComponent() {
       repoId="R_kgDOJmnUUw"
       category="General"
       categoryId="DIC_kwDOJmnUU84CWtld"
-      mapping="url"
+      mapping="title"
       term="Discussion"
-      strict="0"
+      strict="1"
       reactionsEnabled="1"
       emitMetadata="1"
       inputPosition="top"
