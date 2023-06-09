@@ -7,6 +7,7 @@ authors:
   url: https://github.com/wgao19
   image_url: https://github.com/wgao19.png
 tags: [hola, docusaurus]
+enableComments: true # for Gisqus comments, set to true
 ---
 
 Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque elementum dignissim ultricies. Fusce rhoncus ipsum tempor eros aliquam consequat. Lorem ipsum dolor sit amet
