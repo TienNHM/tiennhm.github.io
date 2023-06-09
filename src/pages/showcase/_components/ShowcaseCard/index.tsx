@@ -60,12 +60,18 @@ function ShowcaseCardTag({tags}: {tags: TagType[]}) {
 }
 
 function getCardImage(user: User): string {
+  var img = user.website ?? 'https://github.com/TienNHM'
   return (
     user.preview ??
-    `https://slorber-api-screenshot.netlify.app/${encodeURIComponent(
-      user.website,
-    )}/showcase`
+    `https://v1.screenshot.11ty.dev/${encodeURIComponent(img)}/opengraph/_${Date.now()}`
   );
+
+  // return (
+  //   user.preview ??
+  //   `https://slorber-api-screenshot.netlify.app/${encodeURIComponent(
+  //     user.website,
+  //   )}/showcase`
+  // );
 }
 
 function ShowcaseCard({user}: {user: User}) {
