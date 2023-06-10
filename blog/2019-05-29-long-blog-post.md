@@ -4,6 +4,7 @@ title: Long Blog Post
 authors: endi
 tags: [hello, docusaurus]
 enableComments: true # for Gisqus comments, set to true
+draft: true # set to true to hide this post from the site
 ---
 
 This is the summary of a very long blog post,

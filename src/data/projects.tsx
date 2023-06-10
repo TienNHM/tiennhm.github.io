@@ -26,7 +26,7 @@ export type TagType =
 
 
 // prettier-ignore
-const Users: User[] = [
+const PROJECTS: Project[] = [
   {
     title: 'Simple Paint',
     description: 'A simple paint app made with Windows Forms and C#.',
@@ -193,7 +193,7 @@ const Users: User[] = [
   },
 ];
 
-export type User = {
+export type Project = {
   title: string;
   description: string;
   preview: string | null; // null = use our serverless screenshot service
@@ -318,13 +318,13 @@ export const Tags: {[type in TagType]: Tag} = {
 };
 
 export const TagList = Object.keys(Tags) as TagType[];
-function sortUsers() {
-  let result = Users;
+function sortProjects() {
+  let result = PROJECTS;
   // Sort by site name
-  result = sortBy(result, (user) => user.title.toLowerCase());
+  result = sortBy(result, (project) => project.title.toLowerCase());
   // Sort by favorite tag, favorites first
-  result = sortBy(result, (user) => !user.tags.includes('favorite'));
+  result = sortBy(result, (project) => !project.tags.includes('favorite'));
   return result;
 }
 
-export const sortedUsers = sortUsers();
+export const sortedProjects = sortProjects();

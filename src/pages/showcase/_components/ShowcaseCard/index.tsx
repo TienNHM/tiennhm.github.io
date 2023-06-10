@@ -1,10 +1,3 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- */
-
 import React from 'react';
 import clsx from 'clsx';
 import Link from '@docusaurus/Link';
@@ -15,14 +8,15 @@ import {
   Tags,
   TagList,
   type TagType,
-  type User,
+  type Project,
   type Tag,
-} from '@site/src/data/users';
+} from '@site/src/data/projects';
 import {sortBy} from '@site/src/utils/jsUtils';
 import Heading from '@theme/Heading';
 import Tooltip from '../ShowcaseTooltip';
 import styles from './styles.module.css';
-import TienNHM from '@site/static/img/TienNHM-project.webp';
+
+const TienNHM = require('@site/static/img/TienNHM-project.webp');
 
 const TagComp = React.forwardRef<HTMLLIElement, Tag>(
   ({label, color, description}, ref) => (
@@ -66,7 +60,7 @@ function ShowcaseCardTag({tags}: {tags: TagType[]}) {
  * @param user user object
  * @returns image url
  */
-function getCardImage(user: User): string {
+function getCardImage(user: Project): string {
   if (user.preview) {
     return user.preview;
   }
@@ -88,7 +82,7 @@ function getCardImage(user: User): string {
   return TienNHM;
 }
 
-function ShowcaseCard({user}: {user: User}) {
+function ShowcaseCard({user}: {user: Project}) {
   const image = getCardImage(user);
   return (
     <li key={user.title} className="card shadow--md">
