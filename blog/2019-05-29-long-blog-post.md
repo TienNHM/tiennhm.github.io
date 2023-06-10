@@ -1,10 +1,10 @@
 ---
 slug: long-blog-post
 title: Long Blog Post
-authors: endi
+authors: [endi, tiennhm]
 tags: [hello, docusaurus]
 enableComments: true # for Gisqus comments, set to true
-draft: true # set to true to hide this post from the site
+draft: false # set to false to publish this post
 ---
 
 This is the summary of a very long blog post,
