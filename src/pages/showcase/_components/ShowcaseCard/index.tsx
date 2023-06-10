@@ -72,16 +72,17 @@ function getCardImage(user: User): string {
   }
   if (user.website) {
     var img = user.website ?? 'https://github.com/TienNHM'
-    var yyyyMMdd = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-  
+    // var yyyyMMdd = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    var yyyyMMddhhmm = new Date().toISOString().slice(0, 16).replace(/-/g, '').replace(/:/g, '').replace(/T/g, '');
+    
     return (
       user.preview ??
-      `https://v1.screenshot.11ty.dev/${encodeURIComponent(img)}/opengraph/smaller/_${yyyyMMdd}`
+      `https://v1.screenshot.11ty.dev/${encodeURIComponent(img)}/opengraph/smaller/_${yyyyMMddhhmm}`
     );
   
     // return (
     //   user.preview ??
-    //   `https://slorber-api-screenshot.netlify.app/${encodeURIComponent(img)}/showcase/_${yyyyMMdd}`
+    //   `https://slorber-api-screenshot.netlify.app/${encodeURIComponent(img)}/showcase/_${yyyyMMddhhmm}`
     // );
   }
   return TienNHM;
