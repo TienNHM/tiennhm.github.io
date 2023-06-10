@@ -275,12 +275,15 @@ function ShowcaseCards() {
                   'margin-bottom--md',
                   styles.showcaseFavoriteHeader,
                 )}>
-                <Heading as="h2">
+                <Heading as="h2" id='featured-projects'>
+                  <FavoriteIcon svgClass={styles.svgIconFavorite} />
                   <Translate id="showcase.favoritesList.title">
-                    Our favorites
+                    Featured projects
                   </Translate>
+                  <span className={clsx(styles.countProjects,)}>
+                    {favoriteUsers.length}
+                  </span>
                 </Heading>
-                <FavoriteIcon svgClass={styles.svgIconFavorite} />
                 <SearchBar />
               </div>
               <ul
@@ -296,8 +299,11 @@ function ShowcaseCards() {
             </div>
           </div>
           <div className="container margin-top--lg">
-            <Heading as="h2" className={styles.showcaseHeader}>
-              <Translate id="showcase.usersList.allUsers">All sites</Translate>
+            <Heading as="h2" className={styles.showcaseHeader} id='all-projects'>
+              <Translate id="showcase.usersList.allUsers">All projects</Translate>
+              <span className={clsx(styles.countProjects,)}>
+                {otherUsers.length}
+              </span>
             </Heading>
             <ul className={clsx('clean-list', styles.showcaseList)}>
               {otherUsers.map((user) => (
