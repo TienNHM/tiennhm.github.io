@@ -84,7 +84,7 @@ const config = {
                 title: 'TienNHM',
                 logo: {
                     alt: 'TienNHM',
-                    src: 'img/TienNHM.png',
+                    src: 'img/TienNHM.webp',
                 },
                 items: [
                     {
