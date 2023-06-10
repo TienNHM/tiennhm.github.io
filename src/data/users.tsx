@@ -163,8 +163,8 @@ const Users: User[] = [
     title: 'Tetris',
     description: 'A simple game made with Python, inspired by Google Quick Draw.',
     preview: null,
-    website: 'https://tiennhm.github.io/Game-Console/',
-    source: 'https://github.com/TienNHM/Game-Console',
+    website: 'https://tiennhm.github.io/Tetris-Cpp/',
+    source: 'https://github.com/TienNHM/Tetris-Cpp',
     tags: ['opensource', 'courseproject'],
   },
   {
