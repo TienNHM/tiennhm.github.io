@@ -4,6 +4,7 @@ title: Welcome
 authors: [slorber, yangshun]
 tags: [facebook, hello, docusaurus]
 enableComments: true # for Gisqus comments, set to true
+draft: true # set to true to hide this post from the site
 ---
 
 [Docusaurus blogging features](https://docusaurus.io/docs/blog) are powered by the [blog plugin](https://docusaurus.io/docs/api/plugins/@docusaurus/plugin-content-blog).

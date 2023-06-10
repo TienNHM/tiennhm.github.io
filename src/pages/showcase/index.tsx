@@ -16,12 +16,12 @@ import Link from '@docusaurus/Link';
 import Layout from '@theme/Layout';
 import FavoriteIcon from '@site/src/components/svgIcons/FavoriteIcon';
 import {
-  sortedUsers,
+  sortedProjects,
   Tags,
   TagList,
-  type User,
+  type Project,
   type TagType,
-} from '@site/src/data/users';
+} from '@site/src/data/projects';
 import Heading from '@theme/Heading';
 import ShowcaseTagSelect, {
   readSearchTags,
@@ -73,7 +73,7 @@ function readSearchName(search: string) {
 }
 
 function filterUsers(
-  users: User[],
+  users: Project[],
   selectedTags: TagType[],
   operator: Operator,
   searchName: string | null,
@@ -114,7 +114,7 @@ function useFilteredUsers() {
   }, [location]);
 
   return useMemo(
-    () => filterUsers(sortedUsers, selectedTags, operator, searchName),
+    () => filterUsers(sortedProjects, selectedTags, operator, searchName),
     [selectedTags, operator, searchName],
   );
 }
@@ -204,10 +204,10 @@ function ShowcaseFilters() {
   );
 }
 
-const favoriteUsers = sortedUsers.filter((user) =>
+const favoriteUsers = sortedProjects.filter((user) =>
   user.tags.includes('favorite'),
 );
-const otherUsers = sortedUsers.filter(
+const otherUsers = sortedProjects.filter(
   (user) => !user.tags.includes('favorite'),
 );
 
@@ -266,7 +266,7 @@ function ShowcaseCards() {
 
   return (
     <section className="margin-top--lg margin-bottom--xl">
-      {filteredUsers.length === sortedUsers.length ? (
+      {filteredUsers.length === sortedProjects.length ? (
         <>
           <div className={styles.showcaseFavorite}>
             <div className="container">
