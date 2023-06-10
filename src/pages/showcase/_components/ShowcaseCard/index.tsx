@@ -22,6 +22,7 @@ import {sortBy} from '@site/src/utils/jsUtils';
 import Heading from '@theme/Heading';
 import Tooltip from '../ShowcaseTooltip';
 import styles from './styles.module.css';
+import TienNHM from '@site/static/img/TienNHM-project.webp';
 
 const TagComp = React.forwardRef<HTMLLIElement, Tag>(
   ({label, color, description}, ref) => (
@@ -59,28 +60,39 @@ function ShowcaseCardTag({tags}: {tags: TagType[]}) {
   );
 }
 
+/**
+ * Returns the image url for the card, either the user-provided one or a screenshot of the website
+ * Ref: https://api-explorer.11ty.dev/
+ * @param user user object
+ * @returns image url
+ */
 function getCardImage(user: User): string {
-  var img = user.website ?? 'https://github.com/TienNHM'
-  return (
-    user.preview ??
-    `https://v1.screenshot.11ty.dev/${encodeURIComponent(img)}/opengraph/_${Date.now()}`
-  );
-
-  // return (
-  //   user.preview ??
-  //   `https://slorber-api-screenshot.netlify.app/${encodeURIComponent(
-  //     user.website,
-  //   )}/showcase`
-  // );
+  if (user.preview) {
+    return user.preview;
+  }
+  if (user.website) {
+    var img = user.website ?? 'https://github.com/TienNHM'
+    var yyyyMMdd = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  
+    return (
+      user.preview ??
+      `https://v1.screenshot.11ty.dev/${encodeURIComponent(img)}/opengraph/smaller/_${yyyyMMdd}`
+    );
+  
+    // return (
+    //   user.preview ??
+    //   `https://slorber-api-screenshot.netlify.app/${encodeURIComponent(img)}/showcase/_${yyyyMMdd}`
+    // );
+  }
+  return TienNHM;
 }
 
 function ShowcaseCard({user}: {user: User}) {
   const image = getCardImage(user);
-  console.log(image);
   return (
     <li key={user.title} className="card shadow--md">
       <div className={clsx('card__image', styles.showcaseCardImage)}>
-        <Image img={image} alt={user.title} />
+        <Image img={image} alt={user.title} loading='lazy' about={user.title} decoding='async'/>
       </div>
       <div className="card__body">
         <div className={clsx(styles.showcaseCardHeader)}>
