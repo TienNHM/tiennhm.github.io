@@ -9,8 +9,8 @@ const projectName = "tiennhm.github.io";
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-    title: 'Portfolio',
-    tagline: 'TienNHM - Middle Fullstack Web Developer',
+    title: 'TienNHM',
+    tagline: 'Middle Fullstack Developer',
     favicon: 'img/favicon.ico',
 
     // Set the production url of your site here
