@@ -8,18 +8,17 @@ import HomepageFeatures from '@site/src/components/HomepageFeatures';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faFacebook, faGithub, faLinkedin,faYoutube, faSkype } from '@fortawesome/free-brands-svg-icons'
 import { faEnvelope, faPhone } from '@fortawesome/free-solid-svg-icons'
-
 import styles from './index.module.css';
 import { CONTACTS } from '@site/src/data/contacts';
 
-function ContactItem({icon, link, title}) {
+function ContactItem({icon, contact, title}) {
+  const Svg = contact.icon;
   return (
     <div className={styles.buttons}>
-      <Link
-        title={title}
-        className={clsx('button button--outline button--secondary button--lg', styles.cardInfoButton)}
-        to={link}>
-        <FontAwesomeIcon icon={icon} size='xl'/>
+      <Link className={clsx('button button--lg', styles.cardInfoButton)}
+        title={title} to={contact.link}>
+          {contact.icon && <Svg role="img" />}
+          {!contact.icon && <FontAwesomeIcon icon={icon} size='xl'/>}
       </Link>
     </div>
   );
@@ -38,13 +37,13 @@ function HomepageHeader() {
           <h2 className="hero__subtitle">{siteConfig.tagline}</h2>
           
           <div className={clsx(styles.buttonsGroup)}>
-            <ContactItem icon={faEnvelope} link={CONTACTS.Email} title={'Email'}/>
-            <ContactItem icon={faPhone} link={CONTACTS.Phone} title={'Phone'}/>
-            <ContactItem icon={faFacebook} link={CONTACTS.Facebook} title={'Facebook'}/>
-            <ContactItem icon={faGithub} link={CONTACTS.Github} title={'Github'}/>
-            <ContactItem icon={faLinkedin} link={CONTACTS.Linkedin} title={'Linkedin'}/>
-            <ContactItem icon={faYoutube} link={CONTACTS.Youtube} title={'Youtube'}/>
-            <ContactItem icon={faSkype} link={CONTACTS.Skype} title={'Skype'}/>
+            <ContactItem icon={faEnvelope} contact={CONTACTS.Email} title={'Email'}/>
+            <ContactItem icon={faPhone} contact={CONTACTS.Phone} title={'Phone'}/>
+            <ContactItem icon={faFacebook} contact={CONTACTS.Facebook} title={'Facebook'}/>
+            <ContactItem icon={faGithub} contact={CONTACTS.Github} title={'Github'}/>
+            <ContactItem icon={faLinkedin} contact={CONTACTS.Linkedin} title={'Linkedin'}/>
+            <ContactItem icon={faYoutube} contact={CONTACTS.Youtube} title={'Youtube'}/>
+            <ContactItem icon={faSkype} contact={CONTACTS.Skype} title={'Skype'}/>
           </div>
         </div>
       </div>
