@@ -60,7 +60,7 @@ export default function Home(): JSX.Element {
       description="Middle Fullstack Web Developer from Viet Nam">
       <HomepageHeader />
       <main>
-        <HomepageFeatures />
+        {/* <HomepageFeatures /> */}
       </main>
     </Layout>
   );
