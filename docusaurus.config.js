@@ -6,6 +6,55 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 
 const organizationName = "TienNHM";
 const projectName = "tiennhm.github.io";
+const footerLinks = [
+    {
+        title: 'Docs',
+        items: [
+            {
+                label: 'Tutorial',
+                to: '/docs/intro',
+            },
+        ],
+    },
+    {
+        title: 'Community',
+        items: [
+            {
+                label: 'LinkedIn',
+                href: 'https://www.linkedin.com/in/tien-nhm',
+            },
+            {
+                label: 'Facebook',
+                href: 'https://www.facebook.com/01.tien',
+            },
+            {
+                label: 'Youtube',
+                href: 'https://www.youtube.com/TienNguyen09',
+            },
+        ],
+    },
+    {
+        title: 'More',
+        items: [
+            {
+                label: 'Blog',
+                to: '/blog',
+            },
+            {
+                label: 'GitHub',
+                href: 'https://github.com/TienNHM',
+            },
+            {
+                label: 'Google for Developers',
+                href: 'https://g.dev/TienNHM',
+            },
+            {
+                label: 'Email',
+                href: 'mailto:tiennhm.it@gmail.com',
+            },
+        ],
+    },
+]
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
@@ -106,56 +155,8 @@ const config = {
                 ],
             },
             footer: {
-                style: 'dark',
-                links: [
-                    {
-                        title: 'Docs',
-                        items: [
-                            {
-                                label: 'Tutorial',
-                                to: '/docs/intro',
-                            },
-                        ],
-                    },
-                    {
-                        title: 'Community',
-                        items: [
-                            {
-                                label: 'LinkedIn',
-                                href: 'https://www.linkedin.com/in/tien-nhm',
-                            },
-                            {
-                                label: 'Facebook',
-                                href: 'https://www.facebook.com/01.tien',
-                            },
-                            {
-                                label: 'Youtube',
-                                href: 'https://www.youtube.com/TienNguyen09',
-                            },
-                        ],
-                    },
-                    {
-                        title: 'More',
-                        items: [
-                            {
-                                label: 'Blog',
-                                to: '/blog',
-                            },
-                            {
-                                label: 'GitHub',
-                                href: 'https://github.com/TienNHM',
-                            },
-                            {
-                                label: 'Google for Developers',
-                                href: 'https://g.dev/TienNHM',
-                            },
-                            {
-                                label: 'Email',
-                                href: 'mailto:tiennhm.it@gmail.com',
-                            },
-                        ],
-                    },
-                ],
+                style: 'light',
+                // links: footerLinks,
                 copyright: `Copyright © ${new Date().getFullYear()} TienNHM.`,
             },
             prism: {
