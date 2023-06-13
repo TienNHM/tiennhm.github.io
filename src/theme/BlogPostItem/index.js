@@ -100,10 +100,11 @@ export default function BlogPostItemWrapper(props) {
     <div className={clsx(styles.main)}>
       <BlogPostItem {...props} />
 
-      <ShareSocialMedia isBrowser={isBrowser} title={title} />
-
       {(enableComments && isBlogPostPage) && (
-        <GiscusComponent />
+        <>
+          <ShareSocialMedia isBrowser={isBrowser} title={title} />
+          <GiscusComponent />
+        </>
       )}
     </div>
   );
