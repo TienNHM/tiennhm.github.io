@@ -4,7 +4,7 @@ title: Long Blog Post
 authors: [endi, tiennhm]
 tags: [hello, docusaurus]
 enableComments: true # for Gisqus comments, set to true
-draft: false # set to false to publish this post
+draft: true # set to false to publish this post
 ---
 
 This is the summary of a very long blog post,
