@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunktiennhm_github_io=self.webpackChunktiennhm_github_io||[]).push([[2535],{5641:e=>{e.exports=JSON.parse('{"title":"Recent posts","items":[{"title":"Best Websites to Learn JavaScript","permalink":"/vi/blog/best-websites-to-learn-javascript"},{"title":"Best extensions for VS Code","permalink":"/vi/blog/best-extensions-for-vs-code"}]}')}}]);
