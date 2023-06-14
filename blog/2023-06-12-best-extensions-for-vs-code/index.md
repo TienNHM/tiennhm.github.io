@@ -1,10 +1,12 @@
 ---
+id: 20230612001
 slug: best-extensions-for-vs-code
 title: Best extensions for VS Code
 authors: [tiennhm]
 tags: [vscode, extensions]
 enableComments: true # for Gisqus comments, set to true
 draft: false # set to true to hide this post from the site
+image: https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fvscode/opengraph/
 ---
 
 Visual Studio Code is a lightweight but powerful source code editor which runs on your desktop and is available for Windows, macOS and Linux. It comes with built-in support for JavaScript, TypeScript and Node.js and has a rich ecosystem of extensions for other languages (such as C++, C#, Java, Python, PHP, Go) and runtimes (such as .NET and Unity).
@@ -22,6 +24,8 @@ In this post, I will list some of the best extensions for VS Code that I use dai
 ![Installs](https://img.shields.io/visual-studio-marketplace/i/eamodio.gitlens?style=flat)
 
 GitLens supercharges the Git capabilities built into Visual Studio Code. It helps you to visualize code authorship at a glance via Git blame annotations and code lens, seamlessly navigate and explore Git repositories, gain valuable insights via powerful comparison commands, and so much more.
+
+<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Deamodio.gitlens/opengraph/" loading='lazy' decoding='async'/>
 
 - Link: [https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
 - Features:
@@ -41,6 +45,8 @@ GitLens supercharges the Git capabilities built into Visual Studio Code. It help
 
 View a Git Graph of your repository, and perform Git actions from the graph.
 
+<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Dmhutchie.git-graph/opengraph/" loading='lazy' decoding='async'/>
+
 - Link: [https://marketplace.visualstudio.com/items?itemName=mhutchie.git-graph](https://marketplace.visualstudio.com/items?itemName=mhutchie.git-graph)
 - Features:
   - View a Git Graph of your repository, and perform Git actions from the graph.
@@ -55,6 +61,8 @@ View a Git Graph of your repository, and perform Git actions from the graph.
 ![Installs](https://img.shields.io/visual-studio-marketplace/i/donjayamanne.githistory?style=flat)
 
 View git log, file history, compare branches or commits.
+
+<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Ddonjayamanne.githistory/opengraph/" loading='lazy' decoding='async'/>
 
 - Link: [https://marketplace.visualstudio.com/items?itemName=donjayamanne.githistory](https://marketplace.visualstudio.com/items?itemName=donjayamanne.githistory)
 - Features:
@@ -73,6 +81,8 @@ View git log, file history, compare branches or commits.
 
 VS Code package to format your JavaScript / TypeScript / CSS using Prettier.
 
+<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Desbenp.prettier-vscode/opengraph/" loading='lazy' decoding='async'/>
+
 - Link: [https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)
 - Features:
   - VS Code package to format your JavaScript / TypeScript / CSS using Prettier.
@@ -88,6 +98,8 @@ VS Code package to format your JavaScript / TypeScript / CSS using Prettier.
 ![Installs](https://img.shields.io/visual-studio-marketplace/i/dbaeumer.vscode-eslint?style=flat)
 
 Integrates ESLint JavaScript into VS Code.
+
+<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Ddbaeumer.vscode-eslint/opengraph/" loading='lazy' decoding='async'/>
 
 - Link: [https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint)
 - Features:
@@ -108,6 +120,8 @@ Integrates ESLint JavaScript into VS Code.
 
 Automatically rename paired HTML/XML tag, same as Visual Studio IDE does.
 
+<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Dformulahendry.auto-rename-tag/opengraph/" loading='lazy' decoding='async'/>
+
 - Link: [https://marketplace.visualstudio.com/items?itemName=formulahendry.auto-rename-tag](https://marketplace.visualstudio.com/items?itemName=formulahendry.auto-rename-tag)
 - Features:
   - Automatically rename paired HTML/XML tag, same as Visual Studio IDE does.
@@ -122,6 +136,8 @@ Automatically rename paired HTML/XML tag, same as Visual Studio IDE does.
 ![Installs](https://img.shields.io/visual-studio-marketplace/i/ritwickdey.LiveServer?style=flat)
 
 Launch a development local Server with live reload feature for static & dynamic pages.
+
+<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Dritwickdey.LiveServer/opengraph/" loading='lazy' decoding='async'/>
 
 - Link: [https://marketplace.visualstudio.com/items?itemName=ritwickdey.LiveServer](https://marketplace.visualstudio.com/items?itemName=ritwickdey.LiveServer)
 - Features:
@@ -138,6 +154,8 @@ Launch a development local Server with live reload feature for static & dynamic 
 
 Visual Studio Code plugin that autocompletes filenames.
 
+<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Dchristian-kohler.path-intellisense/opengraph/" loading='lazy' decoding='async'/>
+
 - Link: [https://marketplace.visualstudio.com/items?itemName=christian-kohler.path-intellisense](https://marketplace.visualstudio.com/items?itemName=christian-kohler.path-intellisense)
 - Features:
   - Visual Studio Code plugin that autocompletes filenames
@@ -152,6 +170,8 @@ Visual Studio Code plugin that autocompletes filenames.
 ![Installs](https://img.shields.io/visual-studio-marketplace/i/PKief.material-icon-theme?style=flat)
 
 Material Design Icons for Visual Studio Code.
+
+<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3DPKief.material-icon-theme/opengraph/" loading='lazy' decoding='async'/>
 
 - Link: [https://marketplace.visualstudio.com/items?itemName=PKief.material-icon-theme](https://marketplace.visualstudio.com/items?itemName=PKief.material-icon-theme)
 - Features:
@@ -168,6 +188,8 @@ Material Design Icons for Visual Studio Code.
 
 Real-time collaborative development from the comfort of your favorite tools.
 
+<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3DMS-vsliveshare.vsliveshare/opengraph/" loading='lazy' decoding='async'/>
+
 - Link: [https://marketplace.visualstudio.com/items?itemName=MS-vsliveshare.vsliveshare](https://marketplace.visualstudio.com/items?itemName=MS-vsliveshare.vsliveshare)
 - Features:
   - Real-time collaborative development from the comfort of your favorite tools
@@ -182,6 +204,8 @@ Real-time collaborative development from the comfort of your favorite tools.
 ![Installs](https://img.shields.io/visual-studio-marketplace/i/Shan.code-settings-sync?style=flat)
 
 Synchronize Settings, Snippets, Themes, File Icons, Launch, Keybindings, Workspaces and Extensions Across Multiple Machines Using GitHub Gist.
+
+<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3DShan.code-settings-sync/opengraph/" loading='lazy' decoding='async'/>
 
 - Link: [https://marketplace.visualstudio.com/items?itemName=Shan.code-settings-sync](https://marketplace.visualstudio.com/items?itemName=Shan.code-settings-sync)
 - Features:
@@ -198,6 +222,8 @@ Synchronize Settings, Snippets, Themes, File Icons, Launch, Keybindings, Workspa
 
 Live Scratchpad for JavaScript.
 
+<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3DWallabyJs.quokka-vscode/opengraph/" loading='lazy' decoding='async'/>
+
 - Link: [https://marketplace.visualstudio.com/items?itemName=WallabyJs.quokka-vscode](https://marketplace.visualstudio.com/items?itemName=WallabyJs.quokka-vscode)
 - Features:
   - Live Scratchpad for JavaScript
@@ -212,6 +238,8 @@ Live Scratchpad for JavaScript.
 ![Installs](https://img.shields.io/visual-studio-marketplace/i/streetsidesoftware.code-spell-checker?style=flat)
 
 A basic spell checker that works well with camelCase code.
+
+<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Dstreetsidesoftware.code-spell-checker/opengraph/" loading='lazy' decoding='async'/>
 
 - Link: [https://marketplace.visualstudio.com/items?itemName=streetsidesoftware.code-spell-checker](https://marketplace.visualstudio.com/items?itemName=streetsidesoftware.code-spell-checker)
 - Features:
@@ -228,6 +256,8 @@ A basic spell checker that works well with camelCase code.
 
 Improve your code commenting by annotating with alert, informational, TODOs, and more!
 
+<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Daaron-bond.better-comments/opengraph/" loading='lazy' decoding='async'/>
+
 - Link: [https://marketplace.visualstudio.com/items?itemName=aaron-bond.better-comments](https://marketplace.visualstudio.com/items?itemName=aaron-bond.better-comments)
 - Features:
   - Improve your code commenting by annotating with alert, informational, TODOs, and more!
@@ -243,6 +273,8 @@ Improve your code commenting by annotating with alert, informational, TODOs, and
 
 Run code snippet or code file for multiple languages: C, C++, Java, JavaScript, PHP, Python, Perl, Perl 6, Ruby, Go, Lua, Groovy, PowerShell, BAT/CMD, BASH/SH, F# Script, C# Script, VBScript, TypeScript, CoffeeScript, Scala, Swift, Julia, Crystal, OCaml Script.
 
+<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Dformulahendry.code-runner/opengraph/" loading='lazy' decoding='async'/>
+
 - Link: [https://marketplace.visualstudio.com/items?itemName=formulahendry.code-runner](https://marketplace.visualstudio.com/items?itemName=formulahendry.code-runner)
 - Features:
   - Run code snippet or code file for multiple languages: C, C++, Java, JavaScript, PHP, Python, Perl, Perl 6, Ruby, Go, Lua, Groovy, PowerShell, BAT/CMD, BASH/SH, F# Script, C# Script, VBScript, TypeScript, CoffeeScript, Scala, Swift, Julia, Crystal, OCaml Script
@@ -257,6 +289,8 @@ Run code snippet or code file for multiple languages: C, C++, Java, JavaScript, 
 ![Installs](https://img.shields.io/visual-studio-marketplace/i/humao.rest-client?style=flat)
 
 REST Client allows you to send HTTP request and view the response in Visual Studio Code directly.
+
+<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Dhumao.rest-client/opengraph/" loading='lazy' decoding='async'/>
 
 - Link: [https://marketplace.visualstudio.com/items?itemName=humao.rest-client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client)
 - Features:
