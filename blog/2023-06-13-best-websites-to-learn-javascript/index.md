@@ -5,7 +5,12 @@ authors: [tiennhm]
 tags: [javascript, resources, learning]
 enableComments: true # for Gisqus comments, set to true
 draft: false # set to true to hide this post from the site
+image: https://i.pinimg.com/originals/71/ee/32/71ee32577432648f9e45fbd63b2cf261.jpg
 ---
+
+<p align="right">
+    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Fbest-websites-to-learn-javascript&label=⚪Views&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
+</p>
 
 JavaScript is a programming language that is used to create interactive effects within web browsers. It is a high-level, interpreted programming language that conforms to the ECMAScript specification. JavaScript is a prototype-based, multi-paradigm, single-threaded, dynamic language, supporting object-oriented, imperative, and declarative (e.g. functional programming) styles.
 
