@@ -1,5 +1,4 @@
 ---
-id: 20230612001
 slug: best-extensions-for-vs-code
 title: Best extensions for VS Code
 authors: [tiennhm]
