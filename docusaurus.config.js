@@ -124,6 +124,8 @@ const config = {
         '@docusaurus/theme-mermaid',
     ],
 
+    themes: ['@docusaurus/theme-live-codeblock'],
+
     themeConfig:
         /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
         ({
