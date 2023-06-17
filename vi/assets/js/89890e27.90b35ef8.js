@@ -1,1 +1,0 @@
-"use strict";(self.webpackChunktiennhm_github_io=self.webpackChunktiennhm_github_io||[]).push([[7635],{2306:e=>{e.exports=JSON.parse('{"label":"vscode","permalink":"/vi/blog/tags/vscode","allTagsPath":"/vi/blog/tags","count":1}')}}]);

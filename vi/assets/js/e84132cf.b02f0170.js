@@ -1,1 +1,0 @@
-"use strict";(self.webpackChunktiennhm_github_io=self.webpackChunktiennhm_github_io||[]).push([[5879],{9341:e=>{e.exports=JSON.parse('{"label":"resources","permalink":"/vi/blog/tags/resources","allTagsPath":"/vi/blog/tags","count":2}')}}]);
