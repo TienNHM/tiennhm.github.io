@@ -59,4 +59,6 @@ DevDocs là một trình duyệt tài liệu dành cho các developers. Nó cho 
 Các tài liệu về JavaScript có thể được tìm thấy tại đây: [JavaScript Documentation](https://devdocs.io/javascript/).
 
 
-**Disclaimer**: Nội dung bài viết này có tham khảo thêm từ [Bing AI](https://bing.com/chat), nếu có bất kỳ vấn đề nào liên quan đến bản quyền, vui lòng liên hệ với tôi để được gỡ bỏ.
+:::note Disclaimer 🔵
+Nội dung bài viết này có tham khảo thêm từ [Bing AI](https://bing.com/chat), nếu có bất kỳ vấn đề nào liên quan đến bản quyền, vui lòng liên hệ với tôi để được gỡ bỏ.
+:::
