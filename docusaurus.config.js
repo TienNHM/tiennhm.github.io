@@ -109,6 +109,15 @@ const config = {
                     // Please change this to your repo.
                     // Remove this to remove the "edit this page" links.
                     editUrl: `https://github.com/${organizationName}/${projectName}/tree/master`,
+                    postsPerPage: 5,
+                    blogSidebarCount: 'ALL',
+                    blogSidebarTitle: 'All our posts',
+                    blogTitle: 'Blog',
+                    blogDescription: 'Blog của TienNHM',
+                    blogListComponent: '@theme/BlogListPage',
+                    blogPostComponent: '@theme/BlogPostPage',
+                    blogTagsListComponent: '@theme/BlogTagsListPage',
+                    blogTagsPostsComponent: '@theme/BlogTagsPostsPage',
                 },
                 theme: {
                     customCss: require.resolve('./src/css/custom.css'),
