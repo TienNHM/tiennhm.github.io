@@ -275,10 +275,10 @@ function ShowcaseCards() {
                   'margin-bottom--md',
                   styles.showcaseFavoriteHeader,
                 )}>
-                <Heading as="h2" id='featured-projects'>
+                <Heading as="h2" id='favorite-projects'>
                   <FavoriteIcon svgClass={styles.svgIconFavorite} />
                   <Translate id="showcase.favoritesList.title">
-                    Featured projects
+                    Favorite projects
                   </Translate>
                   <span className={clsx(styles.countProjects,)}>
                     {favoriteUsers.length}
