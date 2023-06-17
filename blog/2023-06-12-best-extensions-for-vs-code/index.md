@@ -18,6 +18,9 @@ Trong bài viết này, tôi sẽ liệt kê một số tiện ích mở rộng 
 
 <!--truncate-->
 
+![Visual Studio Code](https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fvscode/opengraph/)
+
+
 ## 1. GitLens
 
 ![Version](https://img.shields.io/visual-studio-marketplace/v/eamodio.gitlens?style=flat)
@@ -333,7 +336,7 @@ Extension REST Client là một extension cho Visual Studio Code, cho phép bạ
 
 <img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Dhumao.rest-client/opengraph/" loading='lazy' decoding='async'/>
 
-- Link: [https://marketplace.visualstudio.com/items?itemName=humao.rest-client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client)
+- Link: [https://marketplace.visualstudio.com/items?itemName=humao.rest-client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client )
 - Chức năng:
   + Hỗ trợ gửi các yêu cầu HTTP với các phương thức khác nhau: GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS, v.v...
   + Hỗ trợ gửi các yêu cầu HTTP với các loại nội dung khác nhau: form-data, x-www-form-urlencoded, raw, binary, v.v...
