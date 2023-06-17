@@ -89,7 +89,7 @@ const config = {
     // metadata like html lang. For example, if your site is Chinese, you may want
     // to replace "en" with "zh-Hans".
     i18n: {
-        defaultLocale: 'en',
+        defaultLocale: 'vi',
         locales: ['vi', 'en'],
     },
 
@@ -103,12 +103,14 @@ const config = {
                     // Please change this to your repo.
                     // Remove this to remove the "edit this page" links.
                     editUrl: `https://github.com/${organizationName}/${projectName}/tree/master`,
+                    editLocalizedFiles: true,
                 },
                 blog: {
                     showReadingTime: true,
                     // Please change this to your repo.
                     // Remove this to remove the "edit this page" links.
                     editUrl: `https://github.com/${organizationName}/${projectName}/tree/master`,
+                    editLocalizedFiles: true,
                 },
                 theme: {
                     customCss: require.resolve('./src/css/custom.css'),
@@ -171,6 +173,10 @@ const config = {
                         position: 'right',
                         className: "header-github-link",
                     },
+                    {
+                        type: 'localeDropdown',
+                        position: 'right',
+                      },
                 ],
             },
             footer: {
