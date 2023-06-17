@@ -35,6 +35,12 @@ function HomepageHeader() {
 
           <h1 className="hero__title">{siteConfig.title}</h1>
           <h2 className="hero__subtitle">{siteConfig.tagline}</h2>
+
+          <div style={{margin: '1rem'}}>
+            <Link className={clsx('button button--primary')} title='CV' to='/cv'>
+                🪪 Résumé 🧑‍💻
+            </Link>
+          </div>
           
           <div className={clsx(styles.buttonsGroup)}>
             <ContactItem icon={faEnvelope} contact={CONTACTS.Email} title={'Email'}/>
