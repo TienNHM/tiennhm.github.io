@@ -40,7 +40,7 @@ GitLens là một extension cho Visual Studio Code, cho phép bạn tăng cườ
   + Hỗ trợ tích hợp với Live Share để cộng tác trực tuyến.
   + GitLens giúp bạn hiểu rõ hơn về mã nguồn trong các dự án sử dụng Git. Đây là một tiện ích mở rộng không thể thiếu đối với các lập trình viên sử dụng Git và Visual Studio Code.
 
-## . Git Graph
+## 2. Git Graph
 
 ![Version](https://img.shields.io/visual-studio-marketplace/v/mhutchie.git-graph?style=flat)
 ![Release Date](https://img.shields.io/visual-studio-marketplace/release-date/mhutchie.git-graph?style=flat)
@@ -342,4 +342,6 @@ Extension REST Client là một extension cho Visual Studio Code, cho phép bạ
   + Hỗ trợ xem các thông tin chi tiết của phản hồi HTTP: mã trạng thái (status code), thời gian phản hồi (response time), kích thước phản hồi (response size), v.v...
 
 
-**Disclaimer**: Nội dung bài viết này có tham khảo thêm từ [Bing AI](https://bing.com/chat), nếu có bất kỳ vấn đề nào liên quan đến bản quyền, vui lòng liên hệ với tôi để được gỡ bỏ.
+:::note Disclaimer 🔵
+Nội dung bài viết này có tham khảo thêm từ [Bing AI](https://bing.com/chat), nếu có bất kỳ vấn đề nào liên quan đến bản quyền, vui lòng liên hệ với tôi để được gỡ bỏ.
+:::
