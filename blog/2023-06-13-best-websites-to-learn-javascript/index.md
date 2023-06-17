@@ -16,9 +16,9 @@ Javascript là một ngôn ngữ lập trình web đa nền tảng, kịch bản
 
 Trong bài viết này, tôi sẽ giới thiệu với bạn một số trang web tốt nhất để học JavaScript. Tôi sẽ giới thiệu về các trang web này và cung cấp cho bạn một số lý do tại sao bạn nên sử dụng chúng để học JavaScript.
 
-![JavaScript](https://i.pinimg.com/originals/71/ee/32/71ee32577432648f9e45fbd63b2cf261.jpg)
-
 <!-- truncate -->
+
+![JavaScript](https://i.pinimg.com/originals/71/ee/32/71ee32577432648f9e45fbd63b2cf261.jpg)
 
 ## 1. [MDN Web Docs](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
 
