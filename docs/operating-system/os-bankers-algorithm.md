@@ -1,0 +1,26 @@
+---
+sidebar_position: 4
+---
+
+# Giải thuật Banker
+
+## Giới thiệu
+
+Trong bài viết này, mình sẽ giới thiệu về giải thuật Banker (Banker's Algorithm) trong hệ điều hành. Giải thuật này được sử dụng để phân bổ tài nguyên cho các tiến trình (process) trong hệ điều hành.
+
+## Giải thuật Banker
+
+<iframe class="video"
+    src="https://www.youtube.com/embed/FIUtUyFx2XU" 
+    title="Giải thuật Banker (Banker's Algorithm)" 
+    frameborder="0" 
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen>
+</iframe>
+
+## Tổng kết
+
+Trong bài viết này, mình đã giới thiệu về giải thuật Banker (Banker's Algorithm) trong hệ điều hành. Hy vọng bài viết này sẽ giúp ích cho các bạn.
+
+:::tip
+Để xem thêm các video khác, các bạn có thể truy cập vào [kênh Youtube](https://www.youtube.com/TienNguyen09) của mình.
+:::
