@@ -1,10 +1,3 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- */
-
 import React, {useState, useMemo, useEffect} from 'react';
 import clsx from 'clsx';
 import ExecutionEnvironment from '@docusaurus/ExecutionEnvironment';
@@ -15,13 +8,9 @@ import {usePluralForm} from '@docusaurus/theme-common';
 import Link from '@docusaurus/Link';
 import Layout from '@theme/Layout';
 import FavoriteIcon from '@site/src/components/svgIcons/FavoriteIcon';
-import {
-  sortedProjects,
-  Tags,
-  TagList,
-  type Project,
-  type TagType,
-} from '@site/src/data/projects';
+import { sortedProjects } from '@site/src/data/projects';
+import { Project } from '@site/src/shared/dto/Project';
+import { ProjectTagType, ProjectTags, ProjectTagList } from '@site/src/shared/constants/ProjectConsts';
 import Heading from '@theme/Heading';
 import ShowcaseTagSelect, {
   readSearchTags,
@@ -74,7 +63,7 @@ function readSearchName(search: string) {
 
 function filterUsers(
   users: Project[],
-  selectedTags: TagType[],
+  selectedTags: ProjectTagType[],
   operator: Operator,
   searchName: string | null,
 ) {
@@ -102,7 +91,7 @@ function useFilteredUsers() {
   const location = useLocation<UserState>();
   const [operator, setOperator] = useState<Operator>('OR');
   // On SSR / first mount (hydration) no tag is selected
-  const [selectedTags, setSelectedTags] = useState<TagType[]>([]);
+  const [selectedTags, setSelectedTags] = useState<ProjectTagType[]>([]);
   const [searchName, setSearchName] = useState<string | null>(null);
   // Sync tags from QS to state (delayed on purpose to avoid SSR/Client
   // hydration mismatch)
@@ -165,8 +154,8 @@ function ShowcaseFilters() {
         <ShowcaseFilterToggle />
       </div>
       <ul className={clsx('clean-list', styles.checkboxList)}>
-        {TagList.map((tag, i) => {
-          const {label, description, color} = Tags[tag];
+        {ProjectTagList.map((tag, i) => {
+          const {label, description, color} = ProjectTags[tag];
           const id = `showcase_checkbox_id_${tag}`;
 
           return (
