@@ -1,1 +1,0 @@
-"use strict";(self.webpackChunktiennhm_github_io=self.webpackChunktiennhm_github_io||[]).push([[4109],{8292:s=>{s.exports=JSON.parse('{"label":"assembly","permalink":"/docs/tags/assembly","allTagsPath":"/docs/tags","count":1,"items":[{"id":"operating-system/dos-debug","title":"DOS Debug","description":"Gi\u1edbi thi\u1ec7u","permalink":"/docs/operating-system/dos-debug"}]}')}}]);
