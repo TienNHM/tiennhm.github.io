@@ -203,7 +203,7 @@ const config = {
                 // The application ID provided by Algolia
                 appId: 'GR7L3OTLFL',
                 // Public API key: it is safe to commit it
-                apiKey: 'f3218c5b7a574a14080ab3f401c4828f',
+                apiKey: '5fad78c0e4480e043d83f2d424afd040',
                 indexName: 'tiennhmio',
             },
         }),
