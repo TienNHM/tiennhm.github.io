@@ -184,7 +184,7 @@ const config = {
                     {
                         type: 'localeDropdown',
                         position: 'right',
-                      },
+                    },
                 ],
             },
             footer: {
@@ -198,7 +198,14 @@ const config = {
             },
             metadata: [
                 { name: 'keywords', content: 'TienNHM, Nguyễn Huỳnh Minh Tiến, blog, coding, tools' },
-            ]
+            ],
+            algolia: {
+                // The application ID provided by Algolia
+                appId: 'GR7L3OTLFL',
+                // Public API key: it is safe to commit it
+                apiKey: 'f3218c5b7a574a14080ab3f401c4828f',
+                indexName: 'tiennhmio',
+            },
         }),
 };
 
