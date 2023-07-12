@@ -205,6 +205,7 @@ const config = {
                 // Public API key: it is safe to commit it
                 apiKey: '5fad78c0e4480e043d83f2d424afd040',
                 indexName: 'tiennhmio',
+                contextualSearch: false, // fix bug Docusaurus V2 integate with Algolia
             },
         }),
 };
