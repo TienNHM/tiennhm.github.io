@@ -10,6 +10,7 @@ import { faFacebook, faGithub, faLinkedin,faYoutube, faSkype } from '@fortawesom
 import { faEnvelope, faPhone } from '@fortawesome/free-solid-svg-icons'
 import styles from './index.module.css';
 import { CONTACTS } from '@site/src/data/contacts';
+import avatar from '@site/static/img/tiennhm_picrew.webp';
 
 function ContactItem({icon, contact, title}) {
   const Svg = contact.icon;
@@ -30,7 +31,7 @@ function HomepageHeader() {
     <header className={clsx('hero hero--primary', styles.heroBanner, styles.backgroundImage)}>
       <div className={clsx('container', styles.cardContainer)}>
         <div className={clsx(styles.cardInfo)}>
-          <Image img='/img/TienNHM.webp' alt='TienNHM' about='TienNHM' className={clsx(styles.cardInfoImage)}
+          <Image img={avatar} alt='TienNHM' about='TienNHM' className={clsx(styles.cardInfoImage)}
             width={150} height={150} loading='lazy' decoding='async'/>
 
           <h1 className="hero__title">{siteConfig.title}</h1>

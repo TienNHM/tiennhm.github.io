@@ -59,7 +59,7 @@ const footerLinks = [
 /** @type {import('@docusaurus/types').Config} */
 const config = {
     title: 'TienNHM',
-    tagline: 'Middle Fullstack Developer',
+    tagline: 'Fullstack Developer',
     favicon: 'img/favicon.ico',
 
     // Set the production url of your site here
@@ -160,21 +160,24 @@ const config = {
                 title: 'TienNHM',
                 logo: {
                     alt: 'TienNHM',
-                    src: 'img/TienNHM-min.webp',
+                    src: 'img/tiennhm_picrew.webp',
                     height: 40,
+                    style: {
+                        borderRadius: '50%',
+                    }
                 },
                 items: [
                     {
                         type: 'docSidebar',
                         sidebarId: 'tutorialSidebar',
                         position: 'left',
-                        label: '✨Tutorial',
+                        label: 'Tutorial',
                     },
-                    { to: '/blog', label: '🗒️Blog', position: 'left' },
-                    { to: '/showcase', label: '📦Showcase', position: 'left' },
-                    // { to: '/cv', label: '🪪CV', position: 'left' },
-                    { to: '/community', label: '❤️‍🔥Community', position: 'left' },
-                    { to: '/contact', label: '📧Contact', position: 'left' },
+                    { to: '/blog', label: 'Blog', position: 'left' },
+                    { to: '/showcase', label: 'Showcase', position: 'left' },
+                    // { to: '/cv', label: 'CV', position: 'left' },
+                    { to: '/community', label: 'Community', position: 'left' },
+                    { to: '/contact', label: 'Contact', position: 'left' },
                     {
                         href: 'https://github.com/TienNHM',
                         // label: 'GitHub',
@@ -205,7 +208,7 @@ const config = {
                 // Public API key: it is safe to commit it
                 apiKey: '5fad78c0e4480e043d83f2d424afd040',
                 indexName: 'tiennhmio',
-                contextualSearch: false, // fix bug Docusaurus V2 integate with Algolia
+                contextualSearch: true,
             },
         }),
 };
