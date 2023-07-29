@@ -1,6 +1,9 @@
 // @ts-check
 // Note: type annotations allow type checking and IDEs autocompletion
 
+// require('dotenv').config({ path: `.env.local`, override: true });
+require('dotenv').config({});
+
 const lightCodeTheme = require('prism-react-renderer/themes/github');
 const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 
@@ -84,6 +87,15 @@ const config = {
             }
         }
     ],
+
+    // process the env variables
+    customFields: {
+        // Put your custom environment here
+        CANNY_BOARD_TOKEN: process.env.CANNY_BOARD_TOKEN,
+        GITHUB_REPO_ID: process.env.GITHUB_REPO_ID,
+        GITHUB_REPO: process.env.GITHUB_REPO,
+        GITHUB_CATEGORY_ID: process.env.GITHUB_CATEGORY_ID,
+    },
 
     // Even if you don't use internalization, you can use this field to set useful
     // metadata like html lang. For example, if your site is Chinese, you may want
@@ -204,10 +216,10 @@ const config = {
             ],
             algolia: {
                 // The application ID provided by Algolia
-                appId: 'GR7L3OTLFL',
+                appId: process.env.ALGOLIA_APP_ID,
                 // Public API key: it is safe to commit it
-                apiKey: '5fad78c0e4480e043d83f2d424afd040',
-                indexName: 'tiennhmio',
+                apiKey: process.env.ALGOLIA_API_KEY,
+                indexName: process.env.ALGOLIA_INDEX_NAME,
                 contextualSearch: true,
             },
         }),

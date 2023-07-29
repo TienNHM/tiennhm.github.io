@@ -1,18 +1,24 @@
 import React from 'react';
 import Giscus from "@giscus/react";
 import { useColorMode } from '@docusaurus/theme-common';
+import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 
 // Ref: https://giscus.app/vi
 
 export default function GiscusComponent() {
   const { colorMode } = useColorMode();
 
+  // Using for access process env variables
+  const {
+    siteConfig: { customFields },
+  } = useDocusaurusContext();
+
   return (
-    <Giscus    
-      repo="TienNHM/tiennhm.github.io"
-      repoId="R_kgDOJmnUUw"
+    <Giscus
+      repo={customFields.GITHUB_REPO}
+      repoId={customFields.GITHUB_REPO_ID}
       category="General"
-      categoryId="DIC_kwDOJmnUU84CWtld"
+      categoryId={customFields.GITHUB_CATEGORY_ID}
       mapping="title"
       term="Discussion"
       strict="1"

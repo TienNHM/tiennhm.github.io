@@ -6,9 +6,9 @@ import Layout from '@theme/Layout';
 
 import cannyScript from './cannyScript';
 import styles from './styles.module.css';
+import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 
-const BOARD_TOKEN = '441a2b5d-d4e2-8f42-81ff-249650e7b70b';
-const TITLE = translate({message: 'Contact'});
+const TITLE = translate({ message: 'Contact' });
 const DESCRIPTION = translate({
   message: 'Contact me',
 });
@@ -22,6 +22,14 @@ function CannyWidget({basePath}: {basePath: string}) {
   useEffect(() => {
     cannyScript();
   }, []);
+
+  // Using for access process env variables
+  const {
+    siteConfig: { customFields },
+  } = useDocusaurusContext();
+
+  // Access the Canny board token from the site config.
+  const BOARD_TOKEN = customFields.CANNY_BOARD_TOKEN;
 
   const theme = useCannyTheme();
   useEffect(() => {
