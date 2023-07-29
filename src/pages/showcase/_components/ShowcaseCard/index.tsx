@@ -11,6 +11,7 @@ import Tooltip from '../ShowcaseTooltip';
 import styles from './styles.module.css';
 import { ProjectTagList, ProjectTagType, ProjectTags } from '@site/src/shared/constants/ProjectConsts';
 import { Tag } from '@site/src/shared/dto/Tag';
+import { GetWebsiteScreenshot } from '@site/src/utils/common';
 
 const TienNHM = require('@site/static/img/TienNHM-project.webp');
 
@@ -57,18 +58,7 @@ function getCardImage(user: Project): string {
   }
   if (user.website) {
     var img = user.website ?? 'https://github.com/TienNHM'
-    // var yyyyMMdd = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    var yyyyMMddhhmm = new Date().toISOString().slice(0, 16).replace(/-/g, '').replace(/:/g, '').replace(/T/g, '');
-
-    return (
-      user.preview ??
-      `https://v1.screenshot.11ty.dev/${encodeURIComponent(img)}/opengraph/smaller/_${yyyyMMddhhmm}`
-    );
-
-    // return (
-    //   user.preview ??
-    //   `https://slorber-api-screenshot.netlify.app/${encodeURIComponent(img)}/showcase/_${yyyyMMddhhmm}`
-    // );
+    return user.preview ?? GetWebsiteScreenshot(img)
   }
   return TienNHM;
 }
