@@ -110,6 +110,15 @@ const PROJECTS: Project[] = [
     tags: ['product'],
   },
   {
+    title: 'create-simple-blog',
+    description: 'A npx script for scaffolding a personal blog quickly.',
+    // preview: require('./showcase/avana-wallet.png'),
+    preview: null,
+    website: 'https://www.npmjs.com/package/create-simple-blog',
+    source: 'https://github.com/TienNHM/create-simple-blog',
+    tags: ['opensource', 'favorite'],
+  },
+  {
     title: 'Color Palettes',
     description: 'A website for sharing color palettes.',
     preview: null,
