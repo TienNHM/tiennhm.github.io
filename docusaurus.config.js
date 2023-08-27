@@ -172,7 +172,7 @@ const config = {
                 title: 'TienNHM',
                 logo: {
                     alt: 'TienNHM',
-                    src: 'img/tiennhm_picrew.webp',
+                    src: 'https://github.com/TienNHM.png',
                     height: 40,
                     style: {
                         borderRadius: '50%',

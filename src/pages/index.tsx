@@ -10,7 +10,9 @@ import { faFacebook, faGithub, faLinkedin,faYoutube, faSkype } from '@fortawesom
 import { faEnvelope, faPhone } from '@fortawesome/free-solid-svg-icons'
 import styles from './index.module.css';
 import { CONTACTS } from '@site/src/data/contacts';
-import avatar from '@site/static/img/tiennhm_picrew.webp';
+// import avatar from '@site/static/img/tiennhm_picrew.webp';
+
+const avatar = 'https://github.com/TienNHM.png';
 
 function ContactItem({icon, contact, title}) {
   const Svg = contact.icon;
