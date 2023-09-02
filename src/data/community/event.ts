@@ -42,6 +42,11 @@ export const EventImages : MasonryItem[] = [
         description: "Ban tổ chức cuộc thi học thuật truyền thống Hackathon 2023"
     },
     {
+        image: 'https://res.cloudinary.com/df3zf2d1g/image/upload/v1693649322/yit-hcmute/yit/Hackathon-2022_oivmjs.webp',
+        title: 'Hackathon 2022',
+        description: "Cuộc thi học thuật truyền thống Hackathon 2022"
+    },
+    {
         image: 'https://res.cloudinary.com/df3zf2d1g/image/upload/v1693648760/yit-hcmute/yit/CityTour2020_akamk5.webp',
         title: 'City Tour 2020',
         description: "City Tour 2020 - Chào Tân sinh viên khoa CNTT khóa K2020"
