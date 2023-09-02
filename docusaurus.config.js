@@ -63,7 +63,7 @@ const footerLinks = [
 const config = {
     title: 'TienNHM',
     tagline: 'Fullstack Developer',
-    favicon: 'img/favicon.ico',
+    favicon: 'https://github.com/TienNHM.png',
 
     // Set the production url of your site here
     url: `https://${organizationName}.github.io`,
