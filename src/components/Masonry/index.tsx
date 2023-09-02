@@ -13,7 +13,7 @@ export default function Masonry({ items }: { items: MasonryItem[] }) {
                     return (
                         <div className={clsx(styles.item)} key={index}>
                             <>
-                                <img src={item.image} alt={item.title} />
+                                <img src={item.image} alt={item.title} loading='lazy' decoding='async'/>
                                 <p>{item.description}</p>
                             </>
                         </div>
