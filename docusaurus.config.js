@@ -63,7 +63,7 @@ const footerLinks = [
 const config = {
     title: 'TienNHM',
     tagline: 'Fullstack Developer',
-    favicon: 'img/favicon.ico',
+    favicon: 'https://github.com/TienNHM.png',
 
     // Set the production url of your site here
     url: `https://${organizationName}.github.io`,
@@ -87,6 +87,10 @@ const config = {
             }
         }
     ],
+
+    markdown: {
+        mermaid: true,
+    },
 
     // process the env variables
     customFields: {
@@ -161,7 +165,10 @@ const config = {
         '@docusaurus/theme-mermaid',
     ],
 
-    themes: ['@docusaurus/theme-live-codeblock'],
+    themes: [
+        '@docusaurus/theme-live-codeblock', 
+        'docusaurus-plugin-sass'
+    ],
 
     themeConfig:
         /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
@@ -221,6 +228,9 @@ const config = {
                 apiKey: process.env.ALGOLIA_API_KEY,
                 indexName: process.env.ALGOLIA_INDEX_NAME,
                 contextualSearch: true,
+            },
+            mermaid: {
+                theme: {light: 'neutral', dark: 'dark'},
             },
         }),
 };
