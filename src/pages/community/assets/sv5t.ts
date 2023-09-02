@@ -1,6 +1,51 @@
 import MasonryItem from '@site/src/components/Masonry/MasonryItem';
 
-export const YitHcmuteImages : MasonryItem[] = [
+export const Sv5tImages : MasonryItem[] = [
+    {
+        image: 'https://res.cloudinary.com/df3zf2d1g/image/upload/v1693645223/yit-hcmute/sv5t/sv5t-ht_qquhxt.webp',
+        title: 'Sinh viên 5 tốt cấp 3 năm liên tục',
+        description: 'Toàn cảnh Lễ tuyên dương Sinh viên 5 tốt cấp 3 năm liên tục 2019 - 2022'
+    },
+    {
+        image: 'https://res.cloudinary.com/df3zf2d1g/image/upload/v1693644897/yit-hcmute/sv5t/IMG_1372_otmaos.webp',
+        title: 'Sinh viên 5 tốt cấp 3 năm liên tục',
+        description: 'Nghi thức Chào cờ và hát Quốc ca trong Lễ tuyên dương Sinh viên 5 tốt cấp 3 năm liên tục 2019 - 2022'
+    },
+    {
+        image: 'https://res.cloudinary.com/df3zf2d1g/image/upload/v1693645166/yit-hcmute/sv5t/IMG_5613_dzczqb.webp',
+        title: 'Sinh viên 5 tốt cấp 3 năm liên tục',
+        description: 'Khen thưởng Sinh viên 5 tốt cấp 3 năm liên tục 2019 - 2022'
+    },
+    {
+        image: 'https://res.cloudinary.com/df3zf2d1g/image/upload/v1693645304/yit-hcmute/sv5t/IMG_1625_ox5yot.webp',
+        title: 'Sinh viên 5 tốt cấp trường 2021 - 2022',
+        description: 'Tập thể sinh viên khoa CNTT đạt danh hiệu Sinh viên 5 tốt cấp trường năm học 2021 - 2022'
+    },
+    {
+        image: 'https://res.cloudinary.com/df3zf2d1g/image/upload/v1693645759/yit-hcmute/sv5t/NHMT_2122_gxgjiz.webp',
+        title: 'Thành tích Sinh viên 5 tốt 2021 - 2022',
+        description: 'Thành tích Sinh viên 5 tốt năm học 2021 - 2022'
+    },
+    {
+        image: 'https://res.cloudinary.com/df3zf2d1g/image/upload/v1693647619/yit-hcmute/sv5t/SV5T-LCH-2122_yvbokq.webp',
+        title: 'Ảnh Sinh viên 5 tốt 2021 - 2022',
+        description: 'Ảnh tuyên dương Sinh viên 5 tốt năm học 2021 - 2022'
+    },
+    {
+        image: 'https://res.cloudinary.com/df3zf2d1g/image/upload/v1693646207/yit-hcmute/sv5t/SV5T-2122_ahokix.webp',
+        title: 'Lễ tuyên dương Sinh viên 5 tốt Liên Chi hội khoa CNTT năm học 2021 - 2022',
+        description: 'Lễ tuyên dương Sinh viên 5 tốt Liên Chi hội khoa CNTT năm học 2021 - 2022'
+    },
+    {
+        image: 'https://res.cloudinary.com/df3zf2d1g/image/upload/v1693646383/yit-hcmute/sv5t/TriAnNguyenTruongBanSV5T_f1jpaf.webp',
+        title: 'Tri ân các nguyên trưởng ban SV5T',
+        description: 'Tri ân các nguyên trưởng ban trong Lễ tuyên dương Sinh viên 5 tốt Liên Chi hội khoa CNTT năm học 2021 - 2022'
+    },
+    {
+        image: 'https://res.cloudinary.com/df3zf2d1g/image/upload/v1693646525/yit-hcmute/sv5t/Anh-SV5T-2122_umbko5.webp',
+        title: 'SV5T 2021 - 2022',
+        description: 'Tập thể Sinh viên 5 tốt Liên Chi hội khoa CNTT năm học 2021 - 2022'
+    },
     {
         image: 'https://res.cloudinary.com/df3zf2d1g/image/upload/v1693643021/yit-hcmute/sv5t/LeTuyenDuongSV5T_yrl8oh.webp',
         title: 'Lễ tuyên dương Sinh viên 5 tốt cấp LCH 2019-2020',
