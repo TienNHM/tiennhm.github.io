@@ -1,1 +1,0 @@
-"use strict";(self.webpackChunktiennhm_github_io=self.webpackChunktiennhm_github_io||[]).push([[9212],{3746:e=>{e.exports=JSON.parse('{"label":"free-course","permalink":"/blog/tags/free-course","allTagsPath":"/blog/tags","count":1}')}}]);

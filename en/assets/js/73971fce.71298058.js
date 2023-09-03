@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunktiennhm_github_io=self.webpackChunktiennhm_github_io||[]).push([[5074],{12709:e=>{e.exports=JSON.parse('{"label":"generative-ai","permalink":"/en/blog/tags/generative-ai","allTagsPath":"/en/blog/tags","count":1}')}}]);
