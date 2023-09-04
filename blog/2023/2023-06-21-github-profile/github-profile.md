@@ -1,20 +1,20 @@
 ---
-title: Cách tạo Github Profile README
-slug: github-profile-readme
+slug: github-profile
+title: Cách tạo Github profile
 description: Hướng dẫn cách tạo Github Profile đơn giản, đẹp mắt với README cho người mới bắt đầu.
 image: https://img.youtube.com/vi/ntaUzVW38R0/0.jpg
-sidebar_position: 1
-tags:
-    - git
-    - github
-    - github-profile
-    - readme
+authors: [tiennhm]
+tags: [git, github, readme]
 keywords: [git, github, github profile, readme, cách tạo github profile, hướng dẫn, tạo github profile, tạo readme, tạo github profile đơn giản, tạo github profile đẹp mắt, tạo github profile cho người mới bắt đầu]
 ---
 
-# Cách tạo Github Profile
+<p align="right">
+    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2FGDSC-HCMUTE.github.io%2Fblog%2Fgithub-profile&label=⚪Views&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
+</p>
 
 Trong bài viết này, mình sẽ hướng dẫn các bạn cách tạo Github Profile. Đây là một tính năng mới của Github, nó cho phép các bạn tạo một trang profile của riêng mình.
+
+<!-- truncate -->
 
 ## Giới thiệu
 
