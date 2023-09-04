@@ -2,19 +2,19 @@
 title: GitHub Badges
 slug: github-badges
 description: Tổng hợp GitHub Badges phổ biến nhất cho GitHub Profile của bạn.
-# image: https://img.youtube.com/vi/9RJXrXVWJdE/0.jpg
-sidebar_position: 2
-tags:
-    - git
-    - github
-    - github-profile
-    - github-badges
+image: https://v1.screenshot.11ty.dev/https%3A%2F%2Fshields.io/opengraph/
+authors: [tiennhm]
+tags: [git, github, badges]
 keywords: [git, github, github profile, github badges, cách tạo github badges, hướng dẫn, tạo github badges, tạo github badges đơn giản, tạo github badges đẹp mắt, tạo github badges cho người mới bắt đầu, shields.io, github-readme-stats, github-profile-trophy, github-profile-views-counter, github-readme-activity-graph, github badges, github badges tutorial, github badges example, github badges for profile, github badges for readme, github badges for repository, github badges for website, github badges for markdown, github badges for blog, github badges for youtube, github badges for facebook, github badges for instagram, github badges for linkedin, github badges for messenger, github badges for website, github badges for text]
 ---
 
-# GitHub Badges
+<p align="right">
+    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2FGDSC-HCMUTE.github.io%2Fblog%2Fgithub-badges&label=⚪Views&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
+</p>
 
 Trong bài viết này, mình sẽ hướng dẫn các bạn cách tạo GitHub Badges. Đây là một tính năng mới của GitHub, nó cho phép các bạn tạo các badge để hiển thị trên profile của mình.
+
+<!-- truncate -->
 
 ## Giới thiệu
 
