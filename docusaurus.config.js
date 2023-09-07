@@ -148,6 +148,10 @@ const config = {
                 googleTagManager: {
                     containerId: 'GTM-N3QR867G',
                 },
+                gtag: {
+                    trackingID: 'G-DMFKNJS6CG',
+                    anonymizeIP: true,
+                },
             }),
         ],
     ],
