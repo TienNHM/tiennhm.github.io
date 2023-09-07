@@ -145,6 +145,9 @@ const config = {
                     priority: 0.5,
                     filename: 'sitemap.xml',
                 },
+                googleTagManager: {
+                    containerId: 'GTM-N3QR867G',
+                },
             }),
         ],
     ],
