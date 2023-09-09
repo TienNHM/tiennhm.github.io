@@ -41,3 +41,8 @@ $ GIT_USER=<Your GitHub username> yarn deploy
 ```
 
 If you are using GitHub pages for hosting, this command is a convenient way to build the website and push to the `gh-pages` branch.
+
+### Build Android
+```ps
+keytool -genkey -v -keystore TienNHM.keystore -alias TienNHM -keyalg RSA -keysize 2048 -validity 10000 -storetype pkcs12
+```
