@@ -12,7 +12,7 @@ image: https://v1.screenshot.11ty.dev/https%3A%2F%2Fk6.io/opengraph/
     <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Fload-testing-restful-apis-with-k6-part-03&label=⚪Views&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
 </p>
 
-Trong bài viết trước, chúng ta đã tìm hiểu cách sử dụng k6 để kiểm tra tải cho RESTful API thông qua một kịch bản test đơn giản để tạo, đọc, cập nhật và xóa một người dùng. Trong bài viết này, chúng ta sẽ tìm hiểu cách sử dụng [k6](https://k6.io) để kiểm tra tải cho RESTful API thông qua một kịch bản test với nhiều [Virtual User](https://k6.io/docs/misc/glossary/#virtual-user).
+Trong [bài viết trước](./part-02.md), chúng ta đã tìm hiểu cách sử dụng k6 để kiểm tra tải cho RESTful API thông qua một kịch bản test đơn giản để tạo, đọc, cập nhật và xóa một người dùng. Trong bài viết này, chúng ta sẽ tìm hiểu cách sử dụng [k6](https://k6.io) để kiểm tra tải cho RESTful API thông qua một kịch bản test với nhiều [Virtual User](https://k6.io/docs/misc/glossary/#virtual-user).
 
 <!--truncate-->
 
@@ -206,3 +206,5 @@ default ✓ [======================================] 00/20 VUs  2m20s
 ## Tổng kết
 
 Trong bài viết này, chúng ta đã tìm hiểu cách sử dụng k6 để kiểm tra tải cho RESTful API thông qua một kịch bản test với nhiều Virtual User thông qua cờ `--vus` và `--duration` hoặc thông qua set `options` và `stages`. Hy vọng bài viết này sẽ giúp ích cho bạn trong việc tìm hiểu về k6.
+
+Trong [bài viết tiếp theo](./part-04.md), chúng ta sẽ tìm hiểu ý nghĩa của các chỉ số trong kết quả của k6.
