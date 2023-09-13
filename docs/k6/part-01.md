@@ -9,10 +9,10 @@ image: https://v1.screenshot.11ty.dev/https%3A%2F%2Fk6.io/opengraph/
 ---
 
 <p align="right">
-    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Fload-testing-restful-apis-with-k6&label=⚪Views&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
+    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Fload-testing-restful-apis-with-k6-part-01&label=⚪Views&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
 </p>
 
-RESTful API là một trong những kiểu API phổ biến nhất hiện nay. Vì vậy, việc kiểm tra tải (load testing) là một phần quan trọng của việc kiểm tra hiệu suất. Trong bài viết này, chúng ta sẽ tìm hiểu cách sử dụng [k6](https://k6.io) để kiểm tra tải cho RESTful API.
+RESTful API là một trong những kiểu API phổ biến nhất hiện nay. Vì vậy, việc kiểm tra tải (load testing) là một phần quan trọng của việc kiểm tra hiệu suất. Trong bài viết này, chúng ta sẽ tìm hiểu cách **cài đặt** [k6](https://k6.io) để kiểm tra tải cho RESTful API.
 
 <!--truncate-->
 
@@ -113,4 +113,4 @@ Khi đó, hãy đảm bảo rằng bạn đã thêm đường dẫn đến thư 
 
 Trong bài viết này, chúng ta đã tìm hiểu về k6, một công cụ kiểm tra tải hiệu suất cao, có thể viết bằng JavaScript. Chúng ta cũng đã tìm hiểu cách cài đặt k6 trên Windows thông qua file cài đặt phần mềm.
 
-Trong bài viết tiếp theo, chúng ta sẽ tìm hiểu cách viết một kịch bản kiểm tra tải đơn giản bằng k6.
+Trong [bài viết tiếp theo](./part-02.md), chúng ta sẽ tìm hiểu cách viết một kịch bản kiểm tra tải đơn giản bằng k6.
