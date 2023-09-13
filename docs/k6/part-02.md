@@ -1,6 +1,6 @@
 ---
 slug: load-testing-restful-apis-with-k6-part-02
-title: Load testing RESTful API đơn giản với k6
+title: Load testing API đơn giản
 authors: [tiennhm]
 tags: [load-testing, k6, restful-api, performance-testing, setup]
 enableComments: true # for Gisqus comments, set to true
@@ -212,3 +212,5 @@ vus_max....................: 1      min=1 max=1
 ## Tổng kết
 
 Trong bài viết này, chúng ta đã tìm hiểu cách sử dụng k6 để kiểm tra tải cho RESTful API. Hy vọng bài viết này sẽ giúp ích cho bạn trong việc tìm hiểu về k6.
+
+Trong [bài viết tiếp theo](./part-03.md), chúng ta sẽ tìm hiểu cách viết một kịch bản kiểm tra tải với Virtual Users.
