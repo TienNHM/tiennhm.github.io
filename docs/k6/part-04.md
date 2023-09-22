@@ -118,3 +118,5 @@ Tên chỉ số | Đơn vị | Ý nghĩa
 ## Lời kết
 
 Trong bài viết này, chúng ta đã tìm hiểu ý nghĩa của các chỉ số trong kết quả của k6. Hy vọng bài viết này sẽ giúp ích cho bạn trong việc tìm hiểu về k6.
+
+[Bài viết tiếp theo](./part-05.md), chúng ta sẽ tìm hiểu cách trực quan hóa kết quả của k6 bằng Grafana và InfluxDB.
