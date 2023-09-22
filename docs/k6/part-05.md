@@ -225,6 +225,12 @@ Kết quả sẽ hiển thị tương tự như sau:
 
 Như vậy, chúng ta đã có thể trực quan hóa kết quả load test từ k6 trên Grafana. Từ đây, chúng ta có thể phân tích kết quả và tối ưu hóa hiệu năng ứng dụng một cách trực quan hơn.
 
+:::tip
+Toàn bộ **source code** của bài viết này có thể tìm thấy tại [đây](https://github.com/TienNHM/k6-load-testing-results-visualization-with-grafana). Bạn có thể clone về và thực hành theo hướng dẫn trong bài viết.
+
+Hãy gắn cho mình một ngôi sao trên Github repo nếu bạn thấy bài viết này hữu ích nhé!
+:::
+
 ## Lời kết
 
 Bài viết này đã hướng dẫn các bước cài đặt và cấu hình Grafana cùng InfluxDB để trực quan hóa kết quả load test từ k6. Việc kết hợp các công cụ này giúp người dùng có thể theo dõi và phân tích kết quả test một cách trực quan hơn, dễ dàng nhận ra các vấn đề về hiệu năng của ứng dụng khi chịu tải cao.
