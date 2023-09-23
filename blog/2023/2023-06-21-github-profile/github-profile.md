@@ -6,6 +6,8 @@ image: https://img.youtube.com/vi/ntaUzVW38R0/0.jpg
 authors: [tiennhm]
 tags: [git, github, readme]
 keywords: [git, github, github profile, readme, cách tạo github profile, hướng dẫn, tạo github profile, tạo readme, tạo github profile đơn giản, tạo github profile đẹp mắt, tạo github profile cho người mới bắt đầu]
+enableComments: true # for Gisqus comments, set to true
+draft: false # set to true to hide this post from the site
 ---
 
 <p align="right">
