@@ -6,6 +6,8 @@ image: https://v1.screenshot.11ty.dev/https%3A%2F%2Fshields.io/opengraph/
 authors: [tiennhm]
 tags: [git, github, badges]
 keywords: [git, github, github profile, github badges, cách tạo github badges, hướng dẫn, tạo github badges, tạo github badges đơn giản, tạo github badges đẹp mắt, tạo github badges cho người mới bắt đầu, shields.io, github-readme-stats, github-profile-trophy, github-profile-views-counter, github-readme-activity-graph, github badges, github badges tutorial, github badges example, github badges for profile, github badges for readme, github badges for repository, github badges for website, github badges for markdown, github badges for blog, github badges for youtube, github badges for facebook, github badges for instagram, github badges for linkedin, github badges for messenger, github badges for website, github badges for text]
+enableComments: true # for Gisqus comments, set to true
+draft: false # set to true to hide this post from the site
 ---
 
 <p align="right">
@@ -51,49 +53,171 @@ Một số ví dụ về các badge:
 ![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)
 ![Messenger](https://img.shields.io/badge/Messenger-00B2FF?style=for-the-badge&logo=messenger&logoColor=white)
 
-### 2. [github-readme-stats](https://github.com/anuraghazra/github-readme-stats)
+### 2. [GitHub Readme Stats](https://github.com/anuraghazra/github-readme-stats)
 
 GitHub Readme Stats là một công cụ giúp bạn tạo các badge về các thông tin của bạn trên GitHub: số lượng stars, số lượng commits, số lượng issues, số lượng pull requests, số ngày streak, top các ngôn ngữ lập trình được sử dụng, ...
 
 Một số ví dụ về các badge:
 
-![GitHub Stats](https://github-readme-stats.vercel.app/api?username=TienNHM&show_icons=true&theme=radical)
+#### GitHub Stats
+
+```markdown
+![GitHub Stats](https://github-readme-stats.vercel.app/api?username=TienNHM&show_icons=true&theme=tokyonight)
+```
+
+![GitHub Stats](https://github-readme-stats.vercel.app/api?username=TienNHM&show_icons=true&theme=tokyonight)
+
+#### GitHub Streak
+
+```markdown
+![GitHub Streak](https://github-readme-streak-stats.herokuapp.com/?user=TienNHM&theme=radical)
+```
 
 ![GitHub Streak](https://github-readme-streak-stats.herokuapp.com/?user=TienNHM&theme=radical)
 
-![GitHub Top Languages](https://github-readme-stats.vercel.app/api/top-langs/?username=TienNHM&layout=compact&theme=radical)
+#### GitHub Top Languages
 
-### 3. [github-profile-trophy](https://github.com/ryo-ma/github-profile-trophy)
+```markdown
+![GitHub Top Languages](https://github-readme-stats.vercel.app/api/top-langs/?username=TienNHM&layout=compact&theme=dark)
+```
+
+![GitHub Top Languages](https://github-readme-stats.vercel.app/api/top-langs/?username=TienNHM&layout=compact&theme=dark)
+
+```markdown
+![GitHub Top Languages](https://github-readme-stats.vercel.app/api/top-langs/?username=TienNHM&layout=donut-vertical&theme=rose)
+```
+
+![GitHub Top Languages](https://github-readme-stats.vercel.app/api/top-langs/?username=TienNHM&layout=donut-vertical&theme=rose)
+
+```markdown
+![GitHub Top Languages](https://github-readme-stats.vercel.app/api/top-langs/?username=TienNHM&layout=donut&theme=swift)
+```
+
+![GitHub Top Languages](https://github-readme-stats.vercel.app/api/top-langs/?username=TienNHM&layout=donut&theme=swift)
+
+### 3. [GitHub Profile Trophy](https://github.com/ryo-ma/github-profile-trophy)
 
 GitHub Profile Trophy là một công cụ giúp bạn tạo các badge về các thành tích của bạn trên GitHub. Một số trophy phổ biến như: `Stars`, `Followers`, `Reviews`, `Repositories`, `Commits`, `Pull Request`, `Issues`,...
 
 Một số ví dụ về các badge:
 
+```markdown
+![GitHub Trophy](https://github-profile-trophy.vercel.app/?username=TienNHM&theme=onedark&column=-1)
+```
+
 ![GitHub Trophy](https://github-profile-trophy.vercel.app/?username=TienNHM&theme=onedark&column=-1)
 
-### 4. [github-profile-views-counter](https://github.com/antonkomarev/github-profile-views-counter)
+```markdown
+![GitHub Trophy](https://github-profile-trophy.vercel.app/?username=TienNHM&theme=onedark&column=-1&no-bg=true)
+```
+
+![GitHub Trophy](https://github-profile-trophy.vercel.app/?username=TienNHM&theme=onedark&column=-1&no-bg=true)
+
+```markdown
+![GitHub Trophy](https://github-profile-trophy.vercel.app/?username=TienNHM&theme=buddhism&column=4&row=4&no-frame=true)
+```
+
+![GitHub Trophy](https://github-profile-trophy.vercel.app/?username=TienNHM&theme=buddhism&column=4&row=4&no-frame=true)
+
+```markdown
+![GitHub Trophy](https://github-profile-trophy.vercel.app/?username=TienNHM&theme=juicyfresh&column=4&row=4&margin-w=15&margin-h=15)
+```
+
+![GitHub Trophy](https://github-profile-trophy.vercel.app/?username=TienNHM&theme=juicyfresh&column=4&row=4&margin-w=15&margin-h=15)
+
+### 4. [GitHub Profile Views Counter](https://github.com/antonkomarev/github-profile-views-counter)
 
 GitHub Profile Views Counter là một công cụ giúp bạn tạo các badge về số lượt truy cập vào profile của bạn. Công cụ này sẽ đếm số lượt truy cập vào profile của bạn và hiển thị lên badge.
 
 Một số ví dụ về các badge:
 
+```markdown
 ![GitHub Profile Views](https://komarev.com/ghpvc/?username=TienNHM&color=blue)
+```
+
+![GitHub Profile Views](https://komarev.com/ghpvc/?username=TienNHM&color=blue)
+
+```markdown
+![GitHub Profile Views](https://komarev.com/ghpvc/?username=TienNHM&color=red&style=plastic-square&label=TIENNHM+PROFILE+VIEWS)
+```
 
 ![GitHub Profile Views](https://komarev.com/ghpvc/?username=TienNHM&color=red&style=plastic-square&label=TIENNHM+PROFILE+VIEWS)
 
+```markdown
+![GitHub Profile Views](https://komarev.com/ghpvc/?username=TienNHM&color=blue&style=for-the-badge)
+```
+
 ![GitHub Profile Views](https://komarev.com/ghpvc/?username=TienNHM&color=blue&style=for-the-badge)
 
-### 5. [github-readme-activity-graph](https://github.com/Ashutosh00710/github-readme-activity-graph)
+### 5. [Github Readme Activity Graph](https://github.com/Ashutosh00710/github-readme-activity-graph)
 
 GitHub Readme Activity Graph là một công cụ giúp bạn tạo ra các biểu đồ về các hoạt động của bạn trên GitHub.
 
 Một số ví dụ về các badge:
 
+```markdown
+![TienNHM's github activity graph](https://github-readme-activity-graph.vercel.app/graph?username=TienNHM&theme=dracula&custom_title=Theme+dracula)
+```
+
 ![TienNHM's github activity graph](https://github-readme-activity-graph.vercel.app/graph?username=TienNHM&theme=dracula&custom_title=Theme+dracula)
 
-![TienNHM's github activity graph](https://github-readme-activity-graph.vercel.app/graph?username=TienNHM&theme=react-dark&custom_title=Theme+react-dark)
+```markdown
+![TienNHM's github activity graph](https://github-readme-activity-graph.vercel.app/graph?username=TienNHM&theme=react-dark&custom_title=Theme+react-dark&height=600&area=true)
+```
 
-![TienNHM's github activity graph](https://github-readme-activity-graph.vercel.app/graph?username=TienNHM&theme=merko&custom_title=Theme+merko)
+![TienNHM's github activity graph](https://github-readme-activity-graph.vercel.app/graph?username=TienNHM&theme=react-dark&custom_title=Theme+react-dark&height=600&area=true)
+
+```markdown
+![TienNHM's github activity graph](https://github-readme-activity-graph.vercel.app/graph?username=TienNHM&theme=vue&custom_title=Theme+vue&radius=16&hide_border=true)
+```
+
+![TienNHM's github activity graph](https://github-readme-activity-graph.vercel.app/graph?username=TienNHM&theme=vue&custom_title=Theme+vue&radius=16&hide_border=true)
+
+### 6. [GitHub Profile Summary Cards](http://github-profile-summary-cards.vercel.app/)
+
+GitHub Profile Summary Cards là một công cụ giúp bạn tạo các badge về các thông tin của bạn trên GitHub: số lượng stars, số lượng commits, số lượng issues, số lượng pull requests, số ngày streak, top các ngôn ngữ lập trình được sử dụng, ...
+
+Một số ví dụ về các badge:
+
+#### Summary
+
+```markdown
+![Summary](http://github-profile-summary-cards.vercel.app/api/cards/profile-details?username=TienNHM&theme=algolia)
+```
+
+![Summary](http://github-profile-summary-cards.vercel.app/api/cards/profile-details?username=TienNHM&theme=algolia)
+
+#### Top Languages by Repository
+
+```markdown
+![Top Languages by Repository](http://github-profile-summary-cards.vercel.app/api/cards/repos-per-language?username=TienNHM&theme=material_palenight)
+```
+
+![Top Languages by Repository](http://github-profile-summary-cards.vercel.app/api/cards/repos-per-language?username=TienNHM&theme=material_palenight)
+
+#### Top Languages by Commit
+
+```markdown
+![Top Languages by Commit](http://github-profile-summary-cards.vercel.app/api/cards/most-commit-language?username=TienNHM&theme=tokyonight)
+```
+
+![Top Languages by Commit](http://github-profile-summary-cards.vercel.app/api/cards/most-commit-language?username=TienNHM&theme=tokyonight)
+
+#### Stats
+
+```markdown
+![Stats](http://github-profile-summary-cards.vercel.app/api/cards/stats?username=TienNHM&theme=material_palenight)
+```
+
+![Stats](http://github-profile-summary-cards.vercel.app/api/cards/stats?username=TienNHM&theme=material_palenight)
+
+#### Commits
+
+```markdown
+![Commits](http://github-profile-summary-cards.vercel.app/api/cards/productive-time?username=TienNHM&theme=transparent&utcOffset=7)
+```
+
+![Commits](http://github-profile-summary-cards.vercel.app/api/cards/productive-time?username=TienNHM&theme=transparent&utcOffset=7)
 
 ## Tổng kết
 
