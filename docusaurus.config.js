@@ -181,7 +181,7 @@ const config = {
         /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
         ({
             // Replace with your project's social card
-            image: 'img/TienNHM-project.webp',
+            image: 'img/copyright-tiennhm.webp',
             navbar: {
                 title: 'TienNHM',
                 logo: {
