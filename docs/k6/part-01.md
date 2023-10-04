@@ -12,7 +12,7 @@ image: https://v1.screenshot.11ty.dev/https%3A%2F%2Fk6.io/opengraph/
     <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Fload-testing-restful-apis-with-k6-part-01&label=⚪Views&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
 </p>
 
-RESTful API là một trong những kiểu API phổ biến nhất hiện nay. Vì vậy, việc kiểm tra tải (load testing) là một phần quan trọng của việc kiểm tra hiệu suất. Trong bài viết này, chúng ta sẽ tìm hiểu cách **cài đặt** [k6](https://k6.io) để kiểm tra tải cho RESTful API.
+[RESTful API](https://aws.amazon.com/what-is/restful-api/) là một trong những kiểu API phổ biến nhất hiện nay. Vì vậy, việc kiểm tra tải (load testing) là một phần quan trọng của việc kiểm tra hiệu suất. Trong bài viết này, chúng ta sẽ tìm hiểu cách **cài đặt** [k6](https://k6.io) để kiểm tra tải cho RESTful API.
 
 <!--truncate-->
 
@@ -34,7 +34,7 @@ RESTful API là một trong những kiểu API phổ biến nhất hiện nay. V
 
 ### Trường hợp thường dùng
 
-Người dùng k6 thường là Developer, QA, SDET và SRE. Họ sử dụng k6 để kiểm tra hiệu suất và độ tin cậy của API, microservices và trang web. Các trường hợp sử dụng k6 phổ biến là:
+Người dùng k6 thường là Developer, QA, SDET và SRE. Họ sử dụng k6 để kiểm tra hiệu suất và độ tin cậy của API, [microservices](https://microservices.io/) và trang web. Các trường hợp sử dụng k6 phổ biến là:
 
 - Load testing: k6 được tối ưu hóa để tiêu thụ tài nguyên tối thiểu và được thiết kế để chạy các test tải cao ([spike](https://k6.io/docs/test-types/spike-testing/), [stress](https://k6.io/docs/test-types/stress-testing/), [soak](https://k6.io/docs/test-types/soak-testing/) tests).
 - Browser testing: Thông qua [k6 browser](https://k6.io/docs/using-k6-browser/overview/), bạn có thể chạy test hiệu suất dựa trên trình duyệt và phát hiện các sự cố chỉ liên quan đến trình duyệt mà có thể bỏ qua hoàn toàn ở cấp giao thức.
