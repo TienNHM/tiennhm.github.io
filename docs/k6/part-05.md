@@ -22,7 +22,11 @@ Bài viết này sẽ hướng dẫn các bạn cài đặt và sử dụng Graf
 
 ### InfluxDB là gì?
 
-[InfluxDB](https://www.influxdata.com/) là một cơ sở dữ liệu time-series mã nguồn mở được thiết kế để lưu trữ và truy xuất dữ liệu theo thời gian một cách hiệu quả. InfluxDB có thể được sử dụng để lưu trữ các chỉ số đo lường từ các công cụ kiểm tra hiệu suất như k6, JMeter, Gatling... và trực quan hóa kết quả từ các công cụ này.
+<p align="right">
+    <img src="https://www.influxdata.com/images/influxdata_full_navy-a7ca2ff4.svg" loading='lazy' decoding='async'/>
+</p>
+
+[InfluxDB](https://www.influxdata.com/) là một cơ sở dữ liệu time-series mã nguồn mở được thiết kế để lưu trữ và truy xuất dữ liệu theo thời gian một cách hiệu quả. InfluxDB có thể được sử dụng để lưu trữ các chỉ số đo lường từ các công cụ kiểm tra hiệu suất như k6, [JMeter](https://jmeter.apache.org/), [Gatling](https://gatling.io/)... và trực quan hóa kết quả từ các công cụ này.
 
 Các đặc điểm chính của InfluxDB bao gồm:
 - Lưu trữ dữ liệu theo thời gian với tốc độ cao.
@@ -31,9 +35,13 @@ Các đặc điểm chính của InfluxDB bao gồm:
 
 ### Grafana là gì?
 
+<p align="right">
+    <img src="https://grafana.com/media/grafana/images/grafana-dashboard-english.png" loading='lazy' decoding='async'/>
+</p>
+
 [Grafana](https://grafana.com/) là một công cụ trực quan hóa và quản lý bảng điều khiển mã nguồn mở. Nó cho phép truy vấn, trực quan hóa và giám sát nhiều loại nguồn dữ liệu bao gồm [InfluxDB](https://www.influxdata.com/), [Prometheus](https://prometheus.io/), [Elasticsearch](https://www.elastic.co/) và nhiều nguồn khác.
 
-Với Grafana, chúng ta có thể xây dựng các bảng điều khiển với nhiều loại biểu đồ khác nhau như biểu đồ đường, biểu đồ tròn, biểu đồ cột...để trực quan hóa dữ liệu từ nguồn dữ liệu lưu trữ như InfluxDB. Ngoài ra, Grafana còn hỗ trợ nhiều tính năng như alerting, logging, dashboard sharing... giúp quản lý và theo dõi hiệu suất ứng dụng một cách tổng quan và trực quan hơn.
+Với Grafana, chúng ta có thể xây dựng các bảng điều khiển với nhiều loại biểu đồ khác nhau như biểu đồ đường, biểu đồ tròn, biểu đồ cột...để trực quan hóa dữ liệu từ nguồn dữ liệu lưu trữ như InfluxDB. Ngoài ra, Grafana còn hỗ trợ nhiều tính năng như [alerting](https://grafana.com/products/cloud/alerting/), [logging](https://grafana.com/products/cloud/logs/), dashboard sharing... giúp quản lý và theo dõi hiệu suất ứng dụng một cách tổng quan và trực quan hơn.
 
 ### Cài đặt InfluxDB và Grafana
 

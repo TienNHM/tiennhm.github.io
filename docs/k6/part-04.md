@@ -68,15 +68,15 @@ Phần đầu tiên là logo của k6. Phần này không có ý nghĩa gì đ�
 
 ### 2. Thông tin về kịch bản test
 
-- `execution`: chứa thông tin về cách thức chạy kịch bản test. Trong trường hợp này, kịch bản test được chạy trên máy local.
+- `execution`: cách thức chạy kịch bản test. Trong trường hợp này, kịch bản test được chạy trên máy local.
 - `script`: chứa tên của file chứa kịch bản test.
-- `output`: chứa thông tin về cách xuất kết quả. Trong trường hợp này, kết quả được xuất trực tiếp trên màn hình console. 
+- `output`: cách xuất kết quả. Trong trường hợp này, kết quả được xuất trực tiếp trên màn hình console. 
 
 ### 3. Kết quả của kịch bản test
 
 #### 3.1. Thông tin về kịch bản test
 
-- `scenarios`: chứa thông tin về kịch bản test, bao gồm:
+- `scenarios`: kịch bản test, bao gồm:
 
   - `default`: tên của kịch bản test.
   - `10 looping VUs for 30s`: 10 virtual users sẽ được tạo ra và chạy kịch bản test trong 30 giây.
@@ -86,31 +86,31 @@ Phần đầu tiên là logo của k6. Phần này không có ý nghĩa gì đ�
 
 Tên chỉ số | Đơn vị | Ý nghĩa
 --- | :---: | ---
-| `data_received` | `byte` | Chứa thông tin về lượng dữ liệu nhận được trong quá trình chạy kịch bản test.
-| `data_sent` | `byte` | Chứa thông tin về lượng dữ liệu gửi đi trong quá trình chạy kịch bản test.
-| `http_req_blocked` | `millisecond` | Chứa thông tin về thời gian chờ để gửi yêu cầu HTTP.
-| `http_req_connecting` | `millisecond` | Chứa thông tin về thời gian kết nối đến máy chủ.
-| `http_req_duration` | `millisecond` | Chứa thông tin về thời gian thực thi yêu cầu HTTP.
-| `http_req_failed` | `%` | Chứa thông tin về số lượng yêu cầu HTTP thất bại.
-| `http_req_receiving` | `millisecond` | Chứa thông tin về thời gian nhận phản hồi từ máy chủ.
-| `http_req_sending` | `millisecond` | Chứa thông tin về thời gian gửi yêu cầu HTTP.
-| `http_req_tls_handshaking` | `millisecond` | Chứa thông tin về thời gian bắt tay TLS.
-| `http_req_waiting` | `millisecond` | Chứa thông tin về thời gian chờ phản hồi từ máy chủ.
-| `http_reqs` | `request` | Chứa thông tin về số lượng yêu cầu HTTP được gửi đi.
-| `iteration_duration` | `millisecond` | Chứa thông tin về thời gian thực thi một vòng lặp.
-| `iterations` | `iteration` | Chứa thông tin về số lượng vòng lặp được thực thi.
-| `vus` | `VU` | Chứa thông tin về số lượng virtual users.
-| `vus_max` | `VU` | Chứa thông tin về số lượng virtual users tối đa.
+| `data_received` | `byte` | Lượng dữ liệu nhận được trong quá trình chạy kịch bản test.
+| `data_sent` | `byte` | Lượng dữ liệu gửi đi trong quá trình chạy kịch bản test.
+| `http_req_blocked` | `millisecond` | Thời gian chờ để gửi request HTTP.
+| `http_req_connecting` | `millisecond` | Thời gian kết nối đến máy chủ.
+| `http_req_duration` | `millisecond` | Thời gian thực thi request HTTP.
+| `http_req_failed` | `%` | Số lượng request HTTP thất bại.
+| `http_req_receiving` | `millisecond` | Thời gian nhận phản hồi từ máy chủ.
+| `http_req_sending` | `millisecond` | Thời gian gửi request HTTP.
+| `http_req_tls_handshaking` | `millisecond` | Thời gian bắt tay TLS.
+| `http_req_waiting` | `millisecond` | Thời gian chờ phản hồi từ máy chủ.
+| `http_reqs` | `request` | Số lượng request HTTP được gửi đi.
+| `iteration_duration` | `millisecond` | Thời gian thực thi một vòng lặp.
+| `iterations` | `iteration` | Số lượng vòng lặp được thực thi.
+| `vus` | `VU` | Số lượng virtual users.
+| `vus_max` | `VU` | Số lượng virtual users tối đa.
 
 #### 3.2. Thông tin về quá trình chạy kịch bản test
   
-- `running`: chứa thông tin về quá trình chạy kịch bản test, bao gồm:
+- `running`: quá trình chạy kịch bản test, bao gồm:
 
   - `0m31.1s`: thời gian chạy kịch bản test.
   - `00/10 VUs`: số lượng virtual users hiện tại.
   - `233 complete and 0 interrupted iterations`: số lượng vòng lặp đã thực thi và số lượng vòng lặp bị gián đoạn.
 
-- `default`: chứa thông tin về quá trình chạy kịch bản test, bao gồm:
+- `default`: quá trình chạy kịch bản test, bao gồm:
 
   - `10 VUs`: số lượng virtual users.
   - `30s`: thời gian chạy kịch bản test.

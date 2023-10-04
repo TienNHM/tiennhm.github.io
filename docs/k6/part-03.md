@@ -18,20 +18,18 @@ Trong [bài viết trước](./part-02.md), chúng ta đã tìm hiểu cách s�
 
 :::info Virtual User
 Virtual User là một đại diện cho một người dùng thực sự. Một Virtual User có thể thực hiện một số hành động nhất định, ví dụ như tạo một người dùng mới, đọc thông tin của một người dùng, cập nhật thông tin của một người dùng, xóa một người dùng, v.v.
-
-Một kịch bản test có thể có nhiều Virtual User. Các hành động này có thể được thực hiện tuần tự hoặc song song.
-
-k6 chạy nhiều lần lặp song song với người dùng ảo (`VU`). Nói chung, nhiều người dùng ảo hơn có nghĩa là nhiều lưu lượng truy cập được mô phỏng hơn.
-
-VU về cơ bản là các vòng lặp `while(true)` song song. Các tập lệnh được viết bằng JavaScript, dưới dạng module ES6, vì vậy bạn có thể chia các bài test lớn thành các phần nhỏ hơn hoặc tạo các module có thể sử dụng lại theo ý muốn.
 :::
+
+Một kịch bản test có thể có nhiều Virtual Users. Các hành động này có thể được thực hiện tuần tự hoặc đồng thời.
+
+k6 chạy nhiều lần lặp đồng thời với người dùng ảo (`VU`). Nói chung, nhiều người dùng ảo hơn có nghĩa là nhiều lưu lượng truy cập được mô phỏng hơn. VU về cơ bản là các vòng lặp `while (true)` chạy đồng thời. Các tập lệnh được viết bằng JavaScript, dưới dạng module [ES6](https://www.w3schools.com/js/js_es6.asp), vì vậy bạn có thể chia các bài test lớn thành các phần nhỏ hơn hoặc tạo các module có thể sử dụng lại theo ý muốn.
 
 ## Mục tiêu
 
-Trong bài viết này, chúng ta sẽ tìm hiểu cách sử dụng k6 để kiểm tra tải cho RESTful API thông qua một kịch bản test với nhiều Virtual User. Cụ thể, chúng ta sẽ tìm hiểu cách:
+Trong bài viết này, chúng ta sẽ tìm hiểu cách sử dụng k6 để kiểm tra tải cho RESTful API thông qua một kịch bản test với nhiều Virtual Users. Cụ thể, chúng ta sẽ tìm hiểu cách:
 
-- Viết một kịch bản test với nhiều Virtual User
-- Tăng, giảm số lượng Virtual User theo từng giai đoạn
+- Viết một kịch bản test với nhiều Virtual Users.
+- Tăng, giảm số lượng Virtual User theo từng giai đoạn.
 
 ## Viết một kịch bản test với nhiều Virtual User
 
@@ -84,7 +82,11 @@ export default function () {
 }
 ```
 
-Lưu ý rằng, chúng ta chỉ định từ khóa `export` cho `options` và `default` để k6 có thể nhận diện được các giá trị này. Sau đó, chúng ta sẽ chạy lệnh sau để chạy kịch bản test:
+:::warning
+Lưu ý quan trọng, chúng ta chỉ định từ khóa `export` cho `options` và `default` để k6 có thể nhận diện được các giá trị này.
+:::
+
+Sau đó, chúng ta sẽ chạy lệnh sau để chạy kịch bản test:
 
 ```sh
 k6 run script.js
