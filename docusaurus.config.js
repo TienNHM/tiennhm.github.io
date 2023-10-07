@@ -169,11 +169,39 @@ const config = {
                 disableInDev: true,
             }),
         ],
+        [
+            '@docusaurus/plugin-pwa',
+            {
+                debug: true,
+                offlineModeActivationStrategies: [
+                    'appInstalled',
+                    'standalone',
+                    'queryString',
+                ],
+                pwaHead: [
+                    {
+                        tagName: 'link',
+                        rel: 'icon',
+                        href: 'https://github.com/TienNHM.png', // your PWA icon
+                    },
+                    {
+                        tagName: 'link',
+                        rel: 'manifest',
+                        href: '/manifest.json', // your PWA manifest
+                    },
+                    {
+                        tagName: 'meta',
+                        name: 'theme-color',
+                        content: 'rgb(37, 194, 160)',
+                    },
+                ],
+            },
+        ],
         '@docusaurus/theme-mermaid',
     ],
 
     themes: [
-        '@docusaurus/theme-live-codeblock', 
+        '@docusaurus/theme-live-codeblock',
         'docusaurus-plugin-sass'
     ],
 
@@ -238,7 +266,7 @@ const config = {
                 contextualSearch: true,
             },
             mermaid: {
-                theme: {light: 'neutral', dark: 'dark'},
+                theme: { light: 'neutral', dark: 'dark' },
             },
         }),
 };
