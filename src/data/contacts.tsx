@@ -5,7 +5,7 @@ type Contact = {
 
 export const CONTACTS = {
   Facebook: {
-    link: 'https://www.facebook.com/01.tien/',
+    link: 'https://www.facebook.com/tiennhm.it/',
     icon: require('@site/static/img/logo/facebook.svg').default,
   } as Contact,
   Github: {
