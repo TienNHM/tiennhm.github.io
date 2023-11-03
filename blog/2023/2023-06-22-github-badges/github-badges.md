@@ -11,7 +11,7 @@ draft: false # set to true to hide this post from the site
 ---
 
 <p align="right">
-    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2FGDSC-HCMUTE.github.io%2Fblog%2Fgithub-badges&label=⚪Views&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
+    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2FTienNHM.github.io%2Fblog%2Fgithub-badges&label=⚪Views&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
 </p>
 
 Trong bài viết này, mình sẽ hướng dẫn các bạn cách tạo GitHub Badges. Đây là một tính năng mới của GitHub, nó cho phép các bạn tạo các badge để hiển thị trên profile của mình.

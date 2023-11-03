@@ -9,7 +9,7 @@ image: https://v1.screenshot.11ty.dev/https%3A%2F%2Fwww.cloudskillsboost.google%
 ---
 
 <p align="right">
-    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2FGDSC-HCMUTE.github.io%2Fblog%2Fgoogle-generative-ai-courses&label=⚪Views&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
+    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2FTienNHM.github.io%2Fblog%2Fgoogle-generative-ai-courses&label=⚪Views&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
 </p>
 
 > Chia sẻ khóa học miễn phí của Goolge về Generative AI
