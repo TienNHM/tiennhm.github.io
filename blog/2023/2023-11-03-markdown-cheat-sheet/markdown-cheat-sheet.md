@@ -5,7 +5,7 @@ authors: [tiennhm]
 tags: [markdown, github, cheatsheet, readme]
 enableComments: true # for Gisqus comments, set to true
 draft: false # set to true to hide this post from the site
-image: https://v1.screenshot.11ty.dev/https%3A%2F%2Fwww.cloudskillsboost.google%2Fjourneys%2F118/opengraph/
+image: https://www.freecodecamp.org/news/content/images/size/w2000/2022/08/Markdown-cheatsheet.png
 ---
 
 <p align="right">
@@ -18,11 +18,13 @@ Bạn có thể tạo một file README trên Github với Markdown. Nhưng mark
 
 ## Markdown là gì?
 
-Có nhiều loại file README, nhưng Markdown là một loại file README được sử dụng phổ biến nhất. Markdown là một ngôn ngữ mã nguồn mở, được sử dụng để viết các file README. Markdown được viết bằng cú pháp dễ hiểu và dễ đọc. Markdown cũng có thể được đọc trên nhiều nền tảng khác nhau, bao gồm những nền tảng web, trên máy tính, và trên các thiết bị di động.
+Markdown là một ngôn ngữ mã nguồn mở, được sử dụng để viết các file README, với cú pháp dễ hiểu và dễ đọc. Có thể được đọc trên nhiều nền tảng khác nhau, bao gồm những nền tảng web, trên máy tính, và trên các thiết bị di động.
 
 Các định dạng file markdown phổ biến: `.markdown`, `.md`, `.mkd`, `.mkdown`, `.text`, `.mdown`...
 
-Markdown là một trong số những markup language được sử dụng phổ biến nhất. Bên cạnh Markdown, bạn có thể sử dụng các markup language khác như HTML, XML...
+Markdown là một trong số những markup language được sử dụng phổ biến nhất. Bên cạnh Markdown, bạn có thể sử dụng các markup language khác như [HTML](https://www.w3schools.com/html/), [XML](https://www.w3schools.com/xml/)...
+
+Đặc biệt, bạn hoàn toàn có thể sử dụng cú pháp của các thẻ HTML trong file file markdown. 
 
 ## Cú pháp Markdown
 
@@ -242,11 +244,13 @@ Danh sách các ngôn ngữ được hỗ trợ, bạn có thể xem tại [đâ
 
 ```markdown
 [Link trang web của tôi.](https://tiennhm.github.io)
+[Gửi mail cho tôi.](mailto:tiennhm.it@gmail.com)
 ```
 
 Kết quả:
 
 [Link trang web của tôi.](https://tiennhm.github.io)
+[Gửi mail cho tôi.](mailto:tiennhm.it@gmail.com)
 
 ### Image
 
@@ -309,3 +313,5 @@ Kết quả:
 ## Kết luận
 
 Trong bài viết này, mình đã giới thiệu các cú pháp cơ bản thường được sử dụng để tạo 1 file README bằng markdown. Hy vọng bạn thấy có ích và thích nó. Đừng ngại khi bạn có thể share bài viết này cho bạn bè nhé!
+
+Trong phần tiếp theo, mình sẽ hướng dẫn các bạn sử dụng một số cú pháp nâng cao trong markdown.
