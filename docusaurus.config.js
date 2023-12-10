@@ -116,6 +116,9 @@ const config = {
             ({
                 docs: {
                     sidebarPath: require.resolve('./sidebars.js'),
+                    sidebarCollapsible: true,
+                    sidebarCollapsed: true,
+                    showLastUpdateTime: true,
                     // Please change this to your repo.
                     // Remove this to remove the "edit this page" links.
                     editUrl: `https://github.com/${organizationName}/${projectName}/tree/master`,
@@ -243,6 +246,11 @@ const config = {
                         position: 'right',
                     },
                 ],
+            },
+            docs: {
+                sidebar: {
+                  hideable: true,
+                },
             },
             footer: {
                 style: 'light',
