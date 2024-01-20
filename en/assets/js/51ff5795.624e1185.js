@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunktiennhm_github_io=self.webpackChunktiennhm_github_io||[]).push([[195],{65128:t=>{t.exports=JSON.parse('{"label":"installation","permalink":"/en/blog/tags/installation","allTagsPath":"/en/blog/tags","count":1}')}}]);
