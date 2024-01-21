@@ -1,8 +1,8 @@
 import { translate } from '@docusaurus/Translate';
 import { useHistory, useLocation } from '@docusaurus/router';
 import React, { useEffect, useState } from 'react';
-import { prepareUserState } from '../..';
 import styles from './styles.module.css';
+import { prepareUserState } from '../ShowcaseUserState';
 
 export const SearchNameQueryKey = 'name';
 
