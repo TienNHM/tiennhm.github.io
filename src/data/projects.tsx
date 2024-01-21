@@ -43,7 +43,7 @@ const PROJECTS: Project[] = [
   },
   {
     title: 'x2mint',
-    description: 'A graduration project, which is a website for creating and taking tests online with MERN stack, inspired by kahoot.it.',
+    description: 'A graduration project, which is a website for creating and taking tests online, made with MERN stack.',
     // preview: require('./showcase/algolia.png'),
     preview: null,
     website: 'https://x2mint.vercel.app',
@@ -82,7 +82,7 @@ const PROJECTS: Project[] = [
   },
   {
     title: 'Portfolio',
-    description: 'My portfolio website, made with ReactJS and Docuaurus.',
+    description: 'Showcasing my projects and skills. There is also a blog section, where I write about my projects.',
     // preview: require('./showcase/astronomer.png'),
     preview: null,
     website: 'https://tiennhm.github.io',
