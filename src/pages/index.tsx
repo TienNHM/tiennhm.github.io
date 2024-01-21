@@ -9,26 +9,15 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faFacebook, faGithub, faLinkedin,faYoutube, faSkype } from '@fortawesome/free-brands-svg-icons'
 import { faEnvelope, faPhone } from '@fortawesome/free-solid-svg-icons'
 import styles from './index.module.css';
-import { CONTACTS } from '@site/src/data/contacts';
+import { CONTACTS, Contact } from '@site/src/data/contacts';
+import ContactItem from '../components/ContactItem';
 // import avatar from '@site/static/img/tiennhm_picrew.webp';
 
 const avatar = 'https://github.com/TienNHM.png';
 
-function ContactItem({icon, contact, title}) {
-  const Svg = contact.icon;
-  return (
-    <div className={styles.buttons}>
-      <Link className={clsx('button button--lg', styles.cardInfoButton)}
-        title={title} to={contact.link}>
-          {contact.icon && <Svg role="img" />}
-          {!contact.icon && <FontAwesomeIcon icon={icon} size='xl'/>}
-      </Link>
-    </div>
-  );
-}
-
 function HomepageHeader() {
   const {siteConfig} = useDocusaurusContext();
+  const contacts = CONTACTS;
   return (
     <header className={clsx('hero hero--primary', styles.heroBanner, styles.backgroundImage)}>
       <div className={clsx('container', styles.cardContainer)}>
@@ -39,20 +28,22 @@ function HomepageHeader() {
           <h1 className="hero__title">{siteConfig.title}</h1>
           <h2 className="hero__subtitle">{siteConfig.tagline}</h2>
 
-          <div style={{margin: '1rem'}}>
+          {/* <div style={{margin: '1rem'}}>
             <Link className={clsx('button button--primary')} title='CV' to='/my-cv'>
                 View my CV
             </Link>
-          </div>
+          </div> */}
           
           <div className={clsx(styles.buttonsGroup)}>
-            <ContactItem icon={faEnvelope} contact={CONTACTS.Email} title={'Email'}/>
-            <ContactItem icon={faPhone} contact={CONTACTS.Phone} title={'Phone'}/>
-            <ContactItem icon={faFacebook} contact={CONTACTS.Facebook} title={'Facebook'}/>
-            <ContactItem icon={faGithub} contact={CONTACTS.Github} title={'Github'}/>
-            <ContactItem icon={faLinkedin} contact={CONTACTS.Linkedin} title={'Linkedin'}/>
-            <ContactItem icon={faYoutube} contact={CONTACTS.Youtube} title={'Youtube'}/>
-            <ContactItem icon={faSkype} contact={CONTACTS.Skype} title={'Skype'}/>
+            {
+              Object.keys(contacts).map((key: string) => {
+                const contact = contacts[key] as Contact;
+                const Svg = contact.icon;
+                return (
+                  <ContactItem key={key} icon={contact.faIcon} contact={contact} title={contact.title}/>
+                );
+              })
+            }
           </div>
         </div>
       </div>
@@ -65,7 +56,7 @@ export default function Home(): JSX.Element {
   return (
     <Layout
       title={`${siteConfig.title}`}
-      description="Middle Fullstack Web Developer from Viet Nam">
+      description="Fullstack Web Developer from Viet Nam">
       <HomepageHeader />
       <main>
         {/* <HomepageFeatures /> */}
