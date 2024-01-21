@@ -21,12 +21,8 @@ import ShowcaseCard from './_components/ShowcaseCard';
 import ShowcaseTooltip from './_components/ShowcaseTooltip';
 import styles from './styles.module.css';
 import SearchBar, { readSearchName } from './_components/ShowcaseSearchBar';
-
-const TITLE = translate({message: 'TienNHM Site Showcase'});
-const DESCRIPTION = translate({
-  message: 'List of sites and projects built by TienNHM',
-});
-const SUBMIT_URL = 'https://github.com/TienNHM?tab=repositories';
+import ShowcaseHeader from './_components/ShowcaseHeader';
+import { SHOWCASE } from './constants';
 
 type UserState = {
   scrollTopPosition: number;
@@ -97,18 +93,6 @@ function useFilteredUsers() {
   return useMemo(
     () => filterUsers(sortedProjects, selectedTags, operator, searchName),
     [selectedTags, operator, searchName],
-  );
-}
-
-function ShowcaseHeader() {
-  return (
-    <section className="margin-top--lg margin-bottom--lg text--center">
-      <Heading as="h1">{TITLE}</Heading>
-      <p>{DESCRIPTION}</p>
-      <Link className="button button--primary" to={SUBMIT_URL}>
-        <Translate id="showcase.header.button">Visit my GitHub 👨‍💻</Translate>
-      </Link>
-    </section>
   );
 }
 
@@ -261,7 +245,7 @@ function ShowcaseCards() {
 
 export default function Showcase(): JSX.Element {
   return (
-    <Layout title={TITLE} description={DESCRIPTION}>
+    <Layout title={SHOWCASE.TITLE} description={SHOWCASE.DESCRIPTION}>
       <main className="margin-vert--lg">
         <ShowcaseHeader />
         <ShowcaseFilters />
