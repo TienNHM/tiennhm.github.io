@@ -1,8 +1,8 @@
 import Link from "@docusaurus/Link";
 import Translate, { translate } from "@docusaurus/Translate";
+import { SHOWCASE } from "@site/src/data/contacts";
 import Heading from "@theme/Heading";
 import React from "react";
-import { SHOWCASE } from "../../constants";
 
 export default function ShowcaseHeader() {
     return (

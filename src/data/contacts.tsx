@@ -1,3 +1,5 @@
+import { translate } from "@docusaurus/Translate";
+
 type Contact = {
   link: string;
   icon: React.ComponentType<React.ComponentProps<'svg'>>;
@@ -32,4 +34,10 @@ export const CONTACTS = {
     link: 'https://www.youtube.com/TienNguyen09',
     icon: require('@site/static/img/logo/youtube.svg').default,
   } as Contact,
+}
+
+export const SHOWCASE = {
+  TITLE: translate({message: 'TienNHM Site Showcase'}),
+  DESCRIPTION: translate({message: 'List of sites and projects built by TienNHM'}),
+  SUBMIT_URL: 'https://github.com/TienNHM?tab=repositories',
 }

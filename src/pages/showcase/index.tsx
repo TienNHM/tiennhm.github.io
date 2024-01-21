@@ -4,9 +4,9 @@ import Layout from '@theme/Layout';
 import { sortedProjects } from '@site/src/data/projects';
 import { Project } from '@site/src/shared/dto/Project';
 import ShowcaseHeader from './_components/ShowcaseHeader';
-import { SHOWCASE } from './constants';
 import ShowcaseCardList from './_components/ShowcaseCardList';
 import ShowcaseFilters from './_components/ShowcaseFilters';
+import { SHOWCASE } from '@site/src/data/contacts';
 
 export default function Showcase(): JSX.Element {
   const favoriteUsers: Project[] = sortedProjects.filter((user) =>
