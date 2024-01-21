@@ -1,12 +1,12 @@
 import React from 'react';
 import clsx from 'clsx';
 import styles from './styles.module.css';
-
-type FeatureItem = {
-  title: string;
-  Svg: React.ComponentType<React.ComponentProps<'svg'>>;
-  description: JSX.Element;
-};
+import Feature, { FeatureItem } from './_components/Feature';
+import { Project } from '@site/src/shared/dto/Project';
+import ShowcaseCard from '@site/src/pages/showcase/_components/ShowcaseCard';
+import Link from '@docusaurus/Link';
+import { Badge } from 'primereact/badge';
+import { Button } from 'primereact/button';
 
 const FeatureList: FeatureItem[] = [
   {
@@ -41,29 +41,61 @@ const FeatureList: FeatureItem[] = [
   },
 ];
 
-function Feature({title, Svg, description}: FeatureItem) {
-  return (
-    <div className={clsx('col col--4')}>
-      <div className="text--center">
-        <Svg className={styles.featureSvg} role="img" />
-      </div>
-      <div className="text--center padding-horiz--md">
-        <h3>{title}</h3>
-        <p>{description}</p>
-      </div>
-    </div>
-  );
-}
+const TopProjectList: Project[] = [
+  {
+    title: 'x2mint',
+    description: 'A graduration project, which is a website for creating and taking tests online with MERN stack, inspired by kahoot.it.',
+    // preview: require('./showcase/algolia.png'),
+    preview: null,
+    website: 'https://x2mint.vercel.app',
+    source: 'https://github.com/TienNHM/x2mint',
+    tags: ['favorite', 'courseproject'],
+  },
+  {
+    title: 'Portfolio',
+    description: 'My portfolio website, made with ReactJS and Docuaurus.',
+    // preview: require('./showcase/astronomer.png'),
+    preview: null,
+    website: 'https://tiennhm.github.io',
+    source: 'https://github.com/TienNHM/tiennhm.github.io',
+    tags: ['favorite', 'personal', 'opensource'],
+  },
+  {
+    title: 'Game Oggy',
+    description: 'A simple game made with Windows Forms and C#, inspired by Oggy and the Cockroaches.',
+    // preview: require('./showcase/aide_jeune.png'),
+    preview: null,
+    website: 'https://tiennhm.github.io/OGGY/',
+    source: 'https://github.com/TienNHM/OGGY',
+    tags: ['favorite', 'courseproject'],
+  },
+]
 
 export default function HomepageFeatures(): JSX.Element {
   return (
     <section className={styles.features}>
       <div className="container">
         <div className="row">
-          {FeatureList.map((props, idx) => (
-            <Feature key={idx} {...props} />
-          ))}
+          {
+            // FeatureList.map((props, idx) => (
+            //   <Feature key={idx} {...props} />
+            // ))
+          }
         </div>
+        <h1 id='top-projects' className={clsx(styles.showcaseFeaturesTitle)}>Top Projects</h1>
+        <div id='top-projects' className={clsx(styles.showcaseFeaturesLink)}>
+          <Link href='/showcase'>
+            <Button label='View more' icon='pi pi-angle-double-right' 
+              iconPos='right' size='small' severity="success" rounded outlined/>
+          </Link>
+        </div>
+        <ul className={clsx('clean-list', styles.showcaseFeaturesList)}>
+          {
+            TopProjectList.map((project: Project) => (
+              <ShowcaseCard key={project.title} user={project} />
+            ))
+          }
+        </ul>
       </div>
     </section>
   );
