@@ -3,7 +3,6 @@ import clsx from 'clsx';
 import Link from '@docusaurus/Link';
 import Translate from '@docusaurus/Translate';
 import Image from '@theme/IdealImage';
-import FavoriteIcon from '@site/src/components/svgIcons/FavoriteIcon';
 import { Project } from '@site/src/shared/dto/Project';
 import { sortBy } from '@site/src/utils/jsUtils';
 import Heading from '@theme/Heading';
