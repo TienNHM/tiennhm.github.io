@@ -8,24 +8,23 @@ import React, {
 } from 'react';
 import {useHistory, useLocation} from '@docusaurus/router';
 import {toggleListItem} from '@site/src/utils/jsUtils';
-import type {TagType} from '@site/src/data/projects';
-
-import {prepareUserState} from '../../index';
 import styles from './styles.module.css';
+import { ProjectTagType } from '@site/src/shared/constants/ProjectConsts';
+import { prepareUserState } from '../ShowcaseUserState';
 
 interface Props extends ComponentProps<'input'> {
   icon: ReactElement<ComponentProps<'svg'>>;
   label: ReactNode;
-  tag: TagType;
+  tag: ProjectTagType;
 }
 
 const TagQueryStringKey = 'tags';
 
-export function readSearchTags(search: string): TagType[] {
-  return new URLSearchParams(search).getAll(TagQueryStringKey) as TagType[];
+export function readSearchTags(search: string): ProjectTagType[] {
+  return new URLSearchParams(search).getAll(TagQueryStringKey) as ProjectTagType[];
 }
 
-function replaceSearchTags(search: string, newTags: TagType[]) {
+function replaceSearchTags(search: string, newTags: ProjectTagType[]) {
   const searchParams = new URLSearchParams(search);
   searchParams.delete(TagQueryStringKey);
   newTags.forEach((tag) => searchParams.append(TagQueryStringKey, tag));

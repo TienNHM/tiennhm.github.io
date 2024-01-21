@@ -28,7 +28,7 @@ export default function SearchBar() {
         <input
           id="searchbar"
           placeholder={translate({
-            message: 'Search for site name...',
+            message: 'Search...',
             id: 'showcase.searchBar.placeholder',
           })}
           value={value ?? undefined}
