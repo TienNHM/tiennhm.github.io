@@ -79,9 +79,7 @@ function ShowcaseCard({ user }: { user: Project }) {
             </Link>
           </Heading>
 
-          {user.tags.includes('favorite') && (
-            <FavoriteIcon svgClass={styles.svgIconFavorite} size="small" />
-          )}
+          {user.tags.includes('favorite') && (<span style={{ marginLeft: '8px' }}>⭐</span>)}
 
           {user.source && (
             <Link href={user.source} className={clsx('button button--secondary button--sm', styles.showcaseCardSrcBtn)}>

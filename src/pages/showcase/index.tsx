@@ -1,119 +1,23 @@
-import React, {useState, useMemo, useEffect} from 'react';
+import React from 'react';
 import clsx from 'clsx';
-import ExecutionEnvironment from '@docusaurus/ExecutionEnvironment';
-import Translate, {translate} from '@docusaurus/Translate';
-import {useLocation} from '@docusaurus/router';
-import {usePluralForm} from '@docusaurus/theme-common';
-import Link from '@docusaurus/Link';
+import Translate, { translate } from '@docusaurus/Translate';
+import { usePluralForm } from '@docusaurus/theme-common';
 import Layout from '@theme/Layout';
 import { sortedProjects } from '@site/src/data/projects';
 import { Project } from '@site/src/shared/dto/Project';
-import { ProjectTagType, ProjectTags, ProjectTagList } from '@site/src/shared/constants/ProjectConsts';
+import { ProjectTags, ProjectTagList } from '@site/src/shared/constants/ProjectConsts';
 import Heading from '@theme/Heading';
-import ShowcaseTagSelect, {
-  readSearchTags,
-} from './_components/ShowcaseTagSelect';
-import ShowcaseFilterToggle, {
-  type Operator,
-  readOperator,
-} from './_components/ShowcaseFilterToggle';
-import ShowcaseCard from './_components/ShowcaseCard';
+import ShowcaseTagSelect from './_components/ShowcaseTagSelect';
+import ShowcaseFilterToggle from './_components/ShowcaseFilterToggle';
 import ShowcaseTooltip from './_components/ShowcaseTooltip';
 import styles from './styles.module.css';
-import SearchBar, { readSearchName } from './_components/ShowcaseSearchBar';
-
-const TITLE = translate({message: 'TienNHM Site Showcase'});
-const DESCRIPTION = translate({
-  message: 'List of sites and projects built by TienNHM',
-});
-const SUBMIT_URL = 'https://github.com/TienNHM?tab=repositories';
-
-type UserState = {
-  scrollTopPosition: number;
-  focusedElementId: string | undefined;
-};
-
-function restoreUserState(userState: UserState | null) {
-  const {scrollTopPosition, focusedElementId} = userState ?? {
-    scrollTopPosition: 0,
-    focusedElementId: undefined,
-  };
-  document.getElementById(focusedElementId)?.focus();
-  window.scrollTo({top: scrollTopPosition});
-}
-
-export function prepareUserState(): UserState | undefined {
-  if (ExecutionEnvironment.canUseDOM) {
-    return {
-      scrollTopPosition: window.scrollY,
-      focusedElementId: document.activeElement?.id,
-    };
-  }
-
-  return undefined;
-}
-
-function filterUsers(
-  users: Project[],
-  selectedTags: ProjectTagType[],
-  operator: Operator,
-  searchName: string | null,
-) {
-  if (searchName) {
-    // eslint-disable-next-line no-param-reassign
-    users = users.filter((user) =>
-      user.title.toLowerCase().includes(searchName.toLowerCase()),
-    );
-  }
-  if (selectedTags.length === 0) {
-    return users;
-  }
-  return users.filter((user) => {
-    if (user.tags.length === 0) {
-      return false;
-    }
-    if (operator === 'AND') {
-      return selectedTags.every((tag) => user.tags.includes(tag));
-    }
-    return selectedTags.some((tag) => user.tags.includes(tag));
-  });
-}
-
-function useFilteredUsers() {
-  const location = useLocation<UserState>();
-  const [operator, setOperator] = useState<Operator>('OR');
-  // On SSR / first mount (hydration) no tag is selected
-  const [selectedTags, setSelectedTags] = useState<ProjectTagType[]>([]);
-  const [searchName, setSearchName] = useState<string | null>(null);
-  // Sync tags from QS to state (delayed on purpose to avoid SSR/Client
-  // hydration mismatch)
-  useEffect(() => {
-    setSelectedTags(readSearchTags(location.search));
-    setOperator(readOperator(location.search));
-    setSearchName(readSearchName(location.search));
-    restoreUserState(location.state);
-  }, [location]);
-
-  return useMemo(
-    () => filterUsers(sortedProjects, selectedTags, operator, searchName),
-    [selectedTags, operator, searchName],
-  );
-}
-
-function ShowcaseHeader() {
-  return (
-    <section className="margin-top--lg margin-bottom--lg text--center">
-      <Heading as="h1">{TITLE}</Heading>
-      <p>{DESCRIPTION}</p>
-      <Link className="button button--primary" to={SUBMIT_URL}>
-        <Translate id="showcase.header.button">Visit my GitHub 👨‍💻</Translate>
-      </Link>
-    </section>
-  );
-}
+import ShowcaseHeader from './_components/ShowcaseHeader';
+import { SHOWCASE } from './constants';
+import { useFilteredUsers } from './_components/ShowcaseUserState';
+import ShowcaseCardList from './_components/ShowcaseCardList';
 
 function useSiteCountPlural() {
-  const {selectMessage} = usePluralForm();
+  const { selectMessage } = usePluralForm();
   return (sitesCount: number) =>
     selectMessage(
       sitesCount,
@@ -123,7 +27,7 @@ function useSiteCountPlural() {
           description: 'The number of sites found',
           message: '{sitesCount} sites',
         },
-        {sitesCount},
+        { sitesCount },
       ),
     );
 }
@@ -144,7 +48,7 @@ function ShowcaseFilters() {
       </div>
       <ul className={clsx('clean-list', styles.checkboxList)}>
         {ProjectTagList.map((tag, i) => {
-          const {label, description, color} = ProjectTags[tag];
+          const { label, description, color } = ProjectTags[tag];
           const id = `showcase_checkbox_id_${tag}`;
 
           return (
@@ -153,7 +57,7 @@ function ShowcaseFilters() {
                 <ShowcaseTagSelect tag={tag} id={id} label={label}
                   icon={
                     tag === 'favorite' ? (
-                      <span style={{marginLeft: '8px'}}>⭐</span>
+                      <span style={{ marginLeft: '8px' }}>⭐</span>
                     ) : (
                       <span className={clsx(styles.dotColor)} style={{ backgroundColor: color }} />
                     )
@@ -168,104 +72,20 @@ function ShowcaseFilters() {
   );
 }
 
-const favoriteUsers = sortedProjects.filter((user) =>
-  user.tags.includes('favorite'),
-);
-const otherUsers = sortedProjects.filter(
-  (user) => !user.tags.includes('favorite'),
-);
-
-function ShowcaseCards() {
-  const filteredUsers = useFilteredUsers();
-
-  if (filteredUsers.length === 0) {
-    return (
-      <section className="margin-top--lg margin-bottom--xl">
-        <div className="container padding-vert--md text--center">
-          <Heading as="h2">
-            <Translate id="showcase.usersList.noResult">No result</Translate>
-          </Heading>
-          <SearchBar />
-        </div>
-      </section>
-    );
-  }
-
-  return (
-    <section className="margin-top--lg margin-bottom--xl">
-      {filteredUsers.length === sortedProjects.length ? (
-        <>
-          <div className={styles.showcaseFavorite}>
-            <div className="container">
-              <div
-                className={clsx(
-                  'margin-bottom--md',
-                  styles.showcaseFavoriteHeader,
-                )}>
-                <Heading as="h2" id='favorite-projects'>
-                  <span style={{marginInline: '8px'}}>⭐</span>
-                  <Translate id="showcase.favoritesList.title">
-                    Hightlight projects
-                  </Translate>
-                  <span className={clsx(styles.countProjects,)}>
-                    {favoriteUsers.length}
-                  </span>
-                </Heading>
-                <SearchBar />
-              </div>
-              <ul
-                className={clsx(
-                  'container',
-                  'clean-list',
-                  styles.showcaseList,
-                )}>
-                {favoriteUsers.map((user) => (
-                  <ShowcaseCard key={user.title} user={user} />
-                ))}
-              </ul>
-            </div>
-          </div>
-          <div className="container margin-top--lg">
-            <Heading as="h2" className={styles.showcaseHeader} id='all-projects'>
-              <Translate id="showcase.usersList.allUsers">All projects</Translate>
-              <span className={clsx(styles.countProjects,)}>
-                {otherUsers.length}
-              </span>
-            </Heading>
-            <ul className={clsx('clean-list', styles.showcaseList)}>
-              {otherUsers.map((user) => (
-                <ShowcaseCard key={user.title} user={user} />
-              ))}
-            </ul>
-          </div>
-        </>
-      ) : (
-        <div className="container">
-          <div
-            className={clsx(
-              'margin-bottom--md',
-              styles.showcaseFavoriteHeader,
-            )}>
-            <SearchBar />
-          </div>
-          <ul className={clsx('clean-list', styles.showcaseList)}>
-            {filteredUsers.map((user) => (
-              <ShowcaseCard key={user.title} user={user} />
-            ))}
-          </ul>
-        </div>
-      )}
-    </section>
-  );
-}
-
 export default function Showcase(): JSX.Element {
+  const favoriteUsers: Project[] = sortedProjects.filter((user) =>
+    user.tags.includes('favorite'),
+  );
+  const otherUsers: Project[] = sortedProjects.filter(
+    (user) => !user.tags.includes('favorite'),
+  );
+
   return (
-    <Layout title={TITLE} description={DESCRIPTION}>
+    <Layout title={SHOWCASE.TITLE} description={SHOWCASE.DESCRIPTION}>
       <main className="margin-vert--lg">
-        <ShowcaseHeader />
-        <ShowcaseFilters />
-        <ShowcaseCards />
+        <ShowcaseHeader key={'ShowcaseHeader'} />
+        <ShowcaseFilters key={'ShowcaseFilters'} />
+        <ShowcaseCardList favoriteUsers={favoriteUsers} otherUsers={otherUsers} key={'ShowcaseCardList'} />
       </main>
     </Layout>
   );
