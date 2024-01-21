@@ -2,12 +2,10 @@ import React, {useState, useMemo, useEffect} from 'react';
 import clsx from 'clsx';
 import ExecutionEnvironment from '@docusaurus/ExecutionEnvironment';
 import Translate, {translate} from '@docusaurus/Translate';
-import {useHistory, useLocation} from '@docusaurus/router';
+import {useLocation} from '@docusaurus/router';
 import {usePluralForm} from '@docusaurus/theme-common';
-
 import Link from '@docusaurus/Link';
 import Layout from '@theme/Layout';
-import FavoriteIcon from '@site/src/components/svgIcons/FavoriteIcon';
 import { sortedProjects } from '@site/src/data/projects';
 import { Project } from '@site/src/shared/dto/Project';
 import { ProjectTagType, ProjectTags, ProjectTagList } from '@site/src/shared/constants/ProjectConsts';
@@ -21,14 +19,14 @@ import ShowcaseFilterToggle, {
 } from './_components/ShowcaseFilterToggle';
 import ShowcaseCard from './_components/ShowcaseCard';
 import ShowcaseTooltip from './_components/ShowcaseTooltip';
-
 import styles from './styles.module.css';
+import SearchBar, { readSearchName } from './_components/ShowcaseSearchBar';
 
-const TITLE = translate({message: 'Docusaurus Site Showcase'});
+const TITLE = translate({message: 'TienNHM Site Showcase'});
 const DESCRIPTION = translate({
-  message: 'List of websites people are building with Docusaurus',
+  message: 'List of sites and projects built by TienNHM',
 });
-const SUBMIT_URL = 'https://github.com/facebook/docusaurus/discussions/7826';
+const SUBMIT_URL = 'https://github.com/TienNHM?tab=repositories';
 
 type UserState = {
   scrollTopPosition: number;
@@ -53,12 +51,6 @@ export function prepareUserState(): UserState | undefined {
   }
 
   return undefined;
-}
-
-const SearchNameQueryKey = 'name';
-
-function readSearchName(search: string) {
-  return new URLSearchParams(search).get(SearchNameQueryKey);
 }
 
 function filterUsers(
@@ -114,9 +106,7 @@ function ShowcaseHeader() {
       <Heading as="h1">{TITLE}</Heading>
       <p>{DESCRIPTION}</p>
       <Link className="button button--primary" to={SUBMIT_URL}>
-        <Translate id="showcase.header.button">
-          🙏 Please add your site
-        </Translate>
+        <Translate id="showcase.header.button">Visit my GitHub 👨‍💻</Translate>
       </Link>
     </section>
   );
@@ -130,9 +120,8 @@ function useSiteCountPlural() {
       translate(
         {
           id: 'showcase.filters.resultCount',
-          description:
-            'Pluralized label for the number of sites found on the showcase. Use as much plural forms (separated by "|") as your language support (see https://www.unicode.org/cldr/cldr-aux/charts/34/supplemental/language_plural_rules.html)',
-          message: '1 site|{sitesCount} sites',
+          description: 'The number of sites found',
+          message: '{sitesCount} sites',
         },
         {sitesCount},
       ),
@@ -160,27 +149,13 @@ function ShowcaseFilters() {
 
           return (
             <li key={i} className={styles.checkboxListItem}>
-              <ShowcaseTooltip
-                id={id}
-                text={description}
-                anchorEl="#__docusaurus">
-                <ShowcaseTagSelect
-                  tag={tag}
-                  id={id}
-                  label={label}
+              <ShowcaseTooltip id={id} text={description} anchorEl="#__docusaurus">
+                <ShowcaseTagSelect tag={tag} id={id} label={label}
                   icon={
                     tag === 'favorite' ? (
-                      <FavoriteIcon svgClass={styles.svgIconFavoriteXs} />
+                      <span style={{marginLeft: '8px'}}>⭐</span>
                     ) : (
-                      <span
-                        style={{
-                          backgroundColor: color,
-                          width: 10,
-                          height: 10,
-                          borderRadius: '50%',
-                          marginLeft: 8,
-                        }}
-                      />
+                      <span className={clsx(styles.dotColor)} style={{ backgroundColor: color }} />
                     )
                   }
                 />
@@ -199,43 +174,6 @@ const favoriteUsers = sortedProjects.filter((user) =>
 const otherUsers = sortedProjects.filter(
   (user) => !user.tags.includes('favorite'),
 );
-
-function SearchBar() {
-  const history = useHistory();
-  const location = useLocation();
-  const [value, setValue] = useState<string | null>(null);
-  useEffect(() => {
-    setValue(readSearchName(location.search));
-  }, [location]);
-  return (
-    <div className={styles.searchContainer}>
-      <input
-        id="searchbar"
-        placeholder={translate({
-          message: 'Search for site name...',
-          id: 'showcase.searchBar.placeholder',
-        })}
-        value={value ?? undefined}
-        onInput={(e) => {
-          setValue(e.currentTarget.value);
-          const newSearch = new URLSearchParams(location.search);
-          newSearch.delete(SearchNameQueryKey);
-          if (e.currentTarget.value) {
-            newSearch.set(SearchNameQueryKey, e.currentTarget.value);
-          }
-          history.push({
-            ...location,
-            search: newSearch.toString(),
-            state: prepareUserState(),
-          });
-          setTimeout(() => {
-            document.getElementById('searchbar')?.focus();
-          }, 0);
-        }}
-      />
-    </div>
-  );
-}
 
 function ShowcaseCards() {
   const filteredUsers = useFilteredUsers();
@@ -265,9 +203,9 @@ function ShowcaseCards() {
                   styles.showcaseFavoriteHeader,
                 )}>
                 <Heading as="h2" id='favorite-projects'>
-                  <FavoriteIcon svgClass={styles.svgIconFavorite} />
+                  <span style={{marginInline: '8px'}}>⭐</span>
                   <Translate id="showcase.favoritesList.title">
-                    Favorite projects
+                    Hightlight projects
                   </Translate>
                   <span className={clsx(styles.countProjects,)}>
                     {favoriteUsers.length}
@@ -325,7 +263,7 @@ export default function Showcase(): JSX.Element {
   return (
     <Layout title={TITLE} description={DESCRIPTION}>
       <main className="margin-vert--lg">
-        {/* <ShowcaseHeader /> */}
+        <ShowcaseHeader />
         <ShowcaseFilters />
         <ShowcaseCards />
       </main>
