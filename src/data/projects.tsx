@@ -130,7 +130,7 @@ const PROJECTS: Project[] = [
     title: 'welcome-bot-discord',
     description: 'A Discord bot for welcoming new members to a server.',
     preview: null,
-    website: null,
+    website: 'https://github.com/TienNHM/welcome-bot-discord',
     source: 'https://github.com/TienNHM/welcome-bot-discord',
     tags: ['opensource'],
   },

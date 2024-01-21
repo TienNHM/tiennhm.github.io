@@ -18,7 +18,9 @@ export function restoreUserState(userState: UserState | null) {
         scrollTopPosition: 0,
         focusedElementId: undefined,
     };
-    document.getElementById(focusedElementId)?.focus();
+    if (focusedElementId) {
+        document.getElementById(focusedElementId)?.focus();
+    }
     window.scrollTo({ top: scrollTopPosition });
 }
 
