@@ -1,1 +1,0 @@
-"use strict";(self.webpackChunktiennhm_github_io=self.webpackChunktiennhm_github_io||[]).push([[4878],{83861:e=>{e.exports=JSON.parse('{"label":"git","permalink":"/en/blog/tags/git","allTagsPath":"/en/blog/tags","count":2}')}}]);

@@ -1,1 +1,0 @@
-"use strict";(self.webpackChunktiennhm_github_io=self.webpackChunktiennhm_github_io||[]).push([[2521],{95372:e=>{e.exports=JSON.parse('{"label":"CAAL","permalink":"/en/blog/tags/caal","allTagsPath":"/en/blog/tags","count":2}')}}]);

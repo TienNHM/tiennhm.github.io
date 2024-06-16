@@ -1,1 +1,0 @@
-"use strict";(self.webpackChunktiennhm_github_io=self.webpackChunktiennhm_github_io||[]).push([[5649],{85274:t=>{t.exports=JSON.parse('{"label":"git","permalink":"/docs/tags/git","allTagsPath":"/docs/tags","count":1,"items":[{"id":"index","title":"Tutorials","description":"T\u1ed5ng h\u1ee3p c\xe1c tutorials, solutions cho c\xe1c problems...","permalink":"/docs/"}]}')}}]);

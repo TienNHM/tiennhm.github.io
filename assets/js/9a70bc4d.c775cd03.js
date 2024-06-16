@@ -1,1 +1,0 @@
-"use strict";(self.webpackChunktiennhm_github_io=self.webpackChunktiennhm_github_io||[]).push([[1964],{14629:l=>{l.exports=JSON.parse('{"label":"follow","permalink":"/blog/tags/follow","allTagsPath":"/blog/tags","count":1}')}}]);
