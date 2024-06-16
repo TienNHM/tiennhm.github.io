@@ -45,5 +45,5 @@ Linkedin được thành lập vào tháng 12 năm 2002 và được ra mắt v�
 
 ## Tài liệu tham khảo
 
-[^1]: <https://www.masaischool.com/blog/a-list-of-useful-linkedin-profiles-to-follow-for-developers/>, "Những tài khoản Linkedin mà bất cứ lập trình viên nào cũng nên theo dõi"
-[^2]: <https://about.linkedin.com>, "Giới thiệu về Linkedin"
+[^1]: https://www.masaischool.com/blog/a-list-of-useful-linkedin-profiles-to-follow-for-developers/, "Những tài khoản Linkedin mà bất cứ lập trình viên nào cũng nên theo dõi"
+[^2]: https://about.linkedin.com, "Giới thiệu về Linkedin"

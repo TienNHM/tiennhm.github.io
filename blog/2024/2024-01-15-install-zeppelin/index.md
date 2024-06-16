@@ -18,20 +18,20 @@ Apache Zeppelin là một công cụ phân tích dữ liệu mã nguồn mở, �
 
 ## 1. Cài đặt Java
 
-Để cài đặt Apache Zeppelin, chúng ta cần cài đặt Java trước. Có thể tải Java từ trang chủ của Oracle tại địa chỉ <https://www.oracle.com/java/technologies/javase-downloads.html>. Trong bài viết này, chúng ta sẽ sử dụng Java 8.
+Để cài đặt Apache Zeppelin, chúng ta cần cài đặt Java trước. Có thể tải Java từ trang chủ của Oracle tại địa chỉ https://www.oracle.com/java/technologies/javase-downloads.html. Trong bài viết này, chúng ta sẽ sử dụng Java 8.
 
 :::tip Link tải trực tiếp
-<https://javadl.oracle.com/webapps/download/GetFile/1.8.0_331-b09/165374ff4ea84ef0bbd821706e29b123/windows-i586/jre-8u331-windows-x64.exe>
+https://javadl.oracle.com/webapps/download/GetFile/1.8.0_331-b09/165374ff4ea84ef0bbd821706e29b123/windows-i586/jre-8u331-windows-x64.exe
 :::
 
 Sau khi tải về, chúng ta tiến hành cài đặt Java bình thường.
 
 ## 2. Cài đặt Apache Zeppelin - Version 0.8.2
 
-Sau khi cài đặt Java xong, chúng ta tiến hành tải Apache Zeppelin về từ trang chủ của Apache Zeppelin tại địa chỉ <https://zeppelin.apache.org/download.html>. Trong bài viết này, chúng ta sẽ sử dụng Apache Zeppelin phiên bản 0.8.2.
+Sau khi cài đặt Java xong, chúng ta tiến hành tải Apache Zeppelin về từ trang chủ của Apache Zeppelin tại địa chỉ https://zeppelin.apache.org/download.html. Trong bài viết này, chúng ta sẽ sử dụng Apache Zeppelin phiên bản 0.8.2.
 
 :::tip Link tải trực tiếp
-<https://dlcdn.apache.org/zeppelin/zeppelin-0.8.2/zeppelin-0.8.2-bin-all.tgz>
+https://dlcdn.apache.org/zeppelin/zeppelin-0.8.2/zeppelin-0.8.2-bin-all.tgz
 :::
 
 Bạn hãy tải file `zeppelin-0.8.2-bin-all.tgz` về và giải nén ra một thư mục bất kỳ. Trong bài viết này, chúng ta sẽ giải nén vào thư mục `D:\Programs\zeppelin-0.8.2-bin-all`.
@@ -40,10 +40,10 @@ Bạn có thể sử dụng phần mềm [7-Zip](https://www.7-zip.org/) hoặc 
 
 ## 3. Cài đặt Python3 - Version 3.12.1
 
-Apache Zeppelin hỗ trợ nhiều ngôn ngữ lập trình khác nhau. Trong bài viết này, chúng ta sẽ sử dụng Python3. Bạn có thể tải Python3 từ trang chủ của Python tại địa chỉ <https://www.python.org/downloads/>. Trong bài viết này, chúng ta sẽ sử dụng Python3 phiên bản 3.12.1.
+Apache Zeppelin hỗ trợ nhiều ngôn ngữ lập trình khác nhau. Trong bài viết này, chúng ta sẽ sử dụng Python3. Bạn có thể tải Python3 từ trang chủ của Python tại địa chỉ https://www.python.org/downloads/. Trong bài viết này, chúng ta sẽ sử dụng Python3 phiên bản 3.12.1.
 
 :::tip Link tải trực tiếp
-<https://www.python.org/ftp/python/3.12.1/python-3.12.1-amd64.exe>
+https://www.python.org/ftp/python/3.12.1/python-3.12.1-amd64.exe
 :::
 
 Lưu ý khi cài đặt Python3, bạn chọn chế độ cài đặt `Customize installation` và chọn `Add Python 3.12 to PATH` như hình dưới đây:
@@ -105,7 +105,7 @@ Lưu ý: Đường dẫn `D:\Programs\zeppelin-0.8.2-bin-all\python\venv\Scripts
 
 ## 7. Thay thế một số tập tin
 
-Tải các file patches tại <https://cloud.cntt.io/s/G69GLQ9MKwWpAZy>. Lần lượt thay thế như sau:
+Tải các file patches tại https://cloud.cntt.io/s/G69GLQ9MKwWpAZy. Lần lượt thay thế như sau:
 
 - spark-interpreter-0.8.2.jar
 > D:\Programs\zeppelin-0.8.2-bin-all\interpreter\spark\spark-interpreter-0.8.2.jar
@@ -128,7 +128,7 @@ Kết quả trên Command Prompt (hoặc Windows PowerShell) sẽ như sau:
 
 ![Run Apache Zeppelin](./images/run-apache-zeppelin.jpg)
 
-Sau khi chạy và thấy logs báo `Done, zeppelin server started`, chúng ta mở trình duyệt web lên và truy cập vào địa chỉ <http://localhost:8080> để sử dụng Apache Zeppelin.
+Sau khi chạy và thấy logs báo `Done, zeppelin server started`, chúng ta mở trình duyệt web lên và truy cập vào địa chỉ http://localhost:8080 để sử dụng Apache Zeppelin.
 
 Màn hình trang chủ của Apache Zeppelin sẽ như sau:
 ![Apache Zeppelin Home Page](./images/welcome-apache-zeppelin.jpg)

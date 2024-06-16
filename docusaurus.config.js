@@ -4,8 +4,8 @@
 // require('dotenv').config({ path: `.env.local`, override: true });
 require('dotenv').config({});
 
-const lightCodeTheme = require('prism-react-renderer/themes/github');
-const darkCodeTheme = require('prism-react-renderer/themes/dracula');
+const lightCodeTheme = require('prism-react-renderer').themes.github;
+const darkCodeTheme = require('prism-react-renderer').themes.dracula;
 
 const organizationName = "TienNHM";
 const projectName = "tiennhm.github.io";
