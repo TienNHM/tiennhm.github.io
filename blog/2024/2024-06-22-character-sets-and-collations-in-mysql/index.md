@@ -2,7 +2,7 @@
 slug: character-sets-and-collations-in-mysql
 title: Character Sets - Collations và vấn đề so sánh chuỗi trong MySQL
 description: Giới thiệu về các bảng mã và cách so sánh chuỗi trong MySQL, những vấn đề cần lưu ý khi làm việc với các bảng mã khác nhau.
-image: https://labs.mysql.com/common/logos/mysql-logo.svg?v2
+image: https://i.pinimg.com/originals/6e/4a/9a/6e4a9a1b7604e4f9b6a9f74f932834ad.png
 authors: [tiennhm]
 tags: [mysql, character-sets, collations, tips-and-tricks, database]
 keywords: [mysql, character-sets, collations, tips-and-tricks, database]
@@ -159,7 +159,95 @@ SELECT * FROM users WHERE name COLLATE utf8_bin = 'Alice';
 
 Như vậy, bạn đã biết cách so sánh chuỗi trong MySQL và cách xác định collation của cột để tránh nhầm lẫn trong kết quả truy vấn.
 
-## 4. Kết luận {#conclusion}
+## 4. Những vấn đề cần lưu ý {#issues}
+
+### 4.1. Một số ví dụ sử dụng collation
+
+Với từ khóa `COLLATE`, bạn có thể ghi đè collation mặc định của cột trong truy vấn. Ta có thể sử dụng `COLLATE` trong các trường hợp sau:
+
+- Dùng với `ORDER BY` để sắp xếp chuỗi theo collation khác nhau.
+
+```sql
+SELECT * 
+FROM users 
+ORDER BY name COLLATE utf8_bin;
+```
+
+- Dùng với `AS` để đặt tên collation cho cột mới.
+
+```sql
+SELECT name COLLATE utf8_bin AS name_bin
+FROM users;
+```
+
+- Dùng với `GROUP BY` để nhóm chuỗi theo collation khác nhau.
+
+```sql
+SELECT name COLLATE utf8_bin
+FROM users
+GROUP BY name COLLATE utf8_bin;
+```
+
+- Dùng với các hàm aggregation như `SUM`, `AVG`, `MAX`, `MIN`, `COUNT` để tính toán trên chuỗi theo collation khác nhau.
+
+```sql
+SELECT MIN(name COLLATE utf8_bin)
+FROM users;
+```
+
+- Dùng với `DISTINCT` để loại bỏ các giá trị trùng lặp theo collation khác nhau.
+
+```sql
+SELECT DISTINCT name COLLATE utf8_bin
+FROM users;
+```
+
+- Dùng với `WHERE` để so sánh chuỗi theo collation khác nhau.
+
+```sql
+SELECT *
+FROM users
+WHERE name COLLATE utf8_bin = 'Alice';
+```
+
+```sql
+SELECT *
+FROM users
+WHERE name COLLATE utf8_bin LIKE 'A%';
+```
+
+- Dùng với `HAVING` để lọc kết quả theo collation khác nhau.
+
+```sql
+SELECT name
+FROM users
+HAVING name COLLATE utf8_bin = 'Alice';
+```
+
+### 4.2. Mức độ ưu tiên của collation
+
+Mệnh đề `COLLATE` có độ ưu tiên cao (cao hơn `||`). Hai biểu thức sau sẽ tương đương:
+
+```sql
+x || y COLLATE z
+x || (y COLLATE z)
+```
+
+### 4.3. Độ tương thích của collation
+
+Nếu hai collation không tương thích, MySQL sẽ báo lỗi. Ví dụ:
+
+```sql
+SELECT 'Alice' COLLATE utf8_bin = 'Alice' COLLATE utf8_general_ci;
+```
+
+Sẽ báo lỗi:
+
+```
+Error Code: 1253. COLLATION 'utf8_bin' is not valid for CHARACTER SET 'utf8mb4'
+```
+
+## 5. Kết luận {#conclusion}
 
 Trong bài viết này, chúng ta đã tìm hiểu về các bảng mã và cách so sánh chuỗi trong MySQL, những vấn đề cần lưu ý khi làm việc với các bảng mã khác nhau. Hy vọng bài viết này giúp bạn hiểu rõ hơn về collation và cách so sánh chuỗi trong MySQL.
 
