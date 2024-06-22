@@ -14,6 +14,8 @@ draft: false # set to true to hide this post from the site
     <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Fcharacter-sets-and-collations-in-mysql&label=⚪Views&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
 </p>
 
+Trong thực tế, khi làm việc với cơ sở dữ liệu, bạn thường phải xử lý các chuỗi văn bản, và việc so sánh chuỗi đôi khi gặp phải một số vấn đề. MySQL hỗ trợ nhiều bảng mã (Character Sets) và thứ tự ký tự (Collations) khác nhau, và cách so sánh chuỗi phụ thuộc vào collation của bảng mã.
+
 Bài viết này giới thiệu về các bảng mã và cách so sánh chuỗi trong MySQL, những vấn đề cần lưu ý khi làm việc với các bảng mã khác nhau.
 
 <!--truncate-->
@@ -163,65 +165,130 @@ Như vậy, bạn đã biết cách so sánh chuỗi trong MySQL và cách xác 
 
 ### 4.1. Một số ví dụ sử dụng collation
 
+Giả sử bạn có một bảng `users` với cột `name` có collation `latin1_bin`:
+
+```sql
+CREATE TABLE users (
+    id INT PRIMARY KEY,
+    name VARCHAR(255) COLLATE latin1_bin
+);
+```
+
+Và bạn thêm dữ liệu vào bảng `users`:
+
+```sql
+INSERT INTO users (id, name) VALUES (1, 'Alice');
+INSERT INTO users (id, name) VALUES (2, 'alice');
+INSERT INTO users (id, name) VALUES (3, 'ALICE');
+INSERT INTO users (id, name) VALUES (4, 'Bar');
+INSERT INTO users (id, name) VALUES (5, 'Bär');
+INSERT INTO users (id, name) VALUES (6, 'Muffler');
+INSERT INTO users (id, name) VALUES (7, 'Müller');
+INSERT INTO users (id, name) VALUES (8, 'MX Systems');
+INSERT INTO users (id, name) VALUES (9, 'MySQL');
+```
+
 Với từ khóa `COLLATE`, bạn có thể ghi đè collation mặc định của cột trong truy vấn. Ta có thể sử dụng `COLLATE` trong các trường hợp sau:
 
-- Dùng với `ORDER BY` để sắp xếp chuỗi theo collation khác nhau.
+#### Dùng với `ORDER BY` để sắp xếp chuỗi theo collation khác nhau {#collate-order-by}
 
 ```sql
 SELECT * 
 FROM users 
-ORDER BY name COLLATE utf8_bin;
+ORDER BY name COLLATE latin1_bin;
 ```
 
-- Dùng với `AS` để đặt tên collation cho cột mới.
-
-```sql
-SELECT name COLLATE utf8_bin AS name_bin
-FROM users;
-```
-
-- Dùng với `GROUP BY` để nhóm chuỗi theo collation khác nhau.
-
-```sql
-SELECT name COLLATE utf8_bin
-FROM users
-GROUP BY name COLLATE utf8_bin;
-```
-
-- Dùng với các hàm aggregation như `SUM`, `AVG`, `MAX`, `MIN`, `COUNT` để tính toán trên chuỗi theo collation khác nhau.
-
-```sql
-SELECT MIN(name COLLATE utf8_bin)
-FROM users;
-```
-
-- Dùng với `DISTINCT` để loại bỏ các giá trị trùng lặp theo collation khác nhau.
-
-```sql
-SELECT DISTINCT name COLLATE utf8_bin
-FROM users;
-```
-
-- Dùng với `WHERE` để so sánh chuỗi theo collation khác nhau.
+![collate-order-by-latin1_bin.jpg](./images/collate-order-by-latin1_bin.jpg)
 
 ```sql
 SELECT *
 FROM users
-WHERE name COLLATE utf8_bin = 'Alice';
+ORDER BY name COLLATE latin1_general_ci;
 ```
 
+![collate-order-by-latin1_general_ci.jpg](./images/collate-order-by-latin1_general_ci.jpg)
+
 ```sql
-SELECT *
-FROM users
-WHERE name COLLATE utf8_bin LIKE 'A%';
+SELECT * 
+FROM users 
+ORDER BY name COLLATE latin1_general_cs;
 ```
 
-- Dùng với `HAVING` để lọc kết quả theo collation khác nhau.
+![collate-order-by-latin1_general_cs.jpg](./images/collate-order-by-latin1_general_cs.jpg)
+
+Nhận xét:
+- `latin1_bin`: sắp xếp chính xác từng ký tự, phân biệt chữ hoa và chữ thường.
+- `latin1_general_ci`: không phân biệt chữ hoa và chữ thường.
+- `latin1_general_cs`: phân biệt chữ hoa và chữ thường. Tuy nhiên, collation này không phân biệt dấu thanh.
+
+#### Dùng với `AS` để đặt tên collation cho cột mới {#collate-as}
 
 ```sql
-SELECT name
+SELECT name COLLATE latin1_general_ci AS name_latin1_general_ci
+FROM users;
+```
+
+![collate-as-latin1_general_ci.jpg](./images/collate-as-latin1_general_ci.jpg)
+
+#### Dùng với `GROUP BY` để nhóm chuỗi theo collation khác nhau {#collate-group-by}
+
+```sql
+SELECT name COLLATE latin1_general_ci, COUNT(1)
 FROM users
-HAVING name COLLATE utf8_bin = 'Alice';
+GROUP BY name COLLATE latin1_general_ci;
+```
+
+![collate-group-by-latin1_general_ci.jpg](./images/collate-group-by-latin1_general_ci.jpg)
+
+#### Dùng với các hàm aggregation để tính toán trên chuỗi theo collation khác nhau {#collate-aggregation}
+
+```sql
+SELECT MIN(name COLLATE latin1_general_ci)
+FROM users;
+```
+
+![collate-min-latin1_general_ci.jpg](./images/collate-min-latin1_general_ci.jpg)
+
+#### Dùng với `DISTINCT` để loại bỏ các giá trị trùng lặp theo collation khác nhau {#collate-distinct}
+
+```sql
+SELECT DISTINCT name COLLATE latin1_general_ci
+FROM users;
+```
+
+![collate-distinct-latin1_general_ci.jpg](./images/collate-distinct-latin1_general_ci.jpg)
+
+#### Dùng với `WHERE` để so sánh chuỗi theo collation khác nhau {#collate-where}
+
+```sql
+SELECT * 
+FROM users
+WHERE name COLLATE latin1_general_ci = 'Alice';
+```
+
+![collate-where-latin1_general_ci.jpg](./images/collate-where-latin1_general_ci.jpg)
+
+Ta thấy, với collation `latin1_general_ci`, `Alice`, `ALICE` và `alice` được xem là giống nhau, nên trả về tất cả các dòng có `name` là `Alice`.
+
+Lưu ý, nếu không chỉ định collation, MySQL sẽ sử dụng collation mặc định của cột (trong trường hợp này là `latin1_bin`). Ví dụ:
+
+```sql
+SELECT * 
+FROM users
+WHERE name = 'Alice';
+```
+
+![collate-where-latin1_bin.jpg](./images/collate-where-latin1_bin.jpg)
+
+Ta thấy, với collation `latin1_bin`, `Alice`, `ALICE` và `alice` được xem là khác nhau, nên chỉ trả về dòng có `name` là `Alice`.
+
+#### Dùng với `HAVING` để lọc kết quả theo collation khác nhau {#collate-having}
+
+```sql
+SELECT * 
+FROM users
+GROUP BY name COLLATE latin1_general_ci
+HAVING COUNT(1) > 1;
 ```
 
 ### 4.2. Mức độ ưu tiên của collation
@@ -231,6 +298,18 @@ Mệnh đề `COLLATE` có độ ưu tiên cao (cao hơn `||`). Hai biểu thứ
 ```sql
 x || y COLLATE z
 x || (y COLLATE z)
+```
+
+Ví dụ:
+
+```sql
+SELECT 'Alice' || 'Alice' COLLATE utf8_general_ci;
+```
+
+Tương đương với:
+
+```sql
+SELECT 'Alice' || ('Alice' COLLATE utf8_general_ci);
 ```
 
 ### 4.3. Độ tương thích của collation
