@@ -123,7 +123,7 @@ Ví dụ, giả sử bạn có một bảng `users` với cột `name` có colla
 ```sql
 CREATE TABLE users (
     id INT PRIMARY KEY,
-    name VARCHAR(255) COLLATE utf8_general_ci
+    name VARCHAR(255) COLLATE utf8_bin
 );
 ```
 
@@ -140,9 +140,24 @@ Khi bạn so sánh chuỗi trong MySQL, kết quả sẽ phụ thuộc vào coll
 SELECT * FROM users WHERE name = 'Alice';
 ```
 
-Nếu collation của cột `name` là `utf8_general_ci`, câu lệnh trên sẽ trả về cả hai dòng, vì collation `utf8_general_ci` không phân biệt chữ hoa và chữ thường.
+Nếu collation của cột `name` là `utf8_bin`, câu lệnh trên sẽ chỉ trả về dòng có `name` là `Alice`, vì collation `utf8_bin` phân biệt chữ hoa và chữ thường.
 
-Tuy nhiên, nếu collation của cột `name` là `utf8_bin`, câu lệnh trên sẽ không trả về dòng nào, vì collation `utf8_bin` phân biệt chữ hoa và chữ thường.
+![string-comparison-mysql.jpg](./images/string-comparison-mysql.jpg)
+
+Tuy nhiên, nếu collation của cột `name` là `utf8_general_ci`, câu lệnh trên sẽ trả về cả hai dòng, vì collation `utf8_general_ci` không phân biệt chữ hoa và chữ thường.
+
+![string-comparison-mysql-ci.jpg](./images/string-comparison-mysql-ci.jpg)
+
+
+Từ đó, khi làm việc với chuỗi trong MySQL, bạn cần lưu ý collation của cột để tránh nhầm lẫn trong kết quả truy vấn. Nếu cần, bạn có thể sử dụng hàm `COLLATE` để ghi đè collation mặc định:
+
+```sql
+SELECT * FROM users WHERE name COLLATE utf8_bin = 'Alice';
+```
+
+![string-comparison-mysql-collate.jpg](./images/string-comparison-mysql-collate.jpg)
+
+Như vậy, bạn đã biết cách so sánh chuỗi trong MySQL và cách xác định collation của cột để tránh nhầm lẫn trong kết quả truy vấn.
 
 ## 4. Kết luận {#conclusion}
 
