@@ -92,8 +92,8 @@ export default function HomepageFeatures(): JSX.Element {
         <div className='row'>
           {
             TopProjectList.map((project: Project) => (
-              <div className={clsx('col col--4', styles.showcaseFeaturesList)}>
-                <ShowcaseCard key={project.title} user={project} />
+              <div key={project.title} className={clsx('col col--4', styles.showcaseFeaturesList)}>
+                <ShowcaseCard user={project} />
               </div>
             ))
           }
