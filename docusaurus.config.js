@@ -96,9 +96,9 @@ const config = {
     customFields: {
         // Put your custom environment here
         CANNY_BOARD_TOKEN: process.env.CANNY_BOARD_TOKEN,
-        GITHUB_REPO_ID: process.env.GITHUB_REPO_ID,
-        GITHUB_REPO: process.env.GITHUB_REPO,
-        GITHUB_CATEGORY_ID: process.env.GITHUB_CATEGORY_ID,
+        REPO_GITHUB_ID: process.env.REPO_GITHUB_ID,
+        REPO_GITHUB: process.env.REPO_GITHUB,
+        REPO_GITHUB_CATEGORY_ID: process.env.REPO_GITHUB_CATEGORY_ID,
     },
 
     // Even if you don't use internalization, you can use this field to set useful
