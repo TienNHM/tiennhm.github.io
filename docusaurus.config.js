@@ -1,8 +1,8 @@
 // @ts-check
 // Note: type annotations allow type checking and IDEs autocompletion
 
-// require('dotenv').config({ path: `.env.local`, override: true });
-require('dotenv').config({});
+require('dotenv').config({ path: `.env.local`, override: true });
+// require('dotenv').config({});
 
 const lightCodeTheme = require('prism-react-renderer').themes.github;
 const darkCodeTheme = require('prism-react-renderer').themes.dracula;
@@ -83,7 +83,7 @@ const config = {
             tagName: 'meta',
             attributes: {
                 name: 'google-site-verification',
-                content: 'KahpusCmJyTWNzsOBu_IjSN9SlluR7BH6lq4SnfsFsQ'
+                content: process.env.GOOGLE_SITE_VERIFICATION,
             }
         }
     ],
@@ -149,10 +149,10 @@ const config = {
                     filename: 'sitemap.xml',
                 },
                 googleTagManager: {
-                    containerId: 'GTM-N3QR867G',
+                    containerId: process.env.GOOGLE_TAG_MANAGER_ID,
                 },
                 gtag: {
-                    trackingID: 'G-DMFKNJS6CG',
+                    trackingID: process.env.GTAG_TRACKING_ID,
                     anonymizeIP: true,
                 },
             }),
@@ -198,6 +198,13 @@ const config = {
                         content: 'rgb(37, 194, 160)',
                     },
                 ],
+            },
+        ],
+        [
+            "docusaurus-plugin-dotenv",
+            {
+              path: "./.env.local",
+              systemvars: true,
             },
         ],
         '@docusaurus/theme-mermaid',
