@@ -15,10 +15,10 @@ export default function GiscusComponent() {
 
   return (
     <Giscus
-      repo={customFields.GITHUB_REPO}
-      repoId={customFields.GITHUB_REPO_ID}
+      repo={customFields.REPO_GITHUB}
+      repoId={customFields.REPO_GITHUB_ID}
       category="General"
-      categoryId={customFields.GITHUB_CATEGORY_ID}
+      categoryId={customFields.REPO_GITHUB_CATEGORY_ID}
       mapping="title"
       term="Discussion"
       strict="1"
