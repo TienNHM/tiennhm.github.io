@@ -9,7 +9,7 @@ image: https://v1.screenshot.11ty.dev/https%3A%2F%2Fk6.io/opengraph/
 ---
 
 <p align="right">
-    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Fload-testing-restful-apis-with-k6-part-05&label=⚪Views&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
+    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Fload-testing-restful-apis-with-k6-part-05&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
 </p>
 
 Trong các bài viết trước, chúng ta đã biết cách viết kịch bản test và xem kết quả trên màn hình console khi chạy kịch bản với k6. Tuy nhiên, để có thể quan sát và phân tích kết quả một cách trực quan hơn, chúng ta có thể kết hợp k6 với Grafana và InfluxDB.

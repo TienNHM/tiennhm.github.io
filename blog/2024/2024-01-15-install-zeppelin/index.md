@@ -9,7 +9,7 @@ image: ./images/zeppelin-spark.png
 ---
 
 <p align="right">
-    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Finstall-zeppelin-on-windows&label=⚪Views&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
+    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Finstall-zeppelin-on-windows&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
 </p>
 
 Apache Zeppelin là một công cụ phân tích dữ liệu mã nguồn mở, được thiết kế để thực hiện các nhiệm vụ phân tích dữ liệu tương tác và trực quan. Nó cung cấp một giao diện người dùng web để phân tích dữ liệu bằng nhiều ngôn ngữ lập trình khác nhau như Scala, Python, SQL, SparkSQL, Hive, Markdown, Shell, v.v. Trong bài viết này, chúng ta sẽ cùng nhau tìm hiểu cách cài đặt Apache Zeppelin trên Windows.

@@ -11,7 +11,7 @@ draft: false # set to true to hide this post from the site
 ---
 
 <p align="right">
-    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Fcharacter-sets-and-collations-in-mysql&label=⚪Views&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
+    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Fcharacter-sets-and-collations-in-mysql&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
 </p>
 
 Trong thực tế, khi làm việc với cơ sở dữ liệu, bạn thường phải xử lý các chuỗi văn bản, và việc so sánh chuỗi đôi khi gặp phải một số vấn đề. MySQL hỗ trợ nhiều bảng mã (Character Sets) và thứ tự ký tự (Collations) khác nhau, và cách so sánh chuỗi phụ thuộc vào collation của bảng mã.

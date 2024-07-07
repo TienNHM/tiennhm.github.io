@@ -9,7 +9,7 @@ image: https://i.pinimg.com/originals/71/ee/32/71ee32577432648f9e45fbd63b2cf261.
 ---
 
 <p align="right">
-    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Fbest-websites-to-learn-javascript&label=⚪Views&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
+    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Fbest-websites-to-learn-javascript&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
 </p>
 
 Javascript là một ngôn ngữ lập trình web đa nền tảng, kịch bản, hướng đối tượng. Javascript được nhúng vào HTML để tạo ra các trang web động và tương tác. Nó có thể được sử dụng cho nhiều mục đích khác nhau, từ frontend cho đến backend, từ game cho đến ứng dụng web phức tạp.

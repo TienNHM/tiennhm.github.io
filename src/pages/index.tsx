@@ -38,7 +38,7 @@ function HomepageHeader() {
 
           <div className={clsx(styles.githubInfo)}>
             <pre>
-            ⊕ <span>{user?.followers} followers</span> - ⊛ <span>{user?.following} following</span>
+            ⊕ <span>{user?.followers} followers</span> - ⊛ <span>{user?.following} followings</span>
             </pre>
           </div>
 

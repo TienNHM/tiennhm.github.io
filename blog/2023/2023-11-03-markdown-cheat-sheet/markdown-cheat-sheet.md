@@ -9,7 +9,7 @@ image: https://www.freecodecamp.org/news/content/images/size/w2000/2022/08/Markd
 ---
 
 <p align="right">
-    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Fmarkdown-cheat-sheet&label=⚪Views&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
+    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Fmarkdown-cheat-sheet&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
 </p>
 
 Bạn có thể tạo một file README trên Github với Markdown. Nhưng markdown là gì và cách tạo một file README trên Github với Markdown như thế nào? Hãy cùng tìm hiểu ở bài viết này nhé!

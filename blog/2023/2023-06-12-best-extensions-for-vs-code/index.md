@@ -9,7 +9,7 @@ image: https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com
 ---
 
 <p align="right">
-    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Fbest-extensions-for-vs-code&label=⚪Views&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
+    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Fbest-extensions-for-vs-code&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
 </p>
 
 Visual Studio Code là một trình chỉnh sửa mã nguồn, nhẹ nhưng mạnh mẽ, hỗ trợ cho đa dạng các hệ điều hành: Windows, macOS và Linux. Nó hỗ trợ cho `JavaScript`, `TypeScript` và `Node.js` và có một hệ sinh thái phong phú các tiện ích mở rộng cho các ngôn ngữ khác (chẳng hạn như `C++`, `C#`, `Java`, `Python`, `PHP`, `Go`) và các runtimes (chẳng hạn như `.NET` và `Unity`).

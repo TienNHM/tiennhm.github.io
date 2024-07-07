@@ -96,7 +96,7 @@ export default function HomepageFeatures(): JSX.Element {
 
         <div id='top-projects' className={clsx(styles.showcaseFeaturesLink)}>
           <Link href='/showcase'>
-            <Button label='View more' icon='pi pi-angle-double-right' 
+            <Button label='View more ...' icon='pi pi-angle-double-right' 
               size='large' severity="success" rounded outlined/>
           </Link>
         </div>

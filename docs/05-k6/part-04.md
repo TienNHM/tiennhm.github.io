@@ -9,7 +9,7 @@ image: https://v1.screenshot.11ty.dev/https%3A%2F%2Fk6.io/opengraph/
 ---
 
 <p align="right">
-    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Fload-testing-restful-apis-with-k6-part-04&label=⚪Views&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
+    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Fload-testing-restful-apis-with-k6-part-04&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
 </p>
 
 Trong các bài viết trước, chúng ta đã tìm hiểu cách **cài đặt** [k6](https://k6.io), **viết** một kịch bản test đơn giản, **chạy** kịch bản test và **xem** kết quả. Trong bài viết này, chúng ta sẽ tìm hiểu ý nghĩa của các chỉ số trong kết quả của k6.
