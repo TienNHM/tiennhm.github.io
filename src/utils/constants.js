@@ -13,5 +13,5 @@ export const PROTECTED_PATHS = [
     "/profile",
     "/dashboard",
     "/settings",
-    "/docs",
+    "/logout",
 ];

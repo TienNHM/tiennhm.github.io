@@ -15,7 +15,7 @@ const footerLinks = [
         items: [
             {
                 label: 'Tutorial',
-                to: '/docs/intro',
+                to: '/docs',
             },
         ],
     },
@@ -28,7 +28,7 @@ const footerLinks = [
             },
             {
                 label: 'Facebook',
-                href: 'https://www.facebook.com/tiennhm.it',
+                href: 'https://www.facebook.com/tiennhm.vn',
             },
             {
                 label: 'Youtube',
@@ -130,8 +130,8 @@ const config = {
                     // Remove this to remove the "edit this page" links.
                     editUrl: `https://github.com/${organizationName}/${projectName}/tree/master`,
                     postsPerPage: 5,
-                    blogSidebarCount: 'ALL',
-                    blogSidebarTitle: 'Tất cả bài viết',
+                    // blogSidebarCount: 'ALL',
+                    blogSidebarTitle: 'Bài viết gần đây',
                     blogTitle: 'Blog',
                     blogDescription: 'Blog của TienNHM',
                     blogListComponent: '@theme/BlogListPage',
@@ -203,8 +203,8 @@ const config = {
         [
             "docusaurus-plugin-dotenv",
             {
-              path: "./.env.local",
-              systemvars: true,
+                path: "./.env.local",
+                systemvars: true,
             },
         ],
         '@docusaurus/theme-mermaid',
@@ -241,27 +241,27 @@ const config = {
                     { to: '/showcase', label: 'Showcase', position: 'left' },
                     // { to: '/cv', label: 'CV', position: 'left' },
                     { to: '/community', label: 'Community', position: 'left' },
-                    { to: '/contact', label: 'Contact', position: 'left' },
+                    // { to: '/contact', label: 'Contact', position: 'left' },
                     {
                         href: 'https://github.com/TienNHM',
                         // label: 'GitHub',
-                        position: 'right',
+                        position: 'left',
                         className: "header-github-link",
                     },
                     {
                         type: 'localeDropdown',
-                        position: 'right',
+                        position: 'left',
                     },
                 ],
             },
             docs: {
                 sidebar: {
-                  hideable: true,
+                    hideable: true,
                 },
             },
             footer: {
                 style: 'light',
-                // links: footerLinks,
+                links: footerLinks,
                 copyright: `Copyright © ${new Date().getFullYear()} TienNHM.`,
             },
             prism: {
@@ -279,6 +279,8 @@ const config = {
                 apiKey: process.env.ALGOLIA_API_KEY,
                 indexName: process.env.ALGOLIA_INDEX_NAME,
                 contextualSearch: true,
+                insights: true,
+
             },
             mermaid: {
                 theme: { light: 'neutral', dark: 'dark' },

@@ -17,7 +17,7 @@ export type ContactDict = {
 export const CONTACTS: ContactDict = {
   Facebook: {
     title: translate({ message: 'Facebook' }),
-    link: 'https://www.facebook.com/tiennhm.it/',
+    link: 'https://www.facebook.com/tiennhm.vn/',
     icon: require('@site/static/img/logo/facebook.svg').default,
     faIcon: faFacebook,
   } as Contact,
