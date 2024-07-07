@@ -6,7 +6,7 @@ import StyledFirebaseAuth from "react-firebaseui/StyledFirebaseAuth";
 import "firebase/compat/auth";
 import { firebaseUiConfig } from "@site/src/config/firebase-config";
 import { auth } from "@site/src/components/Auth";
-import { BASE } from "@site/src/utils/constants";
+import { AVATAR_URL, BASE } from "@site/src/utils/constants";
 import "./styles.css";
 
 export function Login() {
@@ -22,7 +22,7 @@ export function Login() {
       }
     }>
       <div className="auth-wrapper">
-        <img className="login-avatar" src="https://github.com/TienNHM.png" alt="TienNHM" />
+        <img className="login-avatar" src={AVATAR_URL} alt="TienNHM" />
         <h3 className="auth-title">Sign in to continue</h3>
         <StyledFirebaseAuth uiConfig={firebaseUiConfig} firebaseAuth={auth} />
         <Link to={BASE} className="back-link">Back to Home</Link>

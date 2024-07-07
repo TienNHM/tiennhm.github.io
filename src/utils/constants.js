@@ -1,4 +1,5 @@
-// src/utils/constants.js
+export const AVATAR_URL = "https://github.com/TienNHM.png";
+export const GITHUB_USER = "TienNHM";
 
 export const LOGIN_PATH = "/login";
 export const LOGOUT_PATH = "/logout";

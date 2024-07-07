@@ -83,12 +83,7 @@ export default function HomepageFeatures(): JSX.Element {
           }
         </div>
         <h1 id='top-projects' className={clsx(styles.showcaseFeaturesTitle)}>Top Projects</h1>
-        <div id='top-projects' className={clsx(styles.showcaseFeaturesLink)}>
-          <Link href='/showcase'>
-            <Button label='View more' icon='pi pi-angle-double-right' 
-              iconPos='right' size='small' severity="success" rounded outlined/>
-          </Link>
-        </div>
+ 
         <div className='row'>
           {
             TopProjectList.map((project: Project) => (
@@ -97,6 +92,13 @@ export default function HomepageFeatures(): JSX.Element {
               </div>
             ))
           }
+        </div>
+
+        <div id='top-projects' className={clsx(styles.showcaseFeaturesLink)}>
+          <Link href='/showcase'>
+            <Button label='View more' icon='pi pi-angle-double-right' 
+              size='large' severity="success" rounded outlined/>
+          </Link>
         </div>
       </div>
     </section>

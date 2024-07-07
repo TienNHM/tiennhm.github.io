@@ -78,6 +78,6 @@ export function useNavbarItems() {
   }
 
   const uniqueItems = [...new Map(items.map((x) => [x.label, x])).values()];
-  console.log(uniqueItems);
+  // console.log(uniqueItems);
   return uniqueItems;
 }
