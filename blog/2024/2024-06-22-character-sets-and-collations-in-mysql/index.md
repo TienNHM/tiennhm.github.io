@@ -144,11 +144,11 @@ SELECT * FROM users WHERE name = 'Alice';
 
 Nếu collation của cột `name` là `utf8_bin`, câu lệnh trên sẽ chỉ trả về dòng có `name` là `Alice`, vì collation `utf8_bin` phân biệt chữ hoa và chữ thường.
 
-![string-comparison-mysql.jpg](./images/string-comparison-mysql.jpg)
+![string-comparison-mysql.jpg](https://res.cloudinary.com/tiennhm/image/upload/v1725685192/blog/images/string-comparison-mysql_pkvxqr.webp)
 
 Tuy nhiên, nếu collation của cột `name` là `utf8_general_ci`, câu lệnh trên sẽ trả về cả hai dòng, vì collation `utf8_general_ci` không phân biệt chữ hoa và chữ thường.
 
-![string-comparison-mysql-ci.jpg](./images/string-comparison-mysql-ci.jpg)
+![string-comparison-mysql-ci.jpg](https://res.cloudinary.com/tiennhm/image/upload/v1725685199/blog/images/string-comparison-mysql-ci_s00oow.webp)
 
 
 Từ đó, khi làm việc với chuỗi trong MySQL, bạn cần lưu ý collation của cột để tránh nhầm lẫn trong kết quả truy vấn. Nếu cần, bạn có thể sử dụng hàm `COLLATE` để ghi đè collation mặc định:
@@ -157,7 +157,7 @@ Từ đó, khi làm việc với chuỗi trong MySQL, bạn cần lưu ý collat
 SELECT * FROM users WHERE name COLLATE utf8_bin = 'Alice';
 ```
 
-![string-comparison-mysql-collate.jpg](./images/string-comparison-mysql-collate.jpg)
+![string-comparison-mysql-collate.jpg](https://res.cloudinary.com/tiennhm/image/upload/v1725685203/blog/images/string-comparison-mysql-collate_goiuye.webp)
 
 Như vậy, bạn đã biết cách so sánh chuỗi trong MySQL và cách xác định collation của cột để tránh nhầm lẫn trong kết quả truy vấn.
 
@@ -198,7 +198,7 @@ FROM users
 ORDER BY name COLLATE latin1_bin;
 ```
 
-![collate-order-by-latin1_bin.jpg](./images/collate-order-by-latin1_bin.jpg)
+![collate-order-by-latin1_bin.jpg](https://res.cloudinary.com/tiennhm/image/upload/v1725685451/blog/images/collate-order-by-latin1_bin_xgmhuo.webp)
 
 ```sql
 SELECT *
@@ -206,7 +206,7 @@ FROM users
 ORDER BY name COLLATE latin1_general_ci;
 ```
 
-![collate-order-by-latin1_general_ci.jpg](./images/collate-order-by-latin1_general_ci.jpg)
+![collate-order-by-latin1_general_ci.jpg](https://res.cloudinary.com/tiennhm/image/upload/v1725685455/blog/images/collate-order-by-latin1_general_ci_kmlhe2.webp)
 
 ```sql
 SELECT * 
@@ -214,7 +214,7 @@ FROM users
 ORDER BY name COLLATE latin1_general_cs;
 ```
 
-![collate-order-by-latin1_general_cs.jpg](./images/collate-order-by-latin1_general_cs.jpg)
+![collate-order-by-latin1_general_cs.jpg](https://res.cloudinary.com/tiennhm/image/upload/v1725685432/blog/images/collate-order-by-latin1_general_cs_fcbdwz.webp)
 
 Nhận xét:
 - `latin1_bin`: sắp xếp chính xác từng ký tự, phân biệt chữ hoa và chữ thường.
@@ -228,7 +228,7 @@ SELECT name COLLATE latin1_general_ci AS name_latin1_general_ci
 FROM users;
 ```
 
-![collate-as-latin1_general_ci.jpg](./images/collate-as-latin1_general_ci.jpg)
+![collate-as-latin1_general_ci.jpg](https://res.cloudinary.com/tiennhm/image/upload/v1725684950/blog/images/collate-as-latin1_general_ci_nfjjrl.webp)
 
 #### Dùng với `GROUP BY` để nhóm chuỗi theo collation khác nhau {#collate-group-by}
 
@@ -238,7 +238,7 @@ FROM users
 GROUP BY name COLLATE latin1_general_ci;
 ```
 
-![collate-group-by-latin1_general_ci.jpg](./images/collate-group-by-latin1_general_ci.jpg)
+![collate-group-by-latin1_general_ci.jpg](https://res.cloudinary.com/tiennhm/image/upload/v1725685080/blog/images/collate-group-by-latin1_general_ci_iv8crg.webp)
 
 #### Dùng với các hàm aggregation để tính toán trên chuỗi theo collation khác nhau {#collate-aggregation}
 
@@ -247,7 +247,7 @@ SELECT MIN(name COLLATE latin1_general_ci)
 FROM users;
 ```
 
-![collate-min-latin1_general_ci.jpg](./images/collate-min-latin1_general_ci.jpg)
+![collate-min-latin1_general_ci.jpg](https://res.cloudinary.com/tiennhm/image/upload/v1725685287/blog/images/collate-min-latin1_general_ci_tzwxqj.webp)
 
 #### Dùng với `DISTINCT` để loại bỏ các giá trị trùng lặp theo collation khác nhau {#collate-distinct}
 
@@ -256,7 +256,7 @@ SELECT DISTINCT name COLLATE latin1_general_ci
 FROM users;
 ```
 
-![collate-distinct-latin1_general_ci.jpg](./images/collate-distinct-latin1_general_ci.jpg)
+![collate-distinct-latin1_general_ci.jpg](https://res.cloudinary.com/tiennhm/image/upload/v1725685005/blog/images/collate-distinct-latin1_general_ci_o4alwi.webp)
 
 #### Dùng với `WHERE` để so sánh chuỗi theo collation khác nhau {#collate-where}
 
@@ -266,7 +266,7 @@ FROM users
 WHERE name COLLATE latin1_general_ci = 'Alice';
 ```
 
-![collate-where-latin1_general_ci.jpg](./images/collate-where-latin1_general_ci.jpg)
+![collate-where-latin1_general_ci.jpg](https://res.cloudinary.com/tiennhm/image/upload/v1725685364/blog/images/collate-where-latin1_general_ci_oiaxdc.webp)
 
 Ta thấy, với collation `latin1_general_ci`, `Alice`, `ALICE` và `alice` được xem là giống nhau, nên trả về tất cả các dòng có `name` là `Alice`.
 
@@ -278,7 +278,7 @@ FROM users
 WHERE name = 'Alice';
 ```
 
-![collate-where-latin1_bin.jpg](./images/collate-where-latin1_bin.jpg)
+![collate-where-latin1_bin.jpg](https://res.cloudinary.com/tiennhm/image/upload/v1725685354/blog/images/collate-where-latin1_bin_dsgdsn.webp)
 
 Ta thấy, với collation `latin1_bin`, `Alice`, `ALICE` và `alice` được xem là khác nhau, nên chỉ trả về dòng có `name` là `Alice`.
 
