@@ -16,7 +16,9 @@ Giới thiệu về các loại kiểm thử API.
 
 <!--truncate-->
 
-![API Testing Types](./images/api-testing-types.gif)
+<p align="center">
+    <img src="https://res.cloudinary.com/tiennhm/image/upload/v1725712660/blog/images/api-testing-types_tci9xy.gif" loading='lazy' decoding='async' alt="API Testing Types" />
+</p>
 
 Giải thích 9 loại kiểm thử API.
  

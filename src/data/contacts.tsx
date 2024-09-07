@@ -60,7 +60,7 @@ export const CONTACTS: ContactDict = {
 }
 
 export const SHOWCASE = {
-  TITLE: translate({ message: 'TienNHM Site Showcase' }),
+  TITLE: translate({ message: 'Showcase' }),
   DESCRIPTION: translate({ message: 'List of sites and projects built by TienNHM' }),
   SUBMIT_URL: 'https://github.com/TienNHM?tab=repositories',
 }
