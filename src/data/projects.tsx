@@ -42,7 +42,7 @@ const PROJECTS: Project[] = [
   {
     title: 'x2mint',
     description: 'A graduration project, which is a website for creating and taking tests online, made with MERN stack.',
-    preview: 'https://res.cloudinary.com/tiennhm/image/upload/v1725682230/blog/images/showcase/x2mint.jpg',
+    preview: 'https://res.cloudinary.com/tiennhm/image/upload/v1725682230/blog/images/opengraph/x2mint.jpg',
     website: 'https://x2mint.vercel.app',
     source: 'https://github.com/TienNHM/x2mint',
     tags: ['favorite', 'courseproject'],
@@ -144,7 +144,7 @@ const PROJECTS: Project[] = [
   {
     title: 'QuickDraw',
     description: 'A simple game made with Python, inspired by Google Quick Draw.',
-    preview: 'https://res.cloudinary.com/tiennhm/image/upload/v1725683441/blog/images/showcase/quickdraw.jpg',
+    preview: 'https://res.cloudinary.com/tiennhm/image/upload/v1725683441/blog/images/opengraph/quickdraw.webp',
     website: 'https://tiennhm.github.io/QuickDraw/',
     source: 'https://github.com/TienNHM/QuickDraw',
     tags: ['opensource', 'courseproject'],
@@ -152,7 +152,7 @@ const PROJECTS: Project[] = [
   {
     title: 'Tetris',
     description: 'A simple Tetris game made with C++',
-    preview: 'https://res.cloudinary.com/tiennhm/image/upload/v1725683322/blog/images/banner-tetris_gvkay6.png',
+    preview: 'https://res.cloudinary.com/tiennhm/image/upload/v1725683322/blog/images/banner-tetris_gvkay6.webp',
     website: 'https://tiennhm.github.io/Tetris-Cpp/',
     source: 'https://github.com/TienNHM/Tetris-Cpp',
     tags: ['opensource', 'courseproject'],
@@ -168,7 +168,7 @@ const PROJECTS: Project[] = [
   {
     title: 'VietShop',
     description: 'An application for shopping online, made with Java and Android Studio.',
-    preview: 'https://res.cloudinary.com/tiennhm/image/upload/v1725683074/blog/images/vietshop_li3xbl.jpg',
+    preview: 'https://res.cloudinary.com/tiennhm/image/upload/v1725683074/blog/images/vietshop_li3xbl.webp',
     website: 'https://tiennhm.github.io/VietShop/',
     source: 'https://github.com/TienNHM/VietShop',
     tags: ['opensource', 'courseproject'],
