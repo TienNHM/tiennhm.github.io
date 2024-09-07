@@ -182,7 +182,7 @@ docker-compose up -d influxdb grafana
 Sau khi chạy lệnh này, bạn có thể truy cập vào InfluxDB trên địa chỉ [http://localhost:8086](http://localhost:8086) và Grafana trên địa chỉ [http://localhost:3000](http://localhost:3000). Lưu ý rằng, các porrt 8086 và 3000 đã được map từ Docker container ra ngoài máy chủ để truy cập.
 
 <p align="center">
-    <img src="/img/docs/k6/grafana.webp" loading='lazy' decoding='async'/>
+    <img src="https://res.cloudinary.com/tiennhm/image/upload/v1725712964/blog/images/grafana_f8drfr.webp" loading='lazy' decoding='async'/>
 </p>
 
 ## Tạo kịch bản test
@@ -228,7 +228,7 @@ Trong lần chạy đầu tiên, k6 sẽ tải image `grafana/k6:latest` về m�
 Kết quả sẽ hiển thị tương tự như sau:
 
 <p align="center">
-    <img src="/img/docs/k6/grafana-dashboard.webp" loading='lazy' decoding='async'/>
+    <img src="https://res.cloudinary.com/tiennhm/image/upload/v1725712969/blog/images/grafana-dashboard_dgue57.webp" loading='lazy' decoding='async'/>
 </p>
 
 Như vậy, chúng ta đã có thể trực quan hóa kết quả load test từ k6 trên Grafana. Từ đây, chúng ta có thể phân tích kết quả và tối ưu hóa hiệu năng ứng dụng một cách trực quan hơn.

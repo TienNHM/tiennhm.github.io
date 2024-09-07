@@ -16,9 +16,11 @@ JavaScript is a programming language that is used to create interactive effects 
 
 In this article, I will list out some of the best websites to learn JavaScript.
 
-![JavaScript](https://i.pinimg.com/originals/71/ee/32/71ee32577432648f9e45fbd63b2cf261.jpg)
-
 <!-- truncate -->
+
+<p align="center">
+    <img src="https://i.pinimg.com/originals/71/ee/32/71ee32577432648f9e45fbd63b2cf261.jpg" loading='lazy' decoding='async' alt="JavaScript" />
+</p>
 
 ## 1. [MDN Web Docs](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
 

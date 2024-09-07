@@ -18,7 +18,9 @@ Trong bài viết này, tôi sẽ giới thiệu với bạn một số trang we
 
 <!-- truncate -->
 
-![JavaScript](https://i.pinimg.com/originals/71/ee/32/71ee32577432648f9e45fbd63b2cf261.jpg)
+<p align="center">
+    <img src="https://i.pinimg.com/originals/71/ee/32/71ee32577432648f9e45fbd63b2cf261.jpg" loading='lazy' decoding='async' alt="JavaScript" />
+</p>
 
 ## 1. [MDN Web Docs](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
 
