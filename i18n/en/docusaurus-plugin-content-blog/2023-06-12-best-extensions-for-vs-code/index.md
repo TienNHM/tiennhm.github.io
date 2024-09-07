@@ -5,7 +5,7 @@ authors: [tiennhm]
 tags: [vscode, extensions]
 enableComments: true # for Gisqus comments, set to true
 draft: false # set to true to hide this post from the site
-image: https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fvscode/opengraph/
+image: https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fmarketplace.visualstudio.com%2Fvscode/showcase/
 ---
 
 <p align="right">
@@ -28,7 +28,7 @@ In this post, I will list some of the best extensions for VS Code that I use dai
 
 GitLens supercharges the Git capabilities built into Visual Studio Code. It helps you to visualize code authorship at a glance via Git blame annotations and code lens, seamlessly navigate and explore Git repositories, gain valuable insights via powerful comparison commands, and so much more.
 
-<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Deamodio.gitlens/opengraph/" loading='lazy' decoding='async'/>
+<img src="https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Deamodio.gitlens/showcase/" loading='lazy' decoding='async'/>
 
 - Link: [https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
 - Features:
@@ -48,7 +48,7 @@ GitLens supercharges the Git capabilities built into Visual Studio Code. It help
 
 View a Git Graph of your repository, and perform Git actions from the graph.
 
-<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Dmhutchie.git-graph/opengraph/" loading='lazy' decoding='async'/>
+<img src="https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Dmhutchie.git-graph/showcase/" loading='lazy' decoding='async'/>
 
 - Link: [https://marketplace.visualstudio.com/items?itemName=mhutchie.git-graph](https://marketplace.visualstudio.com/items?itemName=mhutchie.git-graph)
 - Features:
@@ -65,7 +65,7 @@ View a Git Graph of your repository, and perform Git actions from the graph.
 
 View git log, file history, compare branches or commits.
 
-<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Ddonjayamanne.githistory/opengraph/" loading='lazy' decoding='async'/>
+<img src="https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Ddonjayamanne.githistory/showcase/" loading='lazy' decoding='async'/>
 
 - Link: [https://marketplace.visualstudio.com/items?itemName=donjayamanne.githistory](https://marketplace.visualstudio.com/items?itemName=donjayamanne.githistory)
 - Features:
@@ -84,7 +84,7 @@ View git log, file history, compare branches or commits.
 
 VS Code package to format your JavaScript / TypeScript / CSS using Prettier.
 
-<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Desbenp.prettier-vscode/opengraph/" loading='lazy' decoding='async'/>
+<img src="https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Desbenp.prettier-vscode/showcase/" loading='lazy' decoding='async'/>
 
 - Link: [https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)
 - Features:
@@ -102,7 +102,7 @@ VS Code package to format your JavaScript / TypeScript / CSS using Prettier.
 
 Integrates ESLint JavaScript into VS Code.
 
-<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Ddbaeumer.vscode-eslint/opengraph/" loading='lazy' decoding='async'/>
+<img src="https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Ddbaeumer.vscode-eslint/showcase/" loading='lazy' decoding='async'/>
 
 - Link: [https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint)
 - Features:
@@ -123,7 +123,7 @@ Integrates ESLint JavaScript into VS Code.
 
 Automatically rename paired HTML/XML tag, same as Visual Studio IDE does.
 
-<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Dformulahendry.auto-rename-tag/opengraph/" loading='lazy' decoding='async'/>
+<img src="https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Dformulahendry.auto-rename-tag/showcase/" loading='lazy' decoding='async'/>
 
 - Link: [https://marketplace.visualstudio.com/items?itemName=formulahendry.auto-rename-tag](https://marketplace.visualstudio.com/items?itemName=formulahendry.auto-rename-tag)
 - Features:
@@ -140,7 +140,7 @@ Automatically rename paired HTML/XML tag, same as Visual Studio IDE does.
 
 Launch a development local Server with live reload feature for static & dynamic pages.
 
-<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Dritwickdey.LiveServer/opengraph/" loading='lazy' decoding='async'/>
+<img src="https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Dritwickdey.LiveServer/showcase/" loading='lazy' decoding='async'/>
 
 - Link: [https://marketplace.visualstudio.com/items?itemName=ritwickdey.LiveServer](https://marketplace.visualstudio.com/items?itemName=ritwickdey.LiveServer)
 - Features:
@@ -157,7 +157,7 @@ Launch a development local Server with live reload feature for static & dynamic 
 
 Visual Studio Code plugin that autocompletes filenames.
 
-<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Dchristian-kohler.path-intellisense/opengraph/" loading='lazy' decoding='async'/>
+<img src="https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Dchristian-kohler.path-intellisense/showcase/" loading='lazy' decoding='async'/>
 
 - Link: [https://marketplace.visualstudio.com/items?itemName=christian-kohler.path-intellisense](https://marketplace.visualstudio.com/items?itemName=christian-kohler.path-intellisense)
 - Features:
@@ -174,7 +174,7 @@ Visual Studio Code plugin that autocompletes filenames.
 
 Material Design Icons for Visual Studio Code.
 
-<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3DPKief.material-icon-theme/opengraph/" loading='lazy' decoding='async'/>
+<img src="https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3DPKief.material-icon-theme/showcase/" loading='lazy' decoding='async'/>
 
 - Link: [https://marketplace.visualstudio.com/items?itemName=PKief.material-icon-theme](https://marketplace.visualstudio.com/items?itemName=PKief.material-icon-theme)
 - Features:
@@ -191,7 +191,7 @@ Material Design Icons for Visual Studio Code.
 
 Real-time collaborative development from the comfort of your favorite tools.
 
-<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3DMS-vsliveshare.vsliveshare/opengraph/" loading='lazy' decoding='async'/>
+<img src="https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3DMS-vsliveshare.vsliveshare/showcase/" loading='lazy' decoding='async'/>
 
 - Link: [https://marketplace.visualstudio.com/items?itemName=MS-vsliveshare.vsliveshare](https://marketplace.visualstudio.com/items?itemName=MS-vsliveshare.vsliveshare)
 - Features:
@@ -208,7 +208,7 @@ Real-time collaborative development from the comfort of your favorite tools.
 
 Synchronize Settings, Snippets, Themes, File Icons, Launch, Keybindings, Workspaces and Extensions Across Multiple Machines Using GitHub Gist.
 
-<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3DShan.code-settings-sync/opengraph/" loading='lazy' decoding='async'/>
+<img src="https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3DShan.code-settings-sync/showcase/" loading='lazy' decoding='async'/>
 
 - Link: [https://marketplace.visualstudio.com/items?itemName=Shan.code-settings-sync](https://marketplace.visualstudio.com/items?itemName=Shan.code-settings-sync)
 - Features:
@@ -225,7 +225,7 @@ Synchronize Settings, Snippets, Themes, File Icons, Launch, Keybindings, Workspa
 
 Live Scratchpad for JavaScript.
 
-<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3DWallabyJs.quokka-vscode/opengraph/" loading='lazy' decoding='async'/>
+<img src="https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3DWallabyJs.quokka-vscode/showcase/" loading='lazy' decoding='async'/>
 
 - Link: [https://marketplace.visualstudio.com/items?itemName=WallabyJs.quokka-vscode](https://marketplace.visualstudio.com/items?itemName=WallabyJs.quokka-vscode)
 - Features:
@@ -242,7 +242,7 @@ Live Scratchpad for JavaScript.
 
 A basic spell checker that works well with camelCase code.
 
-<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Dstreetsidesoftware.code-spell-checker/opengraph/" loading='lazy' decoding='async'/>
+<img src="https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Dstreetsidesoftware.code-spell-checker/showcase/" loading='lazy' decoding='async'/>
 
 - Link: [https://marketplace.visualstudio.com/items?itemName=streetsidesoftware.code-spell-checker](https://marketplace.visualstudio.com/items?itemName=streetsidesoftware.code-spell-checker)
 - Features:
@@ -259,7 +259,7 @@ A basic spell checker that works well with camelCase code.
 
 Improve your code commenting by annotating with alert, informational, TODOs, and more!
 
-<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Daaron-bond.better-comments/opengraph/" loading='lazy' decoding='async'/>
+<img src="https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Daaron-bond.better-comments/showcase/" loading='lazy' decoding='async'/>
 
 - Link: [https://marketplace.visualstudio.com/items?itemName=aaron-bond.better-comments](https://marketplace.visualstudio.com/items?itemName=aaron-bond.better-comments)
 - Features:
@@ -276,7 +276,7 @@ Improve your code commenting by annotating with alert, informational, TODOs, and
 
 Run code snippet or code file for multiple languages: C, C++, Java, JavaScript, PHP, Python, Perl, Perl 6, Ruby, Go, Lua, Groovy, PowerShell, BAT/CMD, BASH/SH, F# Script, C# Script, VBScript, TypeScript, CoffeeScript, Scala, Swift, Julia, Crystal, OCaml Script.
 
-<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Dformulahendry.code-runner/opengraph/" loading='lazy' decoding='async'/>
+<img src="https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Dformulahendry.code-runner/showcase/" loading='lazy' decoding='async'/>
 
 - Link: [https://marketplace.visualstudio.com/items?itemName=formulahendry.code-runner](https://marketplace.visualstudio.com/items?itemName=formulahendry.code-runner)
 - Features:
@@ -293,7 +293,7 @@ Run code snippet or code file for multiple languages: C, C++, Java, JavaScript, 
 
 REST Client allows you to send HTTP request and view the response in Visual Studio Code directly.
 
-<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Dhumao.rest-client/opengraph/" loading='lazy' decoding='async'/>
+<img src="https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Dhumao.rest-client/showcase/" loading='lazy' decoding='async'/>
 
 - Link: [https://marketplace.visualstudio.com/items?itemName=humao.rest-client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client)
 - Features:

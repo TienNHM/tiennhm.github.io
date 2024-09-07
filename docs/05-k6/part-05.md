@@ -5,7 +5,7 @@ authors: [tiennhm]
 tags: [load-testing, k6, restful-api, performance-testing, setup, visualization, grafana, influxdb]
 enableComments: true # for Gisqus comments, set to true
 draft: false # set to true to hide this post from the site
-image: https://v1.screenshot.11ty.dev/https%3A%2F%2Fk6.io/opengraph/
+image: https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fk6.io/showcase/
 ---
 
 <p align="right">

@@ -16,7 +16,7 @@ export function GetWebsiteScreenshot(url: string): string {
 
     var slug = yyyyMMdd();
 
-    return `https://v1.screenshot.11ty.dev/${encodeURIComponent(url)}/opengraph/smaller/_${slug}`;
+    // return `https://v1.screenshot.11ty.dev/${encodeURIComponent(url)}/opengraph/smaller/_${slug}`;
 
-    // return `https://slorber-api-screenshot.netlify.app/${encodeURIComponent(url)}/showcase/_${slug}`;
+    return `https://slorber-api-screenshot.netlify.app/${encodeURIComponent(url)}/showcase/_${slug}`;
 }
