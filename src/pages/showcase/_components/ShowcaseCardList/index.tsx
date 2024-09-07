@@ -1,5 +1,5 @@
 import Translate from "@docusaurus/Translate";
-import { sortedProjects } from "@site/src/data/projects";
+import { SORTED_PROJECTS } from "@site/src/data/projects";
 import Heading from "@theme/Heading";
 import clsx from "clsx";
 import React from "react";
@@ -32,7 +32,7 @@ export default function ShowcaseCardList(props : CardList) {
 
     return (
         <section className="margin-top--lg margin-bottom--xl">
-            {filteredUsers.length === sortedProjects.length ? (
+            {filteredUsers.length === SORTED_PROJECTS.length ? (
                 <>
                     <div className={styles.showcaseFavorite}>
                         <div className="container">

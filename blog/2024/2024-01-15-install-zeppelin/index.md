@@ -48,11 +48,11 @@ https://www.python.org/ftp/python/3.12.1/python-3.12.1-amd64.exe
 
 Lưu ý khi cài đặt Python3, bạn chọn chế độ cài đặt `Customize installation` và chọn `Add Python 3.12 to PATH` như hình dưới đây:
 
-![Install Python - 01](./images/install-python-01.jpg)
+![Install Python - 01](https://res.cloudinary.com/tiennhm/image/upload/v1725683997/blog/images/install-python-01_geyq8d.webp)
 
-![Install Python - 02](./images/install-python-02.jpg)
+![Install Python - 02](https://res.cloudinary.com/tiennhm/image/upload/v1725684076/blog/images/install-python-02_iyv4ib.webp)
 
-![Install Python - 03](./images/install-python-03.jpg)
+![Install Python - 03](https://res.cloudinary.com/tiennhm/image/upload/v1725684069/blog/images/install-python-03_fxtqgs.webp)
 
 ## 4. Tạo môi trường ảo Python3 cho Apache Zeppelin
 
@@ -73,7 +73,7 @@ Sau đó, chuyển tới thư mục `D:\Programs\zeppelin-0.8.2-bin-all\python\v
 activate.bat
 ```
 
-![Create Python Virtual Environment](./images/create-python-virtual-environment.jpg)
+![Create Python Virtual Environment](https://res.cloudinary.com/tiennhm/image/upload/v1725683844/blog/images/create-python-virtual-environment_g5vufa.webp)
 
 ## 5. Cài đặt các thư viện Python3 cần thiết
 
@@ -101,7 +101,7 @@ set PATH=C:\Program Files (x86)\Common Files\Oracle\Java\javapath;D:\Programs\ze
 
 Lưu ý: Đường dẫn `D:\Programs\zeppelin-0.8.2-bin-all\python\venv\Scripts` là đường dẫn tới thư mục `Scripts` của môi trường ảo Python3 mà chúng ta đã tạo ở bước 4. Nếu bạn tạo môi trường ảo Python3 ở một thư mục khác, bạn hãy thay đổi đường dẫn tương ứng.
 
-![Edit zeppelin-env.cmd](./images/edit-zeppelin-env-cmd.jpg)
+![Edit zeppelin-env.cmd](https://res.cloudinary.com/tiennhm/image/upload/v1725683939/blog/images/edit-zeppelin-env-cmd_z2exjv.webp)
 
 ## 7. Thay thế một số tập tin
 
@@ -126,12 +126,12 @@ zeppelin.cmd
 
 Kết quả trên Command Prompt (hoặc Windows PowerShell) sẽ như sau:
 
-![Run Apache Zeppelin](./images/run-apache-zeppelin.jpg)
+![Run Apache Zeppelin](https://res.cloudinary.com/tiennhm/image/upload/v1725684170/blog/images/run-apache-zeppelin_xzj3vw.webp)
 
 Sau khi chạy và thấy logs báo `Done, zeppelin server started`, chúng ta mở trình duyệt web lên và truy cập vào địa chỉ http://localhost:8080 để sử dụng Apache Zeppelin.
 
 Màn hình trang chủ của Apache Zeppelin sẽ như sau:
-![Apache Zeppelin Home Page](./images/welcome-apache-zeppelin.jpg)
+![Apache Zeppelin Home Page](https://res.cloudinary.com/tiennhm/image/upload/v1725684163/blog/images/welcome-apache-zeppelin_icrah5.webp)
 
 Như vậy, chúng ta đã cài đặt thành công Apache Zeppelin trên Windows.
 

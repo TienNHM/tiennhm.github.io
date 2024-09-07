@@ -5,7 +5,7 @@ authors: [tiennhm]
 tags: [vscode, extensions]
 enableComments: true # for Gisqus comments, set to true
 draft: false # set to true to hide this post from the site
-image: https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fvscode/opengraph/
+image: https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fmarketplace.visualstudio.com%2Fvscode/showcase/
 ---
 
 <p align="right">
@@ -18,7 +18,7 @@ Trong bài viết này, tôi sẽ liệt kê một số tiện ích mở rộng 
 
 <!--truncate-->
 
-![Visual Studio Code](https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fvscode/opengraph/)
+![Visual Studio Code](https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fmarketplace.visualstudio.com%2Fvscode/showcase/)
 
 
 ## 1. GitLens
@@ -31,7 +31,7 @@ Trong bài viết này, tôi sẽ liệt kê một số tiện ích mở rộng 
 
 GitLens là một extension cho Visual Studio Code, cho phép bạn tăng cường khả năng làm việc với Git trong VS Code1. Extension này giúp bạn hiểu rõ hơn về code, biết ai, tại sao và khi nào một dòng hoặc một khối code được thay đổi.
 
-<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Deamodio.gitlens/opengraph/" loading='lazy' decoding='async'/>
+<img src="https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Deamodio.gitlens/showcase/" loading='lazy' decoding='async'/>
 
 - Link: [https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
 - Chức năng:
@@ -53,7 +53,7 @@ GitLens là một extension cho Visual Studio Code, cho phép bạn tăng cườ
 
 Git Graph là một extension cho Visual Studio Code, cho phép bạn xem một đồ thị Git của repository của bạn, và dễ dàng thực hiện các câu lệnh Git từ đồ thị. Extension này giúp bạn trực quan hóa và quản lý các commit, branch, tag, stash, v.v...
 
-<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Dmhutchie.git-graph/opengraph/" loading='lazy' decoding='async'/>
+<img src="https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Dmhutchie.git-graph/showcase/" loading='lazy' decoding='async'/>
 
 - Link: [https://marketplace.visualstudio.com/items?itemName=mhutchie.git-graph](https://marketplace.visualstudio.com/items?itemName=mhutchie.git-graph)
 - Chức năng:
@@ -76,7 +76,7 @@ Git Graph là một extension cho Visual Studio Code, cho phép bạn xem một 
 
 Git History là một extension cho Visual Studio Code, cho phép bạn xem và tìm kiếm lịch sử Git của repository, branch, file hoặc dòng code1. Extension này có thể giúp bạn khám phá và phân tích các commit, branch, tag, stash, v.v...
 
-<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Ddonjayamanne.githistory/opengraph/" loading='lazy' decoding='async'/>
+<img src="https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Ddonjayamanne.githistory/showcase/" loading='lazy' decoding='async'/>
 
 - Link: [https://marketplace.visualstudio.com/items?itemName=donjayamanne.githistory](https://marketplace.visualstudio.com/items?itemName=donjayamanne.githistory)
 - Chức năng:
@@ -96,7 +96,7 @@ Git History là một extension cho Visual Studio Code, cho phép bạn xem và 
 
 Prettier là một extension cho Visual Studio Code, giúp bạn định dạng code một cách tự động và nhất quán. Prettier hỗ trợ nhiều ngôn ngữ lập trình như `JavaScript`, `TypeScript`, `CSS`, `HTML`, `Markdown` và nhiều ngôn ngữ khác. Prettier là một công cụ hữu ích để tạo ra những đoạn code đẹp mắt và dễ đọc hơn.
 
-<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Desbenp.prettier-vscode/opengraph/" loading='lazy' decoding='async'/>
+<img src="https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Desbenp.prettier-vscode/showcase/" loading='lazy' decoding='async'/>
 
 - Link: [https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)
 - Chức năng:
@@ -116,7 +116,7 @@ Prettier là một extension cho Visual Studio Code, giúp bạn định dạng 
 
 ESlint là một linter dành cho ngôn ngữ lập trình JavaScript được viết bằng Node.js. ESlint thực sự rất hữu dụng bởi vì JavaScript là một ngôn ngữ thông dịch và được dịch trực tiếp thành mã máy, rất nhiều lỗi chỉ có thể phát hiện được trong thời gian chạy project. ESlint giúp bạn phân tích code, tìm những lỗi lặt vặt, không tuân thủ coding style, sai coding convention, và đưa ra những đề xuất cải tiến.
 
-<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Ddbaeumer.vscode-eslint/opengraph/" loading='lazy' decoding='async'/>
+<img src="https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Ddbaeumer.vscode-eslint/showcase/" loading='lazy' decoding='async'/>
 
 - Link: [https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint)
 - Chức năng:
@@ -137,7 +137,7 @@ ESlint là một linter dành cho ngôn ngữ lập trình JavaScript được v
 
 Extension Auto Rename Tag là một extension rất hữu ích cho các nhà phát triển web sử dụng VS Code. Như tên gợi ý, Auto Rename Tag sẽ tự động đổi tên thẻ đóng khi bạn cập nhật thẻ mở và ngược lại. Bạn sẽ thấy extension này hữu ích không chỉ với HTML, mà còn với React với JSX.
 
-<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Dformulahendry.auto-rename-tag/opengraph/" loading='lazy' decoding='async'/>
+<img src="https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Dformulahendry.auto-rename-tag/showcase/" loading='lazy' decoding='async'/>
 
 - Link: [https://marketplace.visualstudio.com/items?itemName=formulahendry.auto-rename-tag](https://marketplace.visualstudio.com/items?itemName=formulahendry.auto-rename-tag)
 - Chức năng: Tự động đổi tên thẻ đóng khi bạn cập nhật thẻ mở và ngược lại.
@@ -152,7 +152,7 @@ Extension Auto Rename Tag là một extension rất hữu ích cho các nhà ph�
 
 Extension Live Server là một plugin của Visual Studio Code, giúp bạn khởi chạy một máy chủ phát triển cục bộ với tính năng tải lại trình duyệt tự động cho các trang tĩnh và động.
 
-<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Dritwickdey.LiveServer/opengraph/" loading='lazy' decoding='async'/>
+<img src="https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Dritwickdey.LiveServer/showcase/" loading='lazy' decoding='async'/>
 
 - Link: [https://marketplace.visualstudio.com/items?itemName=ritwickdey.LiveServer](https://marketplace.visualstudio.com/items?itemName=ritwickdey.LiveServer)
 - Chức năng:
@@ -171,7 +171,7 @@ Extension Live Server là một plugin của Visual Studio Code, giúp bạn kh�
 
 Extension Path Intellisense là một plugin của Visual Studio Code, giúp bạn tự động hoàn thành tên tệp.
 
-<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Dchristian-kohler.path-intellisense/opengraph/" loading='lazy' decoding='async'/>
+<img src="https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Dchristian-kohler.path-intellisense/showcase/" loading='lazy' decoding='async'/>
 
 - Link: [https://marketplace.visualstudio.com/items?itemName=christian-kohler.path-intellisense](https://marketplace.visualstudio.com/items?itemName=christian-kohler.path-intellisense)
 - Chức năng:
@@ -191,7 +191,7 @@ Extension Path Intellisense là một plugin của Visual Studio Code, giúp b�
 
 Extension Material Icon Theme là một extension cho phép bạn thay đổi các biểu tượng của file và folder theo phong cách Material Design. Bạn có thể tùy chỉnh màu sắc, hình dạng và opacity của các biểu tượng, cũng như thêm các biểu tượng tùy chỉnh cho các file hoặc folder cụ thể.
 
-<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3DPKief.material-icon-theme/opengraph/" loading='lazy' decoding='async'/>
+<img src="https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3DPKief.material-icon-theme/showcase/" loading='lazy' decoding='async'/>
 
 - Link: [https://marketplace.visualstudio.com/items?itemName=PKief.material-icon-theme](https://marketplace.visualstudio.com/items?itemName=PKief.material-icon-theme)
 - Chức năng:
@@ -211,7 +211,7 @@ Extension Material Icon Theme là một extension cho phép bạn thay đổi c�
 
 Extension Live Share là một extension cho phép bạn cộng tác với những người khác trên cùng một dự án một cách thời gian thực. Bạn có thể chia sẻ phiên làm việc của bạn với ai đó, cho phép họ chỉnh sửa code cũng như chia sẻ server và phiên gỡ lỗi.
 
-<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3DMS-vsliveshare.vsliveshare/opengraph/" loading='lazy' decoding='async'/>
+<img src="https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3DMS-vsliveshare.vsliveshare/showcase/" loading='lazy' decoding='async'/>
 
 - Link: [https://marketplace.visualstudio.com/items?itemName=MS-vsliveshare.vsliveshare](https://marketplace.visualstudio.com/items?itemName=MS-vsliveshare.vsliveshare)
 - Chức năng:
@@ -232,7 +232,7 @@ Extension Live Share là một extension cho phép bạn cộng tác với nhữ
 
 Extension Setting Sync cho phép bạn đồng bộ các cấu hình như settings, keybindings, extensions, user snippets và UI state giữa các máy tính khác nhau. Bạn có thể sử dụng tài khoản Microsoft hoặc GitHub để đăng nhập và lưu trữ các cấu hình của bạn trên đám mây.
 
-<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3DShan.code-settings-sync/opengraph/" loading='lazy' decoding='async'/>
+<img src="https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3DShan.code-settings-sync/showcase/" loading='lazy' decoding='async'/>
 
 - Link: [https://marketplace.visualstudio.com/items?itemName=Shan.code-settings-sync](https://marketplace.visualstudio.com/items?itemName=Shan.code-settings-sync)
 - Chức năng:
@@ -252,7 +252,7 @@ Extension Setting Sync cho phép bạn đồng bộ các cấu hình như settin
 
 Extension Quokka.js là một extension cho Visual Studio Code, cho phép bạn viết và chạy `JavaScript` / `TypeScript` một cách nhanh chóng và dễ dàng. Giá trị của các biến và biểu thức được cập nhật và hiển thị ngay bên cạnh code của bạn, khi bạn đang gõ.
 
-<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3DWallabyJs.quokka-vscode/opengraph/" loading='lazy' decoding='async'/>
+<img src="https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3DWallabyJs.quokka-vscode/showcase/" loading='lazy' decoding='async'/>
 
 - Link: [https://marketplace.visualstudio.com/items?itemName=WallabyJs.quokka-vscode](https://marketplace.visualstudio.com/items?itemName=WallabyJs.quokka-vscode)
 - Chức năng:
@@ -274,7 +274,7 @@ Extension Quokka.js là một extension cho Visual Studio Code, cho phép bạn 
 
 Extension Code Spell Checker là một extension cho Visual Studio Code, cho phép bạn kiểm tra chính tả của code và tài liệu. Extension này có thể giúp bạn bắt được những lỗi chính tả thường gặp trong khi giảm thiểu số lượng các trường hợp báo lỗi sai
 
-<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Dstreetsidesoftware.code-spell-checker/opengraph/" loading='lazy' decoding='async'/>
+<img src="https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Dstreetsidesoftware.code-spell-checker/showcase/" loading='lazy' decoding='async'/>
 
 - Link: [https://marketplace.visualstudio.com/items?itemName=streetsidesoftware.code-spell-checker](https://marketplace.visualstudio.com/items?itemName=streetsidesoftware.code-spell-checker)
 - Chức năng:
@@ -294,7 +294,7 @@ Extension Code Spell Checker là một extension cho Visual Studio Code, cho ph�
 
 Extension Better Comments là một extension cho Visual Studio Code, cho phép bạn tùy chỉnh font chữ và độ trong suốt của các comment trong code. Extension này cũng thêm bốn loại comment khác nhau, mỗi loại có màu nền riêng biệt. Bạn có thể sử dụng các comment này để ghi chú, cảnh báo, lưu ý hoặc tạo các TODO list.
 
-<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Daaron-bond.better-comments/opengraph/" loading='lazy' decoding='async'/>
+<img src="https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Daaron-bond.better-comments/showcase/" loading='lazy' decoding='async'/>
 
 - Link: [https://marketplace.visualstudio.com/items?itemName=aaron-bond.better-comments](https://marketplace.visualstudio.com/items?itemName=aaron-bond.better-comments)
 - Chức năng:
@@ -314,7 +314,7 @@ Extension Better Comments là một extension cho Visual Studio Code, cho phép 
 
 Extension Code Runner cho phép bạn chạy code của nhiều ngôn ngữ lập trình khác nhau một cách nhanh chóng và tiện lợi1. Extension này có thể giúp bạn kiểm tra và thử nghiệm code của bạn mà không cần phải chuyển sang terminal hoặc môi trường khác.
 
-<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Dformulahendry.code-runner/opengraph/" loading='lazy' decoding='async'/>
+<img src="https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Dformulahendry.code-runner/showcase/" loading='lazy' decoding='async'/>
 
 - Link: [https://marketplace.visualstudio.com/items?itemName=formulahendry.code-runner](https://marketplace.visualstudio.com/items?itemName=formulahendry.code-runner)
 - Chức năng:
@@ -334,7 +334,7 @@ Extension Code Runner cho phép bạn chạy code của nhiều ngôn ngữ lậ
 
 Extension REST Client là một extension cho Visual Studio Code, cho phép bạn gửi các yêu cầu HTTP và xem các phản hồi HTTP một cách dễ dàng và trực quan. Extension này có thể giúp bạn kiểm tra và phát triển các API RESTful mà không cần sử dụng các công cụ bên ngoài.
 
-<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Dhumao.rest-client/opengraph/" loading='lazy' decoding='async'/>
+<img src="https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Dhumao.rest-client/showcase/" loading='lazy' decoding='async'/>
 
 - Link: [https://marketplace.visualstudio.com/items?itemName=humao.rest-client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client )
 - Chức năng:

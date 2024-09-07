@@ -5,7 +5,7 @@ authors: [tiennhm]
 tags: [load-testing, k6, restful-api, performance-testing, setup]
 enableComments: true # for Gisqus comments, set to true
 draft: false # set to true to hide this post from the site
-image: https://v1.screenshot.11ty.dev/https%3A%2F%2Fk6.io/opengraph/
+image: https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fk6.io/showcase/
 ---
 
 <p align="right">
@@ -22,7 +22,7 @@ image: https://v1.screenshot.11ty.dev/https%3A%2F%2Fk6.io/opengraph/
 
 Đây là một công cụ miễn phí, lấy nhà phát triển làm trung tâm và có thể dễ dàng mở rộng, được phát triển bởi [Grafana Labs](https://grafana.com/) và cộng đồng.
 
-<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fk6.io/opengraph/" loading='lazy' decoding='async'/>
+<img src="https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fk6.io/showcase/" loading='lazy' decoding='async'/>
 
 ### Những tính năng chính
 
