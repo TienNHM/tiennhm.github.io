@@ -118,6 +118,14 @@ const PROJECTS: Project[] = [
     tags: ['opensource', 'favorite'],
   },
   {
+    title: 'Keylogger',
+    description: 'Demo keylogger made with Python and Metasploit.',
+    preview: null,
+    website: 'https://tiennhm.github.io/key_logger/web/download.html',
+    source: 'https://github.com/TienNHM/key_logger',
+    tags: ['opensource'],
+  },
+  {
     title: 'Color Palettes',
     description: 'A website for sharing color palettes.',
     preview: null,
