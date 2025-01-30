@@ -15,12 +15,12 @@ export type ContactDict = {
 };
 
 export const CONTACTS: ContactDict = {
-  Facebook: {
-    title: translate({ message: 'Facebook' }),
-    link: 'https://www.facebook.com/tiennhm.vn/',
-    icon: require('@site/static/img/logo/facebook.svg').default,
-    faIcon: faFacebook,
-  } as Contact,
+  // Facebook: {
+  //   title: translate({ message: 'Facebook' }),
+  //   link: 'https://www.facebook.com/tiennhm.vn/',
+  //   icon: require('@site/static/img/logo/facebook.svg').default,
+  //   faIcon: faFacebook,
+  // } as Contact,
   Github: {
     title: translate({ message: 'Github' }),
     link: 'https://github.com/TienNHM',
@@ -45,18 +45,18 @@ export const CONTACTS: ContactDict = {
     icon: require('@site/static/img/logo/phone.svg').default,
     faIcon: faPhone,
   } as Contact,
-  Skype: {
-    title: translate({ message: 'Skype' }),
-    link: 'https://join.skype.com/invite/ybhXQOv30y5F',
-    icon: require('@site/static/img/logo/skype.svg').default,
-    faIcon: faSkype,
-  } as Contact,
-  Youtube: {
-    title: translate({ message: 'Youtube' }),
-    link: 'https://www.youtube.com/TienNguyen09',
-    icon: require('@site/static/img/logo/youtube.svg').default,
-    faIcon: faYoutube,
-  } as Contact,
+  // Skype: {
+  //   title: translate({ message: 'Skype' }),
+  //   link: 'https://join.skype.com/invite/ybhXQOv30y5F',
+  //   icon: require('@site/static/img/logo/skype.svg').default,
+  //   faIcon: faSkype,
+  // } as Contact,
+  // Youtube: {
+  //   title: translate({ message: 'Youtube' }),
+  //   link: 'https://www.youtube.com/TienNguyen09',
+  //   icon: require('@site/static/img/logo/youtube.svg').default,
+  //   faIcon: faYoutube,
+  // } as Contact,
 }
 
 export const SHOWCASE = {
