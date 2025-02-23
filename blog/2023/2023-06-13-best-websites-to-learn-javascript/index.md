@@ -9,7 +9,7 @@ image: https://i.pinimg.com/originals/71/ee/32/71ee32577432648f9e45fbd63b2cf261.
 ---
 
 <p align="right">
-    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Fbest-websites-to-learn-javascript&label=⚪Views&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
+    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Fbest-websites-to-learn-javascript&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
 </p>
 
 Javascript là một ngôn ngữ lập trình web đa nền tảng, kịch bản, hướng đối tượng. Javascript được nhúng vào HTML để tạo ra các trang web động và tương tác. Nó có thể được sử dụng cho nhiều mục đích khác nhau, từ frontend cho đến backend, từ game cho đến ứng dụng web phức tạp.
@@ -18,7 +18,9 @@ Trong bài viết này, tôi sẽ giới thiệu với bạn một số trang we
 
 <!-- truncate -->
 
-![JavaScript](https://i.pinimg.com/originals/71/ee/32/71ee32577432648f9e45fbd63b2cf261.jpg)
+<p align="center">
+    <img src="https://i.pinimg.com/originals/71/ee/32/71ee32577432648f9e45fbd63b2cf261.jpg" loading='lazy' decoding='async' alt="JavaScript" />
+</p>
 
 ## 1. [MDN Web Docs](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
 
@@ -26,7 +28,7 @@ MDN Web Docs là một kho tài liệu và nguồn học tập miễn phí cho c
 
 Bạn có thể tìm thấy tài liệu về JavaScript tại đây: [JavaScript Guide](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide).
 
-<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fdeveloper.mozilla.org%2Fen-US%2Fdocs%2FWeb%2FJavaScript/opengraph/" loading='lazy' decoding='async'/>
+<img src="https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fdeveloper.mozilla.org%2Fen-US%2Fdocs%2FWeb%2FJavaScript/showcase/" loading='lazy' decoding='async'/>
 
 ## 2. [W3Schools](https://www.w3schools.com/js/default.asp)
 
@@ -34,7 +36,7 @@ W3Schools là một trang web dành cho các nhà phát triển web. Nó cung c�
 
 Để tìm hiểu về JavaScript, bạn có thể truy cập vào trang web này: [JavaScript Tutorial](https://www.w3schools.com/js/default.asp).
 
-<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fwww.w3schools.com%2Fjs%2Fdefault.asp/opengraph/" loading='lazy' decoding='async'/>
+<img src="https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fwww.w3schools.com%2Fjs%2Fdefault.asp/showcase/" loading='lazy' decoding='async'/>
 
 ## 3. [JavaScript.info](https://javascript.info/)
 
@@ -42,7 +44,7 @@ JavaScript.info là một trang web dành cho những người muốn học Java
 
 Để tìm hiểu về JavaScript, bạn có thể truy cập vào trang web này: [JavaScript Tutorial](https://javascript.info/).
 
-<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fjavascript.info%2F/opengraph/" loading='lazy' decoding='async'/>
+<img src="https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fjavascript.info%2F/showcase/" loading='lazy' decoding='async'/>
 
 ## 4. [freeCodeCamp](https://www.freecodecamp.org/)
 
@@ -50,7 +52,7 @@ freeCodeCamp là một tổ chức phi lợi nhuận giúp mọi người học 
 
 Để học JavaScript tại freeCodeCamp, bạn có thể truy cập vào trang web này: [JavaScript Tutorial](https://www.freecodecamp.org/learn/javascript-algorithms-and-data-structures/basic-javascript/).
 
-<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fwww.freecodecamp.org%2Flearn%2Fjavascript-algorithms-and-data-structures%2Fbasic-javascript%2F/opengraph/" loading='lazy' decoding='async'/>
+<img src="https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fwww.freecodecamp.org%2Flearn%2Fjavascript-algorithms-and-data-structures%2Fbasic-javascript%2F/showcase/" loading='lazy' decoding='async'/>
 
 ## 5. [DevDocs](https://devdocs.io/)
 

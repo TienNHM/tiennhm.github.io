@@ -2,7 +2,7 @@
 title: GitHub Badges
 slug: github-badges
 description: Tổng hợp GitHub Badges phổ biến nhất cho GitHub Profile của bạn.
-image: https://v1.screenshot.11ty.dev/https%3A%2F%2Fshields.io/opengraph/
+image: https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fshields.io/showcase/
 authors: [tiennhm]
 tags: [git, github, badges]
 keywords: [git, github, github profile, github badges, cách tạo github badges, hướng dẫn, tạo github badges, tạo github badges đơn giản, tạo github badges đẹp mắt, tạo github badges cho người mới bắt đầu, shields.io, github-readme-stats, github-profile-trophy, github-profile-views-counter, github-readme-activity-graph, github badges, github badges tutorial, github badges example, github badges for profile, github badges for readme, github badges for repository, github badges for website, github badges for markdown, github badges for blog, github badges for youtube, github badges for facebook, github badges for instagram, github badges for linkedin, github badges for messenger, github badges for website, github badges for text]
@@ -11,7 +11,7 @@ draft: false # set to true to hide this post from the site
 ---
 
 <p align="right">
-    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2FTienNHM.github.io%2Fblog%2Fgithub-badges&label=⚪Views&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
+    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2FTienNHM.github.io%2Fblog%2Fgithub-badges&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
 </p>
 
 Trong bài viết này, mình sẽ hướng dẫn các bạn cách tạo GitHub Badges. Đây là một tính năng mới của GitHub, nó cho phép các bạn tạo các badge để hiển thị trên profile của mình.
@@ -30,7 +30,7 @@ Hiện nay, bạn có thể dễ dàng tạo GitHub Badges thông qua những c�
 
 Shields.io là một công cụ giúp bạn tạo các badge một cách dễ dàng. Trang web này cung cấp các badge với nhiều màu sắc và kiểu dáng khác nhau. Một số loại badge phổ biến như: `social`, `version`, `downloads`, `rating`, `size`, `activity`, `custom`,...
 
-<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fshields.io/opengraph/" loading='lazy' decoding='async'/>
+<img src="https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fshields.io/showcase/" loading='lazy' decoding='async'/>
 
 Một số ví dụ về các badge:
 

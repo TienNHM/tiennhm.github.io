@@ -8,8 +8,7 @@ const PROJECTS: Project[] = [
   {
     title: 'Simple Paint',
     description: 'A simple paint app made with Windows Forms and C#.',
-    // preview: require('./showcase/agilets.png'),
-    preview: null,
+    preview: 'https://res.cloudinary.com/tiennhm/image/upload/v1725682636/blog/images/simple-paint_v6xyjn.webp',
     website: 'https://tiennhm.github.io/SimplePaint',
     source: 'https://github.com/TienNHM/SimplePaint',
     tags: ['favorite', 'courseproject'],
@@ -26,17 +25,16 @@ const PROJECTS: Project[] = [
   {
     title: 'Game Oggy',
     description: 'A simple game made with Windows Forms and C#, inspired by Oggy and the Cockroaches.',
-    // preview: require('./showcase/aide_jeune.png'),
-    preview: null,
+    preview: 'https://res.cloudinary.com/tiennhm/image/upload/v1725682014/blog/images/game-oggy_hmbx58.webp',
     website: 'https://tiennhm.github.io/OGGY/',
     source: 'https://github.com/TienNHM/OGGY',
     tags: ['favorite', 'courseproject'],
+    highlight: true,
   },
   {
     title: "Artist Style Transfer CycleGAN",
     description: 'An implementation of artist style transfer using CycleGAN.',
-    // preview: require('./showcase/akara-blog.png'),
-    preview: null,
+    preview: 'https://res.cloudinary.com/tiennhm/image/upload/v1725682738/blog/images/test_pretrain_cvdmkn.webp',
     website: 'https://tiennhm.github.io/Artist-Style-Transfer-CycleGAN',
     source: 'https://github.com/TienNHM/Artist-Style-Transfer-CycleGAN',
     tags: ['courseproject'],
@@ -44,11 +42,11 @@ const PROJECTS: Project[] = [
   {
     title: 'x2mint',
     description: 'A graduration project, which is a website for creating and taking tests online, made with MERN stack.',
-    // preview: require('./showcase/algolia.png'),
-    preview: null,
+    preview: 'https://res.cloudinary.com/tiennhm/image/upload/v1725682230/blog/images/opengraph/x2mint.jpg',
     website: 'https://x2mint.vercel.app',
     source: 'https://github.com/TienNHM/x2mint',
     tags: ['favorite', 'courseproject'],
+    highlight: true,
   },
   {
     title: 'Youth ITUTE',
@@ -88,6 +86,7 @@ const PROJECTS: Project[] = [
     website: 'https://tiennhm.github.io',
     source: 'https://github.com/TienNHM/tiennhm.github.io',
     tags: ['favorite', 'personal', 'opensource'],
+    highlight: true,
   },
   {
     title: 'Overco Loyalty',
@@ -119,6 +118,14 @@ const PROJECTS: Project[] = [
     tags: ['opensource', 'favorite'],
   },
   {
+    title: 'Keylogger',
+    description: 'Demo keylogger made with Python and Metasploit.',
+    preview: null,
+    website: 'https://tiennhm.github.io/key_logger/web/download.html',
+    source: 'https://github.com/TienNHM/key_logger',
+    tags: ['opensource'],
+  },
+  {
     title: 'Color Palettes',
     description: 'A website for sharing color palettes.',
     preview: null,
@@ -134,18 +141,18 @@ const PROJECTS: Project[] = [
     source: 'https://github.com/TienNHM/welcome-bot-discord',
     tags: ['opensource'],
   },
-  {
-    title: 'root-me-ctf',
-    description: 'My solutions for root-me.org challenges.',
-    preview: null,
-    website: 'https://tiennhm.github.io/root-me-ctf/',
-    source: 'https://github.com/TienNHM/root-me-ctf',
-    tags: ['opensource'],
-  },
+  // {
+  //   title: 'root-me-ctf',
+  //   description: 'My solutions for root-me.org challenges.',
+  //   preview: null,
+  //   website: 'https://tiennhm.github.io/root-me-ctf/',
+  //   source: 'https://github.com/TienNHM/root-me-ctf',
+  //   tags: ['opensource'],
+  // },
   {
     title: 'QuickDraw',
     description: 'A simple game made with Python, inspired by Google Quick Draw.',
-    preview: null,
+    preview: 'https://res.cloudinary.com/tiennhm/image/upload/v1725683441/blog/images/opengraph/quickdraw.webp',
     website: 'https://tiennhm.github.io/QuickDraw/',
     source: 'https://github.com/TienNHM/QuickDraw',
     tags: ['opensource', 'courseproject'],
@@ -153,7 +160,7 @@ const PROJECTS: Project[] = [
   {
     title: 'Tetris',
     description: 'A simple Tetris game made with C++',
-    preview: null,
+    preview: 'https://res.cloudinary.com/tiennhm/image/upload/v1725683322/blog/images/banner-tetris_gvkay6.webp',
     website: 'https://tiennhm.github.io/Tetris-Cpp/',
     source: 'https://github.com/TienNHM/Tetris-Cpp',
     tags: ['opensource', 'courseproject'],
@@ -161,7 +168,7 @@ const PROJECTS: Project[] = [
   {
     title: 'Gradient Descent',
     description: 'An implementation of gradient descent algorithm, visualized with Matplotlib.',
-    preview: null,
+    preview: 'https://res.cloudinary.com/tiennhm/image/upload/v1725683623/blog/images/gd_rh7gh0.webp',
     website: 'https://tiennhm.github.io/GradientDescent/',
     source: 'https://github.com/TienNHM/GradientDescent',
     tags: ['opensource', 'courseproject'],
@@ -169,19 +176,19 @@ const PROJECTS: Project[] = [
   {
     title: 'VietShop',
     description: 'An application for shopping online, made with Java and Android Studio.',
-    preview: null,
+    preview: 'https://res.cloudinary.com/tiennhm/image/upload/v1725683074/blog/images/vietshop_li3xbl.webp',
     website: 'https://tiennhm.github.io/VietShop/',
     source: 'https://github.com/TienNHM/VietShop',
     tags: ['opensource', 'courseproject'],
   },
-  {
-    title: 'aemi - AEMI',
-    description: 'A website for AEMI, a genuine cosmetics wholesale trading platform, made with PHP and Wordpress.',
-    preview: null,
-    website: 'https://www.aemi.beauty/',
-    source: null,
-    tags: ['product'],
-  },
+  // {
+  //   title: 'aemi - AEMI',
+  //   description: 'A website for AEMI, a genuine cosmetics wholesale trading platform, made with PHP and Wordpress.',
+  //   preview: null,
+  //   website: 'https://www.aemi.beauty/',
+  //   source: null,
+  //   tags: ['product'],
+  // },
 ];
 
 function sortProjects() {
@@ -194,4 +201,4 @@ function sortProjects() {
   return result;
 }
 
-export const sortedProjects = sortProjects();
+export const SORTED_PROJECTS = sortProjects();

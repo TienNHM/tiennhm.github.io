@@ -12,14 +12,32 @@ jobs:
     name: Deploy to GitHub Pages
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Convert secrets to env variables
+        uses: oNaiPs/secrets-to-env-action@v1
+        with:
+          secrets: ${{ toJson(secrets) }}
+
+      - name: Show secrets
+        run: cat .env
+
+      # - uses: actions/upload-artifact@v4
+      #   name: Upload Artifact
+      #   with:
+      #     name: SecretsVariables
+      #     path: ".env"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
         with:
           node-version: 18
-          cache: npm
+          cache: npm         
 
       - name: Install dependencies
         run: npm ci
+
       - name: Build website
         run: npm run build
 

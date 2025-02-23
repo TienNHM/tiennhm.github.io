@@ -45,7 +45,10 @@ module.exports = {
 
 The docs version dropdown appears in your navbar:
 
-![Docs Version Dropdown](./img/docsVersionDropdown.png)
+<p align="center">
+    <img src="./img/docsVersionDropdown.png" loading='lazy' decoding='async' alt="Docs Version Dropdown" />
+</p>
+
 
 ## Update an existing version
 

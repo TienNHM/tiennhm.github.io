@@ -71,7 +71,9 @@ module.exports = {
 
 The locale dropdown now appears in your navbar:
 
-![Locale Dropdown](./img/localeDropdown.png)
+<p align="center">
+    <img src="./img/localeDropdown.png" loading='lazy' decoding='async' alt="Locale Dropdown" />
+</p>
 
 ## Build your localized site
 

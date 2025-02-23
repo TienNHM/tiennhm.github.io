@@ -9,7 +9,7 @@ image: ./images/zeppelin-spark.png
 ---
 
 <p align="right">
-    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Finstall-zeppelin-on-windows&label=⚪Views&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
+    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Finstall-zeppelin-on-windows&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
 </p>
 
 Apache Zeppelin là một công cụ phân tích dữ liệu mã nguồn mở, được thiết kế để thực hiện các nhiệm vụ phân tích dữ liệu tương tác và trực quan. Nó cung cấp một giao diện người dùng web để phân tích dữ liệu bằng nhiều ngôn ngữ lập trình khác nhau như Scala, Python, SQL, SparkSQL, Hive, Markdown, Shell, v.v. Trong bài viết này, chúng ta sẽ cùng nhau tìm hiểu cách cài đặt Apache Zeppelin trên Windows.
@@ -48,11 +48,17 @@ https://www.python.org/ftp/python/3.12.1/python-3.12.1-amd64.exe
 
 Lưu ý khi cài đặt Python3, bạn chọn chế độ cài đặt `Customize installation` và chọn `Add Python 3.12 to PATH` như hình dưới đây:
 
-![Install Python - 01](./images/install-python-01.jpg)
+<p align="center">
+    <img src="https://res.cloudinary.com/tiennhm/image/upload/v1725683997/blog/images/install-python-01_geyq8d.webp" loading='lazy' decoding='async' alt="Install Python - 01" />
+</p>
 
-![Install Python - 02](./images/install-python-02.jpg)
+<p align="center">
+    <img src="https://res.cloudinary.com/tiennhm/image/upload/v1725684076/blog/images/install-python-02_iyv4ib.webp" loading='lazy' decoding='async' alt="Install Python - 02" />
+</p>
 
-![Install Python - 03](./images/install-python-03.jpg)
+<p align="center">
+    <img src="https://res.cloudinary.com/tiennhm/image/upload/v1725684069/blog/images/install-python-03_fxtqgs.webp" loading='lazy' decoding='async' alt="Install Python - 02" />
+</p>
 
 ## 4. Tạo môi trường ảo Python3 cho Apache Zeppelin
 
@@ -73,7 +79,9 @@ Sau đó, chuyển tới thư mục `D:\Programs\zeppelin-0.8.2-bin-all\python\v
 activate.bat
 ```
 
-![Create Python Virtual Environment](./images/create-python-virtual-environment.jpg)
+<p align="center">
+    <img src="https://res.cloudinary.com/tiennhm/image/upload/v1725683844/blog/images/create-python-virtual-environment_g5vufa.webp" loading='lazy' decoding='async' alt="Create Python Virtual Environment" />
+</p>
 
 ## 5. Cài đặt các thư viện Python3 cần thiết
 
@@ -101,7 +109,9 @@ set PATH=C:\Program Files (x86)\Common Files\Oracle\Java\javapath;D:\Programs\ze
 
 Lưu ý: Đường dẫn `D:\Programs\zeppelin-0.8.2-bin-all\python\venv\Scripts` là đường dẫn tới thư mục `Scripts` của môi trường ảo Python3 mà chúng ta đã tạo ở bước 4. Nếu bạn tạo môi trường ảo Python3 ở một thư mục khác, bạn hãy thay đổi đường dẫn tương ứng.
 
-![Edit zeppelin-env.cmd](./images/edit-zeppelin-env-cmd.jpg)
+<p align="center">
+    <img src="https://res.cloudinary.com/tiennhm/image/upload/v1725683939/blog/images/edit-zeppelin-env-cmd_z2exjv.webp" loading='lazy' decoding='async' alt="Edit zeppelin-env.cmd" />
+</p>
 
 ## 7. Thay thế một số tập tin
 
@@ -126,12 +136,17 @@ zeppelin.cmd
 
 Kết quả trên Command Prompt (hoặc Windows PowerShell) sẽ như sau:
 
-![Run Apache Zeppelin](./images/run-apache-zeppelin.jpg)
+<p align="center">
+    <img src="https://res.cloudinary.com/tiennhm/image/upload/v1725684170/blog/images/run-apache-zeppelin_xzj3vw.webp" loading='lazy' decoding='async' alt="Run Apache Zeppelin" />
+</p>
 
 Sau khi chạy và thấy logs báo `Done, zeppelin server started`, chúng ta mở trình duyệt web lên và truy cập vào địa chỉ http://localhost:8080 để sử dụng Apache Zeppelin.
 
 Màn hình trang chủ của Apache Zeppelin sẽ như sau:
-![Apache Zeppelin Home Page](./images/welcome-apache-zeppelin.jpg)
+
+<p align="center">
+    <img src="https://res.cloudinary.com/tiennhm/image/upload/v1725684163/blog/images/welcome-apache-zeppelin_icrah5.webp" loading='lazy' decoding='async' alt="Apache Zeppelin Home Page" />
+</p>
 
 Như vậy, chúng ta đã cài đặt thành công Apache Zeppelin trên Windows.
 

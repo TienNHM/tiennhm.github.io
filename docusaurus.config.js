@@ -1,8 +1,8 @@
 // @ts-check
 // Note: type annotations allow type checking and IDEs autocompletion
 
-// require('dotenv').config({ path: `.env.local`, override: true });
-require('dotenv').config({});
+require('dotenv').config({ path: `.env.local`, override: true });
+// require('dotenv').config({});
 
 const lightCodeTheme = require('prism-react-renderer').themes.github;
 const darkCodeTheme = require('prism-react-renderer').themes.dracula;
@@ -15,7 +15,7 @@ const footerLinks = [
         items: [
             {
                 label: 'Tutorial',
-                to: '/docs/intro',
+                to: '/docs',
             },
         ],
     },
@@ -28,7 +28,7 @@ const footerLinks = [
             },
             {
                 label: 'Facebook',
-                href: 'https://www.facebook.com/tiennhm.it',
+                href: 'https://www.facebook.com/tiennhm.vn',
             },
             {
                 label: 'Youtube',
@@ -83,7 +83,7 @@ const config = {
             tagName: 'meta',
             attributes: {
                 name: 'google-site-verification',
-                content: 'KahpusCmJyTWNzsOBu_IjSN9SlluR7BH6lq4SnfsFsQ'
+                content: process.env.GOOGLE_SITE_VERIFICATION,
             }
         }
     ],
@@ -96,9 +96,9 @@ const config = {
     customFields: {
         // Put your custom environment here
         CANNY_BOARD_TOKEN: process.env.CANNY_BOARD_TOKEN,
-        GITHUB_REPO_ID: process.env.GITHUB_REPO_ID,
-        GITHUB_REPO: process.env.GITHUB_REPO,
-        GITHUB_CATEGORY_ID: process.env.GITHUB_CATEGORY_ID,
+        REPO_GITHUB_ID: process.env.REPO_GITHUB_ID,
+        REPO_GITHUB: process.env.REPO_GITHUB,
+        REPO_GITHUB_CATEGORY_ID: process.env.REPO_GITHUB_CATEGORY_ID,
     },
 
     // Even if you don't use internalization, you can use this field to set useful
@@ -130,8 +130,8 @@ const config = {
                     // Remove this to remove the "edit this page" links.
                     editUrl: `https://github.com/${organizationName}/${projectName}/tree/master`,
                     postsPerPage: 5,
-                    blogSidebarCount: 'ALL',
-                    blogSidebarTitle: 'Tất cả bài viết',
+                    // blogSidebarCount: 'ALL',
+                    blogSidebarTitle: 'Bài viết gần đây',
                     blogTitle: 'Blog',
                     blogDescription: 'Blog của TienNHM',
                     blogListComponent: '@theme/BlogListPage',
@@ -149,10 +149,10 @@ const config = {
                     filename: 'sitemap.xml',
                 },
                 googleTagManager: {
-                    containerId: 'GTM-N3QR867G',
+                    containerId: process.env.GOOGLE_TAG_MANAGER_ID,
                 },
                 gtag: {
-                    trackingID: 'G-DMFKNJS6CG',
+                    trackingID: process.env.GTAG_TRACKING_ID,
                     anonymizeIP: true,
                 },
             }),
@@ -200,6 +200,13 @@ const config = {
                 ],
             },
         ],
+        [
+            "docusaurus-plugin-dotenv",
+            {
+                path: "./.env.local",
+                systemvars: true,
+            },
+        ],
         '@docusaurus/theme-mermaid',
     ],
 
@@ -234,27 +241,27 @@ const config = {
                     { to: '/showcase', label: 'Showcase', position: 'left' },
                     // { to: '/cv', label: 'CV', position: 'left' },
                     { to: '/community', label: 'Community', position: 'left' },
-                    { to: '/contact', label: 'Contact', position: 'left' },
+                    // { to: '/contact', label: 'Contact', position: 'left' },
                     {
                         href: 'https://github.com/TienNHM',
                         // label: 'GitHub',
-                        position: 'right',
+                        position: 'left',
                         className: "header-github-link",
                     },
                     {
                         type: 'localeDropdown',
-                        position: 'right',
+                        position: 'left',
                     },
                 ],
             },
             docs: {
                 sidebar: {
-                  hideable: true,
+                    hideable: true,
                 },
             },
             footer: {
                 style: 'light',
-                // links: footerLinks,
+                links: footerLinks,
                 copyright: `Copyright © ${new Date().getFullYear()} TienNHM.`,
             },
             prism: {
@@ -272,6 +279,8 @@ const config = {
                 apiKey: process.env.ALGOLIA_API_KEY,
                 indexName: process.env.ALGOLIA_INDEX_NAME,
                 contextualSearch: true,
+                insights: true,
+
             },
             mermaid: {
                 theme: { light: 'neutral', dark: 'dark' },

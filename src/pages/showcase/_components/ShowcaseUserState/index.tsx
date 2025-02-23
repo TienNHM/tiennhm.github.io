@@ -3,7 +3,7 @@ import { ProjectTagType } from "@site/src/shared/constants/ProjectConsts";
 import { Project } from "@site/src/shared/dto/Project";
 import { Operator, readOperator } from "../ShowcaseFilterToggle";
 import { useLocation } from "@docusaurus/router";
-import { sortedProjects } from "@site/src/data/projects";
+import { SORTED_PROJECTS } from "@site/src/data/projects";
 import { useState, useEffect, useMemo } from "react";
 import { readSearchName } from "../ShowcaseSearchBar";
 import { readSearchTags } from "../ShowcaseTagSelect";
@@ -77,7 +77,7 @@ export function useFilteredUsers() {
     }, [location]);
 
     return useMemo(
-        () => filterUsers(sortedProjects, selectedTags, operator, searchName),
+        () => filterUsers(SORTED_PROJECTS, selectedTags, operator, searchName),
         [selectedTags, operator, searchName],
     );
 }

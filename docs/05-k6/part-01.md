@@ -5,11 +5,11 @@ authors: [tiennhm]
 tags: [load-testing, k6, restful-api, performance-testing, setup]
 enableComments: true # for Gisqus comments, set to true
 draft: false # set to true to hide this post from the site
-image: https://v1.screenshot.11ty.dev/https%3A%2F%2Fk6.io/opengraph/
+image: https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fk6.io/showcase/
 ---
 
 <p align="right">
-    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Fload-testing-restful-apis-with-k6-part-01&label=⚪Views&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
+    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Fload-testing-restful-apis-with-k6-part-01&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
 </p>
 
 [RESTful API](https://aws.amazon.com/what-is/restful-api/) là một trong những kiểu API phổ biến nhất hiện nay. Vì vậy, việc kiểm tra tải (load testing) là một phần quan trọng của việc kiểm tra hiệu suất. Trong bài viết này, chúng ta sẽ tìm hiểu cách **cài đặt** [k6](https://k6.io) để kiểm tra tải cho RESTful API.
@@ -22,7 +22,9 @@ image: https://v1.screenshot.11ty.dev/https%3A%2F%2Fk6.io/opengraph/
 
 Đây là một công cụ miễn phí, lấy nhà phát triển làm trung tâm và có thể dễ dàng mở rộng, được phát triển bởi [Grafana Labs](https://grafana.com/) và cộng đồng.
 
-<img src="https://v1.screenshot.11ty.dev/https%3A%2F%2Fk6.io/opengraph/" loading='lazy' decoding='async'/>
+<p align="center">
+    <img src="https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fk6.io/showcase/" loading='lazy' decoding='async' alt="K6"/>
+</p>
 
 ### Những tính năng chính
 
@@ -55,10 +57,6 @@ Theo mặc định, k6 không hiển thị các trang web giống như cách tr�
 
 Tuy nhiên, với [k6 browser](https://k6.io/docs/using-k6-browser/overview/), bạn có thể tương tác với các trình duyệt thực và thu thập số liệu giao diện người dùng như một phần của testing.
 
-<p align="center">
-    <img src="https://k6.io/blog/static/bf37122311fee7096e292f1d2f050b5e/f3baa/hybrid-testing.png" loading='lazy' decoding='async'/>
-</p>
-
 - **Không thể chạy trên Node.js**
 
 JavaScript thường không phù hợp để sử dụng trong các trường hợp cần hiệu suất cao. Để đạt được hiệu suất tối đa, bản thân công cụ này được viết bằng [Go](https://go.dev), embed JavaScript runtime cho phép viết kịch bản kiểm tra dễ dàng.
@@ -77,7 +75,7 @@ Trong bài viết này, chúng ta sẽ tìm hiểu cách cài đặt k6 trên **
 Để cài đặt k6, bạn có thể tải file cài đặt phần mềm tại [đây](https://dl.k6.io/msi/k6-latest-amd64.msi) và tiến hành cài đặt theo hướng dẫn.
 
 <p align="center">
-    <img src="/img/docs/k6/k6-install.webp" loading='lazy' decoding='async'/>
+    <img src="https://res.cloudinary.com/tiennhm/image/upload/v1725712944/blog/images/k6-install_gvnoks.webp" loading='lazy' decoding='async'/>
 </p>
 
 Sau khi cài đặt thành công, bạn có thể mở Command Prompt và kiểm tra phiên bản k6 đã cài đặt bằng lệnh:
@@ -88,7 +86,7 @@ k6
 Nếu k6 đã được cài đặt thành công, bạn sẽ nhận được thông báo như sau:
 
 <p align="center">
-    <img src="/img/docs/k6/k6-install-verify.webp" loading='lazy' decoding='async'/>
+    <img src="https://res.cloudinary.com/tiennhm/image/upload/v1725712955/blog/images/k6-install-verify_gspfye.webp" loading='lazy' decoding='async'/>
 </p>
 
 Trong trường hợp bạn muốn cài một phiên bản cụ thể, bạn có thể tìm thấy tất cả các phiên bản tại [đây](https://dl.k6.io/msi/).
@@ -103,7 +101,7 @@ Trong một vài tình huống, bạn có thể gặp lỗi khi cài đặt k6. 
 Trên Windows, bạn có thể gặp lỗi sau khi cài đặt k6:
 
 <p align="center">
-    <img src="/img/docs/k6/k6-install-error.webp" loading='lazy' decoding='async'/>
+    <img src="https://res.cloudinary.com/tiennhm/image/upload/v1725712950/blog/images/k6-install-error_iuhgz1.webp" loading='lazy' decoding='async'/>
 </p>
 
 Khi đó, hãy đảm bảo rằng bạn đã thêm đường dẫn đến thư mục chứa k6 vào biến môi trường PATH. Trong trường hợp mặc định, thư mục này sẽ nằm tại `C:\Program Files\k6`.

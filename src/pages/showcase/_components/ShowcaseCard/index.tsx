@@ -48,16 +48,16 @@ function ShowcaseCardTag({ tags }: { tags: ProjectTagType[] }) {
 /**
  * Returns the image url for the card, either the user-provided one or a screenshot of the website
  * Ref: https://api-explorer.11ty.dev/
- * @param user user object
+ * @param project user object
  * @returns image url
  */
-function getCardImage(user: Project): string {
-  if (user.preview) {
-    return user.preview;
+function getCardImage(project: Project): string {
+  if (project.preview) {
+    return project.preview;
   }
-  if (user.website) {
-    var img = user.website ?? 'https://github.com/TienNHM'
-    return user.preview ?? GetWebsiteScreenshot(img)
+  if (project.website) {
+    var img = project.website ?? 'https://github.com/TienNHM'
+    return project.preview ?? GetWebsiteScreenshot(img)
   }
   return TienNHM;
 }

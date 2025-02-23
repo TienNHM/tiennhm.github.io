@@ -5,11 +5,11 @@ authors: [tiennhm]
 tags: [load-testing, k6, restful-api, performance-testing, setup, visualization, grafana, influxdb]
 enableComments: true # for Gisqus comments, set to true
 draft: false # set to true to hide this post from the site
-image: https://v1.screenshot.11ty.dev/https%3A%2F%2Fk6.io/opengraph/
+image: https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fk6.io/showcase/
 ---
 
 <p align="right">
-    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Fload-testing-restful-apis-with-k6-part-05&label=⚪Views&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
+    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Fload-testing-restful-apis-with-k6-part-05&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
 </p>
 
 Trong các bài viết trước, chúng ta đã biết cách viết kịch bản test và xem kết quả trên màn hình console khi chạy kịch bản với k6. Tuy nhiên, để có thể quan sát và phân tích kết quả một cách trực quan hơn, chúng ta có thể kết hợp k6 với Grafana và InfluxDB.
@@ -182,7 +182,7 @@ docker-compose up -d influxdb grafana
 Sau khi chạy lệnh này, bạn có thể truy cập vào InfluxDB trên địa chỉ [http://localhost:8086](http://localhost:8086) và Grafana trên địa chỉ [http://localhost:3000](http://localhost:3000). Lưu ý rằng, các porrt 8086 và 3000 đã được map từ Docker container ra ngoài máy chủ để truy cập.
 
 <p align="center">
-    <img src="/img/docs/k6/grafana.webp" loading='lazy' decoding='async'/>
+    <img src="https://res.cloudinary.com/tiennhm/image/upload/v1725712964/blog/images/grafana_f8drfr.webp" loading='lazy' decoding='async'/>
 </p>
 
 ## Tạo kịch bản test
@@ -228,7 +228,7 @@ Trong lần chạy đầu tiên, k6 sẽ tải image `grafana/k6:latest` về m�
 Kết quả sẽ hiển thị tương tự như sau:
 
 <p align="center">
-    <img src="/img/docs/k6/grafana-dashboard.webp" loading='lazy' decoding='async'/>
+    <img src="https://res.cloudinary.com/tiennhm/image/upload/v1725712969/blog/images/grafana-dashboard_dgue57.webp" loading='lazy' decoding='async'/>
 </p>
 
 Như vậy, chúng ta đã có thể trực quan hóa kết quả load test từ k6 trên Grafana. Từ đây, chúng ta có thể phân tích kết quả và tối ưu hóa hiệu năng ứng dụng một cách trực quan hơn.

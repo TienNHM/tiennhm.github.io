@@ -1,7 +1,7 @@
 import React from 'react';
 import clsx from 'clsx';
 import Layout from '@theme/Layout';
-import { sortedProjects } from '@site/src/data/projects';
+import { SORTED_PROJECTS } from '@site/src/data/projects';
 import { Project } from '@site/src/shared/dto/Project';
 import ShowcaseHeader from './_components/ShowcaseHeader';
 import ShowcaseCardList from './_components/ShowcaseCardList';
@@ -9,10 +9,10 @@ import ShowcaseFilters from './_components/ShowcaseFilters';
 import { SHOWCASE } from '@site/src/data/contacts';
 
 export default function Showcase(): JSX.Element {
-  const favoriteUsers: Project[] = sortedProjects.filter((user) =>
+  const favoriteUsers: Project[] = SORTED_PROJECTS.filter((user) =>
     user.tags.includes('favorite'),
   );
-  const otherUsers: Project[] = sortedProjects.filter(
+  const otherUsers: Project[] = SORTED_PROJECTS.filter(
     (user) => !user.tags.includes('favorite'),
   );
 

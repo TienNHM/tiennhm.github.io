@@ -7,4 +7,5 @@ export type Project = {
     website: string;
     source: string | null;
     tags: ProjectTagType[];
+    highlight?: boolean;
 };

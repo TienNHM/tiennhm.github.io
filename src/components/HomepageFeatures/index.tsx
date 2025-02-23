@@ -7,6 +7,7 @@ import ShowcaseCard from '@site/src/pages/showcase/_components/ShowcaseCard';
 import Link from '@docusaurus/Link';
 import { Badge } from 'primereact/badge';
 import { Button } from 'primereact/button';
+import { SORTED_PROJECTS } from '@site/src/data/projects';
 
 const FeatureList: FeatureItem[] = [
   {
@@ -41,36 +42,6 @@ const FeatureList: FeatureItem[] = [
   },
 ];
 
-const TopProjectList: Project[] = [
-  {
-    title: 'x2mint',
-    description: 'A graduration project, which is a website for creating and taking tests online, made with MERN stack.',
-    // preview: require('./showcase/algolia.png'),
-    preview: null,
-    website: 'https://x2mint.vercel.app',
-    source: 'https://github.com/TienNHM/x2mint',
-    tags: ['favorite', 'courseproject'],
-  },
-  {
-    title: 'Portfolio',
-    description: 'Showcasing my projects and skills. There is also a blog section, where I write about my projects.',
-    // preview: require('./showcase/astronomer.png'),
-    preview: null,
-    website: 'https://tiennhm.github.io',
-    source: 'https://github.com/TienNHM/tiennhm.github.io',
-    tags: ['favorite', 'personal', 'opensource'],
-  },
-  {
-    title: 'Game Oggy',
-    description: 'A simple game made with Windows Forms and C#, inspired by Oggy and the Cockroaches.',
-    // preview: require('./showcase/aide_jeune.png'),
-    preview: null,
-    website: 'https://tiennhm.github.io/OGGY/',
-    source: 'https://github.com/TienNHM/OGGY',
-    tags: ['favorite', 'courseproject'],
-  },
-]
-
 export default function HomepageFeatures(): JSX.Element {
   return (
     <section className={styles.features}>
@@ -83,20 +54,22 @@ export default function HomepageFeatures(): JSX.Element {
           }
         </div>
         <h1 id='top-projects' className={clsx(styles.showcaseFeaturesTitle)}>Top Projects</h1>
-        <div id='top-projects' className={clsx(styles.showcaseFeaturesLink)}>
-          <Link href='/showcase'>
-            <Button label='View more' icon='pi pi-angle-double-right' 
-              iconPos='right' size='small' severity="success" rounded outlined/>
-          </Link>
-        </div>
+ 
         <div className='row'>
           {
-            TopProjectList.map((project: Project) => (
-              <div className={clsx('col col--4', styles.showcaseFeaturesList)}>
-                <ShowcaseCard key={project.title} user={project} />
+            SORTED_PROJECTS.map((project: Project) => project.highlight && (
+              <div key={project.title} className={clsx('col col--4', styles.showcaseFeaturesList)}>
+                <ShowcaseCard user={project} />
               </div>
             ))
           }
+        </div>
+
+        <div id='top-projects' className={clsx(styles.showcaseFeaturesLink)}>
+          <Link href='/showcase'>
+            <Button label='View more ...' icon='pi pi-angle-double-right' 
+              size='large' severity="success" rounded outlined/>
+          </Link>
         </div>
       </div>
     </section>

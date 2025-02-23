@@ -9,7 +9,7 @@ image: https://about.linkedin.com/etc.clientlibs/settings/wcm/designs/gandalf/cl
 ---
 
 <p align="right">
-    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Ftop-linked-accounts-to-follow-for-developers&label=⚪Views&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
+    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Ftop-linked-accounts-to-follow-for-developers&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
 </p>
 
 Bạn là một lập trình viên và bạn muốn cập nhật những xu hướng công nghệ mới nhất? Bạn muốn tìm hiểu những kinh nghiệm của những lập trình viên khác? Bạn muốn tìm hiểu những công nghệ mới nhất? 

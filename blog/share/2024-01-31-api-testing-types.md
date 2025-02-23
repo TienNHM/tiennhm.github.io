@@ -9,14 +9,16 @@ image: ./images/api-testing-types.gif
 ---
 
 <p align="right">
-    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Fapi-testing-types&label=⚪Views&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
+    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Fapi-testing-types&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
 </p>
 
 Giới thiệu về các loại kiểm thử API.
 
 <!--truncate-->
 
-![API Testing Types](./images/api-testing-types.gif)
+<p align="center">
+    <img src="https://res.cloudinary.com/tiennhm/image/upload/v1725712660/blog/images/api-testing-types_tci9xy.gif" loading='lazy' decoding='async' alt="API Testing Types" />
+</p>
 
 Giải thích 9 loại kiểm thử API.
  
