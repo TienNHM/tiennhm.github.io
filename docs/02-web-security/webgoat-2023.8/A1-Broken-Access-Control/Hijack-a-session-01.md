@@ -1,5 +1,5 @@
 ---
-title: Hijack a session | 01
+title: 01 | Hijack a session
 slug: hijack-a-session-01
 description: Bài viết này sẽ hướng dẫn cách tấn công Hijack a session trên WebGoat 2023.8
 image: https://tiennhm.github.io/img/docs/database.jpg
