@@ -267,7 +267,7 @@ const config = {
             prism: {
                 theme: lightCodeTheme,
                 darkTheme: darkCodeTheme,
-                additionalLanguages: ['powershell', 'bash', 'csharp', 'sql', 'python', 'json', 'git', 'csv', 'sass', 'scss', 'log'],
+                additionalLanguages: ['powershell', 'bash', 'csharp', 'java', 'sql', 'python', 'json', 'git', 'csv', 'sass', 'scss', 'log'],
             },
             metadata: [
                 { name: 'keywords', content: 'TienNHM, Nguyễn Huỳnh Minh Tiến, blog, coding, tools' },
