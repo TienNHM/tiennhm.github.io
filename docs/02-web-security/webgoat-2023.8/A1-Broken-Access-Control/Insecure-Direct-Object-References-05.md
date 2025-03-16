@@ -1,5 +1,5 @@
 ---
-title: 05 | Insecure Direct Object References
+title: 2.05 | Insecure Direct Object References
 slug: insecure-direct-object-references-05
 description: Bài viết này sẽ hướng dẫn cách tấn công Insecure Direct Object References trên WebGoat 2023.8
 image: https://tiennhm.github.io/img/docs/database.jpg
