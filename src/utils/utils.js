@@ -1,8 +1,6 @@
 // src/utils/utils.js
 
 import React, { useEffect, useState } from "react";
-
-import firebase from "firebase/compat/app";
 import { onAuthStateChanged } from "firebase/auth";
 import { useThemeConfig } from "@docusaurus/theme-common";
 import { auth } from "../components/Auth";
@@ -18,15 +16,13 @@ export function useNavbarItems() {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    onAuthStateChanged(auth, (user) => {
-      setUser(user);
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
     });
-  });
+    return () => unsubscribe(); // cleanup tránh memory leak
+  }, []);
 
-  // TODO temporary casting until ThemeConfig type is improved
-  // return useThemeConfig().navbar.items;
   let items = useThemeConfig().navbar.items;
-
 
   if (user) {
     items.push({
@@ -37,7 +33,7 @@ export function useNavbarItems() {
       navkey: LOGOUT_BUTTON,
     });
     items.push({
-      label: 'Account',
+      label: "Account",
       position: "right",
       navkey: LOGOUT_BUTTON,
       items: [
@@ -53,31 +49,29 @@ export function useNavbarItems() {
           label: LOGOUT_BUTTON,
           to: LOGOUT_PATH,
         },
-      ]
+      ],
     });
   } else {
     items.push({
-      label: 'Account',
+      label: "Account",
       position: "right",
       navkey: LOGIN_BUTTON,
       items: [
         {
           label: LOGIN_BUTTON,
           to: LOGIN_PATH,
-        }
-      ]
+        },
+      ],
     });
   }
 
   // remove irrelevant items
   if (user) {
     items = items.filter((x) => x.navkey !== LOGIN_BUTTON);
-  }
-  else {
+  } else {
     items = items.filter((x) => x.navkey !== LOGOUT_BUTTON);
   }
 
   const uniqueItems = [...new Map(items.map((x) => [x.label, x])).values()];
-  // console.log(uniqueItems);
   return uniqueItems;
 }

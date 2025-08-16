@@ -1,6 +1,6 @@
 import React from 'react';
 import clsx from 'clsx';
-import {useThemeConfig} from '@docusaurus/theme-common';
+import {ThemeClassNames, useThemeConfig} from '@docusaurus/theme-common';
 import {
   useHideableNavbar,
   useNavbarMobileSidebar,
@@ -32,6 +32,7 @@ export default function NavbarLayout({children}) {
         description: 'The ARIA label for the main navigation',
       })}
       className={clsx(
+        ThemeClassNames.layout.navbar.container,
         'navbar',
         'navbar--fixed-top',
         hideOnScroll && [
