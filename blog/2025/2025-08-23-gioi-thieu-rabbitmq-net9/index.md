@@ -395,3 +395,5 @@ cd samples
 ```
 
 Happy coding! 🚀
+
+![Screenshot](./screenshot.png)
