@@ -1,15 +1,15 @@
 ---
 title: "Giới thiệu RabbitMQ - Message Broker mạnh mẽ"
 slug: introduction-to-rabbitmq
-description: "Tìm hiểu về RabbitMQ, một message broker phổ biến trong kiến trúc microservices. Bài viết bao gồm khái niệm cơ bản, cài đặt và ví dụ thực tế với .NET 9."
-tags: [rabbitmq, dotnet, microservices, message-broker, net9, csharp]
+description: "Tìm hiểu về RabbitMQ, một message broker phổ biến trong kiến trúc microservices. Bài viết bao gồm khái niệm cơ bản, cài đặt và ví dụ thực tế với .NET 8."
+tags: [rabbitmq, dotnet, microservices, message-broker, net8, csharp]
 authors: [tiennhm]
 date: 2025-08-23
 ---
 
-# Giới thiệu RabbitMQ - Message Broker mạnh mẽ
+# Giới thiệu RabbitMQ - Message Broker mạnh mẽ với ví dụ .NET 8
 
-RabbitMQ là một trong những message broker phổ biến nhất trong thế giới phát triển phần mềm hiện đại. Trong bài viết này, chúng ta sẽ tìm hiểu về RabbitMQ và cách sử dụng nó trong ứng dụng .NET 9.
+RabbitMQ là một trong những message broker phổ biến nhất trong thế giới phát triển phần mềm hiện đại. Trong bài viết này, chúng ta sẽ tìm hiểu về RabbitMQ và cách sử dụng nó trong ứng dụng .NET 8.
 
 <!-- truncate -->
 
@@ -40,11 +40,11 @@ Sau khi chạy, bạn có thể truy cập RabbitMQ Management UI tại: `http:/
 
 Tải và cài đặt từ [rabbitmq.com](https://www.rabbitmq.com/download.html)
 
-## Ví dụ ứng dụng .NET 9
+## Ví dụ ứng dụng .NET 8
 
 Chúng ta sẽ tạo một ứng dụng đơn giản để gửi và nhận message qua RabbitMQ.
 
-### 1. Tạo project .NET 9
+### 1. Tạo project .NET 8
 
 ```bash
 dotnet new console -n RabbitMQDemo
@@ -353,12 +353,12 @@ channel.QueueDeclare(
 
 ## Kết luận
 
-RabbitMQ là một công cụ mạnh mẽ cho việc xây dựng kiến trúc microservices và xử lý message bất đồng bộ. Với .NET 9, việc tích hợp RabbitMQ trở nên đơn giản và hiệu quả hơn bao giờ hết.
+RabbitMQ là một công cụ mạnh mẽ cho việc xây dựng kiến trúc microservices và xử lý message bất đồng bộ. Với .NET 8, việc tích hợp RabbitMQ trở nên đơn giản và hiệu quả hơn bao giờ hết.
 
 Trong bài viết này, chúng ta đã tìm hiểu:
 - Khái niệm cơ bản về RabbitMQ
 - Cách cài đặt và sử dụng
-- Ví dụ thực tế với .NET 9
+- Ví dụ thực tế với .NET 8
 - Các tính năng nâng cao
 
 Để tìm hiểu thêm, bạn có thể tham khảo:
@@ -366,4 +366,32 @@ Trong bài viết này, chúng ta đã tìm hiểu:
 - [RabbitMQ .NET Client](https://github.com/rabbitmq/rabbitmq-dotnet-client)
 - [AMQP Protocol](https://www.amqp.org/)
 
-Trên đây là một số ví dụ cơ bản về RabbitMQ và cách sử dụng nó trong ứng dụng .NET 9, hy vọng bạn thấy hữu ích.
+Trên đây là một số ví dụ cơ bản về RabbitMQ và cách sử dụng nó trong ứng dụng .NET 8, hy vọng bạn thấy hữu ích.
+
+## 🚀 Source Code Mẫu
+
+Để xem và chạy code mẫu hoàn chỉnh, hãy truy cập: [GitHub Repository](https://github.com/TienNHM/rabbitmq-demo-net8)
+
+Repository bao gồm:
+- **Simple Producer/Consumer**: Ví dụ cơ bản gửi/nhận message
+- **Advanced Producer/Consumer**: Sử dụng Exchange với routing
+- **Shared Library**: Các class và utility chung
+- **Hướng dẫn chi tiết**: README.md và QUICKSTART.md
+- **Script tự động**: PowerShell script để dễ dàng chạy demo
+
+### 🎯 Cách sử dụng nhanh:
+
+```bash
+# 1. Clone repository
+git clone https://github.com/TienNHM/rabbitmq-demo-net8.git
+cd rabbitmq-demo-net8
+
+# 2. Khởi động RabbitMQ
+docker run -d --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3-management
+
+# 3. Chạy demo
+cd samples
+.\run-samples.ps1
+```
+
+Happy coding! 🚀
