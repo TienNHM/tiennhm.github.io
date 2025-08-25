@@ -131,7 +131,7 @@ Phần này trình bày tác động của AI đối với từng vai trò trong
   - **Độ chính xác dự đoán** tăng 45% với AI-powered analytics [^1]
   - **Tốc độ ra quyết định** nhanh hơn 70% với AI insights [^1]
 
-**Nghiên cứu trường hợp**: Spotify Product team sử dụng AI để **phân tích user behavior**, tăng 40% **user engagement** và giảm 50% **thời gian phát triển tính năng** [^1].
+**Use case**: Spotify Product team sử dụng AI để **phân tích user behavior**, tăng 40% **user engagement** và giảm 50% **thời gian phát triển tính năng** [^1].
 
 </details>
 
@@ -147,7 +147,7 @@ Phần này trình bày tác động của AI đối với từng vai trò trong
   - Giảm 78% thời gian **debug** (Cursor AI survey) [^3]
   - Tăng 85% **điểm chất lượng code** (Microsoft Research) [^4]
 
-**Nghiên cứu trường hợp**: Microsoft Azure team sử dụng GitHub Copilot, tăng 55% **tốc độ giao tính năng** và giảm 40% **lỗi** [^4].
+**Use case**: Microsoft Azure team sử dụng GitHub Copilot, tăng 55% **tốc độ giao tính năng** và giảm 40% **lỗi** [^4].
 
 </details>
 
@@ -163,7 +163,7 @@ Phần này trình bày tác động của AI đối với từng vai trò trong
   - Phát hiện **lỗi** sớm hơn 65% (**phát hiện sớm**) [^5]
   - Giảm 73% **kết quả kiểm thử dương tính giả** [^5]
 
-**Nghiên cứu trường hợp**: Spotify QA team **triển khai** AI testing, tăng **độ bao phủ kiểm thử** từ 45% lên 92% trong 6 tháng [^5].
+**Use case**: Spotify QA team **triển khai** AI testing, tăng **độ bao phủ kiểm thử** từ 45% lên 92% trong 6 tháng [^5].
 
 </details>
 
@@ -179,7 +179,7 @@ Phần này trình bày tác động của AI đối với từng vai trò trong
   - **Thời gian ngừng hoạt động** giảm 72% (từ 8 giờ/tháng xuống 2.2 giờ/tháng) [^6]
   - **Thời gian phản ứng sự cố** giảm 65% (từ 4 giờ xuống 1.4 giờ) [^6]
 
-**Nghiên cứu trường hợp**: Netflix DevOps team sử dụng **giám sát được AI hỗ trợ**, giảm 80% **cảnh báo giả** và tăng 90% **độ chính xác phát hiện sự cố** [^6].
+**Use case**: Netflix DevOps team sử dụng **giám sát được AI hỗ trợ**, giảm 80% **cảnh báo giả** và tăng 90% **độ chính xác phát hiện sự cố** [^6].
 
 </details>
 
@@ -197,7 +197,7 @@ Phần này trình bày tác động của AI đối với từng vai trò trong
 - **Design consistency** tăng 80% với AI-generated design systems [^7]
 - **User testing** nhanh hơn 70% với AI-powered prototyping [^7]
 
-**Nghiên cứu trường hợp**: Airbnb Design team sử dụng AI để **tạo design variations**, giảm 60% thời gian thiết kế và tăng 45% user satisfaction [^7].
+**Use case**: Airbnb Design team sử dụng AI để **tạo design variations**, giảm 60% thời gian thiết kế và tăng 45% user satisfaction [^7].
 
 </details>
 
@@ -213,7 +213,7 @@ Phần này trình bày tác động của AI đối với từng vai trò trong
 - **Model accuracy** tăng 25% với AI-assisted feature selection [^8]
 - **Insight discovery** nhanh hơn 80% với AI-powered analysis [^8]
 
-**Nghiên cứu trường hợp**: Spotify Data team sử dụng AI để **phân tích user behavior**, giảm 70% thời gian data preparation và tăng 60% insight quality [^8].
+**Use case**: Spotify Data team sử dụng AI để **phân tích user behavior**, giảm 70% thời gian data preparation và tăng 60% insight quality [^8].
 
 </details>
 
@@ -222,14 +222,14 @@ Phần này trình bày tác động của AI đối với từng vai trò trong
 <summary><strong>🔒 Xem chi tiết nghiên cứu về AI cho Security</strong></summary>
 
 **Nghiên cứu từ Cybersecurity Research Institute (2024)**:
-- **AI hỗ trợ**: **Threat detection**, **vulnerability scanning**, **incident response**, **security testing**, **compliance audit**
+- **AI hỗ trợ**: Phát hiện mối đe dọa, quét lỗ hổng, ứng phó sự cố, kiểm tra bảo mật, kiểm tra tuân thủ
 - **Công cụ**: Darktrace, CrowdStrike AI, Microsoft Defender, AI-powered penetration testing
 - **Kết quả thực tế**:
   - **Threat detection** nhanh hơn 85% với AI monitoring [^9]
 - **False positives** giảm 60% với AI-powered analysis [^9]
 - **Incident response** nhanh hơn 70% với automated security workflows [^9]
 
-**Nghiên cứu trường hợp**: Google Security team sử dụng AI để **phát hiện threats**, giảm 80% false alerts và tăng 90% threat detection accuracy [^9].
+**Use case**: Google Security team sử dụng AI để **phát hiện threats**, giảm 80% false alerts và tăng 90% threat detection accuracy [^9].
 
 </details>
 
@@ -240,14 +240,14 @@ Phần này trình bày tác động của AI đối với từng vai trò trong
 <summary><strong>📋 Xem chi tiết nghiên cứu về AI cho Project Management</strong></summary>
 
 **Nghiên cứu từ Project Management Institute (2024)**:
-- **AI hỗ trợ**: **Project planning**, **resource allocation**, **risk assessment**, **progress tracking**, **stakeholder communication**
+- **AI hỗ trợ**: Lập kế hoạch dự án, phân bổ nguồn lực, đánh giá rủi ro, theo dõi tiến độ, giao tiếp với các bên liên quan
 - **Công cụ**: Monday.com AI, Asana Intelligence, Jira AI, ChatGPT Project Management
 - **Kết quả thực tế**:
   - **Project planning** nhanh hơn 60% với AI assistance [^10]
 - **Risk identification** tăng 75% với AI-powered analysis [^10]
 - **Team productivity** tăng 40% với AI-optimized workflows [^10]
 
-**Nghiên cứu trường hợp**: Microsoft Project Management team sử dụng AI để **tối ưu hóa resource allocation**, giảm 50% project delays và tăng 65% team efficiency [^10].
+**Use case**: Microsoft Project Management team sử dụng AI để **tối ưu hóa resource allocation**, giảm 50% project delays và tăng 65% team efficiency [^10].
 
 </details>
 
@@ -263,7 +263,7 @@ Phần này trình bày tác động của AI đối với từng vai trò trong
 - **Process documentation** tăng 80% accuracy với AI tools [^11]
 - **Stakeholder alignment** tăng 65% với AI-powered communication [^11]
 
-**Nghiên cứu trường hợp**: Amazon Business Analysis team sử dụng AI để **phân tích business processes**, giảm 60% analysis time và tăng 75% stakeholder satisfaction [^11].
+**Use case**: Amazon Business Analysis team sử dụng AI để **phân tích business processes**, giảm 60% analysis time và tăng 75% stakeholder satisfaction [^11].
 
 </details>
 
@@ -279,7 +279,7 @@ Phần này trình bày tác động của AI đối với từng vai trò trong
 - **Defect detection** tăng 90% với AI-powered testing [^12]
 - **Test coverage** tăng 85% với AI-generated test cases [^12]
 
-**Nghiên cứu trường hợp**: Netflix QA team sử dụng AI để **tự động hóa testing**, giảm 75% manual testing effort và tăng 95% test coverage [^12].
+**Use case**: Netflix QA team sử dụng AI để **tự động hóa testing**, giảm 75% manual testing effort và tăng 95% test coverage [^12].
 
 </details>
 
@@ -310,8 +310,8 @@ Theo [InfoWorld analysis](https://www.infoworld.com/article/3999607/how-to-succe
 
 #### 4. Tự tin sai lầm
 - **Rủi ro**: Các nhóm có thể **giả định** AI sẽ **làm đúng** **hầu hết thời gian**
-- **Tác động**: **Giao hàng** **không an toàn** hoặc **code có lỗi**
-- **Giảm thiểu**: **Nguyên tắc "Nếu bạn không thể giải thích, đừng giao hàng"**
+- **Tác động**: **Triển khai** **không an toàn** hoặc **code có lỗi**
+- **Giảm thiểu**: **Nguyên tắc "Nếu bạn không thể giải thích, đừng triển khai"**
 
 :::
 
