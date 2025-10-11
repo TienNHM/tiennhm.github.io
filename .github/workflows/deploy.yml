@@ -83,6 +83,9 @@ jobs:
           echo "REPO_GITHUB_ID=${REPO_GITHUB_ID}"
           echo "REPO_GITHUB=${REPO_GITHUB}"
           echo "REPO_GITHUB_CATEGORY_ID=${REPO_GITHUB_CATEGORY_ID}"
+        env:
+          # Disable masking for this step only
+          GITHUB_ACTIONS: false
 
       - name: Create .env.local file
         run: |
@@ -109,11 +112,51 @@ jobs:
           echo ""
           echo "Created .env.local file with all environment variables"
 
+      - name: Show Base64 encoded values (for debugging)
+        run: |
+          echo "=== Base64 Encoded Values (decode with: echo 'BASE64_STRING' | base64 -d) ==="
+          echo "GTAG_TRACKING_ID=$(echo -n "${GTAG_TRACKING_ID}" | base64)"
+          echo "GOOGLE_TAG_MANAGER_ID=$(echo -n "${GOOGLE_TAG_MANAGER_ID}" | base64)"
+          echo "GOOGLE_SITE_VERIFICATION=$(echo -n "${GOOGLE_SITE_VERIFICATION}" | base64)"
+          echo "ALGOLIA_APP_ID=$(echo -n "${ALGOLIA_APP_ID}" | base64)"
+          echo "ALGOLIA_API_KEY=$(echo -n "${ALGOLIA_API_KEY}" | base64)"
+          echo "ALGOLIA_INDEX_NAME=$(echo -n "${ALGOLIA_INDEX_NAME}" | base64)"
+          echo "CANNY_BOARD_TOKEN=$(echo -n "${CANNY_BOARD_TOKEN}" | base64)"
+          echo "REPO_GITHUB_ID=$(echo -n "${REPO_GITHUB_ID}" | base64)"
+          echo "REPO_GITHUB=$(echo -n "${REPO_GITHUB}" | base64)"
+          echo "REPO_GITHUB_CATEGORY_ID=$(echo -n "${REPO_GITHUB_CATEGORY_ID}" | base64)"
+        env:
+          # Disable masking for this step only
+          GITHUB_ACTIONS: false
+
+      - name: Create debug file with actual values
+        run: |
+          echo "# Debug file with actual environment variable values" > debug-env.txt
+          echo "# Generated on $(date)" >> debug-env.txt
+          echo "" >> debug-env.txt
+          echo "GTAG_TRACKING_ID=${GTAG_TRACKING_ID}" >> debug-env.txt
+          echo "GOOGLE_TAG_MANAGER_ID=${GOOGLE_TAG_MANAGER_ID}" >> debug-env.txt
+          echo "GOOGLE_SITE_VERIFICATION=${GOOGLE_SITE_VERIFICATION}" >> debug-env.txt
+          echo "ALGOLIA_APP_ID=${ALGOLIA_APP_ID}" >> debug-env.txt
+          echo "ALGOLIA_API_KEY=${ALGOLIA_API_KEY}" >> debug-env.txt
+          echo "ALGOLIA_INDEX_NAME=${ALGOLIA_INDEX_NAME}" >> debug-env.txt
+          echo "CANNY_BOARD_TOKEN=${CANNY_BOARD_TOKEN}" >> debug-env.txt
+          echo "REPO_GITHUB_ID=${REPO_GITHUB_ID}" >> debug-env.txt
+          echo "REPO_GITHUB=${REPO_GITHUB}" >> debug-env.txt
+          echo "REPO_GITHUB_CATEGORY_ID=${REPO_GITHUB_CATEGORY_ID}" >> debug-env.txt
+          echo ""
+          echo "Created debug-env.txt file with actual values"
+        env:
+          # Disable masking for this step only
+          GITHUB_ACTIONS: false
+
       - uses: actions/upload-artifact@v4
         name: Upload Environment Variables
         with:
           name: env-local-file
-          path: ".env.local"
+          path: |
+            .env.local
+            debug-env.txt
           retention-days: 1
 
       - name: Setup Node.js
