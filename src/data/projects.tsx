@@ -181,6 +181,15 @@ const PROJECTS: Project[] = [
     source: 'https://github.com/TienNHM/VietShop',
     tags: ['opensource', 'courseproject'],
   },
+  {
+    title: 'UI/UX Design Guide',
+    description: 'Trang web tổng hợp kiến thức và kỹ năng UI/UX Design nổi bật trong năm 2025.',
+    preview: '/img/blogs/ux-design-principles.png',
+    website: 'https://tiennhm.github.io/ux-design-principles/',
+    source: null,
+    tags: ['favorite', 'personal'],
+    highlight: true,
+  },
   // {
   //   title: 'aemi - AEMI',
   //   description: 'A website for AEMI, a genuine cosmetics wholesale trading platform, made with PHP and Wordpress.',
