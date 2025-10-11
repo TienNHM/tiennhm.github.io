@@ -1,0 +1,1 @@
+"use strict";(globalThis.webpackChunktiennhm_github_io=globalThis.webpackChunktiennhm_github_io||[]).push([[8947],{56600:t=>{t.exports=JSON.parse('{"authors":[{"name":"Nguy\u1ec5n Hu\u1ef3nh Minh Ti\u1ebfn","title":"Fullstack Developer @ Utop.io","url":"https://github.com/TienNHM","imageURL":"https://github.com/TienNHM.png","key":"tiennhm","page":null,"count":22}]}')}}]);
