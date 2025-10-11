@@ -83,7 +83,7 @@ const config = {
             tagName: 'meta',
             attributes: {
                 name: 'google-site-verification',
-                content: process.env.GOOGLE_SITE_VERIFICATION,
+                content: process.env.GOOGLE_SITE_VERIFICATION || 'your-google-site-verification-code',
             }
         }
     ],
@@ -95,10 +95,10 @@ const config = {
     // process the env variables
     customFields: {
         // Put your custom environment here
-        CANNY_BOARD_TOKEN: process.env.CANNY_BOARD_TOKEN,
-        REPO_GITHUB_ID: process.env.REPO_GITHUB_ID,
-        REPO_GITHUB: process.env.REPO_GITHUB,
-        REPO_GITHUB_CATEGORY_ID: process.env.REPO_GITHUB_CATEGORY_ID,
+        CANNY_BOARD_TOKEN: process.env.CANNY_BOARD_TOKEN || 'your-canny-board-token',
+        REPO_GITHUB_ID: process.env.REPO_GITHUB_ID || 'your-github-repo-id',
+        REPO_GITHUB: process.env.REPO_GITHUB || 'your-github-repo',
+        REPO_GITHUB_CATEGORY_ID: process.env.REPO_GITHUB_CATEGORY_ID || 'your-github-category-id',
     },
 
     // Even if you don't use internalization, you can use this field to set useful
@@ -150,10 +150,10 @@ const config = {
                     filename: 'sitemap.xml',
                 },
                 googleTagManager: {
-                    containerId: process.env.GOOGLE_TAG_MANAGER_ID,
+                    containerId: process.env.GOOGLE_TAG_MANAGER_ID || 'GTM-XXXXXXX',
                 },
                 gtag: {
-                    trackingID: process.env.GTAG_TRACKING_ID,
+                    trackingID: process.env.GTAG_TRACKING_ID || 'G-XXXXXXXXXX',
                     anonymizeIP: true,
                 },
             }),
@@ -275,10 +275,10 @@ const config = {
             ],
             algolia: {
                 // The application ID provided by Algolia
-                appId: process.env.ALGOLIA_APP_ID,
+                appId: process.env.ALGOLIA_APP_ID || 'your-algolia-app-id',
                 // Public API key: it is safe to commit it
-                apiKey: process.env.ALGOLIA_API_KEY,
-                indexName: process.env.ALGOLIA_INDEX_NAME,
+                apiKey: process.env.ALGOLIA_API_KEY || 'your-algolia-api-key',
+                indexName: process.env.ALGOLIA_INDEX_NAME || 'your-algolia-index-name',
                 contextualSearch: true,
                 insights: true,
 

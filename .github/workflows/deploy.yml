@@ -15,6 +15,22 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - name: List available secrets
+        run: |
+          echo "=== Available GitHub Secrets ==="
+          echo "GITHUB_TOKEN: ${GITHUB_TOKEN:+SET}"
+          echo "GTAG_TRACKING_ID: ${secrets.GTAG_TRACKING_ID:+SET}"
+          echo "GOOGLE_TAG_MANAGER_ID: ${secrets.GOOGLE_TAG_MANAGER_ID:+SET}"
+          echo "GOOGLE_SITE_VERIFICATION: ${secrets.GOOGLE_SITE_VERIFICATION:+SET}"
+          echo "ALGOLIA_APP_ID: ${secrets.ALGOLIA_APP_ID:+SET}"
+          echo "ALGOLIA_API_KEY: ${secrets.ALGOLIA_API_KEY:+SET}"
+          echo "ALGOLIA_INDEX_NAME: ${secrets.ALGOLIA_INDEX_NAME:+SET}"
+          echo "CANNY_BOARD_TOKEN: ${secrets.CANNY_BOARD_TOKEN:+SET}"
+          echo "REPO_GITHUB_ID: ${secrets.REPO_GITHUB_ID:+SET}"
+          echo "REPO_GITHUB: ${secrets.REPO_GITHUB:+SET}"
+          echo "REPO_GITHUB_CATEGORY_ID: ${secrets.REPO_GITHUB_CATEGORY_ID:+SET}"
+          echo ""
+
       - name: Convert secrets to env variables
         uses: oNaiPs/secrets-to-env-action@v1
         with:
@@ -23,23 +39,119 @@ jobs:
       - name: Show secrets
         run: cat .env
 
-      # - uses: actions/upload-artifact@v4
-      #   name: Upload Artifact
-      #   with:
-      #     name: SecretsVariables
-      #     path: ".env"
+      - name: Log Environment Variables
+        run: |
+          echo "=== Environment Variables Status ==="
+          echo "GTAG_TRACKING_ID: ${GTAG_TRACKING_ID:+SET}"
+          echo "GOOGLE_TAG_MANAGER_ID: ${GOOGLE_TAG_MANAGER_ID:+SET}"
+          echo "GOOGLE_SITE_VERIFICATION: ${GOOGLE_SITE_VERIFICATION:+SET}"
+          echo "ALGOLIA_APP_ID: ${ALGOLIA_APP_ID:+SET}"
+          echo "ALGOLIA_API_KEY: ${ALGOLIA_API_KEY:+SET}"
+          echo "ALGOLIA_INDEX_NAME: ${ALGOLIA_INDEX_NAME:+SET}"
+          echo "CANNY_BOARD_TOKEN: ${CANNY_BOARD_TOKEN:+SET}"
+          echo "REPO_GITHUB_ID: ${REPO_GITHUB_ID:+SET}"
+          echo "REPO_GITHUB: ${REPO_GITHUB:+SET}"
+          echo "REPO_GITHUB_CATEGORY_ID: ${REPO_GITHUB_CATEGORY_ID:+SET}"
+          echo ""
+          echo "=== Environment Variables Values (FULL) ==="
+          echo "GTAG_TRACKING_ID=${GTAG_TRACKING_ID}"
+          echo "GOOGLE_TAG_MANAGER_ID=${GOOGLE_TAG_MANAGER_ID}"
+          echo "GOOGLE_SITE_VERIFICATION=${GOOGLE_SITE_VERIFICATION}"
+          echo "ALGOLIA_APP_ID=${ALGOLIA_APP_ID}"
+          echo "ALGOLIA_API_KEY=${ALGOLIA_API_KEY}"
+          echo "ALGOLIA_INDEX_NAME=${ALGOLIA_INDEX_NAME}"
+          echo "CANNY_BOARD_TOKEN=${CANNY_BOARD_TOKEN}"
+          echo "REPO_GITHUB_ID=${REPO_GITHUB_ID}"
+          echo "REPO_GITHUB=${REPO_GITHUB}"
+          echo "REPO_GITHUB_CATEGORY_ID=${REPO_GITHUB_CATEGORY_ID}"
+          echo ""
+          echo "=== Copy to .env.local file ==="
+          echo "# Google Analytics & Tag Manager"
+          echo "GTAG_TRACKING_ID=${GTAG_TRACKING_ID}"
+          echo "GOOGLE_TAG_MANAGER_ID=${GOOGLE_TAG_MANAGER_ID}"
+          echo "GOOGLE_SITE_VERIFICATION=${GOOGLE_SITE_VERIFICATION}"
+          echo ""
+          echo "# Algolia Search"
+          echo "ALGOLIA_APP_ID=${ALGOLIA_APP_ID}"
+          echo "ALGOLIA_API_KEY=${ALGOLIA_API_KEY}"
+          echo "ALGOLIA_INDEX_NAME=${ALGOLIA_INDEX_NAME}"
+          echo ""
+          echo "# Canny Feedback"
+          echo "CANNY_BOARD_TOKEN=${CANNY_BOARD_TOKEN}"
+          echo ""
+          echo "# GitHub Integration"
+          echo "REPO_GITHUB_ID=${REPO_GITHUB_ID}"
+          echo "REPO_GITHUB=${REPO_GITHUB}"
+          echo "REPO_GITHUB_CATEGORY_ID=${REPO_GITHUB_CATEGORY_ID}"
+
+      - name: Create .env.local file
+        run: |
+          echo "# Environment Variables for Local Development" > .env.local
+          echo "# Generated from GitHub Secrets on $(date)" >> .env.local
+          echo "" >> .env.local
+          echo "# Google Analytics & Tag Manager" >> .env.local
+          echo "GTAG_TRACKING_ID=${GTAG_TRACKING_ID}" >> .env.local
+          echo "GOOGLE_TAG_MANAGER_ID=${GOOGLE_TAG_MANAGER_ID}" >> .env.local
+          echo "GOOGLE_SITE_VERIFICATION=${GOOGLE_SITE_VERIFICATION}" >> .env.local
+          echo "" >> .env.local
+          echo "# Algolia Search" >> .env.local
+          echo "ALGOLIA_APP_ID=${ALGOLIA_APP_ID}" >> .env.local
+          echo "ALGOLIA_API_KEY=${ALGOLIA_API_KEY}" >> .env.local
+          echo "ALGOLIA_INDEX_NAME=${ALGOLIA_INDEX_NAME}" >> .env.local
+          echo "" >> .env.local
+          echo "# Canny Feedback" >> .env.local
+          echo "CANNY_BOARD_TOKEN=${CANNY_BOARD_TOKEN}" >> .env.local
+          echo "" >> .env.local
+          echo "# GitHub Integration" >> .env.local
+          echo "REPO_GITHUB_ID=${REPO_GITHUB_ID}" >> .env.local
+          echo "REPO_GITHUB=${REPO_GITHUB}" >> .env.local
+          echo "REPO_GITHUB_CATEGORY_ID=${REPO_GITHUB_CATEGORY_ID}" >> .env.local
+          echo ""
+          echo "Created .env.local file with all environment variables"
+
+      - uses: actions/upload-artifact@v4
+        name: Upload Environment Variables
+        with:
+          name: env-local-file
+          path: ".env.local"
+          retention-days: 1
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 18
-          cache: npm         
+          cache: npm
+
+      - name: Show Node.js and npm info
+        run: |
+          echo "=== Node.js and npm Information ==="
+          echo "Node.js version: $(node --version)"
+          echo "npm version: $(npm --version)"
+          echo "Current working directory: $(pwd)"
+          echo "Available disk space:"
+          df -h
+          echo ""         
 
       - name: Install dependencies
         run: npm ci
 
       - name: Build website
         run: npm run build
+
+      - name: Show build information
+        run: |
+          echo "=== Build Information ==="
+          echo "Build directory size:"
+          du -sh build/
+          echo ""
+          echo "Build directory contents:"
+          ls -la build/
+          echo ""
+          echo "Static files count:"
+          find build/ -type f | wc -l
+          echo ""
+          echo "Largest files in build:"
+          find build/ -type f -exec ls -lh {} + | sort -k5 -hr | head -10
 
       # Popular action to deploy to GitHub Pages:
       # Docs: https://github.com/peaceiris/actions-gh-pages#%EF%B8%8F-docusaurus
