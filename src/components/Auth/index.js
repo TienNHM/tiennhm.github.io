@@ -1,24 +1,24 @@
 // src/components/Auth/index.js
 
 import React, { useEffect, useState } from "react";
-import { initializeApp } from "firebase/app";
-import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
+import { onAuthStateChanged, signOut } from "firebase/auth";
 import { Redirect, useLocation } from "@docusaurus/router";
 
-import { firebaseConfig } from "../../config/firebase-config";
+import { auth } from "../../config/firebase-config";
 import { Login } from "../Login";
 import Loading from "../Loading";
 import { BASE, LOGOUT_PATH, LOGIN_PATH, PROTECTED_PATHS } from "@site/src/utils/constants";
-
-// Initialize Firebase (chỉ 1 lần duy nhất)
-const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
 
 export function AuthCheck({ children }) {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
+    if (!auth) {
+      setAuthLoading(false);
+      return;
+    }
+    
     // Subscribe lắng nghe trạng thái đăng nhập
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
@@ -36,7 +36,7 @@ export function AuthCheck({ children }) {
 
   if (user?.email) {
     if (from === LOGOUT_PATH) {
-      signOut(auth);
+      if (auth) signOut(auth);
       return <Redirect to={BASE} from={LOGOUT_PATH} />;
     } else if (from === LOGIN_PATH) {
       return <Redirect to={BASE} from={from} />;

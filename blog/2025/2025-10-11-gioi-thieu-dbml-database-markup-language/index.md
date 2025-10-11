@@ -9,6 +9,8 @@ tags: [database, dbml, schema, documentation, tools]
 
 Trong thế giới phát triển phần mềm hiện đại, việc quản lý và tài liệu hóa cấu trúc cơ sở dữ liệu (database schema) là một thách thức không nhỏ. DBML (Database Markup Language) ra đời như một giải pháp hiệu quả để giải quyết vấn đề này.
 
+<!-- truncate -->
+
 ## DBML là gì?
 
 DBML là một ngôn ngữ DSL (Domain Specific Language) mã nguồn mở được thiết kế để định nghĩa và tài liệu hóa các cấu trúc và lược đồ cơ sở dữ liệu. Với cú pháp đơn giản, nhất quán và dễ đọc, DBML giúp các nhà phát triển dễ dàng mô tả và quản lý các lược đồ cơ sở dữ liệu phức tạp.

@@ -6,9 +6,13 @@ import { AVATAR_URL, BASE } from "@site/src/utils/constants";
 import "./styles.css";
 
 export function Login() {
-  const [user, setUser] = useState(auth.currentUser);
+  const [user, setUser] = useState(auth?.currentUser || null);
 
   const handleLogin = async () => {
+    if (!auth || !googleProvider) {
+      console.error("Firebase not initialized");
+      return;
+    }
     try {
       const result = await signInWithPopup(auth, googleProvider);
       setUser(result.user);
@@ -18,6 +22,10 @@ export function Login() {
   };
 
   const handleLogout = async () => {
+    if (!auth) {
+      console.error("Firebase not initialized");
+      return;
+    }
     try {
       await signOut(auth);
       setUser(null);
