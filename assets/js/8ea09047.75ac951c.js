@@ -1,1 +1,0 @@
-"use strict";(globalThis.webpackChunktiennhm_github_io=globalThis.webpackChunktiennhm_github_io||[]).push([[9385],{40600:e=>{e.exports=JSON.parse('{"metadata":{"permalink":"/blog/page/2","page":2,"postsPerPage":5,"totalPages":5,"totalCount":23,"previousPage":"/blog","nextPage":"/blog/page/3","blogDescription":"Blog c\u1ee7a TienNHM","blogTitle":"Blog"}}')}}]);
