@@ -29,9 +29,14 @@ function HomepageHeader() {
       <div className={clsx('container', styles.cardContainer)}>
         <div className={clsx(styles.cardInfo)}>
           <Image 
-            img={AVATAR_URL} className={clsx(styles.cardInfoImage)}
-            alt={GITHUB_USER} about={GITHUB_USER}
-            width={150} height={150} loading='lazy' decoding='async' />
+            img={AVATAR_URL} 
+            className={clsx(styles.cardInfoImage)}
+            alt={GITHUB_USER} 
+            about={GITHUB_USER}
+            width={150} 
+            height={150} 
+            loading='eager' 
+            decoding='async' />
 
           <h1 className="hero__title">{GITHUB_USER}</h1>
           <h2 className="hero__subtitle">{user?.bio}</h2>
@@ -68,7 +73,10 @@ function HomepageHeader() {
 export default function Home(): JSX.Element {
   const { siteConfig } = useDocusaurusContext();
   return (
-    <Layout title={`${siteConfig.title}`} description="Fullstack Web Developer from Viet Nam">
+    <Layout 
+      title="TienNHM - Fullstack Developer Blog" 
+      description="Fullstack Developer từ Việt Nam. Chia sẻ kiến thức về lập trình, công nghệ, phát triển phần mềm, tutorials và best practices cho developers."
+    >
       <HomepageHeader />
       <main>
         <HomepageFeatures />

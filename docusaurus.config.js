@@ -61,8 +61,8 @@ const footerLinks = [
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-    title: 'TienNHM',
-    tagline: 'Fullstack Developer',
+    title: 'TienNHM - Fullstack Developer Blog',
+    tagline: 'Fullstack Developer từ Việt Nam - Chia sẻ kiến thức về lập trình, công nghệ và phát triển phần mềm',
     favicon: 'https://github.com/TienNHM.png',
 
     // Set the production url of your site here
@@ -85,7 +85,88 @@ const config = {
                 name: 'google-site-verification',
                 content: process.env.GOOGLE_SITE_VERIFICATION || 'your-google-site-verification-code',
             }
-        }
+        },
+        {
+            tagName: 'meta',
+            attributes: {
+                property: 'og:type',
+                content: 'website',
+            }
+        },
+        {
+            tagName: 'meta',
+            attributes: {
+                property: 'og:site_name',
+                content: 'TienNHM',
+            }
+        },
+        {
+            tagName: 'meta',
+            attributes: {
+                property: 'og:image',
+                content: `https://${organizationName}.github.io/img/copyright-tiennhm.webp`,
+            }
+        },
+        {
+            tagName: 'meta',
+            attributes: {
+                name: 'twitter:card',
+                content: 'summary_large_image',
+            }
+        },
+        {
+            tagName: 'meta',
+            attributes: {
+                name: 'twitter:image',
+                content: `https://${organizationName}.github.io/img/copyright-tiennhm.webp`,
+            }
+        },
+        {
+            tagName: 'meta',
+            attributes: {
+                name: 'twitter:creator',
+                content: '@TienNHM',
+            }
+        },
+        {
+            tagName: 'link',
+            attributes: {
+                rel: 'preload',
+                as: 'image',
+                href: '/img/background/cat-sunset-city-min.webp',
+                fetchpriority: 'high',
+            }
+        },
+        {
+            tagName: 'link',
+            attributes: {
+                rel: 'preload',
+                as: 'image',
+                href: 'https://github.com/TienNHM.png',
+                fetchpriority: 'high',
+            }
+        },
+        {
+            tagName: 'link',
+            attributes: {
+                rel: 'preconnect',
+                href: 'https://api.github.com',
+            }
+        },
+        {
+            tagName: 'link',
+            attributes: {
+                rel: 'preconnect',
+                href: 'https://avatars.githubusercontent.com',
+            }
+        },
+        {
+            tagName: 'link',
+            attributes: {
+                rel: 'preconnect',
+                href: 'https://slorber-api-screenshot.netlify.app',
+            }
+        },
     ],
 
     markdown: {

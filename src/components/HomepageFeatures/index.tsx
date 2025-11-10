@@ -53,17 +53,17 @@ export default function HomepageFeatures(): JSX.Element {
             // ))
           }
         </div>
-        <h1 id='top-projects' className={clsx(styles.showcaseFeaturesTitle)}>Top Projects</h1>
+        <h2 id='top-projects' className={clsx(styles.showcaseFeaturesTitle)}>Top Projects</h2>
  
-        <div className='row'>
+        <ul className='row' style={{ listStyle: 'none', padding: 0, margin: 0 }}>
           {
             SORTED_PROJECTS.map((project: Project) => project.highlight && (
-              <div key={project.title} className={clsx('col col--4', styles.showcaseFeaturesList)}>
+              <li key={project.title} className={clsx('col col--4', styles.showcaseFeaturesList)}>
                 <ShowcaseCard user={project} />
-              </div>
+              </li>
             ))
           }
-        </div>
+        </ul>
 
         <div id='top-projects' className={clsx(styles.showcaseFeaturesLink)}>
           <Link href='/showcase'>
