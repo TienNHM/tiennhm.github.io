@@ -1,0 +1,284 @@
+---
+title: Phần 12 - Landing Page Patterns
+slug: agent-skills-12-landing-patterns
+description: Thư viện pattern landing page (Hero, pricing, waitlist, event, marketplace, newsletter, AI landing...) trích từ landing.csv để Agent chọn cấu trúc section & CTA.
+image: https://raw.githubusercontent.com/nextlevelbuilder/ui-ux-pro-max-skill/refs/heads/main/public/landing-cover.png
+sidebar_position: 12
+tags:
+  - agent-skills
+  - landing-page
+  - ux
+  - conversion
+keywords: [landing page patterns, hero, pricing, waitlist, funnel, bento grid, ai landing]
+enableComments: true
+draft: false
+---
+
+# Agent Skills - Phần 12: Landing Page Patterns
+
+Tài liệu này tóm tắt **pattern landing page** thường gặp để:
+
+- Chọn nhanh **thứ tự section** phù hợp với mục tiêu.
+- Quyết định **vị trí CTA chính** và pattern phụ (testimonials, pricing, FAQ...).
+- Gợi ý **chiến lược màu + hiệu ứng** tập trung cho chuyển đổi.
+
+Nguồn: [`landing.csv`](https://raw.githubusercontent.com/nextlevelbuilder/ui-ux-pro-max-skill/refs/heads/main/src/ui-ux-pro-max/data/landing.csv) từ [ui-ux-pro-max-skill](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill).
+
+---
+
+## 1. Hero-centric Patterns
+
+### 1.1 Hero + Features + CTA
+
+- **Keywords:** `hero`, `features`, `cta`.
+- **Section order:**
+  1. Hero (headline + image)
+  2. Value prop
+  3. Key features (3–5 cards)
+  4. CTA section
+  5. Footer
+- **CTA:** Hero (sticky) + CTA cuối trang.
+- **Màu:** Hero dùng brand primary/vibrant; feature card nền `#FAFAFA`; CTA dùng accent tương phản (≥ 7:1).
+- **Hiệu ứng gợi ý:** Hero parallax nhẹ, hover lift cho card, CTA glow khi hover.
+
+---
+
+### 1.2 Hero + Testimonials + CTA
+
+- **Keywords:** `hero`, `testimonials`, `social-proof`.
+- **Section order:**
+  1. Hero
+  2. Problem statement
+  3. Solution overview
+  4. Testimonials carousel
+  5. CTA
+- **CTA:** Hero + sau block testimonials.
+- **Chiến lược:** Social proof **trước** CTA; 3–5 testimonial kèm ảnh + tên + chức danh.
+
+---
+
+### 1.3 Video-First Hero
+
+- **Keywords:** `video`, `hero`, `media`.
+- **Section order:**
+  1. Hero với video background
+  2. Key features overlay trên video
+  3. Benefits section
+  4. CTA
+- **CTA:** Overlay (center/bottom) trên hero + CTA thứ hai ở section dưới.
+- **Gợi ý:** Video autoplay muted, overlay tối ~60%; thêm caption cho accessibility, compress video.
+
+---
+
+### 1.4 Scroll-Triggered Storytelling
+
+- **Keywords:** `storytelling`, `scroll`, `narrative`.
+- **Section order:** Intro → Chương 1 (problem) → Chương 2 (journey) → Chương 3 (solution) → Climax CTA.
+- **CTA:** Mini-CTA cuối mỗi chương + CTA lớn ở cuối.
+- **Gợi ý:** Mỗi chapter có màu riêng, dùng progress indicator; mobile nên giảm hiệu ứng.
+
+---
+
+## 2. Minimal, Funnel & Lead-gen
+
+### 2.1 Minimal Single Column
+
+- **Keywords:** `minimal`, `single-column`.
+- **Section order:**
+  1. Hero headline
+  2. Short description
+  3. Benefit bullets (tối đa 3)
+  4. CTA
+  5. Footer
+- **CTA:** Một CTA trung tâm, nút lớn.
+- **Chiến lược:** Typography to, whitespace nhiều, không nav rối, mobile-first.
+
+---
+
+### 2.2 Funnel 3-Step Conversion
+
+- **Keywords:** `funnel`, `steps`, `wizard`.
+- **Section order:** Hero → Step 1 (Problem) → Step 2 (Solution) → Step 3 (Action) → CTA.
+- **CTA:** CTA nhỏ cho mỗi bước, CTA chính cuối funnel.
+- **Màu:** Step 1 đỏ/vấn đề, Step 2 cam/quá trình, Step 3 xanh/giải pháp.
+- **Gợi ý:** Progress bar, chỉ hiển thị tối thiểu thông tin mỗi bước.
+
+---
+
+### 2.3 Lead Magnet + Form
+
+- **Keywords:** `lead`, `signup`, `email capture`.
+- **Section order:** Hero (benefit) → Preview lead magnet → Form → CTA.
+- **CTA:** Trên nút submit.
+- **Lưu ý:** ≤ 3 field; hiển thị preview ebook/checklist; feedback rõ ràng sau submit.
+
+---
+
+### 2.4 Waitlist / Coming Soon
+
+- **Keywords:** `waitlist`, `coming-soon`, `early-access`.
+- **Section order:** Hero (countdown) → Product teaser → Email form → Social proof/waitlist count.
+- **CTA:** Form email luôn above-the-fold, sticky khi scroll.
+- **Chiến lược:** Scarcity + exclusivity; show count & benefit early access; referral optional.
+
+---
+
+### 2.5 Webinar Registration
+
+- **Keywords:** `webinar`, `registration`, `live`.
+- **Section order:** Hero (topic + timer + form) → What you'll learn → Speaker bio → Bonuses/Urgency → Form lặp lại.
+- **CTA:** Form ở hero (thường nằm phải) + CTA cuối.
+
+---
+
+## 3. Pricing, Comparison & Conversion
+
+### 3.1 Comparison Table + CTA
+
+- **Keywords:** `comparison`, `table`, `versus`.
+- **Section order:** Hero → Problem intro → Comparison table → (Optional) Pricing → CTA.
+- **CTA:** Dưới bảng, gần cột/row sản phẩm của bạn.
+- **Chiến lược:** Highlight sản phẩm của bạn bằng nền vàng nhạt hoặc xanh; row hover highlight.
+
+---
+
+### 3.2 Pricing Page + CTA / Pricing-Focused Landing
+
+- **Keywords:** `pricing`, `plans`, `tiers`.
+- **Section order:** Hero → Pricing cards → Feature comparison table → FAQ → Final CTA.
+- **CTA:** Button trên mỗi card + sticky CTA trên nav + CTA cuối.
+- **Chiến lược:** `Starter`/`Pro` (mid-tier) được highlight là “Most Popular”; toggle monthly/annual; trả lời objection trong FAQ.
+
+---
+
+### 3.3 Product Review / Ratings Focused
+
+- **Keywords:** `reviews`, `ratings`, `social-proof`.
+- **Section order:** Hero (product + aggregate rating) → Rating breakdown → Reviews list → Buy/CTA.
+- **CTA:** Ngay cạnh tổng rating và sau reviews.
+- **Chiến lược:** Badge “Verified”; filter theo sao; photo review; respond negative reviews.
+
+---
+
+## 4. App, Docs & Knowledge
+
+### 4.1 App Store Style Landing
+
+- **Keywords:** `app`, `download`, `store`.
+- **Section order:** Hero với mockup → Screenshot carousel → Features + icons → Reviews → Download CTAs.
+- **CTA:** Nút App Store / Play Store lặp lại nhiều chỗ (hero, giữa, footer) + QR code.
+
+---
+
+### 4.2 FAQ / Documentation Landing
+
+- **Keywords:** `faq`, `documentation`, `help`.
+- **Section order:** Hero + search bar → Popular categories → FAQ accordion → Contact/support CTA.
+- **CTA:** Thanh search là CTA chính; contact CTA cho case không tìm được.
+- **Chiến lược:** Tối ưu readability, autocomplete search, track analytics search.
+
+---
+
+### 4.3 Newsletter / Content-first
+
+- **Keywords:** `newsletter`, `subscribe`.
+- **Section order:** Hero (value prop + form) → Recent issues/archives → Social proof (subscriber count) → About author.
+- **CTA:** Form inline ở hero + sticky form trên header.
+- **Chiến lược:** Form 1 field (email); text-focused; “Join X,000 readers” + link đọc thử.
+
+---
+
+## 5. Event, Community, Marketplace
+
+### 5.1 Event / Conference Landing
+
+- **Keywords:** `event`, `conference`, `schedule`.
+- **Section order:** Hero (date, location, countdown) → Speakers grid → Agenda → Sponsors → Register CTA.
+- **CTA:** Register sticky + xuất hiện sau speakers + footer.
+
+---
+
+### 5.2 Community / Forum Landing
+
+- **Keywords:** `community`, `forum`, `members`.
+- **Section order:** Hero (community value) → Popular topics → Active members showcase → Join CTA.
+- **Chiến lược:** Số member, posts, activity hôm nay; preview topic; onboarding dễ.
+
+---
+
+### 5.3 Marketplace / Directory
+
+- **Keywords:** `marketplace`, `directory`, `search`.
+- **Section order:** Hero với search → Categories → Featured listings → Trust/Safety → CTA (Become host/seller).
+- **CTA:** Search bar là CTA chính; nav có “List your item”.
+
+---
+
+## 6. Story, Visual Proof & Interactive
+
+### 6.1 Before–After Transformation
+
+- **Keywords:** `before-after`, `transformation`.
+- **Section order:** Hero (problem) → Slider / before-after visual → How it works → Results CTA.
+- **Chiến lược:** Before muted, after vibrant; cụ thể hoá metric; guarantee rõ ràng.
+
+---
+
+### 6.2 Immersive / Interactive Experience
+
+- **Keywords:** `immersive`, `interactive`, `3d`.
+- **Section order:** Full-screen interactive → Guided tour → Benefits → CTA sau khi interaction hoàn tất.
+- **Gợi ý:** Cần nút Skip; có fallback mobile; trade-off performance.
+
+---
+
+### 6.3 Horizontal Scroll Journey
+
+- **Keywords:** `horizontal`, `journey`, `panoramic`.
+- **Section order:** Intro vertical → Horizontal track (journey) → Detail reveal → Vertical footer.
+- **CTA:** Sticky CTA nổi hoặc ở cuối horizontal track.
+
+---
+
+### 6.4 Bento Grid Showcase
+
+- **Keywords:** `bento`, `grid`, `apple-style`.
+- **Section order:** Hero → Bento grid key features → Detail cards → Tech specs → CTA.
+- **CTA:** Floating action button hoặc CTA dưới grid.
+- **Chiến lược:** Card nền `#F5F5F7` hoặc glass; mỗi card 1 value prop rõ ràng; high info density nhưng không rối.
+
+---
+
+### 6.5 Interactive 3D Configurator
+
+- **Keywords:** `3d`, `configurator`, `customizer`.
+- **Section order:** Hero (configurator) → Feature highlight (synced với config) → Price/specs → Purchase.
+- **CTA:** Trong UI configurator + sticky bottom bar (Add to cart).
+
+---
+
+### 6.6 AI-Driven Dynamic / AI Landing
+
+- **Keywords:** `ai`, `dynamic`, `personalized`.
+- **Section order:** Prompt/input hero → Generated result preview → How it works → Value prop.
+- **CTA:** Input field + nút “Try it” là CTA chính.
+- **Chiến lược:** “Show, don’t tell” – cho user thử ngay; streaming/typing effect; low friction start.
+
+---
+
+## 7. Tóm tắt gợi ý chọn pattern
+
+| Mục tiêu chính                | Pattern khuyến nghị                                     |
+|------------------------------|---------------------------------------------------------|
+| Bán SaaS / sản phẩm số       | Hero + Features + CTA · Product Demo + Features        |
+| Thu thập lead/email          | Lead Magnet + Form · Newsletter / Content-first        |
+| Pricing / plan               | Pricing Page + CTA · Pricing-focused Landing           |
+| Xây trust                    | Hero + Testimonials + CTA · Comparison Table + CTA     |
+| Waitlist / pre-launch        | Waitlist / Coming Soon                                  |
+| Event / webinar              | Event/Conference Landing · Webinar Registration        |
+| Marketplace / directory      | Marketplace / Directory pattern                        |
+| App mobile                   | App Store Style Landing                                |
+| AI product                   | AI Personalization Landing · AI-Driven Dynamic Landing |
+
+Nguồn dữ liệu: [`landing.csv`](https://raw.githubusercontent.com/nextlevelbuilder/ui-ux-pro-max-skill/refs/heads/main/src/ui-ux-pro-max/data/landing.csv) — [ui-ux-pro-max-skill](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill).
+
