@@ -89,6 +89,20 @@ const config = {
         {
             tagName: 'meta',
             attributes: {
+                name: 'description',
+                content: 'Blog cá nhân của Nguyễn Huỳnh Minh Tiến (TienNHM) về lập trình, kiến trúc hệ thống, AI, DevOps và kinh nghiệm thực chiến trong các dự án sản phẩm.',
+            }
+        },
+        {
+            tagName: 'meta',
+            attributes: {
+                name: 'author',
+                content: 'Nguyễn Huỳnh Minh Tiến (TienNHM)',
+            }
+        },
+        {
+            tagName: 'meta',
+            attributes: {
                 property: 'og:type',
                 content: 'website',
             }
@@ -98,6 +112,20 @@ const config = {
             attributes: {
                 property: 'og:site_name',
                 content: 'TienNHM',
+            }
+        },
+        {
+            tagName: 'meta',
+            attributes: {
+                property: 'og:title',
+                content: 'TienNHM - Fullstack Developer Blog',
+            }
+        },
+        {
+            tagName: 'meta',
+            attributes: {
+                property: 'og:description',
+                content: 'Chia sẻ kiến thức chuyên sâu về lập trình, hệ thống phân tán, tối ưu hiệu năng, AI và kinh nghiệm triển khai thực tế từ Fullstack Developer tại Việt Nam.',
             }
         },
         {
@@ -166,6 +194,53 @@ const config = {
                 rel: 'preconnect',
                 href: 'https://slorber-api-screenshot.netlify.app',
             }
+        },
+        {
+            tagName: 'script',
+            attributes: {
+                type: 'application/ld+json',
+            },
+            innerHTML: JSON.stringify({
+                '@context': 'https://schema.org',
+                '@graph': [
+                    {
+                        '@type': 'Person',
+                        '@id': `https://${organizationName}.github.io/#person`,
+                        name: 'Nguyễn Huỳnh Minh Tiến',
+                        alternateName: 'TienNHM',
+                        jobTitle: 'Fullstack Developer',
+                        url: `https://${organizationName}.github.io/`,
+                        image: 'https://github.com/TienNHM.png',
+                        sameAs: [
+                            'https://github.com/TienNHM',
+                            'https://www.linkedin.com/in/tien-nhm',
+                            'https://www.youtube.com/TienNguyen09',
+                            'https://g.dev/TienNHM',
+                        ],
+                    },
+                    {
+                        '@type': 'WebSite',
+                        '@id': `https://${organizationName}.github.io/#website`,
+                        url: `https://${organizationName}.github.io/`,
+                        name: 'TienNHM - Fullstack Developer Blog',
+                        description: 'Blog cá nhân chia sẻ kiến thức chuyên sâu về lập trình, kiến trúc hệ thống, AI và kinh nghiệm triển khai sản phẩm thực tế.',
+                        inLanguage: ['vi', 'en'],
+                        publisher: {
+                            '@id': `https://${organizationName}.github.io/#person`,
+                        },
+                        potentialAction: [
+                            {
+                                '@type': 'SearchAction',
+                                target: {
+                                    '@type': 'EntryPoint',
+                                    urlTemplate: `https://${organizationName}.github.io/search?q={search_term_string}`,
+                                },
+                                'query-input': 'required name=search_term_string',
+                            },
+                        ],
+                    },
+                ],
+            }),
         },
     ],
 
@@ -322,6 +397,7 @@ const config = {
                     { to: '/blog', label: 'Blog', position: 'left' },
                     { to: '/showcase', label: 'Showcase', position: 'left' },
                     // { to: '/cv', label: 'CV', position: 'left' },
+                    { to: '/about', label: 'About', position: 'left' },
                     { to: '/community', label: 'Community', position: 'left' },
                     // { to: '/contact', label: 'Contact', position: 'left' },
                     {
