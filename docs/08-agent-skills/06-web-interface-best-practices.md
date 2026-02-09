@@ -15,7 +15,13 @@ enableComments: true
 draft: false
 ---
 
+import { SummaryBox } from '@site/src/components/SEO';
+
 # Agent Skills - Phần 7: Web Interface Best Practices
+
+<SummaryBox>
+Tài liệu tổng hợp Web Interface Best Practices dùng làm nguồn tham chiếu cho Agent Skills (ví dụ trong Cursor), bao gồm các chủ đề: Accessibility, Focus management, Forms, State & URL management, Performance optimization, Typography và Anti-patterns. Mỗi guideline được đánh giá mức độ quan trọng (Critical/High/Medium/Low) và có ví dụ code cụ thể. Nội dung dựa trên web-interface.csv từ ui-ux-pro-max-skill, giúp developers và AI Agents xây dựng web interface hiệu quả, accessible và performant.
+</SummaryBox>
 
 Tài liệu này tổng hợp **Web Interface Best Practices** dùng làm nguồn tham chiếu cho Agent Skills (ví dụ trong Cursor).  
 Nội dung dựa trên bộ dữ liệu [`web-interface.csv`](https://raw.githubusercontent.com/nextlevelbuilder/ui-ux-pro-max-skill/refs/heads/main/src/ui-ux-pro-max/data/web-interface.csv) từ [ui-ux-pro-max-skill](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill).

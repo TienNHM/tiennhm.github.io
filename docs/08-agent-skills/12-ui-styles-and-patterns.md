@@ -15,7 +15,13 @@ enableComments: true
 draft: false
 ---
 
+import { SummaryBox } from '@site/src/components/SEO';
+
 # Agent Skills - Phần 9: UI Styles & Design Systems
+
+<SummaryBox>
+Tài liệu tổng hợp UI style patterns (Minimalism, Neumorphism, Glassmorphism, Brutalism, Dark Mode, Claymorphism, Aurora, Flat, Accessible & Ethical, Motion-Driven, Hero-Centric, Conversion-Optimized, Data-Dense...) để chọn phong cách UI phù hợp với sản phẩm, audience, performance và accessibility. Mỗi style được mô tả về characteristics, best use cases, trade-offs và implementation considerations. Nội dung dựa trên styles.csv từ ui-ux-pro-max-skill, giúp designers và developers chọn design system phù hợp cho từng bài toán cụ thể.
+</SummaryBox>
 
 Tài liệu này tổng hợp **UI style patterns** dùng để:
 

@@ -14,7 +14,13 @@ enableComments: true
 draft: false
 ---
 
+import { SummaryBox } from '@site/src/components/SEO';
+
 # Agent Skills - Phần 4: React Native Best Practices
+
+<SummaryBox>
+Tài liệu tổng hợp React Native Best Practices dùng làm nguồn tham chiếu cho Agent Skills (ví dụ trong Cursor), bao gồm các chủ đề: Components, Styling, Navigation, State, Lists, Performance, Images, Forms, Touch, Animation, Async, Accessibility, Testing và Native modules. Mỗi guideline được đánh giá mức độ quan trọng và có ví dụ code cụ thể. Nội dung dựa trên bộ guideline từ ui-ux-pro-max-skill, giúp developers và AI Agents xây dựng ứng dụng React Native hiệu quả và tuân thủ best practices.
+</SummaryBox>
 
 Tài liệu này tổng hợp **React Native Best Practices** dùng làm nguồn tham chiếu cho Agent Skills (ví dụ trong Cursor).  
 Nội dung dựa trên bộ guideline từ [ui-ux-pro-max-skill](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill) — file [`react-native.csv`](https://raw.githubusercontent.com/nextlevelbuilder/ui-ux-pro-max-skill/refs/heads/main/src/ui-ux-pro-max/data/stacks/react-native.csv).

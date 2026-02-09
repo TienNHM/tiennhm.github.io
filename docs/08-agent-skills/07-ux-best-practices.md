@@ -15,7 +15,13 @@ enableComments: true
 draft: false
 ---
 
+import { SummaryBox } from '@site/src/components/SEO';
+
 # Agent Skills - Phần 7: UX Best Practices
+
+<SummaryBox>
+Tài liệu tổng hợp UX Best Practices dùng làm nguồn tham chiếu cho Agent Skills (ví dụ trong Cursor), bao gồm các chủ đề: Navigation, Animation, Layout, Touch interactions, Accessibility, Performance, Forms, Responsive design, Typography, Feedback, Content strategy, Onboarding, Search, Data Entry, AI Interaction, Spatial UI và Sustainability. Mỗi guideline được đánh giá mức độ quan trọng và có ví dụ cụ thể. Nội dung dựa trên ux-guidelines.csv từ ui-ux-pro-max-skill, giúp designers và developers tạo trải nghiệm người dùng tốt và tuân thủ UX best practices.
+</SummaryBox>
 
 Tài liệu này tổng hợp **UX Best Practices** dùng làm nguồn tham chiếu cho Agent Skills (ví dụ trong Cursor).  
 Nội dung dựa trên bộ guideline từ [ui-ux-pro-max-skill](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill) — file [`ux-guidelines.csv`](https://raw.githubusercontent.com/nextlevelbuilder/ui-ux-pro-max-skill/refs/heads/main/src/ui-ux-pro-max/data/ux-guidelines.csv).

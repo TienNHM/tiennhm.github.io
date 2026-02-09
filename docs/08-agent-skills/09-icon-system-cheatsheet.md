@@ -14,7 +14,13 @@ enableComments: true
 draft: false
 ---
 
+import { SummaryBox } from '@site/src/components/SEO';
+
 # Agent Skills - Phần 15: Icon System Cheatsheet (Lucide)
+
+<SummaryBox>
+Tài liệu tổng hợp icon phổ biến từ Lucide dùng trong web app (React/Next.js), giúp chọn icon đúng ngữ nghĩa (navigation, action, status, commerce, data, security...), copy nhanh import code và JSX usage, và áp dụng accessibility đúng cách (aria-label, aria-hidden). Mỗi icon được phân loại theo category và có ví dụ code cụ thể. Nội dung dựa trên icons.csv từ ui-ux-pro-max-skill, giúp developers và AI Agents sử dụng icon system hiệu quả và accessible.
+</SummaryBox>
 
 Tài liệu này tổng hợp **icon phổ biến từ Lucide** dùng trong web app (React/Next.js), giúp Agent:
 

@@ -14,7 +14,13 @@ enableComments: true
 draft: false
 ---
 
+import { SummaryBox } from '@site/src/components/SEO';
+
 # Agent Skills - Phần 10: Typography & Font Pairings
+
+<SummaryBox>
+Tài liệu tổng hợp font pairing khuyến nghị cho từng loại sản phẩm (SaaS, fintech, editorial, devtools, e-commerce, VN/i18n, entertainment...), bao gồm Heading/Body fonts, mood keywords, best use cases và snippets Google Fonts/Tailwind để implement nhanh. Mỗi font pairing được đánh giá về readability, performance và phù hợp với từng loại sản phẩm. Nội dung dựa trên typography.csv từ ui-ux-pro-max-skill, giúp designers và developers chọn typography phù hợp cho dự án.
+</SummaryBox>
 
 Tài liệu này tổng hợp **font pairing khuyến nghị** cho từng loại sản phẩm (SaaS, fintech, editorial, devtools, e‑commerce, VN/i18n, entertainment...).  
 Nguồn: [`typography.csv`](https://raw.githubusercontent.com/nextlevelbuilder/ui-ux-pro-max-skill/refs/heads/main/src/ui-ux-pro-max/data/typography.csv) từ [ui-ux-pro-max-skill](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill).

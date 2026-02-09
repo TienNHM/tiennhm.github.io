@@ -14,7 +14,13 @@ enableComments: true
 draft: false
 ---
 
+import { SummaryBox } from '@site/src/components/SEO';
+
 # Agent Skills - Phần 1: React Best Practices
+
+<SummaryBox>
+Tài liệu tổng hợp 53 guideline React best practices dùng làm nguồn tham chiếu cho Agent Skills (ví dụ trong Cursor), bao gồm State, Effects, Rendering, Components, Props, Events, Forms, Hooks, Context, Performance, Testing, Accessibility và TypeScript. Mỗi guideline được đánh giá mức độ quan trọng (Cao/Trung bình/Thấp) và có ví dụ code cụ thể về nên làm và không nên làm. Nội dung dựa trên bộ guideline từ ui-ux-pro-max-skill.
+</SummaryBox>
 
 Tài liệu này tổng hợp **React Best Practices** dùng làm nguồn tham chiếu cho Agent Skills (ví dụ trong Cursor). Nội dung dựa trên bộ guideline từ [ui-ux-pro-max-skill](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill) — file [react.csv](https://raw.githubusercontent.com/nextlevelbuilder/ui-ux-pro-max-skill/refs/heads/main/src/ui-ux-pro-max/data/stacks/react.csv).
 
