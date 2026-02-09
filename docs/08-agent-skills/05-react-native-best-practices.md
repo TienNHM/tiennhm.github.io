@@ -1,9 +1,9 @@
 ---
-title: Phần 4 - React Native Best Practices
+title: Phần 5 - React Native Best Practices
 slug: agent-skills-04-react-native-best-practices
 description: Tổng hợp guideline React Native best practices cho Agent Skills – Components, Styling, Navigation, State, Lists, Performance, Images, Forms, Touch, Animation, Async, Accessibility, Testing, Native.
 image: https://reactnative.dev/img/header_logo.svg
-sidebar_position: 4
+sidebar_position: 5
 tags:
   - agent-skills
   - react-native

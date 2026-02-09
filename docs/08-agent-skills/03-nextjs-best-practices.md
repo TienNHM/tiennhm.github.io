@@ -1,9 +1,9 @@
 ---
-title: Phần 2 - Next.js Best Practices
+title: Phần 3 - Next.js Best Practices
 slug: agent-skills-02-nextjs-best-practices
 description: Tổng hợp guideline Next.js best practices cho Agent Skills – Routing, Rendering, Data Fetching, Images, Fonts, Metadata, API, Middleware, Environment, Performance, Security.
 image: https://nextjs.org/api/docs-og?title=Next.js%20Best%20Practices
-sidebar_position: 2
+sidebar_position: 3
 tags:
   - agent-skills
   - nextjs

@@ -1,9 +1,9 @@
 ---
-title: Phần 15 - Icon System Cheatsheet (Lucide)
+title: Phần 9 - Icon System Cheatsheet (Lucide)
 slug: agent-skills-15-icons
 description: Cheatsheet icon Lucide thường dùng (navigation, action, status, commerce, data, security...) + import code + lưu ý accessibility cho Agent Skills.
 image: https://raw.githubusercontent.com/nextlevelbuilder/ui-ux-pro-max-skill/refs/heads/main/public/icons-cover.png
-sidebar_position: 15
+sidebar_position: 9
 tags:
   - agent-skills
   - icons

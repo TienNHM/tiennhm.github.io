@@ -1,9 +1,9 @@
 ---
-title: Phần 13 - Product UX Recipes (Mapping từ Product Type → Style)
+title: Phần 15 - Product UX Recipes (Mapping từ Product Type → Style)
 slug: agent-skills-13-product-ux-recipes
 description: Bản đồ từ loại sản phẩm (SaaS, fintech, e-commerce, healthcare, education...) sang combo Style + Landing Pattern + Dashboard + Palette để Agent chọn nhanh.
 image: https://raw.githubusercontent.com/nextlevelbuilder/ui-ux-pro-max-skill/refs/heads/main/public/products-cover.png
-sidebar_position: 13
+sidebar_position: 15
 tags:
   - agent-skills
   - product

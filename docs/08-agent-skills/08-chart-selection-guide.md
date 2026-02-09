@@ -1,9 +1,9 @@
 ---
-title: Phần 14 - Chart Selection Guide
+title: Phần 8 - Chart Selection Guide
 slug: agent-skills-14-charts
 description: Hướng dẫn chọn loại chart phù hợp (line, bar, pie, heatmap, map, funnel, gauge, treemap, network...) theo kiểu dữ liệu, kèm màu, accessibility & library gợi ý.
 image: https://raw.githubusercontent.com/nextlevelbuilder/ui-ux-pro-max-skill/refs/heads/main/public/charts-cover.png
-sidebar_position: 14
+sidebar_position: 8
 tags:
   - agent-skills
   - charts

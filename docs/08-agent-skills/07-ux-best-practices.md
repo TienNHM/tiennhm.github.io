@@ -1,9 +1,9 @@
 ---
-title: Phần 5 - UX Best Practices
+title: Phần 7 - UX Best Practices
 slug: agent-skills-05-ux-best-practices
 description: Tổng hợp UX guidelines chung cho Agent Skills – Navigation, Animation, Layout, Touch, Interaction, Accessibility, Performance, Forms, Responsive, Typography, Feedback, Content, Onboarding, Search, Data Entry, AI Interaction, Spatial UI, Sustainability.
 image: https://uxdesign.cc/favicon.ico
-sidebar_position: 5
+sidebar_position: 7
 tags:
   - agent-skills
   - ux
@@ -15,7 +15,7 @@ enableComments: true
 draft: false
 ---
 
-# Agent Skills - Phần 5: UX Best Practices
+# Agent Skills - Phần 7: UX Best Practices
 
 Tài liệu này tổng hợp **UX Best Practices** dùng làm nguồn tham chiếu cho Agent Skills (ví dụ trong Cursor).  
 Nội dung dựa trên bộ guideline từ [ui-ux-pro-max-skill](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill) — file [`ux-guidelines.csv`](https://raw.githubusercontent.com/nextlevelbuilder/ui-ux-pro-max-skill/refs/heads/main/src/ui-ux-pro-max/data/ux-guidelines.csv).

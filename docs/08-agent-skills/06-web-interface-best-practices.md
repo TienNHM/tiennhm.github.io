@@ -1,9 +1,9 @@
 ---
-title: Phần 7 - Web Interface Best Practices
+title: Phần 6 - Web Interface Best Practices
 slug: agent-skills-07-web-interface
 description: Tổng hợp web interface best practices cho Agent Skills – Accessibility, Focus, Forms, State & URL, Performance, Typography, Anti-patterns.
 image: https://developer.mozilla.org/static/img/opengraph-logo.72382e605ce3.png
-sidebar_position: 7
+sidebar_position: 6
 tags:
   - agent-skills
   - web

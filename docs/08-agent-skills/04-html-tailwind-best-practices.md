@@ -1,9 +1,9 @@
 ---
-title: Phần 3 - HTML + Tailwind Best Practices
+title: Phần 4 - HTML + Tailwind Best Practices
 slug: agent-skills-03-html-tailwind-best-practices
 description: Tổng hợp guideline HTML + Tailwind CSS best practices cho Agent Skills – Animation, Layout, Images, Typography, Colors, Spacing, Forms, Responsive, Buttons, Cards, Accessibility, Performance, Plugins, Interactivity, Customization.
 image: https://tailwindcss.com/_next/static/media/social-card-large.a6e71726.jpg
-sidebar_position: 3
+sidebar_position: 4
 tags:
   - agent-skills
   - tailwind

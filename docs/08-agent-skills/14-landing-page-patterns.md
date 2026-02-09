@@ -1,9 +1,9 @@
 ---
-title: Phần 12 - Landing Page Patterns
+title: Phần 14 - Landing Page Patterns
 slug: agent-skills-12-landing-patterns
 description: Thư viện pattern landing page (Hero, pricing, waitlist, event, marketplace, newsletter, AI landing...) trích từ landing.csv để Agent chọn cấu trúc section & CTA.
 image: https://raw.githubusercontent.com/nextlevelbuilder/ui-ux-pro-max-skill/refs/heads/main/public/landing-cover.png
-sidebar_position: 12
+sidebar_position: 14
 tags:
   - agent-skills
   - landing-page

@@ -1,9 +1,9 @@
 ---
-title: Phần 11 - React Performance Best Practices
+title: Phần 2 - React Performance Best Practices
 slug: agent-skills-11-react-performance
 description: Checklist tối ưu hiệu năng React/Next.js – async waterfall, bundle size, caching, rerender, rendering, JS perf – trích từ react-performance.csv cho Agent Skills.
 image: https://react.dev/images/og-home.png
-sidebar_position: 11
+sidebar_position: 2
 tags:
   - agent-skills
   - react

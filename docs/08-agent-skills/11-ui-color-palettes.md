@@ -1,9 +1,9 @@
 ---
-title: Phần 8 - UI Color Palettes by Product Type
+title: Phần 11 - UI Color Palettes by Product Type
 slug: agent-skills-08-ui-color-palettes
 description: Bảng màu gợi ý cho từng loại sản phẩm (SaaS, E‑commerce, Healthcare, Fintech, Education, Dashboard, Landing page, Entertainment, v.v.) dùng cho Agent Skills.
 image: https://raw.githubusercontent.com/nextlevelbuilder/ui-ux-pro-max-skill/refs/heads/main/public/colors-cover.png
-sidebar_position: 8
+sidebar_position: 11
 tags:
   - agent-skills
   - ui

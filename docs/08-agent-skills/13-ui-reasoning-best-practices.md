@@ -1,9 +1,9 @@
 ---
-title: Phần 6 - UI Reasoning & Patterns
+title: Phần 13 - UI Reasoning & Patterns
 slug: agent-skills-06-ui-reasoning
 description: Tổng hợp UI reasoning patterns theo ngữ cảnh sản phẩm (SaaS, E‑commerce, Healthcare, Fintech, Education, Dashboard...) để chọn layout, màu sắc, typography, hiệu ứng và ưu tiên thiết kế phù hợp.
 image: https://raw.githubusercontent.com/nextlevelbuilder/ui-ux-pro-max-skill/refs/heads/main/public/ui-reasoning-cover.png
-sidebar_position: 6
+sidebar_position: 13
 tags:
   - agent-skills
   - ui
