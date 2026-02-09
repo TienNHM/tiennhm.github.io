@@ -10,9 +10,15 @@ enableComments: true
 draft: false
 ---
 
+import { SummaryBox } from '@site/src/components/SEO';
+
 <p align="right">
     <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2FTienNHM.github.io%2Fblog%2Fimprove-angular-build-time&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
 </p>
+
+<SummaryBox>
+Bài viết chia sẻ kinh nghiệm thực tế về cách migrate Angular project từ browser builder sang application builder, giúp giảm build time từ 52 phút xuống 26 phút (giảm 50%). Chỉ cần sửa vài dòng trong `angular.json`, không cần thay đổi code hay dependencies. Đặc biệt hiệu quả cho hotfix khẩn cấp và deploy thường xuyên, giúp tăng năng suất developer và độ hài lòng của team. Bài viết bao gồm hướng dẫn chi tiết từng bước, giải thích kỹ thuật, và best practices để tối ưu build time đến mức tối đa.
+</SummaryBox>
 
 Bạn có từng rơi vào tình huống này không? Chạy lệnh `ng build --configuration production` rồi... đi uống cà phê, ăn trưa, rồi quay lại mà build vẫn chưa xong? 😅
 

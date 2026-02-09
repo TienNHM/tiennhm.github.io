@@ -9,9 +9,15 @@ description: 'Tìm hiểu về AI-DD (AI-Driven Development) - cách tiếp cậ
 hide_table_of_contents: false
 ---
 
+import { SummaryBox } from '@site/src/components/SEO';
+
 <p align="right">
     <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2FTienNHM.github.io%2Fblog%2Fai-driven-development-phan-1&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
 </p>
+
+<SummaryBox>
+Phần 1 của series AI-DD giới thiệu về AI-Driven Development - cách tiếp cận mới thay đổi hoàn toàn quy trình phát triển phần mềm. Khác với việc chỉ sử dụng AI để hỗ trợ, AI-DD biến AI thành cộng tác viên trung tâm trong quy trình làm việc. Bài viết giải thích sự khác biệt giữa phương pháp truyền thống và AI-DD, nguyên tắc cốt lõi, và tác động đến từng vai trò trong team (developers, team leads, CTOs). Đây là nền tảng để hiểu về cuộc cách mạng AI trong ngành công nghệ phần mềm.
+</SummaryBox>
 
 Ngành phát triển phần mềm đang chứng kiến một cuộc cách mạng lớn với sự xuất hiện của **AI-DD (AI-Driven Development)** - một cách tiếp cận hoàn toàn mới khác biệt với việc chỉ đơn thuần sử dụng AI để hỗ trợ. 
 

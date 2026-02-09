@@ -9,9 +9,15 @@ description: 'Series toàn diện về AI-DD (AI-Driven Development) - phương 
 hide_table_of_contents: false
 ---
 
+import { SummaryBox } from '@site/src/components/SEO';
+
 <p align="right">
     <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2FTienNHM.github.io%2Fblog%2Fai-driven-development-lifecycle&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
 </p>
+
+<SummaryBox>
+**AI-DD (AI-Driven Development)** là phương pháp phát triển phần mềm do AI dẫn dắt, khác biệt hoàn toàn với việc chỉ sử dụng AI để hỗ trợ. Series này cung cấp roadmap đầy đủ từ hiểu biết cơ bản đến áp dụng thực tế, giúp developers tăng 3-5x năng suất, team leads giảm 50-67% development cycle, và CTOs có strategic roadmap cho AI transformation. Series gồm 4 phần: Giới thiệu và Tác động, Công cụ AI và Case Studies, Số liệu và Kinh nghiệm Thực tế, Tương lai và Kết luận.
+</SummaryBox>
 
 Chào mừng bạn đến với series toàn diện về **AI-DD (AI-Driven Development)** - một cuộc cách mạng đang thay đổi hoàn toàn ngành công nghệ. Series này sẽ đưa bạn từ hiểu biết cơ bản về AI-driven development đến việc áp dụng thực tế và nhìn xa về tương lai của kỹ thuật phần mềm.
 

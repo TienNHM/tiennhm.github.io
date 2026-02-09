@@ -8,9 +8,15 @@ draft: false # set to true to hide this post from the site
 image: https://www.freecodecamp.org/news/content/images/size/w2000/2022/08/Markdown-cheatsheet.png
 ---
 
+import { SummaryBox } from '@site/src/components/SEO';
+
 <p align="right">
     <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Fmarkdown-cheat-sheet&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
 </p>
+
+<SummaryBox>
+Bài viết là một Markdown Cheat Sheet đầy đủ hướng dẫn cách tạo file README trên GitHub với Markdown. Markdown là ngôn ngữ đánh dấu nhẹ, dễ đọc và dễ viết, được sử dụng rộng rãi trên GitHub để tạo documentation. Bài viết bao gồm tất cả các syntax cơ bản của Markdown như headings, lists, links, images, code blocks, tables, và nhiều tính năng khác, kèm ví dụ cụ thể cho từng loại.
+</SummaryBox>
 
 Bạn có thể tạo một file README trên Github với Markdown. Nhưng markdown là gì và cách tạo một file README trên Github với Markdown như thế nào? Hãy cùng tìm hiểu ở bài viết này nhé!
 

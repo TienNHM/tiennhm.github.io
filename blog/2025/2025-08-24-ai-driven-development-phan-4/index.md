@@ -9,9 +9,15 @@ description: 'Khám phá tương lai của AI-DD với autonomous systems, natur
 hide_table_of_contents: false
 ---
 
+import { SummaryBox } from '@site/src/components/SEO';
+
 <p align="right">
     <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2FTienNHM.github.io%2Fblog%2Fai-driven-development-phan-4&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
 </p>
+
+<SummaryBox>
+Phần 4 (cuối cùng) của series AI-DD khám phá tương lai của phát triển phần mềm với autonomous coding agents, natural language programming, và Vision 2030: AI Software Factory. Bài viết trình bày các công nghệ đột phá đang được phát triển, roadmap triển khai AI-DD, và kết luận toàn bộ hành trình từ hiện tại đến tương lai của kỹ thuật phần mềm. Đây là phần dành cho Visionaries và Technology Leaders muốn hiểu về tương lai của ngành công nghệ phần mềm.
+</SummaryBox>
 
 Trong phần cuối của series này, chúng ta sẽ khám phá tương lai của AI-DD, những công nghệ đột phá đang được phát triển, và kết luận toàn bộ hành trình từ hiện tại đến tương lai của kỹ thuật phần mềm.
 

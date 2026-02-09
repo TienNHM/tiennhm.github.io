@@ -10,9 +10,15 @@ enableComments: true # for Gisqus comments, set to true
 draft: false # set to true to hide this post from the site
 ---
 
+import { SummaryBox } from '@site/src/components/SEO';
+
 <p align="right">
     <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2FTienNHM.github.io%2Fblog%2Fprogramming-paradigm&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
 </p>
+
+<SummaryBox>
+Bài viết giới thiệu tổng quan về các kiểu lập trình (programming paradigms) phổ biến trong phát triển phần mềm, bao gồm Procedural Programming, Object-Oriented Programming (OOP), Functional Programming, và các mô hình khác. Mỗi paradigm được giải thích về khái niệm, ưu nhược điểm, ví dụ minh họa và khi nào nên sử dụng. Hiểu rõ các mô hình này giúp developers chọn công cụ và ngôn ngữ phù hợp cho từng bài toán cụ thể.
+</SummaryBox>
 
 Trong bài viết này, mình sẽ giới thiệu tổng quan về các kiểu lập trình phổ biến trong phát triển phần mềm.
 

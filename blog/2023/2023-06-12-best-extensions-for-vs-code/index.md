@@ -8,9 +8,15 @@ draft: false # set to true to hide this post from the site
 image: https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fmarketplace.visualstudio.com%2Fvscode/showcase/
 ---
 
+import { SummaryBox } from '@site/src/components/SEO';
+
 <p align="right">
     <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Fbest-extensions-for-vs-code&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
 </p>
+
+<SummaryBox>
+Bài viết giới thiệu 16 extensions tốt nhất cho Visual Studio Code được sử dụng hàng ngày, bao gồm GitLens (quản lý Git), Git Graph (visualize Git history), Prettier (code formatter), ESLint (code linter), Live Server (local development server), và nhiều extensions hữu ích khác. Mỗi extension được mô tả chi tiết về chức năng và cách sử dụng, giúp developers tăng năng suất và cải thiện trải nghiệm làm việc với VS Code.
+</SummaryBox>
 
 Visual Studio Code là một trình chỉnh sửa mã nguồn, nhẹ nhưng mạnh mẽ, hỗ trợ cho đa dạng các hệ điều hành: Windows, macOS và Linux. Nó hỗ trợ cho `JavaScript`, `TypeScript` và `Node.js` và có một hệ sinh thái phong phú các tiện ích mở rộng cho các ngôn ngữ khác (chẳng hạn như `C++`, `C#`, `Java`, `Python`, `PHP`, `Go`) và các runtimes (chẳng hạn như `.NET` và `Unity`).
 

@@ -9,9 +9,15 @@ description: 'Khám phá chi tiết các công cụ AI như ChatGPT và Cursor, 
 hide_table_of_contents: false
 ---
 
+import { SummaryBox } from '@site/src/components/SEO';
+
 <p align="right">
     <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2FTienNHM.github.io%2Fblog%2Fai-driven-development-phan-2&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
 </p>
+
+<SummaryBox>
+Phần 2 của series AI-DD khám phá chi tiết các công cụ AI chính (ChatGPT và Cursor) và nghiên cứu tình huống thực tế về phát triển E-commerce Dashboard theo phương pháp AI-DLC. Bài viết giải thích cách sử dụng ChatGPT và Cursor trong quy trình phát triển, 3 giai đoạn của AWS AI-DLC methodology, và case study chi tiết với số liệu so sánh thời gian và chất lượng thực tế. Đây là phần thực hành giúp developers hiểu cách áp dụng AI-DD vào dự án thực tế.
+</SummaryBox>
 
 Trong phần này, chúng ta sẽ khám phá chi tiết các công cụ AI chính được sử dụng trong phương pháp AI-DD, và tìm hiểu một nghiên cứu tình huống thực tế về cách xây dựng E-commerce Dashboard theo quy trình AI-DLC.
 

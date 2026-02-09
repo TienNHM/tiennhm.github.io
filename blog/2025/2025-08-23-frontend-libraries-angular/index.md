@@ -10,9 +10,15 @@ enableComments: true
 draft: false
 ---
 
+import { SummaryBox } from '@site/src/components/SEO';
+
 <p align="right">
     <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2FTienNHM.github.io%2Fblog%2Ffrontend-libraries-angular&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
 </p>
+
+<SummaryBox>
+Bài viết phân tích chi tiết 5 thư viện UI hàng đầu cho Angular: Bootstrap, Ant Design, PrimeNG, Material Design và Tailwind CSS. Mỗi thư viện được đánh giá về ưu nhược điểm, cách sử dụng, hiệu suất và phù hợp với từng loại dự án. Bài viết giúp developers đưa ra quyết định lựa chọn thư viện UI phù hợp dựa trên nhu cầu cụ thể của dự án, từ ứng dụng enterprise đến startup nhanh.
+</SummaryBox>
 
 Trong bài viết này, mình sẽ phân tích chi tiết các thư viện UI phổ biến nhất cho Angular, giúp bạn đưa ra quyết định lựa chọn phù hợp cho dự án của mình.
 

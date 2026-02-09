@@ -8,9 +8,15 @@ draft: false # set to true to hide this post from the site
 image: https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fwww.cloudskillsboost.google%2Fjourneys%2F118/showcase/
 ---
 
+import { SummaryBox } from '@site/src/components/SEO';
+
 <p align="right">
     <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2FTienNHM.github.io%2Fblog%2Fgoogle-generative-ai-courses&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
 </p>
+
+<SummaryBox>
+Bài viết giới thiệu lộ trình học tập miễn phí về Generative AI của Google, bao gồm 10 khóa học nhằm giới thiệu về trí tuệ nhân tạo, machine learning và Generative AI. Chương trình học được thiết kế để giúp người học từ cơ bản đến nâng cao hiểu về các công nghệ AI mới nhất, bao gồm các khái niệm về Large Language Models, Transformer models, và cách sử dụng các công cụ AI của Google như Vertex AI và Generative AI Studio.
+</SummaryBox>
 
 > Chia sẻ khóa học miễn phí của Goolge về Generative AI
 

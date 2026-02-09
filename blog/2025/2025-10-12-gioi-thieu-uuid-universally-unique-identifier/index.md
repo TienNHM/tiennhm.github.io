@@ -5,7 +5,13 @@ authors: [tiennhm]
 tags: [uuid, database, programming, identifier, unique-id]
 ---
 
+import { SummaryBox } from '@site/src/components/SEO';
+
 # Giới thiệu UUID (Universally Unique Identifier) - Định danh duy nhất toàn cầu
+
+<SummaryBox>
+UUID (Universally Unique Identifier) là chuẩn định danh 128-bit được sử dụng rộng rãi trong lập trình và cơ sở dữ liệu để tạo ID duy nhất toàn cầu mà không cần cơ quan trung tâm quản lý. Bài viết giới thiệu 5 phiên bản UUID (v1 time-based, v4 random, v3/v5 name-based), ưu nhược điểm của từng loại, cách sử dụng trong các ngôn ngữ lập trình phổ biến, và các use case thực tế trong distributed systems, microservices và database design.
+</SummaryBox>
 
 UUID (Universally Unique Identifier) là một chuẩn định danh duy nhất được sử dụng rộng rãi trong lập trình và cơ sở dữ liệu. Trong bài viết này, chúng ta sẽ tìm hiểu chi tiết về UUID, tại sao nên sử dụng nó, ưu nhược điểm và các ví dụ thực tế.
 

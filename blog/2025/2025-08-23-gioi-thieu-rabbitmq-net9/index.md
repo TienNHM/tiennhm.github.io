@@ -7,7 +7,13 @@ authors: [tiennhm]
 date: 2025-08-23
 ---
 
+import { SummaryBox } from '@site/src/components/SEO';
+
 # Giới thiệu RabbitMQ - Message Broker mạnh mẽ với ví dụ .NET 8
+
+<SummaryBox>
+RabbitMQ là một open-source message broker phổ biến trong kiến trúc microservices, hỗ trợ nhiều messaging protocols như AMQP, MQTT, STOMP. Bài viết giới thiệu khái niệm cơ bản (Producer, Consumer, Queue, Exchange), cách cài đặt RabbitMQ, và ví dụ thực tế với .NET 8 để gửi/nhận messages. RabbitMQ giúp giải quyết các vấn đề về decoupling, scalability và reliability trong distributed systems.
+</SummaryBox>
 
 RabbitMQ là một trong những message broker phổ biến nhất trong thế giới phát triển phần mềm hiện đại. Trong bài viết này, chúng ta sẽ tìm hiểu về RabbitMQ và cách sử dụng nó trong ứng dụng .NET 8.
 

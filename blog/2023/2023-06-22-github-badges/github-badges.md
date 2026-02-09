@@ -10,9 +10,15 @@ enableComments: true # for Gisqus comments, set to true
 draft: false # set to true to hide this post from the site
 ---
 
+import { SummaryBox } from '@site/src/components/SEO';
+
 <p align="right">
     <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2FTienNHM.github.io%2Fblog%2Fgithub-badges&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
 </p>
+
+<SummaryBox>
+Bài viết tổng hợp các GitHub Badges phổ biến nhất để trang trí GitHub Profile, bao gồm badges từ shields.io, github-readme-stats, github-profile-trophy, github-profile-views-counter và nhiều công cụ khác. Mỗi badge được giới thiệu với cách sử dụng, ví dụ code và use cases cụ thể. Badges giúp làm nổi bật GitHub Profile với thông tin về skills, stats, social links và nhiều thông tin khác một cách trực quan và chuyên nghiệp.
+</SummaryBox>
 
 Trong bài viết này, mình sẽ hướng dẫn các bạn cách tạo GitHub Badges. Đây là một tính năng mới của GitHub, nó cho phép các bạn tạo các badge để hiển thị trên profile của mình.
 

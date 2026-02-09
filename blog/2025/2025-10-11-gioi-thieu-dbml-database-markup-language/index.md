@@ -5,7 +5,13 @@ authors: [tiennhm]
 tags: [database, dbml, schema, documentation, tools]
 ---
 
+import { SummaryBox } from '@site/src/components/SEO';
+
 # Giới thiệu DBML - Database Markup Language
+
+<SummaryBox>
+DBML (Database Markup Language) là một ngôn ngữ DSL mã nguồn mở được thiết kế để định nghĩa và tài liệu hóa cấu trúc cơ sở dữ liệu. Với cú pháp đơn giản, dễ đọc và độc lập với hệ quản trị cơ sở dữ liệu, DBML giúp developers quản lý schema hiệu quả, tạo ER diagrams tự động và tích hợp tốt với version control. Bài viết giới thiệu khái niệm, lợi ích, cú pháp cơ bản và các công cụ hỗ trợ DBML.
+</SummaryBox>
 
 Trong thế giới phát triển phần mềm hiện đại, việc quản lý và tài liệu hóa cấu trúc cơ sở dữ liệu (database schema) là một thách thức không nhỏ. DBML (Database Markup Language) ra đời như một giải pháp hiệu quả để giải quyết vấn đề này.
 

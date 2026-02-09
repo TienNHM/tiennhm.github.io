@@ -8,9 +8,15 @@ draft: false # set to true to hide this post from the site
 image: ./images/api-testing-types.gif
 ---
 
+import { SummaryBox } from '@site/src/components/SEO';
+
 <p align="right">
     <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Fapi-testing-types&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
 </p>
+
+<SummaryBox>
+Bài viết giới thiệu về các loại kiểm thử API phổ biến trong phát triển phần mềm, bao gồm Unit Testing, Integration Testing, Functional Testing, Load Testing, Security Testing và nhiều loại testing khác. Mỗi loại testing được giải thích về mục đích, cách thực hiện và khi nào nên sử dụng. API testing là một phần quan trọng trong quy trình phát triển phần mềm để đảm bảo chất lượng và độ tin cậy của API.
+</SummaryBox>
 
 Giới thiệu về các loại kiểm thử API.
 

@@ -8,9 +8,15 @@ draft: false # set to true to hide this post from the site
 image: https://about.linkedin.com/etc.clientlibs/settings/wcm/designs/gandalf/clientlibs/resources/images/og-social-share-image.jpg
 ---
 
+import { SummaryBox } from '@site/src/components/SEO';
+
 <p align="right">
     <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Ftop-linked-accounts-to-follow-for-developers&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
 </p>
+
+<SummaryBox>
+Bài viết giới thiệu danh sách các tài khoản LinkedIn mà mọi lập trình viên nên theo dõi để cập nhật xu hướng công nghệ mới nhất, học hỏi kinh nghiệm từ các chuyên gia và developers hàng đầu, và tìm hiểu về các công nghệ mới. Danh sách bao gồm các influencers, công ty công nghệ, và cộng đồng developers nổi tiếng trong ngành, giúp developers mở rộng network và cập nhật kiến thức liên tục.
+</SummaryBox>
 
 Bạn là một lập trình viên và bạn muốn cập nhật những xu hướng công nghệ mới nhất? Bạn muốn tìm hiểu những kinh nghiệm của những lập trình viên khác? Bạn muốn tìm hiểu những công nghệ mới nhất? 
 

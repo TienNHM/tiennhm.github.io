@@ -10,9 +10,15 @@ enableComments: true # for Gisqus comments, set to true
 draft: false # set to true to hide this post from the site
 ---
 
+import { SummaryBox } from '@site/src/components/SEO';
+
 <p align="right">
     <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2FTienNHM.github.io%2Fblog%2Fgithub-profile&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
 </p>
+
+<SummaryBox>
+Bài viết hướng dẫn cách tạo GitHub Profile đơn giản và đẹp mắt bằng cách sử dụng README file trong repository có tên trùng với username. GitHub Profile cho phép bạn tạo một trang profile cá nhân với thông tin giới thiệu, skills, projects và các thông tin khác. Bài viết bao gồm các bước chi tiết từ tạo repository đến viết README với Markdown, giúp người mới bắt đầu có thể tạo profile GitHub chuyên nghiệp.
+</SummaryBox>
 
 Trong bài viết này, mình sẽ hướng dẫn các bạn cách tạo Github Profile. Đây là một tính năng mới của Github, nó cho phép các bạn tạo một trang profile của riêng mình.
 
