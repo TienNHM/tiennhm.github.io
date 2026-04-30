@@ -80,10 +80,24 @@ const config = {
     onBrokenMarkdownLinks: 'warn',
     headTags: [
         {
+            tagName: 'link',
+            attributes: {
+                rel: 'canonical',
+                href: `https://${organizationName}.github.io/`,
+            }
+        },
+        {
             tagName: 'meta',
             attributes: {
                 name: 'google-site-verification',
-                content: process.env.GOOGLE_SITE_VERIFICATION || 'your-google-site-verification-code',
+                content: process.env.GOOGLE_SITE_VERIFICATION || 'KahpusCmJyTWNzsOBu_IjSN9SlluR7BH6lq4SnfsFsQ',
+            }
+        },
+        {
+            tagName: 'meta',
+            attributes: {
+                name: 'robots',
+                content: 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
             }
         },
         {
@@ -117,6 +131,13 @@ const config = {
         {
             tagName: 'meta',
             attributes: {
+                property: 'og:url',
+                content: `https://${organizationName}.github.io/`,
+            }
+        },
+        {
+            tagName: 'meta',
+            attributes: {
                 property: 'og:title',
                 content: 'TienNHM - Fullstack Developer Blog',
             }
@@ -140,6 +161,20 @@ const config = {
             attributes: {
                 name: 'twitter:card',
                 content: 'summary_large_image',
+            }
+        },
+        {
+            tagName: 'meta',
+            attributes: {
+                name: 'twitter:title',
+                content: 'TienNHM - Fullstack Developer Blog',
+            }
+        },
+        {
+            tagName: 'meta',
+            attributes: {
+                name: 'twitter:description',
+                content: 'Chia sẻ kiến thức chuyên sâu về lập trình, hệ thống phân tán, tối ưu hiệu năng, AI và kinh nghiệm triển khai thực tế từ Fullstack Developer tại Việt Nam.',
             }
         },
         {
@@ -296,6 +331,12 @@ const config = {
                     // blogTagsListComponent: '@theme/BlogTagsListPage',
                     // blogTagsPostsComponent: '@theme/BlogTagsPostsPage',
                     editLocalizedFiles: true,
+                    feedOptions: {
+                        type: ['rss', 'atom'],
+                        xslt: true,
+                    },
+                    onInlineTags: 'warn',
+                    onInlineAuthors: 'warn',
                 },
                 theme: {
                     customCss: require.resolve('./src/css/custom.css'),
@@ -306,10 +347,10 @@ const config = {
                     filename: 'sitemap.xml',
                 },
                 googleTagManager: {
-                    containerId: process.env.GOOGLE_TAG_MANAGER_ID || 'GTM-XXXXXXX',
+                    containerId: process.env.GOOGLE_TAG_MANAGER_ID || 'GTM-N3QR867G',
                 },
                 gtag: {
-                    trackingID: process.env.GTAG_TRACKING_ID || 'G-XXXXXXXXXX',
+                    trackingID: process.env.GTAG_TRACKING_ID || 'G-DMFKNJS6CG',
                     anonymizeIP: true,
                 },
             }),
@@ -432,10 +473,10 @@ const config = {
             ],
             algolia: {
                 // The application ID provided by Algolia
-                appId: process.env.ALGOLIA_APP_ID || 'your-algolia-app-id',
+                appId: process.env.ALGOLIA_APP_ID || 'GR7L3OTLFL',
                 // Public API key: it is safe to commit it
-                apiKey: process.env.ALGOLIA_API_KEY || 'your-algolia-api-key',
-                indexName: process.env.ALGOLIA_INDEX_NAME || 'your-algolia-index-name',
+                apiKey: process.env.ALGOLIA_API_KEY || 'KahpusCmJyTWNzsOBu_IjSN9SlluR7BH6lq4SnfsFsQ',
+                indexName: process.env.ALGOLIA_INDEX_NAME || 'tiennhmio',
                 contextualSearch: true,
                 insights: true,
 
