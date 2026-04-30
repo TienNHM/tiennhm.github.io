@@ -90,8 +90,7 @@ const config = {
             tagName: 'meta',
             attributes: {
                 name: 'google-site-verification',
-                // content: process.env.GOOGLE_SITE_VERIFICATION || 'your-google-site-verification-code',
-                content: 'KahpusCmJyTWNzsOBu_IjSN9SlluR7BH6lq4SnfsFsQ',
+                content: process.env.GOOGLE_SITE_VERIFICATION || 'KahpusCmJyTWNzsOBu_IjSN9SlluR7BH6lq4SnfsFsQ',
             }
         },
         {
@@ -348,10 +347,10 @@ const config = {
                     filename: 'sitemap.xml',
                 },
                 googleTagManager: {
-                    containerId: process.env.GOOGLE_TAG_MANAGER_ID || 'GTM-XXXXXXX',
+                    containerId: process.env.GOOGLE_TAG_MANAGER_ID || 'GTM-N3QR867G',
                 },
                 gtag: {
-                    trackingID: process.env.GTAG_TRACKING_ID || 'G-XXXXXXXXXX',
+                    trackingID: process.env.GTAG_TRACKING_ID || 'G-DMFKNJS6CG',
                     anonymizeIP: true,
                 },
             }),
@@ -474,10 +473,10 @@ const config = {
             ],
             algolia: {
                 // The application ID provided by Algolia
-                appId: process.env.ALGOLIA_APP_ID || 'your-algolia-app-id',
+                appId: process.env.ALGOLIA_APP_ID || 'GR7L3OTLFL',
                 // Public API key: it is safe to commit it
-                apiKey: process.env.ALGOLIA_API_KEY || 'your-algolia-api-key',
-                indexName: process.env.ALGOLIA_INDEX_NAME || 'your-algolia-index-name',
+                apiKey: process.env.ALGOLIA_API_KEY || 'KahpusCmJyTWNzsOBu_IjSN9SlluR7BH6lq4SnfsFsQ',
+                indexName: process.env.ALGOLIA_INDEX_NAME || 'tiennhmio',
                 contextualSearch: true,
                 insights: true,
 
