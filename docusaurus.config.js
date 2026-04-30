@@ -80,10 +80,25 @@ const config = {
     onBrokenMarkdownLinks: 'warn',
     headTags: [
         {
+            tagName: 'link',
+            attributes: {
+                rel: 'canonical',
+                href: `https://${organizationName}.github.io/`,
+            }
+        },
+        {
             tagName: 'meta',
             attributes: {
                 name: 'google-site-verification',
-                content: process.env.GOOGLE_SITE_VERIFICATION || 'your-google-site-verification-code',
+                // content: process.env.GOOGLE_SITE_VERIFICATION || 'your-google-site-verification-code',
+                content: 'KahpusCmJyTWNzsOBu_IjSN9SlluR7BH6lq4SnfsFsQ',
+            }
+        },
+        {
+            tagName: 'meta',
+            attributes: {
+                name: 'robots',
+                content: 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
             }
         },
         {
@@ -117,6 +132,13 @@ const config = {
         {
             tagName: 'meta',
             attributes: {
+                property: 'og:url',
+                content: `https://${organizationName}.github.io/`,
+            }
+        },
+        {
+            tagName: 'meta',
+            attributes: {
                 property: 'og:title',
                 content: 'TienNHM - Fullstack Developer Blog',
             }
@@ -140,6 +162,20 @@ const config = {
             attributes: {
                 name: 'twitter:card',
                 content: 'summary_large_image',
+            }
+        },
+        {
+            tagName: 'meta',
+            attributes: {
+                name: 'twitter:title',
+                content: 'TienNHM - Fullstack Developer Blog',
+            }
+        },
+        {
+            tagName: 'meta',
+            attributes: {
+                name: 'twitter:description',
+                content: 'Chia sẻ kiến thức chuyên sâu về lập trình, hệ thống phân tán, tối ưu hiệu năng, AI và kinh nghiệm triển khai thực tế từ Fullstack Developer tại Việt Nam.',
             }
         },
         {
@@ -296,6 +332,12 @@ const config = {
                     // blogTagsListComponent: '@theme/BlogTagsListPage',
                     // blogTagsPostsComponent: '@theme/BlogTagsPostsPage',
                     editLocalizedFiles: true,
+                    feedOptions: {
+                        type: ['rss', 'atom'],
+                        xslt: true,
+                    },
+                    onInlineTags: 'warn',
+                    onInlineAuthors: 'warn',
                 },
                 theme: {
                     customCss: require.resolve('./src/css/custom.css'),
