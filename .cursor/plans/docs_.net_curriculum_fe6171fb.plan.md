@@ -1,22 +1,22 @@
 ---
 name: Docs .NET Curriculum
-overview: "Thêm nhánh docs `09-dotnet-backend-zero-to-senior` với đề cương đầy đủ trong plan (định vị backend-first, 19 module, 3 project + final, sách, trụ CRM). Scaffold Docusaurus giống SQL 30 ngày; điền bài chi tiết dần."
+overview: Thêm nhánh docs `09-dotnet-backend-zero-to-senior` với đề cương đầy đủ trong plan (định vị backend-first, 19 module, 3 project + final, sách, trụ CRM). Scaffold Docusaurus giống SQL 30 ngày; điền bài chi tiết dần.
 todos:
   - id: scaffold-root
     content: Tạo docs/09-dotnet-backend-zero-to-senior/_category_.json và 00-roadmap (SummaryBox, slug, liên kết nội bộ đầy đủ)
-    status: pending
+    status: completed
   - id: scaffold-stages
     content: Tạo 5 thư mục stage + _category_.json mỗi stage (label, position, generated-index description)
-    status: pending
+    status: completed
   - id: scaffold-modules
     content: Tạo module-01…19 và project/final markdown; outline trùng "Nội dung trọng tâm" + các mục "Bổ sung (đối chiếu roadmap.sh)"; CRM tie-in; sách ở roadmap/stage intro; optional-client-dotnet nếu cần
-    status: pending
+    status: completed
   - id: verify-build
     content: Chạy build Docusaurus, sửa broken links / frontmatter nếu có
-    status: pending
+    status: completed
   - id: optional-i18n
     content: Mirror EN trong i18n/en + current.json khi cần
-    status: pending
+    status: completed
 isProject: false
 ---
 

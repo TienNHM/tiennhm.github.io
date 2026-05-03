@@ -1,0 +1,103 @@
+---
+title: 00. Lộ trình From Zero → Senior .NET (Backend-first)
+slug: dotnet-backend-zero-to-senior-roadmap
+description: Roadmap học .NET backend — C#, ASP.NET Core, database, production, kiến trúc — trục CRM thực chiến.
+sidebar_position: 0
+tags:
+  - dotnet
+  - csharp
+  - aspnet-core
+  - backend
+  - crm
+  - roadmap
+keywords: [dotnet, csharp, aspnet-core, backend, crm, roadmap, enterprise]
+enableComments: true
+draft: false
+---
+
+import { SummaryBox } from '@site/src/components/SEO';
+
+<SummaryBox>
+Trang này là điểm vào cho toàn bộ giáo trình **From Zero → Senior .NET (Backend-first)**: chuỗi **C# vững → ASP.NET Core sâu → Database chắc → Kiến trúc mạnh → Production mindset**, không lan man full-stack. Trục dự án xuyên suốt là **Build a Real Production CRM** — gần với CRUD, auth, permission, workflow, SignalR, job nền và triển khai thật.
+</SummaryBox>
+
+## Định vị
+
+- **Đối tượng**: Backend-first .NET Developer (enterprise, outsource, SaaS, freelance backend).
+- **Không bao gồm lõi**: Blazor, MAUI, UI client nặng — xem [Tùy chọn: Client .NET](optional-client-dotnet.md) và [ASP.NET Core Developer roadmap (roadmap.sh)](https://roadmap.sh/aspnet-core) như checklist bổ sung, **không** thay trục CRM.
+
+## Năm trụ ↔ cấu trúc docs
+
+| Trụ | Thư mục | Nội dung |
+|-----|----------|----------|
+| Foundation | [Giai đoạn 1 — Foundation](stage-01-foundation/) | Module 1–3 |
+| Professional Backend | [Giai đoạn 2 — C# Professional](stage-02-csharp-professional/) | Module 4–7 + Project 1 |
+| Advanced Backend | [Giai đoạn 3 — ASP.NET Core](stage-03-aspnet-core-backend/) + [Giai đoạn 4 — Database & Production](stage-04-database-production/) | Module 8–15 + Project 2 + 3 |
+| Senior Engineering | [Giai đoạn 5 — Senior Engineering](stage-05-senior-engineering/) | Module 16–19 + Final Project |
+| Architect Mindset | Cùng giai đoạn 5 + Final | Clean Architecture, DDD, distributed, microservices, enterprise CRM/ERP |
+
+## Giai đoạn 1 — Foundation (From Zero)
+
+**Mục tiêu**: Chưa biết lập trình → tư duy lập trình và ứng dụng đầu tiên.
+
+- [Module 1 — Programming Logic](stage-01-foundation/module-01-programming-logic.md)
+- [Module 2 — Computer Science Basics](stage-01-foundation/module-02-computer-science-basics.md)
+- [Module 3 — Git + Developer Workflow](stage-01-foundation/module-03-git-developer-workflow.md)
+
+## Giai đoạn 2 — C# Professional
+
+**Mục tiêu**: Code được → code chuẩn production.
+
+- [Module 4 — C# Core](stage-02-csharp-professional/module-04-csharp-core.md)
+- [Module 5 — Advanced C#](stage-02-csharp-professional/module-05-advanced-csharp.md)
+- [Module 6 — Async Programming](stage-02-csharp-professional/module-06-async-programming.md)
+- [Module 7 — Dependency Injection](stage-02-csharp-professional/module-07-dependency-injection.md)
+- [Project 1 — Inventory System (Console + API)](stage-02-csharp-professional/project-01-inventory-console-api.md)
+
+## Giai đoạn 3 — ASP.NET Core Backend
+
+**Mục tiêu**: Backend production-ready.
+
+- [Module 8 — ASP.NET Core Fundamentals](stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals.md)
+- [Module 9 — Web API Professional](stage-03-aspnet-core-backend/module-09-web-api-professional.md)
+- [Module 10 — Authentication + Authorization](stage-03-aspnet-core-backend/module-10-authentication-authorization.md)
+- [Module 11 — SignalR](stage-03-aspnet-core-backend/module-11-signalr.md)
+- [Project 2 — CRM Backend API](stage-03-aspnet-core-backend/project-02-crm-backend-api.md)
+
+## Giai đoạn 4 — Database + Production
+
+**Mục tiêu**: Hệ thống thật ngoài doanh nghiệp.
+
+- [Module 12 — SQL Deep Dive](stage-04-database-production/module-12-sql-deep-dive.md) — có thể bổ sung từ [Learn SQL in 30 days](../06-database/learn-sql-in-30-days/00.%2030-Day%20SQL%20Learning%20Roadmap.md)
+- [Module 13 — Entity Framework Core](stage-04-database-production/module-13-entity-framework-core.md)
+- [Module 14 — Caching + Background Jobs](stage-04-database-production/module-14-caching-background-jobs.md)
+- [Module 15 — Docker + Deployment](stage-04-database-production/module-15-docker-deployment.md)
+- [Project 3 — Production CRM Platform](stage-04-database-production/project-03-production-crm-platform.md)
+
+## Giai đoạn 5 — Senior Engineering
+
+**Mục tiêu**: Developer → System owner.
+
+- [Module 16 — Clean Architecture](stage-05-senior-engineering/module-16-clean-architecture.md)
+- [Module 17 — Distributed Systems](stage-05-senior-engineering/module-17-distributed-systems.md)
+- [Module 18 — Microservices](stage-05-senior-engineering/module-18-microservices.md)
+- [Module 19 — Performance Engineering](stage-05-senior-engineering/module-19-performance-engineering.md)
+- [Final Project — Enterprise CRM / ERP](stage-05-senior-engineering/final-project-enterprise-crm-erp.md)
+
+## Trục “Build a Real Production CRM”
+
+CRM tập hợp: **CRUD, Auth, permission, workflow, approval, notification, SignalR, background jobs, deployment, scaling** — lần lượt thể hiện ở Project 2 (API), Project 3 (platform) và Final (enterprise). Mỗi module có mục **Liên hệ CRM** gợi ý áp dụng.
+
+## Đối chiếu roadmap.sh
+
+Dùng [ASP.NET Core Developer (roadmap.sh)](https://roadmap.sh/aspnet-core) làm **checklist kỹ năng cộng đồng** (CLI, testing, gateway, broker, v.v.). Các bullet **Bổ sung (đối chiếu roadmap)** trong từng file module là phần cần cover khi viết sâu; không lệch trục backend-first.
+
+## Bộ sách bắt buộc (tham chiếu)
+
+- **Foundation**: Head First C#; C# Yellow Book  
+- **Mid-level**: C# in Depth; ASP.NET Core in Action  
+- **Senior**: CLR via C#; Clean Architecture (Robert C. Martin); Designing Data-Intensive Applications  
+
+---
+
+Tiếp theo: mở **Module 1** hoặc đúng **giai đoạn** bạn đang học trong sidebar.
