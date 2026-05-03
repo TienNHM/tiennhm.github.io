@@ -77,7 +77,6 @@ const config = {
     projectName: `${projectName}`, // Usually your repo name.
     trailingSlash: false,
     onBrokenLinks: 'throw',
-    onBrokenMarkdownLinks: 'warn',
     headTags: [
         {
             tagName: 'link',
@@ -281,6 +280,9 @@ const config = {
 
     markdown: {
         mermaid: true,
+        hooks: {
+            onBrokenMarkdownLinks: 'warn',
+        },
     },
 
     // process the env variables
@@ -407,6 +409,9 @@ const config = {
         ],
         '@docusaurus/theme-mermaid',
     ],
+
+    /** Chạy trước client module của plugin-google-gtag; tránh TypeError khi không có gtag */
+    clientModules: [require.resolve('./src/client/gtag-shim.js')],
 
     themes: [
         '@docusaurus/theme-live-codeblock',
