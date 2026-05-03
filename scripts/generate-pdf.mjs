@@ -10,21 +10,10 @@ import {fileURLToPath} from 'node:url';
 const require = createRequire(import.meta.url);
 const mdToPdf = require('md-to-pdf').default;
 const matter = require('gray-matter');
+const {getMdToPdfOptions} = require('./get-pdf-md-to-pdf-options.cjs');
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
-
-const CI =
-  process.env.CI === 'true' ||
-  process.env.GITHUB_ACTIONS === 'true' ||
-  process.env.GITLAB_CI === 'true';
-
-const launchOptions = CI
-  ? {
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-    }
-  : {};
 
 /**
  * @param {string} raw
@@ -95,16 +84,10 @@ async function buildOne(absSource, destAbs) {
       : raw;
   await mdToPdf(
     {content: body},
-    {
+    getMdToPdfOptions(ROOT, {
       dest: destAbs,
       basedir: path.dirname(absSource),
-      launch_options: launchOptions,
-      pdf_options: {
-        format: 'A4',
-        printBackground: true,
-        margin: {top: '18mm', right: '14mm', bottom: '18mm', left: '14mm'},
-      },
-    },
+    }),
   );
 }
 
