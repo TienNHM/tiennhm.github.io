@@ -9,7 +9,12 @@
 /* https://primereact.org/theming/#builtinthemes */
 @import url('primereact/resources/themes/fluent-light/theme.css');
 
+/**
+ * Typography: thu nhỏ toàn site (Infima + Docusaurus dùng rem từ kích cỡ chữ gốc).
+ * Dùng biến để màn hình và in PDF / print giữ cùng tỉ lệ.
+ */
 :root {
+  --site-root-font-scale: 85%;
   /*
   See css var + hsl color palette technique:
   https://blog.maximeheckel.com/posts/the-power-of-composition-with-css-variables/
@@ -27,6 +32,10 @@
   /* Use a darker color to ensure contrast, ideally we don't need important */
   --ifm-breadcrumb-color-active: var(--ifm-color-primary-darker) !important;
   --ifm-menu-color-active: var(--ifm-color-primary-darker) !important;
+}
+
+html {
+  font-size: var(--site-root-font-scale);
 }
 
 html[data-theme='dark'] {
@@ -365,4 +374,27 @@ article h1, article h2, article h3, article h4, article h5, article h6 {
 [data-theme='dark'] .diff .deleted {
   color: #ff7b72;
   background: rgb(239 68 68 / 18%);
+}
+
+/* Xuất PDF qua "Lưu PDF từ trang" — ẩn chrome khi in */
+@media print {
+  /* Tránh trình duyệt đưa cỡ chữ in về mặc định (to hơn màn hình) */
+  html {
+    font-size: var(--site-root-font-scale) !important;
+  }
+
+  .pdf-export-toolbar,
+  .navbar,
+  .footer,
+  .theme-doc-sidebar-container,
+  .theme-doc-footer,
+  .pagination-nav,
+  .giscus {
+    display: none !important;
+  }
+
+  body {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
 }
