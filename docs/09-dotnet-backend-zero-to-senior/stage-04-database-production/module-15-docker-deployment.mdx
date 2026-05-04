@@ -1,0 +1,910 @@
+---
+title: Module 15 — Docker + Deployment
+slug: dotnet-module-15-docker-deployment
+description: Docker, Compose, VPS Linux, Azure, CI/CD, logging production; Kubernetes và Aspire (orientation).
+sidebar_position: 4
+tags: [dotnet, docker, kubernetes, cicd]
+keywords: [docker-compose, github-actions, azure, kubernetes]
+enableComments: true
+draft: false
+---
+
+import { SummaryBox } from '@site/src/components/SEO';
+
+<SummaryBox>
+Module này hướng dẫn deploy CRM API lên production một cách bài bản: từ viết Dockerfile multi-stage, dựng Docker Compose cho toàn bộ stack, thiết lập CI/CD với GitHub Actions, deploy lên Linux VPS hoặc Azure, đến monitoring và logging production. Kết thúc module, học viên có thể đưa một ứng dụng ASP.NET Core chạy ổn định trên cloud với pipeline tự động.
+</SummaryBox>
+
+## Mục tiêu học tập
+
+Sau module này, học viên có thể:
+
+- Viết Dockerfile multi-stage tối ưu cho ASP.NET Core API
+- Dựng `docker-compose.yml` cho stack CRM đầy đủ (API, DB, Redis, logging)
+- Thiết lập GitHub Actions pipeline: build → test → push image → deploy
+- Deploy ứng dụng lên Linux VPS với nginx reverse proxy và SSL
+- Hiểu các lựa chọn Azure và khi nào dùng loại nào
+- Cấu hình structured logging, health check, và uptime monitoring
+- Nắm khái niệm Kubernetes cơ bản và khi nào cần dùng
+- Sử dụng .NET Aspire cho local development orchestration
+
+---
+
+## 1. Docker Fundamentals
+
+### Container vs VM
+
+| Tiêu chí | VM | Container |
+|---|---|---|
+| Cách ly | Phần cứng ảo hóa | Process namespace |
+| Boot time | Phút | Giây |
+| Overhead | GB RAM/disk | MB |
+| Portability | Image nặng | Image nhẹ, layer |
+| Use case | Cách ly OS hoàn toàn | Microservice, app |
+
+Container chia sẻ kernel với host OS — nhẹ hơn nhiều nhưng vẫn cách ly process, network, filesystem.
+
+### Image vs Container
+
+- **Image**: bản "đóng gói" read-only, gồm nhiều layer. Là "khuôn".
+- **Container**: instance đang chạy từ image. Có writable layer trên cùng.
+
+### Layer Caching
+
+Docker build theo từng instruction trong Dockerfile. Nếu instruction không thay đổi, Docker dùng cache layer cũ — rất nhanh. Vì vậy, đặt các lệnh ít thay đổi (cài packages) trước, code copy sau.
+
+### Lệnh Docker cơ bản
+
+```bash
+# Chạy container
+docker run -d -p 8080:80 --name crm-api myrepo/crm-api:latest
+
+# Build image
+docker build -t myrepo/crm-api:latest .
+
+# Liệt kê container đang chạy
+docker ps
+
+# Xem log
+docker logs crm-api -f
+
+# Dừng và xóa container
+docker stop crm-api && docker rm crm-api
+
+# Pull image từ Docker Hub
+docker pull mcr.microsoft.com/dotnet/aspnet:8.0
+
+# Push image lên registry
+docker push myrepo/crm-api:latest
+```
+
+---
+
+## 2. Dockerfile cho ASP.NET Core
+
+### Multi-stage Build
+
+Multi-stage build tách biệt môi trường build (có .NET SDK) và môi trường runtime (chỉ có ASP.NET Runtime). Kết quả: image production nhỏ gọn, không chứa compiler, source code không commit.
+
+| Image | Kích thước |
+|---|---|
+| `mcr.microsoft.com/dotnet/sdk:8.0` | ~780 MB |
+| `mcr.microsoft.com/dotnet/aspnet:8.0` | ~220 MB |
+| `mcr.microsoft.com/dotnet/runtime:8.0` | ~190 MB |
+
+### ENTRYPOINT vs CMD
+
+- `ENTRYPOINT`: lệnh chính, không override được khi `docker run` (trừ dùng `--entrypoint`).
+- `CMD`: tham số mặc định, override được.
+- Quy ước cho .NET: dùng `ENTRYPOINT ["dotnet", "App.dll"]`.
+
+### Dockerfile đầy đủ cho CRM API
+
+```dockerfile
+# Stage 1: Build
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+
+# Copy project files trước để cache restore layer
+COPY ["src/CrmApi/CrmApi.csproj", "src/CrmApi/"]
+COPY ["src/CrmApi.Application/CrmApi.Application.csproj", "src/CrmApi.Application/"]
+COPY ["src/CrmApi.Infrastructure/CrmApi.Infrastructure.csproj", "src/CrmApi.Infrastructure/"]
+COPY ["src/CrmApi.Domain/CrmApi.Domain.csproj", "src/CrmApi.Domain/"]
+
+RUN dotnet restore "src/CrmApi/CrmApi.csproj"
+
+# Copy toàn bộ source
+COPY . .
+
+WORKDIR /src/src/CrmApi
+RUN dotnet publish -c Release -o /app/publish --no-restore
+
+# Stage 2: Runtime
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+WORKDIR /app
+
+# Chạy với non-root user để bảo mật
+RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+USER appuser
+
+COPY --from=build /app/publish .
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+  CMD curl -f http://localhost:8080/health || exit 1
+
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "CrmApi.dll"]
+```
+
+### .dockerignore
+
+```
+**/.git
+**/.gitignore
+**/bin
+**/obj
+**/.vs
+**/node_modules
+**/*.user
+**/appsettings.Development.json
+**/Dockerfile*
+**/docker-compose*
+README.md
+```
+
+---
+
+## 3. Docker Compose
+
+Docker Compose định nghĩa toàn bộ stack trong một file YAML — "hợp đồng" chạy môi trường giống production.
+
+### docker-compose.yml đầy đủ cho CRM Stack
+
+```yaml
+version: "3.9"
+
+services:
+  # CRM API
+  crm-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: crm-api:latest
+    container_name: crm-api
+    restart: unless-stopped
+    ports:
+      - "5000:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=CrmDb;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True
+      - ConnectionStrings__Redis=redis:6379
+      - Seq__ServerUrl=http://seq:5341
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - crm-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # SQL Server
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: crm-sqlserver
+    restart: unless-stopped
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=${SA_PASSWORD}
+      - MSSQL_PID=Express
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    networks:
+      - crm-network
+    healthcheck:
+      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "${SA_PASSWORD}" -C -Q "SELECT 1" || exit 1
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: crm-redis
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - crm-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Hangfire Dashboard (standalone worker)
+  hangfire-worker:
+    image: crm-api:latest
+    container_name: crm-hangfire
+    restart: unless-stopped
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - RUN_MODE=HangfireWorker
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=CrmDb;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True
+    depends_on:
+      crm-api:
+        condition: service_healthy
+    networks:
+      - crm-network
+
+  # Seq - Structured Logging
+  seq:
+    image: datalust/seq:latest
+    container_name: crm-seq
+    restart: unless-stopped
+    environment:
+      - ACCEPT_EULA=Y
+      - SEQ_FIRSTRUN_ADMINPASSWORDHASH=${SEQ_PASSWORD_HASH}
+    ports:
+      - "5341:80"
+    volumes:
+      - seq-data:/data
+    networks:
+      - crm-network
+
+volumes:
+  sqlserver-data:
+  redis-data:
+  seq-data:
+
+networks:
+  crm-network:
+    driver: bridge
+```
+
+Khởi động:
+
+```bash
+# Tạo file .env
+cp .env.example .env
+# Sửa SA_PASSWORD, REDIS_PASSWORD, SEQ_PASSWORD_HASH
+
+docker compose up -d
+docker compose logs -f crm-api
+docker compose down -v  # xóa cả volumes khi cleanup
+```
+
+---
+
+## 4. Environment và Secrets
+
+### ASPNETCORE_ENVIRONMENT
+
+ASP.NET Core đọc biến môi trường này để chọn `appsettings.{env}.json`:
+
+- `Development`: appsettings.Development.json, detailed errors
+- `Staging`: appsettings.Staging.json
+- `Production`: appsettings.json, ẩn stack trace
+
+### Environment Variables trong Docker
+
+Ưu tiên đọc cấu hình: appsettings.json → appsettings.{env}.json → biến môi trường.
+
+Biến môi trường ghi đè cấu hình JSON:
+
+```bash
+# JSON: { "Jwt": { "Secret": "..." } }
+# Env var: Jwt__Secret=value  (dùng __ thay vì :)
+docker run -e "Jwt__Secret=mysecretkey" crm-api:latest
+```
+
+### Không Commit Secret vào Image
+
+Nguyên tắc: **không bao giờ** hardcode connection string, API key, password trong Dockerfile hoặc code.
+
+```dockerfile
+# SAI - bao giờ cũng sai
+ENV ConnectionStrings__DefaultConnection="Server=...;Password=P@ss123"
+
+# ĐÚNG - inject lúc runtime
+# docker run -e "ConnectionStrings__DefaultConnection=..." crm-api
+```
+
+### .env File
+
+```bash
+# .env (KHÔNG commit file này, thêm vào .gitignore)
+SA_PASSWORD=YourStr0ngPassword!
+REDIS_PASSWORD=RedisPass123
+JWT_SECRET=supersecretkey_at_least_32_chars
+SEQ_PASSWORD_HASH=...
+```
+
+```bash
+# .gitignore
+.env
+*.env
+!.env.example
+```
+
+### Docker Secrets (Swarm mode)
+
+```bash
+echo "YourStr0ngPassword!" | docker secret create sa_password -
+```
+
+```yaml
+# docker-compose.yml (swarm)
+secrets:
+  sa_password:
+    external: true
+services:
+  sqlserver:
+    secrets:
+      - sa_password
+```
+
+### Azure Key Vault (Concept)
+
+Trong production cloud, không dùng biến môi trường cho secrets nhạy cảm. Dùng Azure Key Vault:
+
+```csharp
+// Program.cs
+builder.Configuration.AddAzureKeyVault(
+    new Uri($"https://{keyVaultName}.vault.azure.net/"),
+    new DefaultAzureCredential());
+```
+
+Managed Identity của App Service tự động xác thực — không cần lưu credential.
+
+---
+
+## 5. Linux VPS Deployment
+
+### Provision VPS
+
+Nhà cung cấp phổ biến: DigitalOcean Droplet, Vultr, Hetzner Cloud. Cấu hình tối thiểu cho CRM demo: 2 vCPU, 4 GB RAM, Ubuntu 22.04 LTS.
+
+```bash
+# Sau khi SSH vào VPS
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y docker.io docker-compose-v2 nginx certbot python3-certbot-nginx ufw curl
+
+# Thêm user vào docker group
+sudo usermod -aG docker $USER
+```
+
+### Firewall với UFW
+
+```bash
+sudo ufw allow OpenSSH
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw enable
+sudo ufw status
+```
+
+### Nginx Reverse Proxy
+
+```nginx
+# /etc/nginx/sites-available/crm-api
+server {
+    listen 80;
+    server_name api.crm.yourdomain.com;
+
+    location / {
+        proxy_pass http://localhost:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection keep-alive;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+```
+
+```bash
+sudo ln -s /etc/nginx/sites-available/crm-api /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+### SSL với Let's Encrypt (Certbot)
+
+```bash
+sudo certbot --nginx -d api.crm.yourdomain.com
+# Certbot tự sửa nginx config, thêm HTTPS redirect
+# Tự động renew qua systemd timer
+sudo systemctl status certbot.timer
+```
+
+### Deploy Docker Compose trên VPS
+
+```bash
+# Trên VPS: clone repo hoặc copy docker-compose.yml + .env
+mkdir -p /opt/crm && cd /opt/crm
+# Copy files (hoặc git clone)
+docker compose pull
+docker compose up -d
+docker compose ps
+```
+
+---
+
+## 6. GitHub Actions CI/CD
+
+### Workflow hoàn chỉnh
+
+```yaml
+# .github/workflows/deploy.yml
+name: Build, Test & Deploy CRM API
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/crm-api
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore -c Release
+
+      - name: Test
+        run: dotnet test --no-build -c Release --logger "trx;LogFileName=results.trx"
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: "**/*.trx"
+
+  docker-build-push:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=sha-
+            type=raw,value=latest
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: docker-build-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    steps:
+      - name: Deploy to VPS via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /opt/crm
+            docker compose pull crm-api
+            docker compose up -d --no-deps crm-api
+            docker compose ps
+            docker image prune -f
+```
+
+### Secrets trong GitHub
+
+Vào **Settings → Secrets and variables → Actions**:
+
+| Secret | Mô tả |
+|---|---|
+| `VPS_HOST` | IP hoặc domain của VPS |
+| `VPS_USER` | User SSH (vd: `ubuntu`) |
+| `VPS_SSH_KEY` | Private key SSH (PEM format) |
+
+### Environment Protection Rules
+
+Vào **Settings → Environments → production**: bật "Required reviewers" để mỗi deploy production cần approve thủ công.
+
+---
+
+## 7. Azure Deployment
+
+### So sánh các lựa chọn Azure
+
+| Dịch vụ | Use case | Độ phức tạp | Chi phí |
+|---|---|---|---|
+| **App Service** | Web app, API truyền thống | Thấp | Trung bình |
+| **Container Apps** | Microservice, scale to zero | Trung bình | Thấp-trung |
+| **AKS** | Enterprise, nhiều service | Cao | Cao |
+| **Azure Functions** | Event-driven, serverless | Thấp | Rất thấp |
+
+Cho CRM monolith: **Azure Container Apps** là lựa chọn tốt — auto-scale, managed, giá hợp lý.
+
+### Deploy từ GitHub Actions lên Azure Container Apps
+
+```yaml
+- name: Login to Azure
+  uses: azure/login@v2
+  with:
+    creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+- name: Deploy to Azure Container Apps
+  uses: azure/container-apps-deploy-action@v1
+  with:
+    resourceGroup: crm-rg
+    containerAppName: crm-api
+    imageToDeploy: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+```
+
+### Các dịch vụ Azure hỗ trợ
+
+- **Azure SQL Database**: managed SQL Server, auto backup, geo-replication
+- **Azure Cache for Redis**: managed Redis, bật TLS mặc định
+- **Azure Container Registry (ACR)**: private registry, tích hợp sẵn với ACA/AKS
+- **Azure Key Vault**: quản lý secrets, certs, keys
+
+### Pricing Mindset
+
+- Luôn bật **cost alerts** trên Azure Portal.
+- Container Apps billing: CPU/memory theo giây khi có request. Scale to zero = $0 khi idle.
+- Dev/Staging environment: dùng B1/Free tier, không để chạy 24/7 nếu không cần.
+
+---
+
+## 8. Production Monitoring
+
+### Structured Logging với Serilog
+
+```csharp
+// Program.cs
+builder.Host.UseSerilog((ctx, lc) => lc
+    .ReadFrom.Configuration(ctx.Configuration)
+    .Enrich.FromLogContext()
+    .Enrich.WithMachineName()
+    .WriteTo.Console(new JsonFormatter())
+    .WriteTo.Seq(ctx.Configuration["Seq:ServerUrl"]!));
+```
+
+```json
+// appsettings.json
+{
+  "Seq": {
+    "ServerUrl": "http://seq:5341",
+    "ApiKey": ""
+  }
+}
+```
+
+Trong code: dùng structured logging thay vì string interpolation:
+
+```csharp
+// SAI
+_logger.LogInformation($"Customer {customerId} created");
+
+// ĐÚNG - Seq/Application Insights index được property
+_logger.LogInformation("Customer {CustomerId} created by {UserId}", customerId, userId);
+```
+
+### Health Check Endpoint
+
+```csharp
+// Program.cs
+builder.Services.AddHealthChecks()
+    .AddSqlServer(connectionString, name: "sqlserver")
+    .AddRedis(redisConnection, name: "redis")
+    .AddUrlGroup(new Uri("https://api.external.com/ping"), name: "external");
+
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
+});
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready")
+});
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = _ => false  // luôn healthy nếu process còn sống
+});
+```
+
+### Uptime Monitoring
+
+- **UptimeRobot** (free): ping `/health` mỗi 5 phút, gửi email khi down.
+- **Better Uptime**: alerting tốt hơn, incident management.
+
+Cấu hình alert: ping `https://api.crm.yourdomain.com/health`, timeout 10s, alert sau 2 lần fail liên tiếp.
+
+### Diagnostics Tools
+
+```bash
+# Xem metrics realtime
+dotnet-counters monitor --process-id <PID> System.Runtime
+
+# CPU/memory profile
+dotnet-trace collect --process-id <PID> --duration 00:00:30
+
+# Dump memory leak analysis
+dotnet-dump collect --process-id <PID>
+dotnet-dump analyze core_<PID>
+```
+
+---
+
+## 9. Kubernetes Intro (Awareness Level)
+
+### Các khái niệm cốt lõi
+
+| Khái niệm | Giải thích |
+|---|---|
+| **Pod** | Đơn vị nhỏ nhất, chứa 1+ container |
+| **Deployment** | Quản lý replica của Pod, rolling update |
+| **Service** | Load balancer nội bộ cho Pods |
+| **Ingress** | HTTP routing từ ngoài vào Service |
+| **ConfigMap/Secret** | Cấu hình & secret inject vào Pod |
+| **Namespace** | Cách ly logical (dev, staging, prod) |
+
+### kubectl cơ bản
+
+```bash
+kubectl get pods -n production
+kubectl describe pod crm-api-xyz -n production
+kubectl logs crm-api-xyz -n production -f
+kubectl exec -it crm-api-xyz -n production -- /bin/sh
+kubectl apply -f k8s/deployment.yaml
+kubectl rollout status deployment/crm-api -n production
+kubectl rollout undo deployment/crm-api -n production
+```
+
+### Khi nào cần K8s vs Docker Compose
+
+| Tình huống | Docker Compose | Kubernetes |
+|---|---|---|
+| Dev local | Tốt | Overkill |
+| Single VPS | Tốt | Overkill |
+| Multi-service, multi-node | Không đủ | Cần thiết |
+| Auto-scaling theo tải | Không có | Có (HPA) |
+| Enterprise SLA | Rủi ro | Phù hợp |
+
+### Helm Chart (Concept)
+
+Helm là package manager cho Kubernetes — đóng gói tất cả YAML templates thành một "chart" có thể cấu hình qua `values.yaml`.
+
+```bash
+helm install crm-api ./charts/crm-api -f values.production.yaml
+helm upgrade crm-api ./charts/crm-api --set image.tag=sha-abc1234
+```
+
+> Kubernetes sẽ được đi sâu ở [Module 18 — Microservices](../stage-05-senior-engineering/module-18-microservices.mdx) với service mesh, Istio, và distributed tracing.
+
+---
+
+## 10. .NET Aspire (.NET 8+)
+
+### Aspire là gì?
+
+.NET Aspire là opinionated framework cho **cloud-native local development** — thay thế cho việc viết `docker-compose.yml` phức tạp khi develop.
+
+### AppHost Project
+
+```csharp
+// AppHost/Program.cs
+var builder = DistributedApplication.CreateBuilder(args);
+
+var redis = builder.AddRedis("redis");
+var sqlServer = builder.AddSqlServer("sqlserver")
+    .AddDatabase("CrmDb");
+
+builder.AddProject<Projects.CrmApi>("crm-api")
+    .WithReference(redis)
+    .WithReference(sqlServer);
+
+builder.Build().Run();
+```
+
+Khi chạy AppHost, Aspire tự động:
+- Start Redis, SQL Server container
+- Inject connection string vào API project
+- Mở **Dashboard** tại `http://localhost:15888` với logs, traces, metrics
+
+### Service Discovery
+
+Aspire inject biến môi trường theo format `services__{name}__http__0`:
+
+```csharp
+// Trong API, dùng tên service thay IP
+builder.Services.AddHttpClient("payment-service",
+    c => c.BaseAddress = new Uri("http://payment-service"));
+```
+
+### Khi nào Aspire vs Docker Compose
+
+| | .NET Aspire | Docker Compose |
+|---|---|---|
+| Mục đích | Local dev orchestration | Dev + CI + Prod |
+| Language | C# | YAML |
+| Dashboard | Built-in | Cần thêm (Portainer...) |
+| Production | Không (phụ thuộc manifest) | Có thể dùng |
+| Học curve | Thấp nếu biết C# | Thấp |
+
+Khuyến nghị: dùng Aspire cho local dev, giữ `docker-compose.yml` cho CI và staging/production đơn giản.
+
+---
+
+## Thực hành
+
+### Bài 1: Dockerize CRM API
+
+**Mục tiêu**: Chạy CRM API hoàn chỉnh trên máy local bằng Docker Compose.
+
+**Yêu cầu**:
+1. Viết `Dockerfile` multi-stage cho CRM API (build + runtime stage, non-root user).
+2. Thêm `.dockerignore` phù hợp.
+3. Viết `docker-compose.yml` với các service: `crm-api`, `sqlserver`, `redis`.
+4. Cấu hình `depends_on` + `healthcheck` đảm bảo API chỉ start sau khi DB healthy.
+5. Thêm Seq service, cấu hình Serilog trong API ghi log vào Seq.
+6. Chạy `docker compose up -d`, mở `http://localhost:5000/swagger` và `http://localhost:5341` (Seq).
+7. Chạy `docker compose logs -f crm-api`, tạo một customer qua Swagger, xác nhận log xuất hiện trong Seq.
+
+**Deliverable**: `docker-compose.yml`, `Dockerfile`, `.dockerignore`, screenshot Seq dashboard có log.
+
+### Bài 2: GitHub Actions Pipeline
+
+**Mục tiêu**: Tự động build, test, và deploy khi push lên nhánh `main`.
+
+**Yêu cầu**:
+1. Tạo workflow `.github/workflows/deploy.yml` với 3 job: `build-and-test`, `docker-build-push`, `deploy`.
+2. Dùng GitHub Container Registry (`ghcr.io`) làm private registry.
+3. Job `build-and-test`: restore → build → test (dotnet test với TRX report).
+4. Job `docker-build-push`: build image, tag bằng `sha-{commit}` và `latest`, push lên ghcr.io.
+5. Job `deploy`: SSH vào VPS (hoặc dùng mock), chạy `docker compose pull && docker compose up -d`.
+6. Thêm environment `production` với required reviewer.
+7. Push code, theo dõi Actions tab, xác nhận pipeline xanh.
+
+**Deliverable**: File workflow YAML, screenshot Actions run thành công.
+
+### Bài 3: Production Checklist
+
+**Mục tiêu**: Hardening CRM API cho production.
+
+**Yêu cầu**:
+1. **Health check**: implement `/health`, `/health/ready`, `/health/live` với `AspNetCore.Diagnostics.HealthChecks`. Check SQL Server và Redis.
+2. **Structured logging**: cấu hình Serilog với `WriteTo.Seq` và `WriteTo.Console(JsonFormatter)`. Log enrichment: `MachineName`, `ThreadId`, `CorrelationId` (via middleware).
+3. **HTTPS**: cấu hình Kestrel với HTTPS trong production. Nếu deploy Docker Compose, cấu hình nginx terminate SSL với Let's Encrypt.
+4. **Secret management**: loại bỏ tất cả hardcode credential, dùng biến môi trường hoặc `.env` file. Kiểm tra `docker inspect` không thấy secret trong image layer.
+5. **Graceful shutdown**: đảm bảo API xử lý `SIGTERM` đúng cách (ASP.NET Core làm tự động, verify bằng `docker stop` và xem log).
+6. **Rate limiting**: thêm `AddRateLimiter` cho endpoint public (ASP.NET Core 7+).
+
+**Deliverable**: Code health check, cấu hình Serilog, nginx config, danh sách checklist đã hoàn thành.
+
+---
+
+## Tóm tắt
+
+Module này đưa CRM từ máy dev ra production với đầy đủ hạ tầng:
+
+- **Docker multi-stage build** giảm image size xuống còn ~220 MB, không leak source code hay SDK.
+- **Docker Compose** là "hợp đồng" stack — một lệnh `docker compose up -d` dựng toàn bộ CRM.
+- **GitHub Actions** tự động hóa pipeline: commit code → test → build image → deploy, giảm human error.
+- **Linux VPS** với nginx + Certbot là lựa chọn tiết kiệm cho project nhỏ-vừa.
+- **Azure Container Apps** là lựa chọn cloud managed phù hợp khi không muốn quản lý server.
+- **Structured logging** (Serilog + Seq) và **health check** là nền tảng observability không thể thiếu.
+- **Kubernetes** cần thiết khi scale lên nhiều node — Module 18 sẽ đi sâu hơn.
+- **.NET Aspire** giúp local development cloud-native dễ hơn, nhưng không thay thế Docker Compose cho production.
+
+> **Mindset production**: Security (non-root, no hardcoded secrets), Observability (logs, health, metrics), Automation (CI/CD, IaC) — ba trụ cột mọi deploy production cần có.
+
+---
+
+## Quiz & Lab chấm điểm (100 điểm)
+
+### Phần A — Quiz (20 điểm)
+
+Mỗi câu **4 điểm**.
+
+1. Multi-stage Dockerfile với .NET thường nhằm?  
+   A. Tăng kích thước image B. Image runtime nhỏ, không mang SDK vào prod C. Bắt buộc dùng Windows D. Tắt HTTPS  
+   > **Đáp án:** B.
+
+2. `HEALTHCHECK` trong Compose/K8s probe dùng để?  
+   A. Backup DB B. Orchestrator biết instance có sẵn sàng traffic C. Build nhanh hơn D. Mã hóa volume  
+   > **Đáp án:** B.
+
+3. Secret trong production không nên?  
+   A. Dùng Docker secrets / vault / env inject B. Hardcode trong Git C. Mount file read-only D. User Secrets dev-only  
+   > **Đáp án:** B.
+
+4. `docker compose up` khác `docker build` ở?  
+   A. Giống nhau B. Compose orchestrate nhiều service/network/volume C. Chỉ xóa image D. Chỉ cho Windows container  
+   > **Đáp án:** B.
+
+5. Non-root user trong container giúp?  
+   A. Giảm attack surface khi container bị compromise B. Tăng RAM C. Bắt buộc cho HTTP/2 D. Thay TLS  
+   > **Đáp án:** A.
+
+### Phần B — Lab chấm điểm (80 điểm)
+
+| Tiêu chí | Điểm | Ghi chú |
+|----------|------|---------|
+| `Dockerfile` multi-stage + image chạy được `dotnet` API | 25 | |
+| `docker-compose.yml`: API + SQL Server hoặc Postgres + (tuỳ chọn) Redis | 25 | |
+| Health check wired vào compose `depends_on` condition (hoặc tương đương) | 15 | |
+| GitHub Action build + push image (hoặc build matrix) | 10 | |
+| README: biến môi trường, port, lệnh chạy | 5 | |
+
+**Đạt:** ≥ 70. **Khá:** ≥ 85 + deploy script SSH hoặc Azure sample. **Giỏi:** ≥ 95 + scan image (Trivy/gha) trong CI.
+
+---
+
+## Tài liệu tham khảo
+
+- [Docker Documentation](https://docs.docker.com/) — tài liệu chính thức Docker
+- [Dockerize an ASP.NET Core app](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/docker/building-net-docker-images) — Microsoft Docs
+- [Docker Compose file reference](https://docs.docker.com/compose/compose-file/) — v3 spec
+- [GitHub Actions for .NET](https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-net) — CI/CD với .NET
+- [appleboy/ssh-action](https://github.com/appleboy/ssh-action) — deploy via SSH
+- [Azure Container Apps docs](https://learn.microsoft.com/en-us/azure/container-apps/) — Microsoft Docs
+- [Serilog Documentation](https://serilog.net/) — structured logging
+- [ASP.NET Core Health Checks](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/health-checks) — Microsoft Docs
+- [.NET Aspire docs](https://learn.microsoft.com/en-us/dotnet/aspire/get-started/aspire-overview) — cloud-native local dev
+- [AspNetCore.Diagnostics.HealthChecks](https://github.com/Xabaril/AspNetCore.Diagnostics.HealthChecks) — extended health checks (SQL, Redis, URLs)
+- [Kubernetes Basics](https://kubernetes.io/docs/tutorials/kubernetes-basics/) — chính thức từ CNCF

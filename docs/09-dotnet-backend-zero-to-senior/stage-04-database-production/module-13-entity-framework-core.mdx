@@ -1,0 +1,896 @@
+---
+title: Module 13 — Entity Framework Core
+slug: dotnet-module-13-entity-framework-core
+description: DbContext, mapping, migration, performance, N+1, compiled query, bulk, concurrency, unit of work.
+sidebar_position: 2
+tags: [dotnet, ef-core, orm]
+keywords: [ef-core, dbcontext, migrations, n-plus-one]
+enableComments: true
+draft: false
+---
+
+import { SummaryBox } from '@site/src/components/SEO';
+
+<SummaryBox>
+Module này hướng dẫn sử dụng Entity Framework Core hiệu quả trong dự án CRM thực tế. Bạn sẽ nắm được cách cấu hình DbContext, viết Fluent API mapping, quản lý migrations, tránh N+1 problem, áp dụng bulk operations, xử lý concurrency conflict và triển khai Repository + Unit of Work pattern. Kết thúc module, bạn có thể xây dựng data access layer production-ready với EF Core 7+.
+</SummaryBox>
+
+## Mục tiêu học tập
+
+Sau module này, học viên có thể:
+
+- Cấu hình `DbContext` và mapping entity với Fluent API cho domain CRM
+- Quản lý database schema bằng migrations, seeding và rollback
+- Nhận biết và sửa N+1 problem; chọn đúng loading strategy
+- Áp dụng các kỹ thuật performance: `AsNoTracking`, bulk operations, `ExecuteUpdate/Delete`
+- Xử lý optimistic concurrency conflict trong môi trường nhiều người dùng
+- Triển khai Repository + Unit of Work pattern phù hợp với EF Core
+- Cấu hình Global Query Filters cho soft delete và multi-tenant
+
+---
+
+## 1. EF Core Overview
+
+### ORM là gì?
+
+ORM (Object-Relational Mapper) ánh xạ giữa bảng trong RDBMS và class trong C#, giúp lập trình viên thao tác dữ liệu qua object thay vì viết SQL thuần.
+
+**EF Core** là ORM chính thức của Microsoft, hỗ trợ SQL Server, PostgreSQL, MySQL, SQLite và nhiều provider khác.
+
+### Code-First vs Database-First
+
+| Hướng tiếp cận | Mô tả | Khi nào dùng |
+|---|---|---|
+| **Code-First** | Định nghĩa entity class → EF sinh schema | Dự án mới, team kiểm soát schema |
+| **Database-First** | DB có sẵn → `Scaffold-DbContext` sinh code | Legacy DB, DBA quản lý schema |
+| **Model-First** | Thiết kế visual → sinh cả code lẫn DB | Ít dùng trong thực tế |
+
+> Khóa học này dùng **Code-First** — phổ biến nhất trong team .NET hiện đại.
+
+### EF Core vs Dapper vs ADO.NET
+
+| | EF Core | Dapper | ADO.NET thuần |
+|---|---|---|---|
+| **Abstraction** | Cao — LINQ → SQL | Trung bình — SQL + mapping | Thấp — SQL hoàn toàn |
+| **Tốc độ phát triển** | Nhanh nhất | Trung bình | Chậm nhất |
+| **Performance** | Tốt (với tuning) | Rất tốt | Tốt nhất |
+| **Migrations** | Có sẵn | Không | Không |
+| **Dùng khi** | CRUD phức tạp, domain model rõ | Reporting, complex query, cần tốc độ tối đa | Micro-optimization, stored proc nặng |
+| **Không dùng khi** | Bulk insert triệu dòng | Domain model phức tạp | Team thiếu SQL skill |
+
+**Khuyến nghị thực tế**: Dùng EF Core làm default; kết hợp Dapper hoặc `FromSqlRaw` cho query phức tạp cần performance cao.
+
+---
+
+## 2. DbContext và Entity Configuration
+
+### Entities cho CRM
+
+```csharp
+// Models/Customer.cs
+public class Customer
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string? Phone { get; set; }
+    public CustomerStatus Status { get; set; }
+    public int TenantId { get; set; }
+    public bool IsDeleted { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public byte[] RowVersion { get; set; } = Array.Empty<byte>();
+
+    public ICollection<Contact> Contacts { get; set; } = new List<Contact>();
+    public ICollection<Lead> Leads { get; set; } = new List<Lead>();
+}
+
+public class Contact
+{
+    public int Id { get; set; }
+    public string FullName { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string? Title { get; set; }
+    public int CustomerId { get; set; }
+    public Customer Customer { get; set; } = null!;
+}
+
+public class Lead
+{
+    public int Id { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public decimal Value { get; set; }
+    public LeadStatus Status { get; set; }
+    public int CustomerId { get; set; }
+    public Customer Customer { get; set; } = null!;
+    public int? AssignedUserId { get; set; }
+    public User? AssignedUser { get; set; }
+    public int TenantId { get; set; }
+    public bool IsDeleted { get; set; }
+}
+
+public class User
+{
+    public int Id { get; set; }
+    public string Email { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
+    public int TenantId { get; set; }
+    public ICollection<Lead> AssignedLeads { get; set; } = new List<Lead>();
+}
+
+public enum CustomerStatus { Prospect, Active, Inactive }
+public enum LeadStatus { New, Qualified, Proposal, Won, Lost }
+```
+
+### CrmDbContext
+
+```csharp
+// Data/CrmDbContext.cs
+public class CrmDbContext : DbContext
+{
+    public CrmDbContext(DbContextOptions<CrmDbContext> options) : base(options) { }
+
+    public DbSet<Customer> Customers => Set<Customer>();
+    public DbSet<Contact> Contacts => Set<Contact>();
+    public DbSet<Lead> Leads => Set<Lead>();
+    public DbSet<User> Users => Set<User>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        // Áp dụng tất cả IEntityTypeConfiguration trong assembly
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(CrmDbContext).Assembly);
+
+        // Global Query Filters (xem Section 10)
+        modelBuilder.Entity<Customer>().HasQueryFilter(c => !c.IsDeleted);
+        modelBuilder.Entity<Lead>().HasQueryFilter(l => !l.IsDeleted);
+    }
+
+    // Auto-set timestamps
+    public override int SaveChanges()
+    {
+        UpdateTimestamps();
+        return base.SaveChanges();
+    }
+
+    public override Task<int> SaveChangesAsync(CancellationToken ct = default)
+    {
+        UpdateTimestamps();
+        return base.SaveChangesAsync(ct);
+    }
+
+    private void UpdateTimestamps()
+    {
+        var entries = ChangeTracker.Entries<Customer>()
+            .Where(e => e.State is EntityState.Added or EntityState.Modified);
+        foreach (var entry in entries)
+        {
+            entry.Entity.UpdatedAt = DateTime.UtcNow;
+            if (entry.State == EntityState.Added)
+                entry.Entity.CreatedAt = DateTime.UtcNow;
+        }
+    }
+}
+```
+
+### Fluent API Configuration
+
+```csharp
+// Data/Configurations/CustomerConfiguration.cs
+public class CustomerConfiguration : IEntityTypeConfiguration<Customer>
+{
+    public void Configure(EntityTypeBuilder<Customer> builder)
+    {
+        builder.ToTable("Customers");
+        builder.HasKey(c => c.Id);
+
+        builder.Property(c => c.Name)
+            .IsRequired()
+            .HasMaxLength(200);
+
+        builder.Property(c => c.Email)
+            .IsRequired()
+            .HasMaxLength(320);
+
+        builder.HasIndex(c => c.Email).IsUnique();
+        builder.HasIndex(c => c.TenantId);
+
+        // Concurrency token
+        builder.Property(c => c.RowVersion)
+            .IsRowVersion()
+            .IsConcurrencyToken();
+
+        // Enum → string (dễ đọc trong DB)
+        builder.Property(c => c.Status)
+            .HasConversion<string>()
+            .HasMaxLength(20);
+    }
+}
+
+// Data/Configurations/LeadConfiguration.cs
+public class LeadConfiguration : IEntityTypeConfiguration<Lead>
+{
+    public void Configure(EntityTypeBuilder<Lead> builder)
+    {
+        builder.ToTable("Leads");
+        builder.HasKey(l => l.Id);
+
+        builder.Property(l => l.Title).IsRequired().HasMaxLength(300);
+        builder.Property(l => l.Value).HasColumnType("decimal(18,2)");
+
+        builder.HasOne(l => l.Customer)
+            .WithMany(c => c.Leads)
+            .HasForeignKey(l => l.CustomerId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(l => l.AssignedUser)
+            .WithMany(u => u.AssignedLeads)
+            .HasForeignKey(l => l.AssignedUserId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.Property(l => l.Status)
+            .HasConversion<string>()
+            .HasMaxLength(20);
+    }
+}
+```
+
+**Fluent API vs Data Annotations:**
+
+| | Fluent API | Data Annotations |
+|---|---|---|
+| Vị trí code | Configuration class riêng | Trên property của entity |
+| Tính rõ ràng | Cao — tập trung một chỗ | Thấp — rải rác |
+| Tính năng | Đầy đủ 100% | Bị giới hạn |
+| Khuyến nghị | Dùng cho production | Chỉ dùng prototype nhanh |
+
+---
+
+## 3. Relationships
+
+### One-to-Many: Customer → Contacts
+
+```csharp
+// Trong CustomerConfiguration
+builder.HasMany(c => c.Contacts)
+    .WithOne(ct => ct.Customer)
+    .HasForeignKey(ct => ct.CustomerId)
+    .OnDelete(DeleteBehavior.Cascade);
+```
+
+### Many-to-Many: Lead → Tags (ví dụ mở rộng)
+
+```csharp
+public class Tag
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public ICollection<Lead> Leads { get; set; } = new List<Lead>();
+}
+
+// Trong LeadConfiguration
+builder.HasMany(l => l.Tags)
+    .WithMany(t => t.Leads)
+    .UsingEntity(j => j.ToTable("LeadTags"));
+```
+
+### One-to-One: Customer → CustomerAddress (Owned Entity)
+
+```csharp
+public class CustomerAddress
+{
+    public string Street { get; set; } = string.Empty;
+    public string City { get; set; } = string.Empty;
+    public string Country { get; set; } = string.Empty;
+}
+
+// Trong Customer entity
+public CustomerAddress? Address { get; set; }
+
+// Trong CustomerConfiguration
+builder.OwnsOne(c => c.Address, addr =>
+{
+    addr.Property(a => a.Street).HasColumnName("AddressStreet").HasMaxLength(200);
+    addr.Property(a => a.City).HasColumnName("AddressCity").HasMaxLength(100);
+    addr.Property(a => a.Country).HasColumnName("AddressCountry").HasMaxLength(100);
+});
+```
+
+> **Owned Entity** lưu chung bảng với owner — phù hợp Value Object trong DDD. Không cần bảng riêng, không cần FK.
+
+---
+
+## 4. Migrations
+
+### Quy trình cơ bản
+
+```bash
+# Thêm migration
+dotnet ef migrations add InitialCreate --project CRM.Data --startup-project CRM.Api
+
+# Xem SQL sẽ chạy (không thực thi)
+dotnet ef migrations script --idempotent
+
+# Áp dụng vào DB
+dotnet ef database update
+
+# Rollback về migration cụ thể
+dotnet ef database update AddCustomerIndex
+
+# Xóa migration cuối (chưa apply)
+dotnet ef migrations remove
+```
+
+### Data Seeding trong Migration
+
+```csharp
+public partial class SeedDefaultTenant : Migration
+{
+    protected override void Up(MigrationBuilder migrationBuilder)
+    {
+        migrationBuilder.InsertData(
+            table: "Users",
+            columns: ["Id", "Email", "DisplayName", "TenantId"],
+            values: new object[] { 1, "admin@crm.local", "System Admin", 1 }
+        );
+
+        // Custom SQL khi cần logic phức tạp
+        migrationBuilder.Sql(@"
+            UPDATE Customers
+            SET Status = 'Active'
+            WHERE CreatedAt < '2024-01-01' AND Status = 'Prospect'
+        ");
+    }
+
+    protected override void Down(MigrationBuilder migrationBuilder)
+    {
+        migrationBuilder.DeleteData("Users", "Id", 1);
+    }
+}
+```
+
+### Migration trong CI/CD
+
+```csharp
+// Program.cs — auto-migrate khi startup (chỉ dùng dev/staging)
+if (app.Environment.IsDevelopment())
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<CrmDbContext>();
+    await db.Database.MigrateAsync();
+}
+```
+
+> Trong production, chạy `dotnet ef database update` như một bước riêng trong pipeline, không auto-migrate khi startup.
+
+---
+
+## 5. Query Patterns
+
+### AsNoTracking — khi nào dùng
+
+```csharp
+// Read-only: không cần track thay đổi → nhanh hơn ~30%
+var customers = await _db.Customers
+    .AsNoTracking()
+    .Where(c => c.Status == CustomerStatus.Active)
+    .ToListAsync();
+
+// Cấu hình default cho toàn bộ context (read API)
+optionsBuilder.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
+```
+
+### Eager Loading với Include/ThenInclude
+
+```csharp
+// Load Customer kèm Contacts và Leads của từng Lead có AssignedUser
+var customer = await _db.Customers
+    .Include(c => c.Contacts)
+    .Include(c => c.Leads)
+        .ThenInclude(l => l.AssignedUser)
+    .FirstOrDefaultAsync(c => c.Id == customerId);
+```
+
+### Explicit Loading (load sau khi đã có entity)
+
+```csharp
+var customer = await _db.Customers.FindAsync(customerId);
+
+// Load navigation property sau
+await _db.Entry(customer!)
+    .Collection(c => c.Contacts)
+    .LoadAsync();
+```
+
+### Projection với Select
+
+```csharp
+// Chỉ lấy dữ liệu cần thiết — tránh over-fetch
+var leadSummaries = await _db.Leads
+    .AsNoTracking()
+    .Where(l => l.Status != LeadStatus.Lost)
+    .Select(l => new LeadSummaryDto(
+        l.Id,
+        l.Title,
+        l.Value,
+        l.AssignedUser != null ? l.AssignedUser.DisplayName : "Unassigned"
+    ))
+    .ToListAsync();
+```
+
+### Compiled Query — tái sử dụng query plan
+
+```csharp
+// Khai báo một lần (static)
+private static readonly Func<CrmDbContext, int, Task<Customer?>> GetCustomerById =
+    EF.CompileAsyncQuery((CrmDbContext db, int id) =>
+        db.Customers.Include(c => c.Contacts).FirstOrDefault(c => c.Id == id));
+
+// Gọi mỗi request
+var customer = await GetCustomerById(_db, id);
+```
+
+> Compiled query hữu ích cho hot-path query chạy hàng nghìn lần/giây — tiết kiệm chi phí biên dịch LINQ mỗi lần.
+
+---
+
+## 6. N+1 Problem
+
+### Ví dụ N+1 (SART: sẽ gây hại)
+
+```csharp
+// ĐỪNG làm thế này
+var customers = await _db.Customers.ToListAsync(); // 1 query
+
+foreach (var c in customers)
+{
+    // Mỗi customer gọi THÊM 1 query → N+1 queries!
+    var contactCount = await _db.Contacts
+        .CountAsync(ct => ct.CustomerId == c.Id);
+    Console.WriteLine($"{c.Name}: {contactCount} contacts");
+}
+```
+
+**SQL log sẽ thấy:**
+```
+SELECT * FROM Customers                          -- 1 query
+SELECT COUNT(*) FROM Contacts WHERE CustomerId=1 -- query #2
+SELECT COUNT(*) FROM Contacts WHERE CustomerId=2 -- query #3
+... (N thêm queries cho N customers)
+```
+
+### Fix 1: Dùng Include
+
+```csharp
+var customers = await _db.Customers
+    .Include(c => c.Contacts)  // JOIN trong 1 query
+    .AsNoTracking()
+    .ToListAsync();
+
+foreach (var c in customers)
+    Console.WriteLine($"{c.Name}: {c.Contacts.Count} contacts");
+```
+
+### Fix 2: Projection (tốt hơn khi chỉ cần count)
+
+```csharp
+var result = await _db.Customers
+    .AsNoTracking()
+    .Select(c => new {
+        c.Name,
+        ContactCount = c.Contacts.Count()
+    })
+    .ToListAsync();
+```
+
+### Fix 3: AsSplitQuery cho nhiều collection
+
+```csharp
+// Include nhiều collection → cartesian explosion
+// AsSplitQuery tách thành nhiều query riêng, tránh duplicate row
+var customers = await _db.Customers
+    .Include(c => c.Contacts)
+    .Include(c => c.Leads)
+    .AsSplitQuery()   // EF Core 5+
+    .AsNoTracking()
+    .ToListAsync();
+```
+
+### Bật SQL Logging để debug
+
+```csharp
+// appsettings.Development.json
+{
+  "Logging": {
+    "LogLevel": {
+      "Microsoft.EntityFrameworkCore.Database.Command": "Information"
+    }
+  }
+}
+```
+
+---
+
+## 7. Performance
+
+### AsNoTracking mặc định cho read
+
+```csharp
+// Đăng ký DbContext với NoTracking default
+services.AddDbContext<CrmDbContext>(opt =>
+{
+    opt.UseSqlServer(connectionString);
+    opt.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTrackingWithIdentityResolution);
+});
+```
+
+### ExecuteUpdate / ExecuteDelete (EF Core 7+)
+
+```csharp
+// Cập nhật không cần load entity về memory
+await _db.Leads
+    .Where(l => l.Status == LeadStatus.New && l.CreatedAt < DateTime.UtcNow.AddDays(-30))
+    .ExecuteUpdateAsync(s => s
+        .SetProperty(l => l.Status, LeadStatus.Lost));
+
+// Xóa hàng loạt
+await _db.Leads
+    .Where(l => l.IsDeleted && l.UpdatedAt < DateTime.UtcNow.AddYears(-1))
+    .ExecuteDeleteAsync();
+```
+
+### Bulk Operations với EFCore.BulkExtensions
+
+```csharp
+// Cài: dotnet add package EFCore.BulkExtensions
+var newLeads = Enumerable.Range(1, 10_000)
+    .Select(i => new Lead { Title = $"Import Lead {i}", CustomerId = 1, TenantId = 1 })
+    .ToList();
+
+// Insert 10k dòng trong ~1 giây thay vì ~30 giây với SaveChanges thông thường
+await _db.BulkInsertAsync(newLeads);
+await _db.BulkUpdateAsync(updatedLeads);
+```
+
+### FromSqlRaw cho complex query
+
+```csharp
+var topCustomers = await _db.Customers
+    .FromSqlRaw(@"
+        SELECT c.*, SUM(l.Value) as TotalLeadValue
+        FROM Customers c
+        LEFT JOIN Leads l ON l.CustomerId = c.Id AND l.Status = 'Won'
+        GROUP BY c.Id
+        HAVING SUM(l.Value) > {0}
+        ORDER BY SUM(l.Value) DESC", minValue)
+    .AsNoTracking()
+    .ToListAsync();
+```
+
+### Debug với ToQueryString
+
+```csharp
+// Xem SQL query sẽ sinh ra mà không cần chạy
+var query = _db.Customers
+    .Where(c => c.Status == CustomerStatus.Active)
+    .Include(c => c.Contacts);
+
+Console.WriteLine(query.ToQueryString());
+```
+
+---
+
+## 8. Concurrency Control
+
+### Row Version (Timestamp)
+
+```csharp
+// Trong Customer entity — đã khai báo ở Section 2
+public byte[] RowVersion { get; set; } = Array.Empty<byte>();
+
+// Trong configuration
+builder.Property(c => c.RowVersion).IsRowVersion().IsConcurrencyToken();
+```
+
+### Xử lý DbUpdateConcurrencyException
+
+```csharp
+public async Task<Result> UpdateLeadAsync(int leadId, UpdateLeadDto dto)
+{
+    var lead = await _db.Leads.FindAsync(leadId);
+    if (lead is null) return Result.NotFound();
+
+    lead.Title = dto.Title;
+    lead.Value = dto.Value;
+    lead.Status = dto.Status;
+
+    try
+    {
+        await _db.SaveChangesAsync();
+        return Result.Ok();
+    }
+    catch (DbUpdateConcurrencyException ex)
+    {
+        var entry = ex.Entries.Single();
+        var dbValues = await entry.GetDatabaseValuesAsync();
+
+        if (dbValues is null)
+            return Result.Fail("Lead đã bị xóa bởi người dùng khác.");
+
+        // Trả về conflict info để client merge
+        var dbLead = (Lead)dbValues.ToObject();
+        return Result.Conflict(new ConcurrencyConflict(
+            ClientValue: dto,
+            DatabaseValue: new UpdateLeadDto(dbLead.Title, dbLead.Value, dbLead.Status)
+        ));
+    }
+}
+```
+
+> **Tình huống CRM thực tế**: Hai sales rep cùng mở Deal #1042, cùng cập nhật `Value`. Người lưu sau sẽ nhận `409 Conflict`, được thông báo giá trị hiện tại trong DB, tự quyết định merge hay overwrite.
+
+---
+
+## 9. Unit of Work và Repository Pattern
+
+### Interface
+
+```csharp
+public interface IRepository<T> where T : class
+{
+    Task<T?> GetByIdAsync(int id, CancellationToken ct = default);
+    IQueryable<T> Query();
+    void Add(T entity);
+    void Update(T entity);
+    void Remove(T entity);
+}
+
+public interface IUnitOfWork : IDisposable
+{
+    IRepository<Customer> Customers { get; }
+    IRepository<Lead> Leads { get; }
+    IRepository<Contact> Contacts { get; }
+    Task<int> SaveChangesAsync(CancellationToken ct = default);
+    Task BeginTransactionAsync();
+    Task CommitTransactionAsync();
+    Task RollbackTransactionAsync();
+}
+```
+
+### Implementation
+
+```csharp
+public class EfRepository<T> : IRepository<T> where T : class
+{
+    private readonly CrmDbContext _db;
+    private readonly DbSet<T> _set;
+
+    public EfRepository(CrmDbContext db)
+    {
+        _db = db;
+        _set = db.Set<T>();
+    }
+
+    public async Task<T?> GetByIdAsync(int id, CancellationToken ct = default)
+        => await _set.FindAsync([id], ct);
+
+    public IQueryable<T> Query() => _set.AsNoTracking();
+
+    public void Add(T entity) => _set.Add(entity);
+    public void Update(T entity) => _set.Update(entity);
+    public void Remove(T entity) => _set.Remove(entity);
+}
+
+public class UnitOfWork : IUnitOfWork
+{
+    private readonly CrmDbContext _db;
+    private IDbContextTransaction? _transaction;
+
+    public UnitOfWork(CrmDbContext db) => _db = db;
+
+    public IRepository<Customer> Customers => new EfRepository<Customer>(_db);
+    public IRepository<Lead> Leads => new EfRepository<Lead>(_db);
+    public IRepository<Contact> Contacts => new EfRepository<Contact>(_db);
+
+    public Task<int> SaveChangesAsync(CancellationToken ct = default)
+        => _db.SaveChangesAsync(ct);
+
+    public async Task BeginTransactionAsync()
+        => _transaction = await _db.Database.BeginTransactionAsync();
+
+    public async Task CommitTransactionAsync()
+    {
+        await _db.SaveChangesAsync();
+        await _transaction!.CommitAsync();
+    }
+
+    public async Task RollbackTransactionAsync()
+        => await _transaction!.RollbackAsync();
+
+    public void Dispose() => _transaction?.Dispose();
+}
+```
+
+### Khi nào dùng Repository/UoW vs DbContext trực tiếp?
+
+| Tình huống | Khuyến nghị |
+|---|---|
+| App đơn giản, CRUD | Inject `CrmDbContext` trực tiếp |
+| Cần unit test service layer (mock DB) | Repository pattern |
+| Nhiều bounded context, tách module rõ | UoW + Repository |
+| CQRS — query side | `DbContext` trực tiếp với projection |
+| CQRS — command side | Repository + UoW |
+
+---
+
+## 10. Global Query Filters
+
+### Soft Delete Filter
+
+```csharp
+// Trong OnModelCreating — đã thấy ở Section 2
+modelBuilder.Entity<Customer>().HasQueryFilter(c => !c.IsDeleted);
+modelBuilder.Entity<Lead>().HasQueryFilter(l => !l.IsDeleted);
+
+// Mọi query tự động thêm WHERE IsDeleted = 0
+var active = await _db.Customers.ToListAsync(); // chỉ trả về chưa xóa
+
+// Khi cần đọc cả đã xóa (admin)
+var all = await _db.Customers.IgnoreQueryFilters().ToListAsync();
+```
+
+### Multi-Tenant Filter
+
+```csharp
+public class CrmDbContext : DbContext
+{
+    private readonly ICurrentTenantService _tenantService;
+
+    public CrmDbContext(DbContextOptions<CrmDbContext> options,
+                        ICurrentTenantService tenantService) : base(options)
+    {
+        _tenantService = tenantService;
+    }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        // Kết hợp soft delete + multi-tenant
+        modelBuilder.Entity<Customer>().HasQueryFilter(c =>
+            !c.IsDeleted && c.TenantId == _tenantService.TenantId);
+
+        modelBuilder.Entity<Lead>().HasQueryFilter(l =>
+            !l.IsDeleted && l.TenantId == _tenantService.TenantId);
+    }
+}
+
+// ICurrentTenantService lấy TenantId từ JWT claim
+public class CurrentTenantService : ICurrentTenantService
+{
+    public int TenantId { get; }
+
+    public CurrentTenantService(IHttpContextAccessor accessor)
+    {
+        var claim = accessor.HttpContext?.User.FindFirst("tenant_id");
+        TenantId = claim is not null ? int.Parse(claim.Value) : 0;
+    }
+}
+```
+
+> **Lưu ý**: Global Query Filter chạy mọi query — index trên `TenantId` và `IsDeleted` là bắt buộc để tránh full scan.
+
+---
+
+## Thực hành
+
+### Bài 1: Setup EF Core cho CRM, tạo migrations, seed data
+
+**Yêu cầu:**
+
+1. Tạo project `CRM.Data` (class library), cài `Microsoft.EntityFrameworkCore.SqlServer` và `Microsoft.EntityFrameworkCore.Tools`
+2. Định nghĩa các entity: `Customer`, `Contact`, `Lead`, `User` như Section 2
+3. Tạo `CrmDbContext` với `ApplyConfigurationsFromAssembly`
+4. Viết Fluent API configuration cho tất cả entity (index, length, FK constraint)
+5. Chạy `dotnet ef migrations add InitialCreate`
+6. Tạo migration `SeedDefaultData` để insert 1 tenant, 1 admin user và 5 customer mẫu
+7. Kiểm tra bằng `dotnet ef migrations script --idempotent` — đọc SQL sinh ra
+
+**Tiêu chí hoàn thành:** Database được tạo đúng schema, seed data có mặt, không có migration pending.
+
+---
+
+### Bài 2: Implement Repository + UoW, fix N+1 problem
+
+**Yêu cầu:**
+
+1. Implement `IRepository<T>` và `IUnitOfWork` như Section 9
+2. Đăng ký DI: `services.AddScoped<IUnitOfWork, UnitOfWork>()`
+3. Viết API endpoint `GET /api/customers?includeLeads=true` dùng `IUnitOfWork`
+4. Bật SQL logging, gọi endpoint với `includeLeads=false` → quan sát log
+5. Thêm tham số `includeLeads=true`, cố tình gây N+1 bằng cách load leads trong vòng lặp
+6. Fix bằng `Include` hoặc projection, so sánh số lượng query trước/sau
+7. Viết unit test cho service layer dùng `MockRepository` (không cần DB thật)
+
+**Tiêu chí hoàn thành:** Log chứng minh giảm từ N+1 xuống 1-2 queries; test xanh.
+
+---
+
+### Bài 3: Multi-tenant global query filter + soft delete
+
+**Yêu cầu:**
+
+1. Tạo `ICurrentTenantService` và `CurrentTenantService` lấy `TenantId` từ JWT
+2. Đăng ký `ICurrentTenantService` vào DI, inject vào `CrmDbContext`
+3. Thêm `HasQueryFilter` kết hợp `IsDeleted` và `TenantId`
+4. Seed 2 tenant với dữ liệu riêng biệt
+5. Gọi API với token của Tenant A → xác nhận chỉ thấy data Tenant A
+6. Implement soft delete: `DELETE /api/customers/{id}` chỉ set `IsDeleted = true`
+7. Thêm endpoint `GET /api/admin/customers` dùng `IgnoreQueryFilters()` — chỉ cho admin role
+
+**Tiêu chí hoàn thành:** Tenant isolation hoạt động đúng; soft delete không xóa dữ liệu vật lý; admin endpoint thấy toàn bộ data.
+
+---
+
+## Tóm tắt
+
+| Chủ đề | Điểm chính |
+|---|---|
+| **DbContext** | Dùng `IEntityTypeConfiguration`, auto-timestamp trong `SaveChanges` |
+| **Relationships** | Fluent API rõ ràng hơn Data Annotations; Owned Entity cho Value Object |
+| **Migrations** | Code-First; script trước khi apply production; không auto-migrate prod |
+| **Loading** | Mặc định `AsNoTracking`; `Include` cho eager; `Select` để tránh over-fetch |
+| **N+1** | Luôn bật SQL logging; fix bằng `Include` hoặc projection; `AsSplitQuery` cho nhiều collection |
+| **Performance** | `ExecuteUpdate/Delete` cho bulk; `BulkExtensions` cho import lớn; Compiled Query cho hot-path |
+| **Concurrency** | `IsRowVersion()` + bắt `DbUpdateConcurrencyException`; trả `409` cho client merge |
+| **Repository/UoW** | Hữu ích khi cần test; không bắt buộc nếu app đơn giản |
+| **Global Filter** | Soft delete + multi-tenant filter; nhớ index `TenantId`, `IsDeleted` |
+
+---
+
+## Quiz & Lab chấm điểm (100 điểm)
+
+### Phần A — Quiz (20 điểm)
+
+Mỗi câu **4 điểm**.
+
+1. `AsNoTracking` phù hợp khi?  
+   A. Mọi query B. Read-only không cần change tracker C. Luôn bật cho insert D. Tắt connection pool  
+   > **Đáp án:** B.
+
+2. Global Query Filter thường dùng cho?  
+   A. Tăng tốc JIT B. Soft delete / multi-tenant mặc định C. Thay thế migration D. SignalR  
+   > **Đáp án:** B.
+
+3. `DbUpdateConcurrencyException` báo hiệu?  
+   A. Mất mạng B. Xung đột optimistic concurrency C. Sai connection string D. Thiếu Swagger  
+   > **Đáp án:** B.
+
+4. `Include` + nhiều collection có thể cần?  
+   A. `AsSplitQuery` để tránh Cartesian explosion B. `Thread.Sleep` C. `JsonIgnore` D. `UseIIS`  
+   > **Đáp án:** A.
+
+5. Migration apply production an toàn nhất khi?  
+   A. `EnsureCreated()` trên prod B. Script review + pipeline + backup C. Xóa DB nightly D. Auto migrate silent  
+   > **Đáp án:** B.
+
+### Phần B — Lab chấm điểm (80 điểm)
+
+| Tiêu chí | Điểm | Ghi chú |
+|----------|------|---------|
+| DbContext + 3 entity + migration tạo DB | 25 | |
+| Repository hoặc service + test in-memory provider | 20 | |
+| Global filter `TenantId` hoặc soft delete (một trong hai) | 15 | |
+| Fix 1 scenario N+1 (log SQL trước/sau) | 10 | |
+| Concurrency token demo (409 khi conflict) | 10 | |
+
+**Đạt:** ≥ 70. **Khá:** ≥ 85 + compiled query 1 hot path. **Giỏi:** ≥ 95 + `ExecuteUpdate`/`ExecuteDelete` bulk.
+
+---
+
+## Tài liệu tham khảo
+
+- [EF Core Documentation — Microsoft](https://learn.microsoft.com/ef/core/)
+- [EF Core Performance Tips](https://learn.microsoft.com/ef/core/performance/)
+- [EFCore.BulkExtensions GitHub](https://github.com/borisdj/EFCore.BulkExtensions)
+- [EF Core Global Query Filters](https://learn.microsoft.com/ef/core/querying/filters)
+- [Compiled Queries in EF Core](https://learn.microsoft.com/ef/core/performance/advanced-performance-topics#compiled-queries)
+- [Concurrency Tokens in EF Core](https://learn.microsoft.com/ef/core/saving/concurrency)
+- [Repository Pattern with EF Core — Julie Lerman](https://www.pluralsight.com/courses/ef-core-6-fundamentals)

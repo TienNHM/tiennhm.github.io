@@ -1,0 +1,170 @@
+---
+title: "Final Project — Enterprise CRM / ERP Platform"
+slug: dotnet-final-project-enterprise-crm-erp
+description: CRM/ERP cấp doanh nghiệp — ticketing, membership, loyalty, payment, contact center, omnichannel, event-driven, microservices, production deploy.
+sidebar_position: 5
+tags: [dotnet, project, crm, erp, microservices]
+keywords: [enterprise, erp, omnichannel, payment]
+enableComments: true
+draft: false
+---
+
+import { SummaryBox } from '@site/src/components/SEO';
+
+<SummaryBox>
+Đây là **bài tập tổng kết cấp senior/architect**: không cần “làm hết ERP thế giới”, mà cần chứng minh bạn **sở hữu được hệ thống** — ranh giới domain, luồng end-to-end sâu, tích hợp bất đồng bộ an toàn, quan sát được trên production-like environment. Portfolio tốt thường là **2–3 luồng xuất sắc** + tài liệu trade-off rõ hơn là 20 màn hình nông.
+</SummaryBox>
+
+## 1. Mục tiêu dự án
+
+Sau final project, bạn chứng minh được:
+
+- Thiết kế **kiến trúc** (monolith module hóa hoặc vài microservice có lý do).
+- **AuthZ** phức tạp hơn CRUD (role, policy, resource-based nếu phù hợp).
+- **Event-driven** với outbox hoặc tương đương; consumer **idempotent**.
+- **Thanh toán** (sandbox) + webhook có chữ ký / idempotency key.
+- **Omnichannel** tối thiểu: một abstraction gửi tin (email + SMS *hoặc* chat) qua provider cụ thể.
+- **Observability**: log có correlation, trace xuyên service (nếu tách), metrics cơ bản.
+- **Triển khai**: Docker Compose hoặc script README rõ ràng; CI chạy test/lint.
+
+## 2. Phạm vi gợi ý (chọn lõi)
+
+Bạn không bắt buộc implement toàn bộ danh sách dưới đây — hãy **chọn trục xương sống** và làm sâu.
+
+| Miền | Ý nghĩa trong CRM/ERP |
+|------|------------------------|
+| CRM | Lead, Account, Contact, Opportunity pipeline |
+| Ticketing | Case, SLA, assignment, internal note |
+| Membership | Đăng ký gói, renewal, downgrade |
+| Loyalty | Điểm, tier, expiry rule |
+| Payment | Stripe/PayPal sandbox, invoice sync |
+| Contact center | Queue, agent, disposition code (rút gọn) |
+| Omnichannel | Email/SMS/push adapter chung |
+| Event-driven | Domain events + integration events (Module 17) |
+| Microservices | Tách 2–3 service có boundary rõ + gateway (Module 18) |
+| Production deploy | HTTPS, secret, health, backup strategy tài liệu hóa |
+
+## 3. Tiêu chí “đạt” theo cấp
+
+### 3.1 Tối thiểu (Pass)
+
+- 2 bounded context có **model riêng** (không share entity cross DbContext “chung chạ”).
+- 1 luồng **write phức tạp** có transaction rõ (ví dụ convert lead + tạo invoice draft).
+- Test tự động: **unit** domain + **integration** API chính (≥ một controller quan trọng).
+- Docker Compose: API + DB (+ broker nếu có event).
+
+### 3.2 Khá (Strong)
+
+- Outbox + worker; consumer có bảng `ProcessedMessages`.
+- Gateway YARP hoặc tương đương nếu ≥ 2 public API surface.
+- OpenTelemetry trace end-to-end cho luồng chính.
+
+### 3.3 Xuất sắc (Exemplary)
+
+- ADR (Architecture Decision Record) cho 3 quyết định quan trọng (monolith vs split, broker choice, multi-tenant model).
+- Load test nhỏ có biểu đồ latency trước/sau một tối ưu có căn cứ (Module 19).
+- Threat model ngắn: auth webhook, secret storage, tenant isolation.
+
+## 4. Gợi ý tiếp cận theo giai đoạn
+
+**Tuần 1–2: Domain & hợp đồng**
+
+- Vẽ **C4 Level 2–3** (container + component) — có thể dùng Structurizr, Mermaid, hoặc draw.io.
+- Viết glossary thuật ngữ (Lead vs Customer vs Account).
+
+**Tuần 3–4: Luồng xương sống**
+
+- Ví dụ: **Sales**: create lead → qualify → convert to customer.
+- **Billing**: tạo subscription draft khi convert; **Support**: auto ticket onboarding.
+
+**Tuần 5+: Độ tin cậy & vận hành**
+
+- Health ready/live, migration strategy, seed data, feature flag đơn giản nếu cần.
+
+## 5. Payment & webhook (ôn Module 17)
+
+- Lưu `eventId` từ provider; xử lý trùng delivery.
+- Xác thực chữ ký (Stripe `Stripe-Signature`, v.v.).
+- Không log full PAN/token nhạy cảm.
+
+## 6. Omnichannel tối thiểu
+
+Định nghĩa interface `INotificationChannel` với `SendAsync(NotificationRequest)` — triển khai `EmailChannel`, `SmsChannel` (stub được nếu không có budget SMS thật, nhưng phải có **đường đi production-like**: template, retry, dead letter nội bộ).
+
+## 7. Liên hệ CRM — triết lý portfolio
+
+Người phỏng vấn senior thường hỏi **“vì sao”** nhiều hơn **“làm được không”**:
+
+- Vì sao chọn Kafka/RabbitMQ/Service Bus?
+- Vì sao tách service này mà không tách service kia?
+- Tenant isolation: shared DB + `TenantId` hay DB per tenant — trade-off?
+
+Hãy viết **README “Decision log”** 1–2 trang trả lời trước.
+
+## 8. Tiêu chí nộp bài (checklist)
+
+- [ ] Repo công khai hoặc zip có history; LICENSE rõ.
+- [ ] `README.md`: cách chạy, biến môi trường, port, account test.
+- [ ] `docs/architecture.md` hoặc tương đương: diagram + boundary.
+- [ ] CI badge (GitHub Actions) — build + test.
+- [ ] Không commit secret; dùng User Secrets / `.env.example`.
+
+## 9. Ý tưởng mở rộng (optional)
+
+- Multi-region read (chỉ tài liệu hóa nếu chưa làm thật).
+- Fine-grained authorization với policy handler.
+- Feature module **Reporting** đọc read replica.
+
+---
+
+## Quiz & tự chấm điểm (100 điểm)
+
+Phần này **bổ sung** cho mục 8 (checklist nộp bài): quiz kiểm tra tư duy hệ thống; điểm lab lấy từ rubric dưới đây (tự chấm trung thực + mentor spot-check).
+
+### Phần A — Quiz (20 điểm)
+
+Mỗi câu **4 điểm**.
+
+1. Vì sao portfolio enterprise nên ưu tiên **vài luồng end-to-end sâu** thay vì nhiều màn hình nông?  
+   A. Ít code hơn B. Chứng minh được ownership, trade-off, vận hành — sát phỏng vấn senior C. GitHub thích commit ít D. Docker cấm nhiều feature  
+   > **Đáp án:** B.
+
+2. Webhook thanh toán bắt buộc cần gì?  
+   A. HTTP GET không auth B. Xác thực chữ ký provider + xử lý idempotent theo id sự kiện C. Lưu PAN đầy đủ D. Gửi secret qua query string  
+   > **Đáp án:** B.
+
+3. Multi-tenant row-level: test isolation quan trọng nhất vì?  
+   A. Performance UI B. Rò dữ liệu tenant là lỗi bảo mật nghiêm trọng C. Swagger D. GC  
+   > **Đáp án:** B.
+
+4. “Strangler fig” trong tách monolith nghĩa là?  
+   A. Xóa code cũ một đêm B. Thay thế dần bằng façade/gateway và bounded context C. Chỉ đổi font UI D. Dùng một DB chung mãi  
+   > **Đáp án:** B.
+
+5. ADR (Architecture Decision Record) ghi những gì tối thiểu?  
+   A. Meme team B. Bối cảnh, quyết định, hậu quả, trạng thái (chấp nhận / thay thế) C. Chỉ link TikTok D. Chỉ screenshot  
+   > **Đáp án:** B.
+
+### Phần B — Rubric lab Final Project (80 điểm)
+
+| Tiêu chí | Điểm tối đa | Ghi chú |
+|----------|-------------|---------|
+| Kiến trúc & boundary (diagram + ít nhất 2 bounded context rõ) | 20 | Trừ 5 nếu không có `docs/architecture.md` tương đương |
+| Luồng end-to-end 1 (Sales/CRM): tạo → chuyển trạng thái → side effect (event/job) | 20 | |
+| Luồng end-to-end 2 (Billing hoặc Support): payment sandbox hoặc ticket + idempotency | 20 | |
+| CI (build + test) + không secret trong repo | 10 | |
+| Triển khai local reproducible (Compose/README) + health | 10 | |
+
+**Đạt:** tổng Quiz+Lab ≥ 70. **Khá:** ≥ 85 + observability (trace/metrics) cho 1 luồng. **Giỏi:** ≥ 95 + threat model ngắn (≥ 5 mục) và load test có số liệu.
+
+---
+
+## Tài liệu tham khảo
+
+- Trở lại [Lộ trình tổng thể](../00-roadmap-dotnet-backend-zero-to-senior.mdx) để đối chiếu từng module đã học.
+- *Designing Data-Intensive Applications* — cho phần event log và consistency.
+- *Building Microservices* — Sam Newman.
+
+---
+
+**Chúc mừng** khi bạn hoàn thành final project — đó là điểm kết thúc có ý nghĩa của giáo trình **From Zero → Senior .NET (Backend-first)**.

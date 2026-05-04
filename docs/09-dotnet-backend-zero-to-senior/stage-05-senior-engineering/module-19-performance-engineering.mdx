@@ -1,0 +1,197 @@
+---
+title: Module 19 — Performance Engineering
+slug: dotnet-module-19-performance-engineering
+description: Benchmark, profiling, throughput, bottleneck, scaling.
+sidebar_position: 4
+tags: [dotnet, performance, benchmarking]
+keywords: [benchmarkdotnet, profiling, scaling]
+enableComments: true
+draft: false
+---
+
+import { SummaryBox } from '@site/src/components/SEO';
+
+<SummaryBox>
+Hiệu năng backend không phải “tối ưu sớm” mà là **kỹ năng đo lường**: biết bottleneck ở CPU, I/O, DB hay lock contention — rồi mới quyết định cache, batch, compiled query hay scale ngang. Module này đi song song với [Module 14](../stage-04-database-production/module-14-caching-background-jobs.mdx) nhưng nhấn **khoa học đo** và **tư duy capacity planning** cho CRM đa tenant.
+</SummaryBox>
+
+## Mục tiêu học tập
+
+Sau module này, bạn có thể:
+
+- Viết benchmark có ý nghĩa với **BenchmarkDotNet** (tránh JIT noise, GC mode).
+- Dùng **dotnet-counters** / **dotnet-trace** để quan sát CPU, alloc, thread pool starvation.
+- Đọc **flame graph** (hoặc tương đương) ở mức cơ bản để tìm hot path.
+- Phân biệt **throughput** vs **latency** và ảnh hưởng của **p99**.
+- Áp dụng **read replica**, **partition key**, **cache** theo tenant một cách có chủ đích.
+- Hiểu **distributed lock** khi scale out job/worker — trade-off availability.
+
+## Kiến thức cần có trước
+
+- [Module 14](../stage-04-database-production/module-14-caching-background-jobs.mdx), [Module 12 SQL](../stage-04-database-production/module-12-sql-deep-dive.mdx), [Module 13 EF](../stage-04-database-production/module-13-entity-framework-core.mdx).
+- Async: [Module 6](../stage-02-csharp-professional/module-06-async-programming.mdx).
+
+---
+
+## 1. Nguyên tắc: đo trước, đo sau
+
+Mọi tối ưu cần **chỉ số**: RPS, latency p50/p95/p99, CPU%, alloc MB/s, IOPS SQL.
+
+**Quy trình gợi ý**
+
+1. Xác định **SLA** (ví dụ API search lead < 200ms p95).
+2. Tạo **kịch bản tải** đại diện (k6, NBomber, JMeter).
+3. Profile một request đơn lẻ trước khi load test — tránh tối ưu chỗ không nghẽn.
+
+---
+
+## 2. BenchmarkDotNet
+
+Dùng cho **so sánh thuật toán** hoặc **hot path nhỏ** (serialization, mapping, regex).
+
+```csharp
+[MemoryDiagnoser]
+public class LinqVsForLoop
+{
+    private readonly int[] _data = Enumerable.Range(0, 10_000).ToArray();
+
+    [Benchmark]
+    public int SumLinq() => _data.Sum();
+
+    [Benchmark(Baseline = true)]
+    public int SumFor()
+    {
+        int s = 0;
+        for (int i = 0; i < _data.Length; i++) s += _data[i];
+        return s;
+    }
+}
+```
+
+**Lưu ý**: benchmark micro không thay thế profile toàn endpoint — HTTP + EF + network khác hẳn.
+
+---
+
+## 3. Profiling trên .NET server
+
+- **dotnet-counters** — theo dõi `System.Runtime`, `Microsoft.AspNetCore.Hosting` (request rate, GC heap).
+- **dotnet-trace** — thu trace CPU sample, GC events.
+- **Visual Studio / JetBrains** CPU profiling — call tree cho hot method.
+
+**Thread pool starvation**: triệu chứng latency tăng vọt khi `Task.Run` + sync-over-async hoặc quá nhiều blocking `.Result` — xem lại toàn bộ pipeline async.
+
+---
+
+## 4. Database thường là nghẽn đầu tiên
+
+- **Missing index** / plan kém — dùng execution plan, statistics.
+- **N+1 query** — `Include`, projection `Select`, split query có chủ đích.
+- **Compiled model** EF cho cold start lớn (optional).
+- **Read replica** cho báo cáo nặng — eventual read, routing rõ.
+
+---
+
+## 5. Caching — ôn tập có hệ thống
+
+| Tầng | Ví dụ CRM |
+|------|-----------|
+| In-memory (IMemoryCache) | dictionary lookup nhỏ, single instance |
+| Distributed (Redis) | session business, rate limit cross node |
+| HTTP cache | GET idempotent + `ETag` (hiếu với API nội bộ có auth) |
+
+Luôn có **chiến lược invalidation** — cache không có TTL + invalidation = bug khó săn.
+
+---
+
+## 6. Scaling strategy
+
+- **Scale up**: tăm CPU/RAM — đơn giản, có giới hạn.
+- **Scale out**: nhiều instance API **stateless** + sticky session tránh nếu có state (tốt nhất không state).
+- **Partition theo tenant** lớn: shard DB hoặc tenant DB riêng — phức tạp vận hành.
+
+---
+
+## 7. Distributed lock
+
+Khi nhiều worker cùng xử lý job (outbox dispatcher, rebuild index), cần **mutual exclusion**:
+
+- Redis `SET key NX EX ttl`
+- SQL `sp_getapplock` / advisory lock Postgres
+- Leader election (Lease) trên blob (Azure)
+
+**Trade-off**: lock sai thiết kế → split-brain hoặc availability giảm. Ưu tiên **idempotent job** + partition theo key để giảm lock toàn cục.
+
+---
+
+## Bổ sung (đối chiếu roadmap.sh)
+
+- **BenchmarkDotNet** — mục 2.
+- **Distributed lock** — mục 7; thư viện: `StackExchange.Redis`, **MedallionShell**, hoặc pattern lease tự viết.
+- **GC / memory**: theo dõi `Gen2` collections, LOH — object pool chỉ khi đo được alloc nóng.
+
+---
+
+## Liên hệ CRM
+
+- Báo cáo **cross-tenant** (dashboard tổng) dễ hotspot — tách read model, materialized view, hoặc job tổng hợp định kỳ.
+- **Search** (Elasticsearch) — không query SQL `LIKE '%x%'` trên bảng lớn.
+- API list có pagination chặt + index sort column.
+
+---
+
+## Thực hành gợi ý
+
+1. Chọn một endpoint nặng (ví dụ list có join).
+2. `dotnet-trace` 30s dưới tải nhẹ — xác định top method.
+3. Một thay đổi có căn cứ (index, compiled query, hoặc projection) — benchmark hoặc load test trước/sau, ghi số liệu vào ADR ngắn.
+
+---
+
+## Quiz & Lab chấm điểm (100 điểm)
+
+### Phần A — Quiz (20 điểm)
+
+Mỗi câu **4 điểm**.
+
+1. Latency **p99** quan trọng vì?  
+   A. Là trung bình số học B. Phản ánh đuôi phân phối — trải nghiệm người dùng “xấu nhất” thường gặp C. Luôn bằng p50 D. Không liên quan SLA  
+   > **Đáp án:** B.
+
+2. BenchmarkDotNet chủ yếu giúp?  
+   A. Load test HTTP B. So sánh micro-benchmark có kiểm soát JIT/GC C. Thay unit test D. Quét bảo mật  
+   > **Đáp án:** B.
+
+3. Thread pool starvation thường liên quan?  
+   A. Quá nhiều `async` B. Blocking sync trên context async / `.Result` C. Dùng Linux D. Swagger  
+   > **Đáp án:** B.
+
+4. Distributed lock trade-off chính?  
+   A. Luôn miễn phí B. Availability / latency / split-brain nếu thiết kế sai C. Không cần TTL D. Thay SQL index  
+   > **Đáp án:** B.
+
+5. Read replica phù hợp cho?  
+   A. Ghi nóng B. Đọc báo cáo chấp nhận độ trễ nhỏ C. Thay primary key D. JWT signing  
+   > **Đáp án:** B.
+
+### Phần B — Lab chấm điểm (80 điểm)
+
+| Tiêu chí | Điểm | Ghi chú |
+|----------|------|---------|
+| BenchmarkDotNet: trước/sau một thay đổi có ý nghĩa (ảnh/console output) | 30 | |
+| `dotnet-trace` hoặc profiler: 1 flame/call tree screenshot + giải thích | 25 | |
+| ADR ngắn: bottleneck + giải pháp đã chọn | 15 | |
+| Load test nhẹ (k6/NBomber) hoặc giải thích vì sao chưa cần | 10 | |
+
+**Đạt:** ≥ 70. **Khá:** ≥ 85 + sửa N+1 có bằng chứng SQL log. **Giỏi:** ≥ 95 + distributed lock demo an toàn (lease/TTL).
+
+---
+
+## Tài liệu tham khảo
+
+- *Systems Performance* — Brendan Gregg (tư duy đo).
+- Microsoft — [Performance best practices](https://learn.microsoft.com/dotnet/fundamentals/networking/performance) (networking, HTTP).
+- EF Core performance docs — compiled queries, tracking behavior.
+
+---
+
+**Tiếp theo:** [Final Project — Enterprise CRM/ERP](final-project-enterprise-crm-erp.mdx) — tổng hợp portfolio senior.

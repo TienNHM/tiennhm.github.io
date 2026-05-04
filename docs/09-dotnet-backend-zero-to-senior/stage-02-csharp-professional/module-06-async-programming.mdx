@@ -1,0 +1,828 @@
+---
+title: Module 6 — Async Programming
+slug: dotnet-module-06-async-programming
+description: async/await, Task, thread, parallel, cancellation, deadlock và tư duy hiệu năng.
+sidebar_position: 3
+tags: [dotnet, csharp, async]
+keywords: [async-await, task, cancellation-token, deadlock]
+enableComments: true
+draft: false
+---
+
+import { SummaryBox } from '@site/src/components/SEO';
+
+<SummaryBox>
+Module này trang bị cho bạn tư duy và kỹ năng lập trình bất đồng bộ trong .NET — từ `async/await` cơ bản đến `IAsyncEnumerable<T>` streaming và `Channel<T>` producer-consumer. Sau module này bạn sẽ viết được API CRM không bao giờ bị block thread, xử lý đúng cancel request, gọi song song nhiều service và tránh được các lỗi deadlock phổ biến.
+</SummaryBox>
+
+## Mục tiêu học tập
+
+Sau khi hoàn thành module này, bạn có thể:
+
+- Giải thích tại sao async I/O quan trọng hơn tạo thêm thread
+- Viết đúng `async/await` với `CancellationToken` xuyên suốt call chain
+- Dùng `Task.WhenAll` / `Task.WhenAny` để gọi song song nhiều service
+- Nhận ra và sửa các lỗi deadlock, async-over-sync, fire-and-forget sai cách
+- Stream dữ liệu lớn với `IAsyncEnumerable<T>`
+- Xây dựng producer-consumer queue bằng `System.Threading.Channels`
+
+---
+
+## Tại sao cần Async?
+
+### Analogy: Nhà hàng vs nhà bếp
+
+Hãy tưởng tượng một nhà hàng:
+
+- **Synchronous (blocking):** Mỗi bồi bàn phục vụ đúng 1 bàn. Bồi bàn đứng chờ bếp nấu xong mới đi phục vụ bàn khác. Muốn phục vụ 100 bàn cùng lúc → cần 100 bồi bàn.
+- **Asynchronous (non-blocking):** Một bồi bàn nhận order, đặt phiếu vào bếp, rồi đi phục vụ bàn khác trong lúc chờ. Khi bếp gọi, bồi bàn quay lại mang thức ăn. 10 bồi bàn phục vụ được 200 bàn.
+
+Trong .NET, **thread = bồi bàn**, **I/O wait (DB, HTTP, file) = thời gian chờ bếp**. Mỗi thread tiêu tốn ~1MB stack. Block 1000 thread = lãng phí 1GB RAM, không làm được việc gì.
+
+### Throughput vs Parallelism
+
+| Khái niệm | Ý nghĩa | Dùng khi |
+|-----------|---------|----------|
+| **Async I/O** | Thread không block khi chờ I/O | DB query, HTTP call, file read |
+| **Parallelism** | Nhiều CPU core chạy đồng thời | CPU-bound: tính toán, encode, ML |
+| **Concurrency** | Xử lý nhiều tác vụ "cùng lúc" (có thể single-core) | Cả hai trường hợp |
+
+> **Rule:** Async/await dùng cho I/O-bound. `Parallel.ForEach` / `Task.Run` dùng cho CPU-bound.
+
+---
+
+## 1. Task và async/await
+
+### Task và Task\<T\>
+
+`Task` đại diện cho một công việc đang chạy hoặc sẽ chạy. `Task<T>` trả về giá trị khi hoàn thành.
+
+```csharp
+// Task không trả giá trị
+Task SendEmailAsync(string to) { ... }
+
+// Task<T> trả về Customer
+Task<Customer> GetCustomerAsync(int id) { ... }
+```
+
+### async và await
+
+`async` đánh dấu method là bất đồng bộ. `await` tạm "dừng" method hiện tại, giải phóng thread, và tiếp tục khi `Task` hoàn thành.
+
+```csharp
+// CustomerService.cs
+public class CustomerService
+{
+    private readonly AppDbContext _db;
+
+    public CustomerService(AppDbContext db) => _db = db;
+
+    public async Task<Customer?> GetCustomerAsync(int id, CancellationToken ct = default)
+    {
+        // await giải phóng thread trong khi DB đang truy vấn
+        return await _db.Customers
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.Id == id, ct);
+    }
+
+    public async Task<List<Customer>> GetActiveCustomersAsync(CancellationToken ct = default)
+    {
+        return await _db.Customers
+            .Where(c => c.IsActive)
+            .OrderBy(c => c.Name)
+            .ToListAsync(ct);
+    }
+}
+```
+
+### State machine concept (đơn giản hóa)
+
+Khi compiler thấy `async`, nó biến method thành một **state machine** — một class ẩn lưu trạng thái tại mỗi điểm `await`. Khi task hoàn thành, CLR tiếp tục chạy từ đúng điểm đã dừng. Bạn không cần hiểu chi tiết, nhưng cần biết:
+
+- Mỗi `await` là một điểm "checkpoint" — thread có thể khác khi tiếp tục
+- Local variables được giữ nguyên qua các checkpoint
+- Exception được propagate đúng cách qua `await`
+
+```csharp
+public async Task<string> ProcessOrderAsync(int orderId)
+{
+    // Checkpoint 1: thread A chạy tới đây
+    var order = await _db.Orders.FindAsync(orderId);   // Thread A được giải phóng
+
+    // Checkpoint 2: thread B (hoặc A) tiếp tục — order vẫn còn
+    var customer = await _db.Customers.FindAsync(order!.CustomerId);
+
+    // Checkpoint 3
+    await _emailService.SendConfirmationAsync(customer!.Email);
+
+    return $"Order {orderId} processed for {customer.Email}";
+}
+```
+
+---
+
+## 2. ConfigureAwait
+
+### Vấn đề: Deadlock trong ASP.NET (classic)
+
+Trong ASP.NET Framework cũ (không phải Core), `SynchronizationContext` yêu cầu continuation phải chạy trên thread gốc. Nếu thread gốc đang bị block bởi `.Result` hoặc `.Wait()`, xảy ra deadlock:
+
+```csharp
+// DEADLOCK trong ASP.NET Framework (không phải Core)
+public ActionResult GetData()
+{
+    // Thread HTTP đang block ở đây và giữ SynchronizationContext
+    var data = GetDataAsync().Result; // Deadlock!
+    return View(data);
+}
+
+private async Task<string> GetDataAsync()
+{
+    // Continuation cần quay về SynchronizationContext
+    // nhưng thread đó đang bị .Result block → deadlock
+    return await httpClient.GetStringAsync("https://api.example.com");
+}
+```
+
+### ConfigureAwait(false)
+
+`ConfigureAwait(false)` bảo CLR: "Không cần quay về SynchronizationContext gốc, chạy trên bất kỳ thread nào cũng được."
+
+```csharp
+// Trong library code — dùng ConfigureAwait(false)
+public async Task<Customer?> GetFromCacheAsync(int id)
+{
+    var cached = await _cache.GetAsync($"customer:{id}").ConfigureAwait(false);
+    if (cached is null) return null;
+
+    return JsonSerializer.Deserialize<Customer>(cached);
+}
+```
+
+### Rule of thumb
+
+| Loại code | Dùng ConfigureAwait(false)? | Lý do |
+|-----------|---------------------------|-------|
+| **Library / Infrastructure** | Có | Tránh deadlock, hiệu năng tốt hơn |
+| **ASP.NET Core controller / service** | Không cần | ASP.NET Core không có SynchronizationContext |
+| **WinForms / WPF UI code** | Không | Cần quay về UI thread để cập nhật controls |
+
+> **ASP.NET Core** đã loại bỏ SynchronizationContext nên deadlock dạng này không xảy ra. Tuy nhiên, nếu bạn viết NuGet library thì vẫn dùng `ConfigureAwait(false)`.
+
+---
+
+## 3. CancellationToken
+
+### Tại sao cần CancellationToken?
+
+Người dùng bấm "Hủy" trên form CRM, hoặc request HTTP timeout sau 30s. Nếu không có CancellationToken, server vẫn tiếp tục chạy query DB 10 phút → lãng phí tài nguyên, cản trở các request khác.
+
+### CancellationTokenSource
+
+```csharp
+// Tạo token với timeout 5 giây
+using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+CancellationToken token = cts.Token;
+
+// Hủy thủ công
+cts.Cancel();
+
+// Kiểm tra trong code
+token.ThrowIfCancellationRequested();
+```
+
+### Pass token qua call chain
+
+Nguyên tắc: **truyền token từ entry point xuống tất cả layer**.
+
+```csharp
+// Controller — token đến từ ASP.NET Core tự động
+[HttpGet("{id}/report")]
+public async Task<IActionResult> GetReport(int id, CancellationToken ct)
+{
+    var report = await _reportService.GenerateAsync(id, ct);
+    return Ok(report);
+}
+
+// Service layer
+public class ReportService
+{
+    private readonly ICustomerRepository _repo;
+    private readonly IAnalyticsService _analytics;
+
+    public async Task<CustomerReport> GenerateAsync(int customerId, CancellationToken ct)
+    {
+        // Truyền ct xuống tất cả I/O calls
+        var customer = await _repo.GetByIdAsync(customerId, ct);
+        var interactions = await _analytics.GetInteractionsAsync(customerId, ct);
+        var revenue = await _analytics.GetRevenueAsync(customerId, ct);
+
+        return new CustomerReport(customer!, interactions, revenue);
+    }
+}
+
+// Repository layer — ví dụ long-running query bị cancel
+public class CustomerRepository : ICustomerRepository
+{
+    private readonly AppDbContext _db;
+
+    public async Task<Customer?> GetByIdAsync(int id, CancellationToken ct)
+    {
+        try
+        {
+            // EF Core tự động pass token xuống DB command
+            return await _db.Customers
+                .Include(c => c.Interactions)
+                .FirstOrDefaultAsync(c => c.Id == id, ct);
+        }
+        catch (OperationCanceledException)
+        {
+            // Log nhưng không throw lại nếu đây là hủy bình thường
+            Console.WriteLine($"Query for customer {id} was cancelled.");
+            return null;
+        }
+    }
+}
+```
+
+---
+
+## 4. Task Parallel Library
+
+### Task.WhenAll — chạy song song
+
+`Task.WhenAll` chờ **tất cả** tasks hoàn thành. Dùng khi các tasks độc lập nhau.
+
+```csharp
+// Gửi thông báo qua 3 kênh song song (Email + SMS + Push)
+public class NotificationService
+{
+    private readonly IEmailSender _email;
+    private readonly ISmsSender _sms;
+    private readonly IPushSender _push;
+
+    public async Task SendAllChannelsAsync(
+        NotificationRequest request,
+        CancellationToken ct = default)
+    {
+        // Tạo 3 tasks — chúng chạy song song, không await từng cái
+        var emailTask = _email.SendAsync(request.Email, request.Subject, request.Body, ct);
+        var smsTask = _sms.SendAsync(request.Phone, request.ShortMessage, ct);
+        var pushTask = _push.SendAsync(request.DeviceToken, request.PushTitle, ct);
+
+        // Chờ cả 3 hoàn thành — tổng thời gian = task chậm nhất
+        await Task.WhenAll(emailTask, smsTask, pushTask);
+    }
+
+    // Thu thập kết quả từ nhiều tasks
+    public async Task<(CustomerDto customer, List<Order> orders, CreditScore credit)>
+        GetCustomerDashboardAsync(int customerId, CancellationToken ct = default)
+    {
+        var customerTask = _customerService.GetDtoAsync(customerId, ct);
+        var ordersTask = _orderService.GetByCustomerAsync(customerId, ct);
+        var creditTask = _creditService.GetScoreAsync(customerId, ct);
+
+        await Task.WhenAll(customerTask, ordersTask, creditTask);
+
+        return (customerTask.Result, ordersTask.Result, creditTask.Result);
+    }
+}
+```
+
+### Task.WhenAny — lấy kết quả sớm nhất
+
+```csharp
+// Timeout pattern với Task.WhenAny
+public async Task<CustomerData?> GetWithTimeoutAsync(int id, CancellationToken ct)
+{
+    var fetchTask = _api.FetchCustomerAsync(id, ct);
+    var timeoutTask = Task.Delay(TimeSpan.FromSeconds(3), ct);
+
+    var completed = await Task.WhenAny(fetchTask, timeoutTask);
+
+    if (completed == timeoutTask)
+    {
+        return null; // Timeout — trả về null thay vì throw
+    }
+
+    return await fetchTask; // fetchTask đã hoàn thành, lấy kết quả
+}
+```
+
+### Parallel.ForEach vs async loop
+
+```csharp
+// SAII — Parallel.ForEach là CPU-bound, không dùng cho async I/O
+// Parallel.ForEach(customers, async c => await ProcessAsync(c)); // SAI!
+
+// ĐÚNG cho I/O-bound: async loop hoặc WhenAll
+public async Task ProcessAllCustomersAsync(List<Customer> customers, CancellationToken ct)
+{
+    // Option 1: tuần tự (đơn giản, kiểm soát tốt)
+    foreach (var customer in customers)
+    {
+        await ProcessCustomerAsync(customer, ct);
+    }
+
+    // Option 2: song song tất cả (nhanh nhưng có thể quá tải DB)
+    var tasks = customers.Select(c => ProcessCustomerAsync(c, ct));
+    await Task.WhenAll(tasks);
+
+    // Option 3: song song với giới hạn concurrency
+    var semaphore = new SemaphoreSlim(10); // tối đa 10 concurrent
+    var tasks2 = customers.Select(async c =>
+    {
+        await semaphore.WaitAsync(ct);
+        try { await ProcessCustomerAsync(c, ct); }
+        finally { semaphore.Release(); }
+    });
+    await Task.WhenAll(tasks2);
+}
+```
+
+---
+
+## 5. Async Patterns
+
+### async void — chỉ dùng cho event handler
+
+```csharp
+// ĐÚNG: event handler bắt buộc phải là void
+private async void BtnSave_Click(object sender, EventArgs e)
+{
+    try
+    {
+        await _customerService.SaveAsync(_currentCustomer);
+        MessageBox.Show("Đã lưu!");
+    }
+    catch (Exception ex)
+    {
+        MessageBox.Show($"Lỗi: {ex.Message}");
+    }
+}
+
+// SAI: async void trong service — exception không catch được
+public async void SendWelcomeEmail(Customer c) // Tránh!
+{
+    await _email.SendAsync(c.Email, "Welcome", "...");
+}
+
+// ĐÚNG: dùng async Task
+public async Task SendWelcomeEmailAsync(Customer c)
+{
+    await _email.SendAsync(c.Email, "Welcome", "...");
+}
+```
+
+### ValueTask\<T\> — khi nào dùng?
+
+`ValueTask<T>` là struct, tránh heap allocation khi kết quả đã sẵn có (cache hit).
+
+```csharp
+public class CustomerCache
+{
+    private readonly Dictionary<int, Customer> _cache = new();
+
+    // Dùng ValueTask vì thường trả về từ cache (không cần Task allocation)
+    public ValueTask<Customer?> GetAsync(int id)
+    {
+        if (_cache.TryGetValue(id, out var customer))
+            return ValueTask.FromResult<Customer?>(customer); // Synchronous path — không allocate Task
+
+        return new ValueTask<Customer?>(FetchFromDbAsync(id)); // Async path
+    }
+
+    private async Task<Customer?> FetchFromDbAsync(int id)
+    {
+        var customer = await _db.Customers.FindAsync(id);
+        if (customer is not null) _cache[id] = customer;
+        return customer;
+    }
+}
+```
+
+> **Rule:** Dùng `ValueTask<T>` khi method thường xuyên có synchronous fast-path (cache, hot-path). Không dùng mặc định — `Task<T>` vẫn là lựa chọn an toàn hơn.
+
+### IAsyncEnumerable\<T\> — streaming
+
+Dùng khi dataset lớn, không muốn load toàn bộ vào memory.
+
+```csharp
+// Streaming danh sách khách hàng lớn
+public async IAsyncEnumerable<Customer> StreamActiveCustomersAsync(
+    [EnumeratorCancellation] CancellationToken ct = default)
+{
+    await foreach (var customer in _db.Customers
+        .Where(c => c.IsActive)
+        .AsAsyncEnumerable()
+        .WithCancellation(ct))
+    {
+        // Xử lý từng record ngay khi nhận được từ DB
+        yield return customer;
+    }
+}
+
+// Consume — không cần load hết vào List<>
+public async Task ExportToCsvAsync(string filePath, CancellationToken ct)
+{
+    await using var writer = new StreamWriter(filePath);
+    await writer.WriteLineAsync("Id,Name,Email");
+
+    await foreach (var customer in StreamActiveCustomersAsync(ct))
+    {
+        await writer.WriteLineAsync($"{customer.Id},{customer.Name},{customer.Email}");
+    }
+}
+```
+
+### Async Constructor — Factory Method Pattern
+
+Constructor không thể là async. Dùng factory method:
+
+```csharp
+public class ReportEngine
+{
+    private readonly ReportTemplate _template;
+
+    private ReportEngine(ReportTemplate template)
+    {
+        _template = template;
+    }
+
+    // Factory method async
+    public static async Task<ReportEngine> CreateAsync(int templateId, CancellationToken ct = default)
+    {
+        var template = await _templateRepo.LoadAsync(templateId, ct);
+        return new ReportEngine(template);
+    }
+
+    public async Task<byte[]> GenerateAsync(ReportData data, CancellationToken ct = default)
+    {
+        // Dùng _template đã load
+        return await _renderer.RenderAsync(_template, data, ct);
+    }
+}
+
+// Sử dụng
+var engine = await ReportEngine.CreateAsync(templateId: 1, ct);
+var pdf = await engine.GenerateAsync(reportData, ct);
+```
+
+---
+
+## 6. Common Pitfalls
+
+### Pitfall 1: Deadlock với .Result / .Wait()
+
+```csharp
+// SAI — deadlock tiềm ẩn (đặc biệt trong ASP.NET Framework, WPF)
+public string GetCustomerName(int id)
+{
+    return GetCustomerAsync(id).Result; // DEADLOCK!
+}
+
+// ĐÚNG — async all the way
+public async Task<string> GetCustomerNameAsync(int id)
+{
+    var customer = await GetCustomerAsync(id);
+    return customer?.Name ?? string.Empty;
+}
+```
+
+### Pitfall 2: Async over sync — khi nào dùng Task.Run?
+
+```csharp
+// SAI — bọc sync I/O trong Task.Run không giúp ích gì
+public async Task<string> ReadFileAsync(string path)
+{
+    return await Task.Run(() => File.ReadAllText(path)); // Lãng phí thread pool
+}
+
+// ĐÚNG — dùng async I/O thực sự
+public async Task<string> ReadFileAsync(string path, CancellationToken ct = default)
+{
+    return await File.ReadAllTextAsync(path, ct);
+}
+
+// Task.Run CHỈ hợp lý cho CPU-bound trong background thread
+public async Task<byte[]> CompressImageAsync(byte[] imageData)
+{
+    // Tránh block UI/HTTP thread với CPU-bound work
+    return await Task.Run(() => ImageCompressor.Compress(imageData));
+}
+```
+
+### Pitfall 3: Fire-and-forget đúng cách
+
+```csharp
+// SAI — exception bị nuốt im, không trace được
+public void LogActivity(int customerId)
+{
+    _ = _logger.WriteActivityAsync(customerId); // Fire-and-forget không an toàn
+}
+
+// ĐÚNG — bắt exception, log, không crash app
+public void LogActivityFireAndForget(int customerId)
+{
+    _ = LogActivityInternalAsync(customerId);
+}
+
+private async Task LogActivityInternalAsync(int customerId)
+{
+    try
+    {
+        await _logger.WriteActivityAsync(customerId);
+    }
+    catch (Exception ex)
+    {
+        _appLogger.LogError(ex, "Failed to log activity for customer {Id}", customerId);
+    }
+}
+```
+
+### Pitfall 4: Exception trong Task.WhenAll
+
+```csharp
+public async Task SendNotificationsAsync(NotificationRequest req, CancellationToken ct)
+{
+    var emailTask = _email.SendAsync(req.Email, ct);
+    var smsTask = _sms.SendAsync(req.Phone, ct);
+    var pushTask = _push.SendAsync(req.DeviceToken, ct);
+
+    try
+    {
+        await Task.WhenAll(emailTask, smsTask, pushTask);
+    }
+    catch (Exception ex)
+    {
+        // WhenAll chỉ throw exception đầu tiên
+        // Kiểm tra tất cả tasks để lấy toàn bộ lỗi
+        var errors = new[] { emailTask, smsTask, pushTask }
+            .Where(t => t.IsFaulted)
+            .Select(t => t.Exception?.InnerException?.Message)
+            .ToList();
+
+        _logger.LogError(ex, "Notification errors: {Errors}", string.Join(", ", errors));
+        // Decide: throw hoặc partial success tùy business logic
+    }
+}
+```
+
+---
+
+## 7. Channels và Producer-Consumer
+
+`System.Threading.Channels` cho phép truyền dữ liệu an toàn giữa producer và consumer mà không cần lock.
+
+### Ví dụ: Queue notification CRM
+
+```csharp
+// NotificationQueue.cs — Singleton service
+public class NotificationQueue : IHostedService
+{
+    private readonly Channel<NotificationMessage> _channel;
+    private readonly IServiceProvider _services;
+    private readonly ILogger<NotificationQueue> _logger;
+
+    public NotificationQueue(IServiceProvider services, ILogger<NotificationQueue> logger)
+    {
+        _services = services;
+        _logger = logger;
+        // Bounded channel — backpressure khi queue đầy
+        _channel = Channel.CreateBounded<NotificationMessage>(new BoundedChannelOptions(1000)
+        {
+            FullMode = BoundedChannelFullMode.Wait
+        });
+    }
+
+    // Producer: gọi từ bất kỳ đâu trong app
+    public async ValueTask EnqueueAsync(NotificationMessage message, CancellationToken ct = default)
+    {
+        await _channel.Writer.WriteAsync(message, ct);
+    }
+
+    // Consumer: chạy background
+    public async Task StartAsync(CancellationToken stoppingToken)
+    {
+        await foreach (var message in _channel.Reader.ReadAllAsync(stoppingToken))
+        {
+            await ProcessMessageAsync(message, stoppingToken);
+        }
+    }
+
+    public Task StopAsync(CancellationToken cancellationToken)
+    {
+        _channel.Writer.Complete();
+        return Task.CompletedTask;
+    }
+
+    private async Task ProcessMessageAsync(NotificationMessage msg, CancellationToken ct)
+    {
+        try
+        {
+            using var scope = _services.CreateScope();
+            var sender = scope.ServiceProvider.GetRequiredService<INotificationSender>();
+            await sender.SendAsync(msg, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to process notification {MessageId}", msg.Id);
+        }
+    }
+}
+
+// Model
+public record NotificationMessage(Guid Id, string Type, string Recipient, string Content);
+
+// Đăng ký trong Program.cs
+// builder.Services.AddSingleton<NotificationQueue>();
+// builder.Services.AddHostedService(sp => sp.GetRequiredService<NotificationQueue>());
+
+// Sử dụng trong controller
+// await _notificationQueue.EnqueueAsync(new NotificationMessage(Guid.NewGuid(), "email", customer.Email, body), ct);
+```
+
+---
+
+## Thực hành
+
+### Bài 1: Convert sync service thành async với CancellationToken
+
+Cho sync service sau, hãy refactor thành async và pass `CancellationToken` xuyên suốt:
+
+```csharp
+// TRƯỚC — sync, block thread
+public class CustomerSyncService
+{
+    private readonly AppDbContext _db;
+
+    public Customer? GetById(int id)
+        => _db.Customers.FirstOrDefault(c => c.Id == id);
+
+    public List<Customer> GetAll()
+        => _db.Customers.Where(c => c.IsActive).ToList();
+
+    public void UpdateLastContact(int id, DateTime contactDate)
+    {
+        var customer = _db.Customers.Find(id);
+        if (customer is null) return;
+        customer.LastContactDate = contactDate;
+        _db.SaveChanges();
+    }
+}
+```
+
+**Yêu cầu:**
+1. Đổi tất cả method sang `async Task<T>`
+2. Dùng `FirstOrDefaultAsync`, `ToListAsync`, `FindAsync`, `SaveChangesAsync`
+3. Thêm `CancellationToken ct = default` vào mỗi method
+4. Viết unit test mock `DbContext` để kiểm tra cancel behavior
+
+### Bài 2: Gọi song song 3 service với WhenAll + timeout
+
+```csharp
+// Implement method này
+public class CustomerDashboardService
+{
+    // Inject: IEmailNotifier, ISmsNotifier, IPushNotifier
+
+    /// <summary>
+    /// Gửi thông báo qua cả 3 kênh song song.
+    /// Nếu sau 5 giây chưa xong → cancel tất cả.
+    /// Thu thập lỗi từ từng kênh, log, không throw.
+    /// Trả về số kênh gửi thành công.
+    /// </summary>
+    public Task<int> SendToAllChannelsAsync(
+        int customerId,
+        string message,
+        CancellationToken ct = default)
+    {
+        throw new NotImplementedException(); // Implement đây
+    }
+}
+```
+
+**Yêu cầu:**
+1. Dùng `Task.WhenAll` chạy 3 service song song
+2. Áp dụng timeout 5 giây bằng `CancellationTokenSource.CreateLinkedTokenSource`
+3. Bắt lỗi từng task riêng lẻ, log, không fail toàn bộ
+4. Trả về số lượng kênh gửi thành công
+
+### Bài 3: IAsyncEnumerable\<T\> stream danh sách khách hàng
+
+```csharp
+// Implement streaming export không load toàn bộ vào RAM
+public class CustomerExportService
+{
+    private readonly AppDbContext _db;
+
+    /// <summary>
+    /// Stream khách hàng từ DB, lọc theo criteria.
+    /// Caller tự quyết định làm gì với từng record (CSV, JSON, API push...).
+    /// </summary>
+    public IAsyncEnumerable<CustomerExportDto> StreamAsync(
+        CustomerExportCriteria criteria,
+        CancellationToken ct = default)
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Dùng StreamAsync để xuất ra file CSV từng dòng.
+    /// </summary>
+    public Task ExportToCsvAsync(string filePath, CustomerExportCriteria criteria, CancellationToken ct)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+public record CustomerExportDto(int Id, string Name, string Email, DateTime CreatedAt);
+public record CustomerExportCriteria(DateTime? FromDate, DateTime? ToDate, bool OnlyActive);
+```
+
+**Yêu cầu:**
+1. Dùng `EF Core AsAsyncEnumerable()` + `yield return`
+2. Áp dụng filter từ `criteria`
+3. `ExportToCsvAsync` dùng `await foreach` để ghi từng dòng
+4. Đảm bảo `CancellationToken` được truyền và tôn trọng
+
+---
+
+## Tóm tắt + Quick Reference
+
+### Bảng Do / Don't
+
+| Tình huống | DO ✅ | DON'T ❌ |
+|-----------|-------|---------|
+| Gọi DB / HTTP | `await dbContext.X.ToListAsync(ct)` | `.ToList()` trực tiếp |
+| Chờ nhiều tasks độc lập | `await Task.WhenAll(t1, t2, t3)` | `await t1; await t2; await t3;` |
+| Long-running operation | Pass `CancellationToken` xuyên suốt | Bỏ qua cancel |
+| Library code | `ConfigureAwait(false)` | Không dùng ở app layer |
+| Cần kết quả sync | Refactor caller thành async | `.Result` / `.Wait()` |
+| Fire-and-forget | Bắt exception bên trong task | `_ = DoAsync()` không handle lỗi |
+| Dataset lớn | `IAsyncEnumerable<T>` stream | Load toàn bộ vào `List<T>` |
+| CPU-bound background | `await Task.Run(...)` | `async Task` trực tiếp |
+| Event handler | `async void` + try/catch | `async void` không try/catch |
+| Cache hot-path | `ValueTask<T>` | `Task<T>` mặc định cho mọi thứ |
+
+### Checklist code review
+
+- [ ] Mọi `async` method đều có `await` bên trong
+- [ ] `CancellationToken` được truyền từ controller xuống repository
+- [ ] Không có `.Result` hoặc `.Wait()` trừ trong `Main` hoặc test
+- [ ] `Task.WhenAll` được dùng thay vì `await` tuần tự cho tasks độc lập
+- [ ] `async void` chỉ xuất hiện trong event handler
+- [ ] Exception trong fire-and-forget được log
+
+---
+
+## Quiz & Lab chấm điểm (100 điểm)
+
+### Phần A — Quiz (20 điểm)
+
+Mỗi câu **4 điểm**.
+
+1. `async Task` method nên trả về gì khi không có giá trị?  
+   A. `void` B. `Task` C. `int` D. `Thread`  
+   > **Đáp án:** B.
+
+2. `ConfigureAwait(false)` chủ yếu quan tâm?  
+   A. Tăng độ phân giải màn hình B. Không capture sync context (thư viện) C. Tắt exception D. Bắt buộc trên ASP.NET Core controller  
+   > **Đáp án:** B — trong app model ASP.NET Core thường ít cần; thư viện hay dùng.
+
+3. Deadlock điển hình khi mix sync/async?  
+   A. `await` trong `lock` B. `.Result`/`.Wait()` chặn context đang chờ continuation C. Dùng `Task.Run` quá ít D. `GC.Collect()`  
+   > **Đáp án:** B (mô hình phổ biến).
+
+4. `CancellationToken` nên được?  
+   A. Bỏ qua trong API public B. Truyền xuống call stack async C. Chỉ dùng trong `Main` D. Thay thế try/catch  
+   > **Đáp án:** B.
+
+5. `async void` nên tránh ngoại trừ?  
+   A. Repository method B. Event handler UI / top-level fire-and-forget có chủ đích C. Controller action D. Library public API  
+   > **Đáp án:** B.
+
+### Phần B — Lab chấm điểm (80 điểm)
+
+| Tiêu chí | Điểm | Ghi chú |
+|----------|------|---------|
+| 3 thao tác I/O giả (`Task.Delay`) song song đúng với `Task.WhenAll` + đo thời gian | 25 | So sánh với tuần tự |
+| Hàm async nhận `CancellationToken` và hủy được (ảnh/log) | 20 | |
+| `IAsyncEnumerable` hoặc channel mini: producer/consumer in log | 20 | Chọn một |
+| Không có `.Result`/`.Wait()` trong code lab | 10 | |
+| README giải thích 1 rủi ro deadlock | 5 | |
+
+**Đạt:** ≥ 70. **Khá:** ≥ 85 + `ConfigureAwait(false)` trong helper thư viện giả. **Giỏi:** ≥ 95 + benchmark WhenAll vs sequential có số liệu.
+
+---
+
+## Tài liệu tham khảo
+
+- [Asynchronous programming with async and await — Microsoft Docs](https://learn.microsoft.com/en-us/dotnet/csharp/asynchronous-programming/)
+- [Task asynchronous programming model — Microsoft Docs](https://learn.microsoft.com/en-us/dotnet/csharp/asynchronous-programming/task-asynchronous-programming-model)
+- [Cancellation in managed threads — Microsoft Docs](https://learn.microsoft.com/en-us/dotnet/standard/threading/cancellation-in-managed-threads)
+- [System.Threading.Channels — Microsoft Docs](https://learn.microsoft.com/en-us/dotnet/core/extensions/channels)
+- [IAsyncEnumerable — Microsoft Docs](https://learn.microsoft.com/en-us/dotnet/csharp/asynchronous-programming/generate-consume-asynchronous-stream)
+- [ConfigureAwait FAQ — Stephen Toub](https://devblogs.microsoft.com/dotnet/configureawait-faq/)
+- [There is no thread — Stephen Cleary](https://blog.stephencleary.com/2013/11/there-is-no-thread.html)
+- [ValueTask — Understanding the Whys, Whats, and Whens — Stephen Toub](https://devblogs.microsoft.com/dotnet/understanding-the-whys-whats-and-whens-of-valuetask/)

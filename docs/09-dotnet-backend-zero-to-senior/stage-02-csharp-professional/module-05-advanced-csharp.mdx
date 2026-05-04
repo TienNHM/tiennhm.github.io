@@ -1,0 +1,933 @@
+---
+title: Module 5 — Advanced C#
+slug: dotnet-module-05-advanced-csharp
+description: SOLID, LINQ, delegate/event, extension, reflection, generics, expression trees, nullable reference types.
+sidebar_position: 2
+tags: [dotnet, csharp, solid, linq]
+keywords: [solid, linq, generics, nullable-reference-types]
+enableComments: true
+draft: false
+---
+
+import { SummaryBox } from '@site/src/components/SEO';
+
+<SummaryBox>
+Module 5 nâng kỹ năng C# từ "chạy được" lên "production-ready": áp dụng SOLID để thiết kế CRM service layer, khai thác Generics và LINQ để query/thống kê Lead/Deal, sử dụng delegate/event cho domain notification, viết extension method tiện lợi, và làm chủ Nullable Reference Types để triệt tiêu NullReferenceException ngay từ compile time.
+</SummaryBox>
+
+## Mục tiêu học tập
+
+Sau module này bạn có thể:
+
+- Nhận diện và refactor code vi phạm từng nguyên lý SOLID trong dự án CRM
+- Xây dựng generic repository, `PagedResult<T>`, `Result<T>` pattern tái sử dụng toàn app
+- Viết các LINQ query phức tạp: filter, group, aggregate để tạo báo cáo doanh thu và lead pipeline
+- Triển khai event pattern để thông báo thay đổi trạng thái khách hàng mà không coupling service với nhau
+- Bật Nullable Reference Types và xử lý null an toàn theo best practice C# 10+
+
+---
+
+## Kiến thức cần có trước
+
+- OOP cơ bản: class, interface, inheritance, polymorphism (Module 4)
+- C# syntax: property, method, collection
+- Đã tạo được project .NET 6+ và chạy được unit test cơ bản
+
+---
+
+## 1. SOLID Principles
+
+SOLID là 5 nguyên lý thiết kế giúp code dễ mở rộng, dễ test, ít bug khi thay đổi yêu cầu.
+
+### 1.1 SRP — Single Responsibility Principle
+
+> Mỗi class chỉ có một lý do để thay đổi.
+
+**Vi phạm — God class `CustomerService`:**
+
+```csharp
+// BAD: một class làm quá nhiều việc
+public class CustomerService
+{
+    private readonly AppDbContext _db;
+    private readonly IEmailService _email;
+
+    public async Task<Customer> CreateAsync(CreateCustomerDto dto)
+    {
+        // 1. Validate
+        if (string.IsNullOrWhiteSpace(dto.Email))
+            throw new ArgumentException("Email is required");
+
+        // 2. Lưu database
+        var customer = new Customer { Name = dto.Name, Email = dto.Email };
+        _db.Customers.Add(customer);
+        await _db.SaveChangesAsync();
+
+        // 3. Gửi email chào mừng
+        await _email.SendAsync(dto.Email, "Chào mừng!", $"Xin chào {dto.Name}");
+
+        // 4. Tạo log audit
+        _db.AuditLogs.Add(new AuditLog { Action = "CreateCustomer", UserId = dto.CreatedBy });
+        await _db.SaveChangesAsync();
+
+        // 5. Tính điểm loyalty
+        customer.LoyaltyPoints = CalculateLoyaltyPoints(dto);
+        await _db.SaveChangesAsync();
+
+        return customer;
+    }
+
+    private int CalculateLoyaltyPoints(CreateCustomerDto dto) => 100;
+}
+```
+
+**Đúng — Tách trách nhiệm:**
+
+```csharp
+// Chỉ lo business logic của Customer
+public class CustomerService
+{
+    private readonly ICustomerRepository _repo;
+    private readonly ICustomerEventPublisher _events;
+
+    public async Task<Customer> CreateAsync(CreateCustomerDto dto)
+    {
+        var customer = Customer.Create(dto.Name, dto.Email); // domain factory
+        await _repo.AddAsync(customer);
+        await _events.PublishAsync(new CustomerCreatedEvent(customer)); // fire-and-forget
+        return customer;
+    }
+}
+
+// Chỉ lo gửi email
+public class WelcomeEmailHandler : IEventHandler<CustomerCreatedEvent>
+{
+    public async Task HandleAsync(CustomerCreatedEvent e)
+        => await _email.SendAsync(e.Customer.Email, "Chào mừng!", $"Xin chào {e.Customer.Name}");
+}
+
+// Chỉ lo audit
+public class AuditHandler : IEventHandler<CustomerCreatedEvent>
+{
+    public async Task HandleAsync(CustomerCreatedEvent e)
+        => await _audit.LogAsync("CreateCustomer", e.Customer.Id);
+}
+```
+
+---
+
+### 1.2 OCP — Open/Closed Principle
+
+> Mở để mở rộng, đóng để sửa đổi.
+
+**Vi phạm — Thêm discount type phải sửa code cũ:**
+
+```csharp
+// BAD: mỗi loại discount mới buộc phải sửa switch
+public decimal CalculateDiscount(Order order, string discountType)
+{
+    return discountType switch
+    {
+        "VIP"      => order.Total * 0.20m,
+        "Seasonal" => order.Total * 0.10m,
+        // Thêm "NewYear" → phải sửa file này → vi phạm OCP
+        _ => 0
+    };
+}
+```
+
+**Đúng — Dùng abstraction:**
+
+```csharp
+public interface IDiscountStrategy
+{
+    bool IsApplicable(Order order);
+    decimal Calculate(Order order);
+}
+
+public class VipDiscount : IDiscountStrategy
+{
+    public bool IsApplicable(Order order) => order.Customer.IsVip;
+    public decimal Calculate(Order order) => order.Total * 0.20m;
+}
+
+public class SeasonalDiscount : IDiscountStrategy
+{
+    public bool IsApplicable(Order order) => DateTime.Now.Month == 12;
+    public decimal Calculate(Order order) => order.Total * 0.10m;
+}
+
+// Thêm NewYearDiscount → chỉ tạo class mới, không chạm code cũ
+public class NewYearDiscount : IDiscountStrategy
+{
+    public bool IsApplicable(Order order) => DateTime.Now.DayOfYear <= 7;
+    public decimal Calculate(Order order) => order.Total * 0.15m;
+}
+
+public class DiscountCalculator
+{
+    private readonly IEnumerable<IDiscountStrategy> _strategies;
+
+    public decimal Calculate(Order order)
+        => _strategies
+            .Where(s => s.IsApplicable(order))
+            .Sum(s => s.Calculate(order));
+}
+```
+
+---
+
+### 1.3 LSP — Liskov Substitution Principle
+
+> Subtype phải thay thế được base type mà không phá vỡ behavior.
+
+**Vi phạm — `Square` extends `Rectangle` gây bug:**
+
+```csharp
+// BAD: Square override setter của Rectangle gây hành vi bất ngờ
+public class Rectangle
+{
+    public virtual int Width  { get; set; }
+    public virtual int Height { get; set; }
+    public int Area() => Width * Height;
+}
+
+public class Square : Rectangle
+{
+    public override int Width  { set { base.Width = base.Height = value; } }
+    public override int Height { set { base.Width = base.Height = value; } }
+}
+
+// Code này đúng với Rectangle nhưng fail với Square
+Rectangle r = new Square();
+r.Width = 5;
+r.Height = 3;
+Console.WriteLine(r.Area()); // mong đợi 15, thực tế ra 9 → LSP vi phạm
+```
+
+**Đúng — Dùng composition hoặc tách interface:**
+
+```csharp
+public interface IShape { int Area(); }
+
+public class Rectangle : IShape
+{
+    public int Width  { get; init; }
+    public int Height { get; init; }
+    public int Area() => Width * Height;
+}
+
+public class Square : IShape
+{
+    public int Side { get; init; }
+    public int Area() => Side * Side;
+}
+```
+
+---
+
+### 1.4 ISP — Interface Segregation Principle
+
+> Client không nên bị buộc phụ thuộc vào method mà nó không dùng.
+
+**Vi phạm — Interface quá fat:**
+
+```csharp
+// BAD: mọi service đều phải implement dù không dùng hết
+public interface ICustomerRepository
+{
+    Task<Customer> GetByIdAsync(int id);
+    Task AddAsync(Customer c);
+    Task UpdateAsync(Customer c);
+    Task DeleteAsync(int id);
+    Task<List<Customer>> SearchAsync(string keyword);
+    Task<byte[]> ExportToCsvAsync();      // ← report service không cần cái này
+    Task SendBulkEmailAsync(string msg);  // ← hoàn toàn không liên quan repository
+}
+```
+
+**Đúng — Tách interface nhỏ:**
+
+```csharp
+public interface ICustomerReader
+{
+    Task<Customer?> GetByIdAsync(int id);
+    Task<List<Customer>> SearchAsync(string keyword);
+}
+
+public interface ICustomerWriter
+{
+    Task AddAsync(Customer c);
+    Task UpdateAsync(Customer c);
+    Task DeleteAsync(int id);
+}
+
+public interface ICustomerExporter
+{
+    Task<byte[]> ExportToCsvAsync();
+}
+
+// CRM report service chỉ cần ICustomerReader + ICustomerExporter
+```
+
+---
+
+### 1.5 DIP — Dependency Inversion Principle
+
+> Module cấp cao không phụ thuộc module cấp thấp; cả hai phụ thuộc abstraction.
+
+**Vi phạm — Service phụ thuộc concrete:**
+
+```csharp
+// BAD: LeadService tự new() SqlCustomerRepository → khó test, khó đổi DB
+public class LeadService
+{
+    private readonly SqlCustomerRepository _repo = new SqlCustomerRepository();
+
+    public async Task<Lead> ConvertAsync(int leadId)
+    {
+        var lead = await _repo.GetLeadByIdAsync(leadId);
+        // ...
+    }
+}
+```
+
+**Đúng — Inject abstraction:**
+
+```csharp
+public class LeadService
+{
+    private readonly ILeadRepository _repo;
+    private readonly ICustomerRepository _customerRepo;
+
+    // Constructor injection — DI container cung cấp implementation
+    public LeadService(ILeadRepository repo, ICustomerRepository customerRepo)
+    {
+        _repo = repo;
+        _customerRepo = customerRepo;
+    }
+
+    public async Task<Customer> ConvertAsync(int leadId)
+    {
+        var lead = await _repo.GetByIdAsync(leadId)
+            ?? throw new NotFoundException($"Lead {leadId} not found");
+
+        var customer = Customer.FromLead(lead);
+        await _customerRepo.AddAsync(customer);
+        lead.MarkConverted(customer.Id);
+        await _repo.UpdateAsync(lead);
+        return customer;
+    }
+}
+```
+
+---
+
+## 2. Generics
+
+Generics cho phép viết code tổng quát, an toàn kiểu, không trùng lặp.
+
+### 2.1 Generic Repository
+
+```csharp
+public interface IEntity
+{
+    int Id { get; }
+}
+
+// Constraint: T phải là class và implement IEntity
+public interface IRepository<T> where T : class, IEntity
+{
+    Task<T?> GetByIdAsync(int id);
+    Task<List<T>> GetAllAsync();
+    Task AddAsync(T entity);
+    Task UpdateAsync(T entity);
+    Task DeleteAsync(int id);
+}
+
+public class EfRepository<T> : IRepository<T> where T : class, IEntity
+{
+    protected readonly AppDbContext _db;
+    protected readonly DbSet<T> _set;
+
+    public EfRepository(AppDbContext db)
+    {
+        _db = db;
+        _set = db.Set<T>();
+    }
+
+    public Task<T?> GetByIdAsync(int id) => _set.FindAsync(id).AsTask();
+    public Task<List<T>> GetAllAsync() => _set.ToListAsync();
+    public async Task AddAsync(T entity) { await _set.AddAsync(entity); await _db.SaveChangesAsync(); }
+    public async Task UpdateAsync(T entity) { _set.Update(entity); await _db.SaveChangesAsync(); }
+    public async Task DeleteAsync(int id)
+    {
+        var entity = await GetByIdAsync(id);
+        if (entity is not null) { _set.Remove(entity); await _db.SaveChangesAsync(); }
+    }
+}
+```
+
+### 2.2 PagedResult&lt;T&gt;
+
+```csharp
+public record PagedResult<T>(
+    IReadOnlyList<T> Items,
+    int Page,
+    int PageSize,
+    int TotalCount)
+{
+    public int TotalPages => (int)Math.Ceiling((double)TotalCount / PageSize);
+    public bool HasPreviousPage => Page > 1;
+    public bool HasNextPage => Page < TotalPages;
+
+    public static PagedResult<T> Empty(int page, int pageSize)
+        => new(Array.Empty<T>(), page, pageSize, 0);
+}
+```
+
+### 2.3 Result&lt;T, TError&gt; Pattern
+
+```csharp
+public class Result<T>
+{
+    public T? Value { get; }
+    public string? Error { get; }
+    public bool IsSuccess { get; }
+
+    private Result(T value)            { Value = value; IsSuccess = true; }
+    private Result(string error)       { Error = error; IsSuccess = false; }
+
+    public static Result<T> Ok(T value)      => new(value);
+    public static Result<T> Fail(string err) => new(err);
+
+    // Functional map: transform value nếu success
+    public Result<TOut> Map<TOut>(Func<T, TOut> mapper)
+        => IsSuccess ? Result<TOut>.Ok(mapper(Value!)) : Result<TOut>.Fail(Error!);
+}
+
+// Sử dụng trong CRM
+public async Task<Result<Customer>> GetCustomerAsync(int id)
+{
+    var customer = await _repo.GetByIdAsync(id);
+    return customer is null
+        ? Result<Customer>.Fail($"Customer {id} not found")
+        : Result<Customer>.Ok(customer);
+}
+```
+
+---
+
+## 3. LINQ
+
+LINQ (Language Integrated Query) cho phép query collection và database với cú pháp C# nhất quán.
+
+### 3.1 Method Syntax vs Query Syntax
+
+```csharp
+var leads = context.Leads.Where(l => l.Status == LeadStatus.New).ToList();
+
+// Method syntax (phổ biến hơn trong production)
+var hotLeads = leads
+    .Where(l => l.Score >= 80)
+    .OrderByDescending(l => l.Score)
+    .Take(10)
+    .ToList();
+
+// Query syntax (gần SQL hơn, ít dùng)
+var hotLeadsQ = (from l in leads
+                 where l.Score >= 80
+                 orderby l.Score descending
+                 select l)
+                .Take(10)
+                .ToList();
+```
+
+### 3.2 Các Operator Quan Trọng
+
+```csharp
+// --- Filter & Projection ---
+var emails = customers
+    .Where(c => c.IsActive)
+    .Select(c => c.Email);
+
+// SelectMany: flatten nhiều deal của nhiều customer
+var allDealNames = customers
+    .SelectMany(c => c.Deals)
+    .Select(d => d.Name);
+
+// --- Grouping ---
+var revenueByMonth = deals
+    .Where(d => d.Status == DealStatus.Won)
+    .GroupBy(d => new { d.ClosedDate.Year, d.ClosedDate.Month })
+    .Select(g => new
+    {
+        Year    = g.Key.Year,
+        Month   = g.Key.Month,
+        Revenue = g.Sum(d => d.Value),
+        Count   = g.Count()
+    })
+    .OrderBy(r => r.Year).ThenBy(r => r.Month);
+
+// --- Aggregation ---
+decimal totalRevenue = deals.Where(d => d.Status == DealStatus.Won).Sum(d => d.Value);
+decimal avgDeal      = deals.Average(d => d.Value);
+var     maxDeal      = deals.MaxBy(d => d.Value);
+
+// --- Lookup ---
+var vip = customers.FirstOrDefault(c => c.Email == "vip@corp.com");
+bool hasOverdue = deals.Any(d => d.DueDate < DateTime.Today && d.Status != DealStatus.Won);
+bool allPaid    = invoices.All(i => i.IsPaid);
+
+// --- Aggregate tùy chỉnh ---
+string allNames = customers
+    .Select(c => c.Name)
+    .Aggregate((a, b) => $"{a}, {b}");
+```
+
+### 3.3 Deferred Execution — Cạm Bẫy Phổ Biến
+
+```csharp
+// CẢNH BÁO: query chưa thực thi ở đây
+IQueryable<Lead> query = context.Leads.Where(l => l.AssignedTo == userId);
+
+// Thực thi lần 1 — gọi DB
+var list1 = query.ToList();
+
+// Nếu data trong DB thay đổi giữa chừng...
+// Thực thi lần 2 — gọi DB lần nữa, kết quả có thể khác!
+var list2 = query.ToList();
+
+// FIX: materialize sớm nếu cần snapshot tại một thời điểm
+var snapshot = context.Leads.Where(l => l.AssignedTo == userId).ToList(); // chỉ gọi DB 1 lần
+```
+
+---
+
+## 4. Delegates và Events
+
+### 4.1 Built-in Delegates
+
+```csharp
+// Action<T>: không return giá trị
+Action<string> log = msg => Console.WriteLine($"[LOG] {msg}");
+Action<Customer, string> notify = (c, msg) => SendEmail(c.Email, msg);
+
+// Func<T, TResult>: có return giá trị
+Func<Lead, bool> isHot  = lead => lead.Score >= 80;
+Func<decimal, decimal, decimal> add = (a, b) => a + b;
+
+// Predicate<T>: Func<T, bool> — thường dùng với List.FindAll
+Predicate<Customer> isVip = c => c.Tier == CustomerTier.VIP;
+var vipList = customers.FindAll(isVip);
+```
+
+### 4.2 Custom Delegate và Event Pattern trong CRM
+
+```csharp
+// Domain event
+public record CustomerStatusChangedEvent(
+    int CustomerId,
+    CustomerStatus OldStatus,
+    CustomerStatus NewStatus,
+    DateTime OccurredAt);
+
+// Event handler delegate
+public delegate Task CustomerStatusChangedHandler(CustomerStatusChangedEvent e);
+
+// Service phát event
+public class CustomerService
+{
+    public event CustomerStatusChangedHandler? StatusChanged;
+
+    public async Task ChangeStatusAsync(int id, CustomerStatus newStatus)
+    {
+        var customer = await _repo.GetByIdAsync(id)
+            ?? throw new NotFoundException($"Customer {id}");
+
+        var oldStatus = customer.Status;
+        customer.UpdateStatus(newStatus);
+        await _repo.UpdateAsync(customer);
+
+        // Phát event — subscriber tự xử lý
+        if (StatusChanged is not null)
+            await StatusChanged(new CustomerStatusChangedEvent(id, oldStatus, newStatus, DateTime.UtcNow));
+    }
+}
+
+// Subscriber — đăng ký trong startup hoặc DI
+customerService.StatusChanged += async e =>
+{
+    if (e.NewStatus == CustomerStatus.Churned)
+        await _notificationService.AlertSalesTeamAsync(e.CustomerId);
+};
+```
+
+---
+
+## 5. Extension Methods
+
+Extension method cho phép "thêm" method vào type hiện có mà không thừa kế.
+
+```csharp
+public static class StringExtensions
+{
+    // Chuyển tên sản phẩm/tên khách thành URL slug
+    public static string ToSlug(this string input)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return string.Empty;
+        return input.Trim()
+                    .ToLowerInvariant()
+                    .Replace(" ", "-")
+                    .Replace("đ", "d")
+                    // Bỏ ký tự đặc biệt
+                    .Where(c => char.IsLetterOrDigit(c) || c == '-')
+                    .Aggregate(string.Empty, (s, c) => s + c);
+    }
+}
+
+public static class QueryableExtensions
+{
+    // Dùng trong API endpoint: ?page=2&pageSize=20
+    public static IQueryable<T> ApplyPaging<T>(this IQueryable<T> query, int page, int pageSize)
+    {
+        if (page < 1) page = 1;
+        if (pageSize < 1 || pageSize > 100) pageSize = 20;
+        return query.Skip((page - 1) * pageSize).Take(pageSize);
+    }
+}
+
+public static class DateTimeExtensions
+{
+    private static readonly HashSet<DayOfWeek> _weekends = [DayOfWeek.Saturday, DayOfWeek.Sunday];
+
+    public static bool IsBusinessDay(this DateTime date)
+        => !_weekends.Contains(date.DayOfWeek);
+
+    public static DateTime NextBusinessDay(this DateTime date)
+    {
+        var next = date.AddDays(1);
+        while (!next.IsBusinessDay()) next = next.AddDays(1);
+        return next;
+    }
+}
+
+// Sử dụng:
+// "Nguyễn Văn A".ToSlug()          → "nguyen-van-a"
+// DateTime.Today.IsBusinessDay()    → true/false
+// query.ApplyPaging(page: 2, pageSize: 20)
+```
+
+---
+
+## 6. Nullable Reference Types (C# 8+)
+
+### 6.1 Bật NRT trong Project
+
+```xml
+<!-- .csproj -->
+<PropertyGroup>
+  <Nullable>enable</Nullable>
+  <WarningsAsErrors>nullable</WarningsAsErrors>  <!-- Optional: biến warning thành error -->
+</PropertyGroup>
+```
+
+### 6.2 Phân Biệt `string` vs `string?`
+
+```csharp
+string  name  = null;   // ← compiler warning: CS8600
+string? name2 = null;   // ← OK, nullable được khai báo rõ ràng
+
+public Customer? FindByEmail(string email)  // return có thể null
+    => _customers.FirstOrDefault(c => c.Email == email);
+```
+
+### 6.3 Null Safety Patterns
+
+```csharp
+// Null-conditional operator ?.
+string? city = customer?.Address?.City;
+
+// Null-coalescing ?? và ??=
+string displayName = customer?.Name ?? "Khách hàng ẩn danh";
+customer.Notes ??= new List<string>(); // khởi tạo nếu null
+
+// Null-forgiving operator ! — dùng khi chắc chắn không null
+var c = _repo.GetById(id)!; // bạn đảm bảo không null ở chỗ này
+
+// Pattern matching
+if (customer is not null)
+    Console.WriteLine(customer.Name);
+
+// Guard clause — idiomatic C# 10+
+ArgumentNullException.ThrowIfNull(customer);
+
+// Khai báo non-nullable property trong entity
+public class Customer
+{
+    public required string Name  { get; init; } // C# 11 required
+    public required string Email { get; init; }
+    public string? Phone { get; set; }          // tùy chọn, có thể null
+}
+```
+
+---
+
+## 7. Expression Trees và Reflection (Overview)
+
+### 7.1 Khi Nào Bạn Gặp
+
+- ORMs (Entity Framework): dùng Expression Tree để dịch LINQ sang SQL
+- AutoMapper, FluentValidation: dùng Reflection để map/validate tự động
+- Dynamic query builder: filter theo field do user chọn
+
+### 7.2 Dynamic Query Builder Đơn Giản
+
+```csharp
+// Xây filter expression động — gặp nhiều trong CRM report
+public static IQueryable<T> WhereIf<T>(
+    this IQueryable<T> query,
+    bool condition,
+    Expression<Func<T, bool>> predicate)
+    => condition ? query.Where(predicate) : query;
+
+// Dùng:
+var leads = context.Leads
+    .WhereIf(!string.IsNullOrEmpty(keyword), l => l.Name.Contains(keyword!))
+    .WhereIf(minScore.HasValue, l => l.Score >= minScore!.Value)
+    .WhereIf(assignedTo.HasValue, l => l.AssignedUserId == assignedTo);
+```
+
+### 7.3 Lưu Ý Hiệu Năng
+
+```csharp
+// Reflection chậm hơn direct call — cache nếu dùng trong hot path
+private static readonly PropertyInfo[] _props = typeof(Customer).GetProperties();
+
+// Expression Tree được compile → performance tốt hơn Reflection thuần
+// Tránh lạm dụng: chỉ dùng khi thực sự cần dynamic behavior
+```
+
+---
+
+## 8. Tuples và Deconstruction
+
+### 8.1 Value Tuple
+
+```csharp
+// Unnamed tuple
+(int, string) pair = (1, "Alice");
+Console.WriteLine(pair.Item1); // 1
+
+// Named tuple — rõ nghĩa hơn
+(int Id, string Name) customer = (42, "Alice");
+Console.WriteLine(customer.Name); // Alice
+```
+
+### 8.2 Deconstruction
+
+```csharp
+var (id, name) = GetCustomerSummary(42); // destructure tuple
+
+// Method trả tuple thay vì class nhỏ 1 lần dùng
+public (decimal Revenue, int Count) GetDealStats(int ownerId)
+{
+    var deals = _deals.Where(d => d.OwnerId == ownerId && d.Status == DealStatus.Won);
+    return (deals.Sum(d => d.Value), deals.Count());
+}
+
+// Sử dụng
+var (revenue, count) = GetDealStats(userId);
+Console.WriteLine($"Doanh thu: {revenue:C}, Số deal: {count}");
+```
+
+### 8.3 Khi Nào Dùng Tuple Thay Class
+
+| Tình huống | Dùng Tuple | Dùng Class/Record |
+|---|---|---|
+| Return 2-3 giá trị nội bộ, 1 chỗ | Nên | Thừa |
+| Dùng nhiều nơi, có domain meaning | Không | Nên |
+| Cần serialize (JSON, DB) | Không | Nên |
+| Method private helper | Nên | Thừa |
+
+---
+
+## Thực hành
+
+### Bài 1 — Refactor `CustomerService` God Class
+
+**Yêu cầu:** File `CustomerService.cs` hiện tại có 400 dòng gồm: CRUD, gửi email, tính loyalty point, export CSV, ghi audit log.
+
+Refactor thành:
+- `CustomerCrudService` — chỉ CRUD
+- `LoyaltyService` — tính và cập nhật điểm
+- `CustomerAuditService` — ghi log
+- `CustomerExportService` — export CSV
+- Dùng event để trigger email thay vì gọi trực tiếp
+
+Checklist:
+- [ ] Mỗi class không quá 80 dòng
+- [ ] Không class nào `new()` dependency trực tiếp
+- [ ] Có unit test cho từng class (mock dependency qua interface)
+
+---
+
+### Bài 2 — LINQ Thống Kê CRM
+
+Cho `AppDbContext` có: `Customers`, `Leads`, `Deals`. Viết các query sau:
+
+```csharp
+// 1. Tổng doanh thu theo từng tháng trong năm hiện tại
+var monthlyRevenue = await context.Deals
+    .Where(d => d.Status == DealStatus.Won && d.ClosedDate.Year == DateTime.Today.Year)
+    .GroupBy(d => d.ClosedDate.Month)
+    .Select(g => new MonthlyRevenueDto
+    {
+        Month   = g.Key,
+        Revenue = g.Sum(d => d.Value),
+        Deals   = g.Count()
+    })
+    .OrderBy(r => r.Month)
+    .ToListAsync();
+
+// 2. Top 5 khách hàng theo tổng giá trị deal đã thắng
+var top5 = await context.Customers
+    .Select(c => new
+    {
+        c.Name,
+        TotalRevenue = c.Deals
+            .Where(d => d.Status == DealStatus.Won)
+            .Sum(d => d.Value)
+    })
+    .OrderByDescending(c => c.TotalRevenue)
+    .Take(5)
+    .ToListAsync();
+
+// 3. Lead conversion rate theo nguồn (source)
+var conversionRate = await context.Leads
+    .GroupBy(l => l.Source)
+    .Select(g => new
+    {
+        Source     = g.Key,
+        Total      = g.Count(),
+        Converted  = g.Count(l => l.Status == LeadStatus.Converted),
+        Rate       = g.Count(l => l.Status == LeadStatus.Converted) * 100.0 / g.Count()
+    })
+    .OrderByDescending(r => r.Rate)
+    .ToListAsync();
+```
+
+---
+
+### Bài 3 — Generic `PagedResult<T>` và `Result<T>` Error Handling
+
+```csharp
+// Mở rộng EfRepository để trả PagedResult
+public async Task<PagedResult<T>> GetPagedAsync(
+    ISpecification<T> spec, int page, int pageSize)
+{
+    var query = _set.AsQueryable();
+
+    if (spec.Criteria is not null)
+        query = query.Where(spec.Criteria);
+
+    if (spec.OrderBy is not null)
+        query = query.OrderBy(spec.OrderBy);
+
+    var total = await query.CountAsync();
+    var items = await query.ApplyPaging(page, pageSize).ToListAsync();
+
+    return new PagedResult<T>(items, page, pageSize, total);
+}
+
+// Service dùng Result<T> để tránh exception-driven flow
+public async Task<Result<PagedResult<LeadDto>>> GetLeadsAsync(LeadQuery query)
+{
+    if (query.Page < 1)
+        return Result<PagedResult<LeadDto>>.Fail("Page phải >= 1");
+
+    var spec = new LeadSpecification(query);
+    var paged = await _repo.GetPagedAsync(spec, query.Page, query.PageSize);
+    var dtos  = paged.Items.Select(LeadDto.From).ToList();
+
+    return Result<PagedResult<LeadDto>>.Ok(new PagedResult<LeadDto>(dtos, paged.Page, paged.PageSize, paged.TotalCount));
+}
+
+// Controller xử lý Result
+[HttpGet]
+public async Task<IActionResult> GetLeads([FromQuery] LeadQuery query)
+{
+    var result = await _leadService.GetLeadsAsync(query);
+    return result.IsSuccess
+        ? Ok(result.Value)
+        : BadRequest(new { error = result.Error });
+}
+```
+
+---
+
+## Tóm tắt
+
+| Chủ đề | Điểm mấu chốt |
+|---|---|
+| SOLID | 5 nguyên lý giúp code mở rộng không phá code cũ |
+| Generics | `Repository<T>`, `PagedResult<T>`, `Result<T>` là pattern dùng xuyên suốt app |
+| LINQ | Deferred execution — luôn `.ToList()` khi cần snapshot; ưu tiên method syntax |
+| Delegates/Events | `Action`, `Func` cho callback; event pattern để decouple service |
+| Extension Methods | Đặt trong `*Extensions.cs`, phải là `static class`, `static method`, `this` param đầu |
+| Nullable Reference Types | Bật `<Nullable>enable</Nullable>` ngay từ đầu project, dùng `?` rõ ràng |
+| Expression Trees | Dùng khi cần dynamic query; tránh Reflection trong hot path |
+| Tuples | Tiện cho giá trị trả về nội bộ; dùng class/record khi có domain meaning |
+
+---
+
+## Quiz & Lab chấm điểm (100 điểm)
+
+### Phần A — Quiz (20 điểm)
+
+Mỗi câu **4 điểm**.
+
+1. LINQ deferred execution nghĩa là?  
+   A. Query chạy ngay khi viết B. Query thực thi khi enumerate (`.ToList()`, `foreach`…) C. Luôn chạy trên GPU D. Không áp dụng cho `IEnumerable`  
+   > **Đáp án:** B.
+
+2. `Func<T, bool>` trong `Where` là ví dụ của?  
+   A. Event B. Delegate C. Attribute D. Indexer  
+   > **Đáp án:** B.
+
+3. Nullable Reference Types (`<Nullable>enable`) giúp?  
+   A. Biến null thành số B. Cảnh báo/reference analysis cho null an toàn hơn C. Tắt GC D. Thay thế `async`  
+   > **Đáp án:** B.
+
+4. Extension method bắt buộc khai báo trong?  
+   A. `static class` với tham số đầu `this T` B. Instance class bất kỳ C. `record` sealed D. File `.resx`  
+   > **Đáp án:** A.
+
+5. Expression tree khác lambda “thường” ở chỗ?  
+   A. Luôn nhanh hơn B. Có thể inspect/build runtime (IQueryable) C. Không compile D. Chỉ dùng trong WinForms  
+   > **Đáp án:** B.
+
+### Phần B — Lab chấm điểm (80 điểm)
+
+| Tiêu chí | Điểm | Ghi chú |
+|----------|------|---------|
+| 10+ `Customer`/`Lead` giả: LINQ **lọc, sắp, group** (method syntax) | 30 | |
+| Extension method thực tế (ví dụ `IsVip(this Customer c)`) | 15 | |
+| Event demo: `OrderPlaced` + 2 subscriber in log | 15 | |
+| Bật Nullable Reference Types trong csproj, sửa hoặc giải thích warning chính (ảnh build) | 10 | |
+| README + output mẫu | 10 | |
+
+**Đạt:** ≥ 70. **Khá:** ≥ 85 + 1 ví dụ `IQueryable`-style (có thể in-memory) minh họa deferred. **Giỏi:** ≥ 95 + nullable + expression không dùng Reflection nóng.
+
+---
+
+## Tài liệu tham khảo
+
+- [SOLID Principles — Microsoft Docs](https://docs.microsoft.com/dotnet/architecture/modern-web-apps-azure/architectural-principles)
+- [Generics — C# Programming Guide](https://learn.microsoft.com/dotnet/csharp/programming-guide/generics/)
+- [LINQ Overview](https://learn.microsoft.com/dotnet/csharp/linq/)
+- [Delegates and Events](https://learn.microsoft.com/dotnet/csharp/delegates-overview)
+- [Nullable Reference Types](https://learn.microsoft.com/dotnet/csharp/nullable-references)
+- [Expression Trees](https://learn.microsoft.com/dotnet/csharp/expression-trees)
+- [Tuples](https://learn.microsoft.com/dotnet/csharp/language-reference/builtin-types/value-tuples)
+- [C# Coding Conventions](https://learn.microsoft.com/dotnet/csharp/fundamentals/coding-style/coding-conventions)

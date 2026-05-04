@@ -1,0 +1,229 @@
+---
+title: Module 17 — Distributed Systems
+slug: dotnet-module-17-distributed-systems
+description: Event-driven, Kafka, RabbitMQ, CDC, outbox, idempotency, retry.
+sidebar_position: 2
+tags: [dotnet, kafka, rabbitmq, outbox]
+keywords: [event-driven, cdc, idempotency, message-broker]
+enableComments: true
+draft: false
+---
+
+import { SummaryBox } from '@site/src/components/SEO';
+
+<SummaryBox>
+Khi CRM tách thành nhiều service hoặc cần **tích hợp bất đồng bộ** (billing, notification, search index), bạn bước vào lãnh địa **phân tán**: mất tin nhắn, gửi trùng, thứ tự không đảm bảo, và “commit DB xong mới gửi event” không còn là chuyện hiển nhiên. Module này trang bị **mô hình tư duy** và **pattern** (outbox, idempotency, retry) — nền cho microservices ở Module 18.
+</SummaryBox>
+
+## Mục tiêu học tập
+
+Sau module này, bạn có thể:
+
+- Phân biệt **at-most-once**, **at-least-once**, **effectively-once** (idempotent consumer).
+- Thiết kế **Outbox pattern** để không mất event khi commit database thành công.
+- Cấu hình consumer **idempotent** với khóa tự nhiên (`eventId`, `messageId`).
+- Chọn **retry** + **dead-letter** (DLQ) phù hợp; hiểu **poison message**.
+- So sánh **Kafka** vs **RabbitMQ** ở mức triển khai team nhỏ/trung.
+- Hiểu vai trò **CDC** (Change Data Capture) như một đường tích hợp — ưu/nhược so với outbox ứng dụng.
+
+## Kiến thức cần có trước
+
+- [Module 14 — Caching + Background Jobs](../stage-04-database-production/module-14-caching-background-jobs.mdx) (hosted services, queue).
+- [Module 13 — EF Core](../stage-04-database-production/module-13-entity-framework-core.mdx) (transaction).
+- Ôn lại async và cancellation: [Module 6](../stage-02-csharp-professional/module-06-async-programming.mdx).
+
+---
+
+## 1. Event-driven architecture (EDA) — khi nào dùng?
+
+**EDA** phù hợp khi:
+
+- Cần **giảm coupling thời gian**: Sales không chờ Billing xử lý xong.
+- Nhiều subscriber cho cùng sự kiện (`OrderPlaced` → inventory, email, analytics).
+- Hệ thống phải **chịu tải đột biến** (buffer bằng queue).
+
+**Không phải lúc nào cũng cần broker**: đôi khi **in-process domain event** + job nền là đủ. Broker thêm vận hành, observability, schema versioning.
+
+---
+
+## 2. Hai nỗi sợ cốt lõi: mất tin & gửi trùng
+
+### 2.1 Mất tin nhắn
+
+Gọi `SaveChanges` thành công rồi **crash** trước khi publish → đối tác không biết gì.
+
+### 2.2 Gửi trùng
+
+At-least-once delivery: broker có thể giao **cùng một message hai lần**. Consumer phải **an toàn khi lặp**.
+
+**Idempotency key**: lưu `ProcessedMessage(messageId)` hoặc dùng khóa nghiệp vụ (`InvoiceNumber` unique).
+
+```csharp
+public async Task HandleAsync(LeadConvertedIntegrationEvent evt, CancellationToken ct)
+{
+    if (await _processedStore.WasProcessedAsync(evt.EventId, ct))
+        return;
+
+    await _billing.CreateDraftSubscriptionAsync(evt.CustomerId, ct);
+    await _processedStore.MarkProcessedAsync(evt.EventId, ct);
+}
+```
+
+Transaction boundary giữa “tạo subscription” và “mark processed” cần thiết kế cẩn thận (same DB hoặc outbox phía billing).
+
+---
+
+## 3. Outbox pattern (ứng dụng)
+
+**Ý tưởng**: trong **cùng transaction** với thay đổi nghiệp vụ, ghi thêm một hàng vào bảng `OutboxMessages` (payload JSON, type, createdUtc).
+
+Một **dispatcher** (background worker) đọc outbox, publish lên broker, đánh dấu `Processed` hoặc xóa.
+
+Luồng tóm tắt:
+
+```
+[Business tables + Outbox row] --single commit--> DB OK
+        ↓
+   Outbox dispatcher (poll or Debezium)
+        ↓
+   Message broker → Consumers
+```
+
+**Ưu điểm**: không mất event nếu DB commit thành công.
+
+**Chi phí**: thêm bảng + worker; cần **ordering**? có thể partition theo `aggregateId`.
+
+---
+
+## 4. So sánh Kafka và RabbitMQ (thực dụng)
+
+| Tiêu chí | RabbitMQ | Kafka |
+|----------|------------|--------|
+| Mô hình | Queue / exchange routing | Log partition, consumer group |
+| Ordering | Per queue (thường) | Per partition nếu key đúng |
+| Replay | Hạn chế (TTL) | Giữ log theo retention — replay được |
+| Vận hành | Dễ bắt đầu hơn cho team nhỏ | Cần hiểu partition, consumer lag |
+| Use case CRM | Notification, job fan-out | Event log, analytics pipeline, CDC sink |
+
+Không có “thắng tuyệt đối” — chọn theo **đội vận hành** và **yêu cầu replay/ordering**.
+
+---
+
+## 5. CDC (Change Data Capture)
+
+CDC đọc **write-ahead log** của DB (ví dụ SQL Server CDC, Debezium cho Postgres/MySQL) và phát thay đổi ra Kafka.
+
+**Ưu**: ứng dụng legacy không cần sửa vẫn có stream thay đổi.
+
+**Nhược**: mapping schema DB thẳng ra event thường “bẩn”; khó diễn đạt **intent** (`LeadConverted` vs row update). Với hệ mới, **outbox ở app** thường rõ nghĩa vụ hơn.
+
+---
+
+## 6. Retry và backoff
+
+- **Transient fault**: timeout, 503 → retry với **exponential backoff** + **jitter**.
+- **Poison message**: sai schema, bug logic → sau N lần đưa vào **DLQ** để không nghẽn hàng đợi.
+
+Trên .NET, thư viện như **Polly** (resilience) kết hợp client broker; với **MassTransit** / **NServiceBus** có sẵn pipeline retry/DLQ.
+
+---
+
+## 7. Demo tinh thần: Outbox + idempotency
+
+Bảng tối thiểu:
+
+```sql
+CREATE TABLE OutboxMessages (
+  Id UNIQUEIDENTIFIER PRIMARY KEY,
+  Type NVARCHAR(200) NOT NULL,
+  Payload NVARCHAR(MAX) NOT NULL,
+  CreatedUtc DATETIME2 NOT NULL,
+  ProcessedUtc DATETIME2 NULL
+);
+```
+
+Worker (giản lược): `SELECT TOP (100) ... WHERE ProcessedUtc IS NULL`, publish, update `ProcessedUtc`. Production cần **claim token**, **lease**, hoặc `SKIP LOCKED` tùy engine.
+
+---
+
+## 8. MassTransit / NServiceBus / EasyNetQ
+
+- **MassTransit**: phổ biến trên .NET, abstraction tốt, community lớn.
+- **NServiceBus**: mạnh cho enterprise, có phí commercial cho một số tính năng.
+- **EasyNetQ**: mỏng, thân thiện RabbitMQ.
+
+Chọn **một** cho dự án học — đừng trộn ba framework.
+
+---
+
+## Bổ sung (đối chiếu roadmap.sh)
+
+- **Azure Service Bus**, **Amazon SQS/SNS**, **Google Pub/Sub** — cùng họ suy nghĩ: delivery semantics + DLQ + sessions (ordering).
+- **NetMQ** — ZeroMQ style; phù hợp đặc thù latency cao, ít phổ biến cho CRM enterprise queueing truyền thống.
+
+---
+
+## Liên hệ CRM
+
+- **Lead converted** → event cho **Billing** (tạo subscription) và **Support** (mở onboarding ticket).
+- **Payment succeeded** → **Loyalty** cộng điểm — luôn idempotent theo `paymentIntentId`.
+- Outbox đảm bảo: **không** có chuyện “đã lưu Customer nhưng Billing không nhận được tin” nếu DB commit.
+
+---
+
+## Thực hành gợi ý
+
+1. Tạo bảng outbox + entity `LeadConverted`.
+2. Viết worker publish tới RabbitMQ (docker-compose một node).
+3. Consumer **Billing** lưu `eventId` đã xử lý; gửi lại message cố ý — verify không double charge / double create.
+
+---
+
+## Quiz & Lab chấm điểm (100 điểm)
+
+### Phần A — Quiz (20 điểm)
+
+Mỗi câu **4 điểm**.
+
+1. Outbox pattern giải quyết vấn đề nào?  
+   A. JWT hết hạn B. “Commit DB thành công nhưng publish event thất bại” C. CSS layout D. Chậm compile  
+   > **Đáp án:** B.
+
+2. Consumer idempotent thường dùng?  
+   A. Xóa queue B. Khóa xử lý theo `messageId`/`eventId` hoặc idempotent business key C. Chỉ HTTP GET D. GUID random mỗi lần  
+   > **Đáp án:** B.
+
+3. At-least-once delivery có nghĩa?  
+   A. Không bao giờ trùng B. Có thể nhận trùng — consumer phải chịu được C. Luôn đúng 1 lần end-to-end không cần thiết kế D. Chỉ Kafka  
+   > **Đáp án:** B.
+
+4. Dead letter queue (DLQ) dùng khi?  
+   A. Message thành công B. Poison / retry hết hạn cần tách khỏi hàng chính C. Backup JWT D. Health live  
+   > **Đáp án:** B.
+
+5. CDC (Debezium) so với outbox ứng dụng: nhận định nào **hợp lý**?  
+   A. CDC luôn thay outbox B. CDC ít diễn đạt “intent” như event domain cẩn thận từ app C. Outbox không cần DB D. Cả hai không tồn tại  
+   > **Đáp án:** B (trade-off).
+
+### Phần B — Lab chấm điểm (80 điểm)
+
+| Tiêu chí | Điểm | Ghi chú |
+|----------|------|---------|
+| Bảng outbox + ghi cùng transaction với business row | 25 | |
+| Worker publish RabbitMQ/Kafka (docker) | 25 | |
+| Consumer idempotent + bằng chứng gửi trùng | 20 | |
+| README: semantics at-least-once + retry policy | 10 | |
+
+**Đạt:** ≥ 70. **Khá:** ≥ 85 + DLQ hoặc Polly retry publish. **Giỏi:** ≥ 95 + MassTransit/NServiceBus outbox nếu áp dụng được.
+
+---
+
+## Tài liệu tham khảo
+
+- *Designing Data-Intensive Applications* — Martin Kleppmann (chương stream processing, exactly-once).
+- Microsoft — [Reliable Messaging Patterns](https://learn.microsoft.com/azure/architecture/patterns/category/messaging) (tổng quan).
+- Udi Dahan — các bài về **distributed systems fallacies**.
+
+---
+
+**Tiếp theo:** [Module 18 — Microservices](module-18-microservices.mdx) — tách deployable, gateway, observability.

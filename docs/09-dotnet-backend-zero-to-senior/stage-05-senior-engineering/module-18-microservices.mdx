@@ -1,0 +1,206 @@
+---
+title: Module 18 — Microservices
+slug: dotnet-module-18-microservices
+description: Tách service, API Gateway, giao tiếp, observability, monitoring.
+sidebar_position: 3
+tags: [dotnet, microservices, yarp, observability]
+keywords: [api-gateway, yarp, ocelot, tracing]
+enableComments: true
+draft: false
+---
+
+import { SummaryBox } from '@site/src/components/SEO';
+
+<SummaryBox>
+**Microservices** không phải mục tiêu — là **chi phí** bạn trả để độc lập triển khai, scale và sở hữu domain theo team. Module này giúp bạn biết **khi nào nên tách**, cách **gateway** (YARP) đứng trước nhiều service .NET, và bộ **quan sát** tối thiểu (log, metric, trace) để hệ phân tán không thành “hộp đen”.
+</SummaryBox>
+
+## Mục tiêu học tập
+
+Sau module này, bạn có thể:
+
+- Liệt kê **điều kiện tiên quyết** trước khi tách service (DevOps, bounded context, data ownership).
+- Thiết kế **API Gateway** với **YARP** — route, transform header, rate limit cơ bản.
+- So sánh **sync** (HTTP/gRPC) vs **async** (message) cho giao tiếp cross-service.
+- Bật **OpenTelemetry** trace nối từ gateway xuống service con.
+- Cấu hình **health check** aggregation cho orchestrator (Docker/K8s) — liên hệ [Module 15](../stage-04-database-production/module-15-docker-deployment.mdx).
+- Nhận diện **distributed monolith** và cách thoát.
+
+## Kiến thức cần có trước
+
+- [Module 17 — Distributed Systems](module-17-distributed-systems.mdx).
+- [Module 10 — Auth](../stage-03-aspnet-core-backend/module-10-authentication-authorization.mdx) (JWT, introspection ở gateway).
+- Docker compose nhiều container: Module 15.
+
+---
+
+## 1. Khi nào *không* nên microservices?
+
+Nếu team < 5, chưa có CI/CD ổn định, chưa có observability — **modular monolith** + bounded context rõ thường nhanh hơn.
+
+**Dấu hiệu đã đủ “đau” để tách**:
+
+- Scale khác nhau theo workload (notification spike vs core API).
+- **Release cadence** khác nhau giữa các phần (billing compliance vs CRM UI API).
+- Team sở hữu rõ ràng theo domain (Conway’s Law).
+
+---
+
+## 2. Service decomposition
+
+Nguyên tắc thực dụng:
+
+- **Tách theo subdomain** có ngôn ngữ nghiệp vụ riêng (Sales vs Billing).
+- Mỗi service **sở hữu dữ liệu** của nó — không share DB trực tiếp giữa hai service (anti-pattern “rạch database”).
+
+**Strangler fig**: tách dần từ monolith bằng façade hoặc route gateway.
+
+---
+
+## 3. API Gateway — YARP (ưu tiên .NET)
+
+**YARP** (Yet Another Reverse Proxy) là thư viện .NET để cấu hình reverse proxy linh hoạt trong `Program.cs`.
+
+Ví dụ tinh thần route:
+
+```csharp
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddReverseProxy()
+    .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
+
+var app = builder.Build();
+app.MapReverseProxy();
+app.Run();
+```
+
+`appsettings.json` khai báo cluster `sales`, `billing`, route `/api/sales/{**catch-all}` → cluster sales.
+
+**Gateway đảm nhận**: TLS termination, auth validation chung, correlation ID, rate limit, versioning.
+
+**Ocelot**: từng phổ biến; với .NET hiện tại team Microsoft khuyến nghị **YARP** cho greenfield.
+
+---
+
+## 4. Giao tiếp giữa các service
+
+| Kiểu | Khi dùng | Lưu ý |
+|------|----------|--------|
+| HTTP REST | đơn giản, public API | coupling thời gian, cần timeout/circuit breaker |
+| gRPC | nội bộ hiệu năng, contract rõ | versioning proto cần kỷ luật |
+| Message bus | eventual consistency chấp nhận được | outbox + idempotency (Module 17) |
+
+Tránh **chụm sync** (A→B→C→A) — dễ deadlock latency và lỗi cascade.
+
+---
+
+## 5. Observability — bộ ba
+
+1. **Logs** — structured (Serilog), `traceId`/`spanId` thống nhất.
+2. **Metrics** — request rate, latency p95/p99, queue depth, GC.
+3. **Traces** — OpenTelemetry export Jaeger/Zipkin/Azure Monitor.
+
+ASP.NET Core:
+
+```csharp
+builder.Services.AddOpenTelemetry()
+    .WithTracing(t => t
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation());
+```
+
+Gateway forward header `traceparent` (W3C) để trace xuyên suốt.
+
+---
+
+## 6. Identity trong hệ phân tán
+
+Các mô hình thường gặp:
+
+- **JWT** do gateway validate; service tin internal network + claim.
+- **Token exchange** / **BFF** nếu có SPA (ngoài phạm vi backend-first nhưng hay gặp ở CRM).
+
+Đừng để mỗi service tự gọi DB user — cân nhắc **Identity service** hoặc shared read model nhẹ (cache) với hiểu rõ stale data.
+
+---
+
+## 7. Anti-pattern: distributed monolith
+
+Triệu chứng: deploy phải “đúng thứ tự”, mọi thứ gọi nhau sync, một feature chạm 6 repo.
+
+**Thuốc**: giảm call chain, chuyển sang event, consolidate ownership, hoặc **merge lại** một phần thành monolith module hóa.
+
+---
+
+## Bổ sung (đối chiếu roadmap.sh)
+
+- **Dapr** — sidecar building blocks (pub/sub, state) — phù hợp polyglot, thêm complexity vận hành.
+- **Steeltoe** — patterns cho Spring-style trên .NET (discovery…).
+- **Orleans** — actor model + virtual grain; phù hợp stateful scale-out đặc thù, không phải default CRM.
+
+---
+
+## Liên hệ CRM
+
+- Tách **`Identity`** (auth, consent), **`Notification`** (email/SMS adapter), **`Billing`** (payment, invoice).
+- Gateway route theo **tenant** (header/subdomain) và **API version** (`/v1/`, header `Api-Version`).
+- Health: `/health/ready` kiểm tra DB + broker; `/health/live` chỉ process sống.
+
+---
+
+## Thực hành gợi ý
+
+1. Hai project ASP.NET Core: `Sales.Api`, `Billing.Api`.
+2. Project `Gateway` YARP route `/api/sales` và `/api/billing`.
+3. Bật OpenTelemetry; gọi một request xuyên gateway → sales gọi billing (hoặc chỉ propagate trace).
+4. Ghi README: **SLA**, timeout, retry policy bạn chọn.
+
+---
+
+## Quiz & Lab chấm điểm (100 điểm)
+
+### Phần A — Quiz (20 điểm)
+
+Mỗi câu **4 điểm**.
+
+1. API Gateway đóng vai trò chính?  
+   A. Thay thế DB B. Điểm vào: routing, auth, rate limit, TLS termination C. Chỉ build Docker D. Chỉ lưu session RAM  
+   > **Đáp án:** B.
+
+2. “Shared database” giữa hai microservice là?  
+   A. Best practice B. Anti-pattern phá vỡ bounded context và deploy độc lập C. Bắt buộc D. Chỉ với MongoDB  
+   > **Đáp án:** B.
+
+3. Distributed tracing (W3C `traceparent`) giúp?  
+   A. Nén response B. Nối span qua nhiều service để debug latency C. Thay HTTPS D. Encrypt JWT  
+   > **Đáp án:** B.
+
+4. YARP là?  
+   A. ORM B. Reverse proxy có cấu hình .NET cho gateway C. Message broker D. Test runner  
+   > **Đáp án:** B.
+
+5. Readiness probe khác liveness ở?  
+   A. Giống nhau B. Ready = phụ thuộc sẵn sàng; Live = process còn sống C. Chỉ dùng cho VM D. Chỉ gRPC  
+   > **Đáp án:** B.
+
+### Phần B — Lab chấm điểm (80 điểm)
+
+| Tiêu chí | Điểm | Ghi chú |
+|----------|------|---------|
+| 2 service + 1 gateway route (YARP hoặc tương đương) | 35 | |
+| OpenTelemetry trace qua gateway → downstream (ảnh Jaeger/Zipkin/Azure) | 25 | |
+| README: timeout + circuit/retry ở gateway hoặc HttpClient | 10 | |
+| Health aggregate hoặc per-service `/health` documented | 10 | |
+
+**Đạt:** ≥ 70. **Khá:** ≥ 85 + auth propagate (header/JWT validate ở gateway). **Giỏi:** ≥ 95 + mô tả vì sao không distributed monolith.
+
+---
+
+## Tài liệu tham khảo
+
+- Sam Newman — *Building Microservices*.
+- Microsoft Learn — [Cloud-native](https://learn.microsoft.com/dotnet/architecture/cloud-native/) (microservices section).
+- YARP — GitHub `dotnet/yarp`.
+
+---
+
+**Tiếp theo:** [Module 19 — Performance Engineering](module-19-performance-engineering.mdx) — đo, profile, scale có căn cứ.

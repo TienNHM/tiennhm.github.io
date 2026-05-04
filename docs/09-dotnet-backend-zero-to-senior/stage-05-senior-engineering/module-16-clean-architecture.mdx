@@ -1,0 +1,309 @@
+---
+title: Module 16 — Clean Architecture
+slug: dotnet-module-16-clean-architecture
+description: Layered, vertical slice, Clean Architecture, DDD cơ bản, domain events.
+sidebar_position: 1
+tags: [dotnet, clean-architecture, ddd]
+keywords: [vertical-slice, clean-architecture, domain-events]
+enableComments: true
+draft: false
+---
+
+import { SummaryBox } from '@site/src/components/SEO';
+
+<SummaryBox>
+Module nối từ **API production** (Stage 3–4) sang **tư duy system owner**: tách domain khỏi framework, tổ chức theo slice hoặc layer có kiểm soát, áp dụng DDD chiến thuật vừa đủ — để CRM lớn vẫn sửa được, test được, và nhiều team làm song song mà không “dính” controller.
+</SummaryBox>
+
+## Mục tiêu học tập
+
+Sau module này, bạn có thể:
+
+- Giải thích sự khác nhau giữa **layered**, **ports & adapters** và **vertical slice** — và chọn mô hình phù hợp quy mô team.
+- Áp dụng **Clean Architecture** (dependency rule): domain không phụ thuộc EF, HTTP hay logging framework.
+- Nhận diện **bounded context** và vẽ ranh giới nghiệp vụ cho CRM (Sales, Support, Billing…).
+- Thiết kế **aggregate** có invariant rõ; dùng **domain events** (in-process) để giảm coupling nội bộ.
+- Dùng **MediatR** + **FluentValidation** cho pipeline ứng dụng có kiểm soát, dễ test.
+- Viết **test ưu tiên** ở application/domain thay vì chỉ integration test toàn stack.
+
+## Kiến thức cần có trước
+
+- Hoàn thành [Module 8 — ASP.NET Core Fundamentals](../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals.mdx), [Module 13 — EF Core](../stage-04-database-production/module-13-entity-framework-core.mdx), [Module 7 — DI](../stage-02-csharp-professional/module-07-dependency-injection.mdx).
+- Đã có ít nhất một API CRUD có validation và repository (Project 2/3).
+
+---
+
+## 1. Vì sao CRM “to ra” là lúc kiến trúc trả giá?
+
+Khi CRM chỉ vài controller và một `DbContext`, mọi thứ vẫn nhanh. Khi thêm **workflow**, **approval**, **đa tenant**, **tích hợp thanh toán**, code thường:
+
+- Nhét business rule vào controller hoặc `OnModelCreating`.
+- Gọi `DbContext` trực tiếp từ mọi nơi → khó đổi ORM hoặc tách service.
+- Không có ranh giới nghiệp vụ → một sửa ở Billing làm vỡ Lead ở Sales.
+
+**Mục tiêu kiến trúc**: giữ **quyết định nghiệp vụ** ở chỗ ít phụ thuộc framework nhất, để thay đổi UI/API/DB không làm “động” lõi.
+
+---
+
+## 2. Layered architecture (cổ điển nhưng vẫn hữu ích)
+
+Mô hình phổ biến:
+
+```
+Presentation (API) → Application (use cases) → Domain → Infrastructure (EF, email, HTTP client)
+```
+
+**Quy tắc vàng**: dependency chỉ hướng **vào trong** (về phía domain), không ngược.
+
+| Layer | Trách nhiệm | Ví dụ CRM |
+|--------|-------------|-----------|
+| API | HTTP, auth, serialization | `LeadsController` |
+| Application | orchestration, transaction boundary | `CreateLeadCommandHandler` |
+| Domain | invariant, entity, VO | `Lead`, `Money`, rule “email hợp lệ” |
+| Infrastructure | EF, queue, file | `EfLeadRepository`, `SmtpEmailSender` |
+
+**Hạn chế**: dễ thành “**anemic domain**” — entity chỉ là POCO, logic nằm hết ở service khổng lồ. Cần kỷ luật: invariant **phải** nằm trong aggregate khi có thể.
+
+---
+
+## 3. Clean Architecture (Uncle Bob) — dependency rule
+
+Ý tưởng cốt lõi: **Policies (business) không biết gì về chi tiết delivery** (Web, SQL, gRPC).
+
+Thường gom thành các vòng:
+
+1. **Entities** — luật doanh nghiệp thuần.
+2. **Use cases** — luồng ứng dụng (một chức năng user/system).
+3. **Interface adapters** — presenter, gateway, `DbContext` mapping.
+4. **Frameworks & drivers** — ASP.NET Core, EF, Serilog.
+
+Trong .NET thực tế, bạn thường thấy các project:
+
+- `Domain` — không reference gì ngoài BCL (hoặc rất ít).
+- `Application` — reference `Domain`; định nghĩa interface port (`ILeadRepository`).
+- `Infrastructure` — reference `Application` + `Domain`; implement port.
+- `Api` — reference `Application` + `Infrastructure` (composition root).
+
+**Composition root** (thường `Program.cs`) là nơi **duy nhất** “nối dây” implementation vào interface.
+
+---
+
+## 4. Vertical Slice Architecture (VSA)
+
+Thay vì chia theo layer ngang (`Controllers/`, `Services/`), chia theo **tính năng** (slice):
+
+```
+Features/
+  Leads/
+    CreateLead.cs      // endpoint + handler + validator + view model (cùng slice)
+    GetLeadById.cs
+```
+
+**Ưu điểm**: thay đổi “Tạo Lead” chủ yếu đụng một thư mục; giảm merge conflict giữa team.
+
+**Nhược điểm**: cần convention rõ (template slice), tránh copy-paste handler. Có thể kết hợp: **slice cho feature**, nhưng vẫn giữ `Domain` chung cho entity tái sử dụng.
+
+**Gợi ý**: team 2–5 dev, CRM đang lớn nhanh — VSA + thư mục `Domain/SharedKernel` thường rất thực dụng.
+
+---
+
+## 5. DDD chiến thuật (vừa đủ cho backend)
+
+Không cần “full DDD ceremony” ngay ngày đầu. Tập trung:
+
+### 5.1 Entity vs Value Object
+
+- **Entity**: có định danh (`LeadId`), đời sống thay đổi theo thời gian.
+- **Value Object**: không có identity, bất biến (`Money`, `EmailAddress`) — so sánh theo giá trị.
+
+```csharp
+public readonly record struct Money(decimal Amount, string Currency)
+{
+    public Money Add(Money other)
+    {
+        if (Currency != other.Currency)
+            throw new InvalidOperationException("Không cộng khác currency.");
+        return new Money(Amount + other.Amount, Currency);
+    }
+}
+```
+
+### 5.2 Aggregate & invariant
+
+**Aggregate** là cụm entity có **một root** — mọi thay đổi invariant đi qua root.
+
+Ví dụ: `Order` (root) chứa `OrderLine`; không cho phép service ngoài add line trực tiếp bypass rule tồn kho.
+
+### 5.3 Repository (domain-facing)
+
+Repository là **collection ảo** trong domain language: `ILeadRepository.GetByIdAsync`, không lộ `IQueryable` ra application nếu muốn giữ domain độc lập ORM.
+
+### 5.4 Bounded context
+
+Trong CRM: **Sales** (Lead, Opportunity) khác ngôn ngữ với **Billing** (Invoice, Payment). Cùng từ “Account” có thể khác nghĩa — tách model, đừng ép một bảng “siêu chung”.
+
+---
+
+## 6. MediatR — pipeline cho use case
+
+`MediatR` map **một request** → **một handler** — phù hợp slice hoặc application layer.
+
+```csharp
+public record CreateLeadCommand(string Email, string FullName) : IRequest<Guid>;
+
+public class CreateLeadCommandHandler : IRequestHandler<CreateLeadCommand, Guid>
+{
+    private readonly ILeadRepository _leads;
+    private readonly IUnitOfWork _uow;
+
+    public CreateLeadCommandHandler(ILeadRepository leads, IUnitOfWork uow)
+    {
+        _leads = leads;
+        _uow = uow;
+    }
+
+    public async Task<Guid> Handle(CreateLeadCommand request, CancellationToken ct)
+    {
+        var lead = Lead.Create(request.Email, request.FullName);
+        await _leads.AddAsync(lead, ct);
+        await _uow.SaveChangesAsync(ct);
+        return lead.Id;
+    }
+}
+```
+
+**Behaviors** (logging, validation, transaction) đăng ký một lần — tránh lặp trong từng controller.
+
+---
+
+## 7. FluentValidation
+
+Gắn validation **gần contract** của use case, tách khỏi entity nếu rule chỉ là “input shape” (định dạng) chứ không phải invariant lõi.
+
+```csharp
+public class CreateLeadCommandValidator : AbstractValidator<CreateLeadCommand>
+{
+    public CreateLeadCommandValidator()
+    {
+        RuleFor(x => x.Email).NotEmpty().EmailAddress();
+        RuleFor(x => x.FullName).MaximumLength(200);
+    }
+}
+```
+
+Có thể tích hợp behavior MediatR: validate trước khi vào handler.
+
+---
+
+## 8. Domain Events (in-process)
+
+**Domain event** = “đã xảy ra điều gì đó quan trọng trong domain” (`LeadCreated`, `LeadConvertedToCustomer`).
+
+- **In-process**: dispatch sau `SaveChanges` trong cùng transaction (hoặc ngay trước commit — cần quy ước rõ).
+- **Ra ngoài hệ thống** (Kafka, Service Bus): xem [Module 17](module-17-distributed-systems.mdx) — thường qua **outbox**, không gọi broker trực tiếp trong entity.
+
+Ví dụ dispatch đơn giản sau commit:
+
+```csharp
+// Sau SaveChangesAsync thành công:
+foreach (var e in lead.DomainEvents)
+    await _dispatcher.PublishAsync(e, ct);
+lead.ClearDomainEvents();
+```
+
+---
+
+## 9. Chiến lược test
+
+| Tầng | Gợi ý |
+|------|--------|
+| Domain | Unit test thuần — không DB, không host |
+| Application | Test handler với repository fake/in-memory |
+| API | Integration test với TestServer + DB test container (tuỳ độ sâu) |
+
+Ưu tiên test **use case quan trọng** và **invariant** — không chase 100% coverage vô nghĩa.
+
+---
+
+## 10. Anti-pattern cần tránh
+
+- **God Service** `CrmService` 3000 dòng.
+- **Domain** reference `Microsoft.EntityFrameworkCore`.
+- Controller gọi 5 repository khác nhau mà không có transaction/use case rõ.
+- Dùng MediatR cho **mọi** dòng code — overhead không cần thiết cho CRUD siêu nhỏ.
+
+---
+
+## Bổ sung (đối chiếu roadmap.sh)
+
+- **MediatR** + **FluentValidation** — đã nêu trên; thêm behavior: logging, metrics, OpenTelemetry span theo request type.
+- **Razor** class library cho template email/hóa đơn server-side — backend-first vẫn cần render HTML; không đồng nghĩa với Blazor SPA.
+- **Marten** (Postgres + event store) — *optional* nếu bạn đi sâu event sourcing; CRM thường bắt đầu relational + outbox là đủ.
+
+---
+
+## Liên hệ CRM
+
+- **Sales / Marketing**: bounded context Lead & Campaign — đừng trộn invoice vào cùng aggregate Lead.
+- **Customer Service**: Ticket context — liên kết với Customer qua ID, không share entity trực tiếp cross-context.
+- **Billing**: event `LeadConverted` → consumer billing tạo draft subscription (xem Module 17 cho delivery đáng tin).
+
+---
+
+## Thực hành gợi ý (bắt buộc tối thiểu)
+
+1. Chọn một flow **CreateLead** (hoặc tương đương trong repo của bạn).
+2. Tách **command + handler + validator**; domain `Lead.Create` kiểm tra invariant (email trùng do repository check ở application nếu cần).
+3. Viết **ít nhất 3 unit test** domain và **1 test** handler với fake repository.
+4. Viết **1 đoạn ADR ngắn** (Architecture Decision Record): vì sao slice hoặc layer cho team hiện tại.
+
+---
+
+## Quiz & Lab chấm điểm (100 điểm)
+
+### Phần A — Quiz (20 điểm)
+
+Mỗi câu **4 điểm**.
+
+1. Dependency Rule của Clean Architecture quy định gì?  
+   A. Framework ở trung tâm B. Domain không phụ thuộc framework/DB C. API reference trực tiếp SQL Client trong entity D. UI quyết định schema DB  
+   > **Đáp án:** B.
+
+2. Vertical Slice Architecture nhóm code theo?  
+   A. Kiểu file `.cs` B. Tính năng/use case (một slice) C. Chữ cái đầu alphabet D. Namespace `System.*`  
+   > **Đáp án:** B.
+
+3. Aggregate root dùng để?  
+   A. Cache HTTP B. Đảm bảo invariant nhất quán trong biên aggregate C. Thay thế JWT D. Chỉ cho UI  
+   > **Đáp án:** B.
+
+4. Domain event in-process khác integration event chủ yếu ở?  
+   A. Không khác B. Phạm vi (process vs cross-service) và hợp đồng tích hợp C. Chỉ dùng trong SQL D. Chỉ sync  
+   > **Đáp án:** B.
+
+5. MediatR `IRequestHandler` giúp?  
+   A. Render HTML B. Tách use case thành một đơn vị test được + pipeline behaviors C. Thay connection string D. Build Docker  
+   > **Đáp án:** B.
+
+### Phần B — Lab chấm điểm (80 điểm)
+
+| Tiêu chí | Điểm | Ghi chú |
+|----------|------|---------|
+| CreateLead (hoặc tương đương): Command + Handler + FluentValidation | 30 | |
+| Domain invariant hoặc factory `Lead.Create` có kiểm tra | 15 | |
+| ≥ 3 unit test domain + 1 test handler (fake repo) | 25 | |
+| ADR (≥ 200 chữ) giải thích slice vs layer | 10 | |
+
+**Đạt:** ≥ 70. **Khá:** ≥ 85 + domain events in-process. **Giỏi:** ≥ 95 + map sang ProblemDetails/API không lộ EF.
+
+---
+
+## Tài liệu tham khảo
+
+- Robert C. Martin — *Clean Architecture*.
+- Eric Evans — *Domain-Driven Design* (chương strategic + tactical đầu).
+- Jimmy Bogard — Vertical Slice Architecture (bài talk / blog).
+
+---
+
+**Tiếp theo:** [Module 17 — Distributed Systems](module-17-distributed-systems.mdx) — đưa event ra khỏi process một cách an toàn.

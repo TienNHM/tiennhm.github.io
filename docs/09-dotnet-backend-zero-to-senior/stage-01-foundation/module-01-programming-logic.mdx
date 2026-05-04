@@ -1,0 +1,676 @@
+---
+title: Module 1 — Programming Logic
+slug: dotnet-module-01-programming-logic
+description: Biến, điều kiện, vòng lặp, hàm, mảng, đối tượng, tư duy thuật toán và giải bài toán.
+sidebar_position: 1
+tags: [dotnet, foundation, programming-logic]
+keywords: [variables, loops, algorithms, problem-solving]
+enableComments: true
+draft: false
+---
+
+import { SummaryBox } from '@site/src/components/SEO';
+
+<SummaryBox>
+Module này xây dựng nền tảng tư duy lập trình từ đầu — từ biến, điều kiện, vòng lặp đến hàm và cấu trúc dữ liệu — thông qua các ví dụ thực tế trong hệ thống CRM mà bạn sẽ xây dựng xuyên suốt khóa học.
+</SummaryBox>
+
+## Mục tiêu học tập
+
+Sau khi hoàn thành module này, bạn có thể:
+
+- Khai báo và sử dụng biến với các kiểu dữ liệu cơ bản trong C#
+- Viết các câu lệnh điều kiện `if/else` và `switch` để xử lý logic phân nhánh
+- Sử dụng vòng lặp `for`, `while`, `foreach` để xử lý danh sách dữ liệu
+- Định nghĩa và gọi hàm (method) có tham số và giá trị trả về
+- Làm việc với mảng, `List<T>` và `Dictionary<K,V>`
+- Phân tích bài toán thực tế thành các bước nhỏ trước khi viết code
+- Hiểu trực quan Big-O để đánh giá hiệu năng cơ bản
+
+## Kiến thức cần có trước
+
+- Biết dùng máy tính cơ bản (mở file, cài phần mềm)
+- Đã cài .NET 8 SDK và Visual Studio Code (xem hướng dẫn cài đặt ở Phần Giới thiệu)
+- Không cần biết lập trình — module này dành cho người bắt đầu từ số 0
+
+---
+
+## 1. Biến và Kiểu Dữ Liệu
+
+### Biến là gì?
+
+Hãy tưởng tượng biến như một **cái hộp có nhãn dán**. Bạn đặt tên cho hộp, cho đồ vào, và có thể lấy ra hoặc thay bằng đồ khác bất kỳ lúc nào.
+
+Trong CRM, thông tin khách hàng — tên, email, điểm tích lũy — đều được lưu trong biến.
+
+```csharp
+// Khai báo biến kiểu số nguyên (int)
+int diemTichLuy = 250;
+
+// Kiểu chuỗi ký tự (string)
+string tenKhachHang = "Nguyễn Văn A";
+
+// Kiểu đúng/sai (bool)
+bool laKhachVip = false;
+
+// Kiểu số thực (double)
+double tongChiTieu = 1_500_000.50;
+
+// var: C# tự suy ra kiểu dựa vào giá trị bên phải
+var email = "nguyenvana@email.com"; // C# hiểu đây là string
+var soLanMua = 12;                  // C# hiểu đây là int
+```
+
+### Các kiểu dữ liệu thường dùng
+
+| Kiểu | Dùng khi nào | Ví dụ |
+|------|-------------|-------|
+| `int` | Số nguyên không có phần thập phân | tuổi, số lần mua |
+| `double` | Số thực, cần độ chính xác tương đối | giá tiền, tỉ lệ |
+| `decimal` | Số thực, cần độ chính xác cao (tài chính) | giá trị hóa đơn |
+| `string` | Văn bản, ký tự | tên, email, địa chỉ |
+| `bool` | Đúng hoặc sai | isActive, isVip |
+| `DateTime` | Ngày giờ | ngày đăng ký, ngày sinh |
+
+```csharp
+// Ví dụ thực tế: thông tin một khách hàng trong CRM
+string tenKhach     = "Trần Thị B";
+string email        = "tranthib@company.com";
+int    tuoi         = 34;
+bool   daXacThucEmail = true;
+decimal tongMua     = 8_750_000m;   // 'm' chỉ định đây là decimal
+DateTime ngayDangKy = DateTime.Now;
+
+Console.WriteLine($"Khách hàng: {tenKhach}, Email xác thực: {daXacThucEmail}");
+// Output: Khách hàng: Trần Thị B, Email xác thực: True
+```
+
+> **Lưu ý thực tế:** Với tiền tệ, luôn dùng `decimal` thay vì `double`. `double` có thể gây sai số nhỏ do cách máy tính lưu số nhị phân — không chấp nhận được trong ứng dụng tài chính.
+
+---
+
+## 2. Điều Kiện (Conditions)
+
+### if / else
+
+Điều kiện cho phép chương trình **ra quyết định**: nếu điều này đúng thì làm A, ngược lại làm B.
+
+```csharp
+int diemKhachHang = 650;
+
+if (diemKhachHang >= 500)
+{
+    Console.WriteLine("Khách hàng VIP — được giảm 15%");
+}
+else if (diemKhachHang >= 200)
+{
+    Console.WriteLine("Khách hàng Bạc — được giảm 5%");
+}
+else
+{
+    Console.WriteLine("Khách hàng Thường — không có ưu đãi");
+}
+```
+
+### Toán tử điều kiện (ternary)
+
+Dùng khi muốn viết gọn một điều kiện đơn giản:
+
+```csharp
+// Cú pháp: điều_kiện ? giá_trị_nếu_đúng : giá_trị_nếu_sai
+string hangKhach = diemKhachHang >= 500 ? "VIP" : "Thường";
+Console.WriteLine($"Hạng: {hangKhach}");
+```
+
+### switch
+
+Dùng khi có nhiều nhánh dựa trên cùng một biến:
+
+```csharp
+string trangThaiLead = "new"; // Trạng thái lead trong CRM
+
+switch (trangThaiLead)
+{
+    case "new":
+        Console.WriteLine("Lead mới — cần liên hệ trong 24 giờ");
+        break;
+    case "contacted":
+        Console.WriteLine("Đã liên hệ — chờ phản hồi");
+        break;
+    case "qualified":
+        Console.WriteLine("Đủ điều kiện — chuyển sang sales");
+        break;
+    case "lost":
+        Console.WriteLine("Đã mất — lưu lý do để phân tích");
+        break;
+    default:
+        Console.WriteLine("Trạng thái không xác định");
+        break;
+}
+```
+
+### switch expression (C# 8+)
+
+Cú pháp hiện đại hơn, gọn hơn:
+
+```csharp
+string moTaTrangThai = trangThaiLead switch
+{
+    "new"       => "Lead mới",
+    "contacted" => "Đã liên hệ",
+    "qualified" => "Đủ điều kiện",
+    "lost"      => "Đã mất",
+    _           => "Không xác định"  // _ là default
+};
+Console.WriteLine(moTaTrangThai);
+```
+
+---
+
+## 3. Vòng Lặp (Loops)
+
+### for — khi biết số lần lặp
+
+```csharp
+// In danh sách 5 khách hàng được gọi điện hôm nay
+for (int i = 1; i <= 5; i++)
+{
+    Console.WriteLine($"Gọi khách hàng thứ {i}");
+}
+```
+
+### while — khi không biết trước số lần lặp
+
+```csharp
+// Nhắc nhở sales gọi lại cho đến khi khách hàng trả lời
+int soLanGoi = 0;
+bool daTraLoi = false;
+
+while (!daTraLoi && soLanGoi < 3)
+{
+    soLanGoi++;
+    Console.WriteLine($"Lần gọi thứ {soLanGoi}...");
+
+    // Giả lập: lần thứ 3 khách mới trả lời
+    if (soLanGoi == 3)
+        daTraLoi = true;
+}
+
+Console.WriteLine(daTraLoi ? "Khách đã trả lời!" : "Không liên lạc được, chuyển trạng thái missed.");
+```
+
+### foreach — duyệt qua từng phần tử của danh sách
+
+```csharp
+// Duyệt danh sách email để gửi thông báo
+var danhSachEmail = new List<string>
+{
+    "khach1@email.com",
+    "khach2@email.com",
+    "khach3@email.com"
+};
+
+foreach (string email in danhSachEmail)
+{
+    Console.WriteLine($"Đang gửi email đến: {email}");
+}
+```
+
+> **Khi nào dùng cái nào?**
+> - `for`: khi cần chỉ số (index) hoặc biết chính xác số lần lặp.
+> - `while`: khi điều kiện dừng phụ thuộc vào runtime (kết quả I/O, input người dùng...).
+> - `foreach`: khi chỉ cần đọc từng phần tử của collection — đây là cách dùng phổ biến nhất trong thực tế.
+
+---
+
+## 4. Hàm (Functions / Methods)
+
+### Tại sao cần hàm?
+
+Hàm là cách bạn **đặt tên cho một khối logic** để có thể tái sử dụng. Thay vì viết cùng đoạn code ở nhiều chỗ, bạn đóng gói nó vào một hàm, rồi gọi bất cứ khi nào cần.
+
+### Cú pháp cơ bản
+
+```csharp
+// Hàm không trả về giá trị (void)
+void InThongTinKhach(string ten, int diem)
+{
+    Console.WriteLine($"Khách: {ten} | Điểm: {diem}");
+}
+
+// Hàm có giá trị trả về
+string XacDinhHangKhach(int diem)
+{
+    if (diem >= 500) return "VIP";
+    if (diem >= 200) return "Bạc";
+    return "Thường";
+}
+
+// Gọi hàm
+InThongTinKhach("Lê Văn C", 320);
+string hang = XacDinhHangKhach(320);
+Console.WriteLine($"Hạng: {hang}"); // Output: Hạng: Bạc
+```
+
+### Tham số mặc định (default parameters)
+
+```csharp
+// Tham số có giá trị mặc định
+string TaoGreeting(string ten, string loai = "Thường")
+{
+    return loai == "VIP"
+        ? $"Xin chào quý khách VIP {ten}! Chúng tôi rất trân trọng bạn."
+        : $"Xin chào {ten}!";
+}
+
+Console.WriteLine(TaoGreeting("An"));           // Dùng mặc định
+Console.WriteLine(TaoGreeting("Bình", "VIP")); // Truyền tường minh
+```
+
+### Quy tắc đặt tên hàm
+
+- Dùng **PascalCase** cho tên hàm trong C#: `TinhTongDiem`, `KiemTraVip`
+- Bắt đầu bằng **động từ**: `Get`, `Calculate`, `Check`, `Send`, `Create`
+- Tên hàm mô tả **chính xác** việc hàm làm — đừng viết `XuLy()` hay `HamMoi()`
+
+```csharp
+// Tốt
+decimal TinhGiaTriDonHang(List<decimal> danhSachGia) { ... }
+bool KiemTraEmailHopLe(string email) { ... }
+
+// Không tốt — tên quá mơ hồ
+decimal Xu_Ly(List<decimal> x) { ... }
+bool Check(string s) { ... }
+```
+
+---
+
+## 5. Mảng và Danh Sách (Arrays & Lists)
+
+### Array — mảng cố định
+
+```csharp
+// Mảng 3 phần tử, không thể thêm/bớt sau khi tạo
+string[] danhSachSales = { "Minh", "Hoa", "Tùng" };
+
+Console.WriteLine(danhSachSales[0]); // Output: Minh (index bắt đầu từ 0)
+Console.WriteLine($"Số sales: {danhSachSales.Length}");
+```
+
+### List\<T\> — danh sách linh hoạt
+
+Trong thực tế, `List<T>` được dùng nhiều hơn array vì có thể thêm/xóa phần tử:
+
+```csharp
+var danhSachLead = new List<string>();
+
+// Thêm lead mới
+danhSachLead.Add("Công ty ABC");
+danhSachLead.Add("Cửa hàng XYZ");
+danhSachLead.Add("Startup 123");
+
+Console.WriteLine($"Tổng số lead: {danhSachLead.Count}");
+
+// Xóa một lead
+danhSachLead.Remove("Cửa hàng XYZ");
+
+// Kiểm tra tồn tại
+bool coLead = danhSachLead.Contains("Công ty ABC"); // true
+
+// Duyệt danh sách
+foreach (string lead in danhSachLead)
+{
+    Console.WriteLine($"- {lead}");
+}
+```
+
+### Dictionary\<K,V\> — từ điển key-value
+
+Dùng khi cần tra cứu nhanh theo một khóa:
+
+```csharp
+// Key: mã khách hàng | Value: điểm tích lũy
+var diemKhachHang = new Dictionary<string, int>
+{
+    { "KH001", 350 },
+    { "KH002", 820 },
+    { "KH003", 120 }
+};
+
+// Tra cứu
+int diem = diemKhachHang["KH002"];
+Console.WriteLine($"Điểm KH002: {diem}"); // Output: 820
+
+// Thêm mới
+diemKhachHang["KH004"] = 500;
+
+// Kiểm tra key tồn tại trước khi lấy (an toàn hơn)
+if (diemKhachHang.TryGetValue("KH005", out int diemKH005))
+{
+    Console.WriteLine($"Điểm KH005: {diemKH005}");
+}
+else
+{
+    Console.WriteLine("KH005 chưa có trong hệ thống");
+}
+```
+
+---
+
+## 6. Tư Duy Giải Bài Toán
+
+Trước khi viết bất kỳ dòng code nào, hãy **hiểu rõ bài toán** và **chia nhỏ** nó ra.
+
+### Quy trình 4 bước
+
+**Bước 1 — Hiểu đầu vào và đầu ra**
+
+Câu hỏi: "Tôi có gì? Tôi cần trả về gì?"
+
+**Bước 2 — Viết pseudocode** (giả code bằng tiếng Việt)
+
+Pseudocode là mô tả logic bằng ngôn ngữ tự nhiên, không cần cú pháp chính xác.
+
+**Bước 3 — Chuyển pseudocode thành code thật**
+
+**Bước 4 — Test với các trường hợp biên** (edge cases)
+
+### Ví dụ thực tế: Phân loại lead theo doanh thu tiềm năng
+
+**Bài toán:** Cho danh sách lead với doanh thu ước tính, phân loại thành Hot/Warm/Cold và trả về số lượng mỗi loại.
+
+**Bước 1 — Đầu vào/ra:**
+- Đầu vào: danh sách số (doanh thu ước tính của từng lead)
+- Đầu ra: 3 con số (số lead Hot, Warm, Cold)
+
+**Bước 2 — Pseudocode:**
+```
+đặt hot = 0, warm = 0, cold = 0
+với mỗi lead trong danh sách:
+    nếu doanh thu >= 100 triệu: tăng hot
+    nếu doanh thu >= 20 triệu:  tăng warm
+    còn lại:                     tăng cold
+in kết quả
+```
+
+**Bước 3 — Code C#:**
+```csharp
+void PhanLoaiLead(List<decimal> doanhThuList)
+{
+    int hot = 0, warm = 0, cold = 0;
+
+    foreach (decimal doanhThu in doanhThuList)
+    {
+        if (doanhThu >= 100_000_000m)
+            hot++;
+        else if (doanhThu >= 20_000_000m)
+            warm++;
+        else
+            cold++;
+    }
+
+    Console.WriteLine($"Hot: {hot} | Warm: {warm} | Cold: {cold}");
+}
+
+// Test
+var leads = new List<decimal> { 150_000_000m, 50_000_000m, 5_000_000m, 200_000_000m, 10_000_000m };
+PhanLoaiLead(leads);
+// Output: Hot: 2 | Warm: 1 | Cold: 2
+```
+
+**Bước 4 — Edge cases cần test:**
+- Danh sách rỗng → không crash, in "Hot: 0 | Warm: 0 | Cold: 0"
+- Doanh thu âm → xử lý thế nào? (CRM thực tế cần validate đầu vào)
+- Doanh thu đúng bằng ngưỡng (100 triệu) → phải vào Hot
+
+---
+
+## 7. Cấu Trúc Dữ Liệu Cơ Bản và Big-O
+
+Big-O mô tả **tốc độ tăng của thời gian chạy** khi dữ liệu lớn hơn. Bạn không cần toán học — chỉ cần hiểu trực quan.
+
+### O(1) — Hằng số, không phụ thuộc kích thước dữ liệu
+
+```csharp
+// Tra Dictionary: dù có 10 hay 10 triệu khách hàng,
+// tốc độ tra cứu đều như nhau
+var diemKhach = new Dictionary<string, int> { { "KH001", 500 }, /* ... */ };
+int diem = diemKhach["KH001"]; // O(1)
+```
+
+Giống như tra cứu từ điển theo chữ cái — bạn không đọc từ đầu đến cuối.
+
+### O(n) — Tuyến tính, tỉ lệ thuận với kích thước
+
+```csharp
+// Tìm khách hàng trong danh sách không được sắp xếp:
+// phải duyệt từng phần tử một
+List<string> danhSach = new List<string> { "An", "Bình", "Châu", /* ... */ };
+string canTim = "Châu";
+foreach (string ten in danhSach) // O(n)
+{
+    if (ten == canTim)
+    {
+        Console.WriteLine("Tìm thấy!");
+        break;
+    }
+}
+```
+
+Giống như tìm một tờ giấy trong xấp giấy chưa được sắp xếp — trung bình phải lật qua n/2 tờ.
+
+### O(n²) — Bậc hai, cần cẩn thận với dữ liệu lớn
+
+```csharp
+// So sánh mọi cặp khách hàng để tìm duplicate email:
+// vòng lặp lồng nhau → O(n²)
+var emails = new List<string> { "a@x.com", "b@x.com", "a@x.com" };
+
+for (int i = 0; i < emails.Count; i++)
+{
+    for (int j = i + 1; j < emails.Count; j++) // O(n²)
+    {
+        if (emails[i] == emails[j])
+            Console.WriteLine($"Duplicate: {emails[i]}");
+    }
+}
+// Với 1000 khách hàng: ~500,000 phép so sánh
+// Với 10,000 khách hàng: ~50,000,000 phép so sánh — chậm!
+```
+
+**Cách tốt hơn (O(n)) dùng HashSet:**
+
+```csharp
+var emailDaSeen = new HashSet<string>();
+foreach (string email in emails)
+{
+    if (!emailDaSeen.Add(email)) // Add trả về false nếu đã tồn tại
+        Console.WriteLine($"Duplicate: {email}");
+}
+// Chỉ duyệt 1 lần, bất kể có bao nhiêu email
+```
+
+### Tóm tắt Big-O
+
+| Ký hiệu | Tên | 100 phần tử | 10,000 phần tử |
+|---------|-----|-------------|----------------|
+| O(1) | Hằng số | 1 bước | 1 bước |
+| O(n) | Tuyến tính | 100 bước | 10,000 bước |
+| O(n²) | Bậc hai | 10,000 bước | 100,000,000 bước |
+
+> **Quy tắc thực tế:** Tránh vòng lặp lồng nhau khi làm việc với tập dữ liệu lớn. Nếu cần tra cứu nhiều lần, dùng `Dictionary` hoặc `HashSet` thay vì `List`.
+
+---
+
+## 8. Thực Hành
+
+### Bài 1 — Máy tính đơn giản (Dễ)
+
+Viết hàm `TinhToan` nhận vào 2 số và 1 toán tử (`+`, `-`, `*`, `/`), trả về kết quả.
+
+```csharp
+// Code starter
+double TinhToan(double a, double b, char toanTu)
+{
+    // TODO: dùng switch để xử lý 4 phép tính
+    // Lưu ý: xử lý trường hợp chia cho 0
+}
+
+// Test cases
+Console.WriteLine(TinhToan(10, 3, '+'));  // 13
+Console.WriteLine(TinhToan(10, 3, '/'));  // 3.333...
+Console.WriteLine(TinhToan(10, 0, '/'));  // Thông báo lỗi hoặc double.NaN
+```
+
+**Gợi ý:** Dùng `switch expression` và trả về `double.NaN` (Not a Number) khi chia cho 0.
+
+---
+
+### Bài 2 — Phân tích danh sách điểm (Trung bình)
+
+Cho danh sách điểm thi, tính điểm trung bình, tìm điểm cao nhất và thấp nhất, đếm số học viên đạt (>= 50 điểm).
+
+```csharp
+// Code starter
+void PhanTichDiem(List<int> danhSachDiem)
+{
+    if (danhSachDiem.Count == 0)
+    {
+        Console.WriteLine("Danh sách rỗng!");
+        return;
+    }
+
+    // TODO: tính average, max, min, đếm số đạt
+    // Gợi ý: dùng foreach để duyệt
+}
+
+// Test
+var diem = new List<int> { 45, 72, 88, 35, 60, 91, 48, 77 };
+PhanTichDiem(diem);
+// Kết quả mong đợi:
+// Trung bình: 64.5
+// Cao nhất: 91 | Thấp nhất: 35
+// Số đạt: 5/8 (62.5%)
+```
+
+---
+
+### Bài 3 — Đếm tần suất (Trung bình - Khá)
+
+Đếm số lần xuất hiện của mỗi từ trong một câu. Dùng `Dictionary<string, int>`.
+
+```csharp
+// Code starter
+Dictionary<string, int> DemTanSuat(string cauVan)
+{
+    var ketQua = new Dictionary<string, int>();
+    string[] tuNgu = cauVan.ToLower().Split(' ');
+
+    // TODO: dùng foreach để đếm
+    // Gợi ý: TryGetValue hoặc ContainsKey
+
+    return ketQua;
+}
+
+// Test
+var tanSuat = DemTanSuat("crm giup quan ly khach hang crm rat huu ich");
+foreach (var cap in tanSuat)
+    Console.WriteLine($"{cap.Key}: {cap.Value} lần");
+```
+
+---
+
+### Bài 4 — Hệ thống lead CRM mini (Nâng cao)
+
+Xây dựng chương trình quản lý lead đơn giản:
+
+```csharp
+// Yêu cầu:
+// 1. Tạo Dictionary<string, decimal> lưu tên lead và doanh thu ước tính
+// 2. Hàm ThemLead(string ten, decimal doanhThu)
+// 3. Hàm XemTatCaLead() — in ra bảng gồm tên, doanh thu, và phân loại (Hot/Warm/Cold)
+// 4. Hàm TongDoanhThu() — trả về tổng doanh thu của tất cả lead
+// 5. Hàm LocTheoLoai(string loai) — trả về danh sách lead theo loại
+
+// Tiêu chí phân loại:
+// Hot:  >= 100,000,000 VND
+// Warm: >= 20,000,000 VND
+// Cold: < 20,000,000 VND
+
+// Dữ liệu test:
+// ("Công ty Minh Phát", 150_000_000)
+// ("Startup GreenTech", 35_000_000)
+// ("Hộ kinh doanh Lan", 8_000_000)
+// ("Tập đoàn Bắc Nam", 500_000_000)
+// ("Cửa hàng Thuận Phát", 12_000_000)
+```
+
+**Gợi ý mở rộng:** Sau khi hoàn thành, thử thêm tính năng sắp xếp lead theo doanh thu giảm dần bằng `OrderByDescending`.
+
+---
+
+## Tóm Tắt
+
+Trong module này bạn đã học:
+
+- **Biến và kiểu dữ liệu:** Container chứa dữ liệu với kiểu rõ ràng. Dùng `decimal` cho tiền tệ, `var` khi kiểu hiển nhiên.
+- **Điều kiện:** `if/else` cho phân nhánh, `switch` khi nhiều trường hợp từ cùng biến. C# 8+ có `switch expression` gọn hơn.
+- **Vòng lặp:** `foreach` cho collection, `for` khi cần index, `while` khi điều kiện dừng phụ thuộc runtime.
+- **Hàm:** Đặt tên bằng PascalCase, bắt đầu bằng động từ, mỗi hàm làm một việc duy nhất.
+- **Collections:** `List<T>` cho danh sách linh hoạt, `Dictionary<K,V>` cho tra cứu nhanh O(1).
+- **Tư duy giải bài toán:** Hiểu đầu vào/ra → pseudocode → code → test edge cases.
+- **Big-O cơ bản:** O(1) hằng số, O(n) tuyến tính, O(n²) bậc hai. Tránh vòng lặp lồng nhau với dữ liệu lớn.
+
+Tất cả những khái niệm này sẽ xuất hiện liên tục trong các module tiếp theo khi bạn xây dựng CRM thật sự với C# và .NET.
+
+---
+
+## Quiz & Lab chấm điểm (100 điểm)
+
+**Cách dùng:** làm **Quiz** trước (không xem đáp án); **Lab** nộp link repo hoặc file `.zip` + ảnh chạy `dotnet run`. Tự chấm theo rubric; giảng viên/mentor có thể lấy lại ngẫu nhiên để vấn đáp.
+
+### Phần A — Quiz (20 điểm)
+
+Mỗi câu **4 điểm**. Chọn một đáp án đúng nhất.
+
+1. Kiểu nào **nên** dùng cho tiền tệ (giá hóa đơn CRM)?  
+   A. `double` B. `float` C. `decimal` D. `int`  
+   > **Đáp án:** C — `decimal` tránh sai số nhị phân của floating-point.
+
+2. Độ phức tạp truy cập phần tử theo key trong `Dictionary<TKey,TValue>` (trung bình)?  
+   A. O(n) B. O(log n) C. O(1) D. O(n²)  
+   > **Đáp án:** C — tra cứu băm trung bình O(1).
+
+3. Vòng lặp nào **phù hợp** khi cần cả **index** và phần tử của `List<T>`?  
+   A. `foreach` duy nhất B. `for` với index C. `while (true)` D. `do-while` không điều kiện  
+   > **Đáp án:** B — `for (int i = 0; i < list.Count; i++)`.
+
+4. `break` trong `switch` (C# cổ điển) dùng để?  
+   A. Thoát khỏi toàn bộ method B. Ngăn fall-through sang `case` kế C. Bỏ qua vòng lặp D. Throw exception  
+   > **Đáp án:** B — không `break` sẽ “rơi” xuống case dưới (trừ pattern mới).
+
+5. Big-O của hai vòng `for` lồng nhau duyệt toàn bộ ma trận `n × n`?  
+   A. O(n) B. O(n log n) C. O(n²) D. O(1)  
+   > **Đáp án:** C.
+
+### Phần B — Lab chấm điểm (80 điểm)
+
+| Tiêu chí | Điểm tối đa | Ghi chú |
+|----------|-------------|---------|
+| **Bài 1–3** trong module: chạy đúng, có xử lý edge (null/rỗng/giới hạn) | 30 | 10 điểm/bài — trừ nếu thiếu case |
+| **Bài 4 — Lead CRM mini**: đủ 5 hàm + phân loại Hot/Warm/Cold đúng quy tắc | 35 | Trừ 10 nếu không có `TongDoanhThu` hoặc `LocTheoLoai` |
+| Code sạch: tên hàm/biến rõ, không magic number (dùng `const`) | 10 | |
+| Ảnh màn hình hoặc log `dotnet run` + file `.cs` trong repo | 5 | |
+
+**Đạt:** ≥ 70/100. **Khá:** ≥ 85. **Giỏi:** ≥ 95 (có mở rộng sort lead như gợi ý).
+
+---
+
+## Tài Liệu Tham Khảo
+
+- [C# Documentation — Microsoft Learn](https://learn.microsoft.com/vi-vn/dotnet/csharp/) — Tài liệu chính thức, có phiên bản tiếng Việt
+- [C# Fundamentals for Absolute Beginners — Channel 9](https://learn.microsoft.com/en-us/shows/c-fundamentals-for-absolute-beginners/) — Video series miễn phí từ Microsoft
+- [roadmap.sh/backend](https://roadmap.sh/backend) — Lộ trình backend tổng quát, phần Computer Science fundamentals
+- [Big-O Cheat Sheet](https://www.bigocheatsheet.com/) — Bảng tra cứu Big-O của các cấu trúc dữ liệu và thuật toán phổ biến
+- **Sách:** *C# 12 and .NET 8 – Modern Cross-Platform Development* (Mark J. Price) — Cuốn sách thực hành tốt nhất cho người mới bắt đầu với .NET
+- **Sách:** *Clean Code* (Robert C. Martin) — Đọc sau khi nắm vững cú pháp, giúp bạn viết code dễ đọc và bảo trì

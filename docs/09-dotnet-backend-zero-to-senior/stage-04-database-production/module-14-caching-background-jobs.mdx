@@ -1,0 +1,948 @@
+---
+title: Module 14 — Caching + Background Jobs
+slug: dotnet-module-14-caching-background-jobs
+description: Redis, chiến lược cache, Hangfire, retry, queue; job nền cho CRM.
+sidebar_position: 3
+tags: [dotnet, redis, hangfire, background-jobs]
+keywords: [redis, hangfire, polly, message-bus]
+enableComments: true
+draft: false
+---
+
+import { SummaryBox } from '@site/src/components/SEO';
+
+<SummaryBox>
+Module này trang bị kỹ năng tối ưu hiệu năng CRM thông qua caching nhiều lớp (IMemoryCache, Redis, HybridCache) và xử lý tác vụ nền (Hangfire, Quartz.NET). Bạn sẽ nắm vững các chiến lược invalidation, retry với Polly, và hiểu vị trí của message bus trong kiến trúc hướng sự kiện.
+</SummaryBox>
+
+## Mục tiêu học tập
+
+Sau module này, học viên có thể:
+
+- Phân biệt các loại cache và chọn đúng loại cho từng tình huống CRM.
+- Implement `IMemoryCache` và `IDistributedCache` (Redis) với TTL, eviction policy.
+- Xử lý cache invalidation an toàn, tránh cache stampede.
+- Dùng HybridCache (.NET 9) kết hợp L1 + L2.
+- Tạo background job với Hangfire: fire-and-forget, delay, recurring.
+- So sánh Hangfire vs Quartz.NET, biết khi nào dùng cái nào.
+- Hiểu khái niệm message bus và vị trí của nó trước Module 17.
+- Áp dụng Polly cho retry, circuit breaker, timeout khi gọi external API.
+
+---
+
+## 1. Caching Fundamentals
+
+### Cache là gì và tại sao quan trọng?
+
+Cache là lớp lưu trữ tạm thời kết quả tính toán hoặc truy vấn tốn kém, giúp trả lời request sau nhanh hơn mà không cần tính lại.
+
+**Các khái niệm cốt lõi:**
+
+| Khái niệm | Giải thích |
+|-----------|------------|
+| **Cache Hit** | Request tìm thấy dữ liệu trong cache — trả về ngay |
+| **Cache Miss** | Không tìm thấy — phải truy vấn nguồn gốc (DB, API) |
+| **TTL (Time-To-Live)** | Thời gian cache còn hiệu lực trước khi bị xóa |
+| **Eviction** | Cache bị xóa do hết TTL, hết bộ nhớ, hoặc chủ động |
+| **Stale-While-Revalidate** | Trả về dữ liệu cũ trong khi làm mới ngầm ở background |
+| **Cache Invalidation** | Xóa hoặc cập nhật cache khi dữ liệu gốc thay đổi — **bài toán khó nhất** trong caching |
+
+> "There are only two hard things in Computer Science: cache invalidation and naming things." — Phil Karlton
+
+**Các loại cache trong hệ thống .NET:**
+
+| Loại | Ví dụ | Phạm vi | Tốc độ | Dùng khi |
+|------|-------|---------|--------|----------|
+| **In-Memory** | `IMemoryCache` | Process | Cực nhanh (~ns) | Dữ liệu tĩnh, single server |
+| **Distributed** | Redis, Memcached | Cluster | Nhanh (~ms) | Multi-instance, session, token |
+| **CDN** | Cloudflare, Azure CDN | Global | Nhanh theo vùng | Static assets, API response công khai |
+| **DB Query Cache** | EF Core 2nd-level cache | DB layer | Trung bình | Query phức tạp, đọc nhiều |
+
+---
+
+## 2. IMemoryCache
+
+`IMemoryCache` lưu dữ liệu trong RAM của process — phù hợp khi chạy single server hoặc cần tốc độ tối đa.
+
+### Setup
+
+```csharp
+// Program.cs
+builder.Services.AddMemoryCache(options =>
+{
+    options.SizeLimit = 1024; // Giới hạn tổng size (tùy đơn vị bạn định nghĩa)
+});
+```
+
+### GetOrCreate — pattern cơ bản
+
+```csharp
+public class PermissionService(IMemoryCache cache, AppDbContext db)
+{
+    private const string CacheKeyPrefix = "permissions_";
+
+    public async Task<List<string>> GetUserPermissionsAsync(int userId)
+    {
+        string cacheKey = $"{CacheKeyPrefix}{userId}";
+
+        return await cache.GetOrCreateAsync(cacheKey, async entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10);
+            entry.SlidingExpiration = TimeSpan.FromMinutes(2);
+            entry.Size = 1; // Mỗi entry tốn 1 đơn vị
+
+            // Priority: dữ liệu quan trọng không bị evict sớm
+            entry.Priority = CacheItemPriority.High;
+
+            return await db.UserPermissions
+                .Where(p => p.UserId == userId)
+                .Select(p => p.PermissionCode)
+                .ToListAsync();
+        }) ?? [];
+    }
+
+    // Chủ động invalidate khi permission thay đổi
+    public void InvalidateUserPermissions(int userId)
+    {
+        cache.Remove($"{CacheKeyPrefix}{userId}");
+    }
+}
+```
+
+### MemoryCacheEntryOptions chi tiết
+
+```csharp
+var options = new MemoryCacheEntryOptions
+{
+    // Hết hạn tuyệt đối sau 30 phút kể từ khi tạo
+    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30),
+
+    // Hết hạn nếu không được truy cập trong 5 phút
+    SlidingExpiration = TimeSpan.FromMinutes(5),
+
+    // Kích thước entry (dùng với SizeLimit)
+    Size = 1,
+
+    // Callback khi entry bị evict
+    PostEvictionCallbacks = {
+        new PostEvictionCallbackRegistration
+        {
+            EvictionCallback = (key, value, reason, state) =>
+                Console.WriteLine($"Cache evicted: {key}, reason: {reason}")
+        }
+    }
+};
+```
+
+### Cache dependency — ví dụ CRM Settings
+
+```csharp
+public class CrmSettingsService(IMemoryCache cache, IConfiguration config)
+{
+    public CrmSettings GetSettings()
+    {
+        return cache.GetOrCreate("crm_settings", entry =>
+        {
+            // Reload khi IConfiguration thay đổi (linked token)
+            var changeToken = config.GetReloadToken();
+            entry.AddExpirationToken(changeToken);
+
+            return new CrmSettings
+            {
+                MaxLeadsPerAgent = config.GetValue<int>("Crm:MaxLeadsPerAgent"),
+                EmailDigestEnabled = config.GetValue<bool>("Crm:EmailDigestEnabled")
+            };
+        })!;
+    }
+}
+```
+
+---
+
+## 3. IDistributedCache và Redis
+
+`IDistributedCache` là interface chuẩn cho distributed cache — không phụ thuộc Redis; có thể thay bằng SQL Server, NCache...
+
+### Setup Redis
+
+```csharp
+// Program.cs
+builder.Services.AddStackExchangeRedisCache(options =>
+{
+    options.Configuration = builder.Configuration.GetConnectionString("Redis");
+    // Ví dụ: "localhost:6379,password=secret,ssl=true"
+    options.InstanceName = "crm_"; // Prefix cho tất cả key
+});
+```
+
+### Serialize/Deserialize với System.Text.Json
+
+```csharp
+public static class DistributedCacheExtensions
+{
+    public static async Task SetAsync<T>(
+        this IDistributedCache cache,
+        string key,
+        T value,
+        DistributedCacheEntryOptions? options = null,
+        CancellationToken ct = default)
+    {
+        var json = JsonSerializer.SerializeToUtf8Bytes(value);
+        await cache.SetAsync(key, json, options ?? new(), ct);
+    }
+
+    public static async Task<T?> GetAsync<T>(
+        this IDistributedCache cache,
+        string key,
+        CancellationToken ct = default)
+    {
+        var bytes = await cache.GetAsync(key, ct);
+        return bytes is null ? default : JsonSerializer.Deserialize<T>(bytes);
+    }
+}
+```
+
+### Cache Patterns
+
+**Cache-Aside (Lazy Loading)** — pattern phổ biến nhất:
+
+```csharp
+public class CustomerCacheService(IDistributedCache cache, AppDbContext db)
+{
+    private static string CustomerListKey(int page) => $"customer_list_page_{page}";
+
+    public async Task<PagedResult<CustomerDto>> GetCustomersAsync(int page, int pageSize)
+    {
+        var key = CustomerListKey(page);
+        var cached = await cache.GetAsync<PagedResult<CustomerDto>>(key);
+        if (cached is not null) return cached;
+
+        // Cache miss — truy vấn DB
+        var result = await db.Customers
+            .OrderBy(c => c.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(c => new CustomerDto(c.Id, c.Name, c.Email))
+            .ToPagedResultAsync(page, pageSize);
+
+        await cache.SetAsync(key, result, new DistributedCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5)
+        });
+
+        return result;
+    }
+
+    // Invalidate khi có thay đổi
+    public async Task InvalidateCustomerListAsync()
+    {
+        // Xóa tất cả các page (hoặc dùng tag-based — xem Section 4)
+        for (int i = 1; i <= 10; i++)
+            await cache.RemoveAsync(CustomerListKey(i));
+    }
+}
+```
+
+**Token Blacklist — ví dụ thực tế CRM:**
+
+```csharp
+public class TokenBlacklistService(IDistributedCache cache)
+{
+    public async Task BlacklistTokenAsync(string jti, DateTimeOffset expiry)
+    {
+        var ttl = expiry - DateTimeOffset.UtcNow;
+        if (ttl <= TimeSpan.Zero) return;
+
+        await cache.SetStringAsync($"blacklist_{jti}", "1",
+            new DistributedCacheEntryOptions
+            {
+                AbsoluteExpiration = expiry
+            });
+    }
+
+    public async Task<bool> IsBlacklistedAsync(string jti)
+        => await cache.GetStringAsync($"blacklist_{jti}") is not null;
+}
+```
+
+---
+
+## 4. Cache Invalidation Strategies
+
+### Key-Based Invalidation
+
+Đơn giản nhất — xóa trực tiếp theo key khi dữ liệu thay đổi:
+
+```csharp
+// Sau khi update customer
+await cache.RemoveAsync($"customer_{customerId}");
+await InvalidateCustomerListAsync();
+```
+
+### Tag-Based Invalidation (HybridCache .NET 9)
+
+```csharp
+// Gán tag khi set cache
+await hybridCache.SetAsync("customer_123", customer,
+    new HybridCacheEntryOptions { Tags = ["customer", "customer_123"] });
+
+// Invalidate toàn bộ entry có tag "customer"
+await hybridCache.RemoveByTagAsync("customer");
+```
+
+### Event-Driven Invalidation
+
+Dùng Redis Pub/Sub để broadcast invalidation event ra tất cả các instance:
+
+```csharp
+// Publisher (khi có update)
+await redis.GetSubscriber().PublishAsync("cache:invalidate", $"customer_{id}");
+
+// Subscriber (trong mỗi instance)
+await redis.GetSubscriber().SubscribeAsync("cache:invalidate", (_, key) =>
+{
+    memoryCache.Remove(key.ToString()!);
+});
+```
+
+### Cache Stampede và SemaphoreSlim Double-Check
+
+Khi cache hết hạn, nhiều request đồng thời cùng truy vấn DB — gây quá tải:
+
+```csharp
+public class StampedeProtectedCache(IMemoryCache cache)
+{
+    private readonly SemaphoreSlim _lock = new(1, 1);
+
+    public async Task<T> GetOrCreateSafeAsync<T>(
+        string key,
+        Func<Task<T>> factory,
+        TimeSpan ttl)
+    {
+        // Lần 1: đọc không lock
+        if (cache.TryGetValue(key, out T? cached)) return cached!;
+
+        await _lock.WaitAsync();
+        try
+        {
+            // Lần 2: double-check sau khi có lock
+            if (cache.TryGetValue(key, out cached)) return cached!;
+
+            var value = await factory();
+            cache.Set(key, value, ttl);
+            return value;
+        }
+        finally
+        {
+            _lock.Release();
+        }
+    }
+}
+```
+
+> **Cache Poisoning:** Không bao giờ cache dữ liệu từ input người dùng mà chưa validate. Luôn sanitize key trước khi set vào cache.
+
+---
+
+## 5. HybridCache (.NET 9)
+
+HybridCache kết hợp L1 (in-process `IMemoryCache`) và L2 (Redis) trong một API thống nhất, đồng thời có **stampede protection** sẵn có.
+
+### Setup
+
+```csharp
+// Program.cs
+builder.Services.AddHybridCache(options =>
+{
+    options.MaximumPayloadBytes = 1_024 * 1_024; // 1 MB
+    options.DefaultEntryOptions = new HybridCacheEntryOptions
+    {
+        Expiration = TimeSpan.FromMinutes(5),
+        LocalCacheExpiration = TimeSpan.FromMinutes(1) // L1 ngắn hơn L2
+    };
+});
+// Redis vẫn cần được đăng ký như IDistributedCache
+builder.Services.AddStackExchangeRedisCache(o =>
+    o.Configuration = builder.Configuration.GetConnectionString("Redis"));
+```
+
+### Sử dụng
+
+```csharp
+public class ProductService(HybridCache hybridCache, AppDbContext db)
+{
+    public async Task<ProductDto?> GetProductAsync(int id, CancellationToken ct = default)
+    {
+        return await hybridCache.GetOrCreateAsync(
+            $"product_{id}",
+            async token => await db.Products
+                .Where(p => p.Id == id)
+                .Select(p => new ProductDto(p.Id, p.Name, p.Price))
+                .FirstOrDefaultAsync(token),
+            cancellationToken: ct);
+    }
+
+    public async Task InvalidateProductAsync(int id)
+        => await hybridCache.RemoveAsync($"product_{id}");
+}
+```
+
+**Ưu điểm HybridCache so với dùng riêng lẻ:**
+- L1 phục vụ hot data trong cùng process mà không qua network.
+- L2 đảm bảo consistency giữa nhiều instance.
+- Stampede protection: chỉ một goroutine gọi factory khi cache miss.
+- Tag-based invalidation hỗ trợ sẵn.
+
+---
+
+## 6. Background Jobs với Hangfire
+
+### Setup
+
+```csharp
+// Program.cs
+builder.Services.AddHangfire(config => config
+    .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+    .UseSimpleAssemblyNameTypeSerializer()
+    .UseRecommendedSerializerSettings()
+    .UsePostgreSqlStorage(builder.Configuration.GetConnectionString("Default")));
+
+builder.Services.AddHangfireServer(options =>
+{
+    options.WorkerCount = 5; // Số worker song song
+    options.Queues = ["critical", "default", "low"];
+});
+
+// ...
+app.UseHangfireDashboard("/hangfire", new DashboardOptions
+{
+    Authorization = [new HangfireAuthFilter()] // Bảo vệ dashboard
+});
+```
+
+### Các loại job
+
+```csharp
+public class CrmJobScheduler(IBackgroundJobClient jobClient, IRecurringJobManager recurringJobs)
+{
+    // Fire-and-forget: chạy ngay, không chờ kết quả
+    public void EnqueueWelcomeEmail(int customerId)
+    {
+        jobClient.Enqueue<IEmailService>(
+            email => email.SendWelcomeAsync(customerId));
+    }
+
+    // Delay: chạy sau 1 giờ
+    public void ScheduleFollowUp(int leadId)
+    {
+        jobClient.Schedule<ILeadService>(
+            lead => lead.SendFollowUpAsync(leadId),
+            TimeSpan.FromHours(1));
+    }
+
+    // Recurring: chạy định kỳ theo cron
+    public void RegisterDailyDigest()
+    {
+        recurringJobs.AddOrUpdate<IReportService>(
+            "daily-digest",
+            report => report.SendDailyDigestAsync(),
+            Cron.Daily(8, 0)); // 8:00 AM hàng ngày
+    }
+
+    // Continuation: chạy sau khi job khác hoàn thành
+    public void EnqueueLeadPipeline(int leadId)
+    {
+        var jobId = jobClient.Enqueue<ILeadService>(
+            lead => lead.ValidateLeadAsync(leadId));
+
+        jobClient.ContinueJobWith<ILeadService>(
+            jobId,
+            lead => lead.AssignToAgentAsync(leadId));
+    }
+}
+```
+
+### Ví dụ thực tế — Email reminder cho lead không liên hệ 7 ngày
+
+```csharp
+public class LeadReminderJob(AppDbContext db, IEmailService email, ILogger<LeadReminderJob> logger)
+{
+    [AutomaticRetry(Attempts = 3, DelaysInSeconds = [60, 300, 900])]
+    [Queue("default")]
+    public async Task SendRemindersAsync()
+    {
+        var cutoff = DateTime.UtcNow.AddDays(-7);
+
+        var staleLeads = await db.Leads
+            .Where(l => l.Status == LeadStatus.Open
+                     && l.LastContactedAt < cutoff
+                     && !l.ReminderSentAt.HasValue)
+            .Include(l => l.AssignedAgent)
+            .ToListAsync();
+
+        logger.LogInformation("Found {Count} stale leads to remind", staleLeads.Count);
+
+        foreach (var lead in staleLeads)
+        {
+            await email.SendAsync(new EmailMessage
+            {
+                To = lead.AssignedAgent.Email,
+                Subject = $"[CRM] Lead '{lead.Name}' chưa được liên hệ 7 ngày",
+                Body = $"Lead {lead.Name} ({lead.Email}) chưa được liên hệ kể từ {lead.LastContactedAt:dd/MM/yyyy}."
+            });
+
+            lead.ReminderSentAt = DateTime.UtcNow;
+        }
+
+        await db.SaveChangesAsync();
+    }
+}
+
+// Đăng ký recurring job khi ứng dụng khởi động
+public class HangfireStartupFilter(IRecurringJobManager jobs) : IStartupFilter
+{
+    public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next)
+        => app =>
+        {
+            jobs.AddOrUpdate<LeadReminderJob>(
+                "lead-reminder",
+                job => job.SendRemindersAsync(),
+                "0 9 * * *"); // 9:00 AM mỗi ngày
+            next(app);
+        };
+}
+```
+
+### Hangfire Dashboard Auth Filter
+
+```csharp
+public class HangfireAuthFilter : IDashboardAuthorizationFilter
+{
+    public bool Authorize(DashboardContext context)
+    {
+        var httpContext = context.GetHttpContext();
+        return httpContext.User.Identity?.IsAuthenticated == true
+            && httpContext.User.IsInRole("Admin");
+    }
+}
+```
+
+---
+
+## 7. Quartz.NET (Alternative Overview)
+
+### Khi nào dùng Quartz thay Hangfire?
+
+| Tiêu chí | Hangfire | Quartz.NET |
+|----------|----------|-----------|
+| **Lưu trữ job** | Database (SQL/Redis) | Database hoặc RAM |
+| **Dashboard** | Có sẵn | Cần tự build |
+| **Retry** | Tích hợp | Tự implement |
+| **Clustering** | Tốt | Rất tốt (built-in) |
+| **Job chaining** | Có | Có (Job listeners) |
+| **Trigger phức tạp** | Hạn chế | Mạnh (Calendar, Cron) |
+| **License** | LGPL (free) | Apache 2.0 |
+
+**Chọn Quartz khi:** Cần trigger phức tạp (lịch nghỉ, múi giờ), clustering cao cấp, hoặc không muốn overhead của Hangfire Dashboard.
+
+### Trigger Types trong Quartz
+
+```csharp
+// Simple Trigger: lặp lại N lần với khoảng cách cố định
+ITrigger simpleTrigger = TriggerBuilder.Create()
+    .WithSimpleSchedule(s => s
+        .WithIntervalInHours(1)
+        .RepeatForever())
+    .Build();
+
+// Cron Trigger: cú pháp cron đầy đủ
+ITrigger cronTrigger = TriggerBuilder.Create()
+    .WithCronSchedule("0 0 8 * * ?") // 8:00 AM mỗi ngày
+    .Build();
+
+// Calendar Interval: bỏ qua ngày lễ
+ITrigger calendarTrigger = TriggerBuilder.Create()
+    .WithCalendarIntervalSchedule(s => s
+        .WithIntervalInWeeks(1)
+        .SkipDayIfHourDoesNotExist(true))
+    .Build();
+```
+
+### Job Chaining với Listeners
+
+```csharp
+public class LeadSyncJobListener : IJobListener
+{
+    public string Name => "LeadSyncListener";
+
+    public Task JobWasExecuted(IJobExecutionContext context,
+        JobExecutionException? jobException, CancellationToken ct)
+    {
+        if (jobException is null)
+        {
+            // Trigger job tiếp theo
+            var nextJob = JobBuilder.Create<NotifyAgentJob>().Build();
+            var trigger = TriggerBuilder.Create().StartNow().Build();
+            context.Scheduler.ScheduleJob(nextJob, trigger, ct);
+        }
+        return Task.CompletedTask;
+    }
+    // ...
+}
+```
+
+---
+
+## 8. Message Bus Intro
+
+### Tại sao cần Message Bus?
+
+Khi hệ thống CRM phát triển, các service cần giao tiếp mà không cần biết nhau:
+
+- **Tight coupling problem:** `CustomerService` gọi thẳng `EmailService`, `CrmSyncService`, `AuditService` → mỗi lần thêm service mới phải sửa code.
+- **Message bus giải quyết:** Publish một event, các subscriber tự xử lý độc lập.
+
+```
+CustomerService ──► [CustomerCreated Event] ──► Message Bus
+                                                    ├──► EmailService (gửi welcome email)
+                                                    ├──► CrmSyncService (đồng bộ sang CRM)
+                                                    └──► AuditService (ghi audit log)
+```
+
+### MassTransit + RabbitMQ
+
+```csharp
+// Program.cs
+builder.Services.AddMassTransit(x =>
+{
+    x.AddConsumer<CustomerCreatedConsumer>();
+
+    x.UsingRabbitMq((ctx, cfg) =>
+    {
+        cfg.Host("rabbitmq://localhost", h =>
+        {
+            h.Username("guest");
+            h.Password("guest");
+        });
+        cfg.ConfigureEndpoints(ctx);
+    });
+});
+```
+
+**Publish event:**
+
+```csharp
+public class CustomerService(IPublishEndpoint publishEndpoint, AppDbContext db)
+{
+    public async Task<Customer> CreateCustomerAsync(CreateCustomerDto dto)
+    {
+        var customer = new Customer { Name = dto.Name, Email = dto.Email };
+        db.Customers.Add(customer);
+        await db.SaveChangesAsync();
+
+        // Publish event — không cần biết ai lắng nghe
+        await publishEndpoint.Publish(new CustomerCreatedEvent(
+            customer.Id, customer.Name, customer.Email));
+
+        return customer;
+    }
+}
+```
+
+**Consume event:**
+
+```csharp
+public record CustomerCreatedEvent(int CustomerId, string Name, string Email);
+
+public class CustomerCreatedConsumer(IEmailService email) : IConsumer<CustomerCreatedEvent>
+{
+    public async Task Consume(ConsumeContext<CustomerCreatedEvent> context)
+    {
+        await email.SendWelcomeAsync(context.Message.CustomerId);
+    }
+}
+```
+
+> Module này chỉ giới thiệu khái niệm. Module 17 sẽ đi sâu vào Saga, Outbox Pattern, và distributed transaction với MassTransit.
+
+---
+
+## 9. Idempotency và Retry
+
+### Idempotency Key
+
+Đảm bảo một operation được thực hiện đúng một lần dù retry nhiều lần:
+
+```csharp
+public class IdempotentEmailService(IDistributedCache cache, IEmailSender sender)
+{
+    public async Task SendAsync(string idempotencyKey, EmailMessage message)
+    {
+        var lockKey = $"email_sent_{idempotencyKey}";
+
+        // Kiểm tra đã gửi chưa
+        if (await cache.GetStringAsync(lockKey) is not null)
+        {
+            // Đã gửi rồi, bỏ qua
+            return;
+        }
+
+        await sender.SendAsync(message);
+
+        // Đánh dấu đã gửi — giữ 24h
+        await cache.SetStringAsync(lockKey, "1",
+            new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(24)
+            });
+    }
+}
+```
+
+### Polly — Retry, Circuit Breaker, Timeout
+
+```csharp
+// Program.cs — đăng ký policies
+builder.Services.AddResiliencePipeline("email-service", pipeline =>
+{
+    pipeline
+        // Retry 3 lần với exponential backoff
+        .AddRetry(new RetryStrategyOptions
+        {
+            MaxRetryAttempts = 3,
+            BackoffType = DelayBackoffType.Exponential,
+            Delay = TimeSpan.FromSeconds(1),
+            OnRetry = args =>
+            {
+                Console.WriteLine($"Retry {args.AttemptNumber}: {args.Outcome.Exception?.Message}");
+                return default;
+            }
+        })
+        // Circuit breaker: ngắt sau 5 lỗi trong 30 giây
+        .AddCircuitBreaker(new CircuitBreakerStrategyOptions
+        {
+            FailureRatio = 0.5,
+            SamplingDuration = TimeSpan.FromSeconds(30),
+            MinimumThroughput = 5,
+            BreakDuration = TimeSpan.FromSeconds(15)
+        })
+        // Timeout mỗi lần gọi
+        .AddTimeout(TimeSpan.FromSeconds(5));
+});
+```
+
+**Sử dụng trong service:**
+
+```csharp
+public class ExternalEmailService(
+    ResiliencePipelineProvider<string> pipelineProvider,
+    HttpClient http)
+{
+    public async Task<bool> SendAsync(EmailMessage message, CancellationToken ct = default)
+    {
+        var pipeline = pipelineProvider.GetPipeline("email-service");
+
+        return await pipeline.ExecuteAsync(async token =>
+        {
+            var response = await http.PostAsJsonAsync("/api/send", message, token);
+            response.EnsureSuccessStatusCode();
+            return true;
+        }, ct);
+    }
+}
+```
+
+**Đăng ký HttpClient với Polly:**
+
+```csharp
+builder.Services.AddHttpClient<ExternalEmailService>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["EmailService:BaseUrl"]!);
+    client.Timeout = TimeSpan.FromSeconds(30);
+})
+.AddResilienceHandler("email-service", pipeline =>
+{
+    pipeline.AddRetry(new RetryStrategyOptions<HttpResponseMessage>
+    {
+        ShouldHandle = new PredicateBuilder<HttpResponseMessage>()
+            .Handle<HttpRequestException>()
+            .HandleResult(r => r.StatusCode >= HttpStatusCode.InternalServerError),
+        MaxRetryAttempts = 3,
+        Delay = TimeSpan.FromSeconds(2)
+    });
+});
+```
+
+---
+
+## Thực hành
+
+### Bài 1: Redis Cache cho Customer List với TTL + Invalidation
+
+**Yêu cầu:**
+1. Setup Redis với `AddStackExchangeRedisCache`.
+2. Implement `CustomerCacheService` dùng Cache-Aside pattern, TTL 5 phút.
+3. Khi `UpdateCustomerAsync` được gọi, invalidate cache của trang có customer đó.
+4. Viết unit test mock `IDistributedCache`, kiểm tra cache hit không gọi DB.
+
+**Gợi ý:**
+
+```csharp
+public interface ICustomerCacheService
+{
+    Task<PagedResult<CustomerDto>> GetPageAsync(int page, int size);
+    Task InvalidateAsync(int customerId);
+}
+
+// Trong CustomerController:
+[HttpPut("{id}")]
+public async Task<IActionResult> UpdateCustomer(int id, UpdateCustomerDto dto)
+{
+    await _customerService.UpdateAsync(id, dto);
+    await _cacheService.InvalidateAsync(id); // Xóa cache sau update
+    return Ok();
+}
+```
+
+---
+
+### Bài 2: Hangfire Recurring Job — Email Digest Report hàng ngày cho Manager
+
+**Yêu cầu:**
+1. Setup Hangfire với PostgreSQL storage.
+2. Tạo `DailyDigestJob` chạy 8:00 AM mỗi ngày:
+   - Lấy số lead mới, số deal đóng, tổng doanh thu hôm qua.
+   - Gửi email tổng hợp cho tất cả Manager.
+3. Bảo vệ Hangfire Dashboard với role `Admin`.
+4. Test thủ công bằng cách trigger job từ Dashboard.
+
+**Gợi ý:**
+
+```csharp
+public class DailyDigestJob(AppDbContext db, IEmailService email)
+{
+    [AutomaticRetry(Attempts = 2)]
+    public async Task ExecuteAsync()
+    {
+        var yesterday = DateTime.UtcNow.Date.AddDays(-1);
+
+        var stats = new DigestStats
+        {
+            NewLeads = await db.Leads.CountAsync(l => l.CreatedAt.Date == yesterday),
+            ClosedDeals = await db.Deals.CountAsync(d => d.ClosedAt.HasValue
+                                                      && d.ClosedAt.Value.Date == yesterday),
+            Revenue = await db.Deals.Where(d => d.ClosedAt.HasValue
+                                             && d.ClosedAt.Value.Date == yesterday)
+                                    .SumAsync(d => d.Value)
+        };
+
+        var managers = await db.Users
+            .Where(u => u.Role == UserRole.Manager)
+            .Select(u => u.Email)
+            .ToListAsync();
+
+        foreach (var managerEmail in managers)
+            await email.SendDigestAsync(managerEmail, stats, yesterday);
+    }
+}
+```
+
+---
+
+### Bài 3: Retry Policy với Polly cho External HTTP Call
+
+**Yêu cầu:**
+1. Gọi external email service qua `HttpClient`.
+2. Cấu hình Polly pipeline: retry 3 lần (exponential backoff 1s, 2s, 4s), circuit breaker 5 lỗi → ngắt 15s, timeout 5s/request.
+3. Log ra mỗi lần retry và khi circuit breaker mở.
+4. Viết integration test với `WireMock.Net` mô phỏng server trả lỗi 500 rồi thành công ở lần 3.
+
+**Gợi ý kiểm tra circuit breaker:**
+
+```csharp
+// Khi circuit breaker mở, Polly ném BrokenCircuitException
+try
+{
+    await emailService.SendAsync(message);
+}
+catch (BrokenCircuitException)
+{
+    logger.LogWarning("Email service circuit breaker is OPEN. Queuing for later.");
+    await jobClient.Schedule<IEmailService>(
+        e => e.SendAsync(message), TimeSpan.FromMinutes(1));
+}
+```
+
+---
+
+## Tóm tắt
+
+| Công nghệ | Vai trò | Dùng khi |
+|-----------|---------|----------|
+| `IMemoryCache` | Cache L1, in-process | Single server, dữ liệu hot, tốc độ tối đa |
+| `IDistributedCache` + Redis | Cache L2, distributed | Multi-instance, session, token blacklist |
+| `HybridCache` (.NET 9) | L1 + L2 tích hợp | Khi cần cả hai, stampede protection |
+| Hangfire | Background jobs | Task đơn giản, cần Dashboard, retry tự động |
+| Quartz.NET | Scheduled jobs | Trigger phức tạp, clustering cao cấp |
+| MassTransit | Message bus | Decoupled events, publish-subscribe |
+| Polly | Resilience | Retry, circuit breaker, timeout cho external call |
+
+**Nguyên tắc quan trọng:**
+- Cache invalidation là bài toán khó — hãy thiết kế TTL hợp lý thay vì invalidate thủ công khi có thể.
+- Background job phải **idempotent** — chạy lại nhiều lần không gây lỗi.
+- Circuit breaker bảo vệ hệ thống khi service ngoài gặp sự cố — không để lỗi cascade.
+- Message bus giải phóng tight coupling — publisher không cần biết consumer.
+
+---
+
+## Quiz & Lab chấm điểm (100 điểm)
+
+### Phần A — Quiz (20 điểm)
+
+Mỗi câu **4 điểm**.
+
+1. Cache-aside pattern: miss cache thì?  
+   A. Trả 404 B. Đọc DB → set cache → trả C. Xóa DB D. Restart app  
+   > **Đáp án:** B.
+
+2. Job idempotent nghĩa là?  
+   A. Chạy 1 lần duy nhất B. Chạy lặp không làm hỏng dữ liệu (an toàn retry) C. Không cần log D. Luôn sync  
+   > **Đáp án:** B.
+
+3. Circuit breaker mở khi?  
+   A. CPU 100% B. Lỗi vượt ngưỡng — từ chối gọi downstream tạm thời C. Deploy mới D. GC gen0  
+   > **Đáp án:** B.
+
+4. `IDistributedCache` khác `IMemoryCache` ở?  
+   A. Giống hệt B. Share giữa nhiều instance (Redis SQL…) C. Chỉ cho struct D. Không dùng trong ASP.NET  
+   > **Đáp án:** B.
+
+5. Hangfire recurring job cần lưu ý?  
+   A. Không cần storage B. Cần persistence (SQL/Redis) để schedule survive restart C. Chỉ chạy trong RAM một máy D. Thay thế Kestrel  
+   > **Đáp án:** B.
+
+### Phần B — Lab chấm điểm (80 điểm)
+
+| Tiêu chí | Điểm | Ghi chú |
+|----------|------|---------|
+| API + `IMemoryCache` hoặc Redis `IDistributedCache` cho 1 read nặng | 25 | |
+| Hosted service hoặc Hangfire/Quartz: job định kỳ + log | 25 | |
+| Job idempotent: chứng minh chạy 2 lần không duplicate business | 15 | |
+| Polly retry hoặc circuit cho HttpClient gọi API ngoài giả | 10 | |
+| README: TTL + chiến lược invalidation | 5 | |
+
+**Đạt:** ≥ 70. **Khá:** ≥ 85 + Redis docker-compose. **Giỏi:** ≥ 95 + outbox-lite (bảng + worker) mô tả.
+
+---
+
+## Tài liệu tham khảo
+
+- [IMemoryCache — Microsoft Docs](https://docs.microsoft.com/aspnet/core/performance/caching/memory)
+- [IDistributedCache — Microsoft Docs](https://docs.microsoft.com/aspnet/core/performance/caching/distributed)
+- [HybridCache .NET 9 — Microsoft Blog](https://devblogs.microsoft.com/dotnet/hybrid-cache-library-and-patterns-for-dotnet)
+- [Hangfire Documentation](https://docs.hangfire.io)
+- [Quartz.NET Documentation](https://www.quartz-scheduler.net/documentation)
+- [MassTransit Documentation](https://masstransit.io/documentation)
+- [Polly — Microsoft.Extensions.Resilience](https://learn.microsoft.com/dotnet/core/resilience/http-resilience)
+- [StackExchange.Redis](https://stackexchange.github.io/StackExchange.Redis)
+- [Cache-Aside Pattern — Azure Architecture Center](https://learn.microsoft.com/azure/architecture/patterns/cache-aside)
