@@ -1,0 +1,825 @@
+---
+title: "Project 2 — CRM Backend API"
+slug: dotnet-project-02-crm-backend-api
+description: "Project CRM Backend API: aggregate roots, use cases, authZ, SignalR hooks — API production-shaped cho miền khách hàng và cơ hội bán hàng."
+sidebar_position: 5
+tags:
+  - crm-backend
+  - capstone
+  - aspnet-core-api
+  - domain-services
+  - enterprise-integration
+keywords:
+  - CRM REST API
+  - sales opportunity domain
+  - customer aggregate
+  - authorization policies CRM
+  - real-time CRM notifications
+enableComments: true
+draft: false
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+<SummaryBox title="Tóm tắt (abstract)">
+
+**Abstract (capstone).** Tích hợp **Stage 3** thành backend CRM: ranh giới bounded context, use case layer, bảo mật theo vai trò và kênh **thời gian thực** — mô phỏng **đặc tả triển khai** gần với sản phẩm thương mại.
+
+</SummaryBox>
+<HiddenContent>
+
+<!-- geoseo-curriculum-nav -->
+
+## Liên kết điều phối (curriculum graph)
+
+- **Hub lộ trình**: [00. Lộ trình From Zero → Senior .NET (Backend-first)](../roadmap-dotnet-backend-zero-to-senior.mdx)
+- **Chương trước**: [Module 11 — SignalR](module-11-signalr.mdx)
+- **Chương tiếp theo**: [Module 12 — SQL Deep Dive](../stage-04-database-production/module-12-sql-deep-dive.mdx)
+
+## Tham chiếu có thẩm quyền (E‑E‑A‑T / retrieval)
+
+Danh sách sau ưu tiên **tài liệu gốc** (Microsoft Learn, đặc tả hệ sinh thái .NET) nhằm tăng **độ tin cậy trích dẫn** và hỗ trợ **công cụ tìm kiếm / tác tử AI** (RAG, overview synthesis).
+
+- [.NET documentation — Microsoft Learn](https://learn.microsoft.com/dotnet/)
+- [ASP.NET Core documentation](https://learn.microsoft.com/aspnet/core/)
+- [ASP.NET Core Developer roadmap — roadmap.sh](https://roadmap.sh/aspnet-core)
+- [Minimal APIs overview](https://learn.microsoft.com/aspnet/core/fundamentals/minimal-apis)
+
+## Từ khóa chỉ mục (semantic hooks)
+
+Các thẻ `tags` / `keywords` trong frontmatter của trang này được chọn để **đồng nhất ngữ nghĩa** với chủ đề chương và với **đồ thị nội bộ** của giáo trình — hỗ trợ khám phá theo chủ đề và câu hỏi dạng *"học .NET backend theo lộ trình nào?"*.
+
+</HiddenContent>
+
+## 1. Tổng quan dự án
+
+**CRM Backend API v1** là hệ thống quản lý quan hệ khách hàng (Customer Relationship Management) tập trung vào ba nghiệp vụ cốt lõi: quản lý khách hàng tiềm năng (Lead), khách hàng chính thức (Customer), và đầu mối liên hệ (Contact). Hệ thống hỗ trợ phân quyền theo vai trò, notification real-time khi có sự kiện quan trọng, và audit trail đầy đủ.
+
+### Mapping Module → Feature
+
+| Module | Nội dung | Feature trong Project 2 |
+|--------|----------|--------------------------|
+| Module 8 | REST API, Routing, Middleware | Toàn bộ endpoint CRUD, global error handler, request logging |
+| Module 9 | JWT Auth, Identity | Login/Register, refresh token, role-based access (`Admin`, `SalesRep`) |
+| Module 10 | Authorization nâng cao | SalesRep chỉ thấy Customer của mình (resource-based auth), Policy |
+| Module 11 | SignalR, Real-time | Notification đẩy tới SalesRep khi có Lead mới được assign |
+
+---
+
+## 2. Mục tiêu học tập
+
+Sau khi hoàn thành Project 2, học viên có thể:
+
+1. **Thiết kế REST API** theo chuẩn RESTful với đầy đủ HTTP verb, status code, và ProblemDetails response.
+2. **Triển khai JWT authentication** với access token + refresh token, xử lý token rotation và revocation.
+3. **Áp dụng resource-based authorization** để giới hạn dữ liệu theo từng người dùng (SalesRep chỉ xem Customer của mình).
+4. **Xây dựng state machine** cho Lead status, đảm bảo chuyển trạng thái hợp lệ và ghi audit log.
+5. **Tích hợp SignalR** để gửi notification real-time khi có sự kiện nghiệp vụ (Lead được assign, trạng thái thay đổi).
+6. **Viết integration test** cho auth flow và CRUD operations, cùng unit test cho service layer.
+7. **Tổ chức codebase theo 3-layer architecture** sạch sẽ, dễ mở rộng, tuân thủ SOLID principles.
+
+---
+
+## 3. Domain Overview
+
+### Các Entity chính
+
+| Entity | Mô tả | Quan hệ |
+|--------|-------|---------|
+| `User` | Người dùng hệ thống (Admin / SalesRep) | Sở hữu nhiều Customer, Lead |
+| `Customer` | Khách hàng chính thức | Có nhiều Contact, Lead |
+| `Lead` | Khách hàng tiềm năng | Thuộc Customer hoặc độc lập; assign cho User |
+| `Contact` | Đầu mối liên hệ của Customer | Thuộc một Customer |
+| `Notification` | Thông báo hệ thống | Gửi tới một User cụ thể |
+
+### ERD (đơn giản)
+
+```
+User
+ ├── id (PK)
+ ├── email
+ ├── passwordHash
+ ├── role  (Admin | SalesRep)
+ └── [...]
+
+Customer
+ ├── id (PK)
+ ├── name
+ ├── email
+ ├── phone
+ ├── industry
+ ├── ownerId (FK → User)
+ ├── isDeleted
+ ├── createdBy, updatedBy
+ └── createdAt, updatedAt
+
+Lead
+ ├── id (PK)
+ ├── title
+ ├── value (decimal)
+ ├── status  (New | Contacted | Qualified | Converted | Lost)
+ ├── customerId (FK → Customer, nullable)
+ ├── assignedToId (FK → User)
+ ├── isDeleted
+ └── [audit fields]
+
+Contact
+ ├── id (PK)
+ ├── fullName
+ ├── email
+ ├── phone
+ ├── position
+ ├── customerId (FK → Customer)
+ └── [audit fields]
+
+Notification
+ ├── id (PK)
+ ├── userId (FK → User)
+ ├── message
+ ├── isRead
+ ├── createdAt
+ └── referenceId (nullable, dùng cho deep-link)
+```
+
+---
+
+## 4. API Endpoints đầy đủ
+
+### Auth
+
+| Method | Endpoint | Mô tả | Auth |
+|--------|----------|-------|------|
+| POST | `/api/auth/register` | Đăng ký tài khoản mới | Public |
+| POST | `/api/auth/login` | Đăng nhập, trả về access + refresh token | Public |
+| POST | `/api/auth/refresh-token` | Làm mới access token | Public (refresh token) |
+| POST | `/api/auth/logout` | Thu hồi refresh token hiện tại | Bearer |
+
+### Customers
+
+| Method | Endpoint | Mô tả | Auth |
+|--------|----------|-------|------|
+| GET | `/api/customers` | Danh sách (phân trang, filter theo `name`, `industry`) | Bearer |
+| GET | `/api/customers/{id}` | Chi tiết Customer | Bearer |
+| POST | `/api/customers` | Tạo mới | Bearer |
+| PUT | `/api/customers/{id}` | Cập nhật toàn bộ | Bearer |
+| PATCH | `/api/customers/{id}` | Cập nhật một phần | Bearer |
+| DELETE | `/api/customers/{id}` | Soft delete | Bearer |
+
+### Leads
+
+| Method | Endpoint | Mô tả | Auth |
+|--------|----------|-------|------|
+| GET | `/api/leads` | Danh sách (phân trang, filter theo `status`, `assignedTo`) | Bearer |
+| GET | `/api/leads/{id}` | Chi tiết | Bearer |
+| POST | `/api/leads` | Tạo mới | Bearer |
+| PUT | `/api/leads/{id}` | Cập nhật | Bearer |
+| DELETE | `/api/leads/{id}` | Soft delete | Bearer |
+| POST | `/api/leads/{id}/assign` | Assign Lead cho SalesRep | Admin |
+| POST | `/api/leads/{id}/status` | Chuyển trạng thái (state machine) | Bearer |
+
+### Contacts
+
+| Method | Endpoint | Mô tả | Auth |
+|--------|----------|-------|------|
+| GET | `/api/customers/{customerId}/contacts` | Danh sách Contact của Customer | Bearer |
+| GET | `/api/customers/{customerId}/contacts/{id}` | Chi tiết | Bearer |
+| POST | `/api/customers/{customerId}/contacts` | Tạo mới Contact | Bearer |
+| PUT | `/api/customers/{customerId}/contacts/{id}` | Cập nhật | Bearer |
+| DELETE | `/api/customers/{customerId}/contacts/{id}` | Xóa | Bearer |
+
+### Notifications
+
+| Method | Endpoint | Mô tả | Auth |
+|--------|----------|-------|------|
+| GET | `/api/notifications` | Danh sách (chỉ của user hiện tại) | Bearer |
+| POST | `/api/notifications/{id}/read` | Đánh dấu một notification là đã đọc | Bearer |
+| POST | `/api/notifications/read-all` | Đánh dấu tất cả đã đọc | Bearer |
+
+---
+
+## 5. Kiến trúc đề xuất
+
+### Folder Structure
+
+```
+CrmApi/
+├── Controllers/
+│   ├── AuthController.cs
+│   ├── CustomersController.cs
+│   ├── LeadsController.cs
+│   ├── ContactsController.cs
+│   └── NotificationsController.cs
+│
+├── Services/
+│   ├── Interfaces/
+│   │   ├── IAuthService.cs
+│   │   ├── ICustomerService.cs
+│   │   ├── ILeadService.cs
+│   │   ├── IContactService.cs
+│   │   └── INotificationService.cs
+│   ├── AuthService.cs
+│   ├── CustomerService.cs
+│   ├── LeadService.cs
+│   ├── ContactService.cs
+│   └── NotificationService.cs
+│
+├── Repositories/
+│   ├── Interfaces/
+│   │   ├── ICustomerRepository.cs
+│   │   └── ILeadRepository.cs
+│   └── CustomerRepository.cs
+│   └── LeadRepository.cs
+│
+├── Models/
+│   ├── Entities/
+│   │   ├── User.cs
+│   │   ├── Customer.cs
+│   │   ├── Lead.cs
+│   │   ├── Contact.cs
+│   │   └── Notification.cs
+│   └── Enums/
+│       ├── UserRole.cs
+│       └── LeadStatus.cs
+│
+├── DTOs/
+│   ├── Auth/
+│   │   ├── LoginRequestDto.cs
+│   │   ├── RegisterRequestDto.cs
+│   │   └── TokenResponseDto.cs
+│   ├── Customer/
+│   │   ├── CreateCustomerDto.cs
+│   │   ├── UpdateCustomerDto.cs
+│   │   └── CustomerResponseDto.cs
+│   ├── Lead/
+│   │   ├── CreateLeadDto.cs
+│   │   ├── LeadResponseDto.cs
+│   │   └── ChangeLeadStatusDto.cs
+│   └── Common/
+│       └── PagedResult.cs
+│
+├── Hubs/
+│   └── NotificationHub.cs
+│
+├── Middleware/
+│   ├── ExceptionHandlingMiddleware.cs
+│   └── RequestLoggingMiddleware.cs
+│
+├── Data/
+│   └── AppDbContext.cs
+│
+└── Program.cs
+```
+
+**Giải thích từng tầng:**
+
+- **Controllers**: Chỉ xử lý HTTP — parse request, validate, gọi service, trả response. Không chứa business logic.
+- **Services**: Toàn bộ business logic, state machine, gọi notification. Phụ thuộc vào Repository interface.
+- **Repositories**: Truy vấn database (EF Core). Mỏng — chủ yếu là LINQ query và pagination.
+- **Models/Entities**: Plain class, mapping với database. Kế thừa `BaseEntity` để có audit fields.
+- **DTOs**: Tách biệt hoàn toàn với Entity — không bao giờ trả Entity trực tiếp từ API.
+- **Hubs**: SignalR hub, xác thực người dùng qua JWT claim khi kết nối.
+- **Middleware**: Cross-cutting concerns — log request, bắt exception chưa xử lý và format ProblemDetails.
+
+---
+
+## 6. Domain Models và DTOs
+
+### Base Entity
+
+```csharp
+public abstract class BaseEntity
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? UpdatedAt { get; set; }
+    public string CreatedBy { get; set; } = string.Empty;
+    public string? UpdatedBy { get; set; }
+    public bool IsDeleted { get; set; } = false;
+}
+```
+
+### User Entity
+
+```csharp
+public class User : BaseEntity
+{
+    public string Email { get; set; } = string.Empty;
+    public string PasswordHash { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public UserRole Role { get; set; } = UserRole.SalesRep;
+    public string? RefreshToken { get; set; }
+    public DateTime? RefreshTokenExpiresAt { get; set; }
+
+    public ICollection<Customer> OwnedCustomers { get; set; } = [];
+    public ICollection<Lead> AssignedLeads { get; set; } = [];
+    public ICollection<Notification> Notifications { get; set; } = [];
+}
+
+public enum UserRole { Admin, SalesRep }
+```
+
+### Customer Entity
+
+```csharp
+public class Customer : BaseEntity
+{
+    public string Name { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string? Phone { get; set; }
+    public string? Industry { get; set; }
+    public string? Address { get; set; }
+
+    public Guid OwnerId { get; set; }
+    public User Owner { get; set; } = null!;
+
+    public ICollection<Contact> Contacts { get; set; } = [];
+    public ICollection<Lead> Leads { get; set; } = [];
+}
+```
+
+### Lead Entity
+
+```csharp
+public class Lead : BaseEntity
+{
+    public string Title { get; set; } = string.Empty;
+    public decimal? Value { get; set; }
+    public LeadStatus Status { get; set; } = LeadStatus.New;
+    public string? Notes { get; set; }
+
+    public Guid? CustomerId { get; set; }
+    public Customer? Customer { get; set; }
+
+    public Guid? AssignedToId { get; set; }
+    public User? AssignedTo { get; set; }
+}
+
+public enum LeadStatus
+{
+    New,
+    Contacted,
+    Qualified,
+    Converted,
+    Lost
+}
+```
+
+### Contact Entity
+
+```csharp
+public class Contact : BaseEntity
+{
+    public string FullName { get; set; } = string.Empty;
+    public string? Email { get; set; }
+    public string? Phone { get; set; }
+    public string? Position { get; set; }
+
+    public Guid CustomerId { get; set; }
+    public Customer Customer { get; set; } = null!;
+}
+```
+
+### Notification Entity
+
+```csharp
+public class Notification
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid UserId { get; set; }
+    public User User { get; set; } = null!;
+    public string Message { get; set; } = string.Empty;
+    public bool IsRead { get; set; } = false;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public Guid? ReferenceId { get; set; }   // deep-link tới Lead/Customer
+}
+```
+
+### Key DTOs
+
+```csharp
+// Auth
+public record LoginRequestDto(
+    [Required, EmailAddress] string Email,
+    [Required, MinLength(6)] string Password
+);
+
+public record RegisterRequestDto(
+    [Required, EmailAddress] string Email,
+    [Required, MinLength(6)] string Password,
+    [Required] string FullName,
+    UserRole Role = UserRole.SalesRep
+);
+
+public record TokenResponseDto(
+    string AccessToken,
+    string RefreshToken,
+    DateTime ExpiresAt
+);
+
+// Customer
+public record CreateCustomerDto(
+    [Required, MaxLength(200)] string Name,
+    [Required, EmailAddress] string Email,
+    [Phone] string? Phone,
+    [MaxLength(100)] string? Industry,
+    string? Address
+);
+
+public record CustomerResponseDto(
+    Guid Id,
+    string Name,
+    string Email,
+    string? Phone,
+    string? Industry,
+    string OwnerName,
+    DateTime CreatedAt
+);
+
+// Lead
+public record CreateLeadDto(
+    [Required, MaxLength(300)] string Title,
+    decimal? Value,
+    string? Notes,
+    Guid? CustomerId
+);
+
+public record ChangeLeadStatusDto(
+    [Required] LeadStatus NewStatus,
+    string? Reason
+);
+
+// Common Pagination
+public record PagedResult<T>(
+    IEnumerable<T> Items,
+    int TotalCount,
+    int Page,
+    int PageSize
+)
+{
+    public int TotalPages => (int)Math.Ceiling((double)TotalCount / PageSize);
+    public bool HasNextPage => Page < TotalPages;
+    public bool HasPreviousPage => Page > 1;
+}
+```
+
+---
+
+## 7. Key Implementation Notes
+
+### 7.1 JWT Setup (step-by-step)
+
+Đây là tổng hợp JWT từ Module 9 — bạn tự implement theo các bước:
+
+1. **Cài package**: `Microsoft.AspNetCore.Authentication.JwtBearer`
+2. **Cấu hình `appsettings.json`**:
+   ```json
+   "JwtSettings": {
+     "SecretKey": "your-256-bit-secret-here",
+     "Issuer": "CrmApi",
+     "Audience": "CrmApiUsers",
+     "AccessTokenExpiryMinutes": 15,
+     "RefreshTokenExpiryDays": 7
+   }
+   ```
+3. **Đăng ký authentication** trong `Program.cs` với `AddJwtBearer`, cấu hình `TokenValidationParameters`.
+4. **`ITokenService`**: method `GenerateAccessToken(User user)` dùng `JwtSecurityTokenHandler`, thêm claims: `sub`, `email`, `role`, `jti`.
+5. **Refresh token**: lưu vào cột `RefreshToken` (hashed) + `RefreshTokenExpiresAt` trong bảng `User`. Khi client gọi `/refresh-token`, kiểm tra refresh token còn hạn và chưa bị thu hồi, cấp access token mới.
+6. **Logout**: xóa (null) `RefreshToken` trong database — đơn giản và hiệu quả.
+
+> **Lưu ý bảo mật**: Không lưu refresh token dạng plain text. Hash bằng `SHA-256` trước khi lưu; khi verify, hash token nhận được rồi so sánh.
+
+### 7.2 Lead State Machine
+
+Lead status tuân theo sơ đồ chuyển trạng thái nghiêm ngặt:
+
+```
+New ──► Contacted ──► Qualified ──► Converted
+  │                              │
+  └──────────────────────────────► Lost
+```
+
+**Triển khai:**
+
+Tạo một `Dictionary<LeadStatus, LeadStatus[]>` ánh xạ trạng thái hiện tại → các trạng thái được phép chuyển tới:
+
+```csharp
+private static readonly Dictionary<LeadStatus, LeadStatus[]> AllowedTransitions = new()
+{
+    [LeadStatus.New]       = [LeadStatus.Contacted, LeadStatus.Lost],
+    [LeadStatus.Contacted] = [LeadStatus.Qualified, LeadStatus.Lost],
+    [LeadStatus.Qualified] = [LeadStatus.Converted, LeadStatus.Lost],
+    [LeadStatus.Converted] = [],   // terminal state
+    [LeadStatus.Lost]      = [],   // terminal state
+};
+```
+
+Trong `LeadService.ChangeStatusAsync()`: kiểm tra chuyển trạng thái hợp lệ, nếu không ném `InvalidOperationException` (sẽ được bắt bởi middleware và format thành ProblemDetails 422). Sau khi chuyển trạng thái thành công, ghi audit log vào bảng `AuditLog` hoặc thêm vào `Notes` với timestamp.
+
+### 7.3 Notification Flow khi Lead được Assign
+
+Khi Admin gọi `POST /api/leads/{id}/assign`:
+
+1. `LeadController` nhận request, gọi `LeadService.AssignLeadAsync(leadId, salesRepId)`.
+2. `LeadService` cập nhật `Lead.AssignedToId`, lưu database.
+3. `LeadService` gọi `NotificationService.CreateAndSendAsync(userId, message, referenceId)`.
+4. `NotificationService` tạo bản ghi `Notification` trong database.
+5. `NotificationService` gọi `IHubContext<NotificationHub>` để push real-time:
+   ```csharp
+   await _hubContext.Clients
+       .User(userId.ToString())
+       .SendAsync("ReceiveNotification", notificationDto);
+   ```
+6. Client (web/mobile) nhận event `ReceiveNotification` qua kết nối SignalR.
+
+**Yêu cầu cho SignalR Hub:**
+
+- Thêm `[Authorize]` lên `NotificationHub`.
+- Dùng `IUserIdProvider` tùy chỉnh để map claim `sub` trong JWT thành connection userId.
+- Đăng ký `AddSignalR()` và map hub tại `/hubs/notifications`.
+
+### 7.4 Resource-Based Authorization (SalesRep chỉ thấy Customer của mình)
+
+Không dùng `[Authorize(Roles = "...")]` đơn thuần — dùng resource-based authorization:
+
+1. Tạo `CustomerAuthorizationHandler : AuthorizationHandler<SameOwnerRequirement, Customer>`.
+2. Trong handler, lấy `userId` từ `context.User`, so sánh với `resource.OwnerId`.
+3. Đăng ký requirement và handler trong `Program.cs`.
+4. Trong `CustomerService`, sau khi lấy Customer từ DB, gọi:
+   ```csharp
+   var authResult = await _authorizationService
+       .AuthorizeAsync(user, customer, "SameOwnerPolicy");
+   if (!authResult.Succeeded)
+       throw new ForbiddenException();
+   ```
+5. Admin bypass bằng cách check role trước trong handler.
+
+---
+
+## 8. Yêu cầu kỹ thuật
+
+### Validation
+
+- Dùng `DataAnnotations` trên DTO kết hợp với `[ApiController]` để tự động trả 400 + ProblemDetails khi validation thất bại.
+- Với logic phức tạp (ví dụ: email đã tồn tại), ném `ValidationException` trong service layer và bắt tại middleware.
+
+### ProblemDetails chuẩn RFC 7807
+
+Tất cả lỗi phải trả về dạng:
+```json
+{
+  "type": "https://tools.ietf.org/html/rfc7807",
+  "title": "Validation Error",
+  "status": 400,
+  "detail": "Email đã được sử dụng.",
+  "traceId": "0HMVBCA0ERQFD:00000001"
+}
+```
+
+Cấu hình trong `Program.cs`:
+```csharp
+builder.Services.AddProblemDetails();
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+        new UnprocessableEntityObjectResult(/* custom ProblemDetails */);
+});
+```
+
+### Audit Fields
+
+Mọi entity kế thừa `BaseEntity` đều có `CreatedBy`, `UpdatedBy`, `CreatedAt`, `UpdatedAt`. Tự động điền trong `AppDbContext.SaveChangesAsync()`:
+
+```csharp
+// Override SaveChangesAsync trong AppDbContext
+// Lấy current user từ IHttpContextAccessor
+// Gán CreatedBy/UpdatedBy/UpdatedAt cho các entry bị thêm/sửa
+```
+
+### Soft Delete
+
+Không dùng `DELETE` xóa vật lý. Set `IsDeleted = true` và lọc trong query:
+
+```csharp
+// Global query filter trong AppDbContext
+modelBuilder.Entity<Customer>().HasQueryFilter(c => !c.IsDeleted);
+modelBuilder.Entity<Lead>().HasQueryFilter(l => !l.IsDeleted);
+```
+
+---
+
+## 9. Testing Requirements
+
+### Integration Tests (bắt buộc)
+
+Dùng `WebApplicationFactory<Program>` + in-memory database:
+
+- **Auth flow**: Register → Login → nhận token → gọi protected endpoint → Refresh → Logout → gọi lại bị 401.
+- **Customer CRUD**: tạo, đọc, cập nhật, soft delete, đảm bảo bản ghi không xuất hiện trong GET list sau khi delete.
+- **Lead state machine**: thử chuyển trạng thái hợp lệ và không hợp lệ, kiểm tra response code và message.
+- **Authorization**: SalesRep A không thể đọc Customer của SalesRep B (expect 403).
+
+### Unit Tests
+
+Service layer phải được test độc lập (mock Repository):
+
+- `LeadService.ChangeStatusAsync` — test tất cả transition hợp lệ/không hợp lệ.
+- `AuthService.LoginAsync` — test email không tồn tại, sai mật khẩu, tài khoản bị khóa.
+- `CustomerService.GetByIdAsync` — test resource-based auth pass/fail.
+
+### Postman Collection
+
+Export collection JSON có ít nhất:
+
+- Folder **Auth**: 4 request (register, login, refresh, logout) với test script kiểm tra status code và lưu token vào environment variable.
+- Folder **Customers**: 6 request với pre-request script tự động attach Bearer token.
+- Folder **Leads**: 7 request, bao gồm assign và đổi status.
+
+---
+
+## 10. Bonus Features
+
+Hoàn thành các yêu cầu cơ bản xong, có thể nâng cấp để demo ấn tượng hơn:
+
+### Bulk Import từ CSV
+
+- `POST /api/customers/import` nhận file `.csv` (multipart/form-data).
+- Parse bằng `CsvHelper` hoặc thủ công, validate từng dòng.
+- Trả về kết quả: số dòng thành công, danh sách dòng lỗi kèm lý do.
+- Dùng `IFormFile` và xử lý bất đồng bộ để không block thread.
+
+### Export Báo cáo
+
+- `GET /api/reports/leads?from=2024-01-01&to=2024-12-31` trả về file Excel hoặc CSV.
+- Dùng `ClosedXML` (Excel) hoặc viết CSV thủ công với `StreamWriter`.
+- Set header `Content-Disposition: attachment; filename="leads-report.xlsx"`.
+
+### Dashboard Endpoint
+
+```
+GET /api/dashboard
+```
+
+Response mẫu:
+```json
+{
+  "totalCustomers": 142,
+  "totalLeads": 87,
+  "leadsByStatus": {
+    "New": 20, "Contacted": 18, "Qualified": 15,
+    "Converted": 30, "Lost": 4
+  },
+  "conversionRate": 0.345,
+  "myOpenLeads": 12
+}
+```
+
+Dữ liệu thay đổi tùy role: Admin thấy toàn hệ thống, SalesRep chỉ thấy của mình.
+
+---
+
+## 11. Checklist nộp bài
+
+### Kiến trúc & Code Quality
+
+- [ ] Folder structure tuân theo 3-layer như đề xuất
+- [ ] Không có business logic trong Controller
+- [ ] Không có truy vấn DB trực tiếp trong Service
+- [ ] Dùng Interface cho mọi dependency (DI-friendly)
+- [ ] Không có magic string — dùng `const` hoặc `enum`
+
+### API & Behavior
+
+- [ ] Tất cả 24 endpoint hoạt động đúng HTTP method và status code
+- [ ] Pagination hoạt động cho Customer và Lead list
+- [ ] State machine Lead từ chối transition không hợp lệ với 422
+- [ ] Soft delete hoạt động — bản ghi không xuất hiện trong GET list
+- [ ] Audit fields được điền tự động (CreatedBy, UpdatedBy)
+
+### Auth & Security
+
+- [ ] Register/Login trả về access + refresh token
+- [ ] Refresh token endpoint hoạt động và cấp token mới
+- [ ] Logout thu hồi refresh token
+- [ ] SalesRep không thể xem Customer của SalesRep khác (test bằng Postman)
+- [ ] Admin có thể xem tất cả
+
+### Real-time
+
+- [ ] SignalR hub được bảo vệ bằng JWT
+- [ ] Khi assign Lead, SalesRep nhận notification real-time (test bằng 2 tab browser)
+- [ ] Notification lưu vào DB, đọc được qua REST API
+
+### Testing
+
+- [ ] Ít nhất 3 integration test pass
+- [ ] Ít nhất 5 unit test cho service layer pass
+- [ ] Postman collection chạy được end-to-end
+
+### Documentation
+
+- [ ] Swagger UI có description cho mọi endpoint
+- [ ] README hướng dẫn `dotnet run` và seed data mẫu
+
+---
+
+## 11b. Kiểm tra & Thực hành (100 điểm)
+
+### Bối cảnh giáo trình (mục tiêu xuyên suốt)
+
+> **Trục CRM — một mục tiêu rõ:** bạn hướng tới **CRM production** trong [From Zero → Senior .NET (Backend-first)](../roadmap-dotnet-backend-zero-to-senior.mdx). Giáo trình **ưu tiên backend**, bám chuỗi **API → dữ liệu → vận hành → kiến trúc phân tán**, thay vì trải rộng theo hướng full-stack. Mỗi module củng cố **một lớp kỹ năng** trên **cùng một CRM học tập** bạn phát triển xuyên suốt khóa.
+
+| Chuỗi năng lực | Đóng góp vào CRM học tập |
+|----------------|--------------------------|
+| **Giai đoạn 1 — Foundation** | Đọc hiểu yêu cầu, mô hình client–server, Git — nền **collaboration** khi CRM lớn dần. |
+| **Giai đoạn 2 — C# + P1** | Domain, OOP, LINQ, async, DI — **rule nghiệp vụ & tầng ứng dụng** (Inventory là bản mẫu trước CRM). |
+| **Giai đoạn 3 — ASP.NET + P2** | Host, routing, validation, JWT, SignalR — **CRM Backend API** thực chiến. |
+| **Giai đoạn 4 — Data + P3** | SQL, EF, cache, job, container — CRM **ổn định & có thể triển khai**. |
+| **Giai đoạn 5 — Senior + Final** | Clean Architecture, event/outbox, gateway, observability, perf — CRM/ERP **chịu tải & có chủ**. |
+
+#### Vai trò *giai đoạn này* trong chuỗi
+
+ASP.NET Core + **Project 2 (CRM API)**: pipeline, Web API, JWT, SignalR — **bề mặt backend** mà client/tenant gọi vào.
+
+#### Vị trí bài học (trước / sau)
+
+| Mốc | Điểm nối trong giáo trình |
+|-----|---------------------------|
+| **Trước** | [Module 11 — SignalR](module-11-signalr.mdx) |
+| **Tiếp theo** | [Module 12 — SQL Deep Dive](../stage-04-database-production/module-12-sql-deep-dive.mdx) |
+
+
+### Quy trình làm bài (hệ thống)
+
+| Bước | Việc cần làm | Output nên có |
+|------|----------------|-----------------|
+| 1 | Làm **Quiz** *trước*, tự ghi đáp án + 1 dòng lý do | Không xem đáp án; giữ bản nháp |
+| 2 | Đối chiếu **Đáp án**; sửa hiểu sai, ghi *takeaway* vào README hoặc nhật ký học | 3–5 bullet “tôi đã hiểu…” |
+| 3 | Làm **Lab** theo rubric; trong README nêu **phần CRM** nào được chạm (Lead, Customer, Deal, Billing…) | Repo / zip + ảnh `dotnet run` hoặc log |
+| 4 | **Tự chấm** theo bảng điểm; chuẩn bị 1 phút “vấn đáp” nếu mentor hỏi ngẫu nhiên | Điểm + chỗ còn yếu |
+
+---
+
+### Phần A — Quiz trắc nghiệm (20 điểm)
+
+> **Gợi ý làm bài:** mỗi câu **4 điểm**. Liên tưởng **CRM API (P2)**: auth đa vai, tenant, SignalR — các rủi ro thật khi CRM mở rộng.
+
+Mỗi câu **4 điểm**.
+
+1. Refresh token pattern chủ yếu giải quyết?  
+   A. Tăng kích thước JWT B. Access token TTL ngắn + thu hồi/rotate refresh C. Bỏ HTTPS D. Thay EF  
+   > **Đáp án:** B.
+
+2. SalesRep không xem được Customer của người khác — kiểm tra này thuộc?  
+   A. Chỉ UX B. Authorization (resource/data scope) C. Compiler D. Docker  
+   > **Đáp án:** B.
+
+3. SignalR hub cần JWT thường vì?  
+   A. WebSocket không có header Authorization mặc định như fetch B. JWT thay SQL C. Bắt buộc HTTP/1.0 D. Swagger yêu cầu  
+   > **Đáp án:** A (tinh thần client negotiate).
+
+4. State machine Lead trả **422** cho transition sai nghĩa là?  
+   A. Server crash B. Business rule từ chối — client gửi trạng thái không hợp lệ C. Chưa đăng nhập D. DB full  
+   > **Đáp án:** B.
+
+5. `WebApplicationFactory` trong project này để?  
+   A. Deploy Azure B. Integration test in-process host + `HttpClient` C. Tạo migration D. Build NPM  
+   > **Đáp án:** B.
+
+### Phần B — Lab thực chiến (80 điểm)
+
+> **Lab & rubric:** trong README, map từng nhóm điểm rubric sang **phần CRM** (Lead, Customer, Deal, Billing, Notification…) và **artifact** (test, log, screenshot, migration).
+
+Cộng từ mục **11. Checklist**: **Architecture 10**, **API & Behavior 25**, **Auth 20**, **Real-time 10**, **Testing 10**, **Documentation 5** — trừ nếu bullet tương ứng chưa đạt (đề xuất −3 mỗi bullet “lớn”, −1–2 bullet nhỏ).
+
+#### Ngưỡng tổng điểm (Quiz 20 + Lab 80)
+
+| Mức | Điểm | Ý nghĩa |
+|-----|------|---------|
+| **Đạt** | ≥ 70 | Đủ nền để học module kế mà không “lủng” kiến thức cốt lõi. |
+| **Khá** | ≥ 85 | Có minh chứng code + nêu được liên hệ CRM rõ ràng trong README. |
+| **Giỏi** | ≥ 95 | Có mở rộng / edge case / ADR ngắn / test bổ trợ (tùy rubric từng bài). |
+
+### Phần C — Reflect & nối chuỗi (không chấm điểm)
+
+Viết **5–8 câu** (README hoặc `docs/learning-log.md`):
+
+1. Kiến thức *module / project này* sẽ được **tái sử dụng trực tiếp** ở module hoặc project CRM nào tiếp theo? (ghi tên module / P2 / P3 / Final).
+2. Nếu bỏ qua phần lab, **rủi ro** lớn nhất cho CRM ở giai đoạn sau là gì?
+3. Một **quyết định kỹ thuật** (nhỏ) bạn sẵn sàng ghi thành **ADR một đoạn** sau khi làm lab.
+
+---
+
+## 12. Cầu nối sang Project 3
+
+Project 2 dùng **in-memory database** (hoặc SQLite đơn giản) để tập trung vào API design và auth. Project 3 sẽ nâng cấp cùng codebase này với:
+
+| Thành phần | Project 2 (hiện tại) | Project 3 (sắp tới) |
+|------------|----------------------|----------------------|
+| Database | In-memory / SQLite | SQL Server với EF Core Migrations |
+| Caching | Không | Redis (distributed cache cho token blacklist) |
+| Background Jobs | Không | Hangfire (gửi email reminder, report schedule) |
+| Containerization | Không | Docker + docker-compose (api + db + redis) |
+| Multi-tenant | Không | Schema-per-tenant hoặc row-level isolation |
+| Performance | Không đo | Benchmark, query optimization, index |
+
+Khi chuyển sang Project 3, bạn **không viết lại** — bạn **refactor và mở rộng**. Đây là cách senior developer làm việc thật: incremental improvement trên nền tảng vững chắc.

@@ -1,0 +1,297 @@
+---
+title: "Module 18 — Microservices"
+slug: dotnet-module-18-microservices
+description: "Microservices .NET: service boundaries, API gateway, resilience, observability — đánh đổi vận hành và tốc độ phát triển."
+sidebar_position: 3
+tags:
+  - microservices
+  - api-gateway
+  - service-mesh-intro
+  - yarp
+  - distributed-tracing
+keywords:
+  - microservices .NET
+  - API gateway pattern
+  - YARP reverse proxy
+  - distributed tracing OpenTelemetry
+  - service decomposition
+enableComments: true
+draft: false
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+<SummaryBox title="Tóm tắt (abstract)">
+
+**Abstract.** Phân tích **ranh giới dịch vụ**, chiến lược triển khai độc lập, gateway và quan sát liên dịch vụ — trình bày **trade-off** giữa monolith module hóa và topology phân tán.
+
+</SummaryBox>
+<HiddenContent>
+
+<!-- geoseo-curriculum-nav -->
+
+## Liên kết điều phối (curriculum graph)
+
+- **Hub lộ trình**: [00. Lộ trình From Zero → Senior .NET (Backend-first)](../roadmap-dotnet-backend-zero-to-senior.mdx)
+- **Chương trước**: [Module 17 — Distributed Systems](module-17-distributed-systems.mdx)
+- **Chương tiếp theo**: [Module 19 — Performance Engineering](module-19-performance-engineering.mdx)
+
+## Tham chiếu có thẩm quyền (E‑E‑A‑T / retrieval)
+
+Danh sách sau ưu tiên **tài liệu gốc** (Microsoft Learn, đặc tả hệ sinh thái .NET) nhằm tăng **độ tin cậy trích dẫn** và hỗ trợ **công cụ tìm kiếm / tác tử AI** (RAG, overview synthesis).
+
+- [.NET documentation — Microsoft Learn](https://learn.microsoft.com/dotnet/)
+- [ASP.NET Core documentation](https://learn.microsoft.com/aspnet/core/)
+- [ASP.NET Core Developer roadmap — roadmap.sh](https://roadmap.sh/aspnet-core)
+- [Microservices architecture on Azure](https://learn.microsoft.com/azure/architecture/microservices/)
+
+## Từ khóa chỉ mục (semantic hooks)
+
+Các thẻ `tags` / `keywords` trong frontmatter của trang này được chọn để **đồng nhất ngữ nghĩa** với chủ đề chương và với **đồ thị nội bộ** của giáo trình — hỗ trợ khám phá theo chủ đề và câu hỏi dạng *"học .NET backend theo lộ trình nào?"*.
+
+</HiddenContent>
+
+## Mục tiêu học tập
+
+Sau module này, bạn có thể:
+
+- Liệt kê **điều kiện tiên quyết** trước khi tách service (DevOps, bounded context, data ownership).
+- Thiết kế **API Gateway** với **YARP** — route, transform header, rate limit cơ bản.
+- So sánh **sync** (HTTP/gRPC) vs **async** (message) cho giao tiếp cross-service.
+- Bật **OpenTelemetry** trace nối từ gateway xuống service con.
+- Cấu hình **health check** aggregation cho orchestrator (Docker/K8s) — liên hệ [Module 15](../stage-04-database-production/module-15-docker-deployment.mdx).
+- Nhận diện **distributed monolith** và cách thoát.
+
+## Kiến thức cần có trước
+
+- [Module 17 — Distributed Systems](module-17-distributed-systems.mdx).
+- [Module 10 — Auth](../stage-03-aspnet-core-backend/module-10-authentication-authorization.mdx) (JWT, introspection ở gateway).
+- Docker compose nhiều container: Module 15.
+
+---
+
+## 1. Khi nào *không* nên microservices?
+
+Nếu team < 5, chưa có CI/CD ổn định, chưa có observability — **modular monolith** + bounded context rõ thường nhanh hơn.
+
+**Dấu hiệu đã đủ “đau” để tách**:
+
+- Scale khác nhau theo workload (notification spike vs core API).
+- **Release cadence** khác nhau giữa các phần (billing compliance vs CRM UI API).
+- Team sở hữu rõ ràng theo domain (Conway’s Law).
+
+---
+
+## 2. Service decomposition
+
+Nguyên tắc thực dụng:
+
+- **Tách theo subdomain** có ngôn ngữ nghiệp vụ riêng (Sales vs Billing).
+- Mỗi service **sở hữu dữ liệu** của nó — không share DB trực tiếp giữa hai service (anti-pattern “rạch database”).
+
+**Strangler fig**: tách dần từ monolith bằng façade hoặc route gateway.
+
+---
+
+## 3. API Gateway — YARP (ưu tiên .NET)
+
+**YARP** (Yet Another Reverse Proxy) là thư viện .NET để cấu hình reverse proxy linh hoạt trong `Program.cs`.
+
+Ví dụ tinh thần route:
+
+```csharp
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddReverseProxy()
+    .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
+
+var app = builder.Build();
+app.MapReverseProxy();
+app.Run();
+```
+
+`appsettings.json` khai báo cluster `sales`, `billing`, route `/api/sales/{**catch-all}` → cluster sales.
+
+**Gateway đảm nhận**: TLS termination, auth validation chung, correlation ID, rate limit, versioning.
+
+**Ocelot**: từng phổ biến; với .NET hiện tại team Microsoft khuyến nghị **YARP** cho greenfield.
+
+---
+
+## 4. Giao tiếp giữa các service
+
+| Kiểu | Khi dùng | Lưu ý |
+|------|----------|--------|
+| HTTP REST | đơn giản, public API | coupling thời gian, cần timeout/circuit breaker |
+| gRPC | nội bộ hiệu năng, contract rõ | versioning proto cần kỷ luật |
+| Message bus | eventual consistency chấp nhận được | outbox + idempotency (Module 17) |
+
+Tránh **chụm sync** (A→B→C→A) — dễ deadlock latency và lỗi cascade.
+
+---
+
+## 5. Observability — bộ ba
+
+1. **Logs** — structured (Serilog), `traceId`/`spanId` thống nhất.
+2. **Metrics** — request rate, latency p95/p99, queue depth, GC.
+3. **Traces** — OpenTelemetry export Jaeger/Zipkin/Azure Monitor.
+
+ASP.NET Core:
+
+```csharp
+builder.Services.AddOpenTelemetry()
+    .WithTracing(t => t
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation());
+```
+
+Gateway forward header `traceparent` (W3C) để trace xuyên suốt.
+
+---
+
+## 6. Identity trong hệ phân tán
+
+Các mô hình thường gặp:
+
+- **JWT** do gateway validate; service tin internal network + claim.
+- **Token exchange** / **BFF** nếu có SPA (ngoài phạm vi backend-first nhưng hay gặp ở CRM).
+
+Đừng để mỗi service tự gọi DB user — cân nhắc **Identity service** hoặc shared read model nhẹ (cache) với hiểu rõ stale data.
+
+---
+
+## 7. Anti-pattern: distributed monolith
+
+Triệu chứng: deploy phải “đúng thứ tự”, mọi thứ gọi nhau sync, một feature chạm 6 repo.
+
+**Thuốc**: giảm call chain, chuyển sang event, consolidate ownership, hoặc **merge lại** một phần thành monolith module hóa.
+
+---
+
+## Bổ sung (đối chiếu roadmap.sh)
+
+- **Dapr** — sidecar building blocks (pub/sub, state) — phù hợp polyglot, thêm complexity vận hành.
+- **Steeltoe** — patterns cho Spring-style trên .NET (discovery…).
+- **Orleans** — actor model + virtual grain; phù hợp stateful scale-out đặc thù, không phải default CRM.
+
+---
+
+## Liên hệ CRM
+
+- Tách **`Identity`** (auth, consent), **`Notification`** (email/SMS adapter), **`Billing`** (payment, invoice).
+- Gateway route theo **tenant** (header/subdomain) và **API version** (`/v1/`, header `Api-Version`).
+- Health: `/health/ready` kiểm tra DB + broker; `/health/live` chỉ process sống.
+
+---
+
+## Thực hành gợi ý
+
+1. Hai project ASP.NET Core: `Sales.Api`, `Billing.Api`.
+2. Project `Gateway` YARP route `/api/sales` và `/api/billing`.
+3. Bật OpenTelemetry; gọi một request xuyên gateway → sales gọi billing (hoặc chỉ propagate trace).
+4. Ghi README: **SLA**, timeout, retry policy bạn chọn.
+
+---
+
+## Kiểm tra & Thực hành (100 điểm)
+
+### Bối cảnh giáo trình (mục tiêu xuyên suốt)
+
+> **Trục CRM — một mục tiêu rõ:** bạn hướng tới **CRM production** trong [From Zero → Senior .NET (Backend-first)](../roadmap-dotnet-backend-zero-to-senior.mdx). Giáo trình **ưu tiên backend**, bám chuỗi **API → dữ liệu → vận hành → kiến trúc phân tán**, thay vì trải rộng theo hướng full-stack. Mỗi module củng cố **một lớp kỹ năng** trên **cùng một CRM học tập** bạn phát triển xuyên suốt khóa.
+
+| Chuỗi năng lực | Đóng góp vào CRM học tập |
+|----------------|--------------------------|
+| **Giai đoạn 1 — Foundation** | Đọc hiểu yêu cầu, mô hình client–server, Git — nền **collaboration** khi CRM lớn dần. |
+| **Giai đoạn 2 — C# + P1** | Domain, OOP, LINQ, async, DI — **rule nghiệp vụ & tầng ứng dụng** (Inventory là bản mẫu trước CRM). |
+| **Giai đoạn 3 — ASP.NET + P2** | Host, routing, validation, JWT, SignalR — **CRM Backend API** thực chiến. |
+| **Giai đoạn 4 — Data + P3** | SQL, EF, cache, job, container — CRM **ổn định & có thể triển khai**. |
+| **Giai đoạn 5 — Senior + Final** | Clean Architecture, event/outbox, gateway, observability, perf — CRM/ERP **chịu tải & có chủ**. |
+
+#### Vai trò *giai đoạn này* trong chuỗi
+
+Senior engineering + **Final**: kiến trúc, event/outbox, microservice, đo hiệu năng — **sở hữu hệ thống** CRM/ERP phân tán.
+
+#### Vị trí bài học (trước / sau)
+
+| Mốc | Điểm nối trong giáo trình |
+|-----|---------------------------|
+| **Trước** | [Module 17 — Distributed Systems](module-17-distributed-systems.mdx) |
+| **Tiếp theo** | [Module 19 — Performance Engineering](module-19-performance-engineering.mdx) |
+
+
+### Quy trình làm bài (hệ thống)
+
+| Bước | Việc cần làm | Output nên có |
+|------|----------------|-----------------|
+| 1 | Làm **Quiz** *trước*, tự ghi đáp án + 1 dòng lý do | Không xem đáp án; giữ bản nháp |
+| 2 | Đối chiếu **Đáp án**; sửa hiểu sai, ghi *takeaway* vào README hoặc nhật ký học | 3–5 bullet “tôi đã hiểu…” |
+| 3 | Làm **Lab** theo rubric; trong README nêu **phần CRM** nào được chạm (Lead, Customer, Deal, Billing…) | Repo / zip + ảnh `dotnet run` hoặc log |
+| 4 | **Tự chấm** theo bảng điểm; chuẩn bị 1 phút “vấn đáp” nếu mentor hỏi ngẫu nhiên | Điểm + chỗ còn yếu |
+
+---
+
+### Phần A — Quiz trắc nghiệm (20 điểm)
+
+> **Gợi ý làm bài:** mỗi câu **4 điểm**. Ưu tiên suy nghĩ *hệ quả trên CRM* (tiền, dữ liệu, đa tenant, hiệu năng, bảo mật) — không chỉ nhớ định nghĩa.
+
+
+
+Mỗi câu **4 điểm**.
+
+1. API Gateway đóng vai trò chính?  
+   A. Thay thế DB B. Điểm vào: routing, auth, rate limit, TLS termination C. Chỉ build Docker D. Chỉ lưu session RAM  
+   > **Đáp án:** B.
+
+2. “Shared database” giữa hai microservice là?  
+   A. Best practice B. Anti-pattern phá vỡ bounded context và deploy độc lập C. Bắt buộc D. Chỉ với MongoDB  
+   > **Đáp án:** B.
+
+3. Distributed tracing (W3C `traceparent`) giúp?  
+   A. Nén response B. Nối span qua nhiều service để debug latency C. Thay HTTPS D. Encrypt JWT  
+   > **Đáp án:** B.
+
+4. YARP là?  
+   A. ORM B. Reverse proxy có cấu hình .NET cho gateway C. Message broker D. Test runner  
+   > **Đáp án:** B.
+
+5. Readiness probe khác liveness ở?  
+   A. Giống nhau B. Ready = phụ thuộc sẵn sàng; Live = process còn sống C. Chỉ dùng cho VM D. Chỉ gRPC  
+   > **Đáp án:** B.
+
+### Phần B — Lab thực chiến (80 điểm)
+
+> **Lab & rubric:** trong README, map từng nhóm điểm rubric sang **phần CRM** (Lead, Customer, Deal, Billing, Notification…) và **artifact** (test, log, screenshot, migration).
+
+| Tiêu chí | Điểm | Ghi chú |
+|----------|------|---------|
+| 2 service + 1 gateway route (YARP hoặc tương đương) | 35 | |
+| OpenTelemetry trace qua gateway → downstream (ảnh Jaeger/Zipkin/Azure) | 25 | |
+| README: timeout + circuit/retry ở gateway hoặc HttpClient | 10 | |
+| Health aggregate hoặc per-service `/health` documented | 10 | |
+
+#### Ngưỡng tổng điểm (Quiz 20 + Lab 80)
+
+| Mức | Điểm | Ý nghĩa |
+|-----|------|---------|
+| **Đạt** | ≥ 70 | Đủ nền để học module kế mà không “lủng” kiến thức cốt lõi. |
+| **Khá** | ≥ 85 | Có minh chứng code + nêu được liên hệ CRM rõ ràng trong README. |
+| **Giỏi** | ≥ 95 | Có mở rộng / edge case / ADR ngắn / test bổ trợ (tùy rubric từng bài). |
+
+### Phần C — Reflect & nối chuỗi (không chấm điểm)
+
+Viết **5–8 câu** (README hoặc `docs/learning-log.md`):
+
+1. Kiến thức *module / project này* sẽ được **tái sử dụng trực tiếp** ở module hoặc project CRM nào tiếp theo? (ghi tên module / P2 / P3 / Final).
+2. Nếu bỏ qua phần lab, **rủi ro** lớn nhất cho CRM ở giai đoạn sau là gì?
+3. Một **quyết định kỹ thuật** (nhỏ) bạn sẵn sàng ghi thành **ADR một đoạn** sau khi làm lab.
+
+---
+
+## Tài liệu tham khảo
+
+- Sam Newman — *Building Microservices*.
+- Microsoft Learn — [Cloud-native](https://learn.microsoft.com/dotnet/architecture/cloud-native/) (microservices section).
+- YARP — GitHub `dotnet/yarp`.
+
+---
+
+**Tiếp theo:** [Module 19 — Performance Engineering](module-19-performance-engineering.mdx) — đo, profile, scale có căn cứ.

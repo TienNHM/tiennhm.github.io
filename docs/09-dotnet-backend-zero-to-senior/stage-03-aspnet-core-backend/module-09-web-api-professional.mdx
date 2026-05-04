@@ -1,0 +1,912 @@
+---
+title: "Module 9 — Web API Professional"
+slug: dotnet-module-09-web-api-professional
+description: "Web API chuyên nghiệp: versioning, validation, Problem Details, OpenAPI, filtering/paging — hợp đồng HTTP ổn định cho client và tích hợp."
+sidebar_position: 2
+tags:
+  - web-api
+  - openapi-swagger
+  - api-versioning
+  - problem-details
+  - model-validation
+  - odata-filtering
+keywords:
+  - ASP.NET Core Web API
+  - RFC 7807 Problem Details
+  - Swagger OpenAPI
+  - API versioning strategies
+  - DTO validation FluentValidation
+enableComments: true
+draft: false
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+<SummaryBox title="Tóm tắt (abstract)">
+
+**Abstract.** Chuẩn hóa **hợp đồng HTTP** và **khả năng quan sát**: validation, mã lỗi có cấu trúc, tài liệu OpenAPI, chiến lược phiên bản API — nhằm đạt **tính tương thích ngược** và **khả năng tích hợp đa đối tác** trong kiến trúc CRM.
+
+</SummaryBox>
+<HiddenContent>
+
+<!-- geoseo-curriculum-nav -->
+
+## Liên kết điều phối (curriculum graph)
+
+- **Hub lộ trình**: [00. Lộ trình From Zero → Senior .NET (Backend-first)](../roadmap-dotnet-backend-zero-to-senior.mdx)
+- **Chương trước**: [Module 8 — ASP.NET Core Fundamentals](module-08-aspnet-core-fundamentals.mdx)
+- **Chương tiếp theo**: [Module 10 — Authentication + Authorization](module-10-authentication-authorization.mdx)
+
+## Tham chiếu có thẩm quyền (E‑E‑A‑T / retrieval)
+
+Danh sách sau ưu tiên **tài liệu gốc** (Microsoft Learn, đặc tả hệ sinh thái .NET) nhằm tăng **độ tin cậy trích dẫn** và hỗ trợ **công cụ tìm kiếm / tác tử AI** (RAG, overview synthesis).
+
+- [.NET documentation — Microsoft Learn](https://learn.microsoft.com/dotnet/)
+- [ASP.NET Core documentation](https://learn.microsoft.com/aspnet/core/)
+- [ASP.NET Core Developer roadmap — roadmap.sh](https://roadmap.sh/aspnet-core)
+- [Create web APIs with ASP.NET Core](https://learn.microsoft.com/aspnet/core/web-api/)
+- [Handle errors in ASP.NET Core web APIs](https://learn.microsoft.com/aspnet/core/web-api/handle-errors)
+
+## Từ khóa chỉ mục (semantic hooks)
+
+Các thẻ `tags` / `keywords` trong frontmatter của trang này được chọn để **đồng nhất ngữ nghĩa** với chủ đề chương và với **đồ thị nội bộ** của giáo trình — hỗ trợ khám phá theo chủ đề và câu hỏi dạng *"học .NET backend theo lộ trình nào?"*.
+
+</HiddenContent>
+
+## Mục tiêu học tập
+
+Sau module này, học viên có thể:
+
+- Thiết kế RESTful API theo đúng nguyên tắc: resource-based URL, HTTP verbs, status codes.
+- Cấu hình API versioning và viết tài liệu OpenAPI/Swagger chuyên nghiệp.
+- Implement pagination, filtering, sorting linh hoạt trên `IQueryable`.
+- Xử lý upload/download file (disk, Azure Blob) và streaming.
+- Áp dụng rate limiting, response caching, output caching để bảo vệ API.
+- Viết integration test với `WebApplicationFactory` và `HttpClient`.
+- Triển khai background service để xử lý tác vụ nền (gửi email digest CRM).
+
+---
+
+## 1. REST API Design Principles
+
+### 1.1 Nguyên tắc cốt lõi
+
+REST (Representational State Transfer) dựa trên các ràng buộc: **stateless**, **client-server**, **cacheable**, **uniform interface**, **layered system**.
+
+**Resource-based URL** — URL định danh tài nguyên, không phải hành động:
+
+```
+# Đúng
+GET    /api/v1/customers
+GET    /api/v1/customers/{id}
+POST   /api/v1/customers
+PUT    /api/v1/customers/{id}
+PATCH  /api/v1/customers/{id}
+DELETE /api/v1/customers/{id}
+
+# Nested resource
+GET    /api/v1/customers/{id}/contacts
+POST   /api/v1/customers/{id}/contacts
+
+# Sai (hành động trong URL)
+POST   /api/v1/getCustomers
+POST   /api/v1/deleteCustomer
+```
+
+**HTTP verbs đúng chỗ:**
+
+| Verb   | Mục đích              | Idempotent | Safe |
+|--------|-----------------------|------------|------|
+| GET    | Đọc dữ liệu           | Có         | Có   |
+| POST   | Tạo mới               | Không      | Không|
+| PUT    | Thay thế toàn bộ      | Có         | Không|
+| PATCH  | Cập nhật một phần     | Không      | Không|
+| DELETE | Xóa                   | Có         | Không|
+
+### 1.2 10 Golden Rules REST
+
+| #  | Quy tắc |
+|----|---------|
+| 1  | Dùng danh từ số nhiều cho resource: `/customers`, `/orders` |
+| 2  | Dùng HTTP verbs thay vì động từ trong URL |
+| 3  | Trả về status code đúng: 200, 201, 204, 400, 404, 409, 422, 500 |
+| 4  | Versioning từ ngày đầu: `/api/v1/...` |
+| 5  | Pagination bắt buộc với danh sách |
+| 6  | Dùng HTTPS, không bao giờ HTTP cho production |
+| 7  | Xác thực lỗi rõ ràng: `{ errors: [...] }` |
+| 8  | Stateless — mỗi request chứa đủ thông tin |
+| 9  | Hỗ trợ filtering, sorting, field selection |
+| 10 | Tài liệu hóa API (OpenAPI/Swagger) |
+
+> **HATEOAS** (Hypermedia As The Engine Of Application State) — cấp độ cao nhất của REST: mỗi response trả về links dẫn đến các action liên quan. Trong thực tế enterprise ít dùng toàn bộ, nhưng nên trả về `_links` cho pagination.
+
+---
+
+## 2. API Versioning
+
+### 2.1 Các chiến lược versioning
+
+```csharp
+// Cài đặt NuGet
+// dotnet add package Asp.Versioning.Mvc
+// dotnet add package Asp.Versioning.Mvc.ApiExplorer
+
+// Program.cs
+builder.Services.AddApiVersioning(options =>
+{
+    options.DefaultApiVersion = new ApiVersion(1, 0);
+    options.AssumeDefaultVersionWhenUnspecified = true;
+    options.ReportApiVersions = true; // Header: api-supported-versions
+    options.ApiVersionReader = ApiVersionReader.Combine(
+        new UrlSegmentApiVersionReader(),           // /api/v1/customers
+        new HeaderApiVersionReader("X-Api-Version"), // Header
+        new QueryStringApiVersionReader("api-version") // ?api-version=1.0
+    );
+})
+.AddApiExplorer(options =>
+{
+    options.GroupNameFormat = "'v'VVV";
+    options.SubstituteApiVersionInUrl = true;
+});
+```
+
+### 2.2 Controller versioning
+
+```csharp
+[ApiController]
+[Route("api/v{version:apiVersion}/customers")]
+[ApiVersion("1.0")]
+public class CustomersV1Controller : ControllerBase
+{
+    [HttpGet]
+    public IActionResult GetAll() => Ok(new { version = "v1" });
+}
+
+[ApiController]
+[Route("api/v{version:apiVersion}/customers")]
+[ApiVersion("2.0")]
+[ApiVersion("1.0", Deprecated = true)] // đánh dấu deprecated
+public class CustomersV2Controller : ControllerBase
+{
+    [HttpGet]
+    public IActionResult GetAll() => Ok(new { version = "v2", enhanced = true });
+}
+```
+
+Khi version bị deprecated, header `api-deprecated-versions` sẽ được tự động trả về để client biết và migrate.
+
+---
+
+## 3. Swagger / OpenAPI
+
+### 3.1 Swashbuckle vs NSwag
+
+| Tiêu chí | Swashbuckle | NSwag |
+|----------|-------------|-------|
+| Phổ biến | Rất cao | Cao |
+| Code generation | Không tích hợp sẵn | Tích hợp C#/TS |
+| Customization | Middleware filter | Pipeline |
+| .NET 9 support | Có (v7) | Có |
+
+### 3.2 Cấu hình Swashbuckle với XML comments
+
+```csharp
+// Program.cs
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "CRM API",
+        Version = "v1",
+        Description = "API quản lý khách hàng và liên hệ"
+    });
+
+    // XML comments
+    var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+    options.IncludeXmlComments(xmlPath);
+
+    // OAuth2 trong Swagger UI
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        Description = "Nhập JWT token"
+    });
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
+```
+
+### 3.3 XML comments và ProducesResponseType
+
+```csharp
+/// <summary>Lấy danh sách khách hàng có phân trang</summary>
+/// <param name="params">Tham số lọc và phân trang</param>
+/// <returns>Danh sách khách hàng</returns>
+/// <response code="200">Thành công</response>
+/// <response code="400">Tham số không hợp lệ</response>
+[HttpGet]
+[ProducesResponseType(typeof(PagedResponse<CustomerDto>), StatusCodes.Status200OK)]
+[ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+public async Task<IActionResult> GetCustomers([FromQuery] CustomerFilterParams @params)
+{
+    // ...
+}
+```
+
+---
+
+## 4. Pagination, Filtering, Sorting
+
+### 4.1 Pagination params và response envelope
+
+```csharp
+public record PaginationParams
+{
+    public int Page { get; init; } = 1;
+    public int PageSize { get; init; } = 20;
+    public int Skip => (Page - 1) * PageSize;
+}
+
+public record CustomerFilterParams : PaginationParams
+{
+    public string? Search { get; init; }
+    public string? Status { get; init; }       // active, inactive, lead
+    public DateTime? CreatedFrom { get; init; }
+    public DateTime? CreatedTo { get; init; }
+    public string? SortBy { get; init; } = "createdAt";
+    public string? SortDir { get; init; } = "desc"; // asc | desc
+}
+
+public record PagedResponse<T>
+{
+    public IEnumerable<T> Data { get; init; } = [];
+    public PaginationMeta Pagination { get; init; } = new();
+}
+
+public record PaginationMeta
+{
+    public int Page { get; init; }
+    public int PageSize { get; init; }
+    public int Total { get; init; }
+    public int TotalPages => (int)Math.Ceiling((double)Total / PageSize);
+    public bool HasNext => Page < TotalPages;
+    public bool HasPrev => Page > 1;
+}
+```
+
+Response envelope:
+```json
+{
+  "data": [ { "id": 1, "name": "Nguyễn Văn A" } ],
+  "pagination": {
+    "page": 1,
+    "pageSize": 20,
+    "total": 150,
+    "totalPages": 8,
+    "hasNext": true,
+    "hasPrev": false
+  }
+}
+```
+
+### 4.2 IQueryable filtering + sorting
+
+```csharp
+public class CustomerQueryService
+{
+    public IQueryable<Customer> ApplyFilter(IQueryable<Customer> query, CustomerFilterParams p)
+    {
+        if (!string.IsNullOrWhiteSpace(p.Search))
+            query = query.Where(c => c.Name.Contains(p.Search) || c.Email.Contains(p.Search));
+
+        if (!string.IsNullOrWhiteSpace(p.Status))
+            query = query.Where(c => c.Status == p.Status);
+
+        if (p.CreatedFrom.HasValue)
+            query = query.Where(c => c.CreatedAt >= p.CreatedFrom.Value);
+
+        if (p.CreatedTo.HasValue)
+            query = query.Where(c => c.CreatedAt <= p.CreatedTo.Value);
+
+        // Dynamic sorting
+        query = (p.SortBy?.ToLower(), p.SortDir?.ToLower()) switch
+        {
+            ("name", "asc")        => query.OrderBy(c => c.Name),
+            ("name", "desc")       => query.OrderByDescending(c => c.Name),
+            ("createdat", "asc")   => query.OrderBy(c => c.CreatedAt),
+            _                      => query.OrderByDescending(c => c.CreatedAt)
+        };
+
+        return query;
+    }
+}
+```
+
+### 4.3 Customer list endpoint hoàn chỉnh
+
+```csharp
+[HttpGet]
+[ProducesResponseType(typeof(PagedResponse<CustomerDto>), StatusCodes.Status200OK)]
+public async Task<IActionResult> GetCustomers([FromQuery] CustomerFilterParams @params)
+{
+    var query = _db.Customers.AsNoTracking();
+    query = _queryService.ApplyFilter(query, @params);
+
+    var total = await query.CountAsync();
+    var items = await query
+        .Skip(@params.Skip)
+        .Take(@params.PageSize)
+        .Select(c => new CustomerDto(c.Id, c.Name, c.Email, c.Status, c.CreatedAt))
+        .ToListAsync();
+
+    return Ok(new PagedResponse<CustomerDto>
+    {
+        Data = items,
+        Pagination = new PaginationMeta
+        {
+            Page = @params.Page,
+            PageSize = @params.PageSize,
+            Total = total
+        }
+    });
+}
+```
+
+> **Cursor pagination** phù hợp hơn offset khi dataset lớn (hàng triệu bản ghi) vì tránh `OFFSET` scan. Sử dụng `cursor` là giá trị cuối của trường sort thay vì số trang.
+
+---
+
+## 5. File Upload và Download
+
+### 5.1 Upload avatar khách hàng
+
+```csharp
+[HttpPost("{id}/avatar")]
+[RequestSizeLimit(5 * 1024 * 1024)] // 5MB
+[ProducesResponseType(typeof(FileUploadResult), StatusCodes.Status200OK)]
+public async Task<IActionResult> UploadAvatar(int id, IFormFile file)
+{
+    // Validate
+    var allowedTypes = new[] { "image/jpeg", "image/png", "image/webp" };
+    if (!allowedTypes.Contains(file.ContentType))
+        return BadRequest("Chỉ hỗ trợ JPEG, PNG, WebP.");
+
+    if (file.Length > 5 * 1024 * 1024)
+        return BadRequest("File tối đa 5MB.");
+
+    var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+    var fileName = $"avatar-{id}-{Guid.NewGuid()}{ext}";
+
+    // Lưu disk (hoặc thay bằng Azure Blob)
+    var uploadPath = Path.Combine(_env.WebRootPath, "uploads", "avatars");
+    Directory.CreateDirectory(uploadPath);
+
+    var fullPath = Path.Combine(uploadPath, fileName);
+    await using var stream = System.IO.File.Create(fullPath);
+    await file.CopyToAsync(stream);
+
+    // Cập nhật DB
+    var customer = await _db.Customers.FindAsync(id)
+        ?? throw new NotFoundException($"Không tìm thấy customer {id}");
+    customer.AvatarUrl = $"/uploads/avatars/{fileName}";
+    await _db.SaveChangesAsync();
+
+    return Ok(new FileUploadResult(fileName, customer.AvatarUrl));
+}
+```
+
+### 5.2 Multipart form cho đính kèm tài liệu
+
+```csharp
+[HttpPost("{id}/documents")]
+[DisableRequestSizeLimit]
+public async Task<IActionResult> UploadDocuments(int id, [FromForm] DocumentUploadRequest request)
+{
+    var results = new List<FileUploadResult>();
+    foreach (var file in request.Files)
+    {
+        var result = await _fileService.SaveDocumentAsync(id, file);
+        results.Add(result);
+    }
+    return Ok(results);
+}
+
+public record DocumentUploadRequest
+{
+    public List<IFormFile> Files { get; init; } = [];
+    public string? Description { get; init; }
+}
+```
+
+### 5.3 Streaming download báo cáo
+
+```csharp
+[HttpGet("export")]
+public async Task<IActionResult> ExportCustomers([FromQuery] CustomerFilterParams @params)
+{
+    var query = _db.Customers.AsNoTracking();
+    query = _queryService.ApplyFilter(query, @params);
+
+    // Stream CSV để tránh load toàn bộ vào memory
+    var stream = new MemoryStream();
+    await using var writer = new StreamWriter(stream, leaveOpen: true);
+    await writer.WriteLineAsync("Id,Name,Email,Status,CreatedAt");
+
+    await foreach (var c in query.AsAsyncEnumerable())
+        await writer.WriteLineAsync($"{c.Id},{c.Name},{c.Email},{c.Status},{c.CreatedAt:O}");
+
+    await writer.FlushAsync();
+    stream.Position = 0;
+
+    return File(stream, "text/csv", $"customers-{DateTime.UtcNow:yyyyMMdd}.csv");
+}
+```
+
+---
+
+## 6. Rate Limiting (.NET 7+)
+
+```csharp
+// Program.cs
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    // Fixed window: 100 req / 1 phút cho tất cả
+    options.AddFixedWindowLimiter("fixed", o =>
+    {
+        o.PermitLimit = 100;
+        o.Window = TimeSpan.FromMinutes(1);
+        o.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        o.QueueLimit = 10;
+    });
+
+    // Sliding window: mượt hơn fixed window
+    options.AddSlidingWindowLimiter("sliding", o =>
+    {
+        o.PermitLimit = 60;
+        o.Window = TimeSpan.FromMinutes(1);
+        o.SegmentsPerWindow = 6;
+    });
+
+    // Per-user rate limiting dựa trên JWT sub
+    options.AddPolicy("per-user", context =>
+    {
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "anonymous";
+        return RateLimitPartition.GetTokenBucketLimiter(userId, _ => new()
+        {
+            TokenLimit = 20,
+            TokensPerPeriod = 10,
+            ReplenishmentPeriod = TimeSpan.FromSeconds(10),
+            AutoReplenishment = true
+        });
+    });
+});
+
+app.UseRateLimiter();
+```
+
+```csharp
+// Áp dụng cho controller
+[HttpGet]
+[EnableRateLimiting("per-user")]
+public IActionResult GetCustomers() { ... }
+
+// Hoặc disable cho internal endpoint
+[HttpGet("health")]
+[DisableRateLimiting]
+public IActionResult Health() => Ok();
+```
+
+---
+
+## 7. Response Caching và Output Caching
+
+### 7.1 ResponseCache attribute
+
+```csharp
+// Cache 60s, vary theo Authorization header
+[HttpGet("{id}")]
+[ResponseCache(Duration = 60, VaryByHeader = "Authorization", Location = ResponseCacheLocation.Any)]
+public async Task<IActionResult> GetCustomer(int id) { ... }
+
+// Không cache (dữ liệu nhạy cảm)
+[HttpGet("profile")]
+[ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+public IActionResult GetProfile() { ... }
+```
+
+### 7.2 Output Caching (.NET 7+)
+
+```csharp
+// Program.cs
+builder.Services.AddOutputCache(options =>
+{
+    options.AddBasePolicy(b => b.Expire(TimeSpan.FromSeconds(10)));
+    options.AddPolicy("customers-list", b =>
+        b.Expire(TimeSpan.FromMinutes(2))
+         .SetVaryByQuery("page", "pageSize", "search", "status")
+         .Tag("customers"));
+});
+
+app.UseOutputCache();
+
+// Controller
+[HttpGet]
+[OutputCache(PolicyName = "customers-list")]
+public async Task<IActionResult> GetCustomers([FromQuery] CustomerFilterParams @params) { ... }
+
+// Invalidate cache khi có thay đổi
+[HttpPost]
+public async Task<IActionResult> CreateCustomer(
+    CreateCustomerRequest request,
+    IOutputCacheStore cache,
+    CancellationToken ct)
+{
+    // ... tạo customer
+    await cache.EvictByTagAsync("customers", ct); // xóa cache danh sách
+    return CreatedAtAction(nameof(GetCustomer), new { id = customer.Id }, customer);
+}
+```
+
+---
+
+## 8. API Testing
+
+### 8.1 WebApplicationFactory setup
+
+```csharp
+// CrmApiFactory.cs
+public class CrmApiFactory : WebApplicationFactory<Program>
+{
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        builder.ConfigureServices(services =>
+        {
+            // Thay DB thật bằng in-memory
+            var descriptor = services.SingleOrDefault(d =>
+                d.ServiceType == typeof(DbContextOptions<CrmDbContext>));
+            if (descriptor != null) services.Remove(descriptor);
+
+            services.AddDbContext<CrmDbContext>(options =>
+                options.UseInMemoryDatabase("TestDb_" + Guid.NewGuid()));
+        });
+    }
+}
+```
+
+### 8.2 Integration test Customer API
+
+```csharp
+public class CustomerApiTests : IClassFixture<CrmApiFactory>
+{
+    private readonly HttpClient _client;
+
+    public CustomerApiTests(CrmApiFactory factory)
+    {
+        _client = factory.CreateClient();
+    }
+
+    [Fact]
+    public async Task GetCustomers_ReturnsPagedResult()
+    {
+        var response = await _client.GetAsync("/api/v1/customers?page=1&pageSize=10");
+        response.EnsureSuccessStatusCode();
+
+        var result = await response.Content
+            .ReadFromJsonAsync<PagedResponse<CustomerDto>>();
+
+        Assert.NotNull(result);
+        Assert.NotNull(result.Pagination);
+        Assert.True(result.Pagination.PageSize <= 10);
+    }
+
+    [Fact]
+    public async Task CreateCustomer_WithInvalidEmail_Returns422()
+    {
+        var payload = new { name = "Test", email = "not-valid-email" };
+        var response = await _client.PostAsJsonAsync("/api/v1/customers", payload);
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetCustomer_NotFound_Returns404()
+    {
+        var response = await _client.GetAsync("/api/v1/customers/99999");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetCustomers_WithSearch_ReturnsFilteredResult()
+    {
+        // Arrange: seed data
+        var createResp = await _client.PostAsJsonAsync("/api/v1/customers",
+            new { name = "Nguyễn Văn A", email = "a@crm.vn", status = "active" });
+        createResp.EnsureSuccessStatusCode();
+
+        // Act
+        var response = await _client.GetAsync("/api/v1/customers?search=Nguyễn");
+        var result = await response.Content.ReadFromJsonAsync<PagedResponse<CustomerDto>>();
+
+        // Assert
+        Assert.True(result!.Data.Any(c => c.Name.Contains("Nguyễn")));
+    }
+}
+```
+
+> **Postman collection:** Export collection JSON từ Postman và commit vào `tests/postman/` để QA và onboarding nhanh. Sử dụng environment variables (`{{baseUrl}}`, `{{token}}`) để chạy trên nhiều môi trường.
+
+---
+
+## 9. Background Processing với Hosted Service
+
+### 9.1 BackgroundService cơ bản
+
+```csharp
+// EmailDigestWorker.cs
+public class EmailDigestWorker : BackgroundService
+{
+    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly ILogger<EmailDigestWorker> _logger;
+
+    public EmailDigestWorker(IServiceScopeFactory scopeFactory, ILogger<EmailDigestWorker> logger)
+    {
+        _scopeFactory = scopeFactory;
+        _logger = logger;
+    }
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        _logger.LogInformation("EmailDigestWorker đã khởi động.");
+
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            var now = DateTime.UtcNow;
+            // Chờ đến 7:00 AM UTC hôm nay hoặc ngày mai
+            var nextRun = now.Date.AddHours(7);
+            if (now >= nextRun) nextRun = nextRun.AddDays(1);
+
+            var delay = nextRun - now;
+            _logger.LogInformation("Digest tiếp theo lúc {NextRun}", nextRun);
+
+            await Task.Delay(delay, stoppingToken);
+
+            if (!stoppingToken.IsCancellationRequested)
+                await SendDailyDigestAsync(stoppingToken);
+        }
+    }
+
+    private async Task SendDailyDigestAsync(CancellationToken ct)
+    {
+        await using var scope = _scopeFactory.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CrmDbContext>();
+        var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
+
+        // Lấy leads mới trong 24h
+        var since = DateTime.UtcNow.AddDays(-1);
+        var newLeads = await db.Customers
+            .Where(c => c.Status == "lead" && c.CreatedAt >= since)
+            .CountAsync(ct);
+
+        var salesUsers = await db.Users
+            .Where(u => u.Role == "sales" && u.DigestEnabled)
+            .ToListAsync(ct);
+
+        foreach (var user in salesUsers)
+        {
+            await emailService.SendAsync(new EmailMessage
+            {
+                To = user.Email,
+                Subject = $"CRM Digest — {newLeads} leads mới hôm nay",
+                Body = $"Xin chào {user.Name}, có {newLeads} leads mới trong 24h qua."
+            });
+        }
+
+        _logger.LogInformation("Đã gửi digest cho {Count} users.", salesUsers.Count);
+    }
+}
+```
+
+### 9.2 Đăng ký hosted service
+
+```csharp
+// Program.cs
+builder.Services.AddHostedService<EmailDigestWorker>();
+
+// Hoặc dùng Worker Service project riêng
+// dotnet new worker -n CrmWorker
+```
+
+> `BackgroundService` chạy trong cùng process với API. Nếu cần isolation, tạo **Worker Service** project riêng và deploy độc lập. Với tác vụ phức tạp, cân nhắc **Hangfire** hoặc **Quartz.NET** để có UI quản lý job.
+
+---
+
+## Thực hành
+
+### Bài 1: Customer REST API đầy đủ CRUD với Pagination + Filter + Sort
+
+Implement `CustomersController` với các endpoints:
+
+- `GET /api/v1/customers` — danh sách với `CustomerFilterParams` (search, status, createdFrom/To, sortBy, sortDir, page, pageSize).
+- `GET /api/v1/customers/{id}` — chi tiết một customer.
+- `POST /api/v1/customers` — tạo mới, trả về `201 Created` với `Location` header.
+- `PUT /api/v1/customers/{id}` — cập nhật toàn bộ.
+- `PATCH /api/v1/customers/{id}` — cập nhật một phần (dùng `JsonPatchDocument` hoặc request DTO riêng).
+- `DELETE /api/v1/customers/{id}` — xóa, trả về `204 No Content`.
+
+Yêu cầu:
+- Response envelope `PagedResponse<CustomerDto>` cho danh sách.
+- Validation với Data Annotations hoặc FluentValidation.
+- Global exception handler trả về `ProblemDetails`.
+- Swagger với XML comments và `ProducesResponseType` đầy đủ.
+
+### Bài 2: File Upload API cho Avatar và Document Attachment
+
+Implement các endpoints:
+
+- `POST /api/v1/customers/{id}/avatar` — upload ảnh đại diện (JPEG/PNG/WebP, max 5MB).
+- `DELETE /api/v1/customers/{id}/avatar` — xóa avatar.
+- `POST /api/v1/customers/{id}/documents` — upload nhiều file đính kèm (PDF, DOCX, max 20MB mỗi file).
+- `GET /api/v1/customers/{id}/documents` — danh sách tài liệu.
+- `GET /api/v1/customers/{id}/documents/{docId}/download` — download file với streaming.
+
+Yêu cầu:
+- Validate content type và kích thước file.
+- Lưu vào thư mục `wwwroot/uploads/` với tên file an toàn (GUID-based).
+- Trả về URL có thể truy cập công khai.
+- (Nâng cao) Tích hợp Azure Blob Storage với `Azure.Storage.Blobs`.
+
+### Bài 3: Integration Test với WebApplicationFactory cho Customer API
+
+Viết test suite với `xUnit` và `WebApplicationFactory`:
+
+- **Happy path:** tạo customer → lấy danh sách → lấy chi tiết → cập nhật → xóa.
+- **Validation:** POST với email sai format, tên rỗng → expect `422`.
+- **Not found:** GET/PUT/DELETE với ID không tồn tại → expect `404`.
+- **Pagination:** GET với `page=2&pageSize=5`, verify `pagination.page == 2`.
+- **Filter:** seed 10 customers với status `lead`, filter `?status=lead`, verify count.
+- **Sort:** seed customers với tên khác nhau, sort `?sortBy=name&sortDir=asc`, verify thứ tự.
+
+Yêu cầu:
+- Dùng in-memory database, seed data trong constructor hoặc `IAsyncLifetime`.
+- Mỗi test class có database riêng biệt (tránh test interference).
+- Assert cả status code lẫn body response.
+
+---
+
+## Tóm tắt
+
+| Chủ đề | Công nghệ / Pattern |
+|--------|---------------------|
+| REST Design | Resource URL, HTTP verbs, status codes, naming |
+| Versioning | `Asp.Versioning.Mvc`, URL / Header / Query string |
+| Documentation | Swashbuckle, XML comments, `ProducesResponseType`, OAuth2 |
+| Pagination | Offset pagination, `PagedResponse<T>`, cursor pagination |
+| Filtering/Sorting | `IQueryable`, expression-based, dynamic sort |
+| File Handling | `IFormFile`, multipart, streaming download |
+| Rate Limiting | `AddRateLimiter`, fixed/sliding window, token bucket |
+| Caching | `[ResponseCache]`, `AddOutputCache`, cache invalidation |
+| Testing | `WebApplicationFactory`, `HttpClient`, in-memory DB |
+| Background | `BackgroundService`, `IHostedService`, worker service |
+
+Module 9 hoàn thành nền tảng Web API professional. Module 10 sẽ đi sâu vào **Authentication & Authorization** với JWT, OAuth2 và policy-based access control.
+
+---
+
+## Kiểm tra & Thực hành (100 điểm)
+
+### Bối cảnh giáo trình (mục tiêu xuyên suốt)
+
+> **Trục CRM — một mục tiêu rõ:** bạn hướng tới **CRM production** trong [From Zero → Senior .NET (Backend-first)](../roadmap-dotnet-backend-zero-to-senior.mdx). Giáo trình **ưu tiên backend**, bám chuỗi **API → dữ liệu → vận hành → kiến trúc phân tán**, thay vì trải rộng theo hướng full-stack. Mỗi module củng cố **một lớp kỹ năng** trên **cùng một CRM học tập** bạn phát triển xuyên suốt khóa.
+
+| Chuỗi năng lực | Đóng góp vào CRM học tập |
+|----------------|--------------------------|
+| **Giai đoạn 1 — Foundation** | Đọc hiểu yêu cầu, mô hình client–server, Git — nền **collaboration** khi CRM lớn dần. |
+| **Giai đoạn 2 — C# + P1** | Domain, OOP, LINQ, async, DI — **rule nghiệp vụ & tầng ứng dụng** (Inventory là bản mẫu trước CRM). |
+| **Giai đoạn 3 — ASP.NET + P2** | Host, routing, validation, JWT, SignalR — **CRM Backend API** thực chiến. |
+| **Giai đoạn 4 — Data + P3** | SQL, EF, cache, job, container — CRM **ổn định & có thể triển khai**. |
+| **Giai đoạn 5 — Senior + Final** | Clean Architecture, event/outbox, gateway, observability, perf — CRM/ERP **chịu tải & có chủ**. |
+
+#### Vai trò *giai đoạn này* trong chuỗi
+
+ASP.NET Core + **Project 2 (CRM API)**: pipeline, Web API, JWT, SignalR — **bề mặt backend** mà client/tenant gọi vào.
+
+#### Vị trí bài học (trước / sau)
+
+| Mốc | Điểm nối trong giáo trình |
+|-----|---------------------------|
+| **Trước** | [Module 8 — ASP.NET Core Fundamentals](module-08-aspnet-core-fundamentals.mdx) |
+| **Tiếp theo** | [Module 10 — Authentication + Authorization](module-10-authentication-authorization.mdx) |
+
+
+### Quy trình làm bài (hệ thống)
+
+| Bước | Việc cần làm | Output nên có |
+|------|----------------|-----------------|
+| 1 | Làm **Quiz** *trước*, tự ghi đáp án + 1 dòng lý do | Không xem đáp án; giữ bản nháp |
+| 2 | Đối chiếu **Đáp án**; sửa hiểu sai, ghi *takeaway* vào README hoặc nhật ký học | 3–5 bullet “tôi đã hiểu…” |
+| 3 | Làm **Lab** theo rubric; trong README nêu **phần CRM** nào được chạm (Lead, Customer, Deal, Billing…) | Repo / zip + ảnh `dotnet run` hoặc log |
+| 4 | **Tự chấm** theo bảng điểm; chuẩn bị 1 phút “vấn đáp” nếu mentor hỏi ngẫu nhiên | Điểm + chỗ còn yếu |
+
+---
+
+### Phần A — Quiz trắc nghiệm (20 điểm)
+
+> **Gợi ý làm bài:** mỗi câu **4 điểm**. Ưu tiên suy nghĩ *hệ quả trên CRM* (tiền, dữ liệu, đa tenant, hiệu năng, bảo mật) — không chỉ nhớ định nghĩa.
+
+
+
+Mỗi câu **4 điểm**.
+
+1. API versioning giúp?  
+   A. Xóa client cũ B. Thay đổi contract mà không phá vỡ consumer ngay C. Tăng tốc GC D. Bắt buộc dùng SOAP  
+   > **Đáp án:** B.
+
+2. Cursor pagination thường ưu hơn offset khi?  
+   A. Bảng nhỏ cố định B. Dataset lớn, insert giữa danh sách nhiều C. Luôn luôn D. Khi không có DB  
+   > **Đáp án:** B (tránh skip lớn).
+
+3. HATEOAS trong REST nghĩa là?  
+   A. Chỉ JSON B. Response có link điều hướng hành động tiếp theo C. Chỉ XML D. Không liên quan API  
+   > **Đáp án:** B (lý thuyết; có thể không triển khai đầy đủ).
+
+4. Output caching khác distributed cache ở?  
+   A. Giống hệt B. Output cache gắn response endpoint (thường cùng node) C. Chỉ dùng cho Blazor D. Không có trong ASP.NET Core  
+   > **Đáp án:** B (tinh thần).
+
+5. `WebApplicationFactory` dùng cho?  
+   A. Deploy Azure B. Integration test in-process host C. Tạo NuGet D. Code generator  
+   > **Đáp án:** B.
+
+### Phần B — Lab thực chiến (80 điểm)
+
+> **Lab & rubric:** trong README, map từng nhóm điểm rubric sang **phần CRM** (Lead, Customer, Deal, Billing, Notification…) và **artifact** (test, log, screenshot, migration).
+
+| Tiêu chí | Điểm | Ghi chú |
+|----------|------|---------|
+| HATEOAS-lite hoặc metadata: list trả `next` cursor/link (giả) | 15 | |
+| API versioning (header, URL, hoặc package Asp.Versioning) — 2 version cùng resource | 20 | |
+| Swagger mô tả + ví dụ request | 15 | |
+| Rate limit hoặc output cache cho 1 GET | 15 | |
+| ≥ 1 integration test `WebApplicationFactory` pass | 15 | |
+
+#### Ngưỡng tổng điểm (Quiz 20 + Lab 80)
+
+| Mức | Điểm | Ý nghĩa |
+|-----|------|---------|
+| **Đạt** | ≥ 70 | Đủ nền để học module kế mà không “lủng” kiến thức cốt lõi. |
+| **Khá** | ≥ 85 | Có minh chứng code + nêu được liên hệ CRM rõ ràng trong README. |
+| **Giỏi** | ≥ 95 | Có mở rộng / edge case / ADR ngắn / test bổ trợ (tùy rubric từng bài). |
+
+### Phần C — Reflect & nối chuỗi (không chấm điểm)
+
+Viết **5–8 câu** (README hoặc `docs/learning-log.md`):
+
+1. Kiến thức *module / project này* sẽ được **tái sử dụng trực tiếp** ở module hoặc project CRM nào tiếp theo? (ghi tên module / P2 / P3 / Final).
+2. Nếu bỏ qua phần lab, **rủi ro** lớn nhất cho CRM ở giai đoạn sau là gì?
+3. Một **quyết định kỹ thuật** (nhỏ) bạn sẵn sàng ghi thành **ADR một đoạn** sau khi làm lab.
+
+---
+
+## Tài liệu tham khảo
+
+- [ASP.NET Core Web API documentation](https://learn.microsoft.com/aspnet/core/web-api/)
+- [Asp.Versioning.Mvc — NuGet](https://www.nuget.org/packages/Asp.Versioning.Mvc)
+- [Swashbuckle.AspNetCore — GitHub](https://github.com/domaindrivendev/Swashbuckle.AspNetCore)
+- [Output caching in ASP.NET Core](https://learn.microsoft.com/aspnet/core/performance/caching/output)
+- [Rate limiting middleware in ASP.NET Core](https://learn.microsoft.com/aspnet/core/performance/rate-limit)
+- [Integration tests in ASP.NET Core](https://learn.microsoft.com/aspnet/core/test/integration-tests)
+- [Background tasks with hosted services](https://learn.microsoft.com/aspnet/core/fundamentals/host/hosted-services)
+- [Cursor Pagination — Slack Engineering Blog](https://slack.engineering/evolving-api-pagination-at-slack/)

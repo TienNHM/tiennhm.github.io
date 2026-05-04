@@ -1,0 +1,1256 @@
+---
+title: "Project 3 — Production CRM Platform"
+slug: dotnet-project-03-production-crm-platform
+description: "Production CRM platform: observability, resilience, data tier, CI/CD — capstone tích hợp database, cache, jobs và deployment."
+sidebar_position: 5
+tags:
+  - production-engineering
+  - crm-platform
+  - observability
+  - resilience-patterns
+  - capstone
+keywords:
+  - production readiness checklist
+  - OpenTelemetry .NET
+  - circuit breaker pattern
+  - CRM platform architecture
+enableComments: true
+draft: false
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+<SummaryBox title="Tóm tắt (abstract)">
+
+**Abstract (capstone).** Tổng hợp **Stage 4** thành nền tảng CRM **sẵn sàng vận hành**: quan sát (observability), khả năng phục hồi, tầng dữ liệu và tự động hóa triển khai — mô phỏng **Definition of Done** cấp platform.
+
+</SummaryBox>
+<HiddenContent>
+
+<!-- geoseo-curriculum-nav -->
+
+## Liên kết điều phối (curriculum graph)
+
+- **Hub lộ trình**: [00. Lộ trình From Zero → Senior .NET (Backend-first)](../roadmap-dotnet-backend-zero-to-senior.mdx)
+- **Chương trước**: [Module 15 — Docker + Deployment](module-15-docker-deployment.mdx)
+- **Chương tiếp theo**: [Module 16 — Clean Architecture](../stage-05-senior-engineering/module-16-clean-architecture.mdx)
+
+## Tham chiếu có thẩm quyền (E‑E‑A‑T / retrieval)
+
+Danh sách sau ưu tiên **tài liệu gốc** (Microsoft Learn, đặc tả hệ sinh thái .NET) nhằm tăng **độ tin cậy trích dẫn** và hỗ trợ **công cụ tìm kiếm / tác tử AI** (RAG, overview synthesis).
+
+- [.NET documentation — Microsoft Learn](https://learn.microsoft.com/dotnet/)
+- [ASP.NET Core documentation](https://learn.microsoft.com/aspnet/core/)
+- [ASP.NET Core Developer roadmap — roadmap.sh](https://roadmap.sh/aspnet-core)
+- [DevOps for ASP.NET Core](https://learn.microsoft.com/aspnet/core/devops/)
+
+## Từ khóa chỉ mục (semantic hooks)
+
+Các thẻ `tags` / `keywords` trong frontmatter của trang này được chọn để **đồng nhất ngữ nghĩa** với chủ đề chương và với **đồ thị nội bộ** của giáo trình — hỗ trợ khám phá theo chủ đề và câu hỏi dạng *"học .NET backend theo lộ trình nào?"*.
+
+</HiddenContent>
+
+## 1. Tổng quan dự án
+
+### Từ Project 2 lên Project 3
+
+Project 2 đã xây nền tảng CRM với in-memory data, single-tenant, và API cơ bản. Project 3 là bước chuyển sang **production-ready platform** — nơi mọi quyết định thiết kế đều phải tính đến scale, isolation, reliability và observability.
+
+| Tiêu chí | Project 2 | Project 3 |
+|---|---|---|
+| **Lưu trữ dữ liệu** | In-memory (mất khi restart) | SQL Server / PostgreSQL (persistent) |
+| **Tenant** | Single tenant | Multi-tenant (row-level isolation) |
+| **Cache** | Không có | Redis distributed cache |
+| **Background jobs** | Không có | Hangfire + recurring jobs |
+| **Notification** | Không có | SignalR real-time + persist DB |
+| **Audit** | Không có | Full audit log (who/what/when) |
+| **Deployment** | `dotnet run` | Docker Compose (API + DB + Redis + Hangfire) |
+| **Auth** | JWT đơn giản | JWT + TenantId claim + role-based |
+| **Approval** | Không có | Workflow engine: Lead → Deal |
+| **Export** | Không có | CSV/Excel + background job + presigned URL |
+| **Test** | Unit test cơ bản | Integration test + E2E + load test |
+| **Observability** | Console log | Structured log + health checks |
+
+### Tại sao multi-tenant?
+
+Phần lớn SaaS thực tế là multi-tenant. Hiểu được isolation strategy giúp bạn làm việc được ngay với các hệ thống enterprise. Project này chọn **row-level isolation** — đơn giản nhất để học nhưng vẫn phản ánh đúng vấn đề thực tế.
+
+---
+
+## 2. Mục tiêu học tập
+
+Sau khi hoàn thành Project 3, học viên có thể:
+
+1. **Thiết kế và implement** multi-tenant database với row-level isolation, global query filter, và tenant resolution từ JWT claim.
+2. **Viết EF Core migrations** cho schema production, bao gồm indexes, constraints, và seed data.
+3. **Tích hợp Redis** làm distributed cache với cache-aside pattern, TTL strategy, và cache invalidation.
+4. **Xây dựng Hangfire jobs** bao gồm fire-and-forget, recurring, và continuations; xử lý retry và dead-letter.
+5. **Implement SignalR** để push notification real-time đến đúng tenant/user mà không leak data cross-tenant.
+6. **Thiết kế Approval Workflow** với state machine đơn giản, transition validation, và event notification.
+7. **Viết Docker Compose** production-like với health checks, environment variables, volume mounts, và network isolation.
+8. **Đo và tối ưu** performance: đặt mục tiêu p95, profiling query N+1, và viết load test với k6.
+
+---
+
+## 3. Multi-tenant Architecture
+
+### Ba chiến lược isolation
+
+| Strategy | Ưu điểm | Nhược điểm | Dùng khi |
+|---|---|---|---|
+| **Database per tenant** | Isolation tuyệt đối, backup riêng | Chi phí cao, khó scale | Enterprise, regulated industry |
+| **Schema per tenant** | Isolation tốt, cùng engine | Phức tạp migration, giới hạn schema | Mid-market SaaS |
+| **Row-level (discriminator)** | Đơn giản, scale tốt | Cần filter mọi query, rủi ro data leak | Startup, SMB SaaS |
+
+Project này dùng **row-level isolation** với `TenantId` trên mọi entity. EF Core Global Query Filter đảm bảo mọi query đều tự động filter đúng tenant.
+
+### TenantId trên Entity
+
+```csharp
+// Domain/Common/BaseEntity.cs
+public abstract class TenantEntity
+{
+    public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset? UpdatedAt { get; set; }
+    public string CreatedBy { get; set; } = string.Empty;
+    public string? UpdatedBy { get; set; }
+    public bool IsDeleted { get; set; }
+}
+
+// Domain/Entities/Lead.cs
+public class Lead : TenantEntity
+{
+    public string FullName { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string? Phone { get; set; }
+    public LeadStatus Status { get; set; }
+    public Guid? AssignedToUserId { get; set; }
+    public AppUser? AssignedTo { get; set; }
+    public ICollection<Activity> Activities { get; set; } = new List<Activity>();
+    public ICollection<Note> Notes { get; set; } = new List<Note>();
+}
+```
+
+### ITenantContext và Middleware
+
+```csharp
+// Application/Interfaces/ITenantContext.cs
+public interface ITenantContext
+{
+    Guid TenantId { get; }
+    string TenantName { get; }
+    bool IsResolved { get; }
+}
+
+// Infrastructure/Multitenancy/JwtTenantContext.cs
+public class JwtTenantContext : ITenantContext
+{
+    public Guid TenantId { get; private set; }
+    public string TenantName { get; private set; } = string.Empty;
+    public bool IsResolved { get; private set; }
+
+    public JwtTenantContext(IHttpContextAccessor accessor)
+    {
+        var user = accessor.HttpContext?.User;
+        var claim = user?.FindFirst("tenant_id")?.Value;
+        if (Guid.TryParse(claim, out var id))
+        {
+            TenantId = id;
+            TenantName = user?.FindFirst("tenant_name")?.Value ?? string.Empty;
+            IsResolved = true;
+        }
+    }
+}
+```
+
+### Global Query Filter trong DbContext
+
+```csharp
+// Infrastructure/Persistence/CrmDbContext.cs
+public class CrmDbContext : DbContext
+{
+    private readonly ITenantContext _tenant;
+
+    public CrmDbContext(DbContextOptions<CrmDbContext> options, ITenantContext tenant)
+        : base(options)
+    {
+        _tenant = tenant;
+    }
+
+    public DbSet<Lead> Leads => Set<Lead>();
+    public DbSet<Deal> Deals => Set<Deal>();
+    public DbSet<Contact> Contacts => Set<Contact>();
+    public DbSet<Activity> Activities => Set<Activity>();
+    public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<ApprovalRequest> ApprovalRequests => Set<ApprovalRequest>();
+
+    protected override void OnModelCreating(ModelBuilder builder)
+    {
+        // Global query filter — áp dụng cho mọi entity kế thừa TenantEntity
+        foreach (var entityType in builder.Model.GetEntityTypes())
+        {
+            if (typeof(TenantEntity).IsAssignableFrom(entityType.ClrType))
+            {
+                var method = typeof(CrmDbContext)
+                    .GetMethod(nameof(ApplyTenantFilter),
+                        BindingFlags.NonPublic | BindingFlags.Static)!
+                    .MakeGenericMethod(entityType.ClrType);
+                method.Invoke(null, new object[] { builder, _tenant });
+            }
+        }
+        builder.ApplyConfigurationsFromAssembly(typeof(CrmDbContext).Assembly);
+    }
+
+    private static void ApplyTenantFilter<T>(ModelBuilder builder, ITenantContext tenant)
+        where T : TenantEntity
+    {
+        builder.Entity<T>().HasQueryFilter(e =>
+            !e.IsDeleted && e.TenantId == tenant.TenantId);
+    }
+}
+```
+
+---
+
+## 4. System Architecture
+
+### Diagram tổng quan
+
+```
+                        ┌─────────────────────────────────────────┐
+                        │            Docker Network: crm-net       │
+                        │                                          │
+  Browser / Mobile ───► │  Nginx (80/443)                          │
+                        │      │                                   │
+                        │      ▼                                   │
+                        │  API (.NET 8)  ──────► SQL Server :1433  │
+                        │      │         ──────► Redis      :6379  │
+                        │      │                                   │
+                        │  Hangfire Dashboard                      │
+                        │      │         ──────► SQL Server        │
+                        │      │         ──────► Redis             │
+                        │                                          │
+                        │  SignalR Hub (WebSocket)                 │
+                        └─────────────────────────────────────────┘
+```
+
+### Folder Structure (Clean Architecture Lite)
+
+```
+CrmPlatform/
+├── src/
+│   ├── CrmPlatform.Api/                  # Presentation layer
+│   │   ├── Controllers/
+│   │   │   ├── LeadsController.cs
+│   │   │   ├── DealsController.cs
+│   │   │   ├── ApprovalsController.cs
+│   │   │   ├── NotificationsController.cs
+│   │   │   └── DashboardController.cs
+│   │   ├── Hubs/
+│   │   │   └── NotificationHub.cs
+│   │   ├── Middleware/
+│   │   │   └── TenantResolutionMiddleware.cs
+│   │   └── Program.cs
+│   │
+│   ├── CrmPlatform.Application/          # Use cases
+│   │   ├── Features/
+│   │   │   ├── Leads/
+│   │   │   ├── Deals/
+│   │   │   ├── Approvals/
+│   │   │   └── Notifications/
+│   │   ├── Interfaces/
+│   │   │   ├── ITenantContext.cs
+│   │   │   ├── ICurrentUser.cs
+│   │   │   └── INotificationService.cs
+│   │   └── Common/
+│   │       └── Result.cs
+│   │
+│   ├── CrmPlatform.Domain/               # Entities + business rules
+│   │   ├── Entities/
+│   │   ├── Enums/
+│   │   └── Events/
+│   │
+│   └── CrmPlatform.Infrastructure/       # EF Core, Redis, Hangfire, Email
+│       ├── Persistence/
+│       │   ├── CrmDbContext.cs
+│       │   ├── Migrations/
+│       │   └── Configurations/
+│       ├── Caching/
+│       ├── Jobs/
+│       ├── Notifications/
+│       └── Multitenancy/
+│
+├── tests/
+│   ├── CrmPlatform.IntegrationTests/
+│   └── CrmPlatform.LoadTests/            # k6 scripts
+│
+└── docker-compose.yml
+```
+
+---
+
+## 5. Database Schema
+
+### SQL Schema chính
+
+```sql
+-- Tenants
+CREATE TABLE Tenants (
+    Id          UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWSEQUENTIALID(),
+    Name        NVARCHAR(200) NOT NULL,
+    Slug        VARCHAR(100) NOT NULL UNIQUE,
+    Plan        VARCHAR(50) NOT NULL DEFAULT 'free',
+    IsActive    BIT NOT NULL DEFAULT 1,
+    CreatedAt   DATETIMEOFFSET NOT NULL DEFAULT SYSDATETIMEOFFSET()
+);
+
+-- Users (per tenant)
+CREATE TABLE AppUsers (
+    Id          UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWSEQUENTIALID(),
+    TenantId    UNIQUEIDENTIFIER NOT NULL REFERENCES Tenants(Id),
+    Email       NVARCHAR(200) NOT NULL,
+    FullName    NVARCHAR(200) NOT NULL,
+    Role        VARCHAR(50) NOT NULL DEFAULT 'sales',
+    IsActive    BIT NOT NULL DEFAULT 1,
+    CreatedAt   DATETIMEOFFSET NOT NULL DEFAULT SYSDATETIMEOFFSET(),
+    INDEX IX_AppUsers_TenantId (TenantId)
+);
+
+-- Leads
+CREATE TABLE Leads (
+    Id              UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWSEQUENTIALID(),
+    TenantId        UNIQUEIDENTIFIER NOT NULL REFERENCES Tenants(Id),
+    FullName        NVARCHAR(200) NOT NULL,
+    Email           NVARCHAR(200),
+    Phone           NVARCHAR(50),
+    Status          VARCHAR(50) NOT NULL DEFAULT 'new',
+    Source          VARCHAR(100),
+    AssignedToUserId UNIQUEIDENTIFIER REFERENCES AppUsers(Id),
+    CreatedBy       NVARCHAR(200) NOT NULL,
+    CreatedAt       DATETIMEOFFSET NOT NULL DEFAULT SYSDATETIMEOFFSET(),
+    UpdatedAt       DATETIMEOFFSET,
+    IsDeleted       BIT NOT NULL DEFAULT 0,
+    INDEX IX_Leads_TenantId_Status (TenantId, Status),
+    INDEX IX_Leads_TenantId_AssignedTo (TenantId, AssignedToUserId)
+);
+
+-- Deals (chuyển từ Lead)
+CREATE TABLE Deals (
+    Id              UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWSEQUENTIALID(),
+    TenantId        UNIQUEIDENTIFIER NOT NULL REFERENCES Tenants(Id),
+    LeadId          UNIQUEIDENTIFIER REFERENCES Leads(Id),
+    Title           NVARCHAR(300) NOT NULL,
+    Value           DECIMAL(18,2),
+    Currency        VARCHAR(10) DEFAULT 'VND',
+    Stage           VARCHAR(50) NOT NULL DEFAULT 'qualification',
+    ApprovalStatus  VARCHAR(50) NOT NULL DEFAULT 'pending',
+    AssignedToUserId UNIQUEIDENTIFIER REFERENCES AppUsers(Id),
+    ClosedAt        DATETIMEOFFSET,
+    CreatedBy       NVARCHAR(200) NOT NULL,
+    CreatedAt       DATETIMEOFFSET NOT NULL DEFAULT SYSDATETIMEOFFSET(),
+    UpdatedAt       DATETIMEOFFSET,
+    IsDeleted       BIT NOT NULL DEFAULT 0,
+    INDEX IX_Deals_TenantId_Stage (TenantId, Stage),
+    INDEX IX_Deals_TenantId_ApprovalStatus (TenantId, ApprovalStatus)
+);
+
+-- Approval Requests
+CREATE TABLE ApprovalRequests (
+    Id              UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWSEQUENTIALID(),
+    TenantId        UNIQUEIDENTIFIER NOT NULL REFERENCES Tenants(Id),
+    EntityType      VARCHAR(50) NOT NULL,  -- 'Deal', 'Discount', ...
+    EntityId        UNIQUEIDENTIFIER NOT NULL,
+    RequestedBy     UNIQUEIDENTIFIER NOT NULL REFERENCES AppUsers(Id),
+    ReviewedBy      UNIQUEIDENTIFIER REFERENCES AppUsers(Id),
+    Status          VARCHAR(50) NOT NULL DEFAULT 'pending',
+    Note            NVARCHAR(1000),
+    RequestedAt     DATETIMEOFFSET NOT NULL DEFAULT SYSDATETIMEOFFSET(),
+    ReviewedAt      DATETIMEOFFSET,
+    IsDeleted       BIT NOT NULL DEFAULT 0,
+    INDEX IX_Approvals_TenantId_Status (TenantId, Status)
+);
+
+-- Audit Log
+CREATE TABLE AuditLogs (
+    Id          BIGINT IDENTITY PRIMARY KEY,
+    TenantId    UNIQUEIDENTIFIER NOT NULL,
+    UserId      UNIQUEIDENTIFIER,
+    EntityType  VARCHAR(100) NOT NULL,
+    EntityId    NVARCHAR(100) NOT NULL,
+    Action      VARCHAR(50) NOT NULL,  -- 'Create', 'Update', 'Delete', 'StatusChange'
+    OldValue    NVARCHAR(MAX),
+    NewValue    NVARCHAR(MAX),
+    ChangedAt   DATETIMEOFFSET NOT NULL DEFAULT SYSDATETIMEOFFSET(),
+    IpAddress   VARCHAR(50),
+    INDEX IX_AuditLogs_TenantId_EntityType (TenantId, EntityType),
+    INDEX IX_AuditLogs_TenantId_ChangedAt (TenantId, ChangedAt)
+);
+
+-- Notifications
+CREATE TABLE Notifications (
+    Id          UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWSEQUENTIALID(),
+    TenantId    UNIQUEIDENTIFIER NOT NULL,
+    UserId      UNIQUEIDENTIFIER NOT NULL REFERENCES AppUsers(Id),
+    Type        VARCHAR(100) NOT NULL,
+    Title       NVARCHAR(300) NOT NULL,
+    Body        NVARCHAR(1000),
+    IsRead      BIT NOT NULL DEFAULT 0,
+    Payload     NVARCHAR(MAX),
+    CreatedAt   DATETIMEOFFSET NOT NULL DEFAULT SYSDATETIMEOFFSET(),
+    INDEX IX_Notifications_UserId_IsRead (UserId, IsRead)
+);
+```
+
+### Migration Strategy
+
+```bash
+# Tạo migration ban đầu
+dotnet ef migrations add InitialCreate \
+  --project src/CrmPlatform.Infrastructure \
+  --startup-project src/CrmPlatform.Api
+
+# Apply migration khi startup (Development)
+# Trong Program.cs:
+# app.MigrateDatabase<CrmDbContext>();
+
+# Production: dùng migration bundle
+dotnet ef migrations bundle --self-contained -r linux-x64 \
+  --project src/CrmPlatform.Infrastructure \
+  --startup-project src/CrmPlatform.Api
+```
+
+### Seed Data Script
+
+```csharp
+// Infrastructure/Persistence/SeedData.cs
+public static class SeedData
+{
+    public static async Task SeedAsync(CrmDbContext context)
+    {
+        if (await context.Tenants.AnyAsync()) return;
+
+        var demoTenant = new Tenant
+        {
+            Id = Guid.Parse("11111111-0000-0000-0000-000000000001"),
+            Name = "Demo Company",
+            Slug = "demo",
+            Plan = "pro",
+            IsActive = true
+        };
+        context.Tenants.Add(demoTenant);
+
+        var adminUser = new AppUser
+        {
+            Id = Guid.Parse("22222222-0000-0000-0000-000000000001"),
+            TenantId = demoTenant.Id,
+            Email = "admin@demo.com",
+            FullName = "Admin Demo",
+            Role = "manager"
+        };
+        context.AppUsers.Add(adminUser);
+
+        await context.SaveChangesAsync();
+    }
+}
+```
+
+---
+
+## 6. Feature Specifications
+
+### 6.1 Approval Engine
+
+Lead khi đạt trạng thái `qualified` cần được chuyển thành Deal. Deal có value > ngưỡng (ví dụ: 50 triệu VND) cần manager phê duyệt trước khi tiến sang `negotiation`.
+
+**State Machine:**
+
+```
+Lead: new → contacted → qualified ──────────────────► Deal: qualification
+                                                              │
+                                                              ▼
+                                          ApprovalRequest: pending
+                                                   │          │
+                                               approved    rejected
+                                                   │          │
+                                                   ▼          ▼
+                                          Deal: negotiation  Deal: lost
+```
+
+**Implement:**
+
+```csharp
+// Application/Features/Approvals/ApproveOrRejectCommand.cs
+public record ApproveOrRejectCommand(
+    Guid ApprovalRequestId,
+    bool IsApproved,
+    string? Note
+) : IRequest<Result>;
+
+public class ApproveOrRejectHandler : IRequestHandler<ApproveOrRejectCommand, Result>
+{
+    public async Task<Result> Handle(ApproveOrRejectCommand cmd, CancellationToken ct)
+    {
+        var request = await _context.ApprovalRequests
+            .Include(r => r.Deal)
+            .FirstOrDefaultAsync(r => r.Id == cmd.ApprovalRequestId, ct);
+
+        if (request is null) return Result.Failure("Không tìm thấy approval request");
+        if (request.Status != ApprovalStatus.Pending)
+            return Result.Failure("Request đã được xử lý");
+
+        request.Status = cmd.IsApproved ? ApprovalStatus.Approved : ApprovalStatus.Rejected;
+        request.ReviewedBy = _currentUser.UserId;
+        request.ReviewedAt = DateTimeOffset.UtcNow;
+        request.Note = cmd.Note;
+
+        if (request.Deal is not null)
+        {
+            request.Deal.ApprovalStatus = cmd.IsApproved
+                ? DealApprovalStatus.Approved
+                : DealApprovalStatus.Rejected;
+
+            if (cmd.IsApproved)
+                request.Deal.Stage = DealStage.Negotiation;
+        }
+
+        await _context.SaveChangesAsync(ct);
+
+        // Gửi notification cho người yêu cầu
+        await _notificationService.SendAsync(new SendNotificationRequest
+        {
+            TenantId = _tenant.TenantId,
+            UserId = request.RequestedBy,
+            Type = "approval_result",
+            Title = cmd.IsApproved ? "Deal đã được phê duyệt" : "Deal bị từ chối",
+            Body = cmd.Note
+        });
+
+        return Result.Success();
+    }
+}
+```
+
+### 6.2 Background Jobs với Hangfire
+
+```csharp
+// Infrastructure/Jobs/CrmJobs.cs
+public class CrmJobs
+{
+    private readonly CrmDbContext _context;
+    private readonly IEmailService _email;
+
+    // Chạy mỗi sáng 8h — tóm tắt hoạt động hôm trước
+    [AutomaticRetry(Attempts = 3)]
+    public async Task SendDailyDigestAsync(Guid tenantId)
+    {
+        var yesterday = DateTimeOffset.UtcNow.AddDays(-1).Date;
+        var stats = await _context.Leads
+            .IgnoreQueryFilters()  // Chú ý: phải filter thủ công khi IgnoreQueryFilters
+            .Where(l => l.TenantId == tenantId && l.CreatedAt.Date == yesterday)
+            .GroupBy(l => l.Status)
+            .Select(g => new { Status = g.Key, Count = g.Count() })
+            .ToListAsync();
+
+        var users = await _context.AppUsers
+            .IgnoreQueryFilters()
+            .Where(u => u.TenantId == tenantId && u.Role == "manager")
+            .ToListAsync();
+
+        foreach (var user in users)
+            await _email.SendDailyDigestAsync(user.Email, stats);
+    }
+
+    // Chạy mỗi 4h — nhắc nhở lead bị bỏ quên
+    public async Task RemindStaleLeadsAsync()
+    {
+        var cutoff = DateTimeOffset.UtcNow.AddDays(-7);
+        var staleLeads = await _context.Leads
+            .Include(l => l.AssignedTo)
+            .Where(l => l.Status == LeadStatus.Contacted
+                     && l.UpdatedAt < cutoff
+                     && l.AssignedTo != null)
+            .ToListAsync();
+
+        foreach (var lead in staleLeads)
+            BackgroundJob.Enqueue(() =>
+                _email.SendStaleLeadReminderAsync(lead.AssignedTo!.Email, lead.Id));
+    }
+}
+
+// Đăng ký recurring jobs trong Program.cs
+RecurringJob.AddOrUpdate<CrmJobs>(
+    "daily-digest",
+    job => job.SendDailyDigestAsync(Guid.Empty),  // tenantId lấy từ DB loop
+    Cron.Daily(8, 0));
+
+RecurringJob.AddOrUpdate<CrmJobs>(
+    "stale-lead-reminder",
+    job => job.RemindStaleLeadsAsync(),
+    "0 */4 * * *");
+```
+
+### 6.3 Notification Center với SignalR
+
+```csharp
+// Api/Hubs/NotificationHub.cs
+[Authorize]
+public class NotificationHub : Hub
+{
+    public override async Task OnConnectedAsync()
+    {
+        var userId = Context.UserIdentifier;
+        var tenantId = Context.User?.FindFirst("tenant_id")?.Value;
+
+        // Mỗi user join group của mình và group của tenant
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"user:{userId}");
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"tenant:{tenantId}");
+        await base.OnConnectedAsync();
+    }
+}
+
+// Infrastructure/Notifications/SignalRNotificationService.cs
+public class SignalRNotificationService : INotificationService
+{
+    private readonly IHubContext<NotificationHub> _hub;
+    private readonly CrmDbContext _context;
+
+    public async Task SendAsync(SendNotificationRequest request)
+    {
+        // Persist vào DB
+        var notification = new Notification
+        {
+            TenantId = request.TenantId,
+            UserId = request.UserId,
+            Type = request.Type,
+            Title = request.Title,
+            Body = request.Body
+        };
+        _context.Notifications.Add(notification);
+        await _context.SaveChangesAsync();
+
+        // Push real-time
+        await _hub.Clients
+            .Group($"user:{request.UserId}")
+            .SendAsync("ReceiveNotification", new
+            {
+                notification.Id,
+                notification.Title,
+                notification.Body,
+                notification.Type,
+                notification.CreatedAt
+            });
+    }
+}
+```
+
+### 6.4 Audit Log
+
+```csharp
+// Infrastructure/Persistence/AuditInterceptor.cs
+public class AuditInterceptor : SaveChangesInterceptor
+{
+    private readonly ITenantContext _tenant;
+    private readonly ICurrentUser _currentUser;
+
+    public override async ValueTask<InterceptionResult<int>> SavingChangesAsync(
+        DbContextEventData eventData, InterceptionResult<int> result, CancellationToken ct)
+    {
+        var context = eventData.Context!;
+        var logs = new List<AuditLog>();
+
+        foreach (var entry in context.ChangeTracker.Entries<TenantEntity>())
+        {
+            if (entry.State is not (EntityState.Added or EntityState.Modified or EntityState.Deleted))
+                continue;
+
+            logs.Add(new AuditLog
+            {
+                TenantId = _tenant.TenantId,
+                UserId = _currentUser.UserId,
+                EntityType = entry.Entity.GetType().Name,
+                EntityId = entry.Entity.Id.ToString(),
+                Action = entry.State.ToString(),
+                OldValue = entry.State == EntityState.Modified
+                    ? JsonSerializer.Serialize(entry.OriginalValues.ToObject())
+                    : null,
+                NewValue = entry.State != EntityState.Deleted
+                    ? JsonSerializer.Serialize(entry.CurrentValues.ToObject())
+                    : null,
+                ChangedAt = DateTimeOffset.UtcNow
+            });
+        }
+
+        context.Set<AuditLog>().AddRange(logs);
+        return await base.SavingChangesAsync(eventData, result, ct);
+    }
+}
+```
+
+### 6.5 Dashboard API
+
+```csharp
+// Application/Features/Dashboard/GetDashboardQuery.cs
+public record GetDashboardQuery : IRequest<DashboardDto>;
+
+public class GetDashboardHandler : IRequestHandler<GetDashboardQuery, DashboardDto>
+{
+    public async Task<DashboardDto> Handle(GetDashboardQuery _, CancellationToken ct)
+    {
+        // Cache per tenant, TTL 5 phút
+        var cacheKey = $"dashboard:{_tenant.TenantId}";
+        if (_cache.TryGetValue(cacheKey, out DashboardDto? cached))
+            return cached!;
+
+        var now = DateTimeOffset.UtcNow;
+        var startOfMonth = new DateTimeOffset(now.Year, now.Month, 1, 0, 0, 0, TimeSpan.Zero);
+
+        var result = new DashboardDto
+        {
+            TotalLeads = await _context.Leads.CountAsync(ct),
+            NewLeadsThisMonth = await _context.Leads
+                .CountAsync(l => l.CreatedAt >= startOfMonth, ct),
+            TotalDealsValue = await _context.Deals
+                .Where(d => d.ApprovalStatus == DealApprovalStatus.Approved)
+                .SumAsync(d => d.Value ?? 0, ct),
+            PendingApprovals = await _context.ApprovalRequests
+                .CountAsync(a => a.Status == ApprovalStatus.Pending, ct),
+            LeadsByStatus = await _context.Leads
+                .GroupBy(l => l.Status)
+                .Select(g => new StatusCountDto(g.Key.ToString(), g.Count()))
+                .ToListAsync(ct)
+        };
+
+        _cache.Set(cacheKey, result, TimeSpan.FromMinutes(5));
+        return result;
+    }
+}
+```
+
+### 6.6 Export CSV/Excel với Background Job
+
+```csharp
+// Application/Features/Export/RequestExportCommand.cs
+public record RequestExportCommand(string EntityType, ExportFormat Format) : IRequest<Guid>;
+
+public class RequestExportHandler : IRequestHandler<RequestExportCommand, Guid>
+{
+    public async Task<Guid> Handle(RequestExportCommand cmd, CancellationToken ct)
+    {
+        var exportId = Guid.NewGuid();
+
+        // Enqueue Hangfire job — tránh timeout HTTP
+        BackgroundJob.Enqueue<ExportJob>(job =>
+            job.GenerateAsync(exportId, _tenant.TenantId, cmd.EntityType, cmd.Format));
+
+        return exportId;
+    }
+}
+
+// Sau khi job xong, lưu file lên local/S3 và tạo presigned URL
+public class ExportJob
+{
+    public async Task GenerateAsync(Guid exportId, Guid tenantId,
+        string entityType, ExportFormat format)
+    {
+        // 1. Query dữ liệu
+        // 2. Generate file (CsvHelper hoặc ClosedXML)
+        // 3. Upload lên storage
+        // 4. Notify user qua SignalR: "Export sẵn sàng, link download: ..."
+        await _notificationService.SendAsync(new SendNotificationRequest
+        {
+            TenantId = tenantId,
+            Type = "export_ready",
+            Title = "File export đã sẵn sàng",
+            Body = $"/api/exports/{exportId}/download"
+        });
+    }
+}
+```
+
+---
+
+## 7. Deployment Requirements
+
+### Docker Compose
+
+```yaml
+# docker-compose.yml
+version: '3.9'
+
+networks:
+  crm-net:
+    driver: bridge
+
+volumes:
+  sqlserver-data:
+  redis-data:
+  hangfire-data:
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      SA_PASSWORD: "${SQL_PASSWORD}"
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: "Developer"
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    networks:
+      - crm-net
+    healthcheck:
+      test: /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "${SQL_PASSWORD}" -Q "SELECT 1"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --requirepass "${REDIS_PASSWORD}"
+    volumes:
+      - redis-data:/data
+    networks:
+      - crm-net
+    healthcheck:
+      test: redis-cli -a "${REDIS_PASSWORD}" ping
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: src/CrmPlatform.Api/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__DefaultConnection: "Server=sqlserver;Database=CrmDb;User Id=sa;Password=${SQL_PASSWORD};TrustServerCertificate=True"
+      ConnectionStrings__Redis: "redis:6379,password=${REDIS_PASSWORD}"
+      Jwt__Secret: "${JWT_SECRET}"
+    ports:
+      - "5000:8080"
+    networks:
+      - crm-net
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: curl -f http://localhost:8080/health || exit 1
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  nginx:
+    image: nginx:alpine
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "80:80"
+    networks:
+      - crm-net
+    depends_on:
+      - api
+```
+
+### Health Checks
+
+```csharp
+// Program.cs
+builder.Services.AddHealthChecks()
+    .AddSqlServer(connectionString, name: "sqlserver", tags: ["db"])
+    .AddRedis(redisConnection, name: "redis", tags: ["cache"])
+    .AddHangfire(opt => opt.MinimumAvailableServers = 1, name: "hangfire", tags: ["jobs"]);
+
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
+});
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("db")
+});
+```
+
+### CI/CD Pipeline Spec (GitHub Actions)
+
+```yaml
+# .github/workflows/ci.yml
+name: CI/CD
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          SA_PASSWORD: TestPassword123!
+          ACCEPT_EULA: Y
+        ports: ["1433:1433"]
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: '8.x' }
+      - run: dotnet restore
+      - run: dotnet build --no-restore
+      - run: dotnet test --no-build --verbosity normal
+
+  build-push:
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v5
+        with:
+          push: true
+          tags: ghcr.io/${{ github.repository }}/api:latest
+```
+
+---
+
+## 8. Performance Requirements
+
+### Mục tiêu
+
+| Metric | Target | Cách đo |
+|---|---|---|
+| API response p95 | < 200ms | k6 load test |
+| DB query p95 | < 100ms | EF Core logging + slow query log |
+| Redis cache hit rate | > 80% | Redis INFO stats |
+| Concurrent users | 100 | k6 virtual users |
+| Job throughput | 1000 jobs/phút | Hangfire metrics |
+
+### Caching Strategy
+
+```csharp
+// Infrastructure/Caching/CacheKeys.cs
+public static class CacheKeys
+{
+    // Dashboard: cache 5 phút, invalidate khi có write
+    public static string Dashboard(Guid tenantId) => $"dashboard:{tenantId}";
+
+    // Lead list: cache 30 giây, invalidate khi thêm/sửa/xóa lead
+    public static string LeadList(Guid tenantId, string hash) => $"leads:{tenantId}:{hash}";
+
+    // User profile: cache 10 phút
+    public static string UserProfile(Guid userId) => $"user:{userId}";
+}
+
+// Pattern: Cache-aside với IMemoryCache (L1) + Redis (L2)
+public async Task<T?> GetOrSetAsync<T>(string key, Func<Task<T>> factory, TimeSpan ttl)
+{
+    // L1: memory cache
+    if (_memCache.TryGetValue(key, out T? value)) return value;
+
+    // L2: Redis
+    var cached = await _redis.StringGetAsync(key);
+    if (cached.HasValue)
+    {
+        value = JsonSerializer.Deserialize<T>(cached!);
+        _memCache.Set(key, value, TimeSpan.FromSeconds(30)); // ngắn hơn Redis TTL
+        return value;
+    }
+
+    // Miss: gọi factory
+    value = await factory();
+    var serialized = JsonSerializer.Serialize(value);
+    await _redis.StringSetAsync(key, serialized, ttl);
+    _memCache.Set(key, value, TimeSpan.FromSeconds(30));
+    return value;
+}
+```
+
+---
+
+## 9. Testing Requirements
+
+### Integration Tests
+
+```csharp
+// tests/CrmPlatform.IntegrationTests/LeadApprovalFlowTests.cs
+public class LeadApprovalFlowTests : IClassFixture<CrmWebApplicationFactory>
+{
+    [Fact]
+    public async Task CreateLead_QualifyLead_RequestApproval_ApproveDeal_ShouldUpdateStage()
+    {
+        // Arrange: tạo Lead
+        var createResponse = await _client.PostAsJsonAsync("/api/leads", new
+        {
+            FullName = "Nguyễn Văn A",
+            Email = "a@test.com"
+        });
+        var lead = await createResponse.Content.ReadFromJsonAsync<LeadDto>();
+
+        // Act 1: qualify lead
+        await _client.PatchAsync($"/api/leads/{lead!.Id}/qualify", null);
+
+        // Act 2: tạo deal từ lead
+        var dealResponse = await _client.PostAsJsonAsync("/api/deals", new
+        {
+            LeadId = lead.Id,
+            Title = "Deal A",
+            Value = 100_000_000
+        });
+        var deal = await dealResponse.Content.ReadFromJsonAsync<DealDto>();
+
+        // Assert: deal cần approval vì value > threshold
+        Assert.Equal("pending", deal!.ApprovalStatus);
+
+        // Act 3: manager approve
+        var approval = await _client.GetFromJsonAsync<ApprovalRequestDto>(
+            $"/api/approvals?dealId={deal.Id}");
+        await _managerClient.PostAsJsonAsync($"/api/approvals/{approval!.Id}/approve", new
+        {
+            Note = "OK, tiến hành"
+        });
+
+        // Assert: deal chuyển sang negotiation
+        var updatedDeal = await _client.GetFromJsonAsync<DealDto>($"/api/deals/{deal.Id}");
+        Assert.Equal("negotiation", updatedDeal!.Stage);
+        Assert.Equal("approved", updatedDeal.ApprovalStatus);
+    }
+}
+```
+
+### Load Test với k6
+
+```javascript
+// tests/CrmPlatform.LoadTests/load-test.js
+import http from 'k6/http';
+import { check, sleep } from 'k6';
+import { Rate } from 'k6/metrics';
+
+const errorRate = new Rate('errors');
+
+export const options = {
+    stages: [
+        { duration: '1m', target: 20 },   // ramp up
+        { duration: '3m', target: 100 },  // steady state
+        { duration: '1m', target: 0 },    // ramp down
+    ],
+    thresholds: {
+        http_req_duration: ['p(95)<200'],  // p95 < 200ms
+        errors: ['rate<0.01'],             // error rate < 1%
+    },
+};
+
+export default function () {
+    const res = http.get('http://localhost:5000/api/dashboard', {
+        headers: { Authorization: `Bearer ${__ENV.JWT_TOKEN}` },
+    });
+
+    check(res, {
+        'status 200': (r) => r.status === 200,
+        'response time < 200ms': (r) => r.timings.duration < 200,
+    });
+
+    errorRate.add(res.status !== 200);
+    sleep(1);
+}
+```
+
+---
+
+## 10. Bonus: .NET Aspire
+
+Thay `docker-compose.yml` bằng **.NET Aspire AppHost** cho local development — IDE-friendly, observability built-in.
+
+```csharp
+// CrmPlatform.AppHost/Program.cs
+var builder = DistributedApplication.CreateBuilder(args);
+
+var sqlServer = builder.AddSqlServer("sqlserver")
+    .AddDatabase("CrmDb");
+
+var redis = builder.AddRedis("redis");
+
+var api = builder.AddProject<Projects.CrmPlatform_Api>("api")
+    .WithReference(sqlServer)
+    .WithReference(redis)
+    .WithEnvironment("Hangfire__Storage", "sqlserver");
+
+builder.Build().Run();
+```
+
+**Lợi ích:**
+- Dashboard tích hợp: traces, logs, metrics từ một URL
+- Service discovery tự động — không cần hardcode connection string
+- Hot reload friendly hơn Docker Compose
+- Dễ thêm Azure service (Service Bus, Blob Storage) khi deploy lên cloud
+
+**Cách chạy:**
+```bash
+cd CrmPlatform.AppHost
+dotnet run
+# Mở http://localhost:15000 — Aspire Dashboard
+```
+
+---
+
+## 11. Checklist Nộp Bài
+
+### Infrastructure & Deployment (5 tiêu chí)
+- [ ] `docker compose up` chạy được toàn bộ stack không có lỗi
+- [ ] Health check endpoint `/health` trả về `Healthy` với đủ component
+- [ ] Migration tự động chạy khi startup ở Development
+- [ ] `.env.example` có đủ các biến môi trường cần thiết
+- [ ] Không có secret hardcode trong source code
+
+### Multi-tenant (4 tiêu chí)
+- [ ] `TenantId` có mặt trên mọi entity và được index
+- [ ] Global Query Filter hoạt động đúng: không thể query data của tenant khác
+- [ ] JWT claim `tenant_id` được validate ở mọi authenticated endpoint
+- [ ] Có integration test chứng minh tenant isolation
+
+### Database & EF Core (4 tiêu chí)
+- [ ] Migration clean, không có `IgnoreQueryFilters` ngoài ý muốn
+- [ ] Các index quan trọng đã được tạo (TenantId + Status, TenantId + CreatedAt)
+- [ ] Audit log ghi đầy đủ old value / new value cho mọi thay đổi entity
+- [ ] Seed data tạo được demo tenant + demo user
+
+### Approval Engine (3 tiêu chí)
+- [ ] Deal value > threshold phải tạo ApprovalRequest, không thể skip
+- [ ] Manager approve/reject → Deal stage cập nhật đúng
+- [ ] Notification được gửi đến người yêu cầu sau khi review
+
+### Background Jobs (3 tiêu chí)
+- [ ] Hangfire Dashboard accessible (có basic auth bảo vệ)
+- [ ] Ít nhất 2 recurring job đăng ký và chạy theo schedule
+- [ ] Job failed được retry tự động, sau N lần vào dead-letter queue
+
+### Notifications & Real-time (2 tiêu chí)
+- [ ] Notification persist vào DB, có API lấy danh sách + mark as read
+- [ ] SignalR push đúng đến user/tenant, không leak cross-tenant
+
+### Performance & Testing (4 tiêu chí)
+- [ ] Dashboard endpoint có cache, cache hit khi gọi lần 2 trong cùng TTL
+- [ ] Có ít nhất 5 integration test cho các luồng business quan trọng
+- [ ] k6 hoặc BenchmarkDotNet script tồn tại và có kết quả chạy được
+- [ ] Không có query N+1 ở các list endpoint (kiểm tra bằng EF Core logging)
+
+---
+
+## 11b. Kiểm tra & Thực hành (100 điểm)
+
+### Bối cảnh giáo trình (mục tiêu xuyên suốt)
+
+> **Trục CRM — một mục tiêu rõ:** bạn hướng tới **CRM production** trong [From Zero → Senior .NET (Backend-first)](../roadmap-dotnet-backend-zero-to-senior.mdx). Giáo trình **ưu tiên backend**, bám chuỗi **API → dữ liệu → vận hành → kiến trúc phân tán**, thay vì trải rộng theo hướng full-stack. Mỗi module củng cố **một lớp kỹ năng** trên **cùng một CRM học tập** bạn phát triển xuyên suốt khóa.
+
+| Chuỗi năng lực | Đóng góp vào CRM học tập |
+|----------------|--------------------------|
+| **Giai đoạn 1 — Foundation** | Đọc hiểu yêu cầu, mô hình client–server, Git — nền **collaboration** khi CRM lớn dần. |
+| **Giai đoạn 2 — C# + P1** | Domain, OOP, LINQ, async, DI — **rule nghiệp vụ & tầng ứng dụng** (Inventory là bản mẫu trước CRM). |
+| **Giai đoạn 3 — ASP.NET + P2** | Host, routing, validation, JWT, SignalR — **CRM Backend API** thực chiến. |
+| **Giai đoạn 4 — Data + P3** | SQL, EF, cache, job, container — CRM **ổn định & có thể triển khai**. |
+| **Giai đoạn 5 — Senior + Final** | Clean Architecture, event/outbox, gateway, observability, perf — CRM/ERP **chịu tải & có chủ**. |
+
+#### Vai trò *giai đoạn này* trong chuỗi
+
+SQL, EF Core, cache, job nền, Docker + **Project 3** — CRM **chạy được** như môi trường thật (dữ liệu, hiệu năng, vận hành).
+
+#### Vị trí bài học (trước / sau)
+
+| Mốc | Điểm nối trong giáo trình |
+|-----|---------------------------|
+| **Trước** | [Module 15 — Docker + Deployment](module-15-docker-deployment.mdx) |
+| **Tiếp theo** | [Module 16 — Clean Architecture](../stage-05-senior-engineering/module-16-clean-architecture.mdx) |
+
+
+### Quy trình làm bài (hệ thống)
+
+| Bước | Việc cần làm | Output nên có |
+|------|----------------|-----------------|
+| 1 | Làm **Quiz** *trước*, tự ghi đáp án + 1 dòng lý do | Không xem đáp án; giữ bản nháp |
+| 2 | Đối chiếu **Đáp án**; sửa hiểu sai, ghi *takeaway* vào README hoặc nhật ký học | 3–5 bullet “tôi đã hiểu…” |
+| 3 | Làm **Lab** theo rubric; trong README nêu **phần CRM** nào được chạm (Lead, Customer, Deal, Billing…) | Repo / zip + ảnh `dotnet run` hoặc log |
+| 4 | **Tự chấm** theo bảng điểm; chuẩn bị 1 phút “vấn đáp” nếu mentor hỏi ngẫu nhiên | Điểm + chỗ còn yếu |
+
+---
+
+### Phần A — Quiz trắc nghiệm (20 điểm)
+
+> **Gợi ý làm bài:** mỗi câu **4 điểm**. Liên tưởng **CRM platform (P3)**: tenant isolation, job nền, cache, Docker — chuẩn bị cho **Final** và kiến trúc phân tán.
+
+Mỗi câu **4 điểm**.
+
+1. Global Query Filter `TenantId` + index phù hợp nhằm?  
+   A. Tăng độ dài JWT B. Giảm rủi ro lộ dữ liệu tenant khác + tối ưu truy vấn C. Thay connection pool D. Tắt migration  
+   > **Đáp án:** B.
+
+2. Hangfire recurring job trên production cần?  
+   A. Chỉ RAM B. Storage persistence (SQL/Redis…) để schedule không mất khi restart C. Blazor D. IIS express  
+   > **Đáp án:** B.
+
+3. `IDistributedCache` (Redis) trong platform này phục vụ?  
+   A. Thay EF hoàn toàn B. Cache/rate/token blacklist chia sẻ giữa instance C. Chỉ compile-time D. Chỉ Windows  
+   > **Đáp án:** B.
+
+4. Readiness probe khác liveness?  
+   A. Giống nhau B. Ready kiểm tra DB/Redis/broker; Live chỉ process sống C. Chỉ cho gRPC D. Chỉ trên Mac  
+   > **Đáp án:** B.
+
+5. `docker-compose` cho CRM platform giúp điều gì quan trọng nhất trong học tập?  
+   A. Xóa Git history B. Tái lập môi trường (API+DB+Redis) một lệnh, giảm “chạy được trên máy tôi” C. Thay unit test D. Ký APK Android  
+   > **Đáp án:** B.
+
+### Phần B — Lab thực chiến (80 điểm)
+
+> **Lab & rubric:** trong README, map từng nhóm điểm rubric sang **phần CRM** (Lead, Customer, Deal, Billing, Notification…) và **artifact** (test, log, screenshot, migration).
+
+Map checklist mục **11**: **Docker/Secrets 12**, **Multi-tenant 12**, **DB & EF 12**, **Approval 9**, **Jobs 9**, **Notifications 6**, **Perf & Test 20** — tự tick và cộng; trừ nếu không có bằng chứng (log, test, ảnh).
+
+#### Ngưỡng tổng điểm (Quiz 20 + Lab 80)
+
+| Mức | Điểm | Ý nghĩa |
+|-----|------|---------|
+| **Đạt** | ≥ 70 | Đủ nền để học module kế mà không “lủng” kiến thức cốt lõi. |
+| **Khá** | ≥ 85 | Có minh chứng code + nêu được liên hệ CRM rõ ràng trong README. |
+| **Giỏi** | ≥ 95 | Có mở rộng / edge case / ADR ngắn / test bổ trợ (tùy rubric từng bài). |
+
+### Phần C — Reflect & nối chuỗi (không chấm điểm)
+
+Viết **5–8 câu** (README hoặc `docs/learning-log.md`):
+
+1. Kiến thức *module / project này* sẽ được **tái sử dụng trực tiếp** ở module hoặc project CRM nào tiếp theo? (ghi tên module / P2 / P3 / Final).
+2. Nếu bỏ qua phần lab, **rủi ro** lớn nhất cho CRM ở giai đoạn sau là gì?
+3. Một **quyết định kỹ thuật** (nhỏ) bạn sẵn sàng ghi thành **ADR một đoạn** sau khi làm lab.
+
+---
+
+## 12. Cầu Nối Sang Stage 5
+
+Bạn vừa xây xong một CRM monolith production-ready. Stage 5 sẽ không viết lại từ đầu — mà **refactor có chủ đích** để giải quyết những vấn đề bạn tự nhận ra sau Project 3:
+
+| Vấn đề trong Project 3 | Giải pháp ở Stage 5 |
+|---|---|
+| Use case handler trực tiếp gọi DbContext — khó test | Clean Architecture: Application layer chỉ dùng interface |
+| Approval logic nằm trong handler — khó thay đổi rule | Domain-Driven Design: `Deal` aggregate với domain events |
+| Notification gọi SignalR trực tiếp — tight coupling | Event-Driven: publish `DealApproved` event → handler gửi notification |
+| Jobs biết quá nhiều về business logic | CQRS: jobs chỉ dispatch command, handler xử lý |
+| Khó tách `Leads` và `Deals` thành service riêng | Bounded Context: xác định ranh giới service trước khi tách |
+
+**Ba bước chuyển đổi Stage 5 sẽ làm:**
+1. **Clean Architecture đúng nghĩa** — tách domain entities khỏi EF Core entities, viết unit test thuần túy không cần DB.
+2. **Domain Events + Outbox Pattern** — thay direct call bằng event bus trong process, chuẩn bị cho message broker.
+3. **Vertical Slice Architecture** — nhóm code theo feature thay vì theo layer, dễ tách thành microservice sau này.
+
+> Bạn không cần refactor hoàn hảo ngay. Mục tiêu là **hiểu tại sao** kiến trúc cần thay đổi — và đó là điều Project 3 sẽ cho bạn thấy sau khi code và maintain nó một thời gian.

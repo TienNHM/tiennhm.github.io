@@ -1,0 +1,1201 @@
+---
+title: "Module 12 — SQL Deep Dive"
+slug: dotnet-module-12-sql-deep-dive
+description: "SQL chuyên sâu: indexing, execution plans, transaction isolation, locking — hiệu năng truy vấn cho workload CRM."
+sidebar_position: 1
+tags:
+  - sql-server
+  - relational-database
+  - indexing
+  - query-plans
+  - transactions
+  - isolation-levels
+keywords:
+  - SQL Server indexing
+  - execution plan analysis
+  - transaction isolation levels
+  - deadlock troubleshooting
+  - CRM reporting queries
+enableComments: true
+draft: false
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+<SummaryBox title="Tóm tắt (abstract)">
+
+**Abstract.** Hệ thống hóa **đại số quan hệ thực dụng** và **điều khiển đồng thời**: chỉ mục, tối ưu kế hoạch thực thi, ngữ nghĩa giao dịch — nhằm đảm bảo **SLA đọc/ghi** trong bảng tần suất cao của CRM.
+
+</SummaryBox>
+<HiddenContent>
+
+<!-- geoseo-curriculum-nav -->
+
+## Liên kết điều phối (curriculum graph)
+
+- **Hub lộ trình**: [00. Lộ trình From Zero → Senior .NET (Backend-first)](../roadmap-dotnet-backend-zero-to-senior.mdx)
+- **Chương trước**: [Project 2 — CRM Backend API](../stage-03-aspnet-core-backend/project-02-crm-backend-api.mdx)
+- **Chương tiếp theo**: [Module 13 — Entity Framework Core](module-13-entity-framework-core.mdx)
+
+## Tham chiếu có thẩm quyền (E‑E‑A‑T / retrieval)
+
+Danh sách sau ưu tiên **tài liệu gốc** (Microsoft Learn, đặc tả hệ sinh thái .NET) nhằm tăng **độ tin cậy trích dẫn** và hỗ trợ **công cụ tìm kiếm / tác tử AI** (RAG, overview synthesis).
+
+- [.NET documentation — Microsoft Learn](https://learn.microsoft.com/dotnet/)
+- [ASP.NET Core documentation](https://learn.microsoft.com/aspnet/core/)
+- [ASP.NET Core Developer roadmap — roadmap.sh](https://roadmap.sh/aspnet-core)
+- [SQL Server documentation](https://learn.microsoft.com/sql/sql-server/)
+- [Transaction locking and row versioning](https://learn.microsoft.com/sql/relational-databases/sql-server-transaction-locking-and-row-versioning-guide)
+
+## Từ khóa chỉ mục (semantic hooks)
+
+Các thẻ `tags` / `keywords` trong frontmatter của trang này được chọn để **đồng nhất ngữ nghĩa** với chủ đề chương và với **đồ thị nội bộ** của giáo trình — hỗ trợ khám phá theo chủ đề và câu hỏi dạng *"học .NET backend theo lộ trình nào?"*.
+
+</HiddenContent>
+
+## Mục tiêu học tập
+
+Sau module này bạn sẽ có thể:
+
+- Thiết kế schema CRM từ đầu đúng chuẩn hóa 3NF, chọn chiến lược primary key phù hợp
+- So sánh SQL Server và PostgreSQL, biết khi nào chọn cái nào cho dự án thực tế
+- Viết CTE, window function, subquery tối ưu cho báo cáo CRM phức tạp
+- Giải thích clustered vs non-clustered index, tạo covering index đúng chỗ
+- Đọc execution plan, nhận biết index scan vs seek, viết SARGable query
+- Hiểu isolation level, phân biệt dirty read / phantom read, xử lý deadlock
+- Biết khi nào dùng stored procedure và khi nào để ORM lo
+- Thực hiện migration schema không làm sập production
+
+---
+
+## 1. Database Design cho CRM
+
+### 1.1 Schema tổng thể
+
+CRM cơ bản cần ít nhất 5 bảng cốt lõi. Thiết kế từ đầu theo hướng "viết entity → liệt kê thuộc tính → chuẩn hóa → thêm constraint":
+
+```sql
+-- =============================================
+-- USERS (nhân viên sales, admin)
+-- =============================================
+CREATE TABLE Users (
+    UserId      INT IDENTITY(1,1) PRIMARY KEY,
+    Email       NVARCHAR(256)   NOT NULL UNIQUE,
+    FullName    NVARCHAR(200)   NOT NULL,
+    Role        NVARCHAR(50)    NOT NULL DEFAULT 'SalesRep',  -- Admin, Manager, SalesRep
+    IsActive    BIT             NOT NULL DEFAULT 1,
+    CreatedAt   DATETIME2       NOT NULL DEFAULT GETUTCDATE(),
+    UpdatedAt   DATETIME2       NOT NULL DEFAULT GETUTCDATE()
+);
+
+-- =============================================
+-- CUSTOMERS (khách hàng đã ký hợp đồng)
+-- =============================================
+CREATE TABLE Customers (
+    CustomerId      INT IDENTITY(1,1) PRIMARY KEY,
+    CompanyName     NVARCHAR(300)   NOT NULL,
+    Industry        NVARCHAR(100)   NULL,
+    AnnualRevenue   DECIMAL(18,2)   NULL,
+    Country         NVARCHAR(100)   NOT NULL DEFAULT 'Vietnam',
+    AssignedToUserId INT            NULL,
+    Status          NVARCHAR(50)    NOT NULL DEFAULT 'Active',  -- Active, Inactive, Churned
+    CreatedAt       DATETIME2       NOT NULL DEFAULT GETUTCDATE(),
+    UpdatedAt       DATETIME2       NOT NULL DEFAULT GETUTCDATE(),
+    CONSTRAINT FK_Customers_Users FOREIGN KEY (AssignedToUserId)
+        REFERENCES Users(UserId) ON DELETE SET NULL
+);
+
+-- =============================================
+-- CONTACTS (người liên hệ thuộc customer)
+-- =============================================
+CREATE TABLE Contacts (
+    ContactId   INT IDENTITY(1,1) PRIMARY KEY,
+    CustomerId  INT             NOT NULL,
+    FirstName   NVARCHAR(100)   NOT NULL,
+    LastName    NVARCHAR(100)   NOT NULL,
+    Email       NVARCHAR(256)   NULL,
+    Phone       NVARCHAR(50)    NULL,
+    Title       NVARCHAR(100)   NULL,   -- CEO, CTO, Procurement Manager...
+    IsPrimary   BIT             NOT NULL DEFAULT 0,
+    CreatedAt   DATETIME2       NOT NULL DEFAULT GETUTCDATE(),
+    CONSTRAINT FK_Contacts_Customers FOREIGN KEY (CustomerId)
+        REFERENCES Customers(CustomerId) ON DELETE CASCADE
+);
+
+-- =============================================
+-- LEADS (tiềm năng chưa thành customer)
+-- =============================================
+CREATE TABLE Leads (
+    LeadId          INT IDENTITY(1,1) PRIMARY KEY,
+    CompanyName     NVARCHAR(300)   NOT NULL,
+    ContactName     NVARCHAR(200)   NULL,
+    Email           NVARCHAR(256)   NULL,
+    Phone           NVARCHAR(50)    NULL,
+    Source          NVARCHAR(100)   NULL,   -- Website, Referral, LinkedIn, Cold Call
+    Status          NVARCHAR(50)    NOT NULL DEFAULT 'New',
+                                            -- New, Contacted, Qualified, Proposal, Won, Lost
+    EstimatedValue  DECIMAL(18,2)   NULL,
+    AssignedToUserId INT            NULL,
+    ConvertedAt     DATETIME2       NULL,   -- NULL = chưa convert
+    ConvertedToCustomerId INT       NULL,
+    CreatedAt       DATETIME2       NOT NULL DEFAULT GETUTCDATE(),
+    UpdatedAt       DATETIME2       NOT NULL DEFAULT GETUTCDATE(),
+    CONSTRAINT FK_Leads_Users FOREIGN KEY (AssignedToUserId)
+        REFERENCES Users(UserId) ON DELETE SET NULL,
+    CONSTRAINT FK_Leads_Customers FOREIGN KEY (ConvertedToCustomerId)
+        REFERENCES Customers(CustomerId) ON DELETE SET NULL,
+    CONSTRAINT CK_Leads_Status CHECK (
+        Status IN ('New','Contacted','Qualified','Proposal','Won','Lost')
+    )
+);
+
+-- =============================================
+-- NOTIFICATIONS
+-- =============================================
+CREATE TABLE Notifications (
+    NotificationId  INT IDENTITY(1,1) PRIMARY KEY,
+    UserId          INT             NOT NULL,
+    Title           NVARCHAR(300)   NOT NULL,
+    Body            NVARCHAR(MAX)   NULL,
+    Type            NVARCHAR(50)    NOT NULL DEFAULT 'Info',  -- Info, Warning, Alert
+    IsRead          BIT             NOT NULL DEFAULT 0,
+    RelatedEntityType NVARCHAR(50)  NULL,   -- 'Lead', 'Customer', 'Contact'
+    RelatedEntityId INT             NULL,
+    CreatedAt       DATETIME2       NOT NULL DEFAULT GETUTCDATE(),
+    CONSTRAINT FK_Notifications_Users FOREIGN KEY (UserId)
+        REFERENCES Users(UserId) ON DELETE CASCADE
+);
+```
+
+### 1.2 Chuẩn hóa (Normalization) thực tế
+
+Chuẩn hóa không phải học thuật — mục tiêu là **tránh dị thường dữ liệu** khi insert/update/delete:
+
+| Dạng chuẩn | Quy tắc đơn giản | Ví dụ vi phạm trong CRM |
+|------------|-----------------|------------------------|
+| **1NF** | Mỗi ô chứa một giá trị nguyên tử, không có cột lặp | Lưu `Phone1, Phone2, Phone3` thay vì bảng `ContactPhones` |
+| **2NF** | Mọi cột non-key phụ thuộc vào toàn bộ PK (quan trọng với composite PK) | Bảng `LeadContacts(LeadId, ContactId, ContactEmail)` — email phụ thuộc ContactId thôi |
+| **3NF** | Không có phụ thuộc bắc cầu (A → B → C mà C không phụ thuộc trực tiếp A) | `Customers(CustomerId, CountryCode, CountryName)` — CountryName phụ thuộc CountryCode, không phụ thuộc CustomerId |
+
+**Thực tế:** Denormalize có chủ đích ở bảng report/analytics để tránh JOIN quá nhiều là hợp lý — quan trọng là có lý do rõ ràng.
+
+### 1.3 Primary Key Strategy
+
+| Chiến lược | Ưu điểm | Nhược điểm | Khi nào dùng |
+|-----------|---------|-----------|-------------|
+| `INT IDENTITY` | Nhỏ gọn, clustered index hiệu quả, dễ đọc | Lộ sequence, khó merge data từ nhiều nguồn | API nội bộ, bảng lớn write-heavy |
+| `UNIQUEIDENTIFIER` (GUID v4) | Globally unique, không đoán được | 16 bytes, gây page fragmentation nghiêm trọng | Tránh nếu có thể |
+| `NEWSEQUENTIALID()` / `uuid_generate_v7()` | GUID nhưng monotonically increasing | Phụ thuộc SQL Server default / PostgreSQL extension | Cần GUID nhưng muốn clustered index tốt |
+
+**Khuyến nghị cho CRM:** Dùng `INT IDENTITY` cho tất cả bảng chính. Nếu cần expose ra API public thì map sang GUID ở tầng application (không để GUID làm clustered PK).
+
+### 1.4 Foreign Key Cascade
+
+```sql
+-- ON DELETE CASCADE  → xóa Customer thì xóa luôn Contacts
+-- ON DELETE SET NULL → xóa User thì Lead không mất, chỉ unassign
+-- ON DELETE RESTRICT (mặc định) → báo lỗi nếu còn con
+```
+
+Trong CRM: `Contacts` dùng CASCADE (contact không có nghĩa nếu không có customer). `Leads.AssignedToUserId` dùng SET NULL (lead vẫn tồn tại dù nhân viên nghỉ).
+
+---
+
+## 2. SQL Server vs PostgreSQL
+
+### 2.1 Bảng so sánh
+
+| Tiêu chí | SQL Server | PostgreSQL |
+|---------|-----------|-----------|
+| License | Commercial (Express miễn phí, giới hạn 10GB) | Open source hoàn toàn |
+| Nền tảng | Windows native, Linux hỗ trợ từ 2017 | Linux tốt nhất, Windows ổn |
+| JSON support | `NVARCHAR(MAX)` + `JSON_VALUE`, `OPENJSON` | `jsonb` native, indexable, operators phong phú |
+| Full-text search | SQL Server FTS | `tsvector`, `tsquery` tích hợp sâu hơn |
+| Window functions | Hỗ trợ đủ | Hỗ trợ đủ + một số extension riêng |
+| Partitioning | Enterprise edition | Miễn phí từ v10 |
+| Replication / HA | Always On (phức tạp, mạnh) | Streaming replication, Patroni |
+| .NET tích hợp | `Microsoft.Data.SqlClient`, SSMS | `Npgsql`, pgAdmin |
+| Hosting cloud | Azure SQL Database | AWS RDS, Supabase, Neon, Railway |
+| Giá cloud | Tương đối cao | Nhiều lựa chọn free tier |
+
+### 2.2 Khi nào chọn cái nào
+
+**Chọn SQL Server khi:**
+- Dự án doanh nghiệp Việt Nam, khách hàng đã có SQL Server license
+- Stack Microsoft toàn phần (Azure, Active Directory, SSRS)
+- Cần SSMS, Profiler, Extended Events cho DBA
+- Team quen T-SQL và không muốn học lại
+
+**Chọn PostgreSQL khi:**
+- Startup, open-source, budget thấp
+- Cần JSON document hybrid (lưu config/metadata linh hoạt)
+- Deploy trên Linux container (Docker, Kubernetes)
+- Muốn dùng Supabase (BaaS với Postgres)
+
+### 2.3 JSON Column
+
+```sql
+-- ===== SQL SERVER =====
+-- Lưu metadata linh hoạt
+ALTER TABLE Leads ADD Metadata NVARCHAR(MAX) NULL
+    CONSTRAINT CK_Leads_Metadata CHECK (ISJSON(Metadata) = 1);
+
+-- Truy vấn JSON
+SELECT LeadId,
+       JSON_VALUE(Metadata, '$.utmSource')   AS UtmSource,
+       JSON_VALUE(Metadata, '$.campaignId')  AS CampaignId
+FROM   Leads
+WHERE  JSON_VALUE(Metadata, '$.utmSource') = 'google';
+
+-- ===== POSTGRESQL =====
+ALTER TABLE leads ADD COLUMN metadata JSONB NULL;
+
+-- JSONB có thể index
+CREATE INDEX idx_leads_metadata_utm ON leads USING GIN (metadata);
+
+-- Truy vấn với operator ->
+SELECT lead_id,
+       metadata->>'utmSource'  AS utm_source,
+       metadata->>'campaignId' AS campaign_id
+FROM   leads
+WHERE  metadata->>'utmSource' = 'google';
+```
+
+PostgreSQL `jsonb` được parse và lưu dạng binary — query nhanh hơn, có thể đánh index GIN. SQL Server JSON chỉ là text có validation — không index được trực tiếp.
+
+---
+
+## 3. Queries Nâng Cao
+
+### 3.1 JOIN đầy đủ
+
+```sql
+-- INNER JOIN: chỉ lead có assigned user
+SELECT l.LeadId, l.CompanyName, u.FullName AS SalesRep
+FROM   Leads l
+INNER JOIN Users u ON l.AssignedToUserId = u.UserId;
+
+-- LEFT JOIN: tất cả lead, kể cả chưa assign
+SELECT l.LeadId, l.CompanyName, u.FullName AS SalesRep
+FROM   Leads l
+LEFT  JOIN Users u ON l.AssignedToUserId = u.UserId;
+
+-- FULL OUTER JOIN: tất cả lead + tất cả user (kể cả user chưa có lead)
+SELECT l.LeadId, l.CompanyName, u.FullName
+FROM   Leads l
+FULL OUTER JOIN Users u ON l.AssignedToUserId = u.UserId;
+
+-- CROSS APPLY (SQL Server) / LATERAL (PostgreSQL):
+-- Top 3 contacts mới nhất của mỗi customer
+SELECT c.CustomerId, c.CompanyName, ct.FirstName, ct.LastName, ct.CreatedAt
+FROM   Customers c
+CROSS APPLY (
+    SELECT TOP 3 FirstName, LastName, CreatedAt
+    FROM   Contacts
+    WHERE  CustomerId = c.CustomerId
+    ORDER  BY CreatedAt DESC
+) ct;
+
+-- PostgreSQL tương đương
+SELECT c.customer_id, c.company_name, ct.first_name, ct.last_name
+FROM   customers c,
+LATERAL (
+    SELECT first_name, last_name, created_at
+    FROM   contacts
+    WHERE  customer_id = c.customer_id
+    ORDER  BY created_at DESC
+    LIMIT  3
+) ct;
+```
+
+### 3.2 Subquery vs CTE
+
+```sql
+-- Subquery: tìm customer có nhiều lead nhất
+SELECT CompanyName
+FROM   Customers
+WHERE  CustomerId = (
+    SELECT TOP 1 ConvertedToCustomerId
+    FROM   Leads
+    WHERE  ConvertedToCustomerId IS NOT NULL
+    GROUP  BY ConvertedToCustomerId
+    ORDER  BY COUNT(*) DESC
+);
+
+-- CTE: dễ đọc hơn, reusable trong cùng query
+WITH LeadCounts AS (
+    SELECT ConvertedToCustomerId,
+           COUNT(*) AS TotalLeads
+    FROM   Leads
+    WHERE  ConvertedToCustomerId IS NOT NULL
+    GROUP  BY ConvertedToCustomerId
+),
+RankedCustomers AS (
+    SELECT c.CustomerId, c.CompanyName, lc.TotalLeads,
+           RANK() OVER (ORDER BY lc.TotalLeads DESC) AS Rnk
+    FROM   Customers c
+    JOIN   LeadCounts lc ON c.CustomerId = lc.ConvertedToCustomerId
+)
+SELECT CustomerId, CompanyName, TotalLeads
+FROM   RankedCustomers
+WHERE  Rnk <= 5;
+```
+
+**Khi nào dùng CTE thay subquery:**
+- Logic cần dùng lại nhiều lần trong cùng query
+- Cần recursive (ví dụ: cây tổ chức sales)
+- Subquery quá lồng nhau, khó debug
+
+### 3.3 Window Functions
+
+```sql
+-- ROW_NUMBER: đánh số thứ tự lead trong mỗi tháng
+SELECT LeadId, CompanyName, CreatedAt,
+       ROW_NUMBER() OVER (
+           PARTITION BY FORMAT(CreatedAt, 'yyyy-MM')
+           ORDER BY     EstimatedValue DESC
+       ) AS RankInMonth
+FROM   Leads
+WHERE  Status = 'Won';
+
+-- RANK vs DENSE_RANK: xử lý tie
+SELECT UserId, FullName, TotalWon,
+       RANK()       OVER (ORDER BY TotalWon DESC) AS Rank,       -- 1,2,2,4
+       DENSE_RANK() OVER (ORDER BY TotalWon DESC) AS DenseRank   -- 1,2,2,3
+FROM (
+    SELECT u.UserId, u.FullName, COUNT(*) AS TotalWon
+    FROM   Users u
+    JOIN   Leads l ON u.UserId = l.AssignedToUserId
+    WHERE  l.Status = 'Won'
+    GROUP  BY u.UserId, u.FullName
+) x;
+
+-- LAG / LEAD: so sánh doanh thu tháng này vs tháng trước
+WITH MonthlyRevenue AS (
+    SELECT FORMAT(ConvertedAt, 'yyyy-MM')   AS YearMonth,
+           SUM(EstimatedValue)              AS Revenue
+    FROM   Leads
+    WHERE  Status = 'Won' AND ConvertedAt IS NOT NULL
+    GROUP  BY FORMAT(ConvertedAt, 'yyyy-MM')
+)
+SELECT YearMonth, Revenue,
+       LAG(Revenue)  OVER (ORDER BY YearMonth) AS PrevMonthRevenue,
+       Revenue - LAG(Revenue) OVER (ORDER BY YearMonth) AS MoMChange
+FROM   MonthlyRevenue;
+
+-- SUM OVER: running total (tổng lũy kế)
+SELECT YearMonth, Revenue,
+       SUM(Revenue) OVER (ORDER BY YearMonth ROWS UNBOUNDED PRECEDING) AS RunningTotal
+FROM   MonthlyRevenue;
+```
+
+### 3.4 Lead Conversion Funnel
+
+```sql
+-- Funnel report: số lead ở mỗi stage
+SELECT Status,
+       COUNT(*)                                          AS LeadCount,
+       SUM(EstimatedValue)                              AS TotalEstimated,
+       ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER (), 1) AS Pct
+FROM   Leads
+GROUP  BY Status
+ORDER  BY CASE Status
+    WHEN 'New'       THEN 1
+    WHEN 'Contacted' THEN 2
+    WHEN 'Qualified' THEN 3
+    WHEN 'Proposal'  THEN 4
+    WHEN 'Won'       THEN 5
+    WHEN 'Lost'      THEN 6
+END;
+```
+
+---
+
+## 4. Indexing
+
+### 4.1 Clustered vs Non-Clustered
+
+- **Clustered index:** Quyết định thứ tự vật lý lưu trữ dữ liệu trên đĩa. Mỗi bảng chỉ có **một** clustered index. Mặc định là PRIMARY KEY.
+- **Non-clustered index:** Cấu trúc riêng biệt chứa key columns + pointer đến row trong clustered index. Một bảng có thể có nhiều non-clustered index.
+
+```sql
+-- Non-clustered index cho filter phổ biến
+CREATE NONCLUSTERED INDEX IX_Leads_Status_CreatedAt
+    ON Leads (Status, CreatedAt DESC);
+
+-- Composite index: thứ tự cột quan trọng — cột có selectivity cao đặt trước
+-- Query: WHERE Status = 'New' AND CreatedAt > '2024-01-01'
+-- Index trên (Status, CreatedAt) phù hợp hơn (CreatedAt, Status)
+```
+
+### 4.2 Covering Index
+
+Covering index bao gồm tất cả cột mà query cần — loại bỏ key lookup (tra ngược về clustered index):
+
+```sql
+-- Query thường gặp trong CRM dashboard
+SELECT LeadId, CompanyName, Status, AssignedToUserId
+FROM   Leads
+WHERE  Status = 'New' AND CreatedAt >= DATEADD(DAY, -30, GETUTCDATE());
+
+-- Covering index: INCLUDE các cột SELECT
+CREATE NONCLUSTERED INDEX IX_Leads_Status_CreatedAt_Covering
+    ON Leads (Status, CreatedAt DESC)
+    INCLUDE (LeadId, CompanyName, AssignedToUserId);
+```
+
+### 4.3 Filtered Index
+
+Index chỉ bao gồm subset rows — nhỏ hơn, nhanh hơn cho query có điều kiện cố định:
+
+```sql
+-- Chỉ index lead chưa convert (90% query chỉ quan tâm lead active)
+CREATE NONCLUSTERED INDEX IX_Leads_Active
+    ON Leads (AssignedToUserId, CreatedAt DESC)
+    WHERE Status NOT IN ('Won', 'Lost');
+```
+
+### 4.4 Index Scan vs Index Seek
+
+| | Index Seek | Index Scan |
+|---|---|---|
+| Cơ chế | Đi thẳng đến row cần tìm (B-tree traversal) | Đọc toàn bộ index từ đầu đến cuối |
+| Performance | O(log n) | O(n) |
+| Khi xảy ra | Query SARGable, index phù hợp | Non-SARGable, không có index, selectivity thấp |
+
+### 4.5 Khi nào Index hurt Performance
+
+- Bảng **write-heavy**: mỗi INSERT/UPDATE/DELETE phải cập nhật tất cả index → overhead lớn
+- **Quá nhiều index** trên một bảng: SQL Server/Postgres phải maintain tất cả
+- Index trên cột **low-cardinality** (ví dụ: cột `IsActive` chỉ có 0/1) thường bị optimizer bỏ qua
+- **Fragmentation** cao: index GUID không sequential → page split liên tục → cần rebuild định kỳ
+
+```sql
+-- SQL Server: kiểm tra fragmentation
+SELECT  object_name(ips.object_id)  AS TableName,
+        i.name                      AS IndexName,
+        ips.avg_fragmentation_in_percent
+FROM    sys.dm_db_index_physical_stats(DB_ID(), NULL, NULL, NULL, 'LIMITED') ips
+JOIN    sys.indexes i ON ips.object_id = i.object_id AND ips.index_id = i.index_id
+WHERE   ips.avg_fragmentation_in_percent > 10
+ORDER   BY ips.avg_fragmentation_in_percent DESC;
+```
+
+---
+
+## 5. Query Optimization
+
+### 5.1 Execution Plan
+
+```sql
+-- SQL Server: bật statistics IO trước khi chạy query
+SET STATISTICS IO ON;
+SET STATISTICS TIME ON;
+
+-- Trong SSMS: Ctrl+M để bật actual execution plan
+SELECT l.LeadId, l.CompanyName, u.FullName
+FROM   Leads l
+JOIN   Users u ON l.AssignedToUserId = u.UserId
+WHERE  l.Status = 'New';
+
+-- PostgreSQL: dùng EXPLAIN ANALYZE
+EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT)
+SELECT l.lead_id, l.company_name, u.full_name
+FROM   leads l
+JOIN   users u ON l.assigned_to_user_id = u.user_id
+WHERE  l.status = 'New';
+```
+
+Những gì cần nhìn vào execution plan:
+- **Estimated vs Actual rows**: sai lệch lớn → statistics cũ, cần `UPDATE STATISTICS`
+- **Key Lookup**: non-clustered index không cover đủ cột → thêm INCLUDE
+- **Hash Match / Sort**: tốn memory → có thể tránh bằng index phù hợp
+- **Nested Loop với bảng lớn**: xem xét thay Hash Join
+
+### 5.2 SARGable Queries
+
+SARGable (Search ARGument ABLE) — query có thể tận dụng index:
+
+```sql
+-- KHÔNG SARGable: function trên cột index → buộc phải scan
+WHERE YEAR(CreatedAt) = 2024
+WHERE LEFT(CompanyName, 3) = 'ABC'
+WHERE CAST(AssignedToUserId AS VARCHAR) = '5'
+
+-- SARGable: so sánh trực tiếp
+WHERE CreatedAt >= '2024-01-01' AND CreatedAt < '2025-01-01'
+WHERE CompanyName LIKE 'ABC%'          -- prefix LIKE thì SARGable, '%ABC' thì không
+WHERE AssignedToUserId = 5
+```
+
+### 5.3 N+1 bằng SQL
+
+N+1 không chỉ là vấn đề của ORM — bạn cũng có thể vô tình tạo ra nó bằng cách loop query:
+
+```sql
+-- Tệ: loop ở application, mỗi customer gọi 1 query lấy contact
+-- Fix: dùng JOIN một lần
+SELECT c.CustomerId, c.CompanyName,
+       ct.FirstName + ' ' + ct.LastName AS PrimaryContact,
+       ct.Email
+FROM   Customers c
+LEFT JOIN Contacts ct
+    ON c.CustomerId = ct.CustomerId AND ct.IsPrimary = 1;
+```
+
+### 5.4 Parameter Sniffing (SQL Server)
+
+SQL Server cache execution plan dựa trên tham số lần đầu tiên chạy. Nếu lần đầu chạy với tham số hiếm (ví dụ: Status = 'Won' chỉ có 10 rows), plan được cache là Index Seek. Lần sau chạy với Status = 'New' (100,000 rows), plan cũ không tối ưu:
+
+```sql
+-- Giải pháp 1: OPTION(RECOMPILE) — recompile mỗi lần, tốn CPU hơn
+SELECT * FROM Leads WHERE Status = @Status OPTION (RECOMPILE);
+
+-- Giải pháp 2: OPTIMIZE FOR — gợi ý optimizer dùng giá trị cụ thể
+SELECT * FROM Leads WHERE Status = @Status
+OPTION (OPTIMIZE FOR (@Status = 'New'));
+
+-- Giải pháp 3: local variable trick (ít khuyến khích)
+DECLARE @LocalStatus NVARCHAR(50) = @Status;
+SELECT * FROM Leads WHERE Status = @LocalStatus;
+```
+
+---
+
+## 6. Transactions và Locking
+
+### 6.1 ACID
+
+| Thuộc tính | Ý nghĩa |
+|-----------|---------|
+| **Atomicity** | Toàn bộ transaction thành công hoặc rollback hoàn toàn |
+| **Consistency** | Database luôn ở trạng thái hợp lệ trước và sau transaction |
+| **Isolation** | Transaction đang chạy không thấy thay đổi của transaction khác (ở mức độ nhất định) |
+| **Durability** | Sau khi commit, dữ liệu được lưu vĩnh viễn dù server crash |
+
+### 6.2 Isolation Levels
+
+```sql
+-- SQL Server
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;  -- Dirty read cho phép
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED;    -- Mặc định SQL Server
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;      -- An toàn nhất, chậm nhất
+
+-- PostgreSQL
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED;    -- Mặc định PostgreSQL
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+-- PostgreSQL không có READ UNCOMMITTED thực sự
+```
+
+| Isolation Level | Dirty Read | Non-Repeatable Read | Phantom Read |
+|----------------|-----------|-------------------|-------------|
+| Read Uncommitted | Có thể | Có thể | Có thể |
+| Read Committed | Không | Có thể | Có thể |
+| Repeatable Read | Không | Không | Có thể |
+| Serializable | Không | Không | Không |
+
+**Giải thích các loại anomaly:**
+- **Dirty read:** Đọc dữ liệu chưa commit của transaction khác — nguy hiểm vì transaction kia có thể rollback
+- **Non-repeatable read:** Đọc cùng row hai lần trong cùng transaction nhưng giá trị khác nhau (transaction khác đã update + commit giữa hai lần đọc)
+- **Phantom read:** Đọc cùng range query hai lần nhưng kết quả khác nhau (transaction khác đã insert/delete rows phù hợp điều kiện)
+
+### 6.3 Transaction trong CRM
+
+```sql
+-- Chuyển lead thành customer: phải atomic
+BEGIN TRANSACTION;
+BEGIN TRY
+    -- Tạo customer mới
+    INSERT INTO Customers (CompanyName, AssignedToUserId, Status, CreatedAt, UpdatedAt)
+    SELECT CompanyName, AssignedToUserId, 'Active', GETUTCDATE(), GETUTCDATE()
+    FROM   Leads WHERE LeadId = @LeadId;
+
+    DECLARE @NewCustomerId INT = SCOPE_IDENTITY();
+
+    -- Cập nhật lead
+    UPDATE Leads
+    SET    Status = 'Won',
+           ConvertedAt = GETUTCDATE(),
+           ConvertedToCustomerId = @NewCustomerId,
+           UpdatedAt = GETUTCDATE()
+    WHERE  LeadId = @LeadId;
+
+    -- Tạo notification
+    INSERT INTO Notifications (UserId, Title, Type, RelatedEntityType, RelatedEntityId, CreatedAt)
+    SELECT AssignedToUserId,
+           N'Lead "' + CompanyName + N'" đã được convert thành công!',
+           'Info', 'Customer', @NewCustomerId, GETUTCDATE()
+    FROM   Leads WHERE LeadId = @LeadId;
+
+    COMMIT TRANSACTION;
+END TRY
+BEGIN CATCH
+    ROLLBACK TRANSACTION;
+    THROW;
+END CATCH;
+```
+
+### 6.4 Deadlock Detection và Xử lý
+
+Deadlock xảy ra khi hai transaction chờ nhau theo vòng tròn. SQL Server tự detect và chọn một transaction làm "victim" (rollback).
+
+```sql
+-- Simulate deadlock (chạy 2 session song song để test)
+-- Session 1:
+BEGIN TRANSACTION;
+UPDATE Customers SET Status = 'Inactive' WHERE CustomerId = 1;
+WAITFOR DELAY '00:00:05';
+UPDATE Leads SET Status = 'Lost' WHERE AssignedToUserId = 1;
+COMMIT;
+
+-- Session 2 (chạy cùng lúc):
+BEGIN TRANSACTION;
+UPDATE Leads SET Status = 'Lost' WHERE AssignedToUserId = 1;
+WAITFOR DELAY '00:00:05';
+UPDATE Customers SET Status = 'Inactive' WHERE CustomerId = 1;
+COMMIT;
+```
+
+**Cách tránh deadlock:**
+1. Luôn lock bảng theo thứ tự nhất quán (ví dụ: Customers trước, Leads sau)
+2. Giữ transaction ngắn nhất có thể
+3. Tránh user interaction bên trong transaction
+4. Dùng READ COMMITTED SNAPSHOT ISOLATION (RCSI) trên SQL Server — đọc không block ghi
+
+```sql
+-- Bật RCSI cho database (SQL Server)
+ALTER DATABASE CrmDb SET READ_COMMITTED_SNAPSHOT ON;
+```
+
+### 6.5 Optimistic vs Pessimistic Concurrency
+
+```sql
+-- Pessimistic: lock row khi đọc (ngăn concurrent update)
+BEGIN TRANSACTION;
+SELECT * FROM Leads WITH (UPDLOCK, ROWLOCK) WHERE LeadId = @LeadId;
+-- ... logic ...
+UPDATE Leads SET Status = @NewStatus WHERE LeadId = @LeadId;
+COMMIT;
+
+-- Optimistic: dùng RowVersion / timestamp
+ALTER TABLE Leads ADD RowVersion ROWVERSION NOT NULL;
+
+-- Update chỉ thành công nếu RowVersion chưa thay đổi
+UPDATE Leads
+SET    Status = @NewStatus, UpdatedAt = GETUTCDATE()
+WHERE  LeadId = @LeadId
+AND    RowVersion = @OriginalRowVersion;
+
+IF @@ROWCOUNT = 0
+    RAISERROR('Concurrency conflict: Lead was modified by another user.', 16, 1);
+```
+
+---
+
+## 7. Stored Procedures và Views
+
+### 7.1 Khi nào dùng Stored Procedure
+
+| Dùng SP | Dùng ORM / Query trực tiếp |
+|--------|--------------------------|
+| Logic phức tạp nhiều bước, cần transaction dài | CRUD đơn giản |
+| Cần performance tối đa (cached plan) | Rapid development |
+| DBA quản lý riêng, không expose schema | Team nhỏ, không có DBA |
+| Legacy system, đã có SP sẵn | Cần portable giữa nhiều DB |
+| Batch processing lớn | Logic thay đổi thường xuyên |
+
+### 7.2 Stored Procedure an toàn
+
+```sql
+-- SP tìm kiếm lead — parameterized, tránh SQL injection
+CREATE OR ALTER PROCEDURE sp_SearchLeads
+    @Status         NVARCHAR(50)    = NULL,
+    @AssignedUserId INT             = NULL,
+    @CompanyName    NVARCHAR(300)   = NULL,
+    @PageNumber     INT             = 1,
+    @PageSize       INT             = 20
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT  l.LeadId, l.CompanyName, l.Status,
+            l.EstimatedValue, l.CreatedAt,
+            u.FullName AS SalesRep
+    FROM    Leads l
+    LEFT JOIN Users u ON l.AssignedToUserId = u.UserId
+    WHERE   (@Status         IS NULL OR l.Status = @Status)
+      AND   (@AssignedUserId IS NULL OR l.AssignedToUserId = @AssignedUserId)
+      AND   (@CompanyName    IS NULL OR l.CompanyName LIKE '%' + @CompanyName + '%')
+    ORDER   BY l.CreatedAt DESC
+    OFFSET  (@PageNumber - 1) * @PageSize ROWS
+    FETCH   NEXT @PageSize ROWS ONLY;
+END;
+```
+
+**Lưu ý bảo mật:** SP không tự nhiên an toàn với SQL injection. SP dùng `EXEC('SELECT * FROM ' + @TableName)` (dynamic SQL) vẫn bị injection. Chỉ parameterized query mới an toàn.
+
+### 7.3 Views và Materialized View
+
+```sql
+-- View: query được đặt tên, không lưu dữ liệu
+CREATE OR ALTER VIEW vw_LeadSummary AS
+SELECT  l.LeadId, l.CompanyName, l.Status,
+        l.EstimatedValue, l.CreatedAt,
+        u.FullName AS SalesRep,
+        DATEDIFF(DAY, l.CreatedAt, GETUTCDATE()) AS AgeInDays
+FROM    Leads l
+LEFT JOIN Users u ON l.AssignedToUserId = u.UserId;
+
+-- Dùng như bảng thường
+SELECT * FROM vw_LeadSummary WHERE Status = 'New' AND AgeInDays > 30;
+```
+
+**Materialized View (Indexed View trong SQL Server):** Lưu kết quả vật lý, cần maintain khi dữ liệu thay đổi. SQL Server hỗ trợ qua `CREATE UNIQUE CLUSTERED INDEX` trên view. PostgreSQL có `MATERIALIZED VIEW` tường minh hơn:
+
+```sql
+-- PostgreSQL materialized view
+CREATE MATERIALIZED VIEW mv_monthly_revenue AS
+SELECT  DATE_TRUNC('month', converted_at) AS month,
+        SUM(estimated_value)              AS revenue,
+        COUNT(*)                          AS deals_closed
+FROM    leads
+WHERE   status = 'Won'
+GROUP   BY DATE_TRUNC('month', converted_at);
+
+-- Refresh thủ công hoặc theo schedule
+REFRESH MATERIALIZED VIEW CONCURRENTLY mv_monthly_revenue;
+```
+
+---
+
+## 8. Database Migration Strategy
+
+### 8.1 Schema Versioning
+
+Không sửa database bằng tay trực tiếp trên production. Mọi thay đổi schema phải là **migration script có version**:
+
+```
+migrations/
+├── V001__initial_schema.sql
+├── V002__add_lead_metadata_column.sql
+├── V003__create_notifications_table.sql
+├── V004__add_index_leads_status.sql
+└── V005__add_customer_tier_column.sql
+```
+
+Tool phổ biến:
+- **Flyway** (hỗ trợ SQL thuần, tích hợp tốt với .NET)
+- **Liquibase** (XML/YAML/SQL, enterprise features)
+- **EF Core Migrations** (code-first, tích hợp sâu với .NET — học ở Module 13)
+
+### 8.2 Migration Script an toàn
+
+```sql
+-- V005__add_customer_tier_column.sql
+-- KHÔNG thể rollback ALTER TABLE DROP COLUMN dễ dàng — cẩn thận!
+
+-- Bước 1: Thêm cột với DEFAULT (backward-compatible)
+ALTER TABLE Customers
+    ADD Tier NVARCHAR(50) NOT NULL DEFAULT 'Standard';
+-- Cột mới có DEFAULT → code cũ không cần biết cột này vẫn chạy được
+
+-- Bước 2 (migration tiếp theo, sau khi code đã deploy):
+-- Populate dữ liệu theo business logic
+UPDATE Customers
+SET    Tier = CASE
+    WHEN AnnualRevenue >= 1000000 THEN 'Enterprise'
+    WHEN AnnualRevenue >= 100000  THEN 'Business'
+    ELSE 'Standard'
+END;
+```
+
+### 8.3 Zero-Downtime Migration
+
+Nguyên tắc **expand-contract pattern**:
+
+1. **Expand:** Thêm cột/bảng mới (backward-compatible). Deploy code mới ghi cả cột cũ lẫn mới.
+2. **Migrate:** Backfill dữ liệu cũ sang cột mới (batch nhỏ để không lock bảng).
+3. **Contract:** Sau khi code không còn dùng cột cũ, drop cột cũ.
+
+```sql
+-- Đổi tên cột: KHÔNG rename trực tiếp trên production đang chạy
+-- Thay vào đó:
+
+-- Bước 1 (expand): thêm cột mới
+ALTER TABLE Leads ADD ContactEmail NVARCHAR(256) NULL;
+
+-- Bước 2: copy dữ liệu (có thể batch)
+UPDATE Leads SET ContactEmail = Email WHERE ContactEmail IS NULL;
+
+-- Bước 3: sau khi code dùng ContactEmail hoàn toàn, mới drop Email cũ
+-- ALTER TABLE Leads DROP COLUMN Email;  -- Làm sau vài sprint
+```
+
+---
+
+## Thực hành
+
+### Bài 1: Tạo Full CRM Schema
+
+Tạo database `CrmDb` và toàn bộ schema từ phần 1, thêm các constraint và index sau:
+
+```sql
+-- Tạo database
+CREATE DATABASE CrmDb;
+USE CrmDb;
+
+-- (chạy tất cả CREATE TABLE từ phần 1)
+
+-- Thêm indexes cơ bản sau khi tạo bảng
+CREATE NONCLUSTERED INDEX IX_Customers_Status_AssignedTo
+    ON Customers (Status, AssignedToUserId)
+    INCLUDE (CompanyName, CreatedAt);
+
+CREATE NONCLUSTERED INDEX IX_Leads_Status_CreatedAt
+    ON Leads (Status, CreatedAt DESC)
+    INCLUDE (LeadId, CompanyName, EstimatedValue, AssignedToUserId);
+
+CREATE NONCLUSTERED INDEX IX_Leads_AssignedUser
+    ON Leads (AssignedToUserId, Status);
+
+CREATE NONCLUSTERED INDEX IX_Contacts_CustomerId
+    ON Contacts (CustomerId, IsPrimary);
+
+CREATE NONCLUSTERED INDEX IX_Notifications_UserId_IsRead
+    ON Notifications (UserId, IsRead, CreatedAt DESC);
+
+-- Test insert dữ liệu mẫu
+INSERT INTO Users (Email, FullName, Role) VALUES
+    ('alice@crm.vn',   N'Nguyễn Thị Alice',  'Manager'),
+    ('bob@crm.vn',     N'Trần Văn Bob',       'SalesRep'),
+    ('charlie@crm.vn', N'Lê Thị Charlie',     'SalesRep');
+
+INSERT INTO Customers (CompanyName, Industry, AnnualRevenue, AssignedToUserId) VALUES
+    (N'Công ty TNHH ABC', N'Công nghệ',     500000, 2),
+    (N'Tập đoàn XYZ',     N'Bất động sản', 2000000, 1),
+    (N'Startup DEF',       N'Fintech',       150000, 3);
+
+-- Thêm 20 leads mẫu với status khác nhau (tự viết hoặc dùng script generate)
+```
+
+**Yêu cầu kiểm tra:**
+- Thử insert Lead với Status không hợp lệ → phải báo lỗi constraint
+- Thử xóa User đang được assign Lead → Lead.AssignedToUserId thành NULL
+- Thử xóa Customer đang có Contact → Contact bị xóa theo (CASCADE)
+
+---
+
+### Bài 2: Viết 5 Queries Thống kê CRM
+
+**Query 1 — Lead Conversion Rate theo Sales Rep:**
+
+```sql
+SELECT  u.FullName AS SalesRep,
+        COUNT(l.LeadId)                                         AS TotalLeads,
+        SUM(CASE WHEN l.Status = 'Won' THEN 1 ELSE 0 END)       AS WonLeads,
+        SUM(CASE WHEN l.Status = 'Lost' THEN 1 ELSE 0 END)      AS LostLeads,
+        ROUND(
+            100.0 * SUM(CASE WHEN l.Status = 'Won' THEN 1 ELSE 0 END)
+                  / NULLIF(COUNT(l.LeadId), 0),
+            1
+        )                                                        AS ConversionRatePct,
+        ISNULL(SUM(CASE WHEN l.Status = 'Won' THEN l.EstimatedValue END), 0)
+                                                                AS TotalRevenue
+FROM    Users u
+LEFT JOIN Leads l ON u.UserId = l.AssignedToUserId
+WHERE   u.Role = 'SalesRep'
+GROUP   BY u.UserId, u.FullName
+ORDER   BY TotalRevenue DESC;
+```
+
+**Query 2 — Top Sales Rep theo tháng (Window Function):**
+
+```sql
+WITH MonthlySales AS (
+    SELECT  u.UserId, u.FullName,
+            FORMAT(l.ConvertedAt, 'yyyy-MM')            AS YearMonth,
+            COUNT(*)                                     AS WonCount,
+            SUM(l.EstimatedValue)                        AS Revenue
+    FROM    Users u
+    JOIN    Leads l ON u.UserId = l.AssignedToUserId
+    WHERE   l.Status = 'Won' AND l.ConvertedAt IS NOT NULL
+    GROUP   BY u.UserId, u.FullName, FORMAT(l.ConvertedAt, 'yyyy-MM')
+)
+SELECT  YearMonth, FullName, WonCount, Revenue,
+        RANK() OVER (PARTITION BY YearMonth ORDER BY Revenue DESC) AS RankInMonth
+FROM    MonthlySales
+ORDER   BY YearMonth DESC, RankInMonth;
+```
+
+**Query 3 — Monthly Revenue với MoM Growth:**
+
+```sql
+WITH Monthly AS (
+    SELECT  FORMAT(ConvertedAt, 'yyyy-MM')  AS YearMonth,
+            SUM(EstimatedValue)             AS Revenue
+    FROM    Leads
+    WHERE   Status = 'Won' AND ConvertedAt IS NOT NULL
+    GROUP   BY FORMAT(ConvertedAt, 'yyyy-MM')
+)
+SELECT  YearMonth,
+        Revenue,
+        LAG(Revenue) OVER (ORDER BY YearMonth)  AS PrevRevenue,
+        ROUND(
+            100.0 * (Revenue - LAG(Revenue) OVER (ORDER BY YearMonth))
+                  / NULLIF(LAG(Revenue) OVER (ORDER BY YearMonth), 0),
+            1
+        )                                        AS GrowthPct
+FROM    Monthly
+ORDER   BY YearMonth;
+```
+
+**Query 4 — Lead Aging Report (leads quá hạn theo stage):**
+
+```sql
+SELECT  Status,
+        COUNT(*)                                        AS Count,
+        AVG(DATEDIFF(DAY, CreatedAt, GETUTCDATE()))     AS AvgAgeDays,
+        MAX(DATEDIFF(DAY, CreatedAt, GETUTCDATE()))     AS MaxAgeDays,
+        SUM(CASE WHEN DATEDIFF(DAY, CreatedAt, GETUTCDATE()) > 30 THEN 1 ELSE 0 END)
+                                                        AS Overdue30Days
+FROM    Leads
+WHERE   Status NOT IN ('Won', 'Lost')
+GROUP   BY Status
+ORDER   BY AvgAgeDays DESC;
+```
+
+**Query 5 — Customer Lifetime Value (CLV) ước tính:**
+
+```sql
+WITH CustomerRevenue AS (
+    SELECT  c.CustomerId,
+            c.CompanyName,
+            c.CreatedAt                             AS CustomerSince,
+            COUNT(l.LeadId)                          AS TotalDeals,
+            SUM(l.EstimatedValue)                    AS TotalRevenue,
+            MAX(l.ConvertedAt)                       AS LastDealDate
+    FROM    Customers c
+    LEFT JOIN Leads l
+        ON l.ConvertedToCustomerId = c.CustomerId AND l.Status = 'Won'
+    GROUP   BY c.CustomerId, c.CompanyName, c.CreatedAt
+)
+SELECT  CustomerId, CompanyName,
+        TotalDeals, TotalRevenue,
+        DATEDIFF(MONTH, CustomerSince, GETUTCDATE())    AS TenureMonths,
+        ROUND(
+            TotalRevenue
+            / NULLIF(DATEDIFF(MONTH, CustomerSince, GETUTCDATE()), 0),
+            0
+        )                                               AS AvgMonthlyRevenue,
+        ROUND(
+            (TotalRevenue
+            / NULLIF(DATEDIFF(MONTH, CustomerSince, GETUTCDATE()), 0))
+            * 24,   -- ước tính 24 tháng tới
+            0
+        )                                               AS EstimatedCLV_24M
+FROM    CustomerRevenue
+ORDER   BY EstimatedCLV_24M DESC;
+```
+
+---
+
+### Bài 3: Optimize Query Chậm
+
+**Tình huống:** Query báo cáo dashboard chạy 8 giây mỗi lần load:
+
+```sql
+-- Query gốc — CHẬM
+SELECT  u.FullName,
+        COUNT(*) AS TotalLeads,
+        SUM(l.EstimatedValue) AS Pipeline
+FROM    Leads l
+JOIN    Users u ON l.AssignedToUserId = u.UserId
+WHERE   YEAR(l.CreatedAt) = YEAR(GETDATE())
+  AND   l.Status NOT IN ('Won', 'Lost')
+  AND   UPPER(u.Role) = 'SALESREP'
+GROUP   BY u.UserId, u.FullName
+ORDER   BY Pipeline DESC;
+```
+
+**Bước 1 — Đọc execution plan:**
+
+```sql
+SET STATISTICS IO ON;
+-- Chạy query trên trong SSMS với Actual Execution Plan
+-- Quan sát: Index Scan thay vì Seek trên Leads.CreatedAt và Users.Role
+-- Logical reads cao bất thường
+```
+
+**Bước 2 — Rewrite SARGable:**
+
+```sql
+-- YEAR(l.CreatedAt) không SARGable → rewrite thành range
+-- UPPER(u.Role) không SARGable → lưu Role nhất quán, so sánh trực tiếp
+
+DECLARE @YearStart  DATETIME2 = DATEFROMPARTS(YEAR(GETDATE()), 1, 1);
+DECLARE @YearEnd    DATETIME2 = DATEFROMPARTS(YEAR(GETDATE()) + 1, 1, 1);
+
+SELECT  u.FullName,
+        COUNT(*)              AS TotalLeads,
+        SUM(l.EstimatedValue) AS Pipeline
+FROM    Leads l
+JOIN    Users u ON l.AssignedToUserId = u.UserId
+WHERE   l.CreatedAt >= @YearStart
+  AND   l.CreatedAt <  @YearEnd
+  AND   l.Status NOT IN ('Won', 'Lost')
+  AND   u.Role = 'SalesRep'       -- lưu nhất quán, không cần UPPER()
+GROUP   BY u.UserId, u.FullName
+ORDER   BY Pipeline DESC;
+```
+
+**Bước 3 — Thêm index phù hợp:**
+
+```sql
+-- Covering index cho Leads
+CREATE NONCLUSTERED INDEX IX_Leads_Dashboard
+    ON Leads (CreatedAt, Status)
+    INCLUDE (AssignedToUserId, EstimatedValue)
+    WHERE Status NOT IN ('Won', 'Lost');   -- filtered index
+
+-- Index cho Users.Role (nếu filter thường xuyên)
+CREATE NONCLUSTERED INDEX IX_Users_Role
+    ON Users (Role)
+    INCLUDE (UserId, FullName);
+```
+
+**Bước 4 — Kiểm tra lại:**
+
+```sql
+SET STATISTICS IO ON;
+-- Chạy lại query đã rewrite
+-- Xác nhận: Index Seek xuất hiện, logical reads giảm đáng kể
+-- So sánh execution plan trước và sau
+```
+
+**Kết quả kỳ vọng:** Giảm từ ~8 giây xuống dưới 100ms với bảng 500,000 rows.
+
+---
+
+## Tóm tắt
+
+| Chủ đề | Điểm cốt lõi |
+|--------|-------------|
+| Schema Design | 3NF là baseline; denormalize có lý do; dùng INT IDENTITY cho PK |
+| SQL Server vs PostgreSQL | SQL Server cho enterprise Windows stack; Postgres cho open source, JSON mạnh |
+| Advanced Queries | CTE > nested subquery; window function cho ranking/running total |
+| Indexing | Covering index loại bỏ key lookup; filtered index cho subset thường query |
+| Query Optimization | SARGable là bắt buộc; đọc execution plan trước khi đoán |
+| Transactions | Isolation level ảnh hưởng lớn đến concurrency; RCSI là default tốt |
+| Stored Procedures | Dùng cho batch phức tạp; parameterized là bắt buộc |
+| Migration | Expand-contract pattern cho zero-downtime; không sửa tay production |
+
+Module tiếp theo — **Module 13: Entity Framework Core** — sẽ kết nối database này với ASP.NET Core qua ORM, tận dụng toàn bộ kiến thức schema và indexing từ module này.
+
+---
+
+## Kiểm tra & Thực hành (100 điểm)
+
+### Bối cảnh giáo trình (mục tiêu xuyên suốt)
+
+> **Trục CRM — một mục tiêu rõ:** bạn hướng tới **CRM production** trong [From Zero → Senior .NET (Backend-first)](../roadmap-dotnet-backend-zero-to-senior.mdx). Giáo trình **ưu tiên backend**, bám chuỗi **API → dữ liệu → vận hành → kiến trúc phân tán**, thay vì trải rộng theo hướng full-stack. Mỗi module củng cố **một lớp kỹ năng** trên **cùng một CRM học tập** bạn phát triển xuyên suốt khóa.
+
+| Chuỗi năng lực | Đóng góp vào CRM học tập |
+|----------------|--------------------------|
+| **Giai đoạn 1 — Foundation** | Đọc hiểu yêu cầu, mô hình client–server, Git — nền **collaboration** khi CRM lớn dần. |
+| **Giai đoạn 2 — C# + P1** | Domain, OOP, LINQ, async, DI — **rule nghiệp vụ & tầng ứng dụng** (Inventory là bản mẫu trước CRM). |
+| **Giai đoạn 3 — ASP.NET + P2** | Host, routing, validation, JWT, SignalR — **CRM Backend API** thực chiến. |
+| **Giai đoạn 4 — Data + P3** | SQL, EF, cache, job, container — CRM **ổn định & có thể triển khai**. |
+| **Giai đoạn 5 — Senior + Final** | Clean Architecture, event/outbox, gateway, observability, perf — CRM/ERP **chịu tải & có chủ**. |
+
+#### Vai trò *giai đoạn này* trong chuỗi
+
+SQL, EF Core, cache, job nền, Docker + **Project 3** — CRM **chạy được** như môi trường thật (dữ liệu, hiệu năng, vận hành).
+
+#### Vị trí bài học (trước / sau)
+
+| Mốc | Điểm nối trong giáo trình |
+|-----|---------------------------|
+| **Trước** | [Project 2 — CRM Backend API](../stage-03-aspnet-core-backend/project-02-crm-backend-api.mdx) |
+| **Tiếp theo** | [Module 13 — Entity Framework Core](module-13-entity-framework-core.mdx) |
+
+
+### Quy trình làm bài (hệ thống)
+
+| Bước | Việc cần làm | Output nên có |
+|------|----------------|-----------------|
+| 1 | Làm **Quiz** *trước*, tự ghi đáp án + 1 dòng lý do | Không xem đáp án; giữ bản nháp |
+| 2 | Đối chiếu **Đáp án**; sửa hiểu sai, ghi *takeaway* vào README hoặc nhật ký học | 3–5 bullet “tôi đã hiểu…” |
+| 3 | Làm **Lab** theo rubric; trong README nêu **phần CRM** nào được chạm (Lead, Customer, Deal, Billing…) | Repo / zip + ảnh `dotnet run` hoặc log |
+| 4 | **Tự chấm** theo bảng điểm; chuẩn bị 1 phút “vấn đáp” nếu mentor hỏi ngẫu nhiên | Điểm + chỗ còn yếu |
+
+---
+
+### Phần A — Quiz trắc nghiệm (20 điểm)
+
+> **Gợi ý làm bài:** mỗi câu **4 điểm**. Ưu tiên suy nghĩ *hệ quả trên CRM* (tiền, dữ liệu, đa tenant, hiệu năng, bảo mật) — không chỉ nhớ định nghĩa.
+
+
+
+Mỗi câu **4 điểm**.
+
+1. ACID — chữ **I** là?  
+   A. Integration B. Isolation C. Inheritance D. Index-only  
+   > **Đáp án:** B.
+
+2. Index clustered trên SQL Server thường là?  
+   A. Không tồn tại B. Một clustered index trên bảng (thường PK) C. Chỉ trên view D. Chỉ trên temp table  
+   > **Đáp án:** B.
+
+3. N+1 query problem xuất hiện khi?  
+   A. Một query trả quá nhiều cột B. Vòng lặp gọi query con cho từng dòng C. Dùng transaction D. Dùng UTF-8  
+   > **Đáp án:** B.
+
+4. `READ COMMITTED SNAPSHOT` (RCSI) giúp giảm?  
+   A. Disk size B. Reader-writer blocking so với locking read mặc định một số cấu hình C. Network latency D. JWT size  
+   > **Đáp án:** B (tinh thần; engine cụ thể có chi tiết).
+
+5. Expand-contract migration nhằm?  
+   A. Xóa bảng nhanh B. Zero-downtime: thêm cột mới → backfill → chuyển đọc/ghi → xóa cột cũ C. Tắt index D. Chỉ cho NoSQL  
+   > **Đáp án:** B.
+
+### Phần B — Lab thực chiến (80 điểm)
+
+> **Lab & rubric:** trong README, map từng nhóm điểm rubric sang **phần CRM** (Lead, Customer, Deal, Billing, Notification…) và **artifact** (test, log, screenshot, migration).
+
+| Tiêu chí | Điểm | Ghi chú |
+|----------|------|---------|
+| Script tạo schema CRM nhỏ (Customer, Lead) + PK/FK | 25 | |
+| ≥ 3 index có lý do (WHERE/JOIN/ORDER BY) trong comment | 20 | |
+| 1 stored procedure hoặc view + query parameterized | 15 | |
+| Execution plan: chụp “trước/sau” khi thêm index (ảnh) | 10 | |
+| Transaction demo: transfer balance hoặc tương tự + rollback case | 10 | |
+
+#### Ngưỡng tổng điểm (Quiz 20 + Lab 80)
+
+| Mức | Điểm | Ý nghĩa |
+|-----|------|---------|
+| **Đạt** | ≥ 70 | Đủ nền để học module kế mà không “lủng” kiến thức cốt lõi. |
+| **Khá** | ≥ 85 | Có minh chứng code + nêu được liên hệ CRM rõ ràng trong README. |
+| **Giỏi** | ≥ 95 | Có mở rộng / edge case / ADR ngắn / test bổ trợ (tùy rubric từng bài). |
+
+### Phần C — Reflect & nối chuỗi (không chấm điểm)
+
+Viết **5–8 câu** (README hoặc `docs/learning-log.md`):
+
+1. Kiến thức *module / project này* sẽ được **tái sử dụng trực tiếp** ở module hoặc project CRM nào tiếp theo? (ghi tên module / P2 / P3 / Final).
+2. Nếu bỏ qua phần lab, **rủi ro** lớn nhất cho CRM ở giai đoạn sau là gì?
+3. Một **quyết định kỹ thuật** (nhỏ) bạn sẵn sàng ghi thành **ADR một đoạn** sau khi làm lab.
+
+---
+
+## Tài liệu tham khảo
+
+- [SQL Server Documentation — Microsoft Learn](https://learn.microsoft.com/en-us/sql/sql-server/)
+- [PostgreSQL 16 Documentation](https://www.postgresql.org/docs/current/)
+- [Use The Index, Luke](https://use-the-index-luke.com/) — hướng dẫn indexing thực tế xuất sắc
+- [Brent Ozar — SQL Server Performance](https://www.brentozar.com/training/) — video miễn phí về execution plan, parameter sniffing
+- [Learn SQL in 30 days](../../06-database/learn-sql-in-30-days/00.%2030-Day%20SQL%20Learning%20Roadmap.md) — học song song để luyện thêm bài tập SQL
+- [ACID Properties — Wikipedia](https://en.wikipedia.org/wiki/ACID)
+- [Expand-Contract Pattern](https://martinfowler.com/bliki/ParallelChange.html) — Martin Fowler

@@ -12,6 +12,9 @@
 export { SummaryBox } from './SummaryBox';
 export type { SummaryBoxProps } from './SummaryBox';
 
+export { HiddenContent } from './HiddenContent';
+export type { HiddenContentProps } from './HiddenContent';
+
 export { FAQSection } from './FAQSection';
 export type { FAQItem, FAQSectionProps } from './FAQSection';
 
