@@ -1,19 +1,58 @@
 ---
-title: Module 7 — Dependency Injection
+title: "Module 7 — Dependency Injection"
 slug: dotnet-module-07-dependency-injection
-description: IoC, container, lifetime Scoped/Singleton/Transient và anti-pattern.
+description: "Dependency injection trong .NET: service lifetime, composition root, options pattern — khớp với container ASP.NET Core và kiểm thử đơn vị."
 sidebar_position: 4
-tags: [dotnet, csharp, dependency-injection]
-keywords: [ioc, di, scoped, singleton, transient]
+tags:
+  - dependency-injection
+  - ioc-container
+  - microsoft-extensions-dependencyinjection
+  - options-pattern
+  - testability
+  - aspnet-core
+keywords:
+  - dependency injection .NET
+  - service lifetimes Scoped Singleton
+  - composition root
+  - IHost builder
+  - unit testing mocks
+  - options pattern
 enableComments: true
 draft: false
 ---
 
-import { SummaryBox } from '@site/src/components/SEO';
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
 
-<SummaryBox>
-Module này đi sâu vào Dependency Injection (DI) trong .NET — từ vấn đề tightly coupled code, cách dùng IoC container, ba service lifetime (Transient/Scoped/Singleton), Options Pattern, đến các anti-pattern cần tránh. Toàn bộ ví dụ xoay quanh hệ thống CRM thực tế.
+<SummaryBox title="Tóm tắt (abstract)">
+
+**Abstract.** Trình bày **đảo nghịch điều khiển (IoC)** và triển khai qua `Microsoft.Extensions.DependencyInjection`: vòng đời dịch vụ, cấu hình, **composition root** — căn chỉnh với pipeline `WebApplication` và chiến lược kiểm thử.
+
 </SummaryBox>
+<HiddenContent>
+
+<!-- geoseo-curriculum-nav -->
+
+## Liên kết điều phối (curriculum graph)
+
+- **Hub lộ trình**: [00. Lộ trình From Zero → Senior .NET (Backend-first)](../roadmap-dotnet-backend-zero-to-senior.mdx)
+- **Chương trước**: [Module 6 — Async Programming](module-06-async-programming.mdx)
+- **Chương tiếp theo**: [Project 1 — Inventory System (Console + API)](project-01-inventory-console-api.mdx)
+
+## Tham chiếu có thẩm quyền (E‑E‑A‑T / retrieval)
+
+Danh sách sau ưu tiên **tài liệu gốc** (Microsoft Learn, đặc tả hệ sinh thái .NET) nhằm tăng **độ tin cậy trích dẫn** và hỗ trợ **công cụ tìm kiếm / tác tử AI** (RAG, overview synthesis).
+
+- [.NET documentation — Microsoft Learn](https://learn.microsoft.com/dotnet/)
+- [ASP.NET Core documentation](https://learn.microsoft.com/aspnet/core/)
+- [ASP.NET Core Developer roadmap — roadmap.sh](https://roadmap.sh/aspnet-core)
+- [Dependency injection in ASP.NET Core](https://learn.microsoft.com/aspnet/core/fundamentals/dependency-injection)
+- [.NET dependency injection](https://learn.microsoft.com/dotnet/core/extensions/dependency-injection)
+
+## Từ khóa chỉ mục (semantic hooks)
+
+Các thẻ `tags` / `keywords` trong frontmatter của trang này được chọn để **đồng nhất ngữ nghĩa** với chủ đề chương và với **đồ thị nội bộ** của giáo trình — hỗ trợ khám phá theo chủ đề và câu hỏi dạng *"học .NET backend theo lộ trình nào?"*.
+
+</HiddenContent>
 
 ## Mục tiêu học tập
 
@@ -754,7 +793,7 @@ DI là nền tảng của clean architecture trong .NET. Module tiếp theo sẽ
 
 ### Bối cảnh giáo trình (mục tiêu xuyên suốt)
 
-> **Trục CRM — một mục tiêu rõ:** bạn hướng tới **CRM production** trong [From Zero → Senior .NET (Backend-first)](../00-roadmap-dotnet-backend-zero-to-senior.mdx). Giáo trình **ưu tiên backend**, bám chuỗi **API → dữ liệu → vận hành → kiến trúc phân tán**, thay vì trải rộng theo hướng full-stack. Mỗi module củng cố **một lớp kỹ năng** trên **cùng một CRM học tập** bạn phát triển xuyên suốt khóa.
+> **Trục CRM — một mục tiêu rõ:** bạn hướng tới **CRM production** trong [From Zero → Senior .NET (Backend-first)](../roadmap-dotnet-backend-zero-to-senior.mdx). Giáo trình **ưu tiên backend**, bám chuỗi **API → dữ liệu → vận hành → kiến trúc phân tán**, thay vì trải rộng theo hướng full-stack. Mỗi module củng cố **một lớp kỹ năng** trên **cùng một CRM học tập** bạn phát triển xuyên suốt khóa.
 
 | Chuỗi năng lực | Đóng góp vào CRM học tập |
 |----------------|--------------------------|

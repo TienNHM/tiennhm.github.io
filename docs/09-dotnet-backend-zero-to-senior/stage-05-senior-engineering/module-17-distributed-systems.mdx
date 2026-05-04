@@ -1,19 +1,57 @@
 ---
-title: Module 17 — Distributed Systems
+title: "Module 17 — Distributed Systems"
 slug: dotnet-module-17-distributed-systems
-description: Event-driven, Kafka, RabbitMQ, CDC, outbox, idempotency, retry.
+description: "Hệ phân tán: consistency models, message brokers, idempotency, sagas — chuẩn bị tách dịch vụ và luồng tích hợp bất đồng bộ."
 sidebar_position: 2
-tags: [dotnet, kafka, rabbitmq, outbox]
-keywords: [event-driven, cdc, idempotency, message-broker]
+tags:
+  - distributed-systems
+  - message-queue
+  - eventual-consistency
+  - saga-pattern
+  - idempotency
+  - cap-theorem
+keywords:
+  - distributed systems fundamentals
+  - message broker patterns
+  - saga orchestration
+  - exactly-once semantics
+  - outbox pattern
 enableComments: true
 draft: false
 ---
 
-import { SummaryBox } from '@site/src/components/SEO';
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
 
-<SummaryBox>
-Khi CRM tách thành nhiều service hoặc cần **tích hợp bất đồng bộ** (billing, notification, search index), bạn bước vào lãnh địa **phân tán**: mất tin nhắn, gửi trùng, thứ tự không đảm bảo, và “commit DB xong mới gửi event” không còn là chuyện hiển nhiên. Module này trang bị **mô hình tư duy** và **pattern** (outbox, idempotency, retry) — nền cho microservices ở Module 18.
+<SummaryBox title="Tóm tắt (abstract)">
+
+**Abstract.** Khái quát **mô hình nhất quán dữ liệu phân tán**, giao tiếp bất đồng bộ qua broker, idempotency key và **saga** — khung lý thuyết cho CRM đa dịch vụ và tích hợp ERP.
+
 </SummaryBox>
+<HiddenContent>
+
+<!-- geoseo-curriculum-nav -->
+
+## Liên kết điều phối (curriculum graph)
+
+- **Hub lộ trình**: [00. Lộ trình From Zero → Senior .NET (Backend-first)](../roadmap-dotnet-backend-zero-to-senior.mdx)
+- **Chương trước**: [Module 16 — Clean Architecture](module-16-clean-architecture.mdx)
+- **Chương tiếp theo**: [Module 18 — Microservices](module-18-microservices.mdx)
+
+## Tham chiếu có thẩm quyền (E‑E‑A‑T / retrieval)
+
+Danh sách sau ưu tiên **tài liệu gốc** (Microsoft Learn, đặc tả hệ sinh thái .NET) nhằm tăng **độ tin cậy trích dẫn** và hỗ trợ **công cụ tìm kiếm / tác tử AI** (RAG, overview synthesis).
+
+- [.NET documentation — Microsoft Learn](https://learn.microsoft.com/dotnet/)
+- [ASP.NET Core documentation](https://learn.microsoft.com/aspnet/core/)
+- [ASP.NET Core Developer roadmap — roadmap.sh](https://roadmap.sh/aspnet-core)
+- [Cloud Design Patterns](https://learn.microsoft.com/azure/architecture/patterns/)
+- [Asynchronous messaging](https://learn.microsoft.com/azure/architecture/guide/architecture-styles/messaging)
+
+## Từ khóa chỉ mục (semantic hooks)
+
+Các thẻ `tags` / `keywords` trong frontmatter của trang này được chọn để **đồng nhất ngữ nghĩa** với chủ đề chương và với **đồ thị nội bộ** của giáo trình — hỗ trợ khám phá theo chủ đề và câu hỏi dạng *"học .NET backend theo lộ trình nào?"*.
+
+</HiddenContent>
 
 ## Mục tiêu học tập
 
@@ -183,7 +221,7 @@ Chọn **một** cho dự án học — đừng trộn ba framework.
 
 ### Bối cảnh giáo trình (mục tiêu xuyên suốt)
 
-> **Trục CRM — một mục tiêu rõ:** bạn hướng tới **CRM production** trong [From Zero → Senior .NET (Backend-first)](../00-roadmap-dotnet-backend-zero-to-senior.mdx). Giáo trình **ưu tiên backend**, bám chuỗi **API → dữ liệu → vận hành → kiến trúc phân tán**, thay vì trải rộng theo hướng full-stack. Mỗi module củng cố **một lớp kỹ năng** trên **cùng một CRM học tập** bạn phát triển xuyên suốt khóa.
+> **Trục CRM — một mục tiêu rõ:** bạn hướng tới **CRM production** trong [From Zero → Senior .NET (Backend-first)](../roadmap-dotnet-backend-zero-to-senior.mdx). Giáo trình **ưu tiên backend**, bám chuỗi **API → dữ liệu → vận hành → kiến trúc phân tán**, thay vì trải rộng theo hướng full-stack. Mỗi module củng cố **một lớp kỹ năng** trên **cùng một CRM học tập** bạn phát triển xuyên suốt khóa.
 
 | Chuỗi năng lực | Đóng góp vào CRM học tập |
 |----------------|--------------------------|

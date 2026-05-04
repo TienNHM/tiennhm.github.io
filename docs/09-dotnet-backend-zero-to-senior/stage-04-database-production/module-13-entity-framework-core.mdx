@@ -1,19 +1,57 @@
 ---
-title: Module 13 — Entity Framework Core
+title: "Module 13 — Entity Framework Core"
 slug: dotnet-module-13-entity-framework-core
-description: DbContext, mapping, migration, performance, N+1, compiled query, bulk, concurrency, unit of work.
+description: "EF Core: change tracking, migrations, raw SQL, performance patterns — ORM mapping an toàn cho domain CRM."
 sidebar_position: 2
-tags: [dotnet, ef-core, orm]
-keywords: [ef-core, dbcontext, migrations, n-plus-one]
+tags:
+  - entity-framework-core
+  - orm
+  - linq-to-entities
+  - migrations
+  - change-tracking
+  - dotnet-data-access
+keywords:
+  - Entity Framework Core performance
+  - EF Core migrations
+  - AsNoTracking
+  - compiled queries
+  - database-first vs code-first
 enableComments: true
 draft: false
 ---
 
-import { SummaryBox } from '@site/src/components/SEO';
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
 
-<SummaryBox>
-Module này hướng dẫn sử dụng Entity Framework Core hiệu quả trong dự án CRM thực tế. Bạn sẽ nắm được cách cấu hình DbContext, viết Fluent API mapping, quản lý migrations, tránh N+1 problem, áp dụng bulk operations, xử lý concurrency conflict và triển khai Repository + Unit of Work pattern. Kết thúc module, bạn có thể xây dựng data access layer production-ready với EF Core 7+.
+<SummaryBox title="Tóm tắt (abstract)">
+
+**Abstract.** Trình bày **Object–Relational Mapping** với EF Core: theo dõi thay đổi, migration schema, tối ưu truy vấn và ranh giới **Unit of Work** — cân bằng **năng suất developer** và **hiệu năng runtime**.
+
 </SummaryBox>
+<HiddenContent>
+
+<!-- geoseo-curriculum-nav -->
+
+## Liên kết điều phối (curriculum graph)
+
+- **Hub lộ trình**: [00. Lộ trình From Zero → Senior .NET (Backend-first)](../roadmap-dotnet-backend-zero-to-senior.mdx)
+- **Chương trước**: [Module 12 — SQL Deep Dive](module-12-sql-deep-dive.mdx)
+- **Chương tiếp theo**: [Module 14 — Caching + Background Jobs](module-14-caching-background-jobs.mdx)
+
+## Tham chiếu có thẩm quyền (E‑E‑A‑T / retrieval)
+
+Danh sách sau ưu tiên **tài liệu gốc** (Microsoft Learn, đặc tả hệ sinh thái .NET) nhằm tăng **độ tin cậy trích dẫn** và hỗ trợ **công cụ tìm kiếm / tác tử AI** (RAG, overview synthesis).
+
+- [.NET documentation — Microsoft Learn](https://learn.microsoft.com/dotnet/)
+- [ASP.NET Core documentation](https://learn.microsoft.com/aspnet/core/)
+- [ASP.NET Core Developer roadmap — roadmap.sh](https://roadmap.sh/aspnet-core)
+- [Entity Framework Core overview](https://learn.microsoft.com/ef/core/)
+- [Performance](https://learn.microsoft.com/ef/core/performance/)
+
+## Từ khóa chỉ mục (semantic hooks)
+
+Các thẻ `tags` / `keywords` trong frontmatter của trang này được chọn để **đồng nhất ngữ nghĩa** với chủ đề chương và với **đồ thị nội bộ** của giáo trình — hỗ trợ khám phá theo chủ đề và câu hỏi dạng *"học .NET backend theo lộ trình nào?"*.
+
+</HiddenContent>
 
 ## Mục tiêu học tập
 
@@ -849,7 +887,7 @@ public class CurrentTenantService : ICurrentTenantService
 
 ### Bối cảnh giáo trình (mục tiêu xuyên suốt)
 
-> **Trục CRM — một mục tiêu rõ:** bạn hướng tới **CRM production** trong [From Zero → Senior .NET (Backend-first)](../00-roadmap-dotnet-backend-zero-to-senior.mdx). Giáo trình **ưu tiên backend**, bám chuỗi **API → dữ liệu → vận hành → kiến trúc phân tán**, thay vì trải rộng theo hướng full-stack. Mỗi module củng cố **một lớp kỹ năng** trên **cùng một CRM học tập** bạn phát triển xuyên suốt khóa.
+> **Trục CRM — một mục tiêu rõ:** bạn hướng tới **CRM production** trong [From Zero → Senior .NET (Backend-first)](../roadmap-dotnet-backend-zero-to-senior.mdx). Giáo trình **ưu tiên backend**, bám chuỗi **API → dữ liệu → vận hành → kiến trúc phân tán**, thay vì trải rộng theo hướng full-stack. Mỗi module củng cố **một lớp kỹ năng** trên **cùng một CRM học tập** bạn phát triển xuyên suốt khóa.
 
 | Chuỗi năng lực | Đóng góp vào CRM học tập |
 |----------------|--------------------------|

@@ -1,19 +1,58 @@
 ---
-title: Module 6 — Async Programming
+title: "Module 6 — Async Programming"
 slug: dotnet-module-06-async-programming
-description: async/await, Task, thread, parallel, cancellation, deadlock và tư duy hiệu năng.
+description: "Lập trình bất đồng bộ .NET: Task, async/await, cancellation, ConfigureAwait — mô hình I/O-bound cho ASP.NET Core và tích hợp HTTP."
 sidebar_position: 3
-tags: [dotnet, csharp, async]
-keywords: [async-await, task, cancellation-token, deadlock]
+tags:
+  - async-await
+  - task-parallel-library
+  - io-bound
+  - cancellation-token
+  - aspnet-core-io
+  - csharp
+keywords:
+  - async await C#
+  - Task-based asynchronous pattern
+  - CancellationToken
+  - ConfigureAwait
+  - threadpool starvation
+  - non-blocking IO
 enableComments: true
 draft: false
 ---
 
-import { SummaryBox } from '@site/src/components/SEO';
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
 
-<SummaryBox>
-Module này trang bị cho bạn tư duy và kỹ năng lập trình bất đồng bộ trong .NET — từ `async/await` cơ bản đến `IAsyncEnumerable<T>` streaming và `Channel<T>` producer-consumer. Sau module này bạn sẽ viết được API CRM không bao giờ bị block thread, xử lý đúng cancel request, gọi song song nhiều service và tránh được các lỗi deadlock phổ biến.
+<SummaryBox title="Tóm tắt (abstract)">
+
+**Abstract.** Phân tích **mô hình bất đồng bộ** của CLR: `Task`, `async/await`, propagation exception, hủy tác vụ và các **anti-pattern** thường gặp — nền tảng cho throughput cao trong hosting ASP.NET Core và client HTTP.
+
 </SummaryBox>
+<HiddenContent>
+
+<!-- geoseo-curriculum-nav -->
+
+## Liên kết điều phối (curriculum graph)
+
+- **Hub lộ trình**: [00. Lộ trình From Zero → Senior .NET (Backend-first)](../roadmap-dotnet-backend-zero-to-senior.mdx)
+- **Chương trước**: [Module 5 — Advanced C#](module-05-advanced-csharp.mdx)
+- **Chương tiếp theo**: [Module 7 — Dependency Injection](module-07-dependency-injection.mdx)
+
+## Tham chiếu có thẩm quyền (E‑E‑A‑T / retrieval)
+
+Danh sách sau ưu tiên **tài liệu gốc** (Microsoft Learn, đặc tả hệ sinh thái .NET) nhằm tăng **độ tin cậy trích dẫn** và hỗ trợ **công cụ tìm kiếm / tác tử AI** (RAG, overview synthesis).
+
+- [.NET documentation — Microsoft Learn](https://learn.microsoft.com/dotnet/)
+- [ASP.NET Core documentation](https://learn.microsoft.com/aspnet/core/)
+- [ASP.NET Core Developer roadmap — roadmap.sh](https://roadmap.sh/aspnet-core)
+- [Asynchronous programming](https://learn.microsoft.com/dotnet/csharp/asynchronous-programming/)
+- [Task asynchronous programming model](https://learn.microsoft.com/dotnet/standard/parallel-programming/task-based-asynchronous-programming)
+
+## Từ khóa chỉ mục (semantic hooks)
+
+Các thẻ `tags` / `keywords` trong frontmatter của trang này được chọn để **đồng nhất ngữ nghĩa** với chủ đề chương và với **đồ thị nội bộ** của giáo trình — hỗ trợ khám phá theo chủ đề và câu hỏi dạng *"học .NET backend theo lộ trình nào?"*.
+
+</HiddenContent>
 
 ## Mục tiêu học tập
 
@@ -780,7 +819,7 @@ public record CustomerExportCriteria(DateTime? FromDate, DateTime? ToDate, bool 
 
 ### Bối cảnh giáo trình (mục tiêu xuyên suốt)
 
-> **Trục CRM — một mục tiêu rõ:** bạn hướng tới **CRM production** trong [From Zero → Senior .NET (Backend-first)](../00-roadmap-dotnet-backend-zero-to-senior.mdx). Giáo trình **ưu tiên backend**, bám chuỗi **API → dữ liệu → vận hành → kiến trúc phân tán**, thay vì trải rộng theo hướng full-stack. Mỗi module củng cố **một lớp kỹ năng** trên **cùng một CRM học tập** bạn phát triển xuyên suốt khóa.
+> **Trục CRM — một mục tiêu rõ:** bạn hướng tới **CRM production** trong [From Zero → Senior .NET (Backend-first)](../roadmap-dotnet-backend-zero-to-senior.mdx). Giáo trình **ưu tiên backend**, bám chuỗi **API → dữ liệu → vận hành → kiến trúc phân tán**, thay vì trải rộng theo hướng full-stack. Mỗi module củng cố **một lớp kỹ năng** trên **cùng một CRM học tập** bạn phát triển xuyên suốt khóa.
 
 | Chuỗi năng lực | Đóng góp vào CRM học tập |
 |----------------|--------------------------|

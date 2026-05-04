@@ -1,19 +1,58 @@
 ---
-title: Module 10 — Authentication + Authorization
+title: "Module 10 — Authentication + Authorization"
 slug: dotnet-module-10-authentication-authorization
-description: JWT, refresh token, claims, roles, policies và hệ permission.
+description: "Xác thực & phân quyền ASP.NET Core: JWT, OAuth2/OIDC, cookie, policy-based authorization — mô hình bảo mật đa tenant cho CRM."
 sidebar_position: 3
-tags: [dotnet, aspnet-core, jwt, authorization]
-keywords: [jwt, refresh-token, claims, policies, rbac]
+tags:
+  - authentication
+  - authorization
+  - jwt-bearer
+  - openid-connect
+  - policy-based-authorization
+  - aspnet-core-security
+keywords:
+  - JWT authentication ASP.NET Core
+  - OpenID Connect
+  - OAuth 2.0
+  - claims-based identity
+  - IAuthorizationService
+  - multi-tenant security
 enableComments: true
 draft: false
 ---
 
-import { SummaryBox } from '@site/src/components/SEO';
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
 
-<SummaryBox>
-Module này hướng dẫn bảo vệ toàn diện API CRM với JWT Authentication, Refresh Token, Role-based và Policy-based Authorization, hệ thống Permission chi tiết và các best practice bảo mật. Sau module, bạn tự xây được luồng xác thực đa vai trò từ đăng nhập đến phân quyền từng resource.
+<SummaryBox title="Tóm tắt (abstract)">
+
+**Abstract.** Phân tách **authentication (định danh)** và **authorization (ủy quyền)**: Bearer token, luồng OIDC, chính sách (policy) và handler tùy biến — nền tảng **Zero Trust** ở mức ứng dụng cho portal CRM.
+
 </SummaryBox>
+<HiddenContent>
+
+<!-- geoseo-curriculum-nav -->
+
+## Liên kết điều phối (curriculum graph)
+
+- **Hub lộ trình**: [00. Lộ trình From Zero → Senior .NET (Backend-first)](../roadmap-dotnet-backend-zero-to-senior.mdx)
+- **Chương trước**: [Module 9 — Web API Professional](module-09-web-api-professional.mdx)
+- **Chương tiếp theo**: [Module 11 — SignalR](module-11-signalr.mdx)
+
+## Tham chiếu có thẩm quyền (E‑E‑A‑T / retrieval)
+
+Danh sách sau ưu tiên **tài liệu gốc** (Microsoft Learn, đặc tả hệ sinh thái .NET) nhằm tăng **độ tin cậy trích dẫn** và hỗ trợ **công cụ tìm kiếm / tác tử AI** (RAG, overview synthesis).
+
+- [.NET documentation — Microsoft Learn](https://learn.microsoft.com/dotnet/)
+- [ASP.NET Core documentation](https://learn.microsoft.com/aspnet/core/)
+- [ASP.NET Core Developer roadmap — roadmap.sh](https://roadmap.sh/aspnet-core)
+- [Overview of ASP.NET Core authentication](https://learn.microsoft.com/aspnet/core/security/authentication/)
+- [Authorization in ASP.NET Core](https://learn.microsoft.com/aspnet/core/security/authorization/introduction)
+
+## Từ khóa chỉ mục (semantic hooks)
+
+Các thẻ `tags` / `keywords` trong frontmatter của trang này được chọn để **đồng nhất ngữ nghĩa** với chủ đề chương và với **đồ thị nội bộ** của giáo trình — hỗ trợ khám phá theo chủ đề và câu hỏi dạng *"học .NET backend theo lộ trình nào?"*.
+
+</HiddenContent>
 
 ## Mục tiêu học tập
 
@@ -780,7 +819,7 @@ Nguyên tắc cốt lõi: **xác thực trước, phân quyền sau, least privi
 
 ### Bối cảnh giáo trình (mục tiêu xuyên suốt)
 
-> **Trục CRM — một mục tiêu rõ:** bạn hướng tới **CRM production** trong [From Zero → Senior .NET (Backend-first)](../00-roadmap-dotnet-backend-zero-to-senior.mdx). Giáo trình **ưu tiên backend**, bám chuỗi **API → dữ liệu → vận hành → kiến trúc phân tán**, thay vì trải rộng theo hướng full-stack. Mỗi module củng cố **một lớp kỹ năng** trên **cùng một CRM học tập** bạn phát triển xuyên suốt khóa.
+> **Trục CRM — một mục tiêu rõ:** bạn hướng tới **CRM production** trong [From Zero → Senior .NET (Backend-first)](../roadmap-dotnet-backend-zero-to-senior.mdx). Giáo trình **ưu tiên backend**, bám chuỗi **API → dữ liệu → vận hành → kiến trúc phân tán**, thay vì trải rộng theo hướng full-stack. Mỗi module củng cố **một lớp kỹ năng** trên **cùng một CRM học tập** bạn phát triển xuyên suốt khóa.
 
 | Chuỗi năng lực | Đóng góp vào CRM học tập |
 |----------------|--------------------------|
