@@ -60,8 +60,8 @@ Sau module này bạn sẽ có thể:
 - Thiết kế schema CRM từ đầu đúng chuẩn hóa 3NF, chọn chiến lược primary key phù hợp
 - So sánh SQL Server và PostgreSQL, biết khi nào chọn cái nào cho dự án thực tế
 - Viết CTE, window function, subquery tối ưu cho báo cáo CRM phức tạp
-- Giải thích clustered vs non-clustered index, tạo covering index đúng chỗ
-- Đọc execution plan, nhận biết index scan vs seek, viết SARGable query
+- Giải thích clustered so với non-clustered index, tạo covering index đúng chỗ
+- Đọc execution plan, nhận biết index scan so với seek, viết SARGable query
 - Hiểu isolation level, phân biệt dirty read / phantom read, xử lý deadlock
 - Biết khi nào dùng stored procedure và khi nào để ORM lo
 - Thực hiện migration schema không làm sập production
@@ -201,7 +201,7 @@ Trong CRM: `Contacts` dùng CASCADE (contact không có nghĩa nếu không có 
 
 ---
 
-## 2. SQL Server vs PostgreSQL
+## 2. SQL Server so với PostgreSQL
 
 ### 2.1 Bảng so sánh
 
@@ -308,7 +308,7 @@ LATERAL (
 ) ct;
 ```
 
-### 3.2 Subquery vs CTE
+### 3.2 Subquery so với CTE
 
 ```sql
 -- Subquery: tìm customer có nhiều lead nhất
@@ -358,7 +358,7 @@ SELECT LeadId, CompanyName, CreatedAt,
 FROM   Leads
 WHERE  Status = 'Won';
 
--- RANK vs DENSE_RANK: xử lý tie
+-- RANK so với DENSE_RANK: xử lý tie
 SELECT UserId, FullName, TotalWon,
        RANK()       OVER (ORDER BY TotalWon DESC) AS Rank,       -- 1,2,2,4
        DENSE_RANK() OVER (ORDER BY TotalWon DESC) AS DenseRank   -- 1,2,2,3
@@ -370,7 +370,7 @@ FROM (
     GROUP  BY u.UserId, u.FullName
 ) x;
 
--- LAG / LEAD: so sánh doanh thu tháng này vs tháng trước
+-- LAG / LEAD: so sánh doanh thu tháng này so với tháng trước
 WITH MonthlyRevenue AS (
     SELECT FORMAT(ConvertedAt, 'yyyy-MM')   AS YearMonth,
            SUM(EstimatedValue)              AS Revenue
@@ -413,7 +413,7 @@ END;
 
 ## 4. Indexing
 
-### 4.1 Clustered vs Non-Clustered
+### 4.1 Clustered so với Non-Clustered
 
 - **Clustered index:** Quyết định thứ tự vật lý lưu trữ dữ liệu trên đĩa. Mỗi bảng chỉ có **một** clustered index. Mặc định là PRIMARY KEY.
 - **Non-clustered index:** Cấu trúc riêng biệt chứa key columns + pointer đến row trong clustered index. Một bảng có thể có nhiều non-clustered index.
@@ -455,7 +455,7 @@ CREATE NONCLUSTERED INDEX IX_Leads_Active
     WHERE Status NOT IN ('Won', 'Lost');
 ```
 
-### 4.4 Index Scan vs Index Seek
+### 4.4 Index Scan so với Index Seek
 
 | | Index Seek | Index Scan |
 |---|---|---|
@@ -507,7 +507,7 @@ WHERE  l.status = 'New';
 ```
 
 Những gì cần nhìn vào execution plan:
-- **Estimated vs Actual rows**: sai lệch lớn → statistics cũ, cần `UPDATE STATISTICS`
+- **Estimated so với Actual rows**: sai lệch lớn → statistics cũ, cần `UPDATE STATISTICS`
 - **Key Lookup**: non-clustered index không cover đủ cột → thêm INCLUDE
 - **Hash Match / Sort**: tốn memory → có thể tránh bằng index phù hợp
 - **Nested Loop với bảng lớn**: xem xét thay Hash Join
@@ -669,7 +669,7 @@ COMMIT;
 ALTER DATABASE CrmDb SET READ_COMMITTED_SNAPSHOT ON;
 ```
 
-### 6.5 Optimistic vs Pessimistic Concurrency
+### 6.5 Optimistic so với Pessimistic Concurrency
 
 ```sql
 -- Pessimistic: lock row khi đọc (ngăn concurrent update)
@@ -1083,7 +1083,7 @@ SET STATISTICS IO ON;
 | Chủ đề | Điểm cốt lõi |
 |--------|-------------|
 | Schema Design | 3NF là baseline; denormalize có lý do; dùng INT IDENTITY cho PK |
-| SQL Server vs PostgreSQL | SQL Server cho enterprise Windows stack; Postgres cho open source, JSON mạnh |
+| SQL Server so với PostgreSQL | SQL Server cho enterprise Windows stack; Postgres cho open source, JSON mạnh |
 | Advanced Queries | CTE > nested subquery; window function cho ranking/running total |
 | Indexing | Covering index loại bỏ key lookup; filtered index cho subset thường query |
 | Query Optimization | SARGable là bắt buộc; đọc execution plan trước khi đoán |
@@ -1105,7 +1105,7 @@ Module tiếp theo — **Module 13: Entity Framework Core** — sẽ kết nối
 |----------------|--------------------------|
 | **Giai đoạn 1 — Foundation** | Đọc hiểu yêu cầu, mô hình client–server, Git — nền **collaboration** khi CRM lớn dần. |
 | **Giai đoạn 2 — C# + P1** | Domain, OOP, LINQ, async, DI — **rule nghiệp vụ & tầng ứng dụng** (Inventory là bản mẫu trước CRM). |
-| **Giai đoạn 3 — ASP.NET + P2** | Host, routing, validation, JWT, SignalR — **CRM Backend API** thực chiến. |
+| **Giai đoạn 3 — ASP.NET + P2** | Host, routing, validation, JWT, SignalR — **CRM Backend API** thực tế. |
 | **Giai đoạn 4 — Data + P3** | SQL, EF, cache, job, container — CRM **ổn định & có thể triển khai**. |
 | **Giai đoạn 5 — Senior + Final** | Clean Architecture, event/outbox, gateway, observability, perf — CRM/ERP **chịu tải & có chủ**. |
 
@@ -1160,7 +1160,7 @@ Mỗi câu **4 điểm**.
    A. Xóa bảng nhanh B. Zero-downtime: thêm cột mới → backfill → chuyển đọc/ghi → xóa cột cũ C. Tắt index D. Chỉ cho NoSQL  
    > **Đáp án:** B.
 
-### Phần B — Lab thực chiến (80 điểm)
+### Phần B — Lab thực tế (80 điểm)
 
 > **Lab & rubric:** trong README, map từng nhóm điểm rubric sang **phần CRM** (Lead, Customer, Deal, Billing, Notification…) và **artifact** (test, log, screenshot, migration).
 
