@@ -55,6 +55,17 @@ Các thẻ `tags` / `keywords` trong frontmatter của trang này được chọ
 
 </HiddenContent>
 
+## Phương pháp học tập
+
+Bài học này được dẫn dắt theo chu trình học tập chủ động:
+
+1. **Khởi động tư duy**: bắt đầu bằng câu hỏi gợi mở để kích hoạt kiến thức nền.
+2. **Kiến tạo kiến thức**: học khái niệm cốt lõi đi kèm ví dụ có ngữ cảnh.
+3. **Luyện tập có hướng dẫn**: áp dụng qua mini case và ví dụ thực tế ngắn.
+4. **Tự đánh giá và phản tư**: dùng checklist + bài thực hành để chốt năng lực.
+
+> Mục tiêu là bạn hiểu sâu, dùng được ngay, và tự đánh giá được mức độ nắm bài.
+
 ## Mục tiêu học tập
 
 Sau khi hoàn thành module này, bạn có thể:
@@ -69,6 +80,11 @@ Sau khi hoàn thành module này, bạn có thể:
 
 ---
 
+## Câu hỏi khởi động
+
+- Nếu không có kiến thức trong bài này, hệ thống CRM/ERP sẽ gặp rủi ro gì?
+- Trong dự án thực tế, bạn nghĩ phần kiến thức này nằm ở tầng nào (API, nghiệp vụ, dữ liệu, vận hành)?
+- Dấu hiệu nào cho thấy bạn đã hiểu bản chất bài học (không chỉ nhớ định nghĩa)?
 ## 1. Git là gì và tại sao cần
 
 ### Version control là gì?
@@ -128,7 +144,7 @@ Trước tiên phải khai báo danh tính — Git dùng thông tin này để g
 ```bash
 git config --global user.name "Nguyen Van A"
 git config --global user.email "nguyenvana@company.com"
-git config --global core.editor "code --wait"   # dùng So với Code làm editor mặc định
+git config --global core.editor "code --wait"   # dùng VS Code làm editor mặc định
 git config --global init.defaultBranch main      # đặt nhánh mặc định là main
 ```
 
@@ -159,6 +175,28 @@ ssh -T git@github.com
 ```
 
 ---
+
+## Checklist an toàn khi làm Git
+
+Trước mỗi lần `commit` hoặc `push`, hãy chạy checklist 30 giây:
+
+- Mình đang đứng đúng branch chưa (`git branch`)?
+- Có file rác không nên commit không (`bin/`, `obj/`, file log)?
+- Commit message có nói rõ mục đích thay đổi không?
+- Đã `pull` nhánh mới nhất trước khi mở PR chưa?
+
+### Ví dụ quy trình 1 task từ đầu đến cuối
+
+Giả sử bạn nhận task: "Thêm endpoint lấy danh sách khách hàng".
+
+1. Tạo nhánh: `git checkout -b feature/customer-list-endpoint`
+2. Code + test local.
+3. Xem thay đổi: `git status` và `git diff`
+4. Commit: `git commit -m "feat(api): add customer list endpoint"`
+5. Push: `git push -u origin feature/customer-list-endpoint`
+6. Mở PR, ghi rõ: mục tiêu, cách test, ảnh/chứng cứ nếu cần.
+
+Lặp đúng quy trình này vài lần, bạn sẽ quen nhịp làm việc chuẩn team backend rất nhanh.
 
 ## 3. Workflow cơ bản
 
@@ -211,6 +249,25 @@ git log --oneline --graph --all
 
 git log --author="Nguyen Van A" --since="1 week ago"
 ```
+
+### Ví dụ thực tế: sửa nóng lỗi production an toàn
+
+Tình huống: production bị lỗi đăng nhập do null reference. Team cần sửa nhanh mà không chờ feature đang làm dở.
+
+```bash
+# 1) Tách nhánh hotfix từ main
+git checkout main
+git pull origin main
+git checkout -b hotfix/login-null-reference
+
+# 2) Sửa lỗi + commit
+git commit -m "fix(auth): handle null user profile in login flow"
+
+# 3) Push và mở PR để review nhanh
+git push -u origin hotfix/login-null-reference
+```
+
+Sau khi merge hotfix vào `main`, bạn mới quay lại branch feature để tiếp tục việc đang làm. Đây là nhịp làm việc rất phổ biến ở team backend thực tế.
 
 ---
 
@@ -630,7 +687,35 @@ git commit -m "fix(crm): resolve merge conflict in UpdateCustomer validation"
 6. Commit đúng chuẩn Conventional Commits
 7. Push và mở PR vào repo mẫu với mô tả đầy đủ
 
----
+## Mở rộng và đào sâu
+
+### Góc nhìn sư phạm
+
+Phần này trả lời ba câu hỏi cốt lõi: **học cái gì, để làm gì, và dùng ở đâu** trong một hệ thống backend thực.
+
+### Khung học thuật cốt lõi
+
+- **Khái niệm**: định nghĩa ngắn, chính xác.
+- **Ngữ cảnh**: vị trí của khái niệm trong kiến trúc hệ thống.
+- **Giới hạn**: khi nào khái niệm này không còn phù hợp.
+
+## Mini case study
+
+### Tình huống
+
+Chọn một tình huống nhỏ nhưng thực tế trong CRM/ERP, xác định rõ đầu vào, ràng buộc, và đầu ra mong muốn.
+
+### Đáp án gợi ý
+
+- Mô tả quy trình xử lý theo từng bước logic.
+- Giải thích vì sao chọn cách làm đó thay vì phương án khác.
+- Nêu ít nhất một edge case và cách xử lý.
+
+## Ví dụ thực tế nhanh
+
+- Một tình huống áp dụng trực tiếp trong dự án.
+- Một lỗi thường gặp khi triển khai ngoài thực tế.
+- Một câu tự kiểm tra để xác nhận bạn hiểu đúng bản chất.
 
 ## Tóm tắt
 
@@ -647,6 +732,13 @@ Module 3 khép lại **Stage 1 — Foundation** với ba trụ cột:
 Khi bước sang **Stage 2**, bạn sẽ bắt đầu xây dựng CRM backend thực sự với Entity Framework Core, Clean Architecture và REST API — những module đó giả định bạn đã nắm chắc Git workflow để làm việc nhóm hiệu quả.
 
 ---
+
+## Checklist trước khi sang bài tiếp theo
+
+- Bạn đã nắm được các khái niệm chính và giải thích lại được bằng ví dụ của riêng mình.
+- Bạn đã chạy hoặc mô phỏng ít nhất một ví dụ trong bài.
+- Bạn đã hoàn thành phần quiz/lab cơ bản (hoặc ít nhất tự làm lại theo trí nhớ).
+- Bạn đã ghi lại 3 ý chính: học được gì, còn vướng gì, sẽ áp dụng ở đâu trong CRM.
 
 ## Kiểm tra & Thực hành (100 điểm)
 
@@ -673,7 +765,6 @@ Foundation: tư duy lập trình, mô hình web/HTTP, Git — **đọc yêu cầ
 | **Trước** | [Module 2 — Computer Science Basics](module-02-computer-science-basics.mdx) |
 | **Tiếp theo** | [Module 4 — C# Core](../stage-02-csharp-professional/module-04-csharp-core.mdx) |
 
-
 ### Quy trình làm bài (hệ thống)
 
 | Bước | Việc cần làm | Output nên có |
@@ -688,8 +779,6 @@ Foundation: tư duy lập trình, mô hình web/HTTP, Git — **đọc yêu cầ
 ### Phần A — Quiz trắc nghiệm (20 điểm)
 
 > **Gợi ý làm bài:** mỗi câu **4 điểm**. Ưu tiên suy nghĩ *hệ quả trên CRM* (tiền, dữ liệu, đa tenant, hiệu năng, bảo mật) — không chỉ nhớ định nghĩa.
-
-
 
 Mỗi câu **4 điểm**.
 
@@ -751,3 +840,5 @@ Viết **5–8 câu** (README hoặc `docs/learning-log.md`):
 - [Visual Studio Debugger Docs](https://learn.microsoft.com/en-us/visualstudio/debugger/debugger-feature-tour)
 - [.gitignore templates for .NET](https://github.com/github/gitignore/blob/main/VisualStudio.gitignore)
 - [roadmap.sh/backend](https://roadmap.sh/backend) — toàn cảnh kỹ năng backend developer
+
+
