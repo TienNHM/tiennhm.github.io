@@ -1,0 +1,163 @@
+---
+title: "8.3 — 2. Request Pipeline và Middleware"
+sidebar_position: 3
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 8.3 — 2. Request Pipeline và Middleware
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### Cách pipeline hoạt động
+
+Request HTTP đi qua một chuỗi middleware theo thứ tự đăng ký, mỗi middleware có thể:
+- Xử lý request rồi **chuyển tiếp** (`await next(context)`)
+- **Dừng** pipeline (short-circuit) và trả response ngay
+
+```
+Request → [MW1] → [MW2] → [MW3] → Handler
+Response ← [MW1] ← [MW2] ← [MW3] ←
+```
+
+### Use, Run, Map
+
+```csharp
+// Use — xử lý rồi chuyển tiếp
+app.Use(async (context, next) =>
+{
+    // Trước khi xử lý
+    await next(context);
+    // Sau khi xử lý
+});
+
+// Run — terminal middleware, KHÔNG gọi next
+app.Run(async context =>
+{
+    await context.Response.WriteAsync("Hello from terminal middleware");
+});
+
+// Map — rẽ nhánh theo path
+app.Map("/health", branch =>
+{
+    branch.Run(async context =>
+        await context.Response.WriteAsync("Healthy"));
+});
+```
+
+### Viết Custom Middleware — Request Timing
+
+```csharp
+// Middleware/RequestTimingMiddleware.cs
+public class RequestTimingMiddleware
+{
+    private readonly RequestDelegate _next;
+    private readonly ILogger<RequestTimingMiddleware> _logger;
+
+    public RequestTimingMiddleware(RequestDelegate next,
+        ILogger<RequestTimingMiddleware> logger)
+    {
+        _next = next;
+        _logger = logger;
+    }
+
+    public async Task InvokeAsync(HttpContext context)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        try
+        {
+            await _next(context);
+        }
+        finally
+        {
+            stopwatch.Stop();
+            _logger.LogInformation(
+                "HTTP {Method} {Path} responded {StatusCode} in {Elapsed}ms",
+                context.Request.Method,
+                context.Request.Path,
+                context.Response.StatusCode,
+                stopwatch.ElapsedMilliseconds);
+        }
+    }
+}
+
+// Extension method để đăng ký
+public static class RequestTimingMiddlewareExtensions
+{
+    public static IApplicationBuilder UseRequestTiming(
+        this IApplicationBuilder builder)
+        => builder.UseMiddleware<RequestTimingMiddleware>();
+}
+```
+
+### Viết Custom Middleware — Correlation ID
+
+```csharp
+// Middleware/CorrelationIdMiddleware.cs
+public class CorrelationIdMiddleware
+{
+    private const string CorrelationIdHeader = "X-Correlation-ID";
+    private readonly RequestDelegate _next;
+
+    public CorrelationIdMiddleware(RequestDelegate next) => _next = next;
+
+    public async Task InvokeAsync(HttpContext context)
+    {
+        var correlationId = context.Request.Headers[CorrelationIdHeader].FirstOrDefault()
+            ?? Guid.NewGuid().ToString();
+
+        context.Items["CorrelationId"] = correlationId;
+        context.Response.Headers[CorrelationIdHeader] = correlationId;
+
+        // Đẩy vào LogContext để mọi log trong request đều có correlation ID
+        using (LogContext.PushProperty("CorrelationId", correlationId))
+        {
+            await _next(context);
+        }
+    }
+}
+```
+
+### Thứ tự middleware quan trọng
+
+```csharp
+// THỨ TỰ ĐÚNG trong Program.cs
+app.UseExceptionHandler("/error"); // Phải đứng ĐẦU để bắt mọi exception
+app.UseMiddleware<CorrelationIdMiddleware>(); // Correlation ID sớm để log được
+app.UseRequestTiming();             // Timing sau correlation
+app.UseHttpsRedirection();
+app.UseRouting();
+app.UseAuthentication();            // Authn trước Authz
+app.UseAuthorization();
+app.MapControllers();
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [8.2 — 1. Kiến trúc ASP.NET Core](8.2-aspnet-core-architecture.mdx)
+- **Bài tiếp theo:** [8.4 — 3. Routing](8.4-routing.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

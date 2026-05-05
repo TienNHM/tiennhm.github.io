@@ -1,0 +1,107 @@
+---
+title: "2.5 — 3. HTTP/HTTPS"
+sidebar_position: 5
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 2.5 — 3. HTTP/HTTPS
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### HTTP Methods
+
+HTTP định nghĩa **method (động từ)** cho từng loại thao tác:
+
+| Method   | Ý nghĩa               | Ví dụ trong CRM                       |
+|----------|-----------------------|---------------------------------------|
+| `GET`    | Lấy dữ liệu           | `GET /api/customers` — xem danh sách  |
+| `POST`   | Tạo mới               | `POST /api/customers` — thêm KH mới   |
+| `PUT`    | Cập nhật toàn bộ      | `PUT /api/customers/5` — sửa KH #5    |
+| `PATCH`  | Cập nhật một phần     | `PATCH /api/customers/5` — đổi email  |
+| `DELETE` | Xóa                   | `DELETE /api/customers/5` — xóa KH    |
+
+### HTTP Status Codes
+
+Server luôn trả về một **status code** 3 chữ số:
+
+| Nhóm | Ý nghĩa     | Ví dụ quan trọng                                      |
+|------|-------------|-------------------------------------------------------|
+| 2xx  | Thành công  | `200 OK`, `201 Created`, `204 No Content`             |
+| 3xx  | Chuyển hướng| `301 Moved Permanently`, `302 Found`                  |
+| 4xx  | Lỗi client  | `400 Bad Request`, `401 Unauthorized`, `404 Not Found`, `422 Unprocessable` |
+| 5xx  | Lỗi server  | `500 Internal Server Error`, `503 Service Unavailable` |
+
+> **Trong CRM:** Khi sales nhập sai email khách hàng, API trả `422 Unprocessable Entity` kèm message giải thích. Khi chưa đăng nhập mà gọi API, server trả `401 Unauthorized`.
+
+### HTTP Headers và Body
+
+Một HTTP request đầy đủ trông như sau:
+
+```
+POST /api/customers HTTP/1.1
+Host: crm.company.com
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+Content-Length: 87
+
+{
+  "name": "Nguyen Van A",
+  "email": "a@example.com",
+  "phone": "0912345678"
+}
+```
+
+- **Headers**: Metadata — loại content, token xác thực, ngôn ngữ...
+- **Body**: Dữ liệu thực sự gửi lên (chỉ có với POST, PUT, PATCH)
+- **HTTPS**: Mã hóa toàn bộ traffic bằng TLS — bắt buộc trong production để bảo vệ token và dữ liệu khách hàng
+
+### Ví dụ thực tế: tạo khách hàng mới và xử lý lỗi
+
+Giả sử nhân viên sales tạo khách hàng từ giao diện CRM:
+
+1. Frontend gửi `POST /api/customers` kèm JSON.
+2. Nếu dữ liệu hợp lệ, backend trả `201 Created` + `id` khách hàng mới.
+3. Nếu thiếu email hoặc email sai định dạng, backend trả `422 Unprocessable Entity`.
+
+Ví dụ response lỗi:
+
+```json
+{
+  "error": "ValidationFailed",
+  "message": "Email is required and must be valid.",
+  "field": "email"
+}
+```
+
+Nhờ vậy frontend biết hiển thị lỗi đúng ô nhập liệu thay vì báo chung chung "Đã có lỗi xảy ra".
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [2.4 — 2. Client - Server Model](2.4-client.mdx)
+- **Bài tiếp theo:** [2.6 — 4. API và JSON](2.6-api-and-json.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

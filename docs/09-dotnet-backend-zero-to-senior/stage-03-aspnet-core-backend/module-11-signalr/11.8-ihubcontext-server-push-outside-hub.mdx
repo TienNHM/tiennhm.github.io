@@ -1,0 +1,134 @@
+---
+title: "11.8 — 7. IHubContext — Server push từ ngoài Hub"
+sidebar_position: 8
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 11.8 — 7. IHubContext — Server push từ ngoài Hub
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+`IHubContext` cho phép code bên ngoài Hub (service layer, background job, controller) gửi message tới client mà không cần client gọi Hub trước.
+
+### Inject IHubContext vào Service
+
+```csharp
+public class LeadService
+{
+    private readonly IHubContext<CrmNotificationHub, ICrmNotificationClient> _hubContext;
+    private readonly ILeadRepository _leadRepo;
+    private readonly INotificationRepository _notificationRepo;
+
+    public LeadService(
+        IHubContext<CrmNotificationHub, ICrmNotificationClient> hubContext,
+        ILeadRepository leadRepo,
+        INotificationRepository notificationRepo)
+    {
+        _hubContext = hubContext;
+        _leadRepo = leadRepo;
+        _notificationRepo = notificationRepo;
+    }
+
+    public async Task AssignLeadAsync(Guid leadId, string assigneeId, string assignedById)
+    {
+        // 1. Cập nhật DB
+        var lead = await _leadRepo.GetByIdAsync(leadId);
+        lead.AssignTo(assigneeId, assignedById);
+        await _leadRepo.SaveAsync();
+
+        // 2. Tạo notification record trong DB
+        var notification = new Notification
+        {
+            Id = Guid.NewGuid(),
+            UserId = assigneeId,
+            Message = $"Lead '{lead.Name}' đã được assign cho bạn",
+            Type = NotificationType.Info,
+            EntityType = "Lead",
+            EntityId = leadId.ToString(),
+            IsRead = false,
+            CreatedAt = DateTime.UtcNow
+        };
+        await _notificationRepo.AddAsync(notification);
+
+        // 3. Push real-time ngay lập tức
+        var dto = notification.ToDto();
+        await _hubContext.Clients.User(assigneeId).ReceiveNotification(dto);
+    }
+}
+```
+
+### Push từ Background Job
+
+```csharp
+public class ReportGenerationJob : BackgroundService
+{
+    private readonly IHubContext<CrmNotificationHub, ICrmNotificationClient> _hubContext;
+    private readonly IReportService _reportService;
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            // Xử lý queue job...
+            var job = await _reportService.DequeueAsync(stoppingToken);
+            
+            try
+            {
+                await _reportService.GenerateAsync(job);
+
+                // Notify user khi job hoàn thành
+                await _hubContext.Clients.User(job.RequestedByUserId)
+                    .ReceiveNotification(new NotificationDto
+                    {
+                        Id = Guid.NewGuid(),
+                        Message = $"Báo cáo '{job.ReportName}' đã sẵn sàng tải xuống",
+                        Type = NotificationType.Success,
+                        CreatedAt = DateTime.UtcNow
+                    });
+            }
+            catch (Exception ex)
+            {
+                await _hubContext.Clients.User(job.RequestedByUserId)
+                    .ReceiveNotification(new NotificationDto
+                    {
+                        Id = Guid.NewGuid(),
+                        Message = $"Tạo báo cáo thất bại: {ex.Message}",
+                        Type = NotificationType.Error,
+                        CreatedAt = DateTime.UtcNow
+                    });
+            }
+        }
+    }
+}
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [11.7 — 6. Groups và Targeting](11.7-groups-and-targeting.mdx)
+- **Bài tiếp theo:** [11.9 — 8. Notification Center Pattern](11.9-notification-center-pattern.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

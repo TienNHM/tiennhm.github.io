@@ -1,0 +1,119 @@
+---
+title: "9.10 — 9. Background Processing với Hosted Service"
+sidebar_position: 10
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 9.10 — 9. Background Processing với Hosted Service
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 9.1 BackgroundService cơ bản
+
+```csharp
+// EmailDigestWorker.cs
+public class EmailDigestWorker : BackgroundService
+{
+    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly ILogger<EmailDigestWorker> _logger;
+
+    public EmailDigestWorker(IServiceScopeFactory scopeFactory, ILogger<EmailDigestWorker> logger)
+    {
+        _scopeFactory = scopeFactory;
+        _logger = logger;
+    }
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        _logger.LogInformation("EmailDigestWorker đã khởi động.");
+
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            var now = DateTime.UtcNow;
+            // Chờ đến 7:00 AM UTC hôm nay hoặc ngày mai
+            var nextRun = now.Date.AddHours(7);
+            if (now >= nextRun) nextRun = nextRun.AddDays(1);
+
+            var delay = nextRun - now;
+            _logger.LogInformation("Digest tiếp theo lúc {NextRun}", nextRun);
+
+            await Task.Delay(delay, stoppingToken);
+
+            if (!stoppingToken.IsCancellationRequested)
+                await SendDailyDigestAsync(stoppingToken);
+        }
+    }
+
+    private async Task SendDailyDigestAsync(CancellationToken ct)
+    {
+        await using var scope = _scopeFactory.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CrmDbContext>();
+        var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
+
+        // Lấy leads mới trong 24h
+        var since = DateTime.UtcNow.AddDays(-1);
+        var newLeads = await db.Customers
+            .Where(c => c.Status == "lead" && c.CreatedAt >= since)
+            .CountAsync(ct);
+
+        var salesUsers = await db.Users
+            .Where(u => u.Role == "sales" && u.DigestEnabled)
+            .ToListAsync(ct);
+
+        foreach (var user in salesUsers)
+        {
+            await emailService.SendAsync(new EmailMessage
+            {
+                To = user.Email,
+                Subject = $"CRM Digest — {newLeads} leads mới hôm nay",
+                Body = $"Xin chào {user.Name}, có {newLeads} leads mới trong 24h qua."
+            });
+        }
+
+        _logger.LogInformation("Đã gửi digest cho {Count} users.", salesUsers.Count);
+    }
+}
+```
+
+### 9.2 Đăng ký hosted service
+
+```csharp
+// Program.cs
+builder.Services.AddHostedService<EmailDigestWorker>();
+
+// Hoặc dùng Worker Service project riêng
+// dotnet new worker -n CrmWorker
+```
+
+> `BackgroundService` chạy trong cùng process với API. Nếu cần isolation, tạo **Worker Service** project riêng và deploy độc lập. Với tác vụ phức tạp, cân nhắc **Hangfire** hoặc **Quartz.NET** để có UI quản lý job.
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [9.9 — 8. API Testing](9.9-api-testing.mdx)
+- **Bài tiếp theo:** [9.11 — Mở rộng và đào sâu](9.11-advanced-notes.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

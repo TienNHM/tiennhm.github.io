@@ -1,0 +1,276 @@
+---
+title: "1.12 — Review and Assessment"
+sidebar_position: 12
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 1.12 — Review and Assessment
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 1.19 — Tóm tắt Big-O
+
+| Ký hiệu | Tên | 100 phần tử | 10,000 phần tử |
+|---------|-----|-------------|----------------|
+| O(1) | Hằng số | 1 bước | 1 bước |
+| O(n) | Tuyến tính | 100 bước | 10,000 bước |
+| O(n²) | Bậc hai | 10,000 bước | 100,000,000 bước |
+
+> **Quy tắc thực tế:** Tránh vòng lặp lồng nhau khi làm việc với tập dữ liệu lớn. Nếu cần tra cứu nhiều lần, dùng `Dictionary` hoặc `HashSet` thay vì `List`.
+
+---
+
+### 1.20 — 8. Thực Hành
+
+### Bài 1 — Máy tính đơn giản (Dễ)
+
+Viết hàm `TinhToan` nhận vào 2 số và 1 toán tử (`+`, `-`, `*`, `/`), trả về kết quả.
+
+```csharp
+// Code starter
+double TinhToan(double a, double b, char toanTu)
+{
+    // TODO: dùng switch để xử lý 4 phép tính
+    // Lưu ý: xử lý trường hợp chia cho 0
+}
+
+// Test cases
+Console.WriteLine(TinhToan(10, 3, '+'));  // 13
+Console.WriteLine(TinhToan(10, 3, '/'));  // 3.333...
+Console.WriteLine(TinhToan(10, 0, '/'));  // Thông báo lỗi hoặc double.NaN
+```
+
+**Gợi ý:** Dùng `switch expression` và trả về `double.NaN` (Not a Number) khi chia cho 0.
+
+---
+
+### Bài 2 — Phân tích danh sách điểm (Trung bình)
+
+Cho danh sách điểm thi, tính điểm trung bình, tìm điểm cao nhất và thấp nhất, đếm số học viên đạt (>= 50 điểm).
+
+```csharp
+// Code starter
+void PhanTichDiem(List<int> danhSachDiem)
+{
+    if (danhSachDiem.Count == 0)
+    {
+        Console.WriteLine("Danh sách rỗng!");
+        return;
+    }
+
+    // TODO: tính average, max, min, đếm số đạt
+    // Gợi ý: dùng foreach để duyệt
+}
+
+// Test
+var diem = new List<int> { 45, 72, 88, 35, 60, 91, 48, 77 };
+PhanTichDiem(diem);
+// Kết quả mong đợi:
+// Trung bình: 64.5
+// Cao nhất: 91 | Thấp nhất: 35
+// Số đạt: 5/8 (62.5%)
+```
+
+---
+
+### Bài 3 — Đếm tần suất (Trung bình - Khá)
+
+Đếm số lần xuất hiện của mỗi từ trong một câu. Dùng `Dictionary<string, int>`.
+
+```csharp
+// Code starter
+Dictionary<string, int> DemTanSuat(string cauVan)
+{
+    var ketQua = new Dictionary<string, int>();
+    string[] tuNgu = cauVan.ToLower().Split(' ');
+
+    // TODO: dùng foreach để đếm
+    // Gợi ý: TryGetValue hoặc ContainsKey
+
+    return ketQua;
+}
+
+// Test
+var tanSuat = DemTanSuat("crm giup quan ly khach hang crm rat huu ich");
+foreach (var cap in tanSuat)
+    Console.WriteLine($"{cap.Key}: {cap.Value} lần");
+```
+
+---
+
+### Bài 4 — Hệ thống lead CRM mini (Nâng cao)
+
+Xây dựng chương trình quản lý lead đơn giản:
+
+```csharp
+// Yêu cầu:
+// 1. Tạo Dictionary<string, decimal> lưu tên lead và doanh thu ước tính
+// 2. Hàm ThemLead(string ten, decimal doanhThu)
+// 3. Hàm XemTatCaLead() — in ra bảng gồm tên, doanh thu, và phân loại (Hot/Warm/Cold)
+// 4. Hàm TongDoanhThu() — trả về tổng doanh thu của tất cả lead
+// 5. Hàm LocTheoLoai(string loai) — trả về danh sách lead theo loại
+
+// Tiêu chí phân loại:
+// Hot:  >= 100,000,000 VND
+// Warm: >= 20,000,000 VND
+// Cold: < 20,000,000 VND
+
+// Dữ liệu test:
+// ("Công ty Minh Phát", 150_000_000)
+// ("Startup GreenTech", 35_000_000)
+// ("Hộ kinh doanh Lan", 8_000_000)
+// ("Tập đoàn Bắc Nam", 500_000_000)
+// ("Cửa hàng Thuận Phát", 12_000_000)
+```
+
+**Gợi ý mở rộng:** Sau khi hoàn thành, thử thêm tính năng sắp xếp lead theo doanh thu giảm dần bằng `OrderByDescending`.
+
+### 1.21 — Tóm tắt
+
+Trong module này bạn đã học:
+
+- **Biến và kiểu dữ liệu:** Container chứa dữ liệu với kiểu rõ ràng. Dùng `decimal` cho tiền tệ, `var` khi kiểu hiển nhiên.
+- **Điều kiện:** `if/else` cho phân nhánh, `switch` khi nhiều trường hợp từ cùng biến. C# 8+ có `switch expression` gọn hơn.
+- **Vòng lặp:** `foreach` cho collection, `for` khi cần index, `while` khi điều kiện dừng phụ thuộc runtime.
+- **Hàm:** Đặt tên bằng PascalCase, bắt đầu bằng động từ, mỗi hàm làm một việc duy nhất.
+- **Collections:** `List<T>` cho danh sách linh hoạt, `Dictionary<K,V>` cho tra cứu nhanh O(1).
+- **Tư duy giải bài toán:** Hiểu đầu vào/ra → pseudocode → code → test edge cases.
+- **Big-O cơ bản:** O(1) hằng số, O(n) tuyến tính, O(n²) bậc hai. Tránh vòng lặp lồng nhau với dữ liệu lớn.
+
+Tất cả những khái niệm này sẽ xuất hiện liên tục trong các module tiếp theo khi bạn xây dựng CRM thật sự với C# và .NET.
+
+---
+
+### 1.22 — Checklist trước khi sang bài tiếp theo
+
+- Bạn đã nắm được các khái niệm chính và giải thích lại được bằng ví dụ của riêng mình.
+- Bạn đã chạy hoặc mô phỏng ít nhất một ví dụ trong bài.
+- Bạn đã hoàn thành phần quiz/lab cơ bản (hoặc ít nhất tự làm lại theo trí nhớ).
+- Bạn đã ghi lại 3 ý chính: học được gì, còn vướng gì, sẽ áp dụng ở đâu trong CRM.
+
+### 1.23 — Kiểm tra & Thực hành (100 điểm)
+
+### Bối cảnh giáo trình (mục tiêu xuyên suốt)
+
+> **Trục CRM — một mục tiêu rõ:** bạn hướng tới **CRM production** trong [From Zero → Senior .NET (Backend-first)](../../roadmap-dotnet-backend-zero-to-senior.mdx). Giáo trình **ưu tiên backend**, bám chuỗi **API → dữ liệu → vận hành → kiến trúc phân tán**, thay vì trải rộng theo hướng full-stack. Mỗi module củng cố **một lớp kỹ năng** trên **cùng một CRM học tập** bạn phát triển xuyên suốt khóa.
+
+| Chuỗi năng lực | Đóng góp vào CRM học tập |
+|----------------|--------------------------|
+| **Giai đoạn 1 — Foundation** | Đọc hiểu yêu cầu, mô hình client–server, Git — nền **collaboration** khi CRM lớn dần. |
+| **Giai đoạn 2 — C# + P1** | Domain, OOP, LINQ, async, DI — **rule nghiệp vụ & tầng ứng dụng** (Inventory là bản mẫu trước CRM). |
+| **Giai đoạn 3 — ASP.NET + P2** | Host, routing, validation, JWT, SignalR — **CRM Backend API** thực tế. |
+| **Giai đoạn 4 — Data + P3** | SQL, EF, cache, job, container — CRM **ổn định & có thể triển khai**. |
+| **Giai đoạn 5 — Senior + Final** | Clean Architecture, event/outbox, gateway, observability, perf — CRM/ERP **chịu tải & có chủ**. |
+
+#### Vai trò *giai đoạn này* trong chuỗi
+
+Foundation: tư duy lập trình, mô hình web/HTTP, Git — **đọc yêu cầu & làm việc nhóm** trước khi chạm code CRM.
+
+#### Vị trí bài học (trước / sau)
+
+| Mốc | Điểm nối trong giáo trình |
+|-----|---------------------------|
+| **Trước** | — (điểm bắt đầu lộ trình) |
+| **Tiếp theo** | [Module 2 — Computer Science Basics](../module-02-computer-science-basics) |
+
+### Quy trình làm bài (hệ thống)
+
+| Bước | Việc cần làm | Output nên có |
+|------|----------------|-----------------|
+| 1 | Làm **Quiz** *trước*, tự ghi đáp án + 1 dòng lý do | Không xem đáp án; giữ bản nháp |
+| 2 | Đối chiếu **Đáp án**; sửa hiểu sai, ghi *takeaway* vào README hoặc nhật ký học | 3–5 bullet “tôi đã hiểu…” |
+| 3 | Làm **Lab** theo rubric; trong README nêu **phần CRM** nào được chạm (Lead, Customer, Deal, Billing…) | Repo / zip + ảnh `dotnet run` hoặc log |
+| 4 | **Tự chấm** theo bảng điểm; chuẩn bị 1 phút “vấn đáp” nếu mentor hỏi ngẫu nhiên | Điểm + chỗ còn yếu |
+
+### Phần A — Quiz trắc nghiệm (20 điểm)
+
+> **Gợi ý làm bài:** mỗi câu **4 điểm**. Ưu tiên suy nghĩ *hệ quả trên CRM* (tiền, dữ liệu, đa tenant, hiệu năng, bảo mật) — không chỉ nhớ định nghĩa.
+
+Mỗi câu **4 điểm**. Chọn một đáp án đúng nhất.
+
+1. Kiểu nào **nên** dùng cho tiền tệ (giá hóa đơn CRM)?  
+   A. `double` B. `float` C. `decimal` D. `int`  
+   > **Đáp án:** C — `decimal` tránh sai số nhị phân của floating-point.
+
+2. Độ phức tạp truy cập phần tử theo key trong `Dictionary<TKey,TValue>` (trung bình)?  
+   A. O(n) B. O(log n) C. O(1) D. O(n²)  
+   > **Đáp án:** C — tra cứu băm trung bình O(1).
+
+3. Vòng lặp nào **phù hợp** khi cần cả **index** và phần tử của `List<T>`?  
+   A. `foreach` duy nhất B. `for` với index C. `while (true)` D. `do-while` không điều kiện  
+   > **Đáp án:** B — `for (int i = 0; i < list.Count; i++)`.
+
+4. `break` trong `switch` (C# cổ điển) dùng để?  
+   A. Thoát khỏi toàn bộ method B. Ngăn fall-through sang `case` kế C. Bỏ qua vòng lặp D. Throw exception  
+   > **Đáp án:** B — không `break` sẽ “rơi” xuống case dưới (trừ pattern mới).
+
+5. Big-O của hai vòng `for` lồng nhau duyệt toàn bộ ma trận `n × n`?  
+   A. O(n) B. O(n log n) C. O(n²) D. O(1)  
+   > **Đáp án:** C.
+
+### Phần B — Lab thực tế (80 điểm)
+
+> **Lab & rubric:** trong README, map từng nhóm điểm rubric sang **phần CRM** (Lead, Customer, Deal, Billing, Notification…) và **artifact** (test, log, screenshot, migration).
+
+| Tiêu chí | Điểm tối đa | Ghi chú |
+|----------|-------------|---------|
+| **Bài 1–3** trong module: chạy đúng, có xử lý edge (null/rỗng/giới hạn) | 30 | 10 điểm/bài — trừ nếu thiếu case |
+| **Bài 4 — Lead CRM mini**: đủ 5 hàm + phân loại Hot/Warm/Cold đúng quy tắc | 35 | Trừ 10 nếu không có `TongDoanhThu` hoặc `LocTheoLoai` |
+| Code sạch: tên hàm/biến rõ, không magic number (dùng `const`) | 10 | |
+| Ảnh màn hình hoặc log `dotnet run` + file `.cs` trong repo | 5 | |
+
+#### Ngưỡng tổng điểm (Quiz 20 + Lab 80)
+
+| Mức | Điểm | Ý nghĩa |
+|-----|------|---------|
+| **Đạt** | ≥ 70 | Đủ nền để học module kế mà không “lủng” kiến thức cốt lõi. |
+| **Khá** | ≥ 85 | Có minh chứng code + nêu được liên hệ CRM rõ ràng trong README. |
+| **Giỏi** | ≥ 95 | Có mở rộng / edge case / ADR ngắn / test bổ trợ (tùy rubric từng bài). |
+
+### Phần C — Reflect & nối chuỗi (không chấm điểm)
+
+Viết **5–8 câu** (README hoặc `docs/learning-log.md`):
+
+1. Kiến thức *module / project này* sẽ được **tái sử dụng trực tiếp** ở module hoặc project CRM nào tiếp theo? (ghi tên module / P2 / P3 / Final).
+2. Nếu bỏ qua phần lab, **rủi ro** lớn nhất cho CRM ở giai đoạn sau là gì?
+3. Một **quyết định kỹ thuật** (nhỏ) bạn sẵn sàng ghi thành **ADR một đoạn** sau khi làm lab.
+
+---
+
+### 1.24 — Tài Liệu Tham Khảo
+
+- [C# Documentation — Microsoft Learn](https://learn.microsoft.com/vi-vn/dotnet/csharp/) — Tài liệu chính thức, có phiên bản tiếng Việt
+- [C# Fundamentals for Absolute Beginners — Channel 9](https://learn.microsoft.com/en-us/shows/c-fundamentals-for-absolute-beginners/) — Video series miễn phí từ Microsoft
+- [roadmap.sh/backend](https://roadmap.sh/backend) — Lộ trình backend tổng quát, phần Computer Science fundamentals
+- [Big-O Cheat Sheet](https://www.bigocheatsheet.com/) — Bảng tra cứu Big-O của các cấu trúc dữ liệu và thuật toán phổ biến
+- **Sách:** *C# 12 and .NET 8 – Modern Cross-Platform Development* (Mark J. Price) — Cuốn sách thực hành tốt nhất khi bắt đầu với .NET
+- **Sách:** *Clean Code* (Robert C. Martin) — Đọc sau khi nắm vững cú pháp, giúp bạn viết code dễ đọc và bảo trì
+
+## Bài tập tổng hợp
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [1.11 — Ví dụ thực tế nhanh](1.11-quick-real-world-example.mdx)
+- **Bài tiếp theo:** Không có (bài cuối module).
+- **Về module:** [Trang mục lục](index.mdx)

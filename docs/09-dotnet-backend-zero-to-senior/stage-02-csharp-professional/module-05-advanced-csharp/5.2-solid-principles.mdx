@@ -1,0 +1,324 @@
+---
+title: "5.2 — 1. SOLID Principles"
+sidebar_position: 2
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 5.2 — 1. SOLID Principles
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+SOLID là 5 nguyên lý thiết kế giúp code dễ mở rộng, dễ test, ít bug khi thay đổi yêu cầu.
+
+### 1.1 SRP — Single Responsibility Principle
+
+> Mỗi class chỉ có một lý do để thay đổi.
+
+**Vi phạm — God class `CustomerService`:**
+
+```csharp
+// BAD: một class làm quá nhiều việc
+public class CustomerService
+{
+    private readonly AppDbContext _db;
+    private readonly IEmailService _email;
+
+    public async Task<Customer> CreateAsync(CreateCustomerDto dto)
+    {
+        // 1. Validate
+        if (string.IsNullOrWhiteSpace(dto.Email))
+            throw new ArgumentException("Email is required");
+
+        // 2. Lưu database
+        var customer = new Customer { Name = dto.Name, Email = dto.Email };
+        _db.Customers.Add(customer);
+        await _db.SaveChangesAsync();
+
+        // 3. Gửi email chào mừng
+        await _email.SendAsync(dto.Email, "Chào mừng!", $"Xin chào {dto.Name}");
+
+        // 4. Tạo log audit
+        _db.AuditLogs.Add(new AuditLog { Action = "CreateCustomer", UserId = dto.CreatedBy });
+        await _db.SaveChangesAsync();
+
+        // 5. Tính điểm loyalty
+        customer.LoyaltyPoints = CalculateLoyaltyPoints(dto);
+        await _db.SaveChangesAsync();
+
+        return customer;
+    }
+
+    private int CalculateLoyaltyPoints(CreateCustomerDto dto) => 100;
+}
+```
+
+**Đúng — Tách trách nhiệm:**
+
+```csharp
+// Chỉ lo business logic của Customer
+public class CustomerService
+{
+    private readonly ICustomerRepository _repo;
+    private readonly ICustomerEventPublisher _events;
+
+    public async Task<Customer> CreateAsync(CreateCustomerDto dto)
+    {
+        var customer = Customer.Create(dto.Name, dto.Email); // domain factory
+        await _repo.AddAsync(customer);
+        await _events.PublishAsync(new CustomerCreatedEvent(customer)); // fire-and-forget
+        return customer;
+    }
+}
+
+// Chỉ lo gửi email
+public class WelcomeEmailHandler : IEventHandler<CustomerCreatedEvent>
+{
+    public async Task HandleAsync(CustomerCreatedEvent e)
+        => await _email.SendAsync(e.Customer.Email, "Chào mừng!", $"Xin chào {e.Customer.Name}");
+}
+
+// Chỉ lo audit
+public class AuditHandler : IEventHandler<CustomerCreatedEvent>
+{
+    public async Task HandleAsync(CustomerCreatedEvent e)
+        => await _audit.LogAsync("CreateCustomer", e.Customer.Id);
+}
+```
+
+---
+
+### 1.2 OCP — Open/Closed Principle
+
+> Mở để mở rộng, đóng để sửa đổi.
+
+**Vi phạm — Thêm discount type phải sửa code cũ:**
+
+```csharp
+// BAD: mỗi loại discount mới buộc phải sửa switch
+public decimal CalculateDiscount(Order order, string discountType)
+{
+    return discountType switch
+    {
+        "VIP"      => order.Total * 0.20m,
+        "Seasonal" => order.Total * 0.10m,
+        // Thêm "NewYear" → phải sửa file này → vi phạm OCP
+        _ => 0
+    };
+}
+```
+
+**Đúng — Dùng abstraction:**
+
+```csharp
+public interface IDiscountStrategy
+{
+    bool IsApplicable(Order order);
+    decimal Calculate(Order order);
+}
+
+public class VipDiscount : IDiscountStrategy
+{
+    public bool IsApplicable(Order order) => order.Customer.IsVip;
+    public decimal Calculate(Order order) => order.Total * 0.20m;
+}
+
+public class SeasonalDiscount : IDiscountStrategy
+{
+    public bool IsApplicable(Order order) => DateTime.Now.Month == 12;
+    public decimal Calculate(Order order) => order.Total * 0.10m;
+}
+
+// Thêm NewYearDiscount → chỉ tạo class mới, không chạm code cũ
+public class NewYearDiscount : IDiscountStrategy
+{
+    public bool IsApplicable(Order order) => DateTime.Now.DayOfYear <= 7;
+    public decimal Calculate(Order order) => order.Total * 0.15m;
+}
+
+public class DiscountCalculator
+{
+    private readonly IEnumerable<IDiscountStrategy> _strategies;
+
+    public decimal Calculate(Order order)
+        => _strategies
+            .Where(s => s.IsApplicable(order))
+            .Sum(s => s.Calculate(order));
+}
+```
+
+---
+
+### 1.3 LSP — Liskov Substitution Principle
+
+> Subtype phải thay thế được base type mà không phá vỡ behavior.
+
+**Vi phạm — `Square` extends `Rectangle` gây bug:**
+
+```csharp
+// BAD: Square override setter của Rectangle gây hành vi bất ngờ
+public class Rectangle
+{
+    public virtual int Width  { get; set; }
+    public virtual int Height { get; set; }
+    public int Area() => Width * Height;
+}
+
+public class Square : Rectangle
+{
+    public override int Width  { set { base.Width = base.Height = value; } }
+    public override int Height { set { base.Width = base.Height = value; } }
+}
+
+// Code này đúng với Rectangle nhưng fail với Square
+Rectangle r = new Square();
+r.Width = 5;
+r.Height = 3;
+Console.WriteLine(r.Area()); // mong đợi 15, thực tế ra 9 → LSP vi phạm
+```
+
+**Đúng — Dùng composition hoặc tách interface:**
+
+```csharp
+public interface IShape { int Area(); }
+
+public class Rectangle : IShape
+{
+    public int Width  { get; init; }
+    public int Height { get; init; }
+    public int Area() => Width * Height;
+}
+
+public class Square : IShape
+{
+    public int Side { get; init; }
+    public int Area() => Side * Side;
+}
+```
+
+---
+
+### 1.4 ISP — Interface Segregation Principle
+
+> Client không nên bị buộc phụ thuộc vào method mà nó không dùng.
+
+**Vi phạm — Interface quá fat:**
+
+```csharp
+// BAD: mọi service đều phải implement dù không dùng hết
+public interface ICustomerRepository
+{
+    Task<Customer> GetByIdAsync(int id);
+    Task AddAsync(Customer c);
+    Task UpdateAsync(Customer c);
+    Task DeleteAsync(int id);
+    Task<List<Customer>> SearchAsync(string keyword);
+    Task<byte[]> ExportToCsvAsync();      // ← report service không cần cái này
+    Task SendBulkEmailAsync(string msg);  // ← hoàn toàn không liên quan repository
+}
+```
+
+**Đúng — Tách interface nhỏ:**
+
+```csharp
+public interface ICustomerReader
+{
+    Task<Customer?> GetByIdAsync(int id);
+    Task<List<Customer>> SearchAsync(string keyword);
+}
+
+public interface ICustomerWriter
+{
+    Task AddAsync(Customer c);
+    Task UpdateAsync(Customer c);
+    Task DeleteAsync(int id);
+}
+
+public interface ICustomerExporter
+{
+    Task<byte[]> ExportToCsvAsync();
+}
+
+// CRM report service chỉ cần ICustomerReader + ICustomerExporter
+```
+
+---
+
+### 1.5 DIP — Dependency Inversion Principle
+
+> Module cấp cao không phụ thuộc module cấp thấp; cả hai phụ thuộc abstraction.
+
+**Vi phạm — Service phụ thuộc concrete:**
+
+```csharp
+// BAD: LeadService tự new() SqlCustomerRepository → khó test, khó đổi DB
+public class LeadService
+{
+    private readonly SqlCustomerRepository _repo = new SqlCustomerRepository();
+
+    public async Task<Lead> ConvertAsync(int leadId)
+    {
+        var lead = await _repo.GetLeadByIdAsync(leadId);
+        // ...
+    }
+}
+```
+
+**Đúng — Inject abstraction:**
+
+```csharp
+public class LeadService
+{
+    private readonly ILeadRepository _repo;
+    private readonly ICustomerRepository _customerRepo;
+
+    // Constructor injection — DI container cung cấp implementation
+    public LeadService(ILeadRepository repo, ICustomerRepository customerRepo)
+    {
+        _repo = repo;
+        _customerRepo = customerRepo;
+    }
+
+    public async Task<Customer> ConvertAsync(int leadId)
+    {
+        var lead = await _repo.GetByIdAsync(leadId)
+            ?? throw new NotFoundException($"Lead {leadId} not found");
+
+        var customer = Customer.FromLead(lead);
+        await _customerRepo.AddAsync(customer);
+        lead.MarkConverted(customer.Id);
+        await _repo.UpdateAsync(lead);
+        return customer;
+    }
+}
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [5.1 — Module Orientation](5.1-module-orientation.mdx)
+- **Bài tiếp theo:** [5.3 — 2. Generics](5.3-generics.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

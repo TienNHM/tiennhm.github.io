@@ -1,0 +1,101 @@
+---
+title: "12.9 — 8. Database Migration Strategy"
+sidebar_position: 9
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 12.9 — 8. Database Migration Strategy
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 8.1 Schema Versioning
+
+Không sửa database bằng tay trực tiếp trên production. Mọi thay đổi schema phải là **migration script có version**:
+
+```
+migrations/
+├── V001__initial_schema.sql
+├── V002__add_lead_metadata_column.sql
+├── V003__create_notifications_table.sql
+├── V004__add_index_leads_status.sql
+└── V005__add_customer_tier_column.sql
+```
+
+Tool phổ biến:
+- **Flyway** (hỗ trợ SQL thuần, tích hợp tốt với .NET)
+- **Liquibase** (XML/YAML/SQL, enterprise features)
+- **EF Core Migrations** (code-first, tích hợp sâu với .NET — học ở Module 13)
+
+### 8.2 Migration Script an toàn
+
+```sql
+-- V005__add_customer_tier_column.sql
+-- KHÔNG thể rollback ALTER TABLE DROP COLUMN dễ dàng — cẩn thận!
+
+-- Bước 1: Thêm cột với DEFAULT (backward-compatible)
+ALTER TABLE Customers
+    ADD Tier NVARCHAR(50) NOT NULL DEFAULT 'Standard';
+-- Cột mới có DEFAULT → code cũ không cần biết cột này vẫn chạy được
+
+-- Bước 2 (migration tiếp theo, sau khi code đã deploy):
+-- Populate dữ liệu theo business logic
+UPDATE Customers
+SET    Tier = CASE
+    WHEN AnnualRevenue >= 1000000 THEN 'Enterprise'
+    WHEN AnnualRevenue >= 100000  THEN 'Business'
+    ELSE 'Standard'
+END;
+```
+
+### 8.3 Zero-Downtime Migration
+
+Nguyên tắc **expand-contract pattern**:
+
+1. **Expand:** Thêm cột/bảng mới (backward-compatible). Deploy code mới ghi cả cột cũ lẫn mới.
+2. **Migrate:** Backfill dữ liệu cũ sang cột mới (batch nhỏ để không lock bảng).
+3. **Contract:** Sau khi code không còn dùng cột cũ, drop cột cũ.
+
+```sql
+-- Đổi tên cột: KHÔNG rename trực tiếp trên production đang chạy
+-- Thay vào đó:
+
+-- Bước 1 (expand): thêm cột mới
+ALTER TABLE Leads ADD ContactEmail NVARCHAR(256) NULL;
+
+-- Bước 2: copy dữ liệu (có thể batch)
+UPDATE Leads SET ContactEmail = Email WHERE ContactEmail IS NULL;
+
+-- Bước 3: sau khi code dùng ContactEmail hoàn toàn, mới drop Email cũ
+-- ALTER TABLE Leads DROP COLUMN Email;  -- Làm sau vài sprint
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [12.8 — 7. Stored Procedures và Views](12.8-stored-procedures-and-views.mdx)
+- **Bài tiếp theo:** [12.10 — Mở rộng và đào sâu](12.10-advanced-notes.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

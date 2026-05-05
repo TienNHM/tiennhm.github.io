@@ -1,0 +1,168 @@
+---
+title: "12.7 — 6. Transactions và Locking"
+sidebar_position: 7
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 12.7 — 6. Transactions và Locking
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 6.1 ACID
+
+| Thuộc tính | Ý nghĩa |
+|-----------|---------|
+| **Atomicity** | Toàn bộ transaction thành công hoặc rollback hoàn toàn |
+| **Consistency** | Database luôn ở trạng thái hợp lệ trước và sau transaction |
+| **Isolation** | Transaction đang chạy không thấy thay đổi của transaction khác (ở mức độ nhất định) |
+| **Durability** | Sau khi commit, dữ liệu được lưu vĩnh viễn dù server crash |
+
+### 6.2 Isolation Levels
+
+```sql
+-- SQL Server
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;  -- Dirty read cho phép
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED;    -- Mặc định SQL Server
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;      -- An toàn nhất, chậm nhất
+
+-- PostgreSQL
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED;    -- Mặc định PostgreSQL
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+-- PostgreSQL không có READ UNCOMMITTED thực sự
+```
+
+| Isolation Level | Dirty Read | Non-Repeatable Read | Phantom Read |
+|----------------|-----------|-------------------|-------------|
+| Read Uncommitted | Có thể | Có thể | Có thể |
+| Read Committed | Không | Có thể | Có thể |
+| Repeatable Read | Không | Không | Có thể |
+| Serializable | Không | Không | Không |
+
+**Giải thích các loại anomaly:**
+- **Dirty read:** Đọc dữ liệu chưa commit của transaction khác — nguy hiểm vì transaction kia có thể rollback
+- **Non-repeatable read:** Đọc cùng row hai lần trong cùng transaction nhưng giá trị khác nhau (transaction khác đã update + commit giữa hai lần đọc)
+- **Phantom read:** Đọc cùng range query hai lần nhưng kết quả khác nhau (transaction khác đã insert/delete rows phù hợp điều kiện)
+
+### 6.3 Transaction trong CRM
+
+```sql
+-- Chuyển lead thành customer: phải atomic
+BEGIN TRANSACTION;
+BEGIN TRY
+    -- Tạo customer mới
+    INSERT INTO Customers (CompanyName, AssignedToUserId, Status, CreatedAt, UpdatedAt)
+    SELECT CompanyName, AssignedToUserId, 'Active', GETUTCDATE(), GETUTCDATE()
+    FROM   Leads WHERE LeadId = @LeadId;
+
+    DECLARE @NewCustomerId INT = SCOPE_IDENTITY();
+
+    -- Cập nhật lead
+    UPDATE Leads
+    SET    Status = 'Won',
+           ConvertedAt = GETUTCDATE(),
+           ConvertedToCustomerId = @NewCustomerId,
+           UpdatedAt = GETUTCDATE()
+    WHERE  LeadId = @LeadId;
+
+    -- Tạo notification
+    INSERT INTO Notifications (UserId, Title, Type, RelatedEntityType, RelatedEntityId, CreatedAt)
+    SELECT AssignedToUserId,
+           N'Lead "' + CompanyName + N'" đã được convert thành công!',
+           'Info', 'Customer', @NewCustomerId, GETUTCDATE()
+    FROM   Leads WHERE LeadId = @LeadId;
+
+    COMMIT TRANSACTION;
+END TRY
+BEGIN CATCH
+    ROLLBACK TRANSACTION;
+    THROW;
+END CATCH;
+```
+
+### 6.4 Deadlock Detection và Xử lý
+
+Deadlock xảy ra khi hai transaction chờ nhau theo vòng tròn. SQL Server tự detect và chọn một transaction làm "victim" (rollback).
+
+```sql
+-- Simulate deadlock (chạy 2 session song song để test)
+-- Session 1:
+BEGIN TRANSACTION;
+UPDATE Customers SET Status = 'Inactive' WHERE CustomerId = 1;
+WAITFOR DELAY '00:00:05';
+UPDATE Leads SET Status = 'Lost' WHERE AssignedToUserId = 1;
+COMMIT;
+
+-- Session 2 (chạy cùng lúc):
+BEGIN TRANSACTION;
+UPDATE Leads SET Status = 'Lost' WHERE AssignedToUserId = 1;
+WAITFOR DELAY '00:00:05';
+UPDATE Customers SET Status = 'Inactive' WHERE CustomerId = 1;
+COMMIT;
+```
+
+**Cách tránh deadlock:**
+1. Luôn lock bảng theo thứ tự nhất quán (ví dụ: Customers trước, Leads sau)
+2. Giữ transaction ngắn nhất có thể
+3. Tránh user interaction bên trong transaction
+4. Dùng READ COMMITTED SNAPSHOT ISOLATION (RCSI) trên SQL Server — đọc không block ghi
+
+```sql
+-- Bật RCSI cho database (SQL Server)
+ALTER DATABASE CrmDb SET READ_COMMITTED_SNAPSHOT ON;
+```
+
+### 6.5 Optimistic so với Pessimistic Concurrency
+
+```sql
+-- Pessimistic: lock row khi đọc (ngăn concurrent update)
+BEGIN TRANSACTION;
+SELECT * FROM Leads WITH (UPDLOCK, ROWLOCK) WHERE LeadId = @LeadId;
+-- ... logic ...
+UPDATE Leads SET Status = @NewStatus WHERE LeadId = @LeadId;
+COMMIT;
+
+-- Optimistic: dùng RowVersion / timestamp
+ALTER TABLE Leads ADD RowVersion ROWVERSION NOT NULL;
+
+-- Update chỉ thành công nếu RowVersion chưa thay đổi
+UPDATE Leads
+SET    Status = @NewStatus, UpdatedAt = GETUTCDATE()
+WHERE  LeadId = @LeadId
+AND    RowVersion = @OriginalRowVersion;
+
+IF @@ROWCOUNT = 0
+    RAISERROR('Concurrency conflict: Lead was modified by another user.', 16, 1);
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [12.6 — 5. Query Optimization](12.6-query-optimization.mdx)
+- **Bài tiếp theo:** [12.8 — 7. Stored Procedures và Views](12.8-stored-procedures-and-views.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

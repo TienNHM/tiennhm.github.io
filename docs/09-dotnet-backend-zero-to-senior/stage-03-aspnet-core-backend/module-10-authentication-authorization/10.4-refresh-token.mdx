@@ -1,0 +1,113 @@
+---
+title: "10.4 — 3. Refresh Token"
+sidebar_position: 4
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 10.4 — 3. Refresh Token
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### Tại sao cần Refresh Token?
+
+Access token có TTL ngắn (5–15 phút) để giảm nguy cơ khi bị đánh cắp. Refresh token (TTL 7–30 ngày) cho phép client lấy access token mới mà không cần đăng nhập lại.
+
+### Schema bảng RefreshTokens
+
+```sql
+CREATE TABLE RefreshTokens (
+    Id          UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    Token       NVARCHAR(256) NOT NULL UNIQUE,
+    UserId      NVARCHAR(450) NOT NULL,      -- FK → AspNetUsers.Id
+    ExpiresAt   DATETIME2 NOT NULL,
+    CreatedAt   DATETIME2 NOT NULL,
+    RevokedAt   DATETIME2 NULL,
+    ReplacedBy  NVARCHAR(256) NULL,          -- token mới sau rotation
+    IsRevoked   BIT NOT NULL DEFAULT 0
+);
+```
+
+### Rotation Strategy và Revocation
+
+```csharp
+[HttpPost("refresh")]
+public async Task<IActionResult> Refresh([FromBody] RefreshRequest req)
+{
+    var existing = await _db.RefreshTokens
+        .Include(r => r.User)
+        .FirstOrDefaultAsync(r => r.Token == req.RefreshToken);
+
+    if (existing is null || existing.IsRevoked || existing.ExpiresAt < DateTime.UtcNow)
+        return Unauthorized(new { message = "Refresh token không hợp lệ hoặc đã hết hạn." });
+
+    // Revoke token cũ
+    existing.IsRevoked = true;
+    existing.RevokedAt = DateTime.UtcNow;
+
+    // Tạo token mới
+    var roles       = await _userManager.GetRolesAsync(existing.User);
+    var newAccess   = _tokenService.GenerateAccessToken(existing.User, roles);
+    var newRefresh  = _tokenService.GenerateRefreshToken();
+
+    existing.ReplacedBy = newRefresh;
+
+    _db.RefreshTokens.Add(new RefreshToken
+    {
+        Token     = newRefresh,
+        UserId    = existing.UserId,
+        ExpiresAt = DateTime.UtcNow.AddDays(7),
+        CreatedAt = DateTime.UtcNow,
+        IsRevoked = false
+    });
+
+    await _db.SaveChangesAsync();
+    return Ok(new { accessToken = newAccess, refreshToken = newRefresh });
+}
+
+[HttpPost("logout")]
+[Authorize]
+public async Task<IActionResult> Logout([FromBody] RefreshRequest req)
+{
+    var token = await _db.RefreshTokens
+        .FirstOrDefaultAsync(r => r.Token == req.RefreshToken);
+
+    if (token is not null)
+    {
+        token.IsRevoked = true;
+        token.RevokedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+    }
+    return NoContent();
+}
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [10.3 — 2. JWT Authentication](10.3-jwt-authentication.mdx)
+- **Bài tiếp theo:** [10.5 — 4. Role-based Authorization](10.5-role-based-authorization.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

@@ -1,0 +1,85 @@
+---
+title: "4.9 — 8. Pattern Matching (C# 8+)"
+sidebar_position: 9
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 4.9 — 8. Pattern Matching (C# 8+)
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### is pattern và switch expression
+
+```csharp
+// is type pattern
+public static string DescribeContact(Contact contact)
+{
+    if (contact is Customer c)
+        return $"Khách hàng: {c.FullName}, đã chi {c.TotalSpent:C}";
+    if (contact is Lead l)
+        return $"Lead: {l.FullName}, trạng thái: {l.Status}";
+    return $"Liên hệ: {contact.FullName}";
+}
+
+// switch expression với property pattern
+public static string GetLeadPriority(Lead lead) => lead.Status switch
+{
+    LeadStatus.Qualified                  => "Cao — liên hệ ngay",
+    LeadStatus.Contacted                  => "Trung bình — theo dõi",
+    LeadStatus.New                        => "Mới — chờ phân loại",
+    LeadStatus.Disqualified               => "Thấp — lưu trữ",
+    LeadStatus.Converted                  => "Hoàn thành",
+    _                                     => "Không xác định"
+};
+
+// Property pattern — kết hợp nhiều điều kiện
+public static decimal GetDiscount(Customer customer) => customer switch
+{
+    { TotalSpent: > 50_000_000 }  => 0.20m,
+    { TotalSpent: > 10_000_000 }  => 0.15m,
+    { TotalSpent: > 2_000_000  }  => 0.10m,
+    _                              => 0.05m
+};
+
+// Tuple pattern
+public static string ClassifyDeal(LeadStatus status, decimal dealValue) =>
+    (status, dealValue) switch
+    {
+        (LeadStatus.Qualified, > 100_000_000) => "Enterprise Deal",
+        (LeadStatus.Qualified, > 10_000_000)  => "Mid-Market Deal",
+        (LeadStatus.Qualified, _)              => "SMB Deal",
+        (LeadStatus.Converted, _)              => "Closed Won",
+        _                                      => "Pipeline"
+    };
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [4.8 — 7. Records và Value Objects (C# 9+)](4.8-records-and-value-objects.mdx)
+- **Bài tiếp theo:** [4.10 — Những lỗi thường gặp](4.10-common-mistakes.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

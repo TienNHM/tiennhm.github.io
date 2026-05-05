@@ -1,0 +1,136 @@
+---
+title: "6.8 — 6. Common Pitfalls"
+sidebar_position: 8
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 6.8 — 6. Common Pitfalls
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### Pitfall 1: Deadlock với .Result / .Wait()
+
+```csharp
+// SAI — deadlock tiềm ẩn (đặc biệt trong ASP.NET Framework, WPF)
+public string GetCustomerName(int id)
+{
+    return GetCustomerAsync(id).Result; // DEADLOCK!
+}
+
+// ĐÚNG — async all the way
+public async Task<string> GetCustomerNameAsync(int id)
+{
+    var customer = await GetCustomerAsync(id);
+    return customer?.Name ?? string.Empty;
+}
+```
+
+### Pitfall 2: Async over sync — khi nào dùng Task.Run?
+
+```csharp
+// SAI — bọc sync I/O trong Task.Run không giúp ích gì
+public async Task<string> ReadFileAsync(string path)
+{
+    return await Task.Run(() => File.ReadAllText(path)); // Lãng phí thread pool
+}
+
+// ĐÚNG — dùng async I/O thực sự
+public async Task<string> ReadFileAsync(string path, CancellationToken ct = default)
+{
+    return await File.ReadAllTextAsync(path, ct);
+}
+
+// Task.Run CHỈ hợp lý cho CPU-bound trong background thread
+public async Task<byte[]> CompressImageAsync(byte[] imageData)
+{
+    // Tránh block UI/HTTP thread với CPU-bound work
+    return await Task.Run(() => ImageCompressor.Compress(imageData));
+}
+```
+
+### Pitfall 3: Fire-and-forget đúng cách
+
+```csharp
+// SAI — exception bị nuốt im, không trace được
+public void LogActivity(int customerId)
+{
+    _ = _logger.WriteActivityAsync(customerId); // Fire-and-forget không an toàn
+}
+
+// ĐÚNG — bắt exception, log, không crash app
+public void LogActivityFireAndForget(int customerId)
+{
+    _ = LogActivityInternalAsync(customerId);
+}
+
+private async Task LogActivityInternalAsync(int customerId)
+{
+    try
+    {
+        await _logger.WriteActivityAsync(customerId);
+    }
+    catch (Exception ex)
+    {
+        _appLogger.LogError(ex, "Failed to log activity for customer {Id}", customerId);
+    }
+}
+```
+
+### Pitfall 4: Exception trong Task.WhenAll
+
+```csharp
+public async Task SendNotificationsAsync(NotificationRequest req, CancellationToken ct)
+{
+    var emailTask = _email.SendAsync(req.Email, ct);
+    var smsTask = _sms.SendAsync(req.Phone, ct);
+    var pushTask = _push.SendAsync(req.DeviceToken, ct);
+
+    try
+    {
+        await Task.WhenAll(emailTask, smsTask, pushTask);
+    }
+    catch (Exception ex)
+    {
+        // WhenAll chỉ throw exception đầu tiên
+        // Kiểm tra tất cả tasks để lấy toàn bộ lỗi
+        var errors = new[] { emailTask, smsTask, pushTask }
+            .Where(t => t.IsFaulted)
+            .Select(t => t.Exception?.InnerException?.Message)
+            .ToList();
+
+        _logger.LogError(ex, "Notification errors: {Errors}", string.Join(", ", errors));
+        // Decide: throw hoặc partial success tùy business logic
+    }
+}
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [6.7 — 5. Async Patterns](6.7-async-patterns.mdx)
+- **Bài tiếp theo:** [6.9 — 7. Channels và Producer-Consumer](6.9-channels-and-producer-consumer.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

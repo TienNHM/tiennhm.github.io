@@ -1,0 +1,210 @@
+---
+title: "10.15 — Review and Assessment"
+sidebar_position: 15
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 10.15 — Review and Assessment
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 10.17 — Thực hành
+
+### Bài 1 — Implement JWT Auth cho CRM
+
+**Yêu cầu:** Xây dựng 3 endpoint: `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/refresh`.
+
+**Hướng dẫn:**
+
+1. Tạo `AppUser : IdentityUser` với thêm field `Territory`, `FullName`.
+2. Implement `TokenService` (xem mục 2).
+3. `RegisterRequest` validate email, password >= 8 ký tự; trả `201 Created`.
+4. `LoginRequest` trả `{ accessToken, refreshToken, expiresIn }`.
+5. `RefreshRequest` nhận `refreshToken`, kiểm tra DB, rotation, trả token mới.
+6. Viết unit test cho `TokenService.GenerateAccessToken`.
+
+**Kiểm tra:** Dùng Postman gọi login → lấy token → gọi `GET /api/customers` với Bearer token.
+
+---
+
+### Bài 2 — Policy-based Authorization: SalesRep chỉ truy cập Customer của mình
+
+**Yêu cầu:** `PUT /api/customers/{id}` — SalesRep chỉ được update customer mà `OwnerId == userId`. Manager/Admin được update tất cả.
+
+**Hướng dẫn:**
+
+1. Thêm `OwnerId` vào bảng `Customers`.
+2. Implement `SameOwnerRequirement` và `CustomerOwnerHandler` (xem mục 6).
+3. Đăng ký handler, inject `IAuthorizationService` vào controller.
+4. Trong `UpdateCustomer`: load customer → `AuthorizeAsync(User, customer, new SameOwnerRequirement())` → nếu fail trả `403 Forbidden`.
+5. Viết integration test: tạo 2 user (SalesRep A, SalesRep B), login A cố update customer của B → expect 403.
+
+---
+
+### Bài 3 — Fine-grained Permission System
+
+**Yêu cầu:** Implement `Permission` enum + middleware, kiểm soát hành động `DealApprove`.
+
+**Hướng dẫn:**
+
+1. Tạo `Permission` enum (xem mục 7), bảng `UserPermissions`.
+2. Seed dữ liệu: Admin có tất cả permissions, SalesRep có `CustomerRead | CustomerCreate | DealRead | DealCreate`.
+3. Khi login, load permission từ DB, đưa vào claim `"permissions"`.
+4. Implement `PermissionHandler`, đăng ký policy `"CanApproveDeal"`.
+5. `POST /api/deals/{id}/approve` dùng `[Authorize(Policy = "CanApproveDeal")]`.
+6. Test: SalesRep gọi endpoint approve → 403; Manager (được gán `DealApprove`) → 200.
+
+---
+
+### 10.21 — Tóm tắt
+
+| Chủ đề | Khi nào dùng |
+|---|---|
+| JWT Bearer | Xác thực stateless cho API |
+| Refresh Token | Duy trì session dài hạn mà không cần login lại |
+| Role-based | Phân quyền theo nhóm đơn giản (Admin, SalesRep...) |
+| Policy-based | Logic phức tạp hơn: có thể combine nhiều điều kiện |
+| Resource-based | Phân quyền dựa vào dữ liệu của resource cụ thể |
+| Permission System | Fine-grained control khi role không đủ chi tiết |
+| Identity | Quản lý user, password hashing, lockout |
+| External Login | SSO với Google/Microsoft |
+
+Nguyên tắc cốt lõi: **xác thực trước, phân quyền sau, least privilege — mỗi user chỉ có đúng những gì họ cần.**
+
+---
+
+### 10.22 — Checklist trước khi sang bài tiếp theo
+
+- Bạn đã nắm được các khái niệm chính và giải thích lại được bằng ví dụ của riêng mình.
+- Bạn đã chạy hoặc mô phỏng ít nhất một ví dụ trong bài.
+- Bạn đã hoàn thành phần quiz/lab cơ bản (hoặc ít nhất tự làm lại theo trí nhớ).
+- Bạn đã ghi lại 3 ý chính: học được gì, còn vướng gì, sẽ áp dụng ở đâu trong CRM.
+
+### 10.23 — Kiểm tra & Thực hành (100 điểm)
+
+### Bối cảnh giáo trình (mục tiêu xuyên suốt)
+
+> **Trục CRM — một mục tiêu rõ:** bạn hướng tới **CRM production** trong [From Zero → Senior .NET (Backend-first)](../../roadmap-dotnet-backend-zero-to-senior.mdx). Giáo trình **ưu tiên backend**, bám chuỗi **API → dữ liệu → vận hành → kiến trúc phân tán**, thay vì trải rộng theo hướng full-stack. Mỗi module củng cố **một lớp kỹ năng** trên **cùng một CRM học tập** bạn phát triển xuyên suốt khóa.
+
+| Chuỗi năng lực | Đóng góp vào CRM học tập |
+|----------------|--------------------------|
+| **Giai đoạn 1 — Foundation** | Đọc hiểu yêu cầu, mô hình client–server, Git — nền **collaboration** khi CRM lớn dần. |
+| **Giai đoạn 2 — C# + P1** | Domain, OOP, LINQ, async, DI — **rule nghiệp vụ & tầng ứng dụng** (Inventory là bản mẫu trước CRM). |
+| **Giai đoạn 3 — ASP.NET + P2** | Host, routing, validation, JWT, SignalR — **CRM Backend API** thực tế. |
+| **Giai đoạn 4 — Data + P3** | SQL, EF, cache, job, container — CRM **ổn định & có thể triển khai**. |
+| **Giai đoạn 5 — Senior + Final** | Clean Architecture, event/outbox, gateway, observability, perf — CRM/ERP **chịu tải & có chủ**. |
+
+#### Vai trò *giai đoạn này* trong chuỗi
+
+ASP.NET Core + **Project 2 (CRM API)**: pipeline, Web API, JWT, SignalR — **bề mặt backend** mà client/tenant gọi vào.
+
+#### Vị trí bài học (trước / sau)
+
+| Mốc | Điểm nối trong giáo trình |
+|-----|---------------------------|
+| **Trước** | [Module 9 — Web API Professional](../module-09-web-api-professional) |
+| **Tiếp theo** | [Module 11 — SignalR](../module-11-signalr) |
+
+### Quy trình làm bài (hệ thống)
+
+| Bước | Việc cần làm | Output nên có |
+|------|----------------|-----------------|
+| 1 | Làm **Quiz** *trước*, tự ghi đáp án + 1 dòng lý do | Không xem đáp án; giữ bản nháp |
+| 2 | Đối chiếu **Đáp án**; sửa hiểu sai, ghi *takeaway* vào README hoặc nhật ký học | 3–5 bullet “tôi đã hiểu…” |
+| 3 | Làm **Lab** theo rubric; trong README nêu **phần CRM** nào được chạm (Lead, Customer, Deal, Billing…) | Repo / zip + ảnh `dotnet run` hoặc log |
+| 4 | **Tự chấm** theo bảng điểm; chuẩn bị 1 phút “vấn đáp” nếu mentor hỏi ngẫu nhiên | Điểm + chỗ còn yếu |
+
+---
+
+### Phần A — Quiz trắc nghiệm (20 điểm)
+
+> **Gợi ý làm bài:** mỗi câu **4 điểm**. Ưu tiên suy nghĩ *hệ quả trên CRM* (tiền, dữ liệu, đa tenant, hiệu năng, bảo mật) — không chỉ nhớ định nghĩa.
+
+Mỗi câu **4 điểm**.
+
+1. JWT **signature** dùng để?  
+   A. Nén payload B. Đảm bảo toàn vẹn (và issuer) nếu secret/keys đúng C. Mã hóa ẩn payload D. Thay session server  
+   > **Đáp án:** B — payload Base64 **không** phải mã hóa bí mật; cần hiểu JWE nếu encrypt.
+
+2. Policy-based authorization khác role-based ở chỗ?  
+   A. Giống nhau B. Policy gom nhiều rule/requirement linh hoạt hơn “chỉ role” C. Policy không dùng được trên API D. Role không tồn tại trong .NET  
+   > **Đáp án:** B.
+
+3. Refresh token pattern nhằm?  
+   A. Tăng kích thước cookie B. Giảm rủi ro khi access token TTL ngắn C. Xóa HTTPS D. Thay thế password hash  
+   > **Đáp án:** B.
+
+4. OWASP khuyến nghị với JWT ở browser?  
+   A. Lưu localStorage luôn an toàn B. Tránh XSS lấy token — cân nhắc HttpOnly cookie + BFF hoặc hardening C. Gửi token qua query string D. Dùng HTTP  
+   > **Đáp án:** B (tinh thần; backend-first vẫn cần biết).
+
+5. “Least privilege” nghĩa là?  
+   A. Cấp tất cả quyền B. Chỉ quyền tối thiểu cần thiết C. Chỉ admin đăng nhập D. Tắt logging  
+   > **Đáp án:** B.
+
+### Phần B — Lab thực tế (80 điểm)
+
+> **Lab & rubric:** trong README, map từng nhóm điểm rubric sang **phần CRM** (Lead, Customer, Deal, Billing, Notification…) và **artifact** (test, log, screenshot, migration).
+
+| Tiêu chí | Điểm | Ghi chú |
+|----------|------|---------|
+| Register/Login trả JWT (access) + cơ chế refresh (hoặc slide session giải thích) | 30 | |
+| 1 endpoint `[Authorize]` + 1 policy/resource-based demo | 25 | |
+| User A không đọc được resource của User B (test Postman/curl) | 15 | |
+| Refresh/revoke mô tả trong README | 10 | |
+
+#### Ngưỡng tổng điểm (Quiz 20 + Lab 80)
+
+| Mức | Điểm | Ý nghĩa |
+|-----|------|---------|
+| **Đạt** | ≥ 70 | Đủ nền để học module kế mà không “lủng” kiến thức cốt lõi. |
+| **Khá** | ≥ 85 | Có minh chứng code + nêu được liên hệ CRM rõ ràng trong README. |
+| **Giỏi** | ≥ 95 | Có mở rộng / edge case / ADR ngắn / test bổ trợ (tùy rubric từng bài). |
+
+### Phần C — Reflect & nối chuỗi (không chấm điểm)
+
+Viết **5–8 câu** (README hoặc `docs/learning-log.md`):
+
+1. Kiến thức *module / project này* sẽ được **tái sử dụng trực tiếp** ở module hoặc project CRM nào tiếp theo? (ghi tên module / P2 / P3 / Final).
+2. Nếu bỏ qua phần lab, **rủi ro** lớn nhất cho CRM ở giai đoạn sau là gì?
+3. Một **quyết định kỹ thuật** (nhỏ) bạn sẵn sàng ghi thành **ADR một đoạn** sau khi làm lab.
+
+---
+
+### 10.24 — Tài liệu tham khảo
+
+- [Microsoft Docs — Authentication in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/security/authentication/)
+- [Microsoft Docs — Authorization in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/security/authorization/introduction)
+- [JWT.io — JSON Web Tokens](https://jwt.io/introduction)
+- [OWASP — JWT Security Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_for_Java_Cheat_Sheet.html)
+- [Microsoft Docs — ASP.NET Core Identity](https://learn.microsoft.com/en-us/aspnet/core/security/authentication/identity)
+- [RFC 7519 — JSON Web Token](https://datatracker.ietf.org/doc/html/rfc7519)
+
+## Bài tập tổng hợp
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [10.14 — Ví dụ thực tế nhanh](10.14-quick-real-world-example.mdx)
+- **Bài tiếp theo:** Không có (bài cuối module).
+- **Về module:** [Trang mục lục](index.mdx)

@@ -1,0 +1,164 @@
+---
+title: "6.7 — 5. Async Patterns"
+sidebar_position: 7
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 6.7 — 5. Async Patterns
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### async void — chỉ dùng cho event handler
+
+```csharp
+// ĐÚNG: event handler bắt buộc phải là void
+private async void BtnSave_Click(object sender, EventArgs e)
+{
+    try
+    {
+        await _customerService.SaveAsync(_currentCustomer);
+        MessageBox.Show("Đã lưu!");
+    }
+    catch (Exception ex)
+    {
+        MessageBox.Show($"Lỗi: {ex.Message}");
+    }
+}
+
+// SAI: async void trong service — exception không catch được
+public async void SendWelcomeEmail(Customer c) // Tránh!
+{
+    await _email.SendAsync(c.Email, "Welcome", "...");
+}
+
+// ĐÚNG: dùng async Task
+public async Task SendWelcomeEmailAsync(Customer c)
+{
+    await _email.SendAsync(c.Email, "Welcome", "...");
+}
+```
+
+### ValueTask\<T\> — khi nào dùng?
+
+`ValueTask<T>` là struct, tránh heap allocation khi kết quả đã sẵn có (cache hit).
+
+```csharp
+public class CustomerCache
+{
+    private readonly Dictionary<int, Customer> _cache = new();
+
+    // Dùng ValueTask vì thường trả về từ cache (không cần Task allocation)
+    public ValueTask<Customer?> GetAsync(int id)
+    {
+        if (_cache.TryGetValue(id, out var customer))
+            return ValueTask.FromResult<Customer?>(customer); // Synchronous path — không allocate Task
+
+        return new ValueTask<Customer?>(FetchFromDbAsync(id)); // Async path
+    }
+
+    private async Task<Customer?> FetchFromDbAsync(int id)
+    {
+        var customer = await _db.Customers.FindAsync(id);
+        if (customer is not null) _cache[id] = customer;
+        return customer;
+    }
+}
+```
+
+> **Rule:** Dùng `ValueTask<T>` khi method thường xuyên có synchronous fast-path (cache, hot-path). Không dùng mặc định — `Task<T>` vẫn là lựa chọn an toàn hơn.
+
+### IAsyncEnumerable\<T\> — streaming
+
+Dùng khi dataset lớn, không muốn load toàn bộ vào memory.
+
+```csharp
+// Streaming danh sách khách hàng lớn
+public async IAsyncEnumerable<Customer> StreamActiveCustomersAsync(
+    [EnumeratorCancellation] CancellationToken ct = default)
+{
+    await foreach (var customer in _db.Customers
+        .Where(c => c.IsActive)
+        .AsAsyncEnumerable()
+        .WithCancellation(ct))
+    {
+        // Xử lý từng record ngay khi nhận được từ DB
+        yield return customer;
+    }
+}
+
+// Consume — không cần load hết vào List<>
+public async Task ExportToCsvAsync(string filePath, CancellationToken ct)
+{
+    await using var writer = new StreamWriter(filePath);
+    await writer.WriteLineAsync("Id,Name,Email");
+
+    await foreach (var customer in StreamActiveCustomersAsync(ct))
+    {
+        await writer.WriteLineAsync($"{customer.Id},{customer.Name},{customer.Email}");
+    }
+}
+```
+
+### Async Constructor — Factory Method Pattern
+
+Constructor không thể là async. Dùng factory method:
+
+```csharp
+public class ReportEngine
+{
+    private readonly ReportTemplate _template;
+
+    private ReportEngine(ReportTemplate template)
+    {
+        _template = template;
+    }
+
+    // Factory method async
+    public static async Task<ReportEngine> CreateAsync(int templateId, CancellationToken ct = default)
+    {
+        var template = await _templateRepo.LoadAsync(templateId, ct);
+        return new ReportEngine(template);
+    }
+
+    public async Task<byte[]> GenerateAsync(ReportData data, CancellationToken ct = default)
+    {
+        // Dùng _template đã load
+        return await _renderer.RenderAsync(_template, data, ct);
+    }
+}
+
+// Sử dụng
+var engine = await ReportEngine.CreateAsync(templateId: 1, ct);
+var pdf = await engine.GenerateAsync(reportData, ct);
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [6.6 — 4. Task Parallel Library](6.6-task-parallel-library.mdx)
+- **Bài tiếp theo:** [6.8 — 6. Common Pitfalls](6.8-common-pitfalls.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

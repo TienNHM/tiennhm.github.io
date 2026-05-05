@@ -1,0 +1,82 @@
+---
+title: "4.8 — 7. Records và Value Objects (C# 9+)"
+sidebar_position: 8
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 4.8 — 7. Records và Value Objects (C# 9+)
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+`record` tạo immutable type với equality so sánh theo giá trị thay vì tham chiếu — lý tưởng cho value objects.
+
+```csharp
+// Record — immutable, equality theo giá trị
+public record ContactInfo(string Email, string Phone)
+{
+    // Validation trong constructor thông qua init accessor
+    public string Email { get; init; } = ValidateEmail(Email);
+    public string Phone { get; init; } = Phone
+        ?? throw new ArgumentNullException(nameof(Phone));
+
+    private static string ValidateEmail(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email) || !email.Contains('@'))
+            throw new ArgumentException("Email không hợp lệ.", nameof(email));
+        return email.ToLowerInvariant();
+    }
+}
+
+// Record struct — stack-allocated, phù hợp khi size nhỏ
+public record struct DateRange(DateTime Start, DateTime End)
+{
+    public int Days => (End - Start).Days;
+    public bool Contains(DateTime date) => date >= Start && date <= End;
+}
+
+// Sử dụng
+var info1 = new ContactInfo("a@test.com", "0901111111");
+var info2 = new ContactInfo("a@test.com", "0901111111");
+Console.WriteLine(info1 == info2);   // True — so sánh theo giá trị
+
+// "With expression" — tạo bản sao với thay đổi
+var updated = info1 with { Phone = "0909999999" };
+```
+
+### Khi nào dùng record?
+
+- Value objects trong Domain-Driven Design (địa chỉ, tiền tệ, khoảng thời gian)
+- DTO (Data Transfer Object) không thay đổi sau khi tạo
+- Kết quả trả về từ query (read model)
+- **Không dùng** cho entity có identity và vòng đời riêng
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [4.7 — 6. Access Modifiers](4.7-access-modifiers.mdx)
+- **Bài tiếp theo:** [4.9 — 8. Pattern Matching (C# 8+)](4.9-pattern-matching.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

@@ -1,0 +1,110 @@
+---
+title: "15.6 — 5. Linux VPS Deployment"
+sidebar_position: 6
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 15.6 — 5. Linux VPS Deployment
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### Provision VPS
+
+Nhà cung cấp phổ biến: DigitalOcean Droplet, Vultr, Hetzner Cloud. Cấu hình tối thiểu cho CRM demo: 2 vCPU, 4 GB RAM, Ubuntu 22.04 LTS.
+
+```bash
+# Sau khi SSH vào VPS
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y docker.io docker-compose-v2 nginx certbot python3-certbot-nginx ufw curl
+
+# Thêm user vào docker group
+sudo usermod -aG docker $USER
+```
+
+### Firewall với UFW
+
+```bash
+sudo ufw allow OpenSSH
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw enable
+sudo ufw status
+```
+
+### Nginx Reverse Proxy
+
+```nginx
+# /etc/nginx/sites-available/crm-api
+server {
+    listen 80;
+    server_name api.crm.yourdomain.com;
+
+    location / {
+        proxy_pass http://localhost:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection keep-alive;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+```
+
+```bash
+sudo ln -s /etc/nginx/sites-available/crm-api /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+### SSL với Let's Encrypt (Certbot)
+
+```bash
+sudo certbot --nginx -d api.crm.yourdomain.com
+# Certbot tự sửa nginx config, thêm HTTPS redirect
+# Tự động renew qua systemd timer
+sudo systemctl status certbot.timer
+```
+
+### Deploy Docker Compose trên VPS
+
+```bash
+# Trên VPS: clone repo hoặc copy docker-compose.yml + .env
+mkdir -p /opt/crm && cd /opt/crm
+# Copy files (hoặc git clone)
+docker compose pull
+docker compose up -d
+docker compose ps
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [15.5 — 4. Environment và Secrets](15.5-environment-and-secrets.mdx)
+- **Bài tiếp theo:** [15.7 — 6. GitHub Actions CI/CD](15.7-github-actions-ci-cd.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

@@ -1,0 +1,83 @@
+---
+title: "7.9 — 7. Keyed Services (.NET 8)"
+sidebar_position: 9
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 7.9 — 7. Keyed Services (.NET 8)
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+.NET 8 giới thiệu Keyed Services — giải pháp chính thức cho named service:
+
+```csharp
+// Đăng ký với key
+services.AddKeyedScoped<IEmailService, SmtpEmailService>("smtp");
+services.AddKeyedScoped<IEmailService, SendGridEmailService>("sendgrid");
+services.AddKeyedScoped<INotificationChannel, SmsChannel>("sms");
+services.AddKeyedScoped<INotificationChannel, PushChannel>("push");
+
+// Inject bằng [FromKeyedServices]
+public class CrmNotificationService
+{
+    private readonly IEmailService _primaryEmail;
+    private readonly IEmailService _backupEmail;
+
+    public CrmNotificationService(
+        [FromKeyedServices("sendgrid")] IEmailService primaryEmail,
+        [FromKeyedServices("smtp")]     IEmailService backupEmail)
+    {
+        _primaryEmail = primaryEmail;
+        _backupEmail  = backupEmail;
+    }
+
+    public async Task SendAsync(string to, string subject, string body)
+    {
+        try
+        {
+            await _primaryEmail.SendAsync(to, subject, body);
+        }
+        catch (EmailServiceException)
+        {
+            // Fallback to backup
+            await _backupEmail.SendAsync(to, subject, body);
+        }
+    }
+}
+```
+
+**Khi nào dùng Keyed Services:**
+- Nhiều implementation của cùng interface (SMTP và SendGrid)
+- Chiến lược khác nhau theo tenant hoặc môi trường
+- A/B testing giữa các implementation
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [7.8 — 6. Options Pattern](7.8-options-pattern.mdx)
+- **Bài tiếp theo:** [7.10 — 8. Anti-patterns](7.10-anti-patterns.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

@@ -1,0 +1,108 @@
+---
+title: "12.5 — 4. Indexing"
+sidebar_position: 5
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 12.5 — 4. Indexing
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 4.1 Clustered so với Non-Clustered
+
+- **Clustered index:** Quyết định thứ tự vật lý lưu trữ dữ liệu trên đĩa. Mỗi bảng chỉ có **một** clustered index. Mặc định là PRIMARY KEY.
+- **Non-clustered index:** Cấu trúc riêng biệt chứa key columns + pointer đến row trong clustered index. Một bảng có thể có nhiều non-clustered index.
+
+```sql
+-- Non-clustered index cho filter phổ biến
+CREATE NONCLUSTERED INDEX IX_Leads_Status_CreatedAt
+    ON Leads (Status, CreatedAt DESC);
+
+-- Composite index: thứ tự cột quan trọng — cột có selectivity cao đặt trước
+-- Query: WHERE Status = 'New' AND CreatedAt > '2024-01-01'
+-- Index trên (Status, CreatedAt) phù hợp hơn (CreatedAt, Status)
+```
+
+### 4.2 Covering Index
+
+Covering index bao gồm tất cả cột mà query cần — loại bỏ key lookup (tra ngược về clustered index):
+
+```sql
+-- Query thường gặp trong CRM dashboard
+SELECT LeadId, CompanyName, Status, AssignedToUserId
+FROM   Leads
+WHERE  Status = 'New' AND CreatedAt >= DATEADD(DAY, -30, GETUTCDATE());
+
+-- Covering index: INCLUDE các cột SELECT
+CREATE NONCLUSTERED INDEX IX_Leads_Status_CreatedAt_Covering
+    ON Leads (Status, CreatedAt DESC)
+    INCLUDE (LeadId, CompanyName, AssignedToUserId);
+```
+
+### 4.3 Filtered Index
+
+Index chỉ bao gồm subset rows — nhỏ hơn, nhanh hơn cho query có điều kiện cố định:
+
+```sql
+-- Chỉ index lead chưa convert (90% query chỉ quan tâm lead active)
+CREATE NONCLUSTERED INDEX IX_Leads_Active
+    ON Leads (AssignedToUserId, CreatedAt DESC)
+    WHERE Status NOT IN ('Won', 'Lost');
+```
+
+### 4.4 Index Scan so với Index Seek
+
+| | Index Seek | Index Scan |
+|---|---|---|
+| Cơ chế | Đi thẳng đến row cần tìm (B-tree traversal) | Đọc toàn bộ index từ đầu đến cuối |
+| Performance | O(log n) | O(n) |
+| Khi xảy ra | Query SARGable, index phù hợp | Non-SARGable, không có index, selectivity thấp |
+
+### 4.5 Khi nào Index hurt Performance
+
+- Bảng **write-heavy**: mỗi INSERT/UPDATE/DELETE phải cập nhật tất cả index → overhead lớn
+- **Quá nhiều index** trên một bảng: SQL Server/Postgres phải maintain tất cả
+- Index trên cột **low-cardinality** (ví dụ: cột `IsActive` chỉ có 0/1) thường bị optimizer bỏ qua
+- **Fragmentation** cao: index GUID không sequential → page split liên tục → cần rebuild định kỳ
+
+```sql
+-- SQL Server: kiểm tra fragmentation
+SELECT  object_name(ips.object_id)  AS TableName,
+        i.name                      AS IndexName,
+        ips.avg_fragmentation_in_percent
+FROM    sys.dm_db_index_physical_stats(DB_ID(), NULL, NULL, NULL, 'LIMITED') ips
+JOIN    sys.indexes i ON ips.object_id = i.object_id AND ips.index_id = i.index_id
+WHERE   ips.avg_fragmentation_in_percent > 10
+ORDER   BY ips.avg_fragmentation_in_percent DESC;
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [12.4 — 3. Queries Nâng Cao](12.4-advanced-queries.mdx)
+- **Bài tiếp theo:** [12.6 — 5. Query Optimization](12.6-query-optimization.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

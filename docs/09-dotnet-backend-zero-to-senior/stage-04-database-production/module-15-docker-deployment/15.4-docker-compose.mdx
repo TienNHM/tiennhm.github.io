@@ -1,0 +1,169 @@
+---
+title: "15.4 — 3. Docker Compose"
+sidebar_position: 4
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 15.4 — 3. Docker Compose
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+Docker Compose định nghĩa toàn bộ stack trong một file YAML — "hợp đồng" chạy môi trường giống production.
+
+### docker-compose.yml đầy đủ cho CRM Stack
+
+```yaml
+version: "3.9"
+
+services:
+  # CRM API
+  crm-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: crm-api:latest
+    container_name: crm-api
+    restart: unless-stopped
+    ports:
+      - "5000:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=CrmDb;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True
+      - ConnectionStrings__Redis=redis:6379
+      - Seq__ServerUrl=http://seq:5341
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - crm-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # SQL Server
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: crm-sqlserver
+    restart: unless-stopped
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=${SA_PASSWORD}
+      - MSSQL_PID=Express
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    networks:
+      - crm-network
+    healthcheck:
+      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "${SA_PASSWORD}" -C -Q "SELECT 1" || exit 1
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: crm-redis
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - crm-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Hangfire Dashboard (standalone worker)
+  hangfire-worker:
+    image: crm-api:latest
+    container_name: crm-hangfire
+    restart: unless-stopped
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - RUN_MODE=HangfireWorker
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=CrmDb;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True
+    depends_on:
+      crm-api:
+        condition: service_healthy
+    networks:
+      - crm-network
+
+  # Seq - Structured Logging
+  seq:
+    image: datalust/seq:latest
+    container_name: crm-seq
+    restart: unless-stopped
+    environment:
+      - ACCEPT_EULA=Y
+      - SEQ_FIRSTRUN_ADMINPASSWORDHASH=${SEQ_PASSWORD_HASH}
+    ports:
+      - "5341:80"
+    volumes:
+      - seq-data:/data
+    networks:
+      - crm-network
+
+volumes:
+  sqlserver-data:
+  redis-data:
+  seq-data:
+
+networks:
+  crm-network:
+    driver: bridge
+```
+
+Khởi động:
+
+```bash
+# Tạo file .env
+cp .env.example .env
+# Sửa SA_PASSWORD, REDIS_PASSWORD, SEQ_PASSWORD_HASH
+
+docker compose up -d
+docker compose logs -f crm-api
+docker compose down -v  # xóa cả volumes khi cleanup
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [15.3 — 2. Dockerfile cho ASP.NET Core](15.3-dockerfile-for-aspnet-core.mdx)
+- **Bài tiếp theo:** [15.5 — 4. Environment và Secrets](15.5-environment-and-secrets.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

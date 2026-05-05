@@ -1,0 +1,257 @@
+---
+title: "7.14 — Review and Assessment"
+sidebar_position: 14
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 7.14 — Review and Assessment
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 7.16 — Thực hành
+
+### Bài 1: Refactor CustomerService — Hard-coded sang DI
+
+Cho `CustomerService` ban đầu (tightly coupled ở đầu module), hãy:
+
+1. Tạo interfaces `ICustomerRepository`, `IEmailService`
+2. Thay `new EmailService(...)` và `new SqlCustomerRepository(...)` bằng constructor injection
+3. Tạo `SqlCustomerRepository` và `SmtpEmailService` implement các interface
+4. Tạo console app với `Host.CreateApplicationBuilder`, đăng ký service và chạy thử
+
+```csharp
+// Gợi ý cấu trúc
+public interface ICustomerRepository
+{
+    Task AddAsync(Customer customer, CancellationToken ct = default);
+    Task<Customer?> GetByIdAsync(Guid id, CancellationToken ct = default);
+    Task<IReadOnlyList<Customer>> GetAllAsync(CancellationToken ct = default);
+}
+
+public interface IEmailService
+{
+    Task SendWelcomeEmailAsync(string email, CancellationToken ct = default);
+}
+
+// Sau khi refactor — CustomerService không còn biết cách TẠO dependency
+public class CustomerService
+{
+    public CustomerService(
+        ICustomerRepository repository,
+        IEmailService emailService,
+        ILogger<CustomerService> logger) { ... }
+}
+```
+
+### Bài 2: Setup DI Container và viết Unit Test với Mock
+
+1. Tạo DI container đầy đủ cho CRM:
+   - `CustomerService` (Scoped), `LeadService` (Scoped), `SmtpEmailService` (Singleton)
+   - `ICustomerRepository` → `InMemoryCustomerRepository` (Scoped)
+2. Viết unit test cho `CustomerService.CreateCustomerAsync` với mock:
+
+```csharp
+// Gợi ý dùng Moq hoặc NSubstitute
+public class CustomerServiceTests
+{
+    private readonly Mock<ICustomerRepository> _repoMock;
+    private readonly Mock<IEmailService> _emailMock;
+    private readonly Mock<ILogger<CustomerService>> _loggerMock;
+    private readonly CustomerService _sut;
+
+    public CustomerServiceTests()
+    {
+        _repoMock   = new Mock<ICustomerRepository>();
+        _emailMock  = new Mock<IEmailService>();
+        _loggerMock = new Mock<ILogger<CustomerService>>();
+        _sut = new CustomerService(_repoMock.Object, _emailMock.Object, _loggerMock.Object);
+    }
+
+    [Fact]
+    public async Task CreateCustomerAsync_ShouldSaveAndSendEmail()
+    {
+        // Arrange
+        var request = new CreateCustomerRequest("Nguyen Van A", "a@example.com");
+        _repoMock.Setup(r => r.AddAsync(It.IsAny<Customer>(), default))
+                 .Returns(Task.CompletedTask);
+        _emailMock.Setup(e => e.SendWelcomeEmailAsync(request.Email, default))
+                  .Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _sut.CreateCustomerAsync(request);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(request.Email, result.Email);
+        _repoMock.Verify(r => r.AddAsync(It.IsAny<Customer>(), default), Times.Once);
+        _emailMock.Verify(e => e.SendWelcomeEmailAsync(request.Email, default), Times.Once);
+    }
+}
+```
+
+3. Quan sát sự khác biệt giữa Transient và Scoped bằng cách resolve cùng service hai lần và so sánh `ReferenceEquals`.
+
+### Bài 3: Options Pattern cho CrmSettings
+
+1. Tạo `CrmSettings` và `appsettings.json` như ví dụ trong phần 6
+2. Đăng ký với `ValidateDataAnnotations()` và `ValidateOnStart()`
+3. Inject `IOptions<CrmSettings>` vào `LeadService`
+4. Viết unit test kiểm tra `CanAssignLeadAsync` trả về `false` khi agent đã đạt `MaxLeadsPerAgent`
+5. *Nâng cao*: dùng `IOptionsMonitor<CrmSettings>`, thay đổi `appsettings.json` lúc app đang chạy và quan sát callback
+
+---
+
+### 7.20 — Tóm tắt
+
+| Chủ đề | Điểm chính |
+|--------|-----------|
+| IoC / DI | Dependency được inject từ ngoài vào, không tự tạo trong class |
+| Constructor Injection | Cách inject chính, rõ ràng, dễ test |
+| Transient | Tạo mới mỗi lần resolve — dùng cho stateless, lightweight service |
+| Scoped | 1 instance/request — dùng cho DbContext, repository, Unit of Work |
+| Singleton | 1 instance/app — phải thread-safe, tránh captive dependency |
+| Captive Dependency | Singleton không được inject Scoped/Transient trực tiếp |
+| Options Pattern | `IOptions<T>` / `IOptionsSnapshot<T>` / `IOptionsMonitor<T>` — đọc config type-safe |
+| Keyed Services | .NET 8 — named service chính thức |
+| Anti-patterns | Tránh Service Locator, ambient context, over-injection |
+
+DI là nền tảng của clean architecture trong .NET. Module tiếp theo sẽ áp dụng DI vào Entity Framework Core và Repository Pattern — nơi `DbContext` Scoped là trung tâm của mọi thao tác dữ liệu.
+
+---
+
+### 7.21 — Checklist trước khi sang bài tiếp theo
+
+- Bạn đã nắm được các khái niệm chính và giải thích lại được bằng ví dụ của riêng mình.
+- Bạn đã chạy hoặc mô phỏng ít nhất một ví dụ trong bài.
+- Bạn đã hoàn thành phần quiz/lab cơ bản (hoặc ít nhất tự làm lại theo trí nhớ).
+- Bạn đã ghi lại 3 ý chính: học được gì, còn vướng gì, sẽ áp dụng ở đâu trong CRM.
+
+### 7.22 — Kiểm tra & Thực hành (100 điểm)
+
+### Bối cảnh giáo trình (mục tiêu xuyên suốt)
+
+> **Trục CRM — một mục tiêu rõ:** bạn hướng tới **CRM production** trong [From Zero → Senior .NET (Backend-first)](../../roadmap-dotnet-backend-zero-to-senior.mdx). Giáo trình **ưu tiên backend**, bám chuỗi **API → dữ liệu → vận hành → kiến trúc phân tán**, thay vì trải rộng theo hướng full-stack. Mỗi module củng cố **một lớp kỹ năng** trên **cùng một CRM học tập** bạn phát triển xuyên suốt khóa.
+
+| Chuỗi năng lực | Đóng góp vào CRM học tập |
+|----------------|--------------------------|
+| **Giai đoạn 1 — Foundation** | Đọc hiểu yêu cầu, mô hình client–server, Git — nền **collaboration** khi CRM lớn dần. |
+| **Giai đoạn 2 — C# + P1** | Domain, OOP, LINQ, async, DI — **rule nghiệp vụ & tầng ứng dụng** (Inventory là bản mẫu trước CRM). |
+| **Giai đoạn 3 — ASP.NET + P2** | Host, routing, validation, JWT, SignalR — **CRM Backend API** thực tế. |
+| **Giai đoạn 4 — Data + P3** | SQL, EF, cache, job, container — CRM **ổn định & có thể triển khai**. |
+| **Giai đoạn 5 — Senior + Final** | Clean Architecture, event/outbox, gateway, observability, perf — CRM/ERP **chịu tải & có chủ**. |
+
+#### Vai trò *giai đoạn này* trong chuỗi
+
+C# professional + **Project 1 (Inventory)**: OOP, LINQ, async, DI — **domain & rule nghiệp vụ** giống tầng lõi CRM/ERP.
+
+#### Vị trí bài học (trước / sau)
+
+| Mốc | Điểm nối trong giáo trình |
+|-----|---------------------------|
+| **Trước** | [Module 6 — Async Programming](../module-06-async-programming) |
+| **Tiếp theo** | [Project 1 — Inventory (Console + API)](../project-01-inventory-console-api.mdx) |
+
+### Quy trình làm bài (hệ thống)
+
+| Bước | Việc cần làm | Output nên có |
+|------|----------------|-----------------|
+| 1 | Làm **Quiz** *trước*, tự ghi đáp án + 1 dòng lý do | Không xem đáp án; giữ bản nháp |
+| 2 | Đối chiếu **Đáp án**; sửa hiểu sai, ghi *takeaway* vào README hoặc nhật ký học | 3–5 bullet “tôi đã hiểu…” |
+| 3 | Làm **Lab** theo rubric; trong README nêu **phần CRM** nào được chạm (Lead, Customer, Deal, Billing…) | Repo / zip + ảnh `dotnet run` hoặc log |
+| 4 | **Tự chấm** theo bảng điểm; chuẩn bị 1 phút “vấn đáp” nếu mentor hỏi ngẫu nhiên | Điểm + chỗ còn yếu |
+
+---
+
+### Phần A — Quiz trắc nghiệm (20 điểm)
+
+> **Gợi ý làm bài:** mỗi câu **4 điểm**. Ưu tiên suy nghĩ *hệ quả trên CRM* (tiền, dữ liệu, đa tenant, hiệu năng, bảo mật) — không chỉ nhớ định nghĩa.
+
+Mỗi câu **4 điểm**.
+
+1. `DbContext` trong ASP.NET Core nên đăng ký lifetime nào?  
+   A. Singleton B. Scoped C. Transient D. Singleton nhưng `AddDbContextPool` luôn an toàn mọi cấu hình  
+   > **Đáp án:** B (Scoped là mặc định đúng cho request).
+
+2. “Captive dependency” là?  
+   A. DI quá nhanh B. Singleton giữ reference tới Scoped/Transient C. Dùng quá nhiều interface D. Lỗi compile  
+   > **Đáp án:** B.
+
+3. Service Locator anti-pattern vì?  
+   A. Ẩn dependency, khó test B. Quá an toàn C. Chỉ dùng được trên Linux D. Microsoft cấm compile  
+   > **Đáp án:** A.
+
+4. `IOptionsMonitor<T>` khác `IOptions<T>` ở?  
+   A. Không khác B. Monitor có thể reload khi config đổi (file reload) C. Monitor chỉ cho Blazor D. Options không inject được  
+   > **Đáp án:** B.
+
+5. Composition root là?  
+   A. Unit test B. Nơi đăng ký tất cả service (ví dụ `Program.cs`) C. Middleware đầu tiên D. appsettings.json  
+   > **Đáp án:** B.
+
+### Phần B — Lab thực tế (80 điểm)
+
+> **Lab & rubric:** trong README, map từng nhóm điểm rubric sang **phần CRM** (Lead, Customer, Deal, Billing, Notification…) và **artifact** (test, log, screenshot, migration).
+
+| Tiêu chí | Điểm | Ghi chú |
+|----------|------|---------|
+| Console hoặc minimal host: `Host.CreateApplicationBuilder` + đăng ký 3 service (interface) | 30 | |
+| Đúng lifetime: ví dụ `AddSingleton<IConfigReader,…>` + `AddScoped<IOrderService,…>` có giải thích comment | 20 | |
+| Factory / `IOptions<>` đọc section config (fake `appsettings.json`) | 15 | |
+| Viết **1 test** hoặc script resolve scope 2 lần chứng minh Scoped khác instance | 10 | |
+| README sơ đồ dependency (text ASCII được) | 5 | |
+
+#### Ngưỡng tổng điểm (Quiz 20 + Lab 80)
+
+| Mức | Điểm | Ý nghĩa |
+|-----|------|---------|
+| **Đạt** | ≥ 70 | Đủ nền để học module kế mà không “lủng” kiến thức cốt lõi. |
+| **Khá** | ≥ 85 | Có minh chứng code + nêu được liên hệ CRM rõ ràng trong README. |
+| **Giỏi** | ≥ 95 | Có mở rộng / edge case / ADR ngắn / test bổ trợ (tùy rubric từng bài). |
+
+### Phần C — Reflect & nối chuỗi (không chấm điểm)
+
+Viết **5–8 câu** (README hoặc `docs/learning-log.md`):
+
+1. Kiến thức *module / project này* sẽ được **tái sử dụng trực tiếp** ở module hoặc project CRM nào tiếp theo? (ghi tên module / P2 / P3 / Final).
+2. Nếu bỏ qua phần lab, **rủi ro** lớn nhất cho CRM ở giai đoạn sau là gì?
+3. Một **quyết định kỹ thuật** (nhỏ) bạn sẵn sàng ghi thành **ADR một đoạn** sau khi làm lab.
+
+---
+
+### 7.23 — Tài liệu tham khảo
+
+- [Dependency injection in ASP.NET Core — Microsoft Docs](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/dependency-injection)
+- [Service lifetimes — Microsoft Docs](https://learn.microsoft.com/en-us/dotnet/core/extensions/dependency-injection#service-lifetimes)
+- [Options pattern in .NET — Microsoft Docs](https://learn.microsoft.com/en-us/dotnet/core/extensions/options)
+- [Keyed services in .NET 8 — Microsoft Docs](https://learn.microsoft.com/en-us/dotnet/core/whats-new/dotnet-8/runtime#keyed-di-services)
+- [Mark Seemann — Dependency Injection Principles, Practices, and Patterns](https://www.manning.com/books/dependency-injection-principles-practices-patterns)
+- [Steve Smith (Ardalis) — Clean Architecture with .NET](https://github.com/ardalis/CleanArchitecture)
+
+## Bài tập tổng hợp
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [7.13 — Ví dụ thực tế nhanh](7.13-quick-real-world-example.mdx)
+- **Bài tiếp theo:** Không có (bài cuối module).
+- **Về module:** [Trang mục lục](index.mdx)

@@ -1,0 +1,97 @@
+---
+title: "5.5 — 4. Delegates và Events"
+sidebar_position: 5
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 5.5 — 4. Delegates và Events
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 4.1 Built-in Delegates
+
+```csharp
+// Action<T>: không return giá trị
+Action<string> log = msg => Console.WriteLine($"[LOG] {msg}");
+Action<Customer, string> notify = (c, msg) => SendEmail(c.Email, msg);
+
+// Func<T, TResult>: có return giá trị
+Func<Lead, bool> isHot  = lead => lead.Score >= 80;
+Func<decimal, decimal, decimal> add = (a, b) => a + b;
+
+// Predicate<T>: Func<T, bool> — thường dùng với List.FindAll
+Predicate<Customer> isVip = c => c.Tier == CustomerTier.VIP;
+var vipList = customers.FindAll(isVip);
+```
+
+### 4.2 Custom Delegate và Event Pattern trong CRM
+
+```csharp
+// Domain event
+public record CustomerStatusChangedEvent(
+    int CustomerId,
+    CustomerStatus OldStatus,
+    CustomerStatus NewStatus,
+    DateTime OccurredAt);
+
+// Event handler delegate
+public delegate Task CustomerStatusChangedHandler(CustomerStatusChangedEvent e);
+
+// Service phát event
+public class CustomerService
+{
+    public event CustomerStatusChangedHandler? StatusChanged;
+
+    public async Task ChangeStatusAsync(int id, CustomerStatus newStatus)
+    {
+        var customer = await _repo.GetByIdAsync(id)
+            ?? throw new NotFoundException($"Customer {id}");
+
+        var oldStatus = customer.Status;
+        customer.UpdateStatus(newStatus);
+        await _repo.UpdateAsync(customer);
+
+        // Phát event — subscriber tự xử lý
+        if (StatusChanged is not null)
+            await StatusChanged(new CustomerStatusChangedEvent(id, oldStatus, newStatus, DateTime.UtcNow));
+    }
+}
+
+// Subscriber — đăng ký trong startup hoặc DI
+customerService.StatusChanged += async e =>
+{
+    if (e.NewStatus == CustomerStatus.Churned)
+        await _notificationService.AlertSalesTeamAsync(e.CustomerId);
+};
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [5.4 — 3. LINQ](5.4-linq.mdx)
+- **Bài tiếp theo:** [5.6 — 5. Extension Methods](5.6-extension-methods.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

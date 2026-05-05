@@ -1,0 +1,68 @@
+---
+title: "16.7 — 6. MediatR — pipeline cho use case"
+sidebar_position: 7
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 16.7 — 6. MediatR — pipeline cho use case
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+`MediatR` map **một request** → **một handler** — phù hợp slice hoặc application layer.
+
+```csharp
+public record CreateLeadCommand(string Email, string FullName) : IRequest<Guid>;
+
+public class CreateLeadCommandHandler : IRequestHandler<CreateLeadCommand, Guid>
+{
+    private readonly ILeadRepository _leads;
+    private readonly IUnitOfWork _uow;
+
+    public CreateLeadCommandHandler(ILeadRepository leads, IUnitOfWork uow)
+    {
+        _leads = leads;
+        _uow = uow;
+    }
+
+    public async Task<Guid> Handle(CreateLeadCommand request, CancellationToken ct)
+    {
+        var lead = Lead.Create(request.Email, request.FullName);
+        await _leads.AddAsync(lead, ct);
+        await _uow.SaveChangesAsync(ct);
+        return lead.Id;
+    }
+}
+```
+
+**Behaviors** (logging, validation, transaction) đăng ký một lần — tránh lặp trong từng controller.
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [16.6 — 5. DDD chiến thuật (vừa đủ cho backend)](16.6-ddd-tactics-backend-pragmatic.mdx)
+- **Bài tiếp theo:** [16.8 — 7. FluentValidation](16.8-fluentvalidation.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

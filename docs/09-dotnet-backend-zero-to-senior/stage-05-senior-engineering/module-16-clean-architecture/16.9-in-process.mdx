@@ -1,0 +1,54 @@
+---
+title: "16.9 — 8. Domain Events (in-process)"
+sidebar_position: 9
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 16.9 — 8. Domain Events (in-process)
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+**Domain event** = “đã xảy ra điều gì đó quan trọng trong domain” (`LeadCreated`, `LeadConvertedToCustomer`).
+
+- **In-process**: dispatch sau `SaveChanges` trong cùng transaction (hoặc ngay trước commit — cần quy ước rõ).
+- **Ra ngoài hệ thống** (Kafka, Service Bus): xem [Module 17](../module-17-distributed-systems) — thường qua **outbox**, không gọi broker trực tiếp trong entity.
+
+Ví dụ dispatch đơn giản sau commit:
+
+```csharp
+// Sau SaveChangesAsync thành công:
+foreach (var e in lead.DomainEvents)
+    await _dispatcher.PublishAsync(e, ct);
+lead.ClearDomainEvents();
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [16.8 — 7. FluentValidation](16.8-fluentvalidation.mdx)
+- **Bài tiếp theo:** [16.10 — 9. Chiến lược test](16.10-testing-strategy-overview.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

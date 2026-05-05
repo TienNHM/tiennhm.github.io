@@ -1,0 +1,63 @@
+---
+title: "19.3 — 2. BenchmarkDotNet"
+sidebar_position: 3
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 19.3 — 2. BenchmarkDotNet
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+Dùng cho **so sánh thuật toán** hoặc **hot path nhỏ** (serialization, mapping, regex).
+
+```csharp
+[MemoryDiagnoser]
+public class LinqVsForLoop
+{
+    private readonly int[] _data = Enumerable.Range(0, 10_000).ToArray();
+
+    [Benchmark]
+    public int SumLinq() => _data.Sum();
+
+    [Benchmark(Baseline = true)]
+    public int SumFor()
+    {
+        int s = 0;
+        for (int i = 0; i < _data.Length; i++) s += _data[i];
+        return s;
+    }
+}
+```
+
+**Lưu ý**: benchmark micro không thay thế profile toàn endpoint — HTTP + EF + network khác hẳn.
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [19.2 — 1. Nguyên tắc: đo trước, đo sau](19.2-measure-before-and-after.mdx)
+- **Bài tiếp theo:** [19.4 — 3. Profiling trên .NET server](19.4-dotnet-server-profiling.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

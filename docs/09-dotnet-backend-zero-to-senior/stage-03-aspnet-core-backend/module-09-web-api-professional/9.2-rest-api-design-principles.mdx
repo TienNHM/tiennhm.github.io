@@ -1,0 +1,91 @@
+---
+title: "9.2 — 1. REST API Design Principles"
+sidebar_position: 2
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 9.2 — 1. REST API Design Principles
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 1.1 Nguyên tắc cốt lõi
+
+REST (Representational State Transfer) dựa trên các ràng buộc: **stateless**, **client-server**, **cacheable**, **uniform interface**, **layered system**.
+
+**Resource-based URL** — URL định danh tài nguyên, không phải hành động:
+
+```
+# Đúng
+GET    /api/v1/customers
+GET    /api/v1/customers/{id}
+POST   /api/v1/customers
+PUT    /api/v1/customers/{id}
+PATCH  /api/v1/customers/{id}
+DELETE /api/v1/customers/{id}
+
+# Nested resource
+GET    /api/v1/customers/{id}/contacts
+POST   /api/v1/customers/{id}/contacts
+
+# Sai (hành động trong URL)
+POST   /api/v1/getCustomers
+POST   /api/v1/deleteCustomer
+```
+
+**HTTP verbs đúng chỗ:**
+
+| Verb   | Mục đích              | Idempotent | Safe |
+|--------|-----------------------|------------|------|
+| GET    | Đọc dữ liệu           | Có         | Có   |
+| POST   | Tạo mới               | Không      | Không|
+| PUT    | Thay thế toàn bộ      | Có         | Không|
+| PATCH  | Cập nhật một phần     | Không      | Không|
+| DELETE | Xóa                   | Có         | Không|
+
+### 1.2 10 Golden Rules REST
+
+| #  | Quy tắc |
+|----|---------|
+| 1  | Dùng danh từ số nhiều cho resource: `/customers`, `/orders` |
+| 2  | Dùng HTTP verbs thay vì động từ trong URL |
+| 3  | Trả về status code đúng: 200, 201, 204, 400, 404, 409, 422, 500 |
+| 4  | Versioning từ ngày đầu: `/api/v1/...` |
+| 5  | Pagination bắt buộc với danh sách |
+| 6  | Dùng HTTPS, không bao giờ HTTP cho production |
+| 7  | Xác thực lỗi rõ ràng: `{ errors: [...] }` |
+| 8  | Stateless — mỗi request chứa đủ thông tin |
+| 9  | Hỗ trợ filtering, sorting, field selection |
+| 10 | Tài liệu hóa API (OpenAPI/Swagger) |
+
+> **HATEOAS** (Hypermedia As The Engine Of Application State) — cấp độ cao nhất của REST: mỗi response trả về links dẫn đến các action liên quan. Trong thực tế enterprise ít dùng toàn bộ, nhưng nên trả về `_links` cho pagination.
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [9.1 — Module Orientation](9.1-module-orientation.mdx)
+- **Bài tiếp theo:** [9.3 — 2. API Versioning](9.3-api-versioning.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

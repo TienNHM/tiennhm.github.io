@@ -1,0 +1,251 @@
+---
+title: "3.15 — Review and Assessment"
+sidebar_position: 15
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 3.15 — Review and Assessment
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 3.17 — Thực hành
+
+### Bài 1 — Khởi tạo repo CRM (Cơ bản)
+
+```bash
+# Tạo thư mục và init git
+mkdir crm-backend && cd crm-backend
+git init
+
+# Tạo .NET Web API project
+dotnet new webapi -n CrmBackend
+cd CrmBackend
+
+# Tạo .gitignore cho .NET
+dotnet new gitignore
+
+# Commit đầu tiên
+git add .
+git commit -m "chore: initialize CRM backend project with ASP.NET Core Web API"
+
+# Tạo repo trên GitHub và push lên
+git remote add origin git@github.com:<username>/crm-backend.git
+git push -u origin main
+```
+
+**Mục tiêu:** Có repo trên GitHub với ít nhất 1 commit.
+
+### Bài 2 — Feature branch workflow (Trung bình)
+
+```bash
+# Tạo branch cho tính năng customer search
+git checkout -b feature/crm-customer-search
+
+# Tạo file CustomerController.cs đơn giản
+# ... viết code ...
+
+git add .
+git commit -m "feat(crm): add GET /api/customers/search endpoint"
+
+# Thêm unit test
+git add .
+git commit -m "test(crm): add unit tests for customer search by name"
+
+# Push và tạo PR
+git push origin feature/crm-customer-search
+# Vào GitHub → mở Pull Request → tự review → merge
+```
+
+**Mục tiêu:** Hoàn thành vòng lặp branch → commit → PR → merge.
+
+### Bài 3 — Resolve conflict (Khó)
+
+Mô phỏng conflict để luyện tập:
+
+```bash
+# Terminal 1: Tạo branch thứ nhất
+git checkout -b feature/crm-update-customer-v1
+# Sửa dòng 10 trong CustomerService.cs
+git commit -m "feat(crm): add email validation in UpdateCustomer"
+
+# Terminal 2: Tạo branch thứ hai từ cùng commit gốc
+git checkout main
+git checkout -b feature/crm-update-customer-v2
+# Sửa cùng dòng 10 trong CustomerService.cs theo cách khác
+git commit -m "feat(crm): add phone validation in UpdateCustomer"
+
+# Merge branch 1 vào main
+git checkout main
+git merge feature/crm-update-customer-v1
+
+# Merge branch 2 → conflict!
+git merge feature/crm-update-customer-v2
+# Resolve conflict, sau đó:
+git add src/Services/CustomerService.cs
+git commit -m "fix(crm): resolve merge conflict in UpdateCustomer validation"
+```
+
+**Mục tiêu:** Resolve conflict thành công và giữ nguyên cả hai tính năng validation.
+
+### Bài 4 — Submit PR vào CRM repo mẫu (Nâng cao)
+
+1. Fork repo mẫu: `github.com/course/crm-backend-starter`
+2. Clone về máy
+3. Tạo branch `feature/crm-<tên-bạn>-customer-notes`
+4. Implement endpoint `POST /api/customers/{id}/notes`
+5. Viết ít nhất 2 unit test
+6. Commit đúng chuẩn Conventional Commits
+7. Push và mở PR vào repo mẫu với mô tả đầy đủ
+
+### 3.21 — Tóm tắt
+
+Module 3 khép lại **Stage 1 — Foundation** với ba trụ cột:
+
+| Kỹ năng | Ý nghĩa thực tế |
+|---|---|
+| Git workflow | Làm việc song song không gây hỗn loạn |
+| Branching strategy | Tách biệt rõ tính năng đang phát triển và production |
+| Conventional Commits | Lịch sử dự án trở thành tài liệu sống |
+| Pull Request & Review | Đảm bảo chất lượng code trước khi merge |
+| Debug có hệ thống | Tìm và sửa lỗi nhanh, không mò mẫm |
+
+Khi bước sang **Stage 2**, bạn sẽ bắt đầu xây dựng CRM backend thực sự với Entity Framework Core, Clean Architecture và REST API — những module đó giả định bạn đã nắm chắc Git workflow để làm việc nhóm hiệu quả.
+
+---
+
+### 3.22 — Checklist trước khi sang bài tiếp theo
+
+- Bạn đã nắm được các khái niệm chính và giải thích lại được bằng ví dụ của riêng mình.
+- Bạn đã chạy hoặc mô phỏng ít nhất một ví dụ trong bài.
+- Bạn đã hoàn thành phần quiz/lab cơ bản (hoặc ít nhất tự làm lại theo trí nhớ).
+- Bạn đã ghi lại 3 ý chính: học được gì, còn vướng gì, sẽ áp dụng ở đâu trong CRM.
+
+### 3.23 — Kiểm tra & Thực hành (100 điểm)
+
+### Bối cảnh giáo trình (mục tiêu xuyên suốt)
+
+> **Trục CRM — một mục tiêu rõ:** bạn hướng tới **CRM production** trong [From Zero → Senior .NET (Backend-first)](../../roadmap-dotnet-backend-zero-to-senior.mdx). Giáo trình **ưu tiên backend**, bám chuỗi **API → dữ liệu → vận hành → kiến trúc phân tán**, thay vì trải rộng theo hướng full-stack. Mỗi module củng cố **một lớp kỹ năng** trên **cùng một CRM học tập** bạn phát triển xuyên suốt khóa.
+
+| Chuỗi năng lực | Đóng góp vào CRM học tập |
+|----------------|--------------------------|
+| **Giai đoạn 1 — Foundation** | Đọc hiểu yêu cầu, mô hình client–server, Git — nền **collaboration** khi CRM lớn dần. |
+| **Giai đoạn 2 — C# + P1** | Domain, OOP, LINQ, async, DI — **rule nghiệp vụ & tầng ứng dụng** (Inventory là bản mẫu trước CRM). |
+| **Giai đoạn 3 — ASP.NET + P2** | Host, routing, validation, JWT, SignalR — **CRM Backend API** thực tế. |
+| **Giai đoạn 4 — Data + P3** | SQL, EF, cache, job, container — CRM **ổn định & có thể triển khai**. |
+| **Giai đoạn 5 — Senior + Final** | Clean Architecture, event/outbox, gateway, observability, perf — CRM/ERP **chịu tải & có chủ**. |
+
+#### Vai trò *giai đoạn này* trong chuỗi
+
+Foundation: tư duy lập trình, mô hình web/HTTP, Git — **đọc yêu cầu & làm việc nhóm** trước khi chạm code CRM.
+
+#### Vị trí bài học (trước / sau)
+
+| Mốc | Điểm nối trong giáo trình |
+|-----|---------------------------|
+| **Trước** | [Module 2 — Computer Science Basics](../module-02-computer-science-basics) |
+| **Tiếp theo** | [Module 4 — C# Core](../../stage-02-csharp-professional/module-04-csharp-core) |
+
+### Quy trình làm bài (hệ thống)
+
+| Bước | Việc cần làm | Output nên có |
+|------|----------------|-----------------|
+| 1 | Làm **Quiz** *trước*, tự ghi đáp án + 1 dòng lý do | Không xem đáp án; giữ bản nháp |
+| 2 | Đối chiếu **Đáp án**; sửa hiểu sai, ghi *takeaway* vào README hoặc nhật ký học | 3–5 bullet “tôi đã hiểu…” |
+| 3 | Làm **Lab** theo rubric; trong README nêu **phần CRM** nào được chạm (Lead, Customer, Deal, Billing…) | Repo / zip + ảnh `dotnet run` hoặc log |
+| 4 | **Tự chấm** theo bảng điểm; chuẩn bị 1 phút “vấn đáp” nếu mentor hỏi ngẫu nhiên | Điểm + chỗ còn yếu |
+
+---
+
+### Phần A — Quiz trắc nghiệm (20 điểm)
+
+> **Gợi ý làm bài:** mỗi câu **4 điểm**. Ưu tiên suy nghĩ *hệ quả trên CRM* (tiền, dữ liệu, đa tenant, hiệu năng, bảo mật) — không chỉ nhớ định nghĩa.
+
+Mỗi câu **4 điểm**.
+
+1. Lệnh nào tạo nhánh mới và chuyển sang nhánh đó?  
+   A. `git branch` B. `git checkout -b feature/x` hoặc `git switch -c feature/x` C. `git clone` D. `git push`  
+   > **Đáp án:** B.
+
+2. Conventional Commits: tiền tố nào cho sửa lỗi?  
+   A. `feat:` B. `fix:` C. `chore:` D. `docs:`  
+   > **Đáp án:** B.
+
+3. Sau khi resolve conflict, bước bắt buộc trước `git commit`?  
+   A. `git pull` B. `git add` file đã sửa C. `git reset --hard` D. `git stash pop`  
+   > **Đáp án:** B.
+
+4. `.gitignore` dùng để?  
+   A. Xóa commit B. Bỏ qua file khỏi staging mặc định C. Mã hóa repo D. Gộp branch  
+   > **Đáp án:** B.
+
+5. Pull Request chủ yếu phục vụ?  
+   A. Xóa remote B. Review + CI trước merge C. Tăng tốc clone D. Backup DB  
+   > **Đáp án:** B.
+
+### Phần B — Lab thực tế (80 điểm)
+
+> **Lab & rubric:** trong README, map từng nhóm điểm rubric sang **phần CRM** (Lead, Customer, Deal, Billing, Notification…) và **artifact** (test, log, screenshot, migration).
+
+| Tiêu chí | Điểm | Ghi chú |
+|----------|------|---------|
+| Hoàn thành **Bài 1–2** (init, feature branch) — log/ảnh terminal | 30 | |
+| **Bài 3** — merge conflict: mô tả + ảnh `git log --oneline --graph` sau khi xong | 30 | |
+| **Bài 4** — mô phỏng PR: file `PULL_REQUEST_TEMPLATE.md` điền mẫu *What/Why/How to test* + link branch | 15 | Không bắt buộc repo public thật |
+| Commit message đúng Conventional Commits (≥ 3 commit trong lab) | 5 | |
+
+#### Ngưỡng tổng điểm (Quiz 20 + Lab 80)
+
+| Mức | Điểm | Ý nghĩa |
+|-----|------|---------|
+| **Đạt** | ≥ 70 | Đủ nền để học module kế mà không “lủng” kiến thức cốt lõi. |
+| **Khá** | ≥ 85 | Có minh chứng code + nêu được liên hệ CRM rõ ràng trong README. |
+| **Giỏi** | ≥ 95 | Có mở rộng / edge case / ADR ngắn / test bổ trợ (tùy rubric từng bài). |
+
+### Phần C — Reflect & nối chuỗi (không chấm điểm)
+
+Viết **5–8 câu** (README hoặc `docs/learning-log.md`):
+
+1. Kiến thức *module / project này* sẽ được **tái sử dụng trực tiếp** ở module hoặc project CRM nào tiếp theo? (ghi tên module / P2 / P3 / Final).
+2. Nếu bỏ qua phần lab, **rủi ro** lớn nhất cho CRM ở giai đoạn sau là gì?
+3. Một **quyết định kỹ thuật** (nhỏ) bạn sẵn sàng ghi thành **ADR một đoạn** sau khi làm lab.
+
+---
+
+### 3.24 — Tài liệu tham khảo
+
+- [Pro Git Book](https://git-scm.com/book/en/v2) — tài liệu Git chính thức, miễn phí
+- [Conventional Commits Specification](https://www.conventionalcommits.org/en/v1.0.0/)
+- [GitHub Flow](https://docs.github.com/en/get-started/quickstart/github-flow) — quy trình branch đơn giản phù hợp team nhỏ
+- [Git Branching Strategies](https://www.atlassian.com/git/tutorials/comparing-workflows) — so sánh GitFlow, GitHub Flow, Trunk-based
+- [Visual Studio Debugger Docs](https://learn.microsoft.com/en-us/visualstudio/debugger/debugger-feature-tour)
+- [.gitignore templates for .NET](https://github.com/github/gitignore/blob/main/VisualStudio.gitignore)
+- [roadmap.sh/backend](https://roadmap.sh/backend) — toàn cảnh kỹ năng backend developer
+
+## Bài tập tổng hợp
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [3.14 — Ví dụ thực tế nhanh](3.14-quick-real-world-example.mdx)
+- **Bài tiếp theo:** Không có (bài cuối module).
+- **Về module:** [Trang mục lục](index.mdx)

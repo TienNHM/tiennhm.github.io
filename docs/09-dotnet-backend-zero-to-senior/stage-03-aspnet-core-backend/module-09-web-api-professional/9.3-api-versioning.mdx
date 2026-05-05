@@ -1,0 +1,91 @@
+---
+title: "9.3 — 2. API Versioning"
+sidebar_position: 3
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 9.3 — 2. API Versioning
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 2.1 Các chiến lược versioning
+
+```csharp
+// Cài đặt NuGet
+// dotnet add package Asp.Versioning.Mvc
+// dotnet add package Asp.Versioning.Mvc.ApiExplorer
+
+// Program.cs
+builder.Services.AddApiVersioning(options =>
+{
+    options.DefaultApiVersion = new ApiVersion(1, 0);
+    options.AssumeDefaultVersionWhenUnspecified = true;
+    options.ReportApiVersions = true; // Header: api-supported-versions
+    options.ApiVersionReader = ApiVersionReader.Combine(
+        new UrlSegmentApiVersionReader(),           // /api/v1/customers
+        new HeaderApiVersionReader("X-Api-Version"), // Header
+        new QueryStringApiVersionReader("api-version") // ?api-version=1.0
+    );
+})
+.AddApiExplorer(options =>
+{
+    options.GroupNameFormat = "'v'VVV";
+    options.SubstituteApiVersionInUrl = true;
+});
+```
+
+### 2.2 Controller versioning
+
+```csharp
+[ApiController]
+[Route("api/v{version:apiVersion}/customers")]
+[ApiVersion("1.0")]
+public class CustomersV1Controller : ControllerBase
+{
+    [HttpGet]
+    public IActionResult GetAll() => Ok(new { version = "v1" });
+}
+
+[ApiController]
+[Route("api/v{version:apiVersion}/customers")]
+[ApiVersion("2.0")]
+[ApiVersion("1.0", Deprecated = true)] // đánh dấu deprecated
+public class CustomersV2Controller : ControllerBase
+{
+    [HttpGet]
+    public IActionResult GetAll() => Ok(new { version = "v2", enhanced = true });
+}
+```
+
+Khi version bị deprecated, header `api-deprecated-versions` sẽ được tự động trả về để client biết và migrate.
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [9.2 — 1. REST API Design Principles](9.2-rest-api-design-principles.mdx)
+- **Bài tiếp theo:** [9.4 — 3. Swagger / OpenAPI](9.4-swagger-openapi.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

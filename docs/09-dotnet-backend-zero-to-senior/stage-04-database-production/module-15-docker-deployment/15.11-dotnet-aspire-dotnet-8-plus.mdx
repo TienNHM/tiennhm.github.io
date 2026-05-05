@@ -1,0 +1,88 @@
+---
+title: "15.11 — 10. .NET Aspire (.NET 8+)"
+sidebar_position: 11
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 15.11 — 10. .NET Aspire (.NET 8+)
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### Aspire là gì?
+
+.NET Aspire là opinionated framework cho **cloud-native local development** — thay thế cho việc viết `docker-compose.yml` phức tạp khi develop.
+
+### AppHost Project
+
+```csharp
+// AppHost/Program.cs
+var builder = DistributedApplication.CreateBuilder(args);
+
+var redis = builder.AddRedis("redis");
+var sqlServer = builder.AddSqlServer("sqlserver")
+    .AddDatabase("CrmDb");
+
+builder.AddProject<Projects.CrmApi>("crm-api")
+    .WithReference(redis)
+    .WithReference(sqlServer);
+
+builder.Build().Run();
+```
+
+Khi chạy AppHost, Aspire tự động:
+- Start Redis, SQL Server container
+- Inject connection string vào API project
+- Mở **Dashboard** tại `http://localhost:15888` với logs, traces, metrics
+
+### Service Discovery
+
+Aspire inject biến môi trường theo format `services__{name}__http__0`:
+
+```csharp
+// Trong API, dùng tên service thay IP
+builder.Services.AddHttpClient("payment-service",
+    c => c.BaseAddress = new Uri("http://payment-service"));
+```
+
+### Khi nào Aspire so với Docker Compose
+
+| | .NET Aspire | Docker Compose |
+|---|---|---|
+| Mục đích | Local dev orchestration | Dev + CI + Prod |
+| Language | C# | YAML |
+| Dashboard | Built-in | Cần thêm (Portainer...) |
+| Production | Không (phụ thuộc manifest) | Có thể dùng |
+| Học curve | Thấp nếu biết C# | Thấp |
+
+Khuyến nghị: dùng Aspire cho local dev, giữ `docker-compose.yml` cho CI và staging/production đơn giản.
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [15.10 — 9. Kubernetes Intro (Awareness Level)](15.10-awareness-level.mdx)
+- **Bài tiếp theo:** [15.12 — Mở rộng và đào sâu](15.12-advanced-notes.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

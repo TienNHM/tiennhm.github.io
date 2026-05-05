@@ -1,0 +1,110 @@
+---
+title: "14.9 — 8. Message Bus Intro"
+sidebar_position: 9
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 14.9 — 8. Message Bus Intro
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### Tại sao cần Message Bus?
+
+Khi hệ thống CRM phát triển, các service cần giao tiếp mà không cần biết nhau:
+
+- **Tight coupling problem:** `CustomerService` gọi thẳng `EmailService`, `CrmSyncService`, `AuditService` → mỗi lần thêm service mới phải sửa code.
+- **Message bus giải quyết:** Publish một event, các subscriber tự xử lý độc lập.
+
+```
+CustomerService ──► [CustomerCreated Event] ──► Message Bus
+                                                    ├──► EmailService (gửi welcome email)
+                                                    ├──► CrmSyncService (đồng bộ sang CRM)
+                                                    └──► AuditService (ghi audit log)
+```
+
+### MassTransit + RabbitMQ
+
+```csharp
+// Program.cs
+builder.Services.AddMassTransit(x =>
+{
+    x.AddConsumer<CustomerCreatedConsumer>();
+
+    x.UsingRabbitMq((ctx, cfg) =>
+    {
+        cfg.Host("rabbitmq://localhost", h =>
+        {
+            h.Username("guest");
+            h.Password("guest");
+        });
+        cfg.ConfigureEndpoints(ctx);
+    });
+});
+```
+
+**Publish event:**
+
+```csharp
+public class CustomerService(IPublishEndpoint publishEndpoint, AppDbContext db)
+{
+    public async Task<Customer> CreateCustomerAsync(CreateCustomerDto dto)
+    {
+        var customer = new Customer { Name = dto.Name, Email = dto.Email };
+        db.Customers.Add(customer);
+        await db.SaveChangesAsync();
+
+        // Publish event — không cần biết ai lắng nghe
+        await publishEndpoint.Publish(new CustomerCreatedEvent(
+            customer.Id, customer.Name, customer.Email));
+
+        return customer;
+    }
+}
+```
+
+**Consume event:**
+
+```csharp
+public record CustomerCreatedEvent(int CustomerId, string Name, string Email);
+
+public class CustomerCreatedConsumer(IEmailService email) : IConsumer<CustomerCreatedEvent>
+{
+    public async Task Consume(ConsumeContext<CustomerCreatedEvent> context)
+    {
+        await email.SendWelcomeAsync(context.Message.CustomerId);
+    }
+}
+```
+
+> Module này chỉ giới thiệu khái niệm. Module 17 sẽ đi sâu vào Saga, Outbox Pattern, và distributed transaction với MassTransit.
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [14.8 — 7. Quartz.NET (Alternative Overview)](14.8-alternative-overview.mdx)
+- **Bài tiếp theo:** [14.10 — 9. Idempotency và Retry](14.10-idempotency-and-retry.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

@@ -1,0 +1,58 @@
+---
+title: "16.4 — 3. Clean Architecture (Uncle Bob) — dependency rule"
+sidebar_position: 4
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 16.4 — 3. Clean Architecture (Uncle Bob) — dependency rule
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+Ý tưởng cốt lõi: **Policies (business) không biết gì về chi tiết delivery** (Web, SQL, gRPC).
+
+Thường gom thành các vòng:
+
+1. **Entities** — luật doanh nghiệp thuần.
+2. **Use cases** — luồng ứng dụng (một chức năng user/system).
+3. **Interface adapters** — presenter, gateway, `DbContext` mapping.
+4. **Frameworks & drivers** — ASP.NET Core, EF, Serilog.
+
+Trong .NET thực tế, bạn thường thấy các project:
+
+- `Domain` — không reference gì ngoài BCL (hoặc rất ít).
+- `Application` — reference `Domain`; định nghĩa interface port (`ILeadRepository`).
+- `Infrastructure` — reference `Application` + `Domain`; implement port.
+- `Api` — reference `Application` + `Infrastructure` (composition root).
+
+**Composition root** (thường `Program.cs`) là nơi **duy nhất** “nối dây” implementation vào interface.
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [16.3 — 2. Layered architecture (cổ điển nhưng vẫn hữu ích)](16.3-layered-architecture-still-useful.mdx)
+- **Bài tiếp theo:** [16.5 — 4. Vertical Slice Architecture (VSA)](16.5-vertical-slice-architecture.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

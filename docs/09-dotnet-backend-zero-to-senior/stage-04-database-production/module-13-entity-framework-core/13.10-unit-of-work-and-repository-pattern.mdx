@@ -1,0 +1,128 @@
+---
+title: "13.10 — 9. Unit of Work và Repository Pattern"
+sidebar_position: 10
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 13.10 — 9. Unit of Work và Repository Pattern
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### Interface
+
+```csharp
+public interface IRepository<T> where T : class
+{
+    Task<T?> GetByIdAsync(int id, CancellationToken ct = default);
+    IQueryable<T> Query();
+    void Add(T entity);
+    void Update(T entity);
+    void Remove(T entity);
+}
+
+public interface IUnitOfWork : IDisposable
+{
+    IRepository<Customer> Customers { get; }
+    IRepository<Lead> Leads { get; }
+    IRepository<Contact> Contacts { get; }
+    Task<int> SaveChangesAsync(CancellationToken ct = default);
+    Task BeginTransactionAsync();
+    Task CommitTransactionAsync();
+    Task RollbackTransactionAsync();
+}
+```
+
+### Implementation
+
+```csharp
+public class EfRepository<T> : IRepository<T> where T : class
+{
+    private readonly CrmDbContext _db;
+    private readonly DbSet<T> _set;
+
+    public EfRepository(CrmDbContext db)
+    {
+        _db = db;
+        _set = db.Set<T>();
+    }
+
+    public async Task<T?> GetByIdAsync(int id, CancellationToken ct = default)
+        => await _set.FindAsync([id], ct);
+
+    public IQueryable<T> Query() => _set.AsNoTracking();
+
+    public void Add(T entity) => _set.Add(entity);
+    public void Update(T entity) => _set.Update(entity);
+    public void Remove(T entity) => _set.Remove(entity);
+}
+
+public class UnitOfWork : IUnitOfWork
+{
+    private readonly CrmDbContext _db;
+    private IDbContextTransaction? _transaction;
+
+    public UnitOfWork(CrmDbContext db) => _db = db;
+
+    public IRepository<Customer> Customers => new EfRepository<Customer>(_db);
+    public IRepository<Lead> Leads => new EfRepository<Lead>(_db);
+    public IRepository<Contact> Contacts => new EfRepository<Contact>(_db);
+
+    public Task<int> SaveChangesAsync(CancellationToken ct = default)
+        => _db.SaveChangesAsync(ct);
+
+    public async Task BeginTransactionAsync()
+        => _transaction = await _db.Database.BeginTransactionAsync();
+
+    public async Task CommitTransactionAsync()
+    {
+        await _db.SaveChangesAsync();
+        await _transaction!.CommitAsync();
+    }
+
+    public async Task RollbackTransactionAsync()
+        => await _transaction!.RollbackAsync();
+
+    public void Dispose() => _transaction?.Dispose();
+}
+```
+
+### Khi nào dùng Repository/UoW so với DbContext trực tiếp?
+
+| Tình huống | Khuyến nghị |
+|---|---|
+| App đơn giản, CRUD | Inject `CrmDbContext` trực tiếp |
+| Cần unit test service layer (mock DB) | Repository pattern |
+| Nhiều bounded context, tách module rõ | UoW + Repository |
+| CQRS — query side | `DbContext` trực tiếp với projection |
+| CQRS — command side | Repository + UoW |
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [13.9 — 8. Concurrency Control](13.9-concurrency-control.mdx)
+- **Bài tiếp theo:** [13.11 — 10. Global Query Filters](13.11-global-query-filters.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

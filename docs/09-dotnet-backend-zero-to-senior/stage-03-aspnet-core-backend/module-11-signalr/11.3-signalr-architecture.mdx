@@ -1,0 +1,67 @@
+---
+title: "11.3 — 2. SignalR Architecture"
+sidebar_position: 3
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 11.3 — 2. SignalR Architecture
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### Các thành phần cốt lõi
+
+```
+Client (JS/TS)                  Server (ASP.NET Core)
+    │                                    │
+    │──── negotiate ──────────────────→  │
+    │←─── connectionId, transports ────  │
+    │                                    │
+    │══════ WebSocket connection ═══════ │
+    │                                    │
+    │──── InvokeMethod("Send", args) →   Hub
+    │                        ↓           │
+    │←── ReceiveMessage(data) ──────── Hub
+    │                                    │
+```
+
+**Hub**: Là class trung tâm, xử lý tất cả communication. Mỗi kết nối có `Context.ConnectionId` duy nhất.
+
+**Transport Negotiation**: SignalR thử theo thứ tự:
+1. WebSocket (nhanh nhất, cần HTTP/1.1 upgrade)
+2. Server-Sent Events (nếu WebSocket bị block)
+3. Long Polling (fallback cuối cùng)
+
+**Group**: Nhóm các connection lại để broadcast. Ví dụ: group `tenant-123`, group `sales-team`.
+
+**HubContext**: Interface cho phép code ngoài Hub (service, background job) gửi message tới client.
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [11.2 — 1. Tại sao cần Real-time?](11.2-tai-sao-can-real-time.mdx)
+- **Bài tiếp theo:** [11.4 — 3. Setup SignalR Server](11.4-setup-signalr-server.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

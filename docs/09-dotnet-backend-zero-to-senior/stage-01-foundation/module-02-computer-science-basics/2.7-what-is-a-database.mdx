@@ -1,0 +1,101 @@
+---
+title: "2.7 — 5. Cơ sở dữ liệu là gì"
+sidebar_position: 7
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 2.7 — 5. Cơ sở dữ liệu là gì
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### Relational Database so với NoSQL
+
+| Đặc điểm        | Relational (SQL)              | NoSQL                          |
+|-----------------|-------------------------------|--------------------------------|
+| Cấu trúc        | Bảng, hàng, cột (schema cố định) | Document, key-value, graph  |
+| Ví dụ           | SQL Server, PostgreSQL, MySQL | MongoDB, Redis, Elasticsearch  |
+| Thích hợp       | Dữ liệu có quan hệ phức tạp   | Dữ liệu linh hoạt, scale ngang|
+| Query           | SQL                           | API riêng của từng DB          |
+| ACID            | Có (đảm bảo toàn vẹn)         | Tùy loại                       |
+
+**Khóa học này dùng SQL Server** — phổ biến nhất trong hệ sinh thái .NET doanh nghiệp.
+
+### Cấu trúc Relational Database
+
+```
+Database: CrmDb
+│
+├── Table: Customers
+│   ├── Id (int, PRIMARY KEY)
+│   ├── Name (nvarchar)
+│   ├── Email (nvarchar, UNIQUE)
+│   └── CreatedAt (datetime)
+│
+├── Table: Orders
+│   ├── Id (int, PRIMARY KEY)
+│   ├── CustomerId (int, FOREIGN KEY → Customers.Id)
+│   ├── Amount (decimal)
+│   └── Status (nvarchar)
+│
+└── Table: Contacts
+    ├── Id (int, PRIMARY KEY)
+    ├── CustomerId (int, FOREIGN KEY → Customers.Id)
+    └── Phone (nvarchar)
+```
+
+### SQL Cơ bản
+
+```sql
+-- Lấy tất cả khách hàng
+SELECT Id, Name, Email FROM Customers;
+
+-- Lọc khách hàng VIP (ví dụ: orders > 10 triệu)
+SELECT c.Name, SUM(o.Amount) AS TotalRevenue
+FROM Customers c
+JOIN Orders o ON c.Id = o.CustomerId
+GROUP BY c.Name
+HAVING SUM(o.Amount) > 10000000;
+
+-- Thêm khách hàng mới
+INSERT INTO Customers (Name, Email, CreatedAt)
+VALUES (N'Nguyen Van A', 'a@example.com', GETDATE());
+
+-- Cập nhật email
+UPDATE Customers SET Email = 'new@example.com' WHERE Id = 42;
+
+-- Xóa khách hàng
+DELETE FROM Customers WHERE Id = 42;
+```
+
+> **Trong CRM:** Toàn bộ thông tin khách hàng, đơn hàng, lịch sử tương tác đều lưu trong SQL Server. Entity Framework Core (sẽ học ở Module 9) giúp bạn viết C# thay vì SQL thuần, nhưng hiểu SQL là bắt buộc để debug và tối ưu.
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [2.6 — 4. API và JSON](2.6-api-and-json.mdx)
+- **Bài tiếp theo:** [2.8 — 6. Authentication và Authorization](2.8-authentication-and-authorization.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

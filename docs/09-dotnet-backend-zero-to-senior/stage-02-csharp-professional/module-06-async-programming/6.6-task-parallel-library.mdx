@@ -1,0 +1,131 @@
+---
+title: "6.6 — 4. Task Parallel Library"
+sidebar_position: 6
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 6.6 — 4. Task Parallel Library
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### Task.WhenAll — chạy song song
+
+`Task.WhenAll` chờ **tất cả** tasks hoàn thành. Dùng khi các tasks độc lập nhau.
+
+```csharp
+// Gửi thông báo qua 3 kênh song song (Email + SMS + Push)
+public class NotificationService
+{
+    private readonly IEmailSender _email;
+    private readonly ISmsSender _sms;
+    private readonly IPushSender _push;
+
+    public async Task SendAllChannelsAsync(
+        NotificationRequest request,
+        CancellationToken ct = default)
+    {
+        // Tạo 3 tasks — chúng chạy song song, không await từng cái
+        var emailTask = _email.SendAsync(request.Email, request.Subject, request.Body, ct);
+        var smsTask = _sms.SendAsync(request.Phone, request.ShortMessage, ct);
+        var pushTask = _push.SendAsync(request.DeviceToken, request.PushTitle, ct);
+
+        // Chờ cả 3 hoàn thành — tổng thời gian = task chậm nhất
+        await Task.WhenAll(emailTask, smsTask, pushTask);
+    }
+
+    // Thu thập kết quả từ nhiều tasks
+    public async Task<(CustomerDto customer, List<Order> orders, CreditScore credit)>
+        GetCustomerDashboardAsync(int customerId, CancellationToken ct = default)
+    {
+        var customerTask = _customerService.GetDtoAsync(customerId, ct);
+        var ordersTask = _orderService.GetByCustomerAsync(customerId, ct);
+        var creditTask = _creditService.GetScoreAsync(customerId, ct);
+
+        await Task.WhenAll(customerTask, ordersTask, creditTask);
+
+        return (customerTask.Result, ordersTask.Result, creditTask.Result);
+    }
+}
+```
+
+### Task.WhenAny — lấy kết quả sớm nhất
+
+```csharp
+// Timeout pattern với Task.WhenAny
+public async Task<CustomerData?> GetWithTimeoutAsync(int id, CancellationToken ct)
+{
+    var fetchTask = _api.FetchCustomerAsync(id, ct);
+    var timeoutTask = Task.Delay(TimeSpan.FromSeconds(3), ct);
+
+    var completed = await Task.WhenAny(fetchTask, timeoutTask);
+
+    if (completed == timeoutTask)
+    {
+        return null; // Timeout — trả về null thay vì throw
+    }
+
+    return await fetchTask; // fetchTask đã hoàn thành, lấy kết quả
+}
+```
+
+### Parallel.ForEach so với async loop
+
+```csharp
+// SAII — Parallel.ForEach là CPU-bound, không dùng cho async I/O
+// Parallel.ForEach(customers, async c => await ProcessAsync(c)); // SAI!
+
+// ĐÚNG cho I/O-bound: async loop hoặc WhenAll
+public async Task ProcessAllCustomersAsync(List<Customer> customers, CancellationToken ct)
+{
+    // Option 1: tuần tự (đơn giản, kiểm soát tốt)
+    foreach (var customer in customers)
+    {
+        await ProcessCustomerAsync(customer, ct);
+    }
+
+    // Option 2: song song tất cả (nhanh nhưng có thể quá tải DB)
+    var tasks = customers.Select(c => ProcessCustomerAsync(c, ct));
+    await Task.WhenAll(tasks);
+
+    // Option 3: song song với giới hạn concurrency
+    var semaphore = new SemaphoreSlim(10); // tối đa 10 concurrent
+    var tasks2 = customers.Select(async c =>
+    {
+        await semaphore.WaitAsync(ct);
+        try { await ProcessCustomerAsync(c, ct); }
+        finally { semaphore.Release(); }
+    });
+    await Task.WhenAll(tasks2);
+}
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [6.5 — 3. CancellationToken](6.5-cancellationtoken.mdx)
+- **Bài tiếp theo:** [6.7 — 5. Async Patterns](6.7-async-patterns.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

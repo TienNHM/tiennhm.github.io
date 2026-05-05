@@ -1,0 +1,169 @@
+---
+title: "12.2 — 1. Database Design cho CRM"
+sidebar_position: 2
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 12.2 — 1. Database Design cho CRM
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 1.1 Schema tổng thể
+
+CRM cơ bản cần ít nhất 5 bảng cốt lõi. Thiết kế từ đầu theo hướng "viết entity → liệt kê thuộc tính → chuẩn hóa → thêm constraint":
+
+```sql
+-- =============================================
+-- USERS (nhân viên sales, admin)
+-- =============================================
+CREATE TABLE Users (
+    UserId      INT IDENTITY(1,1) PRIMARY KEY,
+    Email       NVARCHAR(256)   NOT NULL UNIQUE,
+    FullName    NVARCHAR(200)   NOT NULL,
+    Role        NVARCHAR(50)    NOT NULL DEFAULT 'SalesRep',  -- Admin, Manager, SalesRep
+    IsActive    BIT             NOT NULL DEFAULT 1,
+    CreatedAt   DATETIME2       NOT NULL DEFAULT GETUTCDATE(),
+    UpdatedAt   DATETIME2       NOT NULL DEFAULT GETUTCDATE()
+);
+
+-- =============================================
+-- CUSTOMERS (khách hàng đã ký hợp đồng)
+-- =============================================
+CREATE TABLE Customers (
+    CustomerId      INT IDENTITY(1,1) PRIMARY KEY,
+    CompanyName     NVARCHAR(300)   NOT NULL,
+    Industry        NVARCHAR(100)   NULL,
+    AnnualRevenue   DECIMAL(18,2)   NULL,
+    Country         NVARCHAR(100)   NOT NULL DEFAULT 'Vietnam',
+    AssignedToUserId INT            NULL,
+    Status          NVARCHAR(50)    NOT NULL DEFAULT 'Active',  -- Active, Inactive, Churned
+    CreatedAt       DATETIME2       NOT NULL DEFAULT GETUTCDATE(),
+    UpdatedAt       DATETIME2       NOT NULL DEFAULT GETUTCDATE(),
+    CONSTRAINT FK_Customers_Users FOREIGN KEY (AssignedToUserId)
+        REFERENCES Users(UserId) ON DELETE SET NULL
+);
+
+-- =============================================
+-- CONTACTS (người liên hệ thuộc customer)
+-- =============================================
+CREATE TABLE Contacts (
+    ContactId   INT IDENTITY(1,1) PRIMARY KEY,
+    CustomerId  INT             NOT NULL,
+    FirstName   NVARCHAR(100)   NOT NULL,
+    LastName    NVARCHAR(100)   NOT NULL,
+    Email       NVARCHAR(256)   NULL,
+    Phone       NVARCHAR(50)    NULL,
+    Title       NVARCHAR(100)   NULL,   -- CEO, CTO, Procurement Manager...
+    IsPrimary   BIT             NOT NULL DEFAULT 0,
+    CreatedAt   DATETIME2       NOT NULL DEFAULT GETUTCDATE(),
+    CONSTRAINT FK_Contacts_Customers FOREIGN KEY (CustomerId)
+        REFERENCES Customers(CustomerId) ON DELETE CASCADE
+);
+
+-- =============================================
+-- LEADS (tiềm năng chưa thành customer)
+-- =============================================
+CREATE TABLE Leads (
+    LeadId          INT IDENTITY(1,1) PRIMARY KEY,
+    CompanyName     NVARCHAR(300)   NOT NULL,
+    ContactName     NVARCHAR(200)   NULL,
+    Email           NVARCHAR(256)   NULL,
+    Phone           NVARCHAR(50)    NULL,
+    Source          NVARCHAR(100)   NULL,   -- Website, Referral, LinkedIn, Cold Call
+    Status          NVARCHAR(50)    NOT NULL DEFAULT 'New',
+                                            -- New, Contacted, Qualified, Proposal, Won, Lost
+    EstimatedValue  DECIMAL(18,2)   NULL,
+    AssignedToUserId INT            NULL,
+    ConvertedAt     DATETIME2       NULL,   -- NULL = chưa convert
+    ConvertedToCustomerId INT       NULL,
+    CreatedAt       DATETIME2       NOT NULL DEFAULT GETUTCDATE(),
+    UpdatedAt       DATETIME2       NOT NULL DEFAULT GETUTCDATE(),
+    CONSTRAINT FK_Leads_Users FOREIGN KEY (AssignedToUserId)
+        REFERENCES Users(UserId) ON DELETE SET NULL,
+    CONSTRAINT FK_Leads_Customers FOREIGN KEY (ConvertedToCustomerId)
+        REFERENCES Customers(CustomerId) ON DELETE SET NULL,
+    CONSTRAINT CK_Leads_Status CHECK (
+        Status IN ('New','Contacted','Qualified','Proposal','Won','Lost')
+    )
+);
+
+-- =============================================
+-- NOTIFICATIONS
+-- =============================================
+CREATE TABLE Notifications (
+    NotificationId  INT IDENTITY(1,1) PRIMARY KEY,
+    UserId          INT             NOT NULL,
+    Title           NVARCHAR(300)   NOT NULL,
+    Body            NVARCHAR(MAX)   NULL,
+    Type            NVARCHAR(50)    NOT NULL DEFAULT 'Info',  -- Info, Warning, Alert
+    IsRead          BIT             NOT NULL DEFAULT 0,
+    RelatedEntityType NVARCHAR(50)  NULL,   -- 'Lead', 'Customer', 'Contact'
+    RelatedEntityId INT             NULL,
+    CreatedAt       DATETIME2       NOT NULL DEFAULT GETUTCDATE(),
+    CONSTRAINT FK_Notifications_Users FOREIGN KEY (UserId)
+        REFERENCES Users(UserId) ON DELETE CASCADE
+);
+```
+
+### 1.2 Chuẩn hóa (Normalization) thực tế
+
+Chuẩn hóa không phải học thuật — mục tiêu là **tránh dị thường dữ liệu** khi insert/update/delete:
+
+| Dạng chuẩn | Quy tắc đơn giản | Ví dụ vi phạm trong CRM |
+|------------|-----------------|------------------------|
+| **1NF** | Mỗi ô chứa một giá trị nguyên tử, không có cột lặp | Lưu `Phone1, Phone2, Phone3` thay vì bảng `ContactPhones` |
+| **2NF** | Mọi cột non-key phụ thuộc vào toàn bộ PK (quan trọng với composite PK) | Bảng `LeadContacts(LeadId, ContactId, ContactEmail)` — email phụ thuộc ContactId thôi |
+| **3NF** | Không có phụ thuộc bắc cầu (A → B → C mà C không phụ thuộc trực tiếp A) | `Customers(CustomerId, CountryCode, CountryName)` — CountryName phụ thuộc CountryCode, không phụ thuộc CustomerId |
+
+**Thực tế:** Denormalize có chủ đích ở bảng report/analytics để tránh JOIN quá nhiều là hợp lý — quan trọng là có lý do rõ ràng.
+
+### 1.3 Primary Key Strategy
+
+| Chiến lược | Ưu điểm | Nhược điểm | Khi nào dùng |
+|-----------|---------|-----------|-------------|
+| `INT IDENTITY` | Nhỏ gọn, clustered index hiệu quả, dễ đọc | Lộ sequence, khó merge data từ nhiều nguồn | API nội bộ, bảng lớn write-heavy |
+| `UNIQUEIDENTIFIER` (GUID v4) | Globally unique, không đoán được | 16 bytes, gây page fragmentation nghiêm trọng | Tránh nếu có thể |
+| `NEWSEQUENTIALID()` / `uuid_generate_v7()` | GUID nhưng monotonically increasing | Phụ thuộc SQL Server default / PostgreSQL extension | Cần GUID nhưng muốn clustered index tốt |
+
+**Khuyến nghị cho CRM:** Dùng `INT IDENTITY` cho tất cả bảng chính. Nếu cần expose ra API public thì map sang GUID ở tầng application (không để GUID làm clustered PK).
+
+### 1.4 Foreign Key Cascade
+
+```sql
+-- ON DELETE CASCADE  → xóa Customer thì xóa luôn Contacts
+-- ON DELETE SET NULL → xóa User thì Lead không mất, chỉ unassign
+-- ON DELETE RESTRICT (mặc định) → báo lỗi nếu còn con
+```
+
+Trong CRM: `Contacts` dùng CASCADE (contact không có nghĩa nếu không có customer). `Leads.AssignedToUserId` dùng SET NULL (lead vẫn tồn tại dù nhân viên nghỉ).
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [12.1 — Module Orientation](12.1-module-orientation.mdx)
+- **Bài tiếp theo:** [12.3 — 2. SQL Server so với PostgreSQL](12.3-sql-server-vs-postgresql.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

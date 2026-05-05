@@ -1,0 +1,277 @@
+---
+title: "5.13 — Review and Assessment"
+sidebar_position: 13
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 5.13 — Review and Assessment
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 5.16 — Thực hành
+
+### Bài 1 — Refactor `CustomerService` God Class
+
+**Yêu cầu:** File `CustomerService.cs` hiện tại có 400 dòng gồm: CRUD, gửi email, tính loyalty point, export CSV, ghi audit log.
+
+Refactor thành:
+- `CustomerCrudService` — chỉ CRUD
+- `LoyaltyService` — tính và cập nhật điểm
+- `CustomerAuditService` — ghi log
+- `CustomerExportService` — export CSV
+- Dùng event để trigger email thay vì gọi trực tiếp
+
+Checklist:
+- [ ] Mỗi class không quá 80 dòng
+- [ ] Không class nào `new()` dependency trực tiếp
+- [ ] Có unit test cho từng class (mock dependency qua interface)
+
+---
+
+### Bài 2 — LINQ Thống Kê CRM
+
+Cho `AppDbContext` có: `Customers`, `Leads`, `Deals`. Viết các query sau:
+
+```csharp
+// 1. Tổng doanh thu theo từng tháng trong năm hiện tại
+var monthlyRevenue = await context.Deals
+    .Where(d => d.Status == DealStatus.Won && d.ClosedDate.Year == DateTime.Today.Year)
+    .GroupBy(d => d.ClosedDate.Month)
+    .Select(g => new MonthlyRevenueDto
+    {
+        Month   = g.Key,
+        Revenue = g.Sum(d => d.Value),
+        Deals   = g.Count()
+    })
+    .OrderBy(r => r.Month)
+    .ToListAsync();
+
+// 2. Top 5 khách hàng theo tổng giá trị deal đã thắng
+var top5 = await context.Customers
+    .Select(c => new
+    {
+        c.Name,
+        TotalRevenue = c.Deals
+            .Where(d => d.Status == DealStatus.Won)
+            .Sum(d => d.Value)
+    })
+    .OrderByDescending(c => c.TotalRevenue)
+    .Take(5)
+    .ToListAsync();
+
+// 3. Lead conversion rate theo nguồn (source)
+var conversionRate = await context.Leads
+    .GroupBy(l => l.Source)
+    .Select(g => new
+    {
+        Source     = g.Key,
+        Total      = g.Count(),
+        Converted  = g.Count(l => l.Status == LeadStatus.Converted),
+        Rate       = g.Count(l => l.Status == LeadStatus.Converted) * 100.0 / g.Count()
+    })
+    .OrderByDescending(r => r.Rate)
+    .ToListAsync();
+```
+
+---
+
+### Bài 3 — Generic `PagedResult<T>` và `Result<T>` Error Handling
+
+```csharp
+// Mở rộng EfRepository để trả PagedResult
+public async Task<PagedResult<T>> GetPagedAsync(
+    ISpecification<T> spec, int page, int pageSize)
+{
+    var query = _set.AsQueryable();
+
+    if (spec.Criteria is not null)
+        query = query.Where(spec.Criteria);
+
+    if (spec.OrderBy is not null)
+        query = query.OrderBy(spec.OrderBy);
+
+    var total = await query.CountAsync();
+    var items = await query.ApplyPaging(page, pageSize).ToListAsync();
+
+    return new PagedResult<T>(items, page, pageSize, total);
+}
+
+// Service dùng Result<T> để tránh exception-driven flow
+public async Task<Result<PagedResult<LeadDto>>> GetLeadsAsync(LeadQuery query)
+{
+    if (query.Page < 1)
+        return Result<PagedResult<LeadDto>>.Fail("Page phải >= 1");
+
+    var spec = new LeadSpecification(query);
+    var paged = await _repo.GetPagedAsync(spec, query.Page, query.PageSize);
+    var dtos  = paged.Items.Select(LeadDto.From).ToList();
+
+    return Result<PagedResult<LeadDto>>.Ok(new PagedResult<LeadDto>(dtos, paged.Page, paged.PageSize, paged.TotalCount));
+}
+
+// Controller xử lý Result
+[HttpGet]
+public async Task<IActionResult> GetLeads([FromQuery] LeadQuery query)
+{
+    var result = await _leadService.GetLeadsAsync(query);
+    return result.IsSuccess
+        ? Ok(result.Value)
+        : BadRequest(new { error = result.Error });
+}
+```
+
+---
+
+### 5.20 — Tóm tắt
+
+| Chủ đề | Điểm mấu chốt |
+|---|---|
+| SOLID | 5 nguyên lý giúp code mở rộng không phá code cũ |
+| Generics | `Repository<T>`, `PagedResult<T>`, `Result<T>` là pattern dùng xuyên suốt app |
+| LINQ | Deferred execution — luôn `.ToList()` khi cần snapshot; ưu tiên method syntax |
+| Delegates/Events | `Action`, `Func` cho callback; event pattern để decouple service |
+| Extension Methods | Đặt trong `*Extensions.cs`, phải là `static class`, `static method`, `this` param đầu |
+| Nullable Reference Types | Bật `<Nullable>enable</Nullable>` ngay từ đầu project, dùng `?` rõ ràng |
+| Expression Trees | Dùng khi cần dynamic query; tránh Reflection trong hot path |
+| Tuples | Tiện cho giá trị trả về nội bộ; dùng class/record khi có domain meaning |
+
+---
+
+### 5.21 — Checklist trước khi sang bài tiếp theo
+
+- Bạn đã nắm được các khái niệm chính và giải thích lại được bằng ví dụ của riêng mình.
+- Bạn đã chạy hoặc mô phỏng ít nhất một ví dụ trong bài.
+- Bạn đã hoàn thành phần quiz/lab cơ bản (hoặc ít nhất tự làm lại theo trí nhớ).
+- Bạn đã ghi lại 3 ý chính: học được gì, còn vướng gì, sẽ áp dụng ở đâu trong CRM.
+
+### 5.22 — Kiểm tra & Thực hành (100 điểm)
+
+### Bối cảnh giáo trình (mục tiêu xuyên suốt)
+
+> **Trục CRM — một mục tiêu rõ:** bạn hướng tới **CRM production** trong [From Zero → Senior .NET (Backend-first)](../../roadmap-dotnet-backend-zero-to-senior.mdx). Giáo trình **ưu tiên backend**, bám chuỗi **API → dữ liệu → vận hành → kiến trúc phân tán**, thay vì trải rộng theo hướng full-stack. Mỗi module củng cố **một lớp kỹ năng** trên **cùng một CRM học tập** bạn phát triển xuyên suốt khóa.
+
+| Chuỗi năng lực | Đóng góp vào CRM học tập |
+|----------------|--------------------------|
+| **Giai đoạn 1 — Foundation** | Đọc hiểu yêu cầu, mô hình client–server, Git — nền **collaboration** khi CRM lớn dần. |
+| **Giai đoạn 2 — C# + P1** | Domain, OOP, LINQ, async, DI — **rule nghiệp vụ & tầng ứng dụng** (Inventory là bản mẫu trước CRM). |
+| **Giai đoạn 3 — ASP.NET + P2** | Host, routing, validation, JWT, SignalR — **CRM Backend API** thực tế. |
+| **Giai đoạn 4 — Data + P3** | SQL, EF, cache, job, container — CRM **ổn định & có thể triển khai**. |
+| **Giai đoạn 5 — Senior + Final** | Clean Architecture, event/outbox, gateway, observability, perf — CRM/ERP **chịu tải & có chủ**. |
+
+#### Vai trò *giai đoạn này* trong chuỗi
+
+C# professional + **Project 1 (Inventory)**: OOP, LINQ, async, DI — **domain & rule nghiệp vụ** giống tầng lõi CRM/ERP.
+
+#### Vị trí bài học (trước / sau)
+
+| Mốc | Điểm nối trong giáo trình |
+|-----|---------------------------|
+| **Trước** | [Module 4 — C# Core](../module-04-csharp-core) |
+| **Tiếp theo** | [Module 6 — Async Programming](../module-06-async-programming) |
+
+### Quy trình làm bài (hệ thống)
+
+| Bước | Việc cần làm | Output nên có |
+|------|----------------|-----------------|
+| 1 | Làm **Quiz** *trước*, tự ghi đáp án + 1 dòng lý do | Không xem đáp án; giữ bản nháp |
+| 2 | Đối chiếu **Đáp án**; sửa hiểu sai, ghi *takeaway* vào README hoặc nhật ký học | 3–5 bullet “tôi đã hiểu…” |
+| 3 | Làm **Lab** theo rubric; trong README nêu **phần CRM** nào được chạm (Lead, Customer, Deal, Billing…) | Repo / zip + ảnh `dotnet run` hoặc log |
+| 4 | **Tự chấm** theo bảng điểm; chuẩn bị 1 phút “vấn đáp” nếu mentor hỏi ngẫu nhiên | Điểm + chỗ còn yếu |
+
+---
+
+### Phần A — Quiz trắc nghiệm (20 điểm)
+
+> **Gợi ý làm bài:** mỗi câu **4 điểm**. Ưu tiên suy nghĩ *hệ quả trên CRM* (tiền, dữ liệu, đa tenant, hiệu năng, bảo mật) — không chỉ nhớ định nghĩa.
+
+Mỗi câu **4 điểm**.
+
+1. LINQ deferred execution nghĩa là?  
+   A. Query chạy ngay khi viết B. Query thực thi khi enumerate (`.ToList()`, `foreach`…) C. Luôn chạy trên GPU D. Không áp dụng cho `IEnumerable`  
+   > **Đáp án:** B.
+
+2. `Func<T, bool>` trong `Where` là ví dụ của?  
+   A. Event B. Delegate C. Attribute D. Indexer  
+   > **Đáp án:** B.
+
+3. Nullable Reference Types (`<Nullable>enable`) giúp?  
+   A. Biến null thành số B. Cảnh báo/reference analysis cho null an toàn hơn C. Tắt GC D. Thay thế `async`  
+   > **Đáp án:** B.
+
+4. Extension method bắt buộc khai báo trong?  
+   A. `static class` với tham số đầu `this T` B. Instance class bất kỳ C. `record` sealed D. File `.resx`  
+   > **Đáp án:** A.
+
+5. Expression tree khác lambda “thường” ở chỗ?  
+   A. Luôn nhanh hơn B. Có thể inspect/build runtime (IQueryable) C. Không compile D. Chỉ dùng trong WinForms  
+   > **Đáp án:** B.
+
+### Phần B — Lab thực tế (80 điểm)
+
+> **Lab & rubric:** trong README, map từng nhóm điểm rubric sang **phần CRM** (Lead, Customer, Deal, Billing, Notification…) và **artifact** (test, log, screenshot, migration).
+
+| Tiêu chí | Điểm | Ghi chú |
+|----------|------|---------|
+| 10+ `Customer`/`Lead` giả: LINQ **lọc, sắp, group** (method syntax) | 30 | |
+| Extension method thực tế (ví dụ `IsVip(this Customer c)`) | 15 | |
+| Event demo: `OrderPlaced` + 2 subscriber in log | 15 | |
+| Bật Nullable Reference Types trong csproj, sửa hoặc giải thích warning chính (ảnh build) | 10 | |
+| README + output mẫu | 10 | |
+
+#### Ngưỡng tổng điểm (Quiz 20 + Lab 80)
+
+| Mức | Điểm | Ý nghĩa |
+|-----|------|---------|
+| **Đạt** | ≥ 70 | Đủ nền để học module kế mà không “lủng” kiến thức cốt lõi. |
+| **Khá** | ≥ 85 | Có minh chứng code + nêu được liên hệ CRM rõ ràng trong README. |
+| **Giỏi** | ≥ 95 | Có mở rộng / edge case / ADR ngắn / test bổ trợ (tùy rubric từng bài). |
+
+### Phần C — Reflect & nối chuỗi (không chấm điểm)
+
+Viết **5–8 câu** (README hoặc `docs/learning-log.md`):
+
+1. Kiến thức *module / project này* sẽ được **tái sử dụng trực tiếp** ở module hoặc project CRM nào tiếp theo? (ghi tên module / P2 / P3 / Final).
+2. Nếu bỏ qua phần lab, **rủi ro** lớn nhất cho CRM ở giai đoạn sau là gì?
+3. Một **quyết định kỹ thuật** (nhỏ) bạn sẵn sàng ghi thành **ADR một đoạn** sau khi làm lab.
+
+---
+
+### 5.23 — Tài liệu tham khảo
+
+- [SOLID Principles — Microsoft Docs](https://docs.microsoft.com/dotnet/architecture/modern-web-apps-azure/architectural-principles)
+- [Generics — C# Programming Guide](https://learn.microsoft.com/dotnet/csharp/programming-guide/generics/)
+- [LINQ Overview](https://learn.microsoft.com/dotnet/csharp/linq/)
+- [Delegates and Events](https://learn.microsoft.com/dotnet/csharp/delegates-overview)
+- [Nullable Reference Types](https://learn.microsoft.com/dotnet/csharp/nullable-references)
+- [Expression Trees](https://learn.microsoft.com/dotnet/csharp/expression-trees)
+- [Tuples](https://learn.microsoft.com/dotnet/csharp/language-reference/builtin-types/value-tuples)
+- [C# Coding Conventions](https://learn.microsoft.com/dotnet/csharp/fundamentals/coding-style/coding-conventions)
+
+## Bài tập tổng hợp
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [5.12 — Ví dụ thực tế nhanh](5.12-quick-real-world-example.mdx)
+- **Bài tiếp theo:** Không có (bài cuối module).
+- **Về module:** [Trang mục lục](index.mdx)

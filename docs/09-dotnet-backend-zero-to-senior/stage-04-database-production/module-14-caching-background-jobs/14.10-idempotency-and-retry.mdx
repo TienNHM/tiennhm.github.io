@@ -1,0 +1,144 @@
+---
+title: "14.10 — 9. Idempotency và Retry"
+sidebar_position: 10
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 14.10 — 9. Idempotency và Retry
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### Idempotency Key
+
+Đảm bảo một operation được thực hiện đúng một lần dù retry nhiều lần:
+
+```csharp
+public class IdempotentEmailService(IDistributedCache cache, IEmailSender sender)
+{
+    public async Task SendAsync(string idempotencyKey, EmailMessage message)
+    {
+        var lockKey = $"email_sent_{idempotencyKey}";
+
+        // Kiểm tra đã gửi chưa
+        if (await cache.GetStringAsync(lockKey) is not null)
+        {
+            // Đã gửi rồi, bỏ qua
+            return;
+        }
+
+        await sender.SendAsync(message);
+
+        // Đánh dấu đã gửi — giữ 24h
+        await cache.SetStringAsync(lockKey, "1",
+            new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(24)
+            });
+    }
+}
+```
+
+### Polly — Retry, Circuit Breaker, Timeout
+
+```csharp
+// Program.cs — đăng ký policies
+builder.Services.AddResiliencePipeline("email-service", pipeline =>
+{
+    pipeline
+        // Retry 3 lần với exponential backoff
+        .AddRetry(new RetryStrategyOptions
+        {
+            MaxRetryAttempts = 3,
+            BackoffType = DelayBackoffType.Exponential,
+            Delay = TimeSpan.FromSeconds(1),
+            OnRetry = args =>
+            {
+                Console.WriteLine($"Retry {args.AttemptNumber}: {args.Outcome.Exception?.Message}");
+                return default;
+            }
+        })
+        // Circuit breaker: ngắt sau 5 lỗi trong 30 giây
+        .AddCircuitBreaker(new CircuitBreakerStrategyOptions
+        {
+            FailureRatio = 0.5,
+            SamplingDuration = TimeSpan.FromSeconds(30),
+            MinimumThroughput = 5,
+            BreakDuration = TimeSpan.FromSeconds(15)
+        })
+        // Timeout mỗi lần gọi
+        .AddTimeout(TimeSpan.FromSeconds(5));
+});
+```
+
+**Sử dụng trong service:**
+
+```csharp
+public class ExternalEmailService(
+    ResiliencePipelineProvider<string> pipelineProvider,
+    HttpClient http)
+{
+    public async Task<bool> SendAsync(EmailMessage message, CancellationToken ct = default)
+    {
+        var pipeline = pipelineProvider.GetPipeline("email-service");
+
+        return await pipeline.ExecuteAsync(async token =>
+        {
+            var response = await http.PostAsJsonAsync("/api/send", message, token);
+            response.EnsureSuccessStatusCode();
+            return true;
+        }, ct);
+    }
+}
+```
+
+**Đăng ký HttpClient với Polly:**
+
+```csharp
+builder.Services.AddHttpClient<ExternalEmailService>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["EmailService:BaseUrl"]!);
+    client.Timeout = TimeSpan.FromSeconds(30);
+})
+.AddResilienceHandler("email-service", pipeline =>
+{
+    pipeline.AddRetry(new RetryStrategyOptions<HttpResponseMessage>
+    {
+        ShouldHandle = new PredicateBuilder<HttpResponseMessage>()
+            .Handle<HttpRequestException>()
+            .HandleResult(r => r.StatusCode >= HttpStatusCode.InternalServerError),
+        MaxRetryAttempts = 3,
+        Delay = TimeSpan.FromSeconds(2)
+    });
+});
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [14.9 — 8. Message Bus Intro](14.9-message-bus-intro.mdx)
+- **Bài tiếp theo:** [14.11 — Mở rộng và đào sâu](14.11-advanced-notes.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

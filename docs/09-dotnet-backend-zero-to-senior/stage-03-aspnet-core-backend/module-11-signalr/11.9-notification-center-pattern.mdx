@@ -1,0 +1,162 @@
+---
+title: "11.9 — 8. Notification Center Pattern"
+sidebar_position: 9
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 11.9 — 8. Notification Center Pattern
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### Các thành phần
+
+```
+Domain Event → DomainEventHandler → NotificationService
+                                          │
+                                ┌─────────┴──────────┐
+                                │                    │
+                           Persist DB          Push via SignalR
+                         (Notifications       (IHubContext)
+                            table)
+```
+
+### NotificationDto và Types
+
+```csharp
+public enum NotificationType { Info, Success, Warning, Error }
+
+public record NotificationDto(
+    Guid Id,
+    string Message,
+    NotificationType Type,
+    DateTime CreatedAt,
+    bool IsRead,
+    string? EntityType = null,
+    string? EntityId = null,
+    string? ActionUrl = null
+);
+```
+
+### NotificationService
+
+```csharp
+public class NotificationService
+{
+    private readonly INotificationRepository _repo;
+    private readonly IHubContext<CrmNotificationHub, ICrmNotificationClient> _hub;
+
+    public NotificationService(
+        INotificationRepository repo,
+        IHubContext<CrmNotificationHub, ICrmNotificationClient> hub)
+    {
+        _repo = repo;
+        _hub = hub;
+    }
+
+    public async Task SendAsync(string userId, string message,
+        NotificationType type = NotificationType.Info,
+        string? entityType = null, string? entityId = null)
+    {
+        // 1. Persist
+        var notification = new Notification
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            Message = message,
+            Type = type,
+            EntityType = entityType,
+            EntityId = entityId,
+            IsRead = false,
+            CreatedAt = DateTime.UtcNow
+        };
+        await _repo.AddAsync(notification);
+
+        // 2. Real-time push (không await blocking — fire and forget với try/catch)
+        _ = _hub.Clients.User(userId)
+              .ReceiveNotification(notification.ToDto())
+              .ContinueWith(t =>
+              {
+                  if (t.IsFaulted)
+                      Console.Error.WriteLine($"Push failed: {t.Exception?.Message}");
+              });
+    }
+
+    public async Task MarkAsReadAsync(Guid notificationId, string userId)
+    {
+        var notification = await _repo.GetByIdAsync(notificationId);
+        if (notification.UserId != userId)
+            throw new UnauthorizedAccessException();
+
+        notification.IsRead = true;
+        notification.ReadAt = DateTime.UtcNow;
+        await _repo.SaveAsync();
+    }
+
+    public async Task MarkAllAsReadAsync(string userId)
+    {
+        await _repo.MarkAllAsReadAsync(userId);
+    }
+
+    public async Task<List<NotificationDto>> GetUnreadAsync(string userId, int limit = 20)
+    {
+        var items = await _repo.GetUnreadAsync(userId, limit);
+        return items.Select(n => n.ToDto()).ToList();
+    }
+}
+```
+
+### Domain Event Integration
+
+```csharp
+// Domain event
+public record LeadAssignedEvent(Guid LeadId, string LeadName,
+    string AssigneeId, string AssignedByName) : IDomainEvent;
+
+// Handler
+public class LeadAssignedEventHandler : INotificationHandler<LeadAssignedEvent>
+{
+    private readonly NotificationService _notificationService;
+
+    public async Task Handle(LeadAssignedEvent @event, CancellationToken ct)
+    {
+        await _notificationService.SendAsync(
+            userId: @event.AssigneeId,
+            message: $"{@event.AssignedByName} đã assign lead '{@event.LeadName}' cho bạn",
+            type: NotificationType.Info,
+            entityType: "Lead",
+            entityId: @event.LeadId.ToString()
+        );
+    }
+}
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [11.8 — 7. IHubContext — Server push từ ngoài Hub](11.8-ihubcontext-server-push-outside-hub.mdx)
+- **Bài tiếp theo:** [11.10 — 9. Presence — Online/Offline](11.10-presence-online-offline-status.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

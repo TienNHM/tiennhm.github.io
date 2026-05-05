@@ -1,0 +1,93 @@
+---
+title: "13.11 — 10. Global Query Filters"
+sidebar_position: 11
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 13.11 — 10. Global Query Filters
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### Soft Delete Filter
+
+```csharp
+// Trong OnModelCreating — đã thấy ở Section 2
+modelBuilder.Entity<Customer>().HasQueryFilter(c => !c.IsDeleted);
+modelBuilder.Entity<Lead>().HasQueryFilter(l => !l.IsDeleted);
+
+// Mọi query tự động thêm WHERE IsDeleted = 0
+var active = await _db.Customers.ToListAsync(); // chỉ trả về chưa xóa
+
+// Khi cần đọc cả đã xóa (admin)
+var all = await _db.Customers.IgnoreQueryFilters().ToListAsync();
+```
+
+### Multi-Tenant Filter
+
+```csharp
+public class CrmDbContext : DbContext
+{
+    private readonly ICurrentTenantService _tenantService;
+
+    public CrmDbContext(DbContextOptions<CrmDbContext> options,
+                        ICurrentTenantService tenantService) : base(options)
+    {
+        _tenantService = tenantService;
+    }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        // Kết hợp soft delete + multi-tenant
+        modelBuilder.Entity<Customer>().HasQueryFilter(c =>
+            !c.IsDeleted && c.TenantId == _tenantService.TenantId);
+
+        modelBuilder.Entity<Lead>().HasQueryFilter(l =>
+            !l.IsDeleted && l.TenantId == _tenantService.TenantId);
+    }
+}
+
+// ICurrentTenantService lấy TenantId từ JWT claim
+public class CurrentTenantService : ICurrentTenantService
+{
+    public int TenantId { get; }
+
+    public CurrentTenantService(IHttpContextAccessor accessor)
+    {
+        var claim = accessor.HttpContext?.User.FindFirst("tenant_id");
+        TenantId = claim is not null ? int.Parse(claim.Value) : 0;
+    }
+}
+```
+
+> **Lưu ý**: Global Query Filter chạy mọi query — index trên `TenantId` và `IsDeleted` là bắt buộc để tránh full scan.
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [13.10 — 9. Unit of Work và Repository Pattern](13.10-unit-of-work-and-repository-pattern.mdx)
+- **Bài tiếp theo:** [13.12 — Mở rộng và đào sâu](13.12-advanced-notes.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

@@ -1,0 +1,135 @@
+---
+title: "14.3 — 2. IMemoryCache"
+sidebar_position: 3
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 14.3 — 2. IMemoryCache
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+`IMemoryCache` lưu dữ liệu trong RAM của process — phù hợp khi chạy single server hoặc cần tốc độ tối đa.
+
+### Setup
+
+```csharp
+// Program.cs
+builder.Services.AddMemoryCache(options =>
+{
+    options.SizeLimit = 1024; // Giới hạn tổng size (tùy đơn vị bạn định nghĩa)
+});
+```
+
+### GetOrCreate — pattern cơ bản
+
+```csharp
+public class PermissionService(IMemoryCache cache, AppDbContext db)
+{
+    private const string CacheKeyPrefix = "permissions_";
+
+    public async Task<List<string>> GetUserPermissionsAsync(int userId)
+    {
+        string cacheKey = $"{CacheKeyPrefix}{userId}";
+
+        return await cache.GetOrCreateAsync(cacheKey, async entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10);
+            entry.SlidingExpiration = TimeSpan.FromMinutes(2);
+            entry.Size = 1; // Mỗi entry tốn 1 đơn vị
+
+            // Priority: dữ liệu quan trọng không bị evict sớm
+            entry.Priority = CacheItemPriority.High;
+
+            return await db.UserPermissions
+                .Where(p => p.UserId == userId)
+                .Select(p => p.PermissionCode)
+                .ToListAsync();
+        }) ?? [];
+    }
+
+    // Chủ động invalidate khi permission thay đổi
+    public void InvalidateUserPermissions(int userId)
+    {
+        cache.Remove($"{CacheKeyPrefix}{userId}");
+    }
+}
+```
+
+### MemoryCacheEntryOptions chi tiết
+
+```csharp
+var options = new MemoryCacheEntryOptions
+{
+    // Hết hạn tuyệt đối sau 30 phút kể từ khi tạo
+    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30),
+
+    // Hết hạn nếu không được truy cập trong 5 phút
+    SlidingExpiration = TimeSpan.FromMinutes(5),
+
+    // Kích thước entry (dùng với SizeLimit)
+    Size = 1,
+
+    // Callback khi entry bị evict
+    PostEvictionCallbacks = {
+        new PostEvictionCallbackRegistration
+        {
+            EvictionCallback = (key, value, reason, state) =>
+                Console.WriteLine($"Cache evicted: {key}, reason: {reason}")
+        }
+    }
+};
+```
+
+### Cache dependency — ví dụ CRM Settings
+
+```csharp
+public class CrmSettingsService(IMemoryCache cache, IConfiguration config)
+{
+    public CrmSettings GetSettings()
+    {
+        return cache.GetOrCreate("crm_settings", entry =>
+        {
+            // Reload khi IConfiguration thay đổi (linked token)
+            var changeToken = config.GetReloadToken();
+            entry.AddExpirationToken(changeToken);
+
+            return new CrmSettings
+            {
+                MaxLeadsPerAgent = config.GetValue<int>("Crm:MaxLeadsPerAgent"),
+                EmailDigestEnabled = config.GetValue<bool>("Crm:EmailDigestEnabled")
+            };
+        })!;
+    }
+}
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [14.2 — 1. Caching Fundamentals](14.2-caching-fundamentals.mdx)
+- **Bài tiếp theo:** [14.4 — 3. IDistributedCache và Redis](14.4-idistributedcache-and-redis.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

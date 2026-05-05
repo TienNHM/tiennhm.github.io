@@ -1,0 +1,58 @@
+---
+title: "17.4 — 3. Outbox pattern (ứng dụng)"
+sidebar_position: 4
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 17.4 — 3. Outbox pattern (ứng dụng)
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+**Ý tưởng**: trong **cùng transaction** với thay đổi nghiệp vụ, ghi thêm một hàng vào bảng `OutboxMessages` (payload JSON, type, createdUtc).
+
+Một **dispatcher** (background worker) đọc outbox, publish lên broker, đánh dấu `Processed` hoặc xóa.
+
+Luồng tóm tắt:
+
+```
+[Business tables + Outbox row] --single commit--> DB OK
+        ↓
+   Outbox dispatcher (poll or Debezium)
+        ↓
+   Message broker → Consumers
+```
+
+**Ưu điểm**: không mất event nếu DB commit thành công.
+
+**Chi phí**: thêm bảng + worker; cần **ordering**? có thể partition theo `aggregateId`.
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [17.3 — 2. Hai nỗi sợ cốt lõi: mất tin & gửi trùng](17.3-messaging-fears-lost-duplicates.mdx)
+- **Bài tiếp theo:** [17.5 — 4. So sánh Kafka và RabbitMQ (thực dụng)](17.5-kafka-vs-rabbitmq-pragmatic.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

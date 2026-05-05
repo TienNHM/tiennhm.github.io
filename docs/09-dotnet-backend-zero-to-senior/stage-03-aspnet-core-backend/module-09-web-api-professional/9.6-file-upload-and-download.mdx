@@ -1,0 +1,124 @@
+---
+title: "9.6 — 5. File Upload và Download"
+sidebar_position: 6
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 9.6 — 5. File Upload và Download
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 5.1 Upload avatar khách hàng
+
+```csharp
+[HttpPost("{id}/avatar")]
+[RequestSizeLimit(5 * 1024 * 1024)] // 5MB
+[ProducesResponseType(typeof(FileUploadResult), StatusCodes.Status200OK)]
+public async Task<IActionResult> UploadAvatar(int id, IFormFile file)
+{
+    // Validate
+    var allowedTypes = new[] { "image/jpeg", "image/png", "image/webp" };
+    if (!allowedTypes.Contains(file.ContentType))
+        return BadRequest("Chỉ hỗ trợ JPEG, PNG, WebP.");
+
+    if (file.Length > 5 * 1024 * 1024)
+        return BadRequest("File tối đa 5MB.");
+
+    var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+    var fileName = $"avatar-{id}-{Guid.NewGuid()}{ext}";
+
+    // Lưu disk (hoặc thay bằng Azure Blob)
+    var uploadPath = Path.Combine(_env.WebRootPath, "uploads", "avatars");
+    Directory.CreateDirectory(uploadPath);
+
+    var fullPath = Path.Combine(uploadPath, fileName);
+    await using var stream = System.IO.File.Create(fullPath);
+    await file.CopyToAsync(stream);
+
+    // Cập nhật DB
+    var customer = await _db.Customers.FindAsync(id)
+        ?? throw new NotFoundException($"Không tìm thấy customer {id}");
+    customer.AvatarUrl = $"/uploads/avatars/{fileName}";
+    await _db.SaveChangesAsync();
+
+    return Ok(new FileUploadResult(fileName, customer.AvatarUrl));
+}
+```
+
+### 5.2 Multipart form cho đính kèm tài liệu
+
+```csharp
+[HttpPost("{id}/documents")]
+[DisableRequestSizeLimit]
+public async Task<IActionResult> UploadDocuments(int id, [FromForm] DocumentUploadRequest request)
+{
+    var results = new List<FileUploadResult>();
+    foreach (var file in request.Files)
+    {
+        var result = await _fileService.SaveDocumentAsync(id, file);
+        results.Add(result);
+    }
+    return Ok(results);
+}
+
+public record DocumentUploadRequest
+{
+    public List<IFormFile> Files { get; init; } = [];
+    public string? Description { get; init; }
+}
+```
+
+### 5.3 Streaming download báo cáo
+
+```csharp
+[HttpGet("export")]
+public async Task<IActionResult> ExportCustomers([FromQuery] CustomerFilterParams @params)
+{
+    var query = _db.Customers.AsNoTracking();
+    query = _queryService.ApplyFilter(query, @params);
+
+    // Stream CSV để tránh load toàn bộ vào memory
+    var stream = new MemoryStream();
+    await using var writer = new StreamWriter(stream, leaveOpen: true);
+    await writer.WriteLineAsync("Id,Name,Email,Status,CreatedAt");
+
+    await foreach (var c in query.AsAsyncEnumerable())
+        await writer.WriteLineAsync($"{c.Id},{c.Name},{c.Email},{c.Status},{c.CreatedAt:O}");
+
+    await writer.FlushAsync();
+    stream.Position = 0;
+
+    return File(stream, "text/csv", $"customers-{DateTime.UtcNow:yyyyMMdd}.csv");
+}
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [9.5 — 4. Pagination, Filtering, Sorting](9.5-pagination-filtering-sorting.mdx)
+- **Bài tiếp theo:** [9.7 — 6. Rate Limiting (.NET 7+)](9.7-rate-limiting.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

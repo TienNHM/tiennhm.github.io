@@ -1,0 +1,89 @@
+---
+title: "5.7 — 6. Nullable Reference Types (C# 8+)"
+sidebar_position: 7
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 5.7 — 6. Nullable Reference Types (C# 8+)
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 6.1 Bật NRT trong Project
+
+```xml
+<!-- .csproj -->
+<PropertyGroup>
+  <Nullable>enable</Nullable>
+  <WarningsAsErrors>nullable</WarningsAsErrors>  <!-- Optional: biến warning thành error -->
+</PropertyGroup>
+```
+
+### 6.2 Phân Biệt `string` so với `string?`
+
+```csharp
+string  name  = null;   // ← compiler warning: CS8600
+string? name2 = null;   // ← OK, nullable được khai báo rõ ràng
+
+public Customer? FindByEmail(string email)  // return có thể null
+    => _customers.FirstOrDefault(c => c.Email == email);
+```
+
+### 6.3 Null Safety Patterns
+
+```csharp
+// Null-conditional operator ?.
+string? city = customer?.Address?.City;
+
+// Null-coalescing ?? và ??=
+string displayName = customer?.Name ?? "Khách hàng ẩn danh";
+customer.Notes ??= new List<string>(); // khởi tạo nếu null
+
+// Null-forgiving operator ! — dùng khi chắc chắn không null
+var c = _repo.GetById(id)!; // bạn đảm bảo không null ở chỗ này
+
+// Pattern matching
+if (customer is not null)
+    Console.WriteLine(customer.Name);
+
+// Guard clause — idiomatic C# 10+
+ArgumentNullException.ThrowIfNull(customer);
+
+// Khai báo non-nullable property trong entity
+public class Customer
+{
+    public required string Name  { get; init; } // C# 11 required
+    public required string Email { get; init; }
+    public string? Phone { get; set; }          // tùy chọn, có thể null
+}
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [5.6 — 5. Extension Methods](5.6-extension-methods.mdx)
+- **Bài tiếp theo:** [5.8 — 7. Expression Trees và Reflection (Overview)](5.8-overview.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

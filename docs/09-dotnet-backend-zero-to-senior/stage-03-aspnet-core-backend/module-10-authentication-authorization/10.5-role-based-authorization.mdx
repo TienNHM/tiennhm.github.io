@@ -1,0 +1,73 @@
+---
+title: "10.5 — 4. Role-based Authorization"
+sidebar_position: 5
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 10.5 — 4. Role-based Authorization
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### Định nghĩa Roles trong CRM
+
+```csharp
+public static class CrmRoles
+{
+    public const string Admin     = "Admin";      // toàn quyền
+    public const string Manager   = "Manager";    // quản lý team, approve deal
+    public const string SalesRep  = "SalesRep";   // bán hàng, chỉ data của mình
+    public const string ReadOnly  = "ReadOnly";   // xem báo cáo, không sửa
+}
+```
+
+### Dùng Attribute
+
+```csharp
+[Authorize(Roles = CrmRoles.Admin)]
+[HttpDelete("customers/{id}")]
+public async Task<IActionResult> DeleteCustomer(Guid id) { /* ... */ }
+
+// Nhiều role cùng lúc (OR logic)
+[Authorize(Roles = $"{CrmRoles.Admin},{CrmRoles.Manager}")]
+[HttpPost("deals/{id}/approve")]
+public async Task<IActionResult> ApproveDeal(Guid id) { /* ... */ }
+```
+
+### Gán roles khi tạo user
+
+```csharp
+await _userManager.CreateAsync(user, password);
+await _userManager.AddToRoleAsync(user, CrmRoles.SalesRep);
+// Roles được thêm tự động vào JWT claims qua TokenService
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [10.4 — 3. Refresh Token](10.4-refresh-token.mdx)
+- **Bài tiếp theo:** [10.6 — 5. Policy-based Authorization](10.6-policy-based-authorization.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

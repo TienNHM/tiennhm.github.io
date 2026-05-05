@@ -1,0 +1,87 @@
+---
+title: "13.9 — 8. Concurrency Control"
+sidebar_position: 9
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 13.9 — 8. Concurrency Control
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### Row Version (Timestamp)
+
+```csharp
+// Trong Customer entity — đã khai báo ở Section 2
+public byte[] RowVersion { get; set; } = Array.Empty<byte>();
+
+// Trong configuration
+builder.Property(c => c.RowVersion).IsRowVersion().IsConcurrencyToken();
+```
+
+### Xử lý DbUpdateConcurrencyException
+
+```csharp
+public async Task<Result> UpdateLeadAsync(int leadId, UpdateLeadDto dto)
+{
+    var lead = await _db.Leads.FindAsync(leadId);
+    if (lead is null) return Result.NotFound();
+
+    lead.Title = dto.Title;
+    lead.Value = dto.Value;
+    lead.Status = dto.Status;
+
+    try
+    {
+        await _db.SaveChangesAsync();
+        return Result.Ok();
+    }
+    catch (DbUpdateConcurrencyException ex)
+    {
+        var entry = ex.Entries.Single();
+        var dbValues = await entry.GetDatabaseValuesAsync();
+
+        if (dbValues is null)
+            return Result.Fail("Lead đã bị xóa bởi người dùng khác.");
+
+        // Trả về conflict info để client merge
+        var dbLead = (Lead)dbValues.ToObject();
+        return Result.Conflict(new ConcurrencyConflict(
+            ClientValue: dto,
+            DatabaseValue: new UpdateLeadDto(dbLead.Title, dbLead.Value, dbLead.Status)
+        ));
+    }
+}
+```
+
+> **Tình huống CRM thực tế**: Hai sales rep cùng mở Deal #1042, cùng cập nhật `Value`. Người lưu sau sẽ nhận `409 Conflict`, được thông báo giá trị hiện tại trong DB, tự quyết định merge hay overwrite.
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [13.8 — 7. Performance](13.8-performance.mdx)
+- **Bài tiếp theo:** [13.10 — 9. Unit of Work và Repository Pattern](13.10-unit-of-work-and-repository-pattern.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

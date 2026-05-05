@@ -1,0 +1,92 @@
+---
+title: "8.2 — 1. Kiến trúc ASP.NET Core"
+sidebar_position: 2
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 8.2 — 1. Kiến trúc ASP.NET Core
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### Từ .NET Framework sang .NET Core — Breaking Change
+
+.NET Framework là Windows-only, IIS-only, monolithic pipeline. ASP.NET Core được viết lại hoàn toàn từ đầu: cross-platform, modular, high-performance, và có thể self-host mà không cần IIS.
+
+| Đặc điểm | ASP.NET (.NET Framework) | ASP.NET Core |
+|---|---|---|
+| Platform | Windows only | Windows, Linux, macOS |
+| Web server | IIS bắt buộc | Kestrel (built-in), IIS, Nginx |
+| Pipeline | `HttpModule` / `HttpHandler` | Middleware chain |
+| DI | Không built-in | Built-in `IServiceCollection` |
+| Performance | Trung bình | Top tier (TechEmpower benchmarks) |
+| Hosting model | `Global.asax`, `web.config` | `Program.cs` minimal model |
+
+### WebApplication và Kestrel
+
+Kestrel là HTTP server mặc định của ASP.NET Core, viết bằng libuv/Socket, không phụ thuộc IIS. Trong production, Kestrel thường đứng sau reverse proxy (Nginx, IIS, YARP).
+
+### Minimal Hosting Model (Program.cs)
+
+Từ .NET 6+, `Startup.cs` bị bỏ hoàn toàn — tất cả nằm trong `Program.cs`:
+
+```csharp
+// Program.cs — .NET 6+ minimal hosting model
+var builder = WebApplication.CreateBuilder(args);
+
+// 1. Đăng ký services (DI container)
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+var app = builder.Build();
+
+// 2. Cấu hình middleware pipeline
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseHttpsRedirection();
+app.UseAuthorization();
+app.MapControllers();
+
+app.Run();
+```
+
+`WebApplication.CreateBuilder(args)` tự động:
+- Load `appsettings.json` và `appsettings.{Environment}.json`
+- Đọc environment variables và command-line args
+- Cấu hình Kestrel từ config
+- Khởi tạo DI container
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [8.1 — Module Orientation](8.1-module-orientation.mdx)
+- **Bài tiếp theo:** [8.3 — 2. Request Pipeline và Middleware](8.3-request-pipeline-and-middleware.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

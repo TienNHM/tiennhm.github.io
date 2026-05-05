@@ -1,0 +1,96 @@
+---
+title: "2.6 — 4. API và JSON"
+sidebar_position: 6
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 2.6 — 4. API và JSON
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### REST API là gì
+
+**REST (Representational State Transfer)** là kiến trúc thiết kế API phổ biến nhất, dựa trên nguyên tắc:
+
+1. **Resources qua URL**: Mỗi "tài nguyên" có URL riêng — `/customers`, `/orders`, `/contacts`
+2. **Stateless**: Mỗi request độc lập, server không nhớ state từ request trước
+3. **HTTP methods chuẩn**: Dùng đúng GET/POST/PUT/DELETE như đã nêu
+4. **JSON response**: Trả dữ liệu dạng JSON
+
+### JSON Format
+
+**JSON (JavaScript Object Notation)** là định dạng trao đổi dữ liệu phổ biến nhất hiện nay:
+
+```json
+{
+  "id": 42,
+  "name": "Nguyen Van A",
+  "email": "a@example.com",
+  "isActive": true,
+  "tags": ["vip", "enterprise"],
+  "address": {
+    "city": "Ho Chi Minh",
+    "country": "Vietnam"
+  },
+  "createdAt": "2025-01-15T08:30:00Z"
+}
+```
+
+Các kiểu dữ liệu JSON: `string`, `number`, `boolean`, `null`, `array []`, `object {}`
+
+### Serialize và Deserialize trong C#
+
+```csharp
+using System.Text.Json;
+
+// Class ánh xạ với JSON
+public class Customer
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = "";
+    public string Email { get; set; } = "";
+    public bool IsActive { get; set; }
+}
+
+// Deserialize: JSON string → C# object
+string json = """{"id":42,"name":"Nguyen Van A","email":"a@example.com","isActive":true}""";
+Customer customer = JsonSerializer.Deserialize<Customer>(json)!;
+Console.WriteLine(customer.Name); // Nguyen Van A
+
+// Serialize: C# object → JSON string
+string output = JsonSerializer.Serialize(customer);
+Console.WriteLine(output);
+```
+
+> **Trong CRM:** Mỗi lần frontend gửi form "Thêm khách hàng", dữ liệu được chuyển thành JSON, gửi lên server. ASP.NET Core tự động deserialize JSON đó thành object `Customer` C# để xử lý.
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [2.5 — 3. HTTP/HTTPS](2.5-http-https.mdx)
+- **Bài tiếp theo:** [2.7 — 5. Cơ sở dữ liệu là gì](2.7-what-is-a-database.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

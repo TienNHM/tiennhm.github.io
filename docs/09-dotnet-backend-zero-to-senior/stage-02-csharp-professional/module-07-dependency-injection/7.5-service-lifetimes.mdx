@@ -1,0 +1,121 @@
+---
+title: "7.5 — 3. Service Lifetimes"
+sidebar_position: 5
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 7.5 — 3. Service Lifetimes
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+Lifetime quyết định **khi nào** một instance mới được tạo và **bao lâu** nó tồn tại.
+
+### Bảng so sánh
+
+| Lifetime | Tạo instance | Tồn tại đến | Dùng cho |
+|----------|-------------|-------------|----------|
+| `Transient` | Mỗi lần resolve | Hết scope/request | Stateless service, lightweight operation |
+| `Scoped` | Mỗi HTTP request (scope) | Hết request | `DbContext`, Unit of Work, repository |
+| `Singleton` | Lần đầu tiên resolve | App shutdown | Cache, config, HTTP client factory |
+
+### Transient — mỗi lần resolve tạo mới
+
+```csharp
+services.AddTransient<ILeadScorer, RuleBasedLeadScorer>();
+
+// Mỗi lần GetRequiredService<ILeadScorer>() trả về instance mới
+// Phù hợp vì RuleBasedLeadScorer không giữ state
+```
+
+### Scoped — 1 instance per HTTP request
+
+```csharp
+services.AddScoped<CrmDbContext>();
+services.AddScoped<ICustomerRepository, EfCustomerRepository>();
+services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+// Trong cùng 1 request:
+// customerRepo và leadRepo dùng CÙNG DbContext instance
+// → transaction nhất quán
+```
+
+### Singleton — 1 instance suốt vòng đời app
+
+```csharp
+services.AddSingleton<ICustomerCache, InMemoryCustomerCache>();
+services.AddSingleton<ICrmConfiguration, CrmConfiguration>();
+
+// Cẩn thận: Singleton phải thread-safe!
+// Nếu dùng ConcurrentDictionary thay Dictionary là đúng hướng
+```
+
+### Lỗi Captive Dependency (Scoped-in-Singleton)
+
+```csharp
+// BUG: Singleton nhận Scoped dependency
+public class CustomerCacheRefresher
+{
+    private readonly ICustomerRepository _repo; // Scoped!
+
+    // Khi Singleton được tạo, nó "bắt giữ" 1 Scoped instance
+    // Scoped instance này sẽ KHÔNG bao giờ bị dispose
+    // → DbContext bị leak, dữ liệu stale, lỗi multi-tenant
+    public CustomerCacheRefresher(ICustomerRepository repo)
+    {
+        _repo = repo;
+    }
+}
+
+// ĐÚNG: inject IServiceScopeFactory để tạo scope thủ công
+public class CustomerCacheRefresher
+{
+    private readonly IServiceScopeFactory _scopeFactory;
+
+    public CustomerCacheRefresher(IServiceScopeFactory scopeFactory)
+    {
+        _scopeFactory = scopeFactory;
+    }
+
+    public async Task RefreshAsync()
+    {
+        // Tạo scope mới, lấy Scoped service trong scope đó
+        await using var scope = _scopeFactory.CreateAsyncScope();
+        var repo = scope.ServiceProvider.GetRequiredService<ICustomerRepository>();
+        await repo.RefreshCacheAsync();
+        // scope dispose → repo được giải phóng đúng cách
+    }
+}
+```
+
+> **Quy tắc vàng**: Singleton không bao giờ phụ thuộc trực tiếp vào Scoped/Transient service.
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [7.4 — 2. Ba cách đăng ký service](7.4-three-ways-register-services.mdx)
+- **Bài tiếp theo:** [7.6 — 4. Registering Services](7.6-registering-services.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

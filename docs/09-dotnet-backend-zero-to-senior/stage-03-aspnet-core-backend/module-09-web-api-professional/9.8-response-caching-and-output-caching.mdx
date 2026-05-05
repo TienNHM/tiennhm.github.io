@@ -1,0 +1,87 @@
+---
+title: "9.8 — 7. Response Caching và Output Caching"
+sidebar_position: 8
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 9.8 — 7. Response Caching và Output Caching
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 7.1 ResponseCache attribute
+
+```csharp
+// Cache 60s, vary theo Authorization header
+[HttpGet("{id}")]
+[ResponseCache(Duration = 60, VaryByHeader = "Authorization", Location = ResponseCacheLocation.Any)]
+public async Task<IActionResult> GetCustomer(int id) { ... }
+
+// Không cache (dữ liệu nhạy cảm)
+[HttpGet("profile")]
+[ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+public IActionResult GetProfile() { ... }
+```
+
+### 7.2 Output Caching (.NET 7+)
+
+```csharp
+// Program.cs
+builder.Services.AddOutputCache(options =>
+{
+    options.AddBasePolicy(b => b.Expire(TimeSpan.FromSeconds(10)));
+    options.AddPolicy("customers-list", b =>
+        b.Expire(TimeSpan.FromMinutes(2))
+         .SetVaryByQuery("page", "pageSize", "search", "status")
+         .Tag("customers"));
+});
+
+app.UseOutputCache();
+
+// Controller
+[HttpGet]
+[OutputCache(PolicyName = "customers-list")]
+public async Task<IActionResult> GetCustomers([FromQuery] CustomerFilterParams @params) { ... }
+
+// Invalidate cache khi có thay đổi
+[HttpPost]
+public async Task<IActionResult> CreateCustomer(
+    CreateCustomerRequest request,
+    IOutputCacheStore cache,
+    CancellationToken ct)
+{
+    // ... tạo customer
+    await cache.EvictByTagAsync("customers", ct); // xóa cache danh sách
+    return CreatedAtAction(nameof(GetCustomer), new { id = customer.Id }, customer);
+}
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [9.7 — 6. Rate Limiting (.NET 7+)](9.7-rate-limiting.mdx)
+- **Bài tiếp theo:** [9.9 — 8. API Testing](9.9-api-testing.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

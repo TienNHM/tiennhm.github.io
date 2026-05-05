@@ -1,0 +1,86 @@
+---
+title: "15.2 — 1. Docker Fundamentals"
+sidebar_position: 2
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 15.2 — 1. Docker Fundamentals
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### Container so với VM
+
+| Tiêu chí | VM | Container |
+|---|---|---|
+| Cách ly | Phần cứng ảo hóa | Process namespace |
+| Boot time | Phút | Giây |
+| Overhead | GB RAM/disk | MB |
+| Portability | Image nặng | Image nhẹ, layer |
+| Use case | Cách ly OS hoàn toàn | Microservice, app |
+
+Container chia sẻ kernel với host OS — nhẹ hơn nhiều nhưng vẫn cách ly process, network, filesystem.
+
+### Image so với Container
+
+- **Image**: bản "đóng gói" read-only, gồm nhiều layer. Là "khuôn".
+- **Container**: instance đang chạy từ image. Có writable layer trên cùng.
+
+### Layer Caching
+
+Docker build theo từng instruction trong Dockerfile. Nếu instruction không thay đổi, Docker dùng cache layer cũ — rất nhanh. Vì vậy, đặt các lệnh ít thay đổi (cài packages) trước, code copy sau.
+
+### Lệnh Docker cơ bản
+
+```bash
+# Chạy container
+docker run -d -p 8080:80 --name crm-api myrepo/crm-api:latest
+
+# Build image
+docker build -t myrepo/crm-api:latest .
+
+# Liệt kê container đang chạy
+docker ps
+
+# Xem log
+docker logs crm-api -f
+
+# Dừng và xóa container
+docker stop crm-api && docker rm crm-api
+
+# Pull image từ Docker Hub
+docker pull mcr.microsoft.com/dotnet/aspnet:8.0
+
+# Push image lên registry
+docker push myrepo/crm-api:latest
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [15.1 — Module Orientation](15.1-module-orientation.mdx)
+- **Bài tiếp theo:** [15.3 — 2. Dockerfile cho ASP.NET Core](15.3-dockerfile-for-aspnet-core.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

@@ -1,0 +1,78 @@
+---
+title: "10.10 — 9. External Login và OAuth2 (Overview)"
+sidebar_position: 10
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 10.10 — 9. External Login và OAuth2 (Overview)
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### Concept
+
+User click "Đăng nhập bằng Google" → redirect sang Google → Google trả về `code` → server đổi `code` lấy `id_token` → tạo/map user trong DB → phát JWT nội bộ.
+
+### Cấu hình Google Login
+
+```csharp
+builder.Services.AddAuthentication()
+    .AddGoogle(options =>
+    {
+        options.ClientId     = builder.Configuration["Google:ClientId"]!;
+        options.ClientSecret = builder.Configuration["Google:ClientSecret"]!;
+        options.CallbackPath = "/api/auth/google/callback";
+    });
+```
+
+### Lưu ExternalLogin
+
+```csharp
+// Kiểm tra hoặc tạo user khi callback
+var info = await _signInManager.GetExternalLoginInfoAsync();
+var result = await _signInManager.ExternalLoginSignInAsync(
+    info.LoginProvider, info.ProviderKey, isPersistent: false);
+
+if (!result.Succeeded)
+{
+    // Tạo user mới, liên kết external login
+    var user = new AppUser { Email = email, UserName = email };
+    await _userManager.CreateAsync(user);
+    await _userManager.AddLoginAsync(user, info);
+}
+
+// Phát JWT nội bộ như bình thường
+var accessToken = _tokenService.GenerateAccessToken(user, roles);
+```
+
+> Module này không đi sâu vào từng provider. Xem thêm tài liệu chính thức Microsoft Identity Platform.
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [10.9 — 8. ASP.NET Core Identity (Overview)](10.9-overview.mdx)
+- **Bài tiếp theo:** [10.11 — 10. Security Best Practices](10.11-security-best-practices.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

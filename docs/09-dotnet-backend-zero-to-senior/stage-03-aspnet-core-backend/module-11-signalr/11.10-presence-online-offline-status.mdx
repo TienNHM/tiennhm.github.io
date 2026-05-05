@@ -1,0 +1,132 @@
+---
+title: "11.10 — 9. Presence — Online/Offline"
+sidebar_position: 10
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 11.10 — 9. Presence — Online/Offline
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### Tracking connection state
+
+```csharp
+public interface IPresenceTracker
+{
+    Task UserConnectedAsync(string userId, string connectionId);
+    Task UserDisconnectedAsync(string userId, string connectionId);
+    Task<bool> IsOnlineAsync(string userId);
+    Task<List<string>> GetOnlineUsersAsync(string tenantId);
+}
+
+// In-memory implementation (không dùng cho production multi-instance)
+public class InMemoryPresenceTracker : IPresenceTracker
+{
+    // userId → set of connectionIds (user có thể mở nhiều tab)
+    private static readonly ConcurrentDictionary<string, HashSet<string>>
+        _connections = new();
+
+    public Task UserConnectedAsync(string userId, string connectionId)
+    {
+        _connections.AddOrUpdate(
+            userId,
+            _ => new HashSet<string> { connectionId },
+            (_, set) => { set.Add(connectionId); return set; });
+        return Task.CompletedTask;
+    }
+
+    public Task UserDisconnectedAsync(string userId, string connectionId)
+    {
+        if (_connections.TryGetValue(userId, out var set))
+        {
+            set.Remove(connectionId);
+            if (set.Count == 0)
+                _connections.TryRemove(userId, out _);
+        }
+        return Task.CompletedTask;
+    }
+
+    public Task<bool> IsOnlineAsync(string userId) =>
+        Task.FromResult(_connections.ContainsKey(userId) &&
+                        _connections[userId].Count > 0);
+}
+```
+
+### Override OnConnected/OnDisconnected trong Hub
+
+```csharp
+public class CrmNotificationHub : Hub<ICrmNotificationClient>
+{
+    private readonly IPresenceTracker _presenceTracker;
+
+    public override async Task OnConnectedAsync()
+    {
+        var userId = Context.UserIdentifier!;
+        var tenantId = Context.User!.FindFirstValue("tenantId")!;
+
+        await _presenceTracker.UserConnectedAsync(userId, Context.ConnectionId);
+
+        // Auto-join groups
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"tenant-{tenantId}");
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"user-{userId}");
+
+        // Broadcast presence update cho tenant group
+        await Clients.Group($"tenant-{tenantId}")
+                     .UserStatusChanged(userId, isOnline: true);
+
+        await base.OnConnectedAsync();
+    }
+
+    public override async Task OnDisconnectedAsync(Exception? exception)
+    {
+        var userId = Context.UserIdentifier!;
+        var tenantId = Context.User!.FindFirstValue("tenantId")!;
+
+        await _presenceTracker.UserDisconnectedAsync(userId, Context.ConnectionId);
+
+        var isStillOnline = await _presenceTracker.IsOnlineAsync(userId);
+
+        // Chỉ broadcast offline khi KHÔNG còn connection nào (đóng tất cả tab)
+        if (!isStillOnline)
+        {
+            await Clients.Group($"tenant-{tenantId}")
+                         .UserStatusChanged(userId, isOnline: false);
+        }
+
+        await base.OnDisconnectedAsync(exception);
+    }
+}
+```
+
+> **Lưu ý scale-out**: `InMemoryPresenceTracker` chỉ hoạt động đúng trên **một instance**. Khi deploy nhiều instance (load balancer), mỗi instance có dictionary riêng → không chính xác. Giải pháp: dùng **Redis** để lưu presence state.
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [11.9 — 8. Notification Center Pattern](11.9-notification-center-pattern.mdx)
+- **Bài tiếp theo:** [11.11 — 10. Scale-out và Production](11.11-scale-out-and-production.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

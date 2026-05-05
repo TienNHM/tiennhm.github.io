@@ -1,0 +1,220 @@
+---
+title: "9.14 — Review and Assessment"
+sidebar_position: 14
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 9.14 — Review and Assessment
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 9.16 — Thực hành
+
+### Bài 1: Customer REST API đầy đủ CRUD với Pagination + Filter + Sort
+
+Implement `CustomersController` với các endpoints:
+
+- `GET /api/v1/customers` — danh sách với `CustomerFilterParams` (search, status, createdFrom/To, sortBy, sortDir, page, pageSize).
+- `GET /api/v1/customers/{id}` — chi tiết một customer.
+- `POST /api/v1/customers` — tạo mới, trả về `201 Created` với `Location` header.
+- `PUT /api/v1/customers/{id}` — cập nhật toàn bộ.
+- `PATCH /api/v1/customers/{id}` — cập nhật một phần (dùng `JsonPatchDocument` hoặc request DTO riêng).
+- `DELETE /api/v1/customers/{id}` — xóa, trả về `204 No Content`.
+
+Yêu cầu:
+- Response envelope `PagedResponse<CustomerDto>` cho danh sách.
+- Validation với Data Annotations hoặc FluentValidation.
+- Global exception handler trả về `ProblemDetails`.
+- Swagger với XML comments và `ProducesResponseType` đầy đủ.
+
+### Bài 2: File Upload API cho Avatar và Document Attachment
+
+Implement các endpoints:
+
+- `POST /api/v1/customers/{id}/avatar` — upload ảnh đại diện (JPEG/PNG/WebP, max 5MB).
+- `DELETE /api/v1/customers/{id}/avatar` — xóa avatar.
+- `POST /api/v1/customers/{id}/documents` — upload nhiều file đính kèm (PDF, DOCX, max 20MB mỗi file).
+- `GET /api/v1/customers/{id}/documents` — danh sách tài liệu.
+- `GET /api/v1/customers/{id}/documents/{docId}/download` — download file với streaming.
+
+Yêu cầu:
+- Validate content type và kích thước file.
+- Lưu vào thư mục `wwwroot/uploads/` với tên file an toàn (GUID-based).
+- Trả về URL có thể truy cập công khai.
+- (Nâng cao) Tích hợp Azure Blob Storage với `Azure.Storage.Blobs`.
+
+### Bài 3: Integration Test với WebApplicationFactory cho Customer API
+
+Viết test suite với `xUnit` và `WebApplicationFactory`:
+
+- **Happy path:** tạo customer → lấy danh sách → lấy chi tiết → cập nhật → xóa.
+- **Validation:** POST với email sai format, tên rỗng → expect `422`.
+- **Not found:** GET/PUT/DELETE với ID không tồn tại → expect `404`.
+- **Pagination:** GET với `page=2&pageSize=5`, verify `pagination.page == 2`.
+- **Filter:** seed 10 customers với status `lead`, filter `?status=lead`, verify count.
+- **Sort:** seed customers với tên khác nhau, sort `?sortBy=name&sortDir=asc`, verify thứ tự.
+
+Yêu cầu:
+- Dùng in-memory database, seed data trong constructor hoặc `IAsyncLifetime`.
+- Mỗi test class có database riêng biệt (tránh test interference).
+- Assert cả status code lẫn body response.
+
+---
+
+### 9.20 — Tóm tắt
+
+| Chủ đề | Công nghệ / Pattern |
+|--------|---------------------|
+| REST Design | Resource URL, HTTP verbs, status codes, naming |
+| Versioning | `Asp.Versioning.Mvc`, URL / Header / Query string |
+| Documentation | Swashbuckle, XML comments, `ProducesResponseType`, OAuth2 |
+| Pagination | Offset pagination, `PagedResponse<T>`, cursor pagination |
+| Filtering/Sorting | `IQueryable`, expression-based, dynamic sort |
+| File Handling | `IFormFile`, multipart, streaming download |
+| Rate Limiting | `AddRateLimiter`, fixed/sliding window, token bucket |
+| Caching | `[ResponseCache]`, `AddOutputCache`, cache invalidation |
+| Testing | `WebApplicationFactory`, `HttpClient`, in-memory DB |
+| Background | `BackgroundService`, `IHostedService`, worker service |
+
+Module 9 hoàn thành nền tảng Web API professional. Module 10 sẽ đi sâu vào **Authentication & Authorization** với JWT, OAuth2 và policy-based access control.
+
+---
+
+### 9.21 — Checklist trước khi sang bài tiếp theo
+
+- Bạn đã nắm được các khái niệm chính và giải thích lại được bằng ví dụ của riêng mình.
+- Bạn đã chạy hoặc mô phỏng ít nhất một ví dụ trong bài.
+- Bạn đã hoàn thành phần quiz/lab cơ bản (hoặc ít nhất tự làm lại theo trí nhớ).
+- Bạn đã ghi lại 3 ý chính: học được gì, còn vướng gì, sẽ áp dụng ở đâu trong CRM.
+
+### 9.22 — Kiểm tra & Thực hành (100 điểm)
+
+### Bối cảnh giáo trình (mục tiêu xuyên suốt)
+
+> **Trục CRM — một mục tiêu rõ:** bạn hướng tới **CRM production** trong [From Zero → Senior .NET (Backend-first)](../../roadmap-dotnet-backend-zero-to-senior.mdx). Giáo trình **ưu tiên backend**, bám chuỗi **API → dữ liệu → vận hành → kiến trúc phân tán**, thay vì trải rộng theo hướng full-stack. Mỗi module củng cố **một lớp kỹ năng** trên **cùng một CRM học tập** bạn phát triển xuyên suốt khóa.
+
+| Chuỗi năng lực | Đóng góp vào CRM học tập |
+|----------------|--------------------------|
+| **Giai đoạn 1 — Foundation** | Đọc hiểu yêu cầu, mô hình client–server, Git — nền **collaboration** khi CRM lớn dần. |
+| **Giai đoạn 2 — C# + P1** | Domain, OOP, LINQ, async, DI — **rule nghiệp vụ & tầng ứng dụng** (Inventory là bản mẫu trước CRM). |
+| **Giai đoạn 3 — ASP.NET + P2** | Host, routing, validation, JWT, SignalR — **CRM Backend API** thực tế. |
+| **Giai đoạn 4 — Data + P3** | SQL, EF, cache, job, container — CRM **ổn định & có thể triển khai**. |
+| **Giai đoạn 5 — Senior + Final** | Clean Architecture, event/outbox, gateway, observability, perf — CRM/ERP **chịu tải & có chủ**. |
+
+#### Vai trò *giai đoạn này* trong chuỗi
+
+ASP.NET Core + **Project 2 (CRM API)**: pipeline, Web API, JWT, SignalR — **bề mặt backend** mà client/tenant gọi vào.
+
+#### Vị trí bài học (trước / sau)
+
+| Mốc | Điểm nối trong giáo trình |
+|-----|---------------------------|
+| **Trước** | [Module 8 — ASP.NET Core Fundamentals](../module-08-aspnet-core-fundamentals) |
+| **Tiếp theo** | [Module 10 — Authentication + Authorization](../module-10-authentication-authorization) |
+
+### Quy trình làm bài (hệ thống)
+
+| Bước | Việc cần làm | Output nên có |
+|------|----------------|-----------------|
+| 1 | Làm **Quiz** *trước*, tự ghi đáp án + 1 dòng lý do | Không xem đáp án; giữ bản nháp |
+| 2 | Đối chiếu **Đáp án**; sửa hiểu sai, ghi *takeaway* vào README hoặc nhật ký học | 3–5 bullet “tôi đã hiểu…” |
+| 3 | Làm **Lab** theo rubric; trong README nêu **phần CRM** nào được chạm (Lead, Customer, Deal, Billing…) | Repo / zip + ảnh `dotnet run` hoặc log |
+| 4 | **Tự chấm** theo bảng điểm; chuẩn bị 1 phút “vấn đáp” nếu mentor hỏi ngẫu nhiên | Điểm + chỗ còn yếu |
+
+---
+
+### Phần A — Quiz trắc nghiệm (20 điểm)
+
+> **Gợi ý làm bài:** mỗi câu **4 điểm**. Ưu tiên suy nghĩ *hệ quả trên CRM* (tiền, dữ liệu, đa tenant, hiệu năng, bảo mật) — không chỉ nhớ định nghĩa.
+
+Mỗi câu **4 điểm**.
+
+1. API versioning giúp?  
+   A. Xóa client cũ B. Thay đổi contract mà không phá vỡ consumer ngay C. Tăng tốc GC D. Bắt buộc dùng SOAP  
+   > **Đáp án:** B.
+
+2. Cursor pagination thường ưu hơn offset khi?  
+   A. Bảng nhỏ cố định B. Dataset lớn, insert giữa danh sách nhiều C. Luôn luôn D. Khi không có DB  
+   > **Đáp án:** B (tránh skip lớn).
+
+3. HATEOAS trong REST nghĩa là?  
+   A. Chỉ JSON B. Response có link điều hướng hành động tiếp theo C. Chỉ XML D. Không liên quan API  
+   > **Đáp án:** B (lý thuyết; có thể không triển khai đầy đủ).
+
+4. Output caching khác distributed cache ở?  
+   A. Giống hệt B. Output cache gắn response endpoint (thường cùng node) C. Chỉ dùng cho Blazor D. Không có trong ASP.NET Core  
+   > **Đáp án:** B (tinh thần).
+
+5. `WebApplicationFactory` dùng cho?  
+   A. Deploy Azure B. Integration test in-process host C. Tạo NuGet D. Code generator  
+   > **Đáp án:** B.
+
+### Phần B — Lab thực tế (80 điểm)
+
+> **Lab & rubric:** trong README, map từng nhóm điểm rubric sang **phần CRM** (Lead, Customer, Deal, Billing, Notification…) và **artifact** (test, log, screenshot, migration).
+
+| Tiêu chí | Điểm | Ghi chú |
+|----------|------|---------|
+| HATEOAS-lite hoặc metadata: list trả `next` cursor/link (giả) | 15 | |
+| API versioning (header, URL, hoặc package Asp.Versioning) — 2 version cùng resource | 20 | |
+| Swagger mô tả + ví dụ request | 15 | |
+| Rate limit hoặc output cache cho 1 GET | 15 | |
+| ≥ 1 integration test `WebApplicationFactory` pass | 15 | |
+
+#### Ngưỡng tổng điểm (Quiz 20 + Lab 80)
+
+| Mức | Điểm | Ý nghĩa |
+|-----|------|---------|
+| **Đạt** | ≥ 70 | Đủ nền để học module kế mà không “lủng” kiến thức cốt lõi. |
+| **Khá** | ≥ 85 | Có minh chứng code + nêu được liên hệ CRM rõ ràng trong README. |
+| **Giỏi** | ≥ 95 | Có mở rộng / edge case / ADR ngắn / test bổ trợ (tùy rubric từng bài). |
+
+### Phần C — Reflect & nối chuỗi (không chấm điểm)
+
+Viết **5–8 câu** (README hoặc `docs/learning-log.md`):
+
+1. Kiến thức *module / project này* sẽ được **tái sử dụng trực tiếp** ở module hoặc project CRM nào tiếp theo? (ghi tên module / P2 / P3 / Final).
+2. Nếu bỏ qua phần lab, **rủi ro** lớn nhất cho CRM ở giai đoạn sau là gì?
+3. Một **quyết định kỹ thuật** (nhỏ) bạn sẵn sàng ghi thành **ADR một đoạn** sau khi làm lab.
+
+---
+
+### 9.23 — Tài liệu tham khảo
+
+- [ASP.NET Core Web API documentation](https://learn.microsoft.com/aspnet/core/web-api/)
+- [Asp.Versioning.Mvc — NuGet](https://www.nuget.org/packages/Asp.Versioning.Mvc)
+- [Swashbuckle.AspNetCore — GitHub](https://github.com/domaindrivendev/Swashbuckle.AspNetCore)
+- [Output caching in ASP.NET Core](https://learn.microsoft.com/aspnet/core/performance/caching/output)
+- [Rate limiting middleware in ASP.NET Core](https://learn.microsoft.com/aspnet/core/performance/rate-limit)
+- [Integration tests in ASP.NET Core](https://learn.microsoft.com/aspnet/core/test/integration-tests)
+- [Background tasks with hosted services](https://learn.microsoft.com/aspnet/core/fundamentals/host/hosted-services)
+- [Cursor Pagination — Slack Engineering Blog](https://slack.engineering/evolving-api-pagination-at-slack/)
+
+## Bài tập tổng hợp
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [9.13 — Ví dụ thực tế nhanh](9.13-quick-real-world-example.mdx)
+- **Bài tiếp theo:** Không có (bài cuối module).
+- **Về module:** [Trang mục lục](index.mdx)

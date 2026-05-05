@@ -1,0 +1,94 @@
+---
+title: "4.6 — 5. Abstraction"
+sidebar_position: 6
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 4.6 — 5. Abstraction
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### Abstract class
+
+Dùng khi có **hành vi chung** cần chia sẻ giữa các lớp con, đồng thời ép lớp con phải implement một số phần.
+
+```csharp
+// BaseEntity.cs — abstract, không instantiate trực tiếp
+public abstract class BaseEntity
+{
+    public Guid Id { get; init; } = Guid.NewGuid();
+    public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
+    public DateTime? UpdatedAt { get; protected set; }
+    public bool IsDeleted { get; private set; }
+
+    public void MarkUpdated() => UpdatedAt = DateTime.UtcNow;
+    public void SoftDelete()
+    {
+        IsDeleted = true;
+        MarkUpdated();
+    }
+
+    // Lớp con phải tự xác định cách hiển thị
+    public abstract string GetSummary();
+}
+```
+
+### Sealed class
+
+Dùng khi **không muốn ai kế thừa tiếp** — cải thiện performance nhỏ và đảm bảo contract không bị thay đổi.
+
+```csharp
+public sealed class Money
+{
+    public decimal Amount { get; }
+    public string Currency { get; }
+
+    public Money(decimal amount, string currency)
+    {
+        if (amount < 0) throw new ArgumentException("Số tiền không âm.");
+        Amount = amount;
+        Currency = currency?.ToUpperInvariant()
+            ?? throw new ArgumentNullException(nameof(currency));
+    }
+
+    public Money Add(Money other)
+    {
+        if (Currency != other.Currency)
+            throw new InvalidOperationException("Không thể cộng hai loại tiền tệ khác nhau.");
+        return new Money(Amount + other.Amount, Currency);
+    }
+
+    public override string ToString() => $"{Amount:N0} {Currency}";
+}
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [4.5 — 4. Interface](4.5-interface.mdx)
+- **Bài tiếp theo:** [4.7 — 6. Access Modifiers](4.7-access-modifiers.mdx)
+- **Về module:** [Trang mục lục](index.mdx)
