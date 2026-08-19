@@ -15,7 +15,7 @@ import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
 
 ## Nội dung bài học
 
-### Ví dụ N+1 (SART: sẽ gây hại)
+### 13.7.1 — Ví dụ N+1 (SART: sẽ gây hại)
 
 ```csharp
 // ĐỪNG làm thế này
@@ -38,7 +38,7 @@ SELECT COUNT(*) FROM Contacts WHERE CustomerId=2 -- query #3
 ... (N thêm queries cho N customers)
 ```
 
-### Fix 1: Dùng Include
+### 13.7.2 — Fix 1: Dùng Include
 
 ```csharp
 var customers = await _db.Customers
@@ -50,7 +50,7 @@ foreach (var c in customers)
     Console.WriteLine($"{c.Name}: {c.Contacts.Count} contacts");
 ```
 
-### Fix 2: Projection (tốt hơn khi chỉ cần count)
+### 13.7.3 — Fix 2: Projection (tốt hơn khi chỉ cần count)
 
 ```csharp
 var result = await _db.Customers
@@ -62,7 +62,7 @@ var result = await _db.Customers
     .ToListAsync();
 ```
 
-### Fix 3: AsSplitQuery cho nhiều collection
+### 13.7.4 — Fix 3: AsSplitQuery cho nhiều collection
 
 ```csharp
 // Include nhiều collection → cartesian explosion
@@ -75,7 +75,7 @@ var customers = await _db.Customers
     .ToListAsync();
 ```
 
-### Bật SQL Logging để debug
+### 13.7.5 — Bật SQL Logging để debug
 
 ```csharp
 // appsettings.Development.json

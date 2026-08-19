@@ -1,9 +1,38 @@
 ---
 title: "8.3 — 2. Request Pipeline và Middleware"
 sidebar_position: 3
+description: "Request Pipeline và Middleware trong ASP.NET Core: cách middleware xếp chuỗi, short-circuit, thứ tự đăng ký và correlation/timing cho CRM backend."
+tags:
+  - aspnet-core
+  - middleware
+  - request-pipeline
+keywords:
+  - ASP.NET Core middleware
+  - request pipeline
+  - correlation id
+  - timing middleware
+  - CRM backend
+enableComments: true
+draft: false
 ---
 
 import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+<SummaryBox title="Tóm tắt (abstract)">
+Request Pipeline là “đường đi” của mỗi HTTP request qua ASP.NET Core: từ routing → middleware chain → handler, rồi ngược lại cho response.
+Trong CRM, pipeline giúp bạn chuẩn hóa logging (CorrelationId), đo latency và xử lý lỗi một cách nhất quán.
+</SummaryBox>
+<HiddenContent>
+<!-- geoseo-curriculum-nav -->
+## Liên kết điều phối (curriculum graph)
+- **Hub lộ trình**: [00. Lộ trình From Zero → Senior .NET (Backend-first)](../../roadmap-dotnet-backend-zero-to-senior.mdx)
+- **Bài trước**: [8.2 — 1. Kiến trúc ASP.NET Core](8.2-aspnet-core-architecture.mdx)
+- **Bài tiếp theo**: [8.4 — 3. Routing](8.4-routing.mdx)
+
+## Tham chiếu có thẩm quyền (E-E-A-T / retrieval)
+- [Middleware in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/middleware/)
+- [Routing in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/routing)
+</HiddenContent>
 
 # 8.3 — 2. Request Pipeline và Middleware
 
@@ -15,7 +44,7 @@ import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
 
 ## Nội dung bài học
 
-### Cách pipeline hoạt động
+### 8.3.1 — Cách pipeline hoạt động
 
 Request HTTP đi qua một chuỗi middleware theo thứ tự đăng ký, mỗi middleware có thể:
 - Xử lý request rồi **chuyển tiếp** (`await next(context)`)
@@ -26,7 +55,7 @@ Request → [MW1] → [MW2] → [MW3] → Handler
 Response ← [MW1] ← [MW2] ← [MW3] ←
 ```
 
-### Use, Run, Map
+### 8.3.2 — Use, Run, Map
 
 ```csharp
 // Use — xử lý rồi chuyển tiếp
@@ -51,7 +80,7 @@ app.Map("/health", branch =>
 });
 ```
 
-### Viết Custom Middleware — Request Timing
+### 8.3.3 — Viết Custom Middleware — Request Timing
 
 ```csharp
 // Middleware/RequestTimingMiddleware.cs
@@ -96,7 +125,7 @@ public static class RequestTimingMiddlewareExtensions
 }
 ```
 
-### Viết Custom Middleware — Correlation ID
+### 8.3.4 — Viết Custom Middleware — Correlation ID
 
 ```csharp
 // Middleware/CorrelationIdMiddleware.cs
@@ -124,7 +153,7 @@ public class CorrelationIdMiddleware
 }
 ```
 
-### Thứ tự middleware quan trọng
+### 8.3.5 — Thứ tự middleware quan trọng
 
 ```csharp
 // THỨ TỰ ĐÚNG trong Program.cs
@@ -137,6 +166,17 @@ app.UseAuthentication();            // Authn trước Authz
 app.UseAuthorization();
 app.MapControllers();
 ```
+
+## Common pitfalls
+- Đặt `UseExceptionHandler` không ở đầu pipeline → exception có thể lọt ra ngoài và bạn mất tính nhất quán cho response lỗi.
+- Gắn correlation/timing middleware quá muộn → log sớm trong pipeline không có `X-Correlation-ID`.
+- Nhầm thứ tự `UseAuthentication`/`UseAuthorization` → principal/claims không sẵn sàng, dẫn tới thiếu quyền.
+- Quên `await next(context)` hoặc trả response sớm ở middleware chain không đúng mục tiêu → handler có thể chạy thiếu bước.
+- Middleware thiết kế không idempotent (có side effects) → chạy lại/đổi thứ tự dễ gây trạng thái sai khó debug.
+
+## Ví dụ trong CRM/.NET backend
+- Khi request vào `POST /api/v1/customers`, bạn dùng `CorrelationId` để join log API với log service nền/worker để điều tra lỗi theo “customer create bị lỗi ở phút nào”.
+- Khi audit, timing middleware giúp bạn tách latency do authentication, do controller hay do truy vấn SQL (trước khi tối ưu query).
 
 ---
 

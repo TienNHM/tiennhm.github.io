@@ -1,9 +1,75 @@
 ---
 title: "12.7 — 6. Transactions và Locking"
 sidebar_position: 7
+description: "Transactions & Locking trong SQL: ACID, isolation level, deadlock, optimistic/pessimistic concurrency — áp vào chuyển đổi dữ liệu CRM một cách an toàn."
+tags:
+  - sql
+  - transactions
+  - locking
+  - isolation-level
+  - concurrency
+keywords:
+  - transactions and locking
+  - deadlock
+  - isolation level
+  - ACID
+  - optimistic concurrency
+enableComments: true
+draft: false
 ---
 
+<!--
+## Common pitfalls
+- Chọn isolation level quá “đắt” (ví dụ `SERIALIZABLE`) cho mọi truy vấn → tăng lock/contention, giảm throughput của CRM.
+- Lock theo thứ tự khác nhau giữa các transaction (lệch lock order) → dễ phát sinh deadlock.
+- Viết transaction quá dài (ôm UI/network calls bên trong) → giữ lock lâu, khiến hàng đợi tăng và gây timeouts.
+- Dùng pessimistic locking (UPDLOCK/ROWLOCK) cho use case không cần → mất lợi ích concurrency; ưu tiên optimistic + retry khi phù hợp.
+- Không kiểm tra plan/index khi update nhiều rows → tăng thời gian giữ lock và “khuếch đại” contention.
+
+## Ví dụ trong CRM/.NET backend
+- Khi chuyển một `Lead` sang `Customer`, bạn cần đảm bảo 3 thao tác atomic: tạo `Customer`, cập nhật `Leads.Status = 'Won'` và ghi `Notification` để UI hiển thị “đã convert”.
+- Nếu hai agent cùng convert cùng một lead (race condition), dùng optimistic concurrency (`RowVersion`) hoặc kiểm tra invariant trước khi commit để tránh tạo `Customer` trùng.
+- Khi gặp conflict/deadlock, bạn nên retry có giới hạn và trả lỗi rõ ràng cho client để user không nghĩ “hệ thống bị treo”.
+
+---
+title: "12.7 — 6. Transactions và Locking"
+sidebar_position: 7
+description: "Transactions & Locking trong SQL: ACID, isolation level, deadlock, optimistic/pessimistic concurrency — áp vào chuyển đổi dữ liệu CRM một cách an toàn."
+tags:
+  - sql
+  - transactions
+  - locking
+  - isolation-level
+  - concurrency
+keywords:
+  - transactions and locking
+  - deadlock
+  - isolation level
+  - ACID
+  - optimistic concurrency
+enableComments: true
+draft: false
+---
+
+-->
+
 import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+<SummaryBox title="Tóm tắt (abstract)">
+Trong SQL, transaction giúp bạn đảm bảo dữ liệu “đúng trạng thái” (ACID), còn locking/concurrency quyết định mức độ an toàn và khả năng chịu tải khi nhiều người dùng cùng thao tác.
+Bài này tập trung vào isolation levels, deadlock avoidance và các chiến lược optimistic/pessimistic phù hợp cho CRM production.
+</SummaryBox>
+<HiddenContent>
+<!-- geoseo-curriculum-nav -->
+## Liên kết điều phối (curriculum graph)
+- **Hub lộ trình**: [00. Lộ trình From Zero → Senior .NET (Backend-first)](../../roadmap-dotnet-backend-zero-to-senior.mdx)
+- **Bài trước**: [12.6 — 5. Query Optimization](12.6-query-optimization.mdx)
+- **Bài tiếp theo**: [12.8 — 7. Stored Procedures và Views](12.8-stored-procedures-and-views.mdx)
+
+## Tham chiếu có thẩm quyền (E-E-A-T / retrieval)
+- [Transactions (SQL Server)](https://learn.microsoft.com/sql/relational-databases/sql-server-transact-sql-programming-transaction)
+- [Locking and Row Versioning Guide](https://learn.microsoft.com/sql/relational-databases/sql-server-transaction-locking-and-row-versioning-guide)
+</HiddenContent>
 
 # 12.7 — 6. Transactions và Locking
 
@@ -15,7 +81,7 @@ import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
 
 ## Nội dung bài học
 
-### 6.1 ACID
+### 12.7.1 — 6.1 ACID
 
 | Thuộc tính | Ý nghĩa |
 |-----------|---------|
@@ -24,7 +90,7 @@ import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
 | **Isolation** | Transaction đang chạy không thấy thay đổi của transaction khác (ở mức độ nhất định) |
 | **Durability** | Sau khi commit, dữ liệu được lưu vĩnh viễn dù server crash |
 
-### 6.2 Isolation Levels
+### 12.7.2 — 6.2 Isolation Levels
 
 ```sql
 -- SQL Server
@@ -52,7 +118,7 @@ SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
 - **Non-repeatable read:** Đọc cùng row hai lần trong cùng transaction nhưng giá trị khác nhau (transaction khác đã update + commit giữa hai lần đọc)
 - **Phantom read:** Đọc cùng range query hai lần nhưng kết quả khác nhau (transaction khác đã insert/delete rows phù hợp điều kiện)
 
-### 6.3 Transaction trong CRM
+### 12.7.3 — 6.3 Transaction trong CRM
 
 ```sql
 -- Chuyển lead thành customer: phải atomic
@@ -88,7 +154,7 @@ BEGIN CATCH
 END CATCH;
 ```
 
-### 6.4 Deadlock Detection và Xử lý
+### 12.7.4 — 6.4 Deadlock Detection và Xử lý
 
 Deadlock xảy ra khi hai transaction chờ nhau theo vòng tròn. SQL Server tự detect và chọn một transaction làm "victim" (rollback).
 
@@ -120,7 +186,7 @@ COMMIT;
 ALTER DATABASE CrmDb SET READ_COMMITTED_SNAPSHOT ON;
 ```
 
-### 6.5 Optimistic so với Pessimistic Concurrency
+### 12.7.5 — 6.5 Optimistic so với Pessimistic Concurrency
 
 ```sql
 -- Pessimistic: lock row khi đọc (ngăn concurrent update)
@@ -142,6 +208,18 @@ AND    RowVersion = @OriginalRowVersion;
 IF @@ROWCOUNT = 0
     RAISERROR('Concurrency conflict: Lead was modified by another user.', 16, 1);
 ```
+
+## Common pitfalls
+- Chọn isolation level “quá nặng” (ví dụ `SERIALIZABLE`) cho mọi truy vấn → tăng lock/contention, giảm throughput của CRM.
+- Lock theo thứ tự khác nhau giữa các transaction (lệch lock order) → tăng xác suất deadlock.
+- Transaction quá dài (ôm UI/network calls hoặc bước không cần thiết) → giữ lock lâu, khiến hàng đợi tăng và timeouts.
+- Dùng pessimistic locking cho use case không cần → mất lợi ích concurrency; ưu tiên optimistic + retry khi phù hợp.
+- Không xem xét plan/index khi update nhiều rows → tăng thời gian giữ lock và “khuếch đại” contention.
+
+## Ví dụ trong CRM/.NET backend
+- Khi chuyển `Lead` → `Customer`, bạn cần atomic 3 bước: tạo `Customer`, cập nhật `Leads.Status = 'Won'` và ghi `Notification` để UI hiển thị “đã convert”.
+- Nếu nhiều agent cùng convert một lead (race condition), dùng optimistic concurrency (`RowVersion`) hoặc kiểm tra invariant trước khi commit để tránh tạo `Customer` trùng.
+- Nếu gặp deadlock/conflict, hãy retry có giới hạn và trả lỗi rõ ràng (để client biết nên thử lại lúc nào).
 
 ---
 

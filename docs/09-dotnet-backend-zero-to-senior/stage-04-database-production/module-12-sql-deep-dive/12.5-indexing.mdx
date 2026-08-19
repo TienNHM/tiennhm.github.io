@@ -15,7 +15,7 @@ import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
 
 ## Nội dung bài học
 
-### 4.1 Clustered so với Non-Clustered
+### 12.5.1 — 4.1 Clustered so với Non-Clustered
 
 - **Clustered index:** Quyết định thứ tự vật lý lưu trữ dữ liệu trên đĩa. Mỗi bảng chỉ có **một** clustered index. Mặc định là PRIMARY KEY.
 - **Non-clustered index:** Cấu trúc riêng biệt chứa key columns + pointer đến row trong clustered index. Một bảng có thể có nhiều non-clustered index.
@@ -30,7 +30,7 @@ CREATE NONCLUSTERED INDEX IX_Leads_Status_CreatedAt
 -- Index trên (Status, CreatedAt) phù hợp hơn (CreatedAt, Status)
 ```
 
-### 4.2 Covering Index
+### 12.5.2 — 4.2 Covering Index
 
 Covering index bao gồm tất cả cột mà query cần — loại bỏ key lookup (tra ngược về clustered index):
 
@@ -46,7 +46,7 @@ CREATE NONCLUSTERED INDEX IX_Leads_Status_CreatedAt_Covering
     INCLUDE (LeadId, CompanyName, AssignedToUserId);
 ```
 
-### 4.3 Filtered Index
+### 12.5.3 — 4.3 Filtered Index
 
 Index chỉ bao gồm subset rows — nhỏ hơn, nhanh hơn cho query có điều kiện cố định:
 
@@ -57,7 +57,7 @@ CREATE NONCLUSTERED INDEX IX_Leads_Active
     WHERE Status NOT IN ('Won', 'Lost');
 ```
 
-### 4.4 Index Scan so với Index Seek
+### 12.5.4 — 4.4 Index Scan so với Index Seek
 
 | | Index Seek | Index Scan |
 |---|---|---|
@@ -65,7 +65,7 @@ CREATE NONCLUSTERED INDEX IX_Leads_Active
 | Performance | O(log n) | O(n) |
 | Khi xảy ra | Query SARGable, index phù hợp | Non-SARGable, không có index, selectivity thấp |
 
-### 4.5 Khi nào Index hurt Performance
+### 12.5.5 — 4.5 Khi nào Index hurt Performance
 
 - Bảng **write-heavy**: mỗi INSERT/UPDATE/DELETE phải cập nhật tất cả index → overhead lớn
 - **Quá nhiều index** trên một bảng: SQL Server/Postgres phải maintain tất cả
