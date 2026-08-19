@@ -6,7 +6,6 @@ keywords: [scalar, swagger ui, swashbuckle, openapi, dotnet 10, aspnetcore, api 
 tags: [scalar, swagger, openapi, dotnet, aspnetcore, api, net10, csharp]
 authors: [tiennhm]
 date: 2026-08-19
-image: ./banner.png
 ---
 
 import { SummaryBox } from '@site/src/components/SEO';
