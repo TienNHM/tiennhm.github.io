@@ -1,0 +1,113 @@
+---
+title: "14.5 — 4. Cache Invalidation Strategies"
+sidebar_position: 5
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 14.5 — 4. Cache Invalidation Strategies
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 14.5.1 — Key-Based Invalidation
+
+Đơn giản nhất — xóa trực tiếp theo key khi dữ liệu thay đổi:
+
+```csharp
+// Sau khi update customer
+await cache.RemoveAsync($"customer_{customerId}");
+await InvalidateCustomerListAsync();
+```
+
+### 14.5.2 — Tag-Based Invalidation (HybridCache .NET 9)
+
+```csharp
+// Gán tag khi set cache
+await hybridCache.SetAsync("customer_123", customer,
+    new HybridCacheEntryOptions { Tags = ["customer", "customer_123"] });
+
+// Invalidate toàn bộ entry có tag "customer"
+await hybridCache.RemoveByTagAsync("customer");
+```
+
+### 14.5.3 — Event-Driven Invalidation
+
+Dùng Redis Pub/Sub để broadcast invalidation event ra tất cả các instance:
+
+```csharp
+// Publisher (khi có update)
+await redis.GetSubscriber().PublishAsync("cache:invalidate", $"customer_{id}");
+
+// Subscriber (trong mỗi instance)
+await redis.GetSubscriber().SubscribeAsync("cache:invalidate", (_, key) =>
+{
+    memoryCache.Remove(key.ToString()!);
+});
+```
+
+### 14.5.4 — Cache Stampede và SemaphoreSlim Double-Check
+
+Khi cache hết hạn, nhiều request đồng thời cùng truy vấn DB — gây quá tải:
+
+```csharp
+public class StampedeProtectedCache(IMemoryCache cache)
+{
+    private readonly SemaphoreSlim _lock = new(1, 1);
+
+    public async Task<T> GetOrCreateSafeAsync<T>(
+        string key,
+        Func<Task<T>> factory,
+        TimeSpan ttl)
+    {
+        // Lần 1: đọc không lock
+        if (cache.TryGetValue(key, out T? cached)) return cached!;
+
+        await _lock.WaitAsync();
+        try
+        {
+            // Lần 2: double-check sau khi có lock
+            if (cache.TryGetValue(key, out cached)) return cached!;
+
+            var value = await factory();
+            cache.Set(key, value, ttl);
+            return value;
+        }
+        finally
+        {
+            _lock.Release();
+        }
+    }
+}
+```
+
+> **Cache Poisoning:** Không bao giờ cache dữ liệu từ input người dùng mà chưa validate. Luôn sanitize key trước khi set vào cache.
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [14.4 — 3. IDistributedCache và Redis](14.4-idistributedcache-and-redis.mdx)
+- **Bài tiếp theo:** [14.6 — 5. HybridCache (.NET 9)](14.6-hybridcache-dotnet-9.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

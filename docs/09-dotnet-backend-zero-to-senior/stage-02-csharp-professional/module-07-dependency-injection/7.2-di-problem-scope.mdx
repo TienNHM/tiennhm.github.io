@@ -1,0 +1,79 @@
+---
+title: "7.2 — Vấn đề DI giải quyết"
+sidebar_position: 2
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 7.2 — Vấn đề DI giải quyết
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 7.2.1 — Code tightly coupled — ví dụ ban đầu
+
+Trước khi học DI, hãy xem `CustomerService` điển hình khi mới bắt đầu:
+
+```csharp
+// BAD: tightly coupled — KHÔNG làm thế này
+public class CustomerService
+{
+    private readonly EmailService _emailService;
+    private readonly SqlCustomerRepository _repository;
+    private readonly ILogger _logger;
+
+    public CustomerService()
+    {
+        // Tự tạo dependency — đây là vấn đề
+        _emailService = new EmailService("smtp.company.com", 587);
+        _repository   = new SqlCustomerRepository("Server=.;Database=CRM");
+        _logger       = new ConsoleLogger();
+    }
+
+    public async Task CreateCustomerAsync(Customer customer)
+    {
+        await _repository.AddAsync(customer);
+        await _emailService.SendWelcomeEmailAsync(customer.Email);
+        _logger.Log($"Customer {customer.Id} created");
+    }
+}
+```
+
+**Vấn đề của đoạn code trên:**
+
+| Vấn đề | Mô tả |
+|--------|-------|
+| Hard-coded dependencies | `EmailService`, `SqlCustomerRepository` bị gắn chết — không thể đổi implementation |
+| Unit test cực khó | Không thể mock `EmailService` → test sẽ gửi email thật |
+| Vi phạm Single Responsibility | `CustomerService` biết cả cách tạo `EmailService` lẫn cách dùng nó |
+| Vi phạm Open/Closed | Muốn đổi SMTP sang SendGrid phải sửa `CustomerService` |
+| Không tái sử dụng | Mỗi service tự quản lý vòng đời dependency của mình |
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [7.1 — Module Orientation](7.1-module-orientation.mdx)
+- **Bài tiếp theo:** [7.3 — 1. IoC Container và DI Container](7.3-ioc-container-and-di-container.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

@@ -1,0 +1,72 @@
+---
+title: "10.9 — 8. ASP.NET Core Identity (Overview)"
+sidebar_position: 9
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 10.9 — 8. ASP.NET Core Identity (Overview)
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 10.9.1 — Khi nào dùng Identity so với tự xây
+
+| Tình huống | Lựa chọn |
+|---|---|
+| Cần nhanh, có sẵn password hashing, lockout, 2FA | ASP.NET Core Identity |
+| Tích hợp với hệ thống user cũ / LDAP / custom DB | Tự xây `UserManager` logic |
+| Module này | JWT-first, dùng Identity chỉ để hash password + UserManager |
+
+### 10.9.2 — Tích hợp tối thiểu
+
+```csharp
+// Program.cs
+builder.Services.AddIdentityCore<AppUser>(opt =>
+{
+    opt.Password.RequireDigit           = true;
+    opt.Password.RequiredLength         = 8;
+    opt.Lockout.MaxFailedAccessAttempts = 5;
+    opt.Lockout.DefaultLockoutTimeSpan  = TimeSpan.FromMinutes(15);
+})
+.AddRoles<IdentityRole>()
+.AddEntityFrameworkStores<AppDbContext>();
+
+// AppUser mở rộng IdentityUser
+public class AppUser : IdentityUser
+{
+    public string? FullName  { get; set; }
+    public string? Territory { get; set; }
+}
+```
+
+> **Lưu ý:** Module này không dùng `AddDefaultIdentity` (vốn kéo theo cookie authentication). Chỉ dùng `AddIdentityCore` + JWT Bearer.
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [10.8 — 7. Permission System](10.8-permission-system.mdx)
+- **Bài tiếp theo:** [10.10 — 9. External Login và OAuth2 (Overview)](10.10-overview.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

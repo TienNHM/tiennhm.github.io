@@ -1,0 +1,97 @@
+---
+title: "11.7 — 6. Groups và Targeting"
+sidebar_position: 7
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 11.7 — 6. Groups và Targeting
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 11.7.1 — Chiến lược nhóm trong CRM
+
+```csharp
+public class CrmNotificationHub : Hub<ICrmNotificationClient>
+{
+    // Gửi cho toàn bộ tenant
+    public async Task NotifyTenant(string tenantId, NotificationDto notification)
+    {
+        await Clients.Group($"tenant-{tenantId}").ReceiveNotification(notification);
+    }
+
+    // Gửi cho một team cụ thể
+    public async Task NotifyTeam(string tenantId, string teamId, NotificationDto notification)
+    {
+        var groupName = $"tenant-{tenantId}-team-{teamId}";
+        await Clients.Group(groupName).ReceiveNotification(notification);
+    }
+
+    // Gửi cho một user cụ thể (dù đang đăng nhập từ nhiều thiết bị)
+    public async Task NotifyUser(string userId, NotificationDto notification)
+    {
+        // Clients.User tự tập hợp tất cả connection của userId đó
+        await Clients.User(userId).ReceiveNotification(notification);
+    }
+
+    // Ví dụ thực tế: Sales team của tenant X vừa có deal mới
+    public async Task BroadcastNewDeal(string tenantId, string teamId, DealDto deal)
+    {
+        var notification = new NotificationDto
+        {
+            Id = Guid.NewGuid(),
+            Message = $"Deal mới: {deal.Name} — {deal.Value:C}",
+            Type = NotificationType.Success,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        // Chỉ sales team của tenant đó nhận được
+        await Clients.Group($"tenant-{tenantId}-team-{teamId}")
+                     .ReceiveNotification(notification);
+    }
+}
+```
+
+### 11.7.2 — Quản lý group membership động
+
+```csharp
+// Khi nhân viên đổi team → cập nhật group membership
+public async Task SwitchTeam(string tenantId, string oldTeamId, string newTeamId)
+{
+    var oldGroup = $"tenant-{tenantId}-team-{oldTeamId}";
+    var newGroup = $"tenant-{tenantId}-team-{newTeamId}";
+
+    await Groups.RemoveFromGroupAsync(Context.ConnectionId, oldGroup);
+    await Groups.AddToGroupAsync(Context.ConnectionId, newGroup);
+}
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [11.6 — 5. Authentication trong SignalR](11.6-signalr-authentication.mdx)
+- **Bài tiếp theo:** [11.8 — 7. IHubContext — Server push từ ngoài Hub](11.8-ihubcontext-server-push-outside-hub.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

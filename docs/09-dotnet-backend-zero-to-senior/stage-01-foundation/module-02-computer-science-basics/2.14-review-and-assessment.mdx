@@ -1,0 +1,281 @@
+---
+title: "2.14 — Review and Assessment"
+sidebar_position: 14
+description: "Ôn tập & tự đánh giá Computer Science Basics: thực hành HTTP/REST, bài quiz về CRM backend và checklist trước khi sang bài tiếp theo."
+tags:
+  - review
+  - assessment
+  - computer-science-basics
+keywords:
+  - review and assessment
+  - HTTP
+  - REST API
+  - DNS
+  - JWT
+enableComments: true
+draft: false
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 2.14 — Review and Assessment
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 2.14.1 — Thực hành
+
+### Bài 1 — Dùng Browser DevTools xem HTTP Request
+
+1. Mở Chrome/Edge, vào bất kỳ website nào (ví dụ `https://jsonplaceholder.typicode.com/users`)
+2. Nhấn `F12` → tab **Network**
+3. Reload trang (`F5`)
+4. Click vào request đầu tiên trong danh sách
+5. Quan sát:
+   - Tab **Headers**: Method, URL, Status Code, Content-Type
+   - Tab **Response**: Body JSON trả về
+   - Tab **Timing**: Thời gian DNS lookup, TCP connect, TTFB
+
+**Câu hỏi tự kiểm tra:** Status code là bao nhiêu? Content-Type là gì? Mất bao nhiêu ms?
+
+### Bài 2 — Gọi Public API bằng curl hoặc Postman
+
+Dùng API miễn phí `https://jsonplaceholder.typicode.com` để thực hành:
+
+```bash
+# GET — lấy danh sách users (tương tự GET /api/customers trong CRM)
+curl https://jsonplaceholder.typicode.com/users
+
+# GET — lấy 1 user theo ID
+curl https://jsonplaceholder.typicode.com/users/1
+
+# POST — tạo mới (tương tự POST /api/customers)
+curl -X POST https://jsonplaceholder.typicode.com/posts \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Test","body":"Hello CRM","userId":1}'
+
+# Xem cả response headers
+curl -i https://jsonplaceholder.typicode.com/users/1
+```
+
+**Nếu dùng Postman:** Tạo collection "CRM Practice", thêm các request tương tự trên, quan sát status code và response body.
+
+**Thách thức thêm:** Gọi `DELETE /posts/1` và xem status code trả về là gì (204 hay 200?).
+
+### Bài 3 — Tạo Project .NET đầu tiên
+
+```bash
+# Kiểm tra .NET SDK đã cài
+dotnet --version
+# Output: 8.0.xxx
+
+# Tạo console app
+dotnet new console -n HelloCrm
+cd HelloCrm
+
+# Chạy
+dotnet run
+# Output: Hello, World!
+```
+
+Mở file `Program.cs` và thay nội dung:
+
+```csharp
+// Mô phỏng đơn giản: deserialize JSON customer
+using System.Text.Json;
+
+string json = """
+{
+    "id": 1,
+    "name": "Nguyen Van A",
+    "email": "a@example.com",
+    "isActive": true
+}
+""";
+
+var customer = JsonSerializer.Deserialize<Customer>(json);
+Console.WriteLine($"Chào mừng khách hàng: {customer?.Name} ({customer?.Email})");
+
+record Customer(int Id, string Name, string Email, bool IsActive);
+```
+
+```bash
+dotnet run
+# Output: Chào mừng khách hàng: Nguyen Van A (a@example.com)
+```
+
+**Khám phá thêm:**
+```bash
+# Xem cấu trúc project
+ls -la
+
+# Tạo Web API project (preview cho những module sau)
+dotnet new webapi -n MyCrmApi --no-openapi
+cd MyCrmApi
+dotnet run
+# Truy cập: https://localhost:5001/weatherforecast
+```
+
+### 2.14.2 — Tóm tắt
+
+| Chủ đề               | Điểm mấu chốt                                                            |
+|----------------------|--------------------------------------------------------------------------|
+| Internet             | DNS phân giải domain → IP, TCP/IP vận chuyển data tin cậy                |
+| Client-Server        | Client gửi request, Server trả response, API là hợp đồng giữa hai bên    |
+| HTTP                 | Method (GET/POST/PUT/DELETE) + Status Code (2xx/4xx/5xx) + Headers/Body  |
+| REST API & JSON      | URL là resource, method là hành động, JSON là ngôn ngữ trao đổi          |
+| Database             | SQL Server cho CRM — table/row/column, JOIN, CRUD cơ bản                 |
+| Auth                 | Authentication = xác minh danh tính; Authorization = kiểm tra quyền; JWT = token stateless |
+| Hosting              | Dev → localhost; Production → Azure App Service + CI/CD                  |
+| .NET Ecosystem       | .NET 8, CLR, SDK so với Runtime, NuGet, cấu trúc solution nhiều project      |
+
+**Luồng tổng quát của CRM:**
+
+```
+User mở browser
+    → DNS resolve crm.company.com → Azure IP
+    → HTTPS (TLS) kết nối port 443
+    → HTTP POST /auth/login → Server xác thực → JWT token
+    → HTTP GET /api/customers (kèm JWT) → ASP.NET Core xử lý
+    → Entity Framework query SQL Server
+    → Trả JSON response → Frontend render danh sách KH
+```
+
+---
+
+### 2.14.3 — Checklist trước khi sang bài tiếp theo
+
+- Bạn đã nắm được các khái niệm chính và giải thích lại được bằng ví dụ của riêng mình.
+- Bạn đã chạy hoặc mô phỏng ít nhất một ví dụ trong bài.
+- Bạn đã hoàn thành phần quiz/lab cơ bản (hoặc ít nhất tự làm lại theo trí nhớ).
+- Bạn đã ghi lại 3 ý chính: học được gì, còn vướng gì, sẽ áp dụng ở đâu trong CRM.
+
+### 2.14.4 — Kiểm tra & Thực hành (100 điểm)
+
+### 2.14.5 — Bối cảnh giáo trình (mục tiêu xuyên suốt)
+
+> **Trục CRM — một mục tiêu rõ:** bạn hướng tới **CRM production** trong [From Zero → Senior .NET (Backend-first)](../../roadmap-dotnet-backend-zero-to-senior.mdx). Giáo trình **ưu tiên backend**, bám chuỗi **API → dữ liệu → vận hành → kiến trúc phân tán**, thay vì trải rộng theo hướng full-stack. Mỗi module củng cố **một lớp kỹ năng** trên **cùng một CRM học tập** bạn phát triển xuyên suốt khóa.
+
+| Chuỗi năng lực | Đóng góp vào CRM học tập |
+|----------------|--------------------------|
+| **Giai đoạn 1 — Foundation** | Đọc hiểu yêu cầu, mô hình client–server, Git — nền **collaboration** khi CRM lớn dần. |
+| **Giai đoạn 2 — C# + P1** | Domain, OOP, LINQ, async, DI — **rule nghiệp vụ & tầng ứng dụng** (Inventory là bản mẫu trước CRM). |
+| **Giai đoạn 3 — ASP.NET + P2** | Host, routing, validation, JWT, SignalR — **CRM Backend API** thực tế. |
+| **Giai đoạn 4 — Data + P3** | SQL, EF, cache, job, container — CRM **ổn định & có thể triển khai**. |
+| **Giai đoạn 5 — Senior + Final** | Clean Architecture, event/outbox, gateway, observability, perf — CRM/ERP **chịu tải & có chủ**. |
+
+#### 2.14.5.1 — Vai trò *giai đoạn này* trong chuỗi
+
+Foundation: tư duy lập trình, mô hình web/HTTP, Git — **đọc yêu cầu & làm việc nhóm** trước khi chạm code CRM.
+
+#### 2.14.5.2 — Vị trí bài học (trước / sau)
+
+| Mốc | Điểm nối trong giáo trình |
+|-----|---------------------------|
+| **Trước** | [Module 1 — Programming Logic](../module-01-programming-logic) |
+| **Tiếp theo** | [Module 3 — Git + Developer Workflow](../module-03-git-developer-workflow) |
+
+### 2.14.6 — Quy trình làm bài (hệ thống)
+
+| Bước | Việc cần làm | Output nên có |
+|------|----------------|-----------------|
+| 1 | Làm **Quiz** *trước*, tự ghi đáp án + 1 dòng lý do | Không xem đáp án; giữ bản nháp |
+| 2 | Đối chiếu **Đáp án**; sửa hiểu sai, ghi *takeaway* vào README hoặc nhật ký học | 3–5 bullet “tôi đã hiểu…” |
+| 3 | Làm **Lab** theo rubric; trong README nêu **phần CRM** nào được chạm (Lead, Customer, Deal, Billing…) | Repo / zip + ảnh `dotnet run` hoặc log |
+| 4 | **Tự chấm** theo bảng điểm; chuẩn bị 1 phút “vấn đáp” nếu mentor hỏi ngẫu nhiên | Điểm + chỗ còn yếu |
+
+---
+
+### 2.14.7 — Phần A — Quiz trắc nghiệm (20 điểm)
+
+> **Gợi ý làm bài:** mỗi câu **4 điểm**. Ưu tiên suy nghĩ *hệ quả trên CRM* (tiền, dữ liệu, đa tenant, hiệu năng, bảo mật) — không chỉ nhớ định nghĩa.
+
+Mỗi câu **4 điểm**.
+
+1. HTTP status **404** nghĩa là gì?  
+   A. Server lỗi nội bộ B. Không tìm thấy resource C. Chưa đăng nhập D. Thành công tạo mới  
+   > **Đáp án:** B.
+
+2. Trong REST, thao tác **cập nhật một phần** thường dùng method nào (phổ biến)?  
+   A. GET B. POST C. PUT/PATCH D. CONNECT  
+   > **Đáp án:** C — PATCH partial (tuỳ chuẩn hóa API).
+
+3. JWT gồm phần nào sau?  
+   A. Chỉ payload JSON B. Header.Payload.Signature C. Chỉ signature D. Cookie binary  
+   > **Đáp án:** B.
+
+4. **Authorization** khác **Authentication** ở điểm nào?  
+   A. Giống nhau B. AuthN = ai bạn là; AuthZ = bạn được làm gì C. AuthN chỉ OAuth D. AuthZ chỉ HTTPS  
+   > **Đáp án:** B.
+
+5. DNS dùng để?  
+   A. Mã hóa TLS B. Phân giải tên miền → IP C. Nén response D. Cân bằng tải HTTP  
+   > **Đáp án:** B.
+
+### 2.14.8 — Phần B — Lab thực tế (80 điểm)
+
+> **Lab & rubric:** trong README, map từng nhóm điểm rubric sang **phần CRM** (Lead, Customer, Deal, Billing, Notification…) và **artifact** (test, log, screenshot, migration).
+
+| Tiêu chí | Điểm | Ghi chú |
+|----------|------|---------|
+| Chạy thành công `dotnet new console` + ví dụ trong bài (in ra customer) | 25 | |
+| Thử `dotnet new webapi` và gọi được endpoint mặc định (ảnh/Postman) | 25 | |
+| Viết **1 đoạn** (5–10 câu) giải thích luồng: Browser → HTTPS → API → DB (theo hiểu của bạn) | 20 | Nộp Markdown trong repo |
+| Liệt kê **3 status code** đã gặp khi test API + ý nghĩa | 10 | |
+| Repo/README có hướng dẫn chạy | 10 | |
+
+#### 2.14.8.1 — Ngưỡng tổng điểm (Quiz 20 + Lab 80)
+
+| Mức | Điểm | Ý nghĩa |
+|-----|------|---------|
+| **Đạt** | ≥ 70 | Đủ nền để học module kế mà không “lủng” kiến thức cốt lõi. |
+| **Khá** | ≥ 85 | Có minh chứng code + nêu được liên hệ CRM rõ ràng trong README. |
+| **Giỏi** | ≥ 95 | Có mở rộng / edge case / ADR ngắn / test bổ trợ (tùy rubric từng bài). |
+
+### 2.14.9 — Phần C — Reflect & nối chuỗi (không chấm điểm)
+
+Viết **5–8 câu** (README hoặc `docs/learning-log.md`):
+
+1. Kiến thức *module / project này* sẽ được **tái sử dụng trực tiếp** ở module hoặc project CRM nào tiếp theo? (ghi tên module / P2 / P3 / Final).
+2. Nếu bỏ qua phần lab, **rủi ro** lớn nhất cho CRM ở giai đoạn sau là gì?
+3. Một **quyết định kỹ thuật** (nhỏ) bạn sẵn sàng ghi thành **ADR một đoạn** sau khi làm lab.
+
+---
+
+### 2.14.10 — Tài liệu tham khảo
+
+- [How the Web Works — MDN](https://developer.mozilla.org/en-US/docs/Learn/Getting_started_with_the_web/How_the_Web_works)
+- [HTTP Overview — MDN](https://developer.mozilla.org/en-US/docs/Web/HTTP/Overview)
+- [REST API Design — restfulapi.net](https://restfulapi.net/)
+- [JWT Introduction — jwt.io](https://jwt.io/introduction)
+- [.NET Documentation — Microsoft Learn](https://learn.microsoft.com/en-us/dotnet/)
+- [JSON Placeholder — Free Fake REST API](https://jsonplaceholder.typicode.com/)
+- [Module 12 — SQL Deep Dive](../../stage-04-database-production/module-12-sql-deep-dive)
+- [Learn SQL in 30 Days](<../../../06-database/learn-sql-in-30-days/00. 30-Day SQL Learning Roadmap.md>)
+
+## Bài tập tổng hợp
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [2.13 — Ví dụ thực tế nhanh](2.13-quick-real-world-example.mdx)
+- **Bài tiếp theo:** Không có (bài cuối module).
+- **Về module:** [Trang mục lục](index.mdx)

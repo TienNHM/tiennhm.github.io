@@ -1,0 +1,78 @@
+---
+title: "5.9 — 8. Tuples và Deconstruction"
+sidebar_position: 9
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 5.9 — 8. Tuples và Deconstruction
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 5.9.1 — 8.1 Value Tuple
+
+```csharp
+// Unnamed tuple
+(int, string) pair = (1, "Alice");
+Console.WriteLine(pair.Item1); // 1
+
+// Named tuple — rõ nghĩa hơn
+(int Id, string Name) customer = (42, "Alice");
+Console.WriteLine(customer.Name); // Alice
+```
+
+### 5.9.2 — 8.2 Deconstruction
+
+```csharp
+var (id, name) = GetCustomerSummary(42); // destructure tuple
+
+// Method trả tuple thay vì class nhỏ 1 lần dùng
+public (decimal Revenue, int Count) GetDealStats(int ownerId)
+{
+    var deals = _deals.Where(d => d.OwnerId == ownerId && d.Status == DealStatus.Won);
+    return (deals.Sum(d => d.Value), deals.Count());
+}
+
+// Sử dụng
+var (revenue, count) = GetDealStats(userId);
+Console.WriteLine($"Doanh thu: {revenue:C}, Số deal: {count}");
+```
+
+### 5.9.3 — 8.3 Khi Nào Dùng Tuple Thay Class
+
+| Tình huống | Dùng Tuple | Dùng Class/Record |
+|---|---|---|
+| Return 2-3 giá trị nội bộ, 1 chỗ | Nên | Thừa |
+| Dùng nhiều nơi, có domain meaning | Không | Nên |
+| Cần serialize (JSON, DB) | Không | Nên |
+| Method private helper | Nên | Thừa |
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [5.8 — 7. Expression Trees và Reflection (Overview)](5.8-overview.mdx)
+- **Bài tiếp theo:** [5.10 — Mở rộng và đào sâu](5.10-advanced-notes.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

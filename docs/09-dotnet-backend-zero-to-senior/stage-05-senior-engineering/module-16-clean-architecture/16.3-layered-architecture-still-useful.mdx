@@ -1,0 +1,57 @@
+---
+title: "16.3 — 2. Layered architecture (cổ điển nhưng vẫn hữu ích)"
+sidebar_position: 3
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 16.3 — 2. Layered architecture (cổ điển nhưng vẫn hữu ích)
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+Mô hình phổ biến:
+
+```
+Presentation (API) → Application (use cases) → Domain → Infrastructure (EF, email, HTTP client)
+```
+
+**Quy tắc vàng**: dependency chỉ hướng **vào trong** (về phía domain), không ngược.
+
+| Layer | Trách nhiệm | Ví dụ CRM |
+|--------|-------------|-----------|
+| API | HTTP, auth, serialization | `LeadsController` |
+| Application | orchestration, transaction boundary | `CreateLeadCommandHandler` |
+| Domain | invariant, entity, VO | `Lead`, `Money`, rule “email hợp lệ” |
+| Infrastructure | EF, queue, file | `EfLeadRepository`, `SmtpEmailSender` |
+
+**Hạn chế**: dễ thành “**anemic domain**” — entity chỉ là POCO, logic nằm hết ở service khổng lồ. Cần kỷ luật: invariant **phải** nằm trong aggregate khi có thể.
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [16.2 — 1. Vì sao CRM “to ra” là lúc kiến trúc trả giá?](16.2-vi-sao-crm-to-ra-la-luc-kien-truc-tra-gia.mdx)
+- **Bài tiếp theo:** [16.4 — 3. Clean Architecture (Uncle Bob) — dependency rule](16.4-uncle-bob.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

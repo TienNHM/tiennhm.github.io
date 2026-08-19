@@ -1,0 +1,111 @@
+---
+title: "2.10 — 8. .NET Runtime và Ecosystem"
+sidebar_position: 10
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 2.10 — 8. .NET Runtime và Ecosystem
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 2.10.1 — .NET so với .NET Framework
+
+| Đặc điểm       | .NET Framework        | .NET (Core / 5+)               |
+|----------------|-----------------------|--------------------------------|
+| Ra đời         | 2002                  | .NET Core 2016 → .NET 5+ 2020  |
+| Hệ điều hành   | Windows only          | Cross-platform (Win/Linux/Mac) |
+| Hiệu năng      | Chậm hơn              | Cao hơn nhiều                  |
+| Open source    | Không (một phần)      | Có (github.com/dotnet)         |
+| Phiên bản mới  | Dừng tại 4.8          | .NET 8 LTS (hiện tại), .NET 9  |
+| Nên dùng       | Legacy maintenance    | Dự án mới — dùng .NET 8+       |
+
+**Khóa học này dùng .NET 8 LTS** — phiên bản ổn định dài hạn.
+
+### 2.10.2 — Kiến trúc .NET Runtime
+
+```
+Mã nguồn C# (.cs)
+        │
+        ▼ dotnet build / csc
+IL (Intermediate Language) — .dll
+        │
+        ▼ CLR (Common Language Runtime)
+JIT Compiler → Native machine code
+        │
+        ▼
+Thực thi trên CPU
+```
+
+- **CLR (Common Language Runtime)**: Máy ảo chạy IL code — quản lý memory (GC), threading, exception
+- **BCL (Base Class Library)**: Thư viện chuẩn — `System.Collections`, `System.IO`, `System.Net.Http`...
+- **SDK so với Runtime**: SDK = công cụ để build (bao gồm compiler, CLI); Runtime = môi trường chạy app (nhỏ hơn, dành cho server production)
+
+### 2.10.3 — NuGet Packages
+
+NuGet là package manager của .NET — tương đương `npm` của Node.js hay `pip` của Python:
+
+```xml
+<!-- File .csproj -->
+<ItemGroup>
+  <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.0" />
+  <PackageReference Include="Serilog.AspNetCore" Version="8.0.0" />
+  <PackageReference Include="AutoMapper" Version="13.0.0" />
+</ItemGroup>
+```
+
+```bash
+# Cài package từ CLI
+dotnet add package Serilog.AspNetCore
+```
+
+### 2.10.4 — Cấu trúc Project .NET
+
+```
+MyCrmApi/
+├── MyCrmApi.sln                  # Solution file — quản lý nhiều project
+├── src/
+│   └── MyCrmApi/
+│       ├── MyCrmApi.csproj       # Project file — dependencies, target framework
+│       ├── Program.cs            # Entry point — cấu hình DI, middleware
+│       ├── Controllers/          # API endpoints
+│       ├── Services/             # Business logic
+│       ├── Models/               # Data models
+│       ├── Data/                 # DbContext, migrations
+│       └── appsettings.json      # Cấu hình (connection string, JWT secret...)
+└── tests/
+    └── MyCrmApi.Tests/
+        └── MyCrmApi.Tests.csproj
+```
+
+> **Trong CRM:** Một solution CRM thực tế sẽ có nhiều project — `CrmApi` (Web API), `CrmApi.Domain` (business logic thuần), `CrmApi.Infrastructure` (database, email), `CrmApi.Tests` (unit tests). Kiến trúc này sẽ được xây dựng từng bước từ Module 3.
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [2.9 — 7. Hosting và Cloud cơ bản](2.9-hosting-and-cloud-co-ban.mdx)
+- **Bài tiếp theo:** [2.11 — Mở rộng và đào sâu](2.11-advanced-notes.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

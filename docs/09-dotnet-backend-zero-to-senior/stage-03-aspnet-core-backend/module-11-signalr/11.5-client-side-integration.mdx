@@ -1,0 +1,121 @@
+---
+title: "11.5 — 4. Client-side Integration"
+sidebar_position: 5
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 11.5 — 4. Client-side Integration
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 11.5.1 — Cài đặt package
+
+```bash
+npm install @microsoft/signalr
+```
+
+### 11.5.2 — TypeScript client
+
+```typescript
+// src/services/notificationHubService.ts
+import * as signalR from "@microsoft/signalr";
+
+export interface NotificationDto {
+  id: string;
+  message: string;
+  type: "info" | "success" | "warning" | "error";
+  createdAt: string;
+  isRead: boolean;
+}
+
+export class NotificationHubService {
+  private connection: signalR.HubConnection;
+
+  constructor(private getToken: () => string) {
+    this.connection = new signalR.HubConnectionBuilder()
+      .withUrl("/hubs/notifications", {
+        // JWT được gửi qua query string (WebSocket không hỗ trợ header)
+        accessTokenFactory: () => this.getToken(),
+      })
+      .withAutomaticReconnect({
+        nextRetryDelayInMilliseconds: (retryContext) => {
+          // Exponential backoff: 0s, 2s, 10s, 30s, rồi mỗi 60s
+          const delays = [0, 2000, 10000, 30000];
+          return delays[retryContext.previousRetryCount] ?? 60000;
+        },
+      })
+      .configureLogging(signalR.LogLevel.Warning)
+      .build();
+
+    this.registerEventHandlers();
+  }
+
+  private registerEventHandlers(): void {
+    this.connection.onreconnecting((error) => {
+      console.warn("SignalR reconnecting...", error);
+    });
+
+    this.connection.onreconnected((connectionId) => {
+      console.info("SignalR reconnected:", connectionId);
+      // Rejoin groups sau khi reconnect
+      this.joinTenantGroup(getCurrentTenantId());
+    });
+
+    this.connection.onclose((error) => {
+      console.error("SignalR connection closed:", error);
+    });
+  }
+
+  async start(): Promise<void> {
+    await this.connection.start();
+    console.info("SignalR connected, ID:", this.connection.connectionId);
+  }
+
+  async joinTenantGroup(tenantId: string): Promise<void> {
+    await this.connection.invoke("JoinTenantGroup", tenantId);
+  }
+
+  onNotification(callback: (notification: NotificationDto) => void): void {
+    this.connection.on("ReceiveNotification", callback);
+  }
+
+  onLeadUpdate(callback: (update: unknown) => void): void {
+    this.connection.on("ReceiveLeadUpdate", callback);
+  }
+
+  async stop(): Promise<void> {
+    await this.connection.stop();
+  }
+}
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [11.4 — 3. Setup SignalR Server](11.4-setup-signalr-server.mdx)
+- **Bài tiếp theo:** [11.6 — 5. Authentication trong SignalR](11.6-signalr-authentication.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

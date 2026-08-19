@@ -1,0 +1,105 @@
+---
+title: "13.8 — 7. Performance"
+sidebar_position: 8
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 13.8 — 7. Performance
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 13.8.1 — AsNoTracking mặc định cho read
+
+```csharp
+// Đăng ký DbContext với NoTracking default
+services.AddDbContext<CrmDbContext>(opt =>
+{
+    opt.UseSqlServer(connectionString);
+    opt.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTrackingWithIdentityResolution);
+});
+```
+
+### 13.8.2 — ExecuteUpdate / ExecuteDelete (EF Core 7+)
+
+```csharp
+// Cập nhật không cần load entity về memory
+await _db.Leads
+    .Where(l => l.Status == LeadStatus.New && l.CreatedAt < DateTime.UtcNow.AddDays(-30))
+    .ExecuteUpdateAsync(s => s
+        .SetProperty(l => l.Status, LeadStatus.Lost));
+
+// Xóa hàng loạt
+await _db.Leads
+    .Where(l => l.IsDeleted && l.UpdatedAt < DateTime.UtcNow.AddYears(-1))
+    .ExecuteDeleteAsync();
+```
+
+### 13.8.3 — Bulk Operations với EFCore.BulkExtensions
+
+```csharp
+// Cài: dotnet add package EFCore.BulkExtensions
+var newLeads = Enumerable.Range(1, 10_000)
+    .Select(i => new Lead { Title = $"Import Lead {i}", CustomerId = 1, TenantId = 1 })
+    .ToList();
+
+// Insert 10k dòng trong ~1 giây thay vì ~30 giây với SaveChanges thông thường
+await _db.BulkInsertAsync(newLeads);
+await _db.BulkUpdateAsync(updatedLeads);
+```
+
+### 13.8.4 — FromSqlRaw cho complex query
+
+```csharp
+var topCustomers = await _db.Customers
+    .FromSqlRaw(@"
+        SELECT c.*, SUM(l.Value) as TotalLeadValue
+        FROM Customers c
+        LEFT JOIN Leads l ON l.CustomerId = c.Id AND l.Status = 'Won'
+        GROUP BY c.Id
+        HAVING SUM(l.Value) > {0}
+        ORDER BY SUM(l.Value) DESC", minValue)
+    .AsNoTracking()
+    .ToListAsync();
+```
+
+### 13.8.5 — Debug với ToQueryString
+
+```csharp
+// Xem SQL query sẽ sinh ra mà không cần chạy
+var query = _db.Customers
+    .Where(c => c.Status == CustomerStatus.Active)
+    .Include(c => c.Contacts);
+
+Console.WriteLine(query.ToQueryString());
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [13.7 — 6. N+1 Problem](13.7-n-plus-1-problem.mdx)
+- **Bài tiếp theo:** [13.9 — 8. Concurrency Control](13.9-concurrency-control.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

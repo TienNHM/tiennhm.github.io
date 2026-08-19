@@ -1,0 +1,73 @@
+---
+title: "5.8 — 7. Expression Trees và Reflection (Overview)"
+sidebar_position: 8
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 5.8 — 7. Expression Trees và Reflection (Overview)
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 5.8.1 — 7.1 Khi Nào Bạn Gặp
+
+- ORMs (Entity Framework): dùng Expression Tree để dịch LINQ sang SQL
+- AutoMapper, FluentValidation: dùng Reflection để map/validate tự động
+- Dynamic query builder: filter theo field do user chọn
+
+### 5.8.2 — 7.2 Dynamic Query Builder Đơn Giản
+
+```csharp
+// Xây filter expression động — gặp nhiều trong CRM report
+public static IQueryable<T> WhereIf<T>(
+    this IQueryable<T> query,
+    bool condition,
+    Expression<Func<T, bool>> predicate)
+    => condition ? query.Where(predicate) : query;
+
+// Dùng:
+var leads = context.Leads
+    .WhereIf(!string.IsNullOrEmpty(keyword), l => l.Name.Contains(keyword!))
+    .WhereIf(minScore.HasValue, l => l.Score >= minScore!.Value)
+    .WhereIf(assignedTo.HasValue, l => l.AssignedUserId == assignedTo);
+```
+
+### 5.8.3 — 7.3 Lưu Ý Hiệu Năng
+
+```csharp
+// Reflection chậm hơn direct call — cache nếu dùng trong hot path
+private static readonly PropertyInfo[] _props = typeof(Customer).GetProperties();
+
+// Expression Tree được compile → performance tốt hơn Reflection thuần
+// Tránh lạm dụng: chỉ dùng khi thực sự cần dynamic behavior
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [5.7 — 6. Nullable Reference Types (C# 8+)](5.7-nullable-reference-types.mdx)
+- **Bài tiếp theo:** [5.9 — 8. Tuples và Deconstruction](5.9-tuples-and-deconstruction.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

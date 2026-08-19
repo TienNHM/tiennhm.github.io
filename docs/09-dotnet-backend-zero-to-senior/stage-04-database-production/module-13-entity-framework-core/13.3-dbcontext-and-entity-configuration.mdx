@@ -1,0 +1,219 @@
+---
+title: "13.3 — 2. DbContext và Entity Configuration"
+sidebar_position: 3
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 13.3 — 2. DbContext và Entity Configuration
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 13.3.1 — Entities cho CRM
+
+```csharp
+// Models/Customer.cs
+public class Customer
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string? Phone { get; set; }
+    public CustomerStatus Status { get; set; }
+    public int TenantId { get; set; }
+    public bool IsDeleted { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public byte[] RowVersion { get; set; } = Array.Empty<byte>();
+
+    public ICollection<Contact> Contacts { get; set; } = new List<Contact>();
+    public ICollection<Lead> Leads { get; set; } = new List<Lead>();
+}
+
+public class Contact
+{
+    public int Id { get; set; }
+    public string FullName { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string? Title { get; set; }
+    public int CustomerId { get; set; }
+    public Customer Customer { get; set; } = null!;
+}
+
+public class Lead
+{
+    public int Id { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public decimal Value { get; set; }
+    public LeadStatus Status { get; set; }
+    public int CustomerId { get; set; }
+    public Customer Customer { get; set; } = null!;
+    public int? AssignedUserId { get; set; }
+    public User? AssignedUser { get; set; }
+    public int TenantId { get; set; }
+    public bool IsDeleted { get; set; }
+}
+
+public class User
+{
+    public int Id { get; set; }
+    public string Email { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
+    public int TenantId { get; set; }
+    public ICollection<Lead> AssignedLeads { get; set; } = new List<Lead>();
+}
+
+public enum CustomerStatus { Prospect, Active, Inactive }
+public enum LeadStatus { New, Qualified, Proposal, Won, Lost }
+```
+
+### 13.3.2 — CrmDbContext
+
+```csharp
+// Data/CrmDbContext.cs
+public class CrmDbContext : DbContext
+{
+    public CrmDbContext(DbContextOptions<CrmDbContext> options) : base(options) { }
+
+    public DbSet<Customer> Customers => Set<Customer>();
+    public DbSet<Contact> Contacts => Set<Contact>();
+    public DbSet<Lead> Leads => Set<Lead>();
+    public DbSet<User> Users => Set<User>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        // Áp dụng tất cả IEntityTypeConfiguration trong assembly
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(CrmDbContext).Assembly);
+
+        // Global Query Filters (xem Section 10)
+        modelBuilder.Entity<Customer>().HasQueryFilter(c => !c.IsDeleted);
+        modelBuilder.Entity<Lead>().HasQueryFilter(l => !l.IsDeleted);
+    }
+
+    // Auto-set timestamps
+    public override int SaveChanges()
+    {
+        UpdateTimestamps();
+        return base.SaveChanges();
+    }
+
+    public override Task<int> SaveChangesAsync(CancellationToken ct = default)
+    {
+        UpdateTimestamps();
+        return base.SaveChangesAsync(ct);
+    }
+
+    private void UpdateTimestamps()
+    {
+        var entries = ChangeTracker.Entries<Customer>()
+            .Where(e => e.State is EntityState.Added or EntityState.Modified);
+        foreach (var entry in entries)
+        {
+            entry.Entity.UpdatedAt = DateTime.UtcNow;
+            if (entry.State == EntityState.Added)
+                entry.Entity.CreatedAt = DateTime.UtcNow;
+        }
+    }
+}
+```
+
+### 13.3.3 — Fluent API Configuration
+
+```csharp
+// Data/Configurations/CustomerConfiguration.cs
+public class CustomerConfiguration : IEntityTypeConfiguration<Customer>
+{
+    public void Configure(EntityTypeBuilder<Customer> builder)
+    {
+        builder.ToTable("Customers");
+        builder.HasKey(c => c.Id);
+
+        builder.Property(c => c.Name)
+            .IsRequired()
+            .HasMaxLength(200);
+
+        builder.Property(c => c.Email)
+            .IsRequired()
+            .HasMaxLength(320);
+
+        builder.HasIndex(c => c.Email).IsUnique();
+        builder.HasIndex(c => c.TenantId);
+
+        // Concurrency token
+        builder.Property(c => c.RowVersion)
+            .IsRowVersion()
+            .IsConcurrencyToken();
+
+        // Enum → string (dễ đọc trong DB)
+        builder.Property(c => c.Status)
+            .HasConversion<string>()
+            .HasMaxLength(20);
+    }
+}
+
+// Data/Configurations/LeadConfiguration.cs
+public class LeadConfiguration : IEntityTypeConfiguration<Lead>
+{
+    public void Configure(EntityTypeBuilder<Lead> builder)
+    {
+        builder.ToTable("Leads");
+        builder.HasKey(l => l.Id);
+
+        builder.Property(l => l.Title).IsRequired().HasMaxLength(300);
+        builder.Property(l => l.Value).HasColumnType("decimal(18,2)");
+
+        builder.HasOne(l => l.Customer)
+            .WithMany(c => c.Leads)
+            .HasForeignKey(l => l.CustomerId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(l => l.AssignedUser)
+            .WithMany(u => u.AssignedLeads)
+            .HasForeignKey(l => l.AssignedUserId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.Property(l => l.Status)
+            .HasConversion<string>()
+            .HasMaxLength(20);
+    }
+}
+```
+
+**Fluent API so với Data Annotations:**
+
+| | Fluent API | Data Annotations |
+|---|---|---|
+| Vị trí code | Configuration class riêng | Trên property của entity |
+| Tính rõ ràng | Cao — tập trung một chỗ | Thấp — rải rác |
+| Tính năng | Đầy đủ 100% | Bị giới hạn |
+| Khuyến nghị | Dùng cho production | Chỉ dùng prototype nhanh |
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [13.2 — 1. EF Core Overview](13.2-ef-core-overview.mdx)
+- **Bài tiếp theo:** [13.4 — 3. Relationships](13.4-relationships.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

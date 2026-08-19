@@ -1,0 +1,98 @@
+---
+title: "2.8 — 6. Authentication và Authorization"
+sidebar_position: 8
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 2.8 — 6. Authentication và Authorization
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 2.8.1 — Hai khái niệm cần phân biệt
+
+```
+Authentication (Xác thực)          Authorization (Phân quyền)
+"Bạn là ai?"                       "Bạn được làm gì?"
+──────────────────────             ──────────────────────
+Login với username/password   →    Admin: xem tất cả KH
+Xác minh token hợp lệ         →    Sales: chỉ xem KH của mình
+```
+
+> **Trong CRM:** Mọi nhân viên đều phải đăng nhập (Authentication). Nhưng chỉ Sales Manager mới được xóa khách hàng, còn Sales thường chỉ thêm/sửa (Authorization).
+
+### 2.8.2 — Flow đăng nhập với JWT
+
+**JWT (JSON Web Token)** là chuẩn phổ biến cho stateless authentication:
+
+```
+1. Client gửi: POST /auth/login
+   Body: { "username": "alice", "password": "secret123" }
+
+2. Server xác thực credentials trong DB
+   Nếu đúng → tạo JWT token
+
+3. Server trả về:
+   { "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhbGljZSIsInJvbGUiOiJhZG1pbiJ9.SflKxw..." }
+
+4. Client lưu token (localStorage hoặc cookie)
+
+5. Mỗi request tiếp theo, client gửi kèm header:
+   Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+
+6. Server decode token, biết đây là "alice" với role "admin"
+   → cho phép hoặc từ chối request
+```
+
+### 2.8.3 — Cấu trúc JWT
+
+JWT gồm 3 phần ngăn cách bởi dấu `.`:
+
+```
+Header.Payload.Signature
+eyJhbGciOiJIUzI1NiJ9  .  eyJzdWIiOiJhbGljZSJ9  .  SflKxw...
+(thuật toán)              (dữ liệu: user, role,      (chữ ký xác thực)
+                           thời gian hết hạn)
+```
+
+Payload sau khi decode:
+```json
+{
+  "sub": "alice",
+  "role": "admin",
+  "exp": 1735689600,
+  "iss": "crm.company.com"
+}
+```
+
+> **Trong CRM:** JWT cho phép server scale ngang (nhiều instance) mà không cần chia sẻ session — mỗi server đều có thể tự decode token mà không cần tra cứu database hay Redis. Sẽ implement chi tiết ở Module 7.
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [2.7 — 5. Cơ sở dữ liệu là gì](2.7-what-is-a-database.mdx)
+- **Bài tiếp theo:** [2.9 — 7. Hosting và Cloud cơ bản](2.9-hosting-and-cloud-co-ban.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

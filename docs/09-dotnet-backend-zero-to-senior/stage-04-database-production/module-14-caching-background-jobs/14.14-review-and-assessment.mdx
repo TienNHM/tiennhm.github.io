@@ -1,0 +1,284 @@
+---
+title: "14.14 — Review and Assessment"
+sidebar_position: 14
+description: "Ôn tập & tự đánh giá Caching + Background Jobs: Redis/HybridCache, Hangfire/Quartz/MassTransit/Polly và checklist trước khi sang Docker/Deployment."
+tags:
+  - review
+  - assessment
+  - caching
+  - background-jobs
+  - aspnet-core
+keywords:
+  - review and assessment
+  - caching
+  - Redis
+  - Hangfire
+  - Polly
+enableComments: true
+draft: false
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 14.14 — Review and Assessment
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 14.14.1 — Thực hành
+
+### Bài 1: Redis Cache cho Customer List với TTL + Invalidation
+
+**Yêu cầu:**
+1. Setup Redis với `AddStackExchangeRedisCache`.
+2. Implement `CustomerCacheService` dùng Cache-Aside pattern, TTL 5 phút.
+3. Khi `UpdateCustomerAsync` được gọi, invalidate cache của trang có customer đó.
+4. Viết unit test mock `IDistributedCache`, kiểm tra cache hit không gọi DB.
+
+**Gợi ý:**
+
+```csharp
+public interface ICustomerCacheService
+{
+    Task<PagedResult<CustomerDto>> GetPageAsync(int page, int size);
+    Task InvalidateAsync(int customerId);
+}
+
+// Trong CustomerController:
+[HttpPut("{id}")]
+public async Task<IActionResult> UpdateCustomer(int id, UpdateCustomerDto dto)
+{
+    await _customerService.UpdateAsync(id, dto);
+    await _cacheService.InvalidateAsync(id); // Xóa cache sau update
+    return Ok();
+}
+```
+
+---
+
+### Bài 2: Hangfire Recurring Job — Email Digest Report hàng ngày cho Manager
+
+**Yêu cầu:**
+1. Setup Hangfire với PostgreSQL storage.
+2. Tạo `DailyDigestJob` chạy 8:00 AM mỗi ngày:
+   - Lấy số lead mới, số deal đóng, tổng doanh thu hôm qua.
+   - Gửi email tổng hợp cho tất cả Manager.
+3. Bảo vệ Hangfire Dashboard với role `Admin`.
+4. Test thủ công bằng cách trigger job từ Dashboard.
+
+**Gợi ý:**
+
+```csharp
+public class DailyDigestJob(AppDbContext db, IEmailService email)
+{
+    [AutomaticRetry(Attempts = 2)]
+    public async Task ExecuteAsync()
+    {
+        var yesterday = DateTime.UtcNow.Date.AddDays(-1);
+
+        var stats = new DigestStats
+        {
+            NewLeads = await db.Leads.CountAsync(l => l.CreatedAt.Date == yesterday),
+            ClosedDeals = await db.Deals.CountAsync(d => d.ClosedAt.HasValue
+                                                      && d.ClosedAt.Value.Date == yesterday),
+            Revenue = await db.Deals.Where(d => d.ClosedAt.HasValue
+                                             && d.ClosedAt.Value.Date == yesterday)
+                                    .SumAsync(d => d.Value)
+        };
+
+        var managers = await db.Users
+            .Where(u => u.Role == UserRole.Manager)
+            .Select(u => u.Email)
+            .ToListAsync();
+
+        foreach (var managerEmail in managers)
+            await email.SendDigestAsync(managerEmail, stats, yesterday);
+    }
+}
+```
+
+---
+
+### Bài 3: Retry Policy với Polly cho External HTTP Call
+
+**Yêu cầu:**
+1. Gọi external email service qua `HttpClient`.
+2. Cấu hình Polly pipeline: retry 3 lần (exponential backoff 1s, 2s, 4s), circuit breaker 5 lỗi → ngắt 15s, timeout 5s/request.
+3. Log ra mỗi lần retry và khi circuit breaker mở.
+4. Viết integration test với `WireMock.Net` mô phỏng server trả lỗi 500 rồi thành công ở lần 3.
+
+**Gợi ý kiểm tra circuit breaker:**
+
+```csharp
+// Khi circuit breaker mở, Polly ném BrokenCircuitException
+try
+{
+    await emailService.SendAsync(message);
+}
+catch (BrokenCircuitException)
+{
+    logger.LogWarning("Email service circuit breaker is OPEN. Queuing for later.");
+    await jobClient.Schedule<IEmailService>(
+        e => e.SendAsync(message), TimeSpan.FromMinutes(1));
+}
+```
+
+---
+
+### 14.14.2 — Tóm tắt
+
+| Công nghệ | Vai trò | Dùng khi |
+|-----------|---------|----------|
+| `IMemoryCache` | Cache L1, in-process | Single server, dữ liệu hot, tốc độ tối đa |
+| `IDistributedCache` + Redis | Cache L2, distributed | Multi-instance, session, token blacklist |
+| `HybridCache` (.NET 9) | L1 + L2 tích hợp | Khi cần cả hai, stampede protection |
+| Hangfire | Background jobs | Task đơn giản, cần Dashboard, retry tự động |
+| Quartz.NET | Scheduled jobs | Trigger phức tạp, clustering cao cấp |
+| MassTransit | Message bus | Decoupled events, publish-subscribe |
+| Polly | Resilience | Retry, circuit breaker, timeout cho external call |
+
+**Nguyên tắc quan trọng:**
+- Cache invalidation là bài toán khó — hãy thiết kế TTL hợp lý thay vì invalidate thủ công khi có thể.
+- Background job phải **idempotent** — chạy lại nhiều lần không gây lỗi.
+- Circuit breaker bảo vệ hệ thống khi service ngoài gặp sự cố — không để lỗi cascade.
+- Message bus giải phóng tight coupling — publisher không cần biết consumer.
+
+---
+
+### 14.14.3 — Checklist trước khi sang bài tiếp theo
+
+- Bạn đã nắm được các khái niệm chính và giải thích lại được bằng ví dụ của riêng mình.
+- Bạn đã chạy hoặc mô phỏng ít nhất một ví dụ trong bài.
+- Bạn đã hoàn thành phần quiz/lab cơ bản (hoặc ít nhất tự làm lại theo trí nhớ).
+- Bạn đã ghi lại 3 ý chính: học được gì, còn vướng gì, sẽ áp dụng ở đâu trong CRM.
+
+### 14.14.4 — Kiểm tra & Thực hành (100 điểm)
+
+### 14.14.5 — Bối cảnh giáo trình (mục tiêu xuyên suốt)
+
+> **Trục CRM — một mục tiêu rõ:** bạn hướng tới **CRM production** trong [From Zero → Senior .NET (Backend-first)](../../roadmap-dotnet-backend-zero-to-senior.mdx). Giáo trình **ưu tiên backend**, bám chuỗi **API → dữ liệu → vận hành → kiến trúc phân tán**, thay vì trải rộng theo hướng full-stack. Mỗi module củng cố **một lớp kỹ năng** trên **cùng một CRM học tập** bạn phát triển xuyên suốt khóa.
+
+| Chuỗi năng lực | Đóng góp vào CRM học tập |
+|----------------|--------------------------|
+| **Giai đoạn 1 — Foundation** | Đọc hiểu yêu cầu, mô hình client–server, Git — nền **collaboration** khi CRM lớn dần. |
+| **Giai đoạn 2 — C# + P1** | Domain, OOP, LINQ, async, DI — **rule nghiệp vụ & tầng ứng dụng** (Inventory là bản mẫu trước CRM). |
+| **Giai đoạn 3 — ASP.NET + P2** | Host, routing, validation, JWT, SignalR — **CRM Backend API** thực tế. |
+| **Giai đoạn 4 — Data + P3** | SQL, EF, cache, job, container — CRM **ổn định & có thể triển khai**. |
+| **Giai đoạn 5 — Senior + Final** | Clean Architecture, event/outbox, gateway, observability, perf — CRM/ERP **chịu tải & có chủ**. |
+
+#### 14.14.5.1 — Vai trò *giai đoạn này* trong chuỗi
+
+SQL, EF Core, cache, job nền, Docker + **Project 3** — CRM **chạy được** như môi trường thật (dữ liệu, hiệu năng, vận hành).
+
+#### 14.14.5.2 — Vị trí bài học (trước / sau)
+
+| Mốc | Điểm nối trong giáo trình |
+|-----|---------------------------|
+| **Trước** | [Module 13 — Entity Framework Core](../module-13-entity-framework-core) |
+| **Tiếp theo** | [Module 15 — Docker + Deployment](../module-15-docker-deployment) |
+
+### 14.14.6 — Quy trình làm bài (hệ thống)
+
+| Bước | Việc cần làm | Output nên có |
+|------|----------------|-----------------|
+| 1 | Làm **Quiz** *trước*, tự ghi đáp án + 1 dòng lý do | Không xem đáp án; giữ bản nháp |
+| 2 | Đối chiếu **Đáp án**; sửa hiểu sai, ghi *takeaway* vào README hoặc nhật ký học | 3–5 bullet “tôi đã hiểu…” |
+| 3 | Làm **Lab** theo rubric; trong README nêu **phần CRM** nào được chạm (Lead, Customer, Deal, Billing…) | Repo / zip + ảnh `dotnet run` hoặc log |
+| 4 | **Tự chấm** theo bảng điểm; chuẩn bị 1 phút “vấn đáp” nếu mentor hỏi ngẫu nhiên | Điểm + chỗ còn yếu |
+
+---
+
+### 14.14.7 — Phần A — Quiz trắc nghiệm (20 điểm)
+
+> **Gợi ý làm bài:** mỗi câu **4 điểm**. Ưu tiên suy nghĩ *hệ quả trên CRM* (tiền, dữ liệu, đa tenant, hiệu năng, bảo mật) — không chỉ nhớ định nghĩa.
+
+Mỗi câu **4 điểm**.
+
+1. Cache-aside pattern: miss cache thì?  
+   A. Trả 404 B. Đọc DB → set cache → trả C. Xóa DB D. Restart app  
+   > **Đáp án:** B.
+
+2. Job idempotent nghĩa là?  
+   A. Chạy 1 lần duy nhất B. Chạy lặp không làm hỏng dữ liệu (an toàn retry) C. Không cần log D. Luôn sync  
+   > **Đáp án:** B.
+
+3. Circuit breaker mở khi?  
+   A. CPU 100% B. Lỗi vượt ngưỡng — từ chối gọi downstream tạm thời C. Deploy mới D. GC gen0  
+   > **Đáp án:** B.
+
+4. `IDistributedCache` khác `IMemoryCache` ở?  
+   A. Giống hệt B. Share giữa nhiều instance (Redis SQL…) C. Chỉ cho struct D. Không dùng trong ASP.NET  
+   > **Đáp án:** B.
+
+5. Hangfire recurring job cần lưu ý?  
+   A. Không cần storage B. Cần persistence (SQL/Redis) để schedule survive restart C. Chỉ chạy trong RAM một máy D. Thay thế Kestrel  
+   > **Đáp án:** B.
+
+### 14.14.8 — Phần B — Lab thực tế (80 điểm)
+
+> **Lab & rubric:** trong README, map từng nhóm điểm rubric sang **phần CRM** (Lead, Customer, Deal, Billing, Notification…) và **artifact** (test, log, screenshot, migration).
+
+| Tiêu chí | Điểm | Ghi chú |
+|----------|------|---------|
+| API + `IMemoryCache` hoặc Redis `IDistributedCache` cho 1 read nặng | 25 | |
+| Hosted service hoặc Hangfire/Quartz: job định kỳ + log | 25 | |
+| Job idempotent: chứng minh chạy 2 lần không duplicate business | 15 | |
+| Polly retry hoặc circuit cho HttpClient gọi API ngoài giả | 10 | |
+| README: TTL + chiến lược invalidation | 5 | |
+
+#### 14.14.8.1 — Ngưỡng tổng điểm (Quiz 20 + Lab 80)
+
+| Mức | Điểm | Ý nghĩa |
+|-----|------|---------|
+| **Đạt** | ≥ 70 | Đủ nền để học module kế mà không “lủng” kiến thức cốt lõi. |
+| **Khá** | ≥ 85 | Có minh chứng code + nêu được liên hệ CRM rõ ràng trong README. |
+| **Giỏi** | ≥ 95 | Có mở rộng / edge case / ADR ngắn / test bổ trợ (tùy rubric từng bài). |
+
+### 14.14.9 — Phần C — Reflect & nối chuỗi (không chấm điểm)
+
+Viết **5–8 câu** (README hoặc `docs/learning-log.md`):
+
+1. Kiến thức *module / project này* sẽ được **tái sử dụng trực tiếp** ở module hoặc project CRM nào tiếp theo? (ghi tên module / P2 / P3 / Final).
+2. Nếu bỏ qua phần lab, **rủi ro** lớn nhất cho CRM ở giai đoạn sau là gì?
+3. Một **quyết định kỹ thuật** (nhỏ) bạn sẵn sàng ghi thành **ADR một đoạn** sau khi làm lab.
+
+---
+
+### 14.14.10 — Tài liệu tham khảo
+
+- [IMemoryCache — Microsoft Docs](https://docs.microsoft.com/aspnet/core/performance/caching/memory)
+- [IDistributedCache — Microsoft Docs](https://docs.microsoft.com/aspnet/core/performance/caching/distributed)
+- [HybridCache .NET 9 — Microsoft Blog](https://devblogs.microsoft.com/dotnet/hybrid-cache-library-and-patterns-for-dotnet)
+- [Hangfire Documentation](https://docs.hangfire.io)
+- [Quartz.NET Documentation](https://www.quartz-scheduler.net/documentation)
+- [MassTransit Documentation](https://masstransit.io/documentation)
+- [Polly — Microsoft.Extensions.Resilience](https://learn.microsoft.com/dotnet/core/resilience/http-resilience)
+- [StackExchange.Redis](https://stackexchange.github.io/StackExchange.Redis)
+- [Cache-Aside Pattern — Azure Architecture Center](https://learn.microsoft.com/azure/architecture/patterns/cache-aside)
+
+## Bài tập tổng hợp
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [14.13 — Ví dụ thực tế nhanh](14.13-quick-real-world-example.mdx)
+- **Bài tiếp theo:** Không có (bài cuối module).
+- **Về module:** [Trang mục lục](index.mdx)

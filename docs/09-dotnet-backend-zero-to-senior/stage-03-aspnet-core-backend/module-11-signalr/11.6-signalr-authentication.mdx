@@ -1,0 +1,106 @@
+---
+title: "11.6 — 5. Authentication trong SignalR"
+sidebar_position: 6
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 11.6 — 5. Authentication trong SignalR
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 11.6.1 — Vấn đề với WebSocket và JWT
+
+WebSocket không cho phép gửi custom header (hạn chế của browser WebSocket API). SignalR giải quyết bằng cách truyền token qua **query string** trong lần negotiate đầu tiên.
+
+```csharp
+// Program.cs — cấu hình JWT để đọc từ query string
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!)),
+            ValidateIssuer = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidateAudience = false,
+            ClockSkew = TimeSpan.Zero
+        };
+
+        // Quan trọng: đọc token từ query string cho SignalR
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+
+                if (!string.IsNullOrEmpty(accessToken) &&
+                    path.StartsWithSegments("/hubs"))
+                {
+                    context.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            }
+        };
+    });
+```
+
+### 11.6.2 — Bảo vệ Hub bằng [Authorize]
+
+```csharp
+[Authorize]  // Toàn bộ Hub yêu cầu xác thực
+public class CrmNotificationHub : Hub<ICrmNotificationClient>
+{
+    // Lấy thông tin user từ JWT claims
+    private string GetCurrentUserId() =>
+        Context.UserIdentifier!;  // Lấy từ claim NameIdentifier
+
+    private string GetCurrentTenantId() =>
+        Context.User!.FindFirstValue("tenantId")!;
+
+    public override async Task OnConnectedAsync()
+    {
+        var userId = GetCurrentUserId();
+        var tenantId = GetCurrentTenantId();
+
+        // Tự động join vào group của tenant khi connect
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"tenant-{tenantId}");
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"user-{userId}");
+
+        await base.OnConnectedAsync();
+    }
+}
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [11.5 — 4. Client-side Integration](11.5-client-side-integration.mdx)
+- **Bài tiếp theo:** [11.7 — 6. Groups và Targeting](11.7-groups-and-targeting.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

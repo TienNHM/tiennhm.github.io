@@ -1,0 +1,160 @@
+---
+title: "10.4 — 3. Refresh Token"
+sidebar_position: 4
+description: "Refresh Token pattern trong ASP.NET Core: rotation, revocation, schema bảng RefreshTokens và bài tập áp dụng trong CRM auth flow."
+tags:
+  - authentication
+  - authorization
+  - refresh-token
+  - aspnet-core-security
+  - jwt-bearer
+keywords:
+  - refresh token
+  - refresh token rotation
+  - revocation
+  - ASP.NET Core
+  - JWT authentication
+enableComments: true
+draft: false
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+<SummaryBox title="Tóm tắt (abstract)">
+Refresh Token giúp bạn duy trì đăng nhập “dài hạn” mà vẫn giữ Access Token TTL ngắn để giảm rủi ro bị đánh cắp.
+Trong bài này, bạn học rotation + revocation để chống replay token sau khi refresh.
+</SummaryBox>
+<HiddenContent>
+<!-- geoseo-curriculum-nav -->
+## Liên kết điều phối (curriculum graph)
+- **Hub lộ trình**: [00. Lộ trình From Zero → Senior .NET (Backend-first)](../../roadmap-dotnet-backend-zero-to-senior.mdx)
+- **Bài trước**: [10.3 — 2. JWT Authentication](10.3-jwt-authentication.mdx)
+- **Bài tiếp theo**: [10.5 — 4. Role-based Authorization](10.5-role-based-authorization.mdx)
+
+## Tham chiếu có thẩm quyền (E-E-A-T / retrieval)
+- [Authentication in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/security/authentication/)
+- [JWT authentication in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/security/authentication/jwt)
+</HiddenContent>
+
+# 10.4 — 3. Refresh Token
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 10.4.1 — Tại sao cần Refresh Token?
+
+Access token có TTL ngắn (5–15 phút) để giảm nguy cơ khi bị đánh cắp. Refresh token (TTL 7–30 ngày) cho phép client lấy access token mới mà không cần đăng nhập lại.
+
+### 10.4.2 — Schema bảng RefreshTokens
+
+```sql
+CREATE TABLE RefreshTokens (
+    Id          UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    Token       NVARCHAR(256) NOT NULL UNIQUE,
+    UserId      NVARCHAR(450) NOT NULL,      -- FK → AspNetUsers.Id
+    ExpiresAt   DATETIME2 NOT NULL,
+    CreatedAt   DATETIME2 NOT NULL,
+    RevokedAt   DATETIME2 NULL,
+    ReplacedBy  NVARCHAR(256) NULL,          -- token mới sau rotation
+    IsRevoked   BIT NOT NULL DEFAULT 0
+);
+```
+
+### 10.4.3 — Rotation Strategy và Revocation
+
+```csharp
+[HttpPost("refresh")]
+public async Task<IActionResult> Refresh([FromBody] RefreshRequest req)
+{
+    var existing = await _db.RefreshTokens
+        .Include(r => r.User)
+        .FirstOrDefaultAsync(r => r.Token == req.RefreshToken);
+
+    if (existing is null || existing.IsRevoked || existing.ExpiresAt < DateTime.UtcNow)
+        return Unauthorized(new { message = "Refresh token không hợp lệ hoặc đã hết hạn." });
+
+    // Revoke token cũ
+    existing.IsRevoked = true;
+    existing.RevokedAt = DateTime.UtcNow;
+
+    // Tạo token mới
+    var roles       = await _userManager.GetRolesAsync(existing.User);
+    var newAccess   = _tokenService.GenerateAccessToken(existing.User, roles);
+    var newRefresh  = _tokenService.GenerateRefreshToken();
+
+    existing.ReplacedBy = newRefresh;
+
+    _db.RefreshTokens.Add(new RefreshToken
+    {
+        Token     = newRefresh,
+        UserId    = existing.UserId,
+        ExpiresAt = DateTime.UtcNow.AddDays(7),
+        CreatedAt = DateTime.UtcNow,
+        IsRevoked = false
+    });
+
+    await _db.SaveChangesAsync();
+    return Ok(new { accessToken = newAccess, refreshToken = newRefresh });
+}
+
+[HttpPost("logout")]
+[Authorize]
+public async Task<IActionResult> Logout([FromBody] RefreshRequest req)
+{
+    var token = await _db.RefreshTokens
+        .FirstOrDefaultAsync(r => r.Token == req.RefreshToken);
+
+    if (token is not null)
+    {
+        token.IsRevoked = true;
+        token.RevokedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+    }
+    return NoContent();
+}
+```
+
+## Common pitfalls
+- Lưu Refresh Token ở dạng plaintext trong DB (rủi ro lộ token). Nên hash token trước khi lưu.
+- Không rotation/revoke: refresh token cũ vẫn còn hiệu lực sau khi đổi token mới → dễ bị replay.
+- Không có cơ chế revocation rõ ràng khi logout/compromise → client có thể tiếp tục refresh dù đã đăng xuất.
+- Response code/messaging không nhất quán (ví dụ refresh sai trả 200) → client khó xử lý an toàn.
+- Không xử lý tình huống “refresh token vừa hết hạn / vừa bị revoke” một cách rõ ràng → tăng logout bất ngờ.
+
+## Ví dụ trong CRM/.NET backend
+- User đăng nhập → API trả `{ accessToken (TTL ngắn), refreshToken (TTL dài) }`.
+- Sau ~10 phút, client gọi `POST /api/auth/refresh` với refresh token cũ.
+- Backend kiểm tra token có hợp lệ, chưa bị revoke, chưa hết hạn:
+  - rotate: revoke token cũ (`IsRevoked = true`) + tạo refresh token mới,
+  - trả access token mới,
+  - ghi audit log để truy vết “ai đã refresh lúc nào”.
+- Khi user bấm “Logout”, backend `POST /api/auth/logout` và revoke refresh token hiện tại → refresh sau đó trả `401`.
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [10.3 — 2. JWT Authentication](10.3-jwt-authentication.mdx)
+- **Bài tiếp theo:** [10.5 — 4. Role-based Authorization](10.5-role-based-authorization.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

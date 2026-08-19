@@ -1,0 +1,131 @@
+---
+title: "5.3 — 2. Generics"
+sidebar_position: 3
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 5.3 — 2. Generics
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+Generics cho phép viết code tổng quát, an toàn kiểu, không trùng lặp.
+
+### 5.3.1 — 2.1 Generic Repository
+
+```csharp
+public interface IEntity
+{
+    int Id { get; }
+}
+
+// Constraint: T phải là class và implement IEntity
+public interface IRepository<T> where T : class, IEntity
+{
+    Task<T?> GetByIdAsync(int id);
+    Task<List<T>> GetAllAsync();
+    Task AddAsync(T entity);
+    Task UpdateAsync(T entity);
+    Task DeleteAsync(int id);
+}
+
+public class EfRepository<T> : IRepository<T> where T : class, IEntity
+{
+    protected readonly AppDbContext _db;
+    protected readonly DbSet<T> _set;
+
+    public EfRepository(AppDbContext db)
+    {
+        _db = db;
+        _set = db.Set<T>();
+    }
+
+    public Task<T?> GetByIdAsync(int id) => _set.FindAsync(id).AsTask();
+    public Task<List<T>> GetAllAsync() => _set.ToListAsync();
+    public async Task AddAsync(T entity) { await _set.AddAsync(entity); await _db.SaveChangesAsync(); }
+    public async Task UpdateAsync(T entity) { _set.Update(entity); await _db.SaveChangesAsync(); }
+    public async Task DeleteAsync(int id)
+    {
+        var entity = await GetByIdAsync(id);
+        if (entity is not null) { _set.Remove(entity); await _db.SaveChangesAsync(); }
+    }
+}
+```
+
+### 5.3.2 — 2.2 PagedResult&lt;T&gt;
+
+```csharp
+public record PagedResult<T>(
+    IReadOnlyList<T> Items,
+    int Page,
+    int PageSize,
+    int TotalCount)
+{
+    public int TotalPages => (int)Math.Ceiling((double)TotalCount / PageSize);
+    public bool HasPreviousPage => Page > 1;
+    public bool HasNextPage => Page < TotalPages;
+
+    public static PagedResult<T> Empty(int page, int pageSize)
+        => new(Array.Empty<T>(), page, pageSize, 0);
+}
+```
+
+### 5.3.3 — 2.3 Result&lt;T, TError&gt; Pattern
+
+```csharp
+public class Result<T>
+{
+    public T? Value { get; }
+    public string? Error { get; }
+    public bool IsSuccess { get; }
+
+    private Result(T value)            { Value = value; IsSuccess = true; }
+    private Result(string error)       { Error = error; IsSuccess = false; }
+
+    public static Result<T> Ok(T value)      => new(value);
+    public static Result<T> Fail(string err) => new(err);
+
+    // Functional map: transform value nếu success
+    public Result<TOut> Map<TOut>(Func<T, TOut> mapper)
+        => IsSuccess ? Result<TOut>.Ok(mapper(Value!)) : Result<TOut>.Fail(Error!);
+}
+
+// Sử dụng trong CRM
+public async Task<Result<Customer>> GetCustomerAsync(int id)
+{
+    var customer = await _repo.GetByIdAsync(id);
+    return customer is null
+        ? Result<Customer>.Fail($"Customer {id} not found")
+        : Result<Customer>.Ok(customer);
+}
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [5.2 — 1. SOLID Principles](5.2-solid-principles.mdx)
+- **Bài tiếp theo:** [5.4 — 3. LINQ](5.4-linq.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

@@ -1,0 +1,134 @@
+---
+title: "4.4 — 3. Inheritance và Polymorphism"
+sidebar_position: 4
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 4.4 — 3. Inheritance và Polymorphism
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 4.4.1 — Hierarchy trong CRM
+
+```csharp
+// BaseEntity.cs — lớp gốc dùng chung
+public abstract class BaseEntity
+{
+    public Guid Id { get; init; } = Guid.NewGuid();
+    public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
+    public DateTime? UpdatedAt { get; protected set; }
+
+    public void MarkUpdated() => UpdatedAt = DateTime.UtcNow;
+}
+
+// Contact.cs — thực thể liên lạc chung
+public class Contact : BaseEntity
+{
+    public string FullName { get; private set; }
+    public string Phone { get; private set; }
+
+    public Contact(string fullName, string phone)
+    {
+        FullName = fullName ?? throw new ArgumentNullException(nameof(fullName));
+        Phone = phone ?? throw new ArgumentNullException(nameof(phone));
+    }
+
+    public virtual string GetDisplayInfo() => $"{FullName} — {Phone}";
+}
+
+// Lead.cs — tiềm năng chưa chuyển đổi
+public class Lead : Contact
+{
+    public string Source { get; private set; }   // VD: "Facebook", "Google"
+    public LeadStatus Status { get; private set; } = LeadStatus.New;
+
+    public Lead(string fullName, string phone, string source)
+        : base(fullName, phone)
+    {
+        Source = source ?? throw new ArgumentNullException(nameof(source));
+    }
+
+    public void Qualify() => Status = LeadStatus.Qualified;
+    public void Disqualify() => Status = LeadStatus.Disqualified;
+
+    public override string GetDisplayInfo() =>
+        $"[Lead] {base.GetDisplayInfo()} | Nguồn: {Source} | TT: {Status}";
+}
+
+// Customer.cs — đã chuyển đổi thành khách hàng
+public class Customer : Contact
+{
+    public string Email { get; private set; }
+    public decimal TotalSpent { get; private set; }
+
+    public Customer(string fullName, string phone, string email)
+        : base(fullName, phone)
+    {
+        Email = email ?? throw new ArgumentNullException(nameof(email));
+    }
+
+    public void AddPurchase(decimal amount)
+    {
+        if (amount <= 0) throw new ArgumentOutOfRangeException(nameof(amount));
+        TotalSpent += amount;
+        MarkUpdated();
+    }
+
+    public override string GetDisplayInfo() =>
+        $"[Customer] {base.GetDisplayInfo()} | Email: {Email} | Chi tiêu: {TotalSpent:C}";
+}
+
+public enum LeadStatus { New, Contacted, Qualified, Disqualified, Converted }
+```
+
+### 4.4.2 — Polymorphism trong thực tế
+
+```csharp
+var contacts = new List<Contact>
+{
+    new Lead("Nguyễn Văn A", "0901111111", "Facebook"),
+    new Customer("Trần Thị B", "0902222222", "b@example.com"),
+    new Contact("Lê Văn C", "0903333333"),
+};
+
+// Gọi GetDisplayInfo() — runtime tự chọn đúng implementation
+foreach (var c in contacts)
+    Console.WriteLine(c.GetDisplayInfo());
+```
+
+### 4.4.3 — Cạm bẫy kế thừa sâu
+
+- Tránh chain kế thừa quá 2-3 cấp — khó debug, brittle
+- Không override method chỉ để "bỏ qua" behavior của base — vi phạm Liskov Substitution Principle
+- Khi có nhiều hành vi khác nhau, dùng **composition + interface** thay vì kế thừa tiếp
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [4.3 — 2. Encapsulation](4.3-encapsulation.mdx)
+- **Bài tiếp theo:** [4.5 — 4. Interface](4.5-interface.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

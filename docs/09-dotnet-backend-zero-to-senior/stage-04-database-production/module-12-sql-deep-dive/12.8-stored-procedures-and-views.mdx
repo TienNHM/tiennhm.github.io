@@ -1,0 +1,112 @@
+---
+title: "12.8 — 7. Stored Procedures và Views"
+sidebar_position: 8
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 12.8 — 7. Stored Procedures và Views
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 12.8.1 — 7.1 Khi nào dùng Stored Procedure
+
+| Dùng SP | Dùng ORM / Query trực tiếp |
+|--------|--------------------------|
+| Logic phức tạp nhiều bước, cần transaction dài | CRUD đơn giản |
+| Cần performance tối đa (cached plan) | Rapid development |
+| DBA quản lý riêng, không expose schema | Team nhỏ, không có DBA |
+| Legacy system, đã có SP sẵn | Cần portable giữa nhiều DB |
+| Batch processing lớn | Logic thay đổi thường xuyên |
+
+### 12.8.2 — 7.2 Stored Procedure an toàn
+
+```sql
+-- SP tìm kiếm lead — parameterized, tránh SQL injection
+CREATE OR ALTER PROCEDURE sp_SearchLeads
+    @Status         NVARCHAR(50)    = NULL,
+    @AssignedUserId INT             = NULL,
+    @CompanyName    NVARCHAR(300)   = NULL,
+    @PageNumber     INT             = 1,
+    @PageSize       INT             = 20
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT  l.LeadId, l.CompanyName, l.Status,
+            l.EstimatedValue, l.CreatedAt,
+            u.FullName AS SalesRep
+    FROM    Leads l
+    LEFT JOIN Users u ON l.AssignedToUserId = u.UserId
+    WHERE   (@Status         IS NULL OR l.Status = @Status)
+      AND   (@AssignedUserId IS NULL OR l.AssignedToUserId = @AssignedUserId)
+      AND   (@CompanyName    IS NULL OR l.CompanyName LIKE '%' + @CompanyName + '%')
+    ORDER   BY l.CreatedAt DESC
+    OFFSET  (@PageNumber - 1) * @PageSize ROWS
+    FETCH   NEXT @PageSize ROWS ONLY;
+END;
+```
+
+**Lưu ý bảo mật:** SP không tự nhiên an toàn với SQL injection. SP dùng `EXEC('SELECT * FROM ' + @TableName)` (dynamic SQL) vẫn bị injection. Chỉ parameterized query mới an toàn.
+
+### 12.8.3 — 7.3 Views và Materialized View
+
+```sql
+-- View: query được đặt tên, không lưu dữ liệu
+CREATE OR ALTER VIEW vw_LeadSummary AS
+SELECT  l.LeadId, l.CompanyName, l.Status,
+        l.EstimatedValue, l.CreatedAt,
+        u.FullName AS SalesRep,
+        DATEDIFF(DAY, l.CreatedAt, GETUTCDATE()) AS AgeInDays
+FROM    Leads l
+LEFT JOIN Users u ON l.AssignedToUserId = u.UserId;
+
+-- Dùng như bảng thường
+SELECT * FROM vw_LeadSummary WHERE Status = 'New' AND AgeInDays > 30;
+```
+
+**Materialized View (Indexed View trong SQL Server):** Lưu kết quả vật lý, cần maintain khi dữ liệu thay đổi. SQL Server hỗ trợ qua `CREATE UNIQUE CLUSTERED INDEX` trên view. PostgreSQL có `MATERIALIZED VIEW` tường minh hơn:
+
+```sql
+-- PostgreSQL materialized view
+CREATE MATERIALIZED VIEW mv_monthly_revenue AS
+SELECT  DATE_TRUNC('month', converted_at) AS month,
+        SUM(estimated_value)              AS revenue,
+        COUNT(*)                          AS deals_closed
+FROM    leads
+WHERE   status = 'Won'
+GROUP   BY DATE_TRUNC('month', converted_at);
+
+-- Refresh thủ công hoặc theo schedule
+REFRESH MATERIALIZED VIEW CONCURRENTLY mv_monthly_revenue;
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [12.7 — 6. Transactions và Locking](12.7-transactions-and-locking.mdx)
+- **Bài tiếp theo:** [12.9 — 8. Database Migration Strategy](12.9-database-migration-strategy.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

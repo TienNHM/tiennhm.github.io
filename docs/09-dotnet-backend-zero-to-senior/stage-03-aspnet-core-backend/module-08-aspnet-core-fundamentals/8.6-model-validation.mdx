@@ -1,0 +1,95 @@
+---
+title: "8.6 — 5. Model Validation"
+sidebar_position: 6
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 8.6 — 5. Model Validation
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 8.6.1 — DataAnnotations
+
+```csharp
+// Models/Requests/CreateCustomerRequest.cs
+public class CreateCustomerRequest
+{
+    [Required(ErrorMessage = "Tên khách hàng là bắt buộc")]
+    [MaxLength(200, ErrorMessage = "Tên không vượt quá 200 ký tự")]
+    public string Name { get; set; } = default!;
+
+    [Required]
+    [EmailAddress(ErrorMessage = "Email không hợp lệ")]
+    [MaxLength(320)]
+    public string Email { get; set; } = default!;
+
+    [Phone]
+    [MaxLength(20)]
+    public string? Phone { get; set; }
+
+    [Range(0, 999_999_999, ErrorMessage = "Số dư không hợp lệ")]
+    public decimal CreditLimit { get; set; }
+}
+```
+
+### 8.6.2 — Custom Validator
+
+```csharp
+public class FutureDateAttribute : ValidationAttribute
+{
+    protected override ValidationResult? IsValid(object? value, ValidationContext ctx)
+    {
+        if (value is DateTime date && date <= DateTime.UtcNow)
+            return new ValidationResult("Ngày phải trong tương lai");
+        return ValidationResult.Success;
+    }
+}
+```
+
+### 8.6.3 — ProblemDetails — Chuẩn RFC 7807
+
+Khi `[ApiController]` bật, validation fail tự động trả:
+
+```json
+{
+  "type": "https://tools.ietf.org/html/rfc7807",
+  "title": "One or more validation errors occurred.",
+  "status": 400,
+  "traceId": "00-abc123-def456-00",
+  "errors": {
+    "Email": ["Email không hợp lệ"],
+    "Name": ["Tên khách hàng là bắt buộc"]
+  }
+}
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [8.5 — 4. Controllers và Actions](8.5-controllers-and-actions.mdx)
+- **Bài tiếp theo:** [8.7 — 6. Configuration System](8.7-configuration-system.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

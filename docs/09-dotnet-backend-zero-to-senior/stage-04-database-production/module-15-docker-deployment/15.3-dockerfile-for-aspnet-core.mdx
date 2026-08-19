@@ -1,0 +1,111 @@
+---
+title: "15.3 — 2. Dockerfile cho ASP.NET Core"
+sidebar_position: 3
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 15.3 — 2. Dockerfile cho ASP.NET Core
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 15.3.1 — Multi-stage Build
+
+Multi-stage build tách biệt môi trường build (có .NET SDK) và môi trường runtime (chỉ có ASP.NET Runtime). Kết quả: image production nhỏ gọn, không chứa compiler, source code không commit.
+
+| Image | Kích thước |
+|---|---|
+| `mcr.microsoft.com/dotnet/sdk:8.0` | ~780 MB |
+| `mcr.microsoft.com/dotnet/aspnet:8.0` | ~220 MB |
+| `mcr.microsoft.com/dotnet/runtime:8.0` | ~190 MB |
+
+### 15.3.2 — ENTRYPOINT so với CMD
+
+- `ENTRYPOINT`: lệnh chính, không override được khi `docker run` (trừ dùng `--entrypoint`).
+- `CMD`: tham số mặc định, override được.
+- Quy ước cho .NET: dùng `ENTRYPOINT ["dotnet", "App.dll"]`.
+
+### 15.3.3 — Dockerfile đầy đủ cho CRM API
+
+```dockerfile
+# Stage 1: Build
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+
+# Copy project files trước để cache restore layer
+COPY ["src/CrmApi/CrmApi.csproj", "src/CrmApi/"]
+COPY ["src/CrmApi.Application/CrmApi.Application.csproj", "src/CrmApi.Application/"]
+COPY ["src/CrmApi.Infrastructure/CrmApi.Infrastructure.csproj", "src/CrmApi.Infrastructure/"]
+COPY ["src/CrmApi.Domain/CrmApi.Domain.csproj", "src/CrmApi.Domain/"]
+
+RUN dotnet restore "src/CrmApi/CrmApi.csproj"
+
+# Copy toàn bộ source
+COPY . .
+
+WORKDIR /src/src/CrmApi
+RUN dotnet publish -c Release -o /app/publish --no-restore
+
+# Stage 2: Runtime
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+WORKDIR /app
+
+# Chạy với non-root user để bảo mật
+RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+USER appuser
+
+COPY --from=build /app/publish .
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+  CMD curl -f http://localhost:8080/health || exit 1
+
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "CrmApi.dll"]
+```
+
+### 15.3.4 — .dockerignore
+
+```
+**/.git
+**/.gitignore
+**/bin
+**/obj
+**/.vs
+**/node_modules
+**/*.user
+**/appsettings.Development.json
+**/Dockerfile*
+**/docker-compose*
+README.md
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [15.2 — 1. Docker Fundamentals](15.2-docker-fundamentals.mdx)
+- **Bài tiếp theo:** [15.4 — 3. Docker Compose](15.4-docker-compose.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

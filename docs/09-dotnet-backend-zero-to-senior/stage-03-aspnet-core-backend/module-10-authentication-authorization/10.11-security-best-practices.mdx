@@ -1,0 +1,86 @@
+---
+title: "10.11 — 10. Security Best Practices"
+sidebar_position: 11
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 10.11 — 10. Security Best Practices
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+```csharp
+// 1. KHÔNG log password hoặc token
+// BAD:
+_logger.LogInformation("User login: {email} {password}", email, password);
+// GOOD:
+_logger.LogInformation("User login attempt: {email}", email);
+
+// 2. Validate signing key đủ độ dài (>= 256 bits = 32 bytes)
+if (Encoding.UTF8.GetByteCount(secretKey) < 32)
+    throw new InvalidOperationException("JWT SecretKey phải >= 32 ký tự.");
+
+// 3. HTTPS only — trong Production
+app.UseHttpsRedirection();
+// Kết hợp HSTS
+app.UseHsts();
+
+// 4. Audit log đăng nhập/đăng xuất
+public async Task LogAudit(string userId, string action, string detail)
+{
+    _db.AuditLogs.Add(new AuditLog
+    {
+        UserId    = userId,
+        Action    = action,
+        Detail    = detail,
+        Timestamp = DateTime.UtcNow,
+        IpAddress = _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString()
+    });
+    await _db.SaveChangesAsync();
+}
+
+// 5. Brute force protection — dùng lockout của Identity
+// (đã cấu hình ở phần Identity: MaxFailedAccessAttempts = 5)
+
+// 6. Rotate JWT secret key định kỳ, lưu trong Azure Key Vault / AWS Secrets Manager
+// Đừng hardcode trong appsettings.json khi deploy Production
+```
+
+**Checklist bảo mật tối thiểu:**
+
+- [ ] JWT SecretKey >= 32 ký tự, lưu trong secret manager
+- [ ] `ClockSkew = TimeSpan.Zero` để không cho phép token hết hạn nhưng vẫn được chấp nhận
+- [ ] Refresh token stored hashed (không plain text) nếu DB bị lộ
+- [ ] HTTPS enforced ở cả load balancer lẫn app layer
+- [ ] Log tất cả login/logout/failed attempts với IP
+- [ ] Revoke all refresh tokens khi user đổi mật khẩu
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [10.10 — 9. External Login và OAuth2 (Overview)](10.10-overview.mdx)
+- **Bài tiếp theo:** [10.12 — Mở rộng và đào sâu](10.12-advanced-notes.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

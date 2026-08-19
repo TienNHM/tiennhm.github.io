@@ -1,0 +1,63 @@
+---
+title: "17.3 — 2. Hai nỗi sợ cốt lõi: mất tin & gửi trùng"
+sidebar_position: 3
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 17.3 — 2. Hai nỗi sợ cốt lõi: mất tin & gửi trùng
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 17.3.1 — 2.1 Mất tin nhắn
+
+Gọi `SaveChanges` thành công rồi **crash** trước khi publish → đối tác không biết gì.
+
+### 17.3.2 — 2.2 Gửi trùng
+
+At-least-once delivery: broker có thể giao **cùng một message hai lần**. Consumer phải **an toàn khi lặp**.
+
+**Idempotency key**: lưu `ProcessedMessage(messageId)` hoặc dùng khóa nghiệp vụ (`InvoiceNumber` unique).
+
+```csharp
+public async Task HandleAsync(LeadConvertedIntegrationEvent evt, CancellationToken ct)
+{
+    if (await _processedStore.WasProcessedAsync(evt.EventId, ct))
+        return;
+
+    await _billing.CreateDraftSubscriptionAsync(evt.CustomerId, ct);
+    await _processedStore.MarkProcessedAsync(evt.EventId, ct);
+}
+```
+
+Transaction boundary giữa “tạo subscription” và “mark processed” cần thiết kế cẩn thận (same DB hoặc outbox phía billing).
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [17.2 — 1. Event-driven architecture (EDA) — khi nào dùng?](17.2-event-driven-architecture-when-to-use.mdx)
+- **Bài tiếp theo:** [17.4 — 3. Outbox pattern (ứng dụng)](17.4-outbox-pattern-applied.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

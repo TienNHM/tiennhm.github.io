@@ -1,0 +1,101 @@
+---
+title: "11.11 — 10. Scale-out và Production"
+sidebar_position: 11
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 11.11 — 10. Scale-out và Production
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 11.11.1 — Vấn đề với nhiều instance
+
+```
+[Client A] ─── Instance 1 ───┐
+                              ├─── Backplane (Redis) ──── broadcast tới tất cả
+[Client B] ─── Instance 2 ───┘
+```
+
+Khi Instance 1 muốn gửi cho Client B (đang kết nối Instance 2), cần có backplane để relay message.
+
+### 11.11.2 — Redis Backplane
+
+```bash
+dotnet add package Microsoft.AspNetCore.SignalR.StackExchangeRedis
+```
+
+```csharp
+// Program.cs
+builder.Services.AddSignalR()
+    .AddStackExchangeRedis(
+        builder.Configuration.GetConnectionString("Redis")!,
+        options =>
+        {
+            options.Configuration.ChannelPrefix = RedisChannel.Literal("crm");
+        });
+```
+
+### 11.11.3 — Azure SignalR Service (Managed)
+
+```bash
+dotnet add package Microsoft.Azure.SignalR
+```
+
+```csharp
+// Program.cs — thay AddStackExchangeRedis bằng:
+builder.Services.AddSignalR()
+    .AddAzureSignalR(builder.Configuration["Azure:SignalR:ConnectionString"]!);
+```
+
+Azure SignalR Service xử lý toàn bộ infrastructure: connection management, scale-out, geo-replication — không cần tự quản lý Redis.
+
+### 11.11.4 — Sticky Session
+
+Khi dùng Redis backplane với nginx/load balancer, cần bật **sticky session** (IP hash hoặc session cookie) để negotiate và WebSocket upgrade đều đến cùng một instance:
+
+```nginx
+upstream signalr_backend {
+    ip_hash;  # Sticky session
+    server api1:5000;
+    server api2:5000;
+}
+```
+
+### 11.11.5 — Giới hạn kết nối
+
+| Tier | Concurrent connections |
+|---|---|
+| Free (Azure SignalR) | 20 |
+| Standard (Azure SignalR) | 1.000/unit |
+| Self-hosted (Redis backplane) | Giới hạn bởi RAM/CPU |
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [11.10 — 9. Presence — Online/Offline](11.10-presence-online-offline-status.mdx)
+- **Bài tiếp theo:** [11.12 — Mở rộng và đào sâu](11.12-advanced-notes.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

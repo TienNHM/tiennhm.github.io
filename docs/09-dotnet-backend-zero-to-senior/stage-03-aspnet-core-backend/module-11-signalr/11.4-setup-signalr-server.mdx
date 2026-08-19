@@ -1,0 +1,109 @@
+---
+title: "11.4 — 3. Setup SignalR Server"
+sidebar_position: 4
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 11.4 — 3. Setup SignalR Server
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 11.4.1 — Cài đặt và cấu hình
+
+```csharp
+// Program.cs
+builder.Services.AddSignalR(options =>
+{
+    options.EnableDetailedErrors = builder.Environment.IsDevelopment();
+    options.KeepAliveInterval = TimeSpan.FromSeconds(15);
+    options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
+});
+
+// Map hub endpoint
+app.MapHub<CrmNotificationHub>("/hubs/notifications");
+```
+
+### 11.4.2 — Strongly-typed Hub với Interface
+
+Strongly-typed Hub giúp compile-time safety — tránh typo khi gọi client method.
+
+```csharp
+// Interface định nghĩa các method mà SERVER có thể GỌI trên CLIENT
+public interface ICrmNotificationClient
+{
+    Task ReceiveNotification(NotificationDto notification);
+    Task ReceiveLeadUpdate(LeadUpdateDto update);
+    Task UserStatusChanged(string userId, bool isOnline);
+}
+
+// Hub strongly-typed
+public class CrmNotificationHub : Hub<ICrmNotificationClient>
+{
+    private readonly ILogger<CrmNotificationHub> _logger;
+    private readonly IPresenceTracker _presenceTracker;
+
+    public CrmNotificationHub(
+        ILogger<CrmNotificationHub> logger,
+        IPresenceTracker presenceTracker)
+    {
+        _logger = logger;
+        _presenceTracker = presenceTracker;
+    }
+
+    // Method CLIENT có thể GỌI lên SERVER
+    public async Task JoinTenantGroup(string tenantId)
+    {
+        var userId = Context.UserIdentifier!;
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"tenant-{tenantId}");
+        _logger.LogInformation("User {UserId} joined tenant group {TenantId}", userId, tenantId);
+    }
+
+    public async Task LeaveGroup(string groupName)
+    {
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
+    }
+
+    // Gọi thẳng tới client gọi method này (echo test)
+    public async Task Ping()
+    {
+        await Clients.Caller.ReceiveNotification(new NotificationDto
+        {
+            Id = Guid.NewGuid(),
+            Message = "Pong from server!",
+            Type = NotificationType.Info,
+            CreatedAt = DateTime.UtcNow
+        });
+    }
+}
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [11.3 — 2. SignalR Architecture](11.3-signalr-architecture.mdx)
+- **Bài tiếp theo:** [11.5 — 4. Client-side Integration](11.5-client-side-integration.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

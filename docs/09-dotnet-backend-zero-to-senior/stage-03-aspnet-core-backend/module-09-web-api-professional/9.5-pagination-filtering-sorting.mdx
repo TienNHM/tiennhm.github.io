@@ -1,0 +1,157 @@
+---
+title: "9.5 — 4. Pagination, Filtering, Sorting"
+sidebar_position: 5
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 9.5 — 4. Pagination, Filtering, Sorting
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 9.5.1 — 4.1 Pagination params và response envelope
+
+```csharp
+public record PaginationParams
+{
+    public int Page { get; init; } = 1;
+    public int PageSize { get; init; } = 20;
+    public int Skip => (Page - 1) * PageSize;
+}
+
+public record CustomerFilterParams : PaginationParams
+{
+    public string? Search { get; init; }
+    public string? Status { get; init; }       // active, inactive, lead
+    public DateTime? CreatedFrom { get; init; }
+    public DateTime? CreatedTo { get; init; }
+    public string? SortBy { get; init; } = "createdAt";
+    public string? SortDir { get; init; } = "desc"; // asc | desc
+}
+
+public record PagedResponse<T>
+{
+    public IEnumerable<T> Data { get; init; } = [];
+    public PaginationMeta Pagination { get; init; } = new();
+}
+
+public record PaginationMeta
+{
+    public int Page { get; init; }
+    public int PageSize { get; init; }
+    public int Total { get; init; }
+    public int TotalPages => (int)Math.Ceiling((double)Total / PageSize);
+    public bool HasNext => Page < TotalPages;
+    public bool HasPrev => Page > 1;
+}
+```
+
+Response envelope:
+```json
+{
+  "data": [ { "id": 1, "name": "Nguyễn Văn A" } ],
+  "pagination": {
+    "page": 1,
+    "pageSize": 20,
+    "total": 150,
+    "totalPages": 8,
+    "hasNext": true,
+    "hasPrev": false
+  }
+}
+```
+
+### 9.5.2 — 4.2 IQueryable filtering + sorting
+
+```csharp
+public class CustomerQueryService
+{
+    public IQueryable<Customer> ApplyFilter(IQueryable<Customer> query, CustomerFilterParams p)
+    {
+        if (!string.IsNullOrWhiteSpace(p.Search))
+            query = query.Where(c => c.Name.Contains(p.Search) || c.Email.Contains(p.Search));
+
+        if (!string.IsNullOrWhiteSpace(p.Status))
+            query = query.Where(c => c.Status == p.Status);
+
+        if (p.CreatedFrom.HasValue)
+            query = query.Where(c => c.CreatedAt >= p.CreatedFrom.Value);
+
+        if (p.CreatedTo.HasValue)
+            query = query.Where(c => c.CreatedAt <= p.CreatedTo.Value);
+
+        // Dynamic sorting
+        query = (p.SortBy?.ToLower(), p.SortDir?.ToLower()) switch
+        {
+            ("name", "asc")        => query.OrderBy(c => c.Name),
+            ("name", "desc")       => query.OrderByDescending(c => c.Name),
+            ("createdat", "asc")   => query.OrderBy(c => c.CreatedAt),
+            _                      => query.OrderByDescending(c => c.CreatedAt)
+        };
+
+        return query;
+    }
+}
+```
+
+### 9.5.3 — 4.3 Customer list endpoint hoàn chỉnh
+
+```csharp
+[HttpGet]
+[ProducesResponseType(typeof(PagedResponse<CustomerDto>), StatusCodes.Status200OK)]
+public async Task<IActionResult> GetCustomers([FromQuery] CustomerFilterParams @params)
+{
+    var query = _db.Customers.AsNoTracking();
+    query = _queryService.ApplyFilter(query, @params);
+
+    var total = await query.CountAsync();
+    var items = await query
+        .Skip(@params.Skip)
+        .Take(@params.PageSize)
+        .Select(c => new CustomerDto(c.Id, c.Name, c.Email, c.Status, c.CreatedAt))
+        .ToListAsync();
+
+    return Ok(new PagedResponse<CustomerDto>
+    {
+        Data = items,
+        Pagination = new PaginationMeta
+        {
+            Page = @params.Page,
+            PageSize = @params.PageSize,
+            Total = total
+        }
+    });
+}
+```
+
+> **Cursor pagination** phù hợp hơn offset khi dataset lớn (hàng triệu bản ghi) vì tránh `OFFSET` scan. Sử dụng `cursor` là giá trị cuối của trường sort thay vì số trang.
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [9.4 — 3. Swagger / OpenAPI](9.4-swagger-openapi.mdx)
+- **Bài tiếp theo:** [9.6 — 5. File Upload và Download](9.6-file-upload-and-download.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

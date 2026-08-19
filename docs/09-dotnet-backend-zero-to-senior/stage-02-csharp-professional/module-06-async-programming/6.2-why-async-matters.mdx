@@ -1,0 +1,59 @@
+---
+title: "6.2 — Tại sao cần Async?"
+sidebar_position: 2
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 6.2 — Tại sao cần Async?
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 6.2.1 — Analogy: Nhà hàng so với nhà bếp
+
+Hãy tưởng tượng một nhà hàng:
+
+- **Synchronous (blocking):** Mỗi bồi bàn phục vụ đúng 1 bàn. Bồi bàn đứng chờ bếp nấu xong mới đi phục vụ bàn khác. Muốn phục vụ 100 bàn cùng lúc → cần 100 bồi bàn.
+- **Asynchronous (non-blocking):** Một bồi bàn nhận order, đặt phiếu vào bếp, rồi đi phục vụ bàn khác trong lúc chờ. Khi bếp gọi, bồi bàn quay lại mang thức ăn. 10 bồi bàn phục vụ được 200 bàn.
+
+Trong .NET, **thread = bồi bàn**, **I/O wait (DB, HTTP, file) = thời gian chờ bếp**. Mỗi thread tiêu tốn ~1MB stack. Block 1000 thread = lãng phí 1GB RAM, không làm được việc gì.
+
+### 6.2.2 — Throughput so với Parallelism
+
+| Khái niệm | Ý nghĩa | Dùng khi |
+|-----------|---------|----------|
+| **Async I/O** | Thread không block khi chờ I/O | DB query, HTTP call, file read |
+| **Parallelism** | Nhiều CPU core chạy đồng thời | CPU-bound: tính toán, encode, ML |
+| **Concurrency** | Xử lý nhiều tác vụ "cùng lúc" (có thể single-core) | Cả hai trường hợp |
+
+> **Rule:** Async/await dùng cho I/O-bound. `Parallel.ForEach` / `Task.Run` dùng cho CPU-bound.
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [6.1 — Module Orientation](6.1-module-orientation.mdx)
+- **Bài tiếp theo:** [6.3 — 1. Task và async/await](6.3-task-and-async-await.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

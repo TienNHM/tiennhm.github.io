@@ -1,0 +1,112 @@
+---
+title: "6.5 — 3. CancellationToken"
+sidebar_position: 5
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 6.5 — 3. CancellationToken
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 6.5.1 — Tại sao cần CancellationToken?
+
+Người dùng bấm "Hủy" trên form CRM, hoặc request HTTP timeout sau 30s. Nếu không có CancellationToken, server vẫn tiếp tục chạy query DB 10 phút → lãng phí tài nguyên, cản trở các request khác.
+
+### 6.5.2 — CancellationTokenSource
+
+```csharp
+// Tạo token với timeout 5 giây
+using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+CancellationToken token = cts.Token;
+
+// Hủy thủ công
+cts.Cancel();
+
+// Kiểm tra trong code
+token.ThrowIfCancellationRequested();
+```
+
+### 6.5.3 — Pass token qua call chain
+
+Nguyên tắc: **truyền token từ entry point xuống tất cả layer**.
+
+```csharp
+// Controller — token đến từ ASP.NET Core tự động
+[HttpGet("{id}/report")]
+public async Task<IActionResult> GetReport(int id, CancellationToken ct)
+{
+    var report = await _reportService.GenerateAsync(id, ct);
+    return Ok(report);
+}
+
+// Service layer
+public class ReportService
+{
+    private readonly ICustomerRepository _repo;
+    private readonly IAnalyticsService _analytics;
+
+    public async Task<CustomerReport> GenerateAsync(int customerId, CancellationToken ct)
+    {
+        // Truyền ct xuống tất cả I/O calls
+        var customer = await _repo.GetByIdAsync(customerId, ct);
+        var interactions = await _analytics.GetInteractionsAsync(customerId, ct);
+        var revenue = await _analytics.GetRevenueAsync(customerId, ct);
+
+        return new CustomerReport(customer!, interactions, revenue);
+    }
+}
+
+// Repository layer — ví dụ long-running query bị cancel
+public class CustomerRepository : ICustomerRepository
+{
+    private readonly AppDbContext _db;
+
+    public async Task<Customer?> GetByIdAsync(int id, CancellationToken ct)
+    {
+        try
+        {
+            // EF Core tự động pass token xuống DB command
+            return await _db.Customers
+                .Include(c => c.Interactions)
+                .FirstOrDefaultAsync(c => c.Id == id, ct);
+        }
+        catch (OperationCanceledException)
+        {
+            // Log nhưng không throw lại nếu đây là hủy bình thường
+            Console.WriteLine($"Query for customer {id} was cancelled.");
+            return null;
+        }
+    }
+}
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [6.4 — 2. ConfigureAwait](6.4-configureawait.mdx)
+- **Bài tiếp theo:** [6.6 — 4. Task Parallel Library](6.6-task-parallel-library.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

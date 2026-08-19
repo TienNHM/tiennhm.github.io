@@ -1,0 +1,116 @@
+---
+title: "15.9 — 8. Production Monitoring"
+sidebar_position: 9
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 15.9 — 8. Production Monitoring
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 15.9.1 — Structured Logging với Serilog
+
+```csharp
+// Program.cs
+builder.Host.UseSerilog((ctx, lc) => lc
+    .ReadFrom.Configuration(ctx.Configuration)
+    .Enrich.FromLogContext()
+    .Enrich.WithMachineName()
+    .WriteTo.Console(new JsonFormatter())
+    .WriteTo.Seq(ctx.Configuration["Seq:ServerUrl"]!));
+```
+
+```json
+// appsettings.json
+{
+  "Seq": {
+    "ServerUrl": "http://seq:5341",
+    "ApiKey": ""
+  }
+}
+```
+
+Trong code: dùng structured logging thay vì string interpolation:
+
+```csharp
+// SAI
+_logger.LogInformation($"Customer {customerId} created");
+
+// ĐÚNG - Seq/Application Insights index được property
+_logger.LogInformation("Customer {CustomerId} created by {UserId}", customerId, userId);
+```
+
+### 15.9.2 — Health Check Endpoint
+
+```csharp
+// Program.cs
+builder.Services.AddHealthChecks()
+    .AddSqlServer(connectionString, name: "sqlserver")
+    .AddRedis(redisConnection, name: "redis")
+    .AddUrlGroup(new Uri("https://api.external.com/ping"), name: "external");
+
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
+});
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready")
+});
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = _ => false  // luôn healthy nếu process còn sống
+});
+```
+
+### 15.9.3 — Uptime Monitoring
+
+- **UptimeRobot** (free): ping `/health` mỗi 5 phút, gửi email khi down.
+- **Better Uptime**: alerting tốt hơn, incident management.
+
+Cấu hình alert: ping `https://api.crm.yourdomain.com/health`, timeout 10s, alert sau 2 lần fail liên tiếp.
+
+### 15.9.4 — Diagnostics Tools
+
+```bash
+# Xem metrics realtime
+dotnet-counters monitor --process-id <PID> System.Runtime
+
+# CPU/memory profile
+dotnet-trace collect --process-id <PID> --duration 00:00:30
+
+# Dump memory leak analysis
+dotnet-dump collect --process-id <PID>
+dotnet-dump analyze core_<PID>
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [15.8 — 7. Azure Deployment](15.8-azure-deployment.mdx)
+- **Bài tiếp theo:** [15.10 — 9. Kubernetes Intro (Awareness Level)](15.10-awareness-level.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

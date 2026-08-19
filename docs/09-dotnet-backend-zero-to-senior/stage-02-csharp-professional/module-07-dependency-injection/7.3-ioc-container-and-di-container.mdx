@@ -1,0 +1,71 @@
+---
+title: "7.3 — 1. IoC Container và DI Container"
+sidebar_position: 3
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 7.3 — 1. IoC Container và DI Container
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 7.3.1 — Inversion of Control là gì?
+
+**IoC (Inversion of Control)** là nguyên tắc: thay vì class tự tạo dependency, nó nhận dependency từ bên ngoài. "Điều khiển" (control) việc tạo đối tượng bị đảo ngược (inverted) — không còn nằm trong class mà nằm ở nơi khác (container).
+
+**DI (Dependency Injection)** là một cách hiện thực IoC: dependency được "inject" vào class qua constructor, property, hoặc method.
+
+### 7.3.2 — .NET Built-in DI Container
+
+.NET cung cấp sẵn `Microsoft.Extensions.DependencyInjection` — nhẹ, hiệu năng cao, đủ dùng cho hầu hết dự án:
+
+```csharp
+using Microsoft.Extensions.DependencyInjection;
+
+// 1. Tạo ServiceCollection — nơi đăng ký tất cả service
+var services = new ServiceCollection();
+
+// 2. Đăng ký service
+services.AddScoped<ICustomerRepository, SqlCustomerRepository>();
+services.AddScoped<IEmailService, SmtpEmailService>();
+services.AddScoped<CustomerService>();
+
+// 3. Build ServiceProvider — nơi resolve service
+ServiceProvider provider = services.BuildServiceProvider();
+
+// 4. Resolve service (chỉ làm ở composition root)
+var customerService = provider.GetRequiredService<CustomerService>();
+```
+
+- **`ServiceCollection`**: danh sách đăng ký (registrations)
+- **`ServiceProvider`**: container thực sự, biết cách tạo và quản lý vòng đời service
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [7.2 — Vấn đề DI giải quyết](7.2-di-problem-scope.mdx)
+- **Bài tiếp theo:** [7.4 — 2. Ba cách đăng ký service](7.4-three-ways-register-services.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

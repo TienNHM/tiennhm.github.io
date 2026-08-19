@@ -1,0 +1,92 @@
+---
+title: "9.7 — 6. Rate Limiting (.NET 7+)"
+sidebar_position: 7
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 9.7 — 6. Rate Limiting (.NET 7+)
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+```csharp
+// Program.cs
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    // Fixed window: 100 req / 1 phút cho tất cả
+    options.AddFixedWindowLimiter("fixed", o =>
+    {
+        o.PermitLimit = 100;
+        o.Window = TimeSpan.FromMinutes(1);
+        o.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        o.QueueLimit = 10;
+    });
+
+    // Sliding window: mượt hơn fixed window
+    options.AddSlidingWindowLimiter("sliding", o =>
+    {
+        o.PermitLimit = 60;
+        o.Window = TimeSpan.FromMinutes(1);
+        o.SegmentsPerWindow = 6;
+    });
+
+    // Per-user rate limiting dựa trên JWT sub
+    options.AddPolicy("per-user", context =>
+    {
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "anonymous";
+        return RateLimitPartition.GetTokenBucketLimiter(userId, _ => new()
+        {
+            TokenLimit = 20,
+            TokensPerPeriod = 10,
+            ReplenishmentPeriod = TimeSpan.FromSeconds(10),
+            AutoReplenishment = true
+        });
+    });
+});
+
+app.UseRateLimiter();
+```
+
+```csharp
+// Áp dụng cho controller
+[HttpGet]
+[EnableRateLimiting("per-user")]
+public IActionResult GetCustomers() { ... }
+
+// Hoặc disable cho internal endpoint
+[HttpGet("health")]
+[DisableRateLimiting]
+public IActionResult Health() => Ok();
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [9.6 — 5. File Upload và Download](9.6-file-upload-and-download.mdx)
+- **Bài tiếp theo:** [9.8 — 7. Response Caching và Output Caching](9.8-response-caching-and-output-caching.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

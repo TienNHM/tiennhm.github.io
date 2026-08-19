@@ -1,0 +1,144 @@
+---
+title: "14.4 — 3. IDistributedCache và Redis"
+sidebar_position: 4
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 14.4 — 3. IDistributedCache và Redis
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+`IDistributedCache` là interface chuẩn cho distributed cache — không phụ thuộc Redis; có thể thay bằng SQL Server, NCache...
+
+### 14.4.1 — Setup Redis
+
+```csharp
+// Program.cs
+builder.Services.AddStackExchangeRedisCache(options =>
+{
+    options.Configuration = builder.Configuration.GetConnectionString("Redis");
+    // Ví dụ: "localhost:6379,password=secret,ssl=true"
+    options.InstanceName = "crm_"; // Prefix cho tất cả key
+});
+```
+
+### 14.4.2 — Serialize/Deserialize với System.Text.Json
+
+```csharp
+public static class DistributedCacheExtensions
+{
+    public static async Task SetAsync<T>(
+        this IDistributedCache cache,
+        string key,
+        T value,
+        DistributedCacheEntryOptions? options = null,
+        CancellationToken ct = default)
+    {
+        var json = JsonSerializer.SerializeToUtf8Bytes(value);
+        await cache.SetAsync(key, json, options ?? new(), ct);
+    }
+
+    public static async Task<T?> GetAsync<T>(
+        this IDistributedCache cache,
+        string key,
+        CancellationToken ct = default)
+    {
+        var bytes = await cache.GetAsync(key, ct);
+        return bytes is null ? default : JsonSerializer.Deserialize<T>(bytes);
+    }
+}
+```
+
+### 14.4.3 — Cache Patterns
+
+**Cache-Aside (Lazy Loading)** — pattern phổ biến nhất:
+
+```csharp
+public class CustomerCacheService(IDistributedCache cache, AppDbContext db)
+{
+    private static string CustomerListKey(int page) => $"customer_list_page_{page}";
+
+    public async Task<PagedResult<CustomerDto>> GetCustomersAsync(int page, int pageSize)
+    {
+        var key = CustomerListKey(page);
+        var cached = await cache.GetAsync<PagedResult<CustomerDto>>(key);
+        if (cached is not null) return cached;
+
+        // Cache miss — truy vấn DB
+        var result = await db.Customers
+            .OrderBy(c => c.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(c => new CustomerDto(c.Id, c.Name, c.Email))
+            .ToPagedResultAsync(page, pageSize);
+
+        await cache.SetAsync(key, result, new DistributedCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5)
+        });
+
+        return result;
+    }
+
+    // Invalidate khi có thay đổi
+    public async Task InvalidateCustomerListAsync()
+    {
+        // Xóa tất cả các page (hoặc dùng tag-based — xem Section 4)
+        for (int i = 1; i <= 10; i++)
+            await cache.RemoveAsync(CustomerListKey(i));
+    }
+}
+```
+
+**Token Blacklist — ví dụ thực tế CRM:**
+
+```csharp
+public class TokenBlacklistService(IDistributedCache cache)
+{
+    public async Task BlacklistTokenAsync(string jti, DateTimeOffset expiry)
+    {
+        var ttl = expiry - DateTimeOffset.UtcNow;
+        if (ttl <= TimeSpan.Zero) return;
+
+        await cache.SetStringAsync($"blacklist_{jti}", "1",
+            new DistributedCacheEntryOptions
+            {
+                AbsoluteExpiration = expiry
+            });
+    }
+
+    public async Task<bool> IsBlacklistedAsync(string jti)
+        => await cache.GetStringAsync($"blacklist_{jti}") is not null;
+}
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [14.3 — 2. IMemoryCache](14.3-imemorycache.mdx)
+- **Bài tiếp theo:** [14.5 — 4. Cache Invalidation Strategies](14.5-cache-invalidation-strategies.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

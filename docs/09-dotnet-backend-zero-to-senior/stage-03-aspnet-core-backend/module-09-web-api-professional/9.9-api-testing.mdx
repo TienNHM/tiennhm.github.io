@@ -1,0 +1,124 @@
+---
+title: "9.9 — 8. API Testing"
+sidebar_position: 9
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 9.9 — 8. API Testing
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 9.9.1 — 8.1 WebApplicationFactory setup
+
+```csharp
+// CrmApiFactory.cs
+public class CrmApiFactory : WebApplicationFactory<Program>
+{
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        builder.ConfigureServices(services =>
+        {
+            // Thay DB thật bằng in-memory
+            var descriptor = services.SingleOrDefault(d =>
+                d.ServiceType == typeof(DbContextOptions<CrmDbContext>));
+            if (descriptor != null) services.Remove(descriptor);
+
+            services.AddDbContext<CrmDbContext>(options =>
+                options.UseInMemoryDatabase("TestDb_" + Guid.NewGuid()));
+        });
+    }
+}
+```
+
+### 9.9.2 — 8.2 Integration test Customer API
+
+```csharp
+public class CustomerApiTests : IClassFixture<CrmApiFactory>
+{
+    private readonly HttpClient _client;
+
+    public CustomerApiTests(CrmApiFactory factory)
+    {
+        _client = factory.CreateClient();
+    }
+
+    [Fact]
+    public async Task GetCustomers_ReturnsPagedResult()
+    {
+        var response = await _client.GetAsync("/api/v1/customers?page=1&pageSize=10");
+        response.EnsureSuccessStatusCode();
+
+        var result = await response.Content
+            .ReadFromJsonAsync<PagedResponse<CustomerDto>>();
+
+        Assert.NotNull(result);
+        Assert.NotNull(result.Pagination);
+        Assert.True(result.Pagination.PageSize <= 10);
+    }
+
+    [Fact]
+    public async Task CreateCustomer_WithInvalidEmail_Returns422()
+    {
+        var payload = new { name = "Test", email = "not-valid-email" };
+        var response = await _client.PostAsJsonAsync("/api/v1/customers", payload);
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetCustomer_NotFound_Returns404()
+    {
+        var response = await _client.GetAsync("/api/v1/customers/99999");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetCustomers_WithSearch_ReturnsFilteredResult()
+    {
+        // Arrange: seed data
+        var createResp = await _client.PostAsJsonAsync("/api/v1/customers",
+            new { name = "Nguyễn Văn A", email = "a@crm.vn", status = "active" });
+        createResp.EnsureSuccessStatusCode();
+
+        // Act
+        var response = await _client.GetAsync("/api/v1/customers?search=Nguyễn");
+        var result = await response.Content.ReadFromJsonAsync<PagedResponse<CustomerDto>>();
+
+        // Assert
+        Assert.True(result!.Data.Any(c => c.Name.Contains("Nguyễn")));
+    }
+}
+```
+
+> **Postman collection:** Export collection JSON từ Postman và commit vào `tests/postman/` để QA và onboarding nhanh. Sử dụng environment variables (`{{baseUrl}}`, `{{token}}`) để chạy trên nhiều môi trường.
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [9.8 — 7. Response Caching và Output Caching](9.8-response-caching-and-output-caching.mdx)
+- **Bài tiếp theo:** [9.10 — 9. Background Processing với Hosted Service](9.10-hosted-service-background-jobs.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

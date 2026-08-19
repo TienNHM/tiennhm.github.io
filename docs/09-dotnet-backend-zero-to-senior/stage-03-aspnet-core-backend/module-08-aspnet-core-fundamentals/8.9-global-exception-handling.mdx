@@ -1,0 +1,119 @@
+---
+title: "8.9 — 8. Global Exception Handling"
+sidebar_position: 9
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 8.9 — 8. Global Exception Handling
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 8.9.1 — Cách 1: IExceptionHandler (.NET 8+, khuyến nghị)
+
+```csharp
+// ExceptionHandlers/GlobalExceptionHandler.cs
+public class GlobalExceptionHandler : IExceptionHandler
+{
+    private readonly ILogger<GlobalExceptionHandler> _logger;
+
+    public GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger)
+        => _logger = logger;
+
+    public async ValueTask<bool> TryHandleAsync(
+        HttpContext context,
+        Exception exception,
+        CancellationToken cancellationToken)
+    {
+        var (statusCode, title) = exception switch
+        {
+            NotFoundException => (StatusCodes.Status404NotFound, "Resource not found"),
+            ValidationException => (StatusCodes.Status422UnprocessableEntity, "Validation failed"),
+            UnauthorizedAccessException => (StatusCodes.Status403Forbidden, "Access denied"),
+            _ => (StatusCodes.Status500InternalServerError, "An unexpected error occurred")
+        };
+
+        // Log đầy đủ server-side, nhưng KHÔNG trả stack trace cho client
+        _logger.LogError(exception,
+            "Unhandled exception {ExceptionType}: {Message}",
+            exception.GetType().Name, exception.Message);
+
+        var problemDetails = new ProblemDetails
+        {
+            Status = statusCode,
+            Title = title,
+            // Chỉ trả detail ở non-production
+            Detail = context.RequestServices
+                .GetRequiredService<IHostEnvironment>().IsProduction()
+                ? null
+                : exception.Message,
+            Instance = context.Request.Path
+        };
+
+        // Thêm correlation ID vào response
+        if (context.Items.TryGetValue("CorrelationId", out var corrId))
+            problemDetails.Extensions["correlationId"] = corrId;
+
+        context.Response.StatusCode = statusCode;
+        await context.Response.WriteAsJsonAsync(problemDetails, cancellationToken);
+        return true;
+    }
+}
+
+// Program.cs
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddProblemDetails();
+
+app.UseExceptionHandler(); // Phải đứng đầu pipeline
+```
+
+### 8.9.2 — Custom Domain Exceptions
+
+```csharp
+// Exceptions/NotFoundException.cs
+public class NotFoundException : Exception
+{
+    public NotFoundException(string entityName, object id)
+        : base($"{entityName} with id '{id}' was not found.") { }
+}
+
+// Exceptions/ValidationException.cs
+public class ValidationException : Exception
+{
+    public IReadOnlyDictionary<string, string[]> Errors { get; }
+
+    public ValidationException(IDictionary<string, string[]> errors)
+        : base("One or more validation errors occurred.")
+        => Errors = new Dictionary<string, string[]>(errors);
+}
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [8.8 — 7. Logging với Serilog](8.8-logging-with-serilog.mdx)
+- **Bài tiếp theo:** [8.10 — 9. Health Checks](8.10-health-checks.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

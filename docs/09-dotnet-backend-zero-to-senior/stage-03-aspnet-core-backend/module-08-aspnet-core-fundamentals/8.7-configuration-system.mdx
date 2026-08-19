@@ -1,0 +1,104 @@
+---
+title: "8.7 — 6. Configuration System"
+sidebar_position: 7
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 8.7 — 6. Configuration System
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 8.7.1 — Thứ tự ưu tiên (cao nhất ghi đè thấp hơn)
+
+```
+Command-line args > Environment Variables > User Secrets (Dev) >
+appsettings.{Environment}.json > appsettings.json
+```
+
+### 8.7.2 — appsettings.json
+
+```json
+{
+  "ConnectionStrings": {
+    "CrmDb": "Server=localhost;Database=CrmDb;Trusted_Connection=true"
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "CrmSettings": {
+    "MaxPageSize": 100,
+    "DefaultPageSize": 20,
+    "AllowGuestAccess": false
+  }
+}
+```
+
+### 8.7.3 — Options Pattern
+
+```csharp
+// Models/Config/CrmSettings.cs
+public class CrmSettings
+{
+    public const string SectionName = "CrmSettings";
+
+    public int MaxPageSize { get; init; } = 100;
+    public int DefaultPageSize { get; init; } = 20;
+    public bool AllowGuestAccess { get; init; }
+}
+
+// Program.cs
+builder.Services.Configure<CrmSettings>(
+    builder.Configuration.GetSection(CrmSettings.SectionName));
+
+// Sử dụng trong service
+public class CustomerService
+{
+    private readonly CrmSettings _settings;
+
+    public CustomerService(IOptions<CrmSettings> options)
+        => _settings = options.Value;
+}
+```
+
+### 8.7.4 — User Secrets (Development)
+
+```bash
+dotnet user-secrets init
+dotnet user-secrets set "ConnectionStrings:CrmDb" "Server=...;Password=secret"
+```
+
+User Secrets lưu ngoài source tree — không bao giờ commit secret vào git.
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [8.6 — 5. Model Validation](8.6-model-validation.mdx)
+- **Bài tiếp theo:** [8.8 — 7. Logging với Serilog](8.8-logging-with-serilog.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

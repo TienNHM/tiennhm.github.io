@@ -1,0 +1,118 @@
+---
+title: "10.7 — 6. Resource-based Authorization"
+sidebar_position: 7
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 10.7 — 6. Resource-based Authorization
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+Dùng khi quyết định phân quyền phụ thuộc vào dữ liệu thực tế của resource.
+
+### 10.7.1 — Requirement + Handler
+
+```csharp
+public class SameOwnerRequirement : IAuthorizationRequirement { }
+
+public class CustomerOwnerHandler
+    : AuthorizationHandler<SameOwnerRequirement, Customer>
+{
+    protected override Task HandleRequirementAsync(
+        AuthorizationHandlerContext context,
+        SameOwnerRequirement requirement,
+        Customer customer)
+    {
+        var userId = context.User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (context.User.IsInRole(CrmRoles.Admin)
+            || context.User.IsInRole(CrmRoles.Manager)
+            || customer.OwnerId == userId)
+        {
+            context.Succeed(requirement);
+        }
+
+        return Task.CompletedTask;
+    }
+}
+```
+
+### 10.7.2 — Sử dụng trong Controller
+
+```csharp
+[Authorize]
+[HttpPut("customers/{id}")]
+public async Task<IActionResult> UpdateCustomer(
+    Guid id,
+    [FromBody] UpdateCustomerRequest req,
+    [FromServices] IAuthorizationService authService)
+{
+    var customer = await _db.Customers.FindAsync(id);
+    if (customer is null) return NotFound();
+
+    var result = await authService.AuthorizeAsync(
+        User, customer, new SameOwnerRequirement());
+
+    if (!result.Succeeded)
+        return Forbid();
+
+    // ... cập nhật
+    return NoContent();
+}
+```
+
+### 10.7.3 — Territory-based cho Manager
+
+```csharp
+public class TerritoryDealHandler
+    : AuthorizationHandler<SameOwnerRequirement, Deal>
+{
+    protected override Task HandleRequirementAsync(
+        AuthorizationHandlerContext context,
+        SameOwnerRequirement requirement,
+        Deal deal)
+    {
+        var territory = context.User.FindFirstValue("territory");
+
+        if (context.User.IsInRole(CrmRoles.Admin)
+            || deal.Territory == territory
+            || deal.OwnerId == context.User.FindFirstValue(ClaimTypes.NameIdentifier))
+        {
+            context.Succeed(requirement);
+        }
+
+        return Task.CompletedTask;
+    }
+}
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [10.6 — 5. Policy-based Authorization](10.6-policy-based-authorization.mdx)
+- **Bài tiếp theo:** [10.8 — 7. Permission System](10.8-permission-system.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

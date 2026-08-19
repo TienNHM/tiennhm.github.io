@@ -1,0 +1,101 @@
+---
+title: "13.5 — 4. Migrations"
+sidebar_position: 5
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 13.5 — 4. Migrations
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 13.5.1 — Quy trình cơ bản
+
+```bash
+# Thêm migration
+dotnet ef migrations add InitialCreate --project CRM.Data --startup-project CRM.Api
+
+# Xem SQL sẽ chạy (không thực thi)
+dotnet ef migrations script --idempotent
+
+# Áp dụng vào DB
+dotnet ef database update
+
+# Rollback về migration cụ thể
+dotnet ef database update AddCustomerIndex
+
+# Xóa migration cuối (chưa apply)
+dotnet ef migrations remove
+```
+
+### 13.5.2 — Data Seeding trong Migration
+
+```csharp
+public partial class SeedDefaultTenant : Migration
+{
+    protected override void Up(MigrationBuilder migrationBuilder)
+    {
+        migrationBuilder.InsertData(
+            table: "Users",
+            columns: ["Id", "Email", "DisplayName", "TenantId"],
+            values: new object[] { 1, "admin@crm.local", "System Admin", 1 }
+        );
+
+        // Custom SQL khi cần logic phức tạp
+        migrationBuilder.Sql(@"
+            UPDATE Customers
+            SET Status = 'Active'
+            WHERE CreatedAt < '2024-01-01' AND Status = 'Prospect'
+        ");
+    }
+
+    protected override void Down(MigrationBuilder migrationBuilder)
+    {
+        migrationBuilder.DeleteData("Users", "Id", 1);
+    }
+}
+```
+
+### 13.5.3 — Migration trong CI/CD
+
+```csharp
+// Program.cs — auto-migrate khi startup (chỉ dùng dev/staging)
+if (app.Environment.IsDevelopment())
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<CrmDbContext>();
+    await db.Database.MigrateAsync();
+}
+```
+
+> Trong production, chạy `dotnet ef database update` như một bước riêng trong pipeline, không auto-migrate khi startup.
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [13.4 — 3. Relationships](13.4-relationships.mdx)
+- **Bài tiếp theo:** [13.6 — 5. Query Patterns](13.6-query-patterns.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

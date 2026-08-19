@@ -1,0 +1,91 @@
+---
+title: "5.6 — 5. Extension Methods"
+sidebar_position: 6
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 5.6 — 5. Extension Methods
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+Extension method cho phép "thêm" method vào type hiện có mà không thừa kế.
+
+```csharp
+public static class StringExtensions
+{
+    // Chuyển tên sản phẩm/tên khách thành URL slug
+    public static string ToSlug(this string input)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return string.Empty;
+        return input.Trim()
+                    .ToLowerInvariant()
+                    .Replace(" ", "-")
+                    .Replace("đ", "d")
+                    // Bỏ ký tự đặc biệt
+                    .Where(c => char.IsLetterOrDigit(c) || c == '-')
+                    .Aggregate(string.Empty, (s, c) => s + c);
+    }
+}
+
+public static class QueryableExtensions
+{
+    // Dùng trong API endpoint: ?page=2&pageSize=20
+    public static IQueryable<T> ApplyPaging<T>(this IQueryable<T> query, int page, int pageSize)
+    {
+        if (page < 1) page = 1;
+        if (pageSize < 1 || pageSize > 100) pageSize = 20;
+        return query.Skip((page - 1) * pageSize).Take(pageSize);
+    }
+}
+
+public static class DateTimeExtensions
+{
+    private static readonly HashSet<DayOfWeek> _weekends = [DayOfWeek.Saturday, DayOfWeek.Sunday];
+
+    public static bool IsBusinessDay(this DateTime date)
+        => !_weekends.Contains(date.DayOfWeek);
+
+    public static DateTime NextBusinessDay(this DateTime date)
+    {
+        var next = date.AddDays(1);
+        while (!next.IsBusinessDay()) next = next.AddDays(1);
+        return next;
+    }
+}
+
+// Sử dụng:
+// "Nguyễn Văn A".ToSlug()          → "nguyen-van-a"
+// DateTime.Today.IsBusinessDay()    → true/false
+// query.ApplyPaging(page: 2, pageSize: 20)
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [5.5 — 4. Delegates và Events](5.5-delegates-and-events.mdx)
+- **Bài tiếp theo:** [5.7 — 6. Nullable Reference Types (C# 8+)](5.7-nullable-reference-types.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

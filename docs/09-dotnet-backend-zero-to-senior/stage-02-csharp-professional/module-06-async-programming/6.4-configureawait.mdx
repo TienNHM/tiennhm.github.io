@@ -1,0 +1,86 @@
+---
+title: "6.4 — 2. ConfigureAwait"
+sidebar_position: 4
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 6.4 — 2. ConfigureAwait
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 6.4.1 — Vấn đề: Deadlock trong ASP.NET (classic)
+
+Trong ASP.NET Framework cũ (không phải Core), `SynchronizationContext` yêu cầu continuation phải chạy trên thread gốc. Nếu thread gốc đang bị block bởi `.Result` hoặc `.Wait()`, xảy ra deadlock:
+
+```csharp
+// DEADLOCK trong ASP.NET Framework (không phải Core)
+public ActionResult GetData()
+{
+    // Thread HTTP đang block ở đây và giữ SynchronizationContext
+    var data = GetDataAsync().Result; // Deadlock!
+    return View(data);
+}
+
+private async Task<string> GetDataAsync()
+{
+    // Continuation cần quay về SynchronizationContext
+    // nhưng thread đó đang bị .Result block → deadlock
+    return await httpClient.GetStringAsync("https://api.example.com");
+}
+```
+
+### 6.4.2 — ConfigureAwait(false)
+
+`ConfigureAwait(false)` bảo CLR: "Không cần quay về SynchronizationContext gốc, chạy trên bất kỳ thread nào cũng được."
+
+```csharp
+// Trong library code — dùng ConfigureAwait(false)
+public async Task<Customer?> GetFromCacheAsync(int id)
+{
+    var cached = await _cache.GetAsync($"customer:{id}").ConfigureAwait(false);
+    if (cached is null) return null;
+
+    return JsonSerializer.Deserialize<Customer>(cached);
+}
+```
+
+### 6.4.3 — Rule of thumb
+
+| Loại code | Dùng ConfigureAwait(false)? | Lý do |
+|-----------|---------------------------|-------|
+| **Library / Infrastructure** | Có | Tránh deadlock, hiệu năng tốt hơn |
+| **ASP.NET Core controller / service** | Không cần | ASP.NET Core không có SynchronizationContext |
+| **WinForms / WPF UI code** | Không | Cần quay về UI thread để cập nhật controls |
+
+> **ASP.NET Core** đã loại bỏ SynchronizationContext nên deadlock dạng này không xảy ra. Tuy nhiên, nếu bạn viết NuGet library thì vẫn dùng `ConfigureAwait(false)`.
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [6.3 — 1. Task và async/await](6.3-task-and-async-await.mdx)
+- **Bài tiếp theo:** [6.5 — 3. CancellationToken](6.5-cancellationtoken.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

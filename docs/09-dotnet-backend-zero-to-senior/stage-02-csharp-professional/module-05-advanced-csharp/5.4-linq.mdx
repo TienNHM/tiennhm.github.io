@@ -1,0 +1,122 @@
+---
+title: "5.4 — 3. LINQ"
+sidebar_position: 4
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 5.4 — 3. LINQ
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+LINQ (Language Integrated Query) cho phép query collection và database với cú pháp C# nhất quán.
+
+### 5.4.1 — 3.1 Method Syntax so với Query Syntax
+
+```csharp
+var leads = context.Leads.Where(l => l.Status == LeadStatus.New).ToList();
+
+// Method syntax (phổ biến hơn trong production)
+var hotLeads = leads
+    .Where(l => l.Score >= 80)
+    .OrderByDescending(l => l.Score)
+    .Take(10)
+    .ToList();
+
+// Query syntax (gần SQL hơn, ít dùng)
+var hotLeadsQ = (from l in leads
+                 where l.Score >= 80
+                 orderby l.Score descending
+                 select l)
+                .Take(10)
+                .ToList();
+```
+
+### 5.4.2 — 3.2 Các Operator Quan Trọng
+
+```csharp
+// --- Filter & Projection ---
+var emails = customers
+    .Where(c => c.IsActive)
+    .Select(c => c.Email);
+
+// SelectMany: flatten nhiều deal của nhiều customer
+var allDealNames = customers
+    .SelectMany(c => c.Deals)
+    .Select(d => d.Name);
+
+// --- Grouping ---
+var revenueByMonth = deals
+    .Where(d => d.Status == DealStatus.Won)
+    .GroupBy(d => new { d.ClosedDate.Year, d.ClosedDate.Month })
+    .Select(g => new
+    {
+        Year    = g.Key.Year,
+        Month   = g.Key.Month,
+        Revenue = g.Sum(d => d.Value),
+        Count   = g.Count()
+    })
+    .OrderBy(r => r.Year).ThenBy(r => r.Month);
+
+// --- Aggregation ---
+decimal totalRevenue = deals.Where(d => d.Status == DealStatus.Won).Sum(d => d.Value);
+decimal avgDeal      = deals.Average(d => d.Value);
+var     maxDeal      = deals.MaxBy(d => d.Value);
+
+// --- Lookup ---
+var vip = customers.FirstOrDefault(c => c.Email == "vip@corp.com");
+bool hasOverdue = deals.Any(d => d.DueDate < DateTime.Today && d.Status != DealStatus.Won);
+bool allPaid    = invoices.All(i => i.IsPaid);
+
+// --- Aggregate tùy chỉnh ---
+string allNames = customers
+    .Select(c => c.Name)
+    .Aggregate((a, b) => $"{a}, {b}");
+```
+
+### 5.4.3 — 3.3 Deferred Execution — Cạm Bẫy Phổ Biến
+
+```csharp
+// CẢNH BÁO: query chưa thực thi ở đây
+IQueryable<Lead> query = context.Leads.Where(l => l.AssignedTo == userId);
+
+// Thực thi lần 1 — gọi DB
+var list1 = query.ToList();
+
+// Nếu data trong DB thay đổi giữa chừng...
+// Thực thi lần 2 — gọi DB lần nữa, kết quả có thể khác!
+var list2 = query.ToList();
+
+// FIX: materialize sớm nếu cần snapshot tại một thời điểm
+var snapshot = context.Leads.Where(l => l.AssignedTo == userId).ToList(); // chỉ gọi DB 1 lần
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [5.3 — 2. Generics](5.3-generics.mdx)
+- **Bài tiếp theo:** [5.5 — 4. Delegates và Events](5.5-delegates-and-events.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

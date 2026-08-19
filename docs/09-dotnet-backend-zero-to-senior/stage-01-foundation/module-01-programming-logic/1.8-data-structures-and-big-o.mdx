@@ -1,0 +1,107 @@
+---
+title: "1.8 — 7. Cấu Trúc Dữ Liệu Cơ Bản và Big-O"
+sidebar_position: 8
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 1.8 — 7. Cấu Trúc Dữ Liệu Cơ Bản và Big-O
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+Big-O mô tả **tốc độ tăng của thời gian chạy** khi dữ liệu lớn hơn. Bạn không cần toán học — chỉ cần hiểu trực quan.
+
+### 1.8.1 — O(1) — Hằng số, không phụ thuộc kích thước dữ liệu
+
+```csharp
+// Tra Dictionary: dù có 10 hay 10 triệu khách hàng,
+// tốc độ tra cứu đều như nhau
+var diemKhach = new Dictionary<string, int> { { "KH001", 500 }, /* ... */ };
+int diem = diemKhach["KH001"]; // O(1)
+```
+
+Giống như tra cứu từ điển theo chữ cái — bạn không đọc từ đầu đến cuối.
+
+### 1.8.2 — O(n) — Tuyến tính, tỉ lệ thuận với kích thước
+
+```csharp
+// Tìm khách hàng trong danh sách không được sắp xếp:
+// phải duyệt từng phần tử một
+List<string> danhSach = new List<string> { "An", "Bình", "Châu", /* ... */ };
+string canTim = "Châu";
+foreach (string ten in danhSach) // O(n)
+{
+    if (ten == canTim)
+    {
+        Console.WriteLine("Tìm thấy!");
+        break;
+    }
+}
+```
+
+Giống như tìm một tờ giấy trong xấp giấy chưa được sắp xếp — trung bình phải lật qua n/2 tờ.
+
+### 1.8.3 — O(n²) — Bậc hai, cần cẩn thận với dữ liệu lớn
+
+```csharp
+// So sánh mọi cặp khách hàng để tìm duplicate email:
+// vòng lặp lồng nhau → O(n²)
+var emails = new List<string> { "a@x.com", "b@x.com", "a@x.com" };
+
+for (int i = 0; i < emails.Count; i++)
+{
+    for (int j = i + 1; j < emails.Count; j++) // O(n²)
+    {
+        if (emails[i] == emails[j])
+            Console.WriteLine($"Duplicate: {emails[i]}");
+    }
+}
+// Với 1000 khách hàng: ~500,000 phép so sánh
+// Với 10,000 khách hàng: ~50,000,000 phép so sánh — chậm!
+```
+
+**Cách tốt hơn (O(n)) dùng HashSet:**
+
+```csharp
+var emailDaSeen = new HashSet<string>();
+foreach (string email in emails)
+{
+    if (!emailDaSeen.Add(email)) // Add trả về false nếu đã tồn tại
+        Console.WriteLine($"Duplicate: {email}");
+}
+// Chỉ duyệt 1 lần, bất kể có bao nhiêu email
+```
+
+### 1.8.4 — Ví dụ thực tế nhanh
+
+- Một ví dụ áp dụng trực tiếp vào luồng CRM/ERP hiện tại.
+- Một lỗi phổ biến dễ gặp khi triển khai thật.
+- Một cách kiểm tra nhanh để tự xác nhận bạn đã hiểu đúng.
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [1.7 — 6. Tư Duy Giải Bài Toán](1.7-problem-solving-mindset.mdx)
+- **Bài tiếp theo:** [1.9 — Mở rộng và đào sâu](1.9-advanced-notes.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

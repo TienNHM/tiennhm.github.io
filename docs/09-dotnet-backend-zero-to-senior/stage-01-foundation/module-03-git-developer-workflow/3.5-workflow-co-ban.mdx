@@ -1,0 +1,109 @@
+---
+title: "3.5 — 3. Workflow cơ bản"
+sidebar_position: 5
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 3.5 — 3. Workflow cơ bản
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 3.5.1 — Khởi tạo và clone repo
+
+```bash
+# Tạo repo mới từ thư mục trống
+git init crm-backend
+cd crm-backend
+
+# Hoặc clone repo đã có trên GitHub (dùng SSH)
+git clone git@github.com:company/crm-backend.git
+cd crm-backend
+```
+
+### 3.5.2 — Vòng lặp làm việc hàng ngày
+
+Mỗi ngày làm việc, một developer .NET thường lặp lại chu trình:
+
+```bash
+# 1. Cập nhật code mới nhất từ remote
+git pull origin main
+
+# 2. Tạo branch cho tính năng mới (xem mục 4)
+git checkout -b feature/customer-search
+
+# 3. Viết code... sau đó xem những gì đã thay đổi
+git status
+git diff
+
+# 4. Thêm file vào staging area
+git add src/Services/CustomerService.cs
+git add src/Controllers/CustomerController.cs
+# Hoặc thêm tất cả file đã thay đổi (dùng cẩn thận)
+git add .
+
+# 5. Commit với message rõ ràng
+git commit -m "feat(crm): add customer search by name and phone"
+
+# 6. Đẩy lên remote
+git push origin feature/customer-search
+```
+
+### 3.5.3 — Xem lịch sử commit
+
+```bash
+git log --oneline --graph --all
+# * a3f1c2e (HEAD -> feature/customer-search) feat(crm): add customer search by name and phone
+# * 8b2d4e1 (main) feat(crm): initialize project structure
+
+git log --author="Nguyen Van A" --since="1 week ago"
+```
+
+### 3.5.4 — Ví dụ thực tế: sửa nóng lỗi production an toàn
+
+Tình huống: production bị lỗi đăng nhập do null reference. Team cần sửa nhanh mà không chờ feature đang làm dở.
+
+```bash
+# 1) Tách nhánh hotfix từ main
+git checkout main
+git pull origin main
+git checkout -b hotfix/login-null-reference
+
+# 2) Sửa lỗi + commit
+git commit -m "fix(auth): handle null user profile in login flow"
+
+# 3) Push và mở PR để review nhanh
+git push -u origin hotfix/login-null-reference
+```
+
+Sau khi merge hotfix vào `main`, bạn mới quay lại branch feature để tiếp tục việc đang làm. Đây là nhịp làm việc rất phổ biến ở team backend thực tế.
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [3.4 — Checklist an toàn khi làm Git](3.4-git-safety-checklist.mdx)
+- **Bài tiếp theo:** [3.6 — 4. Branching và Merging](3.6-branching-and-merging.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

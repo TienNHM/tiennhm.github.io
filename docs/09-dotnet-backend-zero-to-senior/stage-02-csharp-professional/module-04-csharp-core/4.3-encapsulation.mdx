@@ -1,0 +1,88 @@
+---
+title: "4.3 — 2. Encapsulation"
+sidebar_position: 3
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 4.3 — 2. Encapsulation
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+**Nguyên tắc:** Ẩn chi tiết nội bộ, chỉ lộ ra những gì cần thiết qua API công khai rõ ràng.
+
+### 4.3.1 — Tại sao phải ẩn state?
+
+- Ngăn code bên ngoài đặt giá trị không hợp lệ
+- Dễ thay đổi implementation bên trong mà không ảnh hưởng caller
+- Tập trung logic validation một chỗ
+
+```csharp
+// BAD: public field, không kiểm soát được
+public class BankAccountBad
+{
+    public decimal Balance;  // bất kỳ ai cũng có thể gán âm
+}
+
+// GOOD: encapsulated
+public class BankAccount
+{
+    private decimal _balance;
+    private readonly List<string> _transactions = new();
+
+    public decimal Balance => _balance;   // read-only từ bên ngoài
+    public IReadOnlyList<string> Transactions => _transactions;
+
+    public BankAccount(decimal initialBalance)
+    {
+        if (initialBalance < 0)
+            throw new ArgumentException("Số dư ban đầu không được âm.");
+        _balance = initialBalance;
+    }
+
+    public void Deposit(decimal amount)
+    {
+        if (amount <= 0) throw new ArgumentException("Số tiền nạp phải > 0.");
+        _balance += amount;
+        _transactions.Add($"+{amount:C} lúc {DateTime.UtcNow:O}");
+    }
+
+    public void Withdraw(decimal amount)
+    {
+        if (amount <= 0) throw new ArgumentException("Số tiền rút phải > 0.");
+        if (amount > _balance) throw new InvalidOperationException("Số dư không đủ.");
+        _balance -= amount;
+        _transactions.Add($"-{amount:C} lúc {DateTime.UtcNow:O}");
+    }
+}
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [4.2 — 1. Class và Object](4.2-class-and-object.mdx)
+- **Bài tiếp theo:** [4.4 — 3. Inheritance và Polymorphism](4.4-inheritance-and-polymorphism.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

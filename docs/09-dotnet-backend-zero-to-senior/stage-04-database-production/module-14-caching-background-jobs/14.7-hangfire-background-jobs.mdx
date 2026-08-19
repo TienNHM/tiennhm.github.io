@@ -1,0 +1,170 @@
+---
+title: "14.7 — 6. Background Jobs với Hangfire"
+sidebar_position: 7
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 14.7 — 6. Background Jobs với Hangfire
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 14.7.1 — Setup
+
+```csharp
+// Program.cs
+builder.Services.AddHangfire(config => config
+    .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+    .UseSimpleAssemblyNameTypeSerializer()
+    .UseRecommendedSerializerSettings()
+    .UsePostgreSqlStorage(builder.Configuration.GetConnectionString("Default")));
+
+builder.Services.AddHangfireServer(options =>
+{
+    options.WorkerCount = 5; // Số worker song song
+    options.Queues = ["critical", "default", "low"];
+});
+
+// ...
+app.UseHangfireDashboard("/hangfire", new DashboardOptions
+{
+    Authorization = [new HangfireAuthFilter()] // Bảo vệ dashboard
+});
+```
+
+### 14.7.2 — Các loại job
+
+```csharp
+public class CrmJobScheduler(IBackgroundJobClient jobClient, IRecurringJobManager recurringJobs)
+{
+    // Fire-and-forget: chạy ngay, không chờ kết quả
+    public void EnqueueWelcomeEmail(int customerId)
+    {
+        jobClient.Enqueue<IEmailService>(
+            email => email.SendWelcomeAsync(customerId));
+    }
+
+    // Delay: chạy sau 1 giờ
+    public void ScheduleFollowUp(int leadId)
+    {
+        jobClient.Schedule<ILeadService>(
+            lead => lead.SendFollowUpAsync(leadId),
+            TimeSpan.FromHours(1));
+    }
+
+    // Recurring: chạy định kỳ theo cron
+    public void RegisterDailyDigest()
+    {
+        recurringJobs.AddOrUpdate<IReportService>(
+            "daily-digest",
+            report => report.SendDailyDigestAsync(),
+            Cron.Daily(8, 0)); // 8:00 AM hàng ngày
+    }
+
+    // Continuation: chạy sau khi job khác hoàn thành
+    public void EnqueueLeadPipeline(int leadId)
+    {
+        var jobId = jobClient.Enqueue<ILeadService>(
+            lead => lead.ValidateLeadAsync(leadId));
+
+        jobClient.ContinueJobWith<ILeadService>(
+            jobId,
+            lead => lead.AssignToAgentAsync(leadId));
+    }
+}
+```
+
+### 14.7.3 — Ví dụ thực tế — Email reminder cho lead không liên hệ 7 ngày
+
+```csharp
+public class LeadReminderJob(AppDbContext db, IEmailService email, ILogger<LeadReminderJob> logger)
+{
+    [AutomaticRetry(Attempts = 3, DelaysInSeconds = [60, 300, 900])]
+    [Queue("default")]
+    public async Task SendRemindersAsync()
+    {
+        var cutoff = DateTime.UtcNow.AddDays(-7);
+
+        var staleLeads = await db.Leads
+            .Where(l => l.Status == LeadStatus.Open
+                     && l.LastContactedAt < cutoff
+                     && !l.ReminderSentAt.HasValue)
+            .Include(l => l.AssignedAgent)
+            .ToListAsync();
+
+        logger.LogInformation("Found {Count} stale leads to remind", staleLeads.Count);
+
+        foreach (var lead in staleLeads)
+        {
+            await email.SendAsync(new EmailMessage
+            {
+                To = lead.AssignedAgent.Email,
+                Subject = $"[CRM] Lead '{lead.Name}' chưa được liên hệ 7 ngày",
+                Body = $"Lead {lead.Name} ({lead.Email}) chưa được liên hệ kể từ {lead.LastContactedAt:dd/MM/yyyy}."
+            });
+
+            lead.ReminderSentAt = DateTime.UtcNow;
+        }
+
+        await db.SaveChangesAsync();
+    }
+}
+
+// Đăng ký recurring job khi ứng dụng khởi động
+public class HangfireStartupFilter(IRecurringJobManager jobs) : IStartupFilter
+{
+    public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next)
+        => app =>
+        {
+            jobs.AddOrUpdate<LeadReminderJob>(
+                "lead-reminder",
+                job => job.SendRemindersAsync(),
+                "0 9 * * *"); // 9:00 AM mỗi ngày
+            next(app);
+        };
+}
+```
+
+### 14.7.4 — Hangfire Dashboard Auth Filter
+
+```csharp
+public class HangfireAuthFilter : IDashboardAuthorizationFilter
+{
+    public bool Authorize(DashboardContext context)
+    {
+        var httpContext = context.GetHttpContext();
+        return httpContext.User.Identity?.IsAuthenticated == true
+            && httpContext.User.IsInRole("Admin");
+    }
+}
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [14.6 — 5. HybridCache (.NET 9)](14.6-hybridcache-dotnet-9.mdx)
+- **Bài tiếp theo:** [14.8 — 7. Quartz.NET (Alternative Overview)](14.8-alternative-overview.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

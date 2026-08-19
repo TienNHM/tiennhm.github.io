@@ -1,0 +1,108 @@
+---
+title: "7.4 — 2. Ba cách đăng ký service"
+sidebar_position: 4
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 7.4 — 2. Ba cách đăng ký service
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 7.4.1 — Constructor Injection (khuyến nghị)
+
+Đây là cách phổ biến nhất, rõ ràng nhất và được .NET DI hỗ trợ tự động:
+
+```csharp
+public class CustomerService
+{
+    private readonly ICustomerRepository _repository;
+    private readonly IEmailService _emailService;
+    private readonly ILogger<CustomerService> _logger;
+
+    // Constructor injection — .NET DI tự inject khi resolve CustomerService
+    public CustomerService(
+        ICustomerRepository repository,
+        IEmailService emailService,
+        ILogger<CustomerService> logger)
+    {
+        _repository   = repository   ?? throw new ArgumentNullException(nameof(repository));
+        _emailService = emailService ?? throw new ArgumentNullException(nameof(emailService));
+        _logger       = logger       ?? throw new ArgumentNullException(nameof(logger));
+    }
+
+    public async Task<Customer> CreateCustomerAsync(CreateCustomerRequest request)
+    {
+        var customer = new Customer(request.Name, request.Email);
+        await _repository.AddAsync(customer);
+        await _emailService.SendWelcomeEmailAsync(customer.Email);
+        _logger.LogInformation("Customer {CustomerId} created", customer.Id);
+        return customer;
+    }
+}
+```
+
+### 7.4.2 — Property Injection
+
+Ít dùng hơn, thường cho optional dependency:
+
+```csharp
+public class ReportGenerator
+{
+    // Optional dependency — không bắt buộc
+    public IReportFormatter? Formatter { get; set; }
+
+    public string Generate(IEnumerable<Customer> customers)
+    {
+        var data = BuildReportData(customers);
+        return Formatter?.Format(data) ?? data.ToString()!;
+    }
+}
+```
+
+### 7.4.3 — Method Injection
+
+Dùng khi chỉ cần dependency trong một method cụ thể (thường thấy trong middleware, filter):
+
+```csharp
+public class CustomerExportService
+{
+    public async Task ExportAsync(
+        IEnumerable<Customer> customers,
+        IExportProvider exportProvider,  // inject qua method
+        CancellationToken ct = default)
+    {
+        await exportProvider.ExportAsync(customers, ct);
+    }
+}
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [7.3 — 1. IoC Container và DI Container](7.3-ioc-container-and-di-container.mdx)
+- **Bài tiếp theo:** [7.5 — 3. Service Lifetimes](7.5-service-lifetimes.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

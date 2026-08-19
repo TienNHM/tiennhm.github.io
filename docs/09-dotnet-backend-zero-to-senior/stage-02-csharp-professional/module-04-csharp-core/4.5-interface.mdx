@@ -1,0 +1,123 @@
+---
+title: "4.5 — 4. Interface"
+sidebar_position: 5
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 4.5 — 4. Interface
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 4.5.1 — Interface so với Abstract class
+
+| Tiêu chí | Interface | Abstract class |
+|---|---|---|
+| Đa kế thừa | Có (implement nhiều) | Không (chỉ 1 base class) |
+| Constructor | Không có | Có |
+| Fields | Không (chỉ properties) | Có |
+| Default implementation | Có (C# 8+, hạn chế dùng) | Có |
+| Khi nào dùng | Định nghĩa hợp đồng hành vi | Chia sẻ code chung + ép override |
+
+### 4.5.2 — Ví dụ interface trong CRM
+
+```csharp
+// IRepository<T>.cs — contract cho data access
+public interface IRepository<T> where T : BaseEntity
+{
+    Task<T?> GetByIdAsync(Guid id);
+    Task<IEnumerable<T>> GetAllAsync();
+    Task AddAsync(T entity);
+    Task UpdateAsync(T entity);
+    Task DeleteAsync(Guid id);
+}
+
+// INotifiable.cs — contract cho thông báo
+public interface INotifiable
+{
+    string GetNotificationTarget();   // VD: email hoặc số điện thoại
+    NotificationPreference Preference { get; }
+}
+
+public enum NotificationPreference { Email, Sms, Both, None }
+
+// IAuditable.cs — contract theo dõi thay đổi
+public interface IAuditable
+{
+    DateTime CreatedAt { get; }
+    DateTime? UpdatedAt { get; }
+    string CreatedBy { get; }
+}
+
+// Customer implement nhiều interface
+public class Customer : Contact, INotifiable, IAuditable
+{
+    public string Email { get; private set; }
+    public decimal TotalSpent { get; private set; }
+    public NotificationPreference Preference { get; private set; }
+    public string CreatedBy { get; init; } = "system";
+
+    public Customer(string fullName, string phone, string email)
+        : base(fullName, phone)
+    {
+        Email = email ?? throw new ArgumentNullException(nameof(email));
+        Preference = NotificationPreference.Email;
+    }
+
+    public string GetNotificationTarget() => Email;
+
+    public void AddPurchase(decimal amount)
+    {
+        if (amount <= 0) throw new ArgumentOutOfRangeException(nameof(amount));
+        TotalSpent += amount;
+        MarkUpdated();
+    }
+
+    public override string GetDisplayInfo() =>
+        $"[Customer] {base.GetDisplayInfo()} | Email: {Email}";
+}
+```
+
+### 4.5.3 — Composition over Inheritance
+
+```csharp
+// BAD: kế thừa chỉ để tái dùng 1 method
+public class PremiumCustomer : Customer { /* override mọi thứ */ }
+
+// GOOD: composition — inject behavior
+public class DiscountService
+{
+    public decimal Calculate(Customer customer) =>
+        customer.TotalSpent > 10_000_000m ? 0.15m : 0.05m;
+}
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [4.4 — 3. Inheritance và Polymorphism](4.4-inheritance-and-polymorphism.mdx)
+- **Bài tiếp theo:** [4.6 — 5. Abstraction](4.6-abstraction.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

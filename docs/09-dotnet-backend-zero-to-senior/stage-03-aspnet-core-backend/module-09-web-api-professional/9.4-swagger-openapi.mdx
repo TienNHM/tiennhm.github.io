@@ -1,0 +1,105 @@
+---
+title: "9.4 — 3. Swagger / OpenAPI"
+sidebar_position: 4
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 9.4 — 3. Swagger / OpenAPI
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 9.4.1 — 3.1 Swashbuckle so với NSwag
+
+| Tiêu chí | Swashbuckle | NSwag |
+|----------|-------------|-------|
+| Phổ biến | Rất cao | Cao |
+| Code generation | Không tích hợp sẵn | Tích hợp C#/TS |
+| Customization | Middleware filter | Pipeline |
+| .NET 9 support | Có (v7) | Có |
+
+### 9.4.2 — 3.2 Cấu hình Swashbuckle với XML comments
+
+```csharp
+// Program.cs
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "CRM API",
+        Version = "v1",
+        Description = "API quản lý khách hàng và liên hệ"
+    });
+
+    // XML comments
+    var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+    options.IncludeXmlComments(xmlPath);
+
+    // OAuth2 trong Swagger UI
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        Description = "Nhập JWT token"
+    });
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
+```
+
+### 9.4.3 — 3.3 XML comments và ProducesResponseType
+
+```csharp
+/// <summary>Lấy danh sách khách hàng có phân trang</summary>
+/// <param name="params">Tham số lọc và phân trang</param>
+/// <returns>Danh sách khách hàng</returns>
+/// <response code="200">Thành công</response>
+/// <response code="400">Tham số không hợp lệ</response>
+[HttpGet]
+[ProducesResponseType(typeof(PagedResponse<CustomerDto>), StatusCodes.Status200OK)]
+[ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+public async Task<IActionResult> GetCustomers([FromQuery] CustomerFilterParams @params)
+{
+    // ...
+}
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [9.3 — 2. API Versioning](9.3-api-versioning.mdx)
+- **Bài tiếp theo:** [9.5 — 4. Pagination, Filtering, Sorting](9.5-pagination-filtering-sorting.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

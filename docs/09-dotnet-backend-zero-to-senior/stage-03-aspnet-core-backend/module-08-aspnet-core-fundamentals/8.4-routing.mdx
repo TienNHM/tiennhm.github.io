@@ -1,0 +1,139 @@
+---
+title: "8.4 — 3. Routing"
+sidebar_position: 4
+description: "Routing trong ASP.NET Core: attribute routing, route constraints và so sánh Controller vs Minimal API — áp vào thiết kế REST cho CRM."
+tags:
+  - aspnet-core
+  - routing
+  - web-api
+  - rest
+keywords:
+  - ASP.NET Core routing
+  - attribute routing
+  - route constraints
+  - Minimal API
+  - ProblemDetails
+enableComments: true
+draft: false
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+<SummaryBox title="Tóm tắt (abstract)">
+Routing quyết định “đường đi” của request trong ASP.NET Core: bạn gắn HTTP method + URL route tới controller/action hoặc minimal endpoint tương ứng.
+Trong CRM, routing còn là nơi thể hiện version và ràng buộc kiểu (GUID/int) để giảm lỗi dữ liệu đầu vào.
+</SummaryBox>
+<HiddenContent>
+<!-- geoseo-curriculum-nav -->
+## Liên kết điều phối (curriculum graph)
+- **Hub lộ trình**: [00. Lộ trình From Zero → Senior .NET (Backend-first)](../../roadmap-dotnet-backend-zero-to-senior.mdx)
+- **Bài trước**: [8.3 — 2. Request Pipeline và Middleware](8.3-request-pipeline-and-middleware.mdx)
+- **Bài tiếp theo**: [8.5 — 4. Controllers và Actions](8.5-controllers-and-actions.mdx)
+
+## Tham chiếu có thẩm quyền (E-E-A-T / retrieval)
+- [Routing in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/routing)
+- [Minimal APIs overview](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/minimal-apis)
+</HiddenContent>
+
+# 8.4 — 3. Routing
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 8.4.1 — Attribute Routing (khuyến nghị cho API)
+
+```csharp
+[ApiController]
+[Route("api/v1/[controller]")] // => api/v1/customers
+public class CustomersController : ControllerBase
+{
+    [HttpGet]                         // GET api/v1/customers
+    public IActionResult GetAll() { ... }
+
+    [HttpGet("{id:int}")]             // GET api/v1/customers/5
+    public IActionResult GetById(int id) { ... }
+
+    [HttpGet("{id:int}/orders")]      // GET api/v1/customers/5/orders
+    public IActionResult GetOrders(int id) { ... }
+
+    [HttpPost]                        // POST api/v1/customers
+    public IActionResult Create([FromBody] CreateCustomerRequest request) { ... }
+
+    [HttpPut("{id:int}")]             // PUT api/v1/customers/5
+    public IActionResult Update(int id, [FromBody] UpdateCustomerRequest request) { ... }
+
+    [HttpDelete("{id:int}")]          // DELETE api/v1/customers/5
+    public IActionResult Delete(int id) { ... }
+}
+```
+
+### 8.4.2 — Route Constraints
+
+| Constraint | Ví dụ | Mô tả |
+|---|---|---|
+| `int` | `{id:int}` | Số nguyên |
+| `guid` | `{id:guid}` | GUID |
+| `minlength(n)` | `{name:minlength(3)}` | Chuỗi tối thiểu n ký tự |
+| `range(min,max)` | `{age:range(0,120)}` | Số trong khoảng |
+| `regex(pattern)` | `{code:regex(^[A-Z]{{3}}$)}` | Regex |
+
+### 8.4.3 — Minimal API (so sánh brief)
+
+```csharp
+// Minimal API — phù hợp microservice nhỏ, không cần controller class
+app.MapGet("/api/v1/customers", async (ICustomerService svc) =>
+    Results.Ok(await svc.GetAllAsync()));
+
+app.MapGet("/api/v1/customers/{id:int}", async (int id, ICustomerService svc) =>
+    await svc.GetByIdAsync(id) is { } customer
+        ? Results.Ok(customer)
+        : Results.NotFound());
+
+app.MapPost("/api/v1/customers", async (CreateCustomerRequest req, ICustomerService svc) =>
+{
+    var customer = await svc.CreateAsync(req);
+    return Results.CreatedAtRoute("GetCustomer", new { id = customer.Id }, customer);
+});
+```
+
+Minimal API phù hợp khi cần code ít, không cần filter phức tạp. Controller vẫn là lựa chọn tốt hơn cho API lớn với nhiều action, filter, và versioning.
+
+## Common pitfalls
+- Không dùng route constraints (ví dụ `{id:guid}` / `{page:int}`) khiến request lỗi kiểu dữ liệu đi vào tầng sau khó phân biệt nguyên nhân.
+- Quên thống nhất prefix/version (ví dụ `/api/v1`) làm client khó “di chuyển” giữa phiên bản API.
+- Trộn controller và minimal API cho cùng một resource mà không thống nhất convention (naming/response shape) khiến API khó govern.
+- Không chuẩn hóa lỗi (ProblemDetails) cho route/validation → client phải “đoán” lỗi từ message.
+
+## Ví dụ trong CRM/.NET backend
+- `GET /api/v1/customers/{customerId:guid}/contacts`: đảm bảo `customerId` là GUID ngay từ routing.
+- Nested resource theo domain của CRM: contact thuộc về customer, nên URL phản ánh quan hệ thay vì chỉ truyền `customerId` trong body.
+- Khi REST lớn dần, controller giúp bạn mở rộng dễ (paging/filter) hơn so với các endpoint minimal rời rạc.
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [8.3 — 2. Request Pipeline và Middleware](8.3-request-pipeline-and-middleware.mdx)
+- **Bài tiếp theo:** [8.5 — 4. Controllers và Actions](8.5-controllers-and-actions.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

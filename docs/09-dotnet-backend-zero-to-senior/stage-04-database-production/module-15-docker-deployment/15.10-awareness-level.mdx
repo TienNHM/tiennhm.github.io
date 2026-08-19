@@ -1,0 +1,84 @@
+---
+title: "15.10 — 9. Kubernetes Intro (Awareness Level)"
+sidebar_position: 10
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 15.10 — 9. Kubernetes Intro (Awareness Level)
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 15.10.1 — Các khái niệm cốt lõi
+
+| Khái niệm | Giải thích |
+|---|---|
+| **Pod** | Đơn vị nhỏ nhất, chứa 1+ container |
+| **Deployment** | Quản lý replica của Pod, rolling update |
+| **Service** | Load balancer nội bộ cho Pods |
+| **Ingress** | HTTP routing từ ngoài vào Service |
+| **ConfigMap/Secret** | Cấu hình & secret inject vào Pod |
+| **Namespace** | Cách ly logical (dev, staging, prod) |
+
+### 15.10.2 — kubectl cơ bản
+
+```bash
+kubectl get pods -n production
+kubectl describe pod crm-api-xyz -n production
+kubectl logs crm-api-xyz -n production -f
+kubectl exec -it crm-api-xyz -n production -- /bin/sh
+kubectl apply -f k8s/deployment.yaml
+kubectl rollout status deployment/crm-api -n production
+kubectl rollout undo deployment/crm-api -n production
+```
+
+### 15.10.3 — Khi nào cần K8s so với Docker Compose
+
+| Tình huống | Docker Compose | Kubernetes |
+|---|---|---|
+| Dev local | Tốt | Overkill |
+| Single VPS | Tốt | Overkill |
+| Multi-service, multi-node | Không đủ | Cần thiết |
+| Auto-scaling theo tải | Không có | Có (HPA) |
+| Enterprise SLA | Rủi ro | Phù hợp |
+
+### 15.10.4 — Helm Chart (Concept)
+
+Helm là package manager cho Kubernetes — đóng gói tất cả YAML templates thành một "chart" có thể cấu hình qua `values.yaml`.
+
+```bash
+helm install crm-api ./charts/crm-api -f values.production.yaml
+helm upgrade crm-api ./charts/crm-api --set image.tag=sha-abc1234
+```
+
+> Kubernetes sẽ được đi sâu ở [Module 18 — Microservices](../../stage-05-senior-engineering/module-18-microservices) với service mesh, Istio, và distributed tracing.
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [15.9 — 8. Production Monitoring](15.9-production-monitoring.mdx)
+- **Bài tiếp theo:** [15.11 — 10. .NET Aspire (.NET 8+)](15.11-dotnet-aspire-dotnet-8-plus.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

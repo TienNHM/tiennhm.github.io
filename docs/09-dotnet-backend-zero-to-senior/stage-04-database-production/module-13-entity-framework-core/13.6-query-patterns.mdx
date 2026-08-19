@@ -1,0 +1,105 @@
+---
+title: "13.6 — 5. Query Patterns"
+sidebar_position: 6
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 13.6 — 5. Query Patterns
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 13.6.1 — AsNoTracking — khi nào dùng
+
+```csharp
+// Read-only: không cần track thay đổi → nhanh hơn ~30%
+var customers = await _db.Customers
+    .AsNoTracking()
+    .Where(c => c.Status == CustomerStatus.Active)
+    .ToListAsync();
+
+// Cấu hình default cho toàn bộ context (read API)
+optionsBuilder.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
+```
+
+### 13.6.2 — Eager Loading với Include/ThenInclude
+
+```csharp
+// Load Customer kèm Contacts và Leads của từng Lead có AssignedUser
+var customer = await _db.Customers
+    .Include(c => c.Contacts)
+    .Include(c => c.Leads)
+        .ThenInclude(l => l.AssignedUser)
+    .FirstOrDefaultAsync(c => c.Id == customerId);
+```
+
+### 13.6.3 — Explicit Loading (load sau khi đã có entity)
+
+```csharp
+var customer = await _db.Customers.FindAsync(customerId);
+
+// Load navigation property sau
+await _db.Entry(customer!)
+    .Collection(c => c.Contacts)
+    .LoadAsync();
+```
+
+### 13.6.4 — Projection với Select
+
+```csharp
+// Chỉ lấy dữ liệu cần thiết — tránh over-fetch
+var leadSummaries = await _db.Leads
+    .AsNoTracking()
+    .Where(l => l.Status != LeadStatus.Lost)
+    .Select(l => new LeadSummaryDto(
+        l.Id,
+        l.Title,
+        l.Value,
+        l.AssignedUser != null ? l.AssignedUser.DisplayName : "Unassigned"
+    ))
+    .ToListAsync();
+```
+
+### 13.6.5 — Compiled Query — tái sử dụng query plan
+
+```csharp
+// Khai báo một lần (static)
+private static readonly Func<CrmDbContext, int, Task<Customer?>> GetCustomerById =
+    EF.CompileAsyncQuery((CrmDbContext db, int id) =>
+        db.Customers.Include(c => c.Contacts).FirstOrDefault(c => c.Id == id));
+
+// Gọi mỗi request
+var customer = await GetCustomerById(_db, id);
+```
+
+> Compiled query hữu ích cho hot-path query chạy hàng nghìn lần/giây — tiết kiệm chi phí biên dịch LINQ mỗi lần.
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [13.5 — 4. Migrations](13.5-migrations.mdx)
+- **Bài tiếp theo:** [13.7 — 6. N+1 Problem](13.7-n-plus-1-problem.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

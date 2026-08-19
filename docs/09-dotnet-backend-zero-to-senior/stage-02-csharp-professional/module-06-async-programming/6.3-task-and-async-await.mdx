@@ -1,0 +1,106 @@
+---
+title: "6.3 — 1. Task và async/await"
+sidebar_position: 3
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 6.3 — 1. Task và async/await
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 6.3.1 — Task và Task\<T\>
+
+`Task` đại diện cho một công việc đang chạy hoặc sẽ chạy. `Task<T>` trả về giá trị khi hoàn thành.
+
+```csharp
+// Task không trả giá trị
+Task SendEmailAsync(string to) { ... }
+
+// Task<T> trả về Customer
+Task<Customer> GetCustomerAsync(int id) { ... }
+```
+
+### 6.3.2 — async và await
+
+`async` đánh dấu method là bất đồng bộ. `await` tạm "dừng" method hiện tại, giải phóng thread, và tiếp tục khi `Task` hoàn thành.
+
+```csharp
+// CustomerService.cs
+public class CustomerService
+{
+    private readonly AppDbContext _db;
+
+    public CustomerService(AppDbContext db) => _db = db;
+
+    public async Task<Customer?> GetCustomerAsync(int id, CancellationToken ct = default)
+    {
+        // await giải phóng thread trong khi DB đang truy vấn
+        return await _db.Customers
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.Id == id, ct);
+    }
+
+    public async Task<List<Customer>> GetActiveCustomersAsync(CancellationToken ct = default)
+    {
+        return await _db.Customers
+            .Where(c => c.IsActive)
+            .OrderBy(c => c.Name)
+            .ToListAsync(ct);
+    }
+}
+```
+
+### 6.3.3 — State machine concept (đơn giản hóa)
+
+Khi compiler thấy `async`, nó biến method thành một **state machine** — một class ẩn lưu trạng thái tại mỗi điểm `await`. Khi task hoàn thành, CLR tiếp tục chạy từ đúng điểm đã dừng. Bạn không cần hiểu chi tiết, nhưng cần biết:
+
+- Mỗi `await` là một điểm "checkpoint" — thread có thể khác khi tiếp tục
+- Local variables được giữ nguyên qua các checkpoint
+- Exception được propagate đúng cách qua `await`
+
+```csharp
+public async Task<string> ProcessOrderAsync(int orderId)
+{
+    // Checkpoint 1: thread A chạy tới đây
+    var order = await _db.Orders.FindAsync(orderId);   // Thread A được giải phóng
+
+    // Checkpoint 2: thread B (hoặc A) tiếp tục — order vẫn còn
+    var customer = await _db.Customers.FindAsync(order!.CustomerId);
+
+    // Checkpoint 3
+    await _emailService.SendConfirmationAsync(customer!.Email);
+
+    return $"Order {orderId} processed for {customer.Email}";
+}
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [6.2 — Tại sao cần Async?](6.2-why-async-matters.mdx)
+- **Bài tiếp theo:** [6.4 — 2. ConfigureAwait](6.4-configureawait.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

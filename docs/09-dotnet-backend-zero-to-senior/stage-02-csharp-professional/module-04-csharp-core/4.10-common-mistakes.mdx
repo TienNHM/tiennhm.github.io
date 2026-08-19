@@ -1,0 +1,82 @@
+---
+title: "4.10 — Những lỗi thường gặp"
+sidebar_position: 10
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 4.10 — Những lỗi thường gặp
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+**1. Public mutable fields**
+```csharp
+// BAD
+public class Order { public decimal Total; }
+
+// GOOD
+public class Order { public decimal Total { get; private set; } }
+```
+
+**2. God class** — một class làm quá nhiều việc
+```csharp
+// BAD: CustomerManager xử lý cả CRUD, email, báo cáo, discount...
+public class CustomerManager { /* 1000 dòng */ }
+
+// GOOD: tách trách nhiệm
+public class CustomerService { /* chỉ business logic */ }
+public class CustomerRepository { /* chỉ data access */ }
+public class NotificationService { /* chỉ gửi thông báo */ }
+```
+
+**3. Kế thừa thay vì composition**
+```csharp
+// BAD: PremiumCustomer kế thừa Customer chỉ để thêm discount
+public class PremiumCustomer : Customer { }
+
+// GOOD: inject behavior qua service
+public class DiscountPolicy { public decimal GetRate(Customer c) => ...; }
+```
+
+**4. Không dùng interface — coupling trực tiếp vào implementation**
+```csharp
+// BAD: phụ thuộc vào class cụ thể
+public class OrderService { private SqlCustomerRepository _repo; }
+
+// GOOD: phụ thuộc vào abstraction
+public class OrderService { private IRepository<Customer> _repo; }
+```
+
+**5. Lạm dụng kế thừa sâu**
+
+Hierarchy 4-5 cấp gần như luôn là dấu hiệu thiết kế sai. Mỗi cấp tăng thêm làm code khó đọc, khó test và dễ vỡ khi requirement thay đổi.
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [4.9 — 8. Pattern Matching (C# 8+)](4.9-pattern-matching.mdx)
+- **Bài tiếp theo:** [4.11 — Mở rộng và đào sâu](4.11-advanced-notes.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

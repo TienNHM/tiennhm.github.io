@@ -1,0 +1,115 @@
+---
+title: "12.6 — 5. Query Optimization"
+sidebar_position: 6
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 12.6 — 5. Query Optimization
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 12.6.1 — 5.1 Execution Plan
+
+```sql
+-- SQL Server: bật statistics IO trước khi chạy query
+SET STATISTICS IO ON;
+SET STATISTICS TIME ON;
+
+-- Trong SSMS: Ctrl+M để bật actual execution plan
+SELECT l.LeadId, l.CompanyName, u.FullName
+FROM   Leads l
+JOIN   Users u ON l.AssignedToUserId = u.UserId
+WHERE  l.Status = 'New';
+
+-- PostgreSQL: dùng EXPLAIN ANALYZE
+EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT)
+SELECT l.lead_id, l.company_name, u.full_name
+FROM   leads l
+JOIN   users u ON l.assigned_to_user_id = u.user_id
+WHERE  l.status = 'New';
+```
+
+Những gì cần nhìn vào execution plan:
+- **Estimated so với Actual rows**: sai lệch lớn → statistics cũ, cần `UPDATE STATISTICS`
+- **Key Lookup**: non-clustered index không cover đủ cột → thêm INCLUDE
+- **Hash Match / Sort**: tốn memory → có thể tránh bằng index phù hợp
+- **Nested Loop với bảng lớn**: xem xét thay Hash Join
+
+### 12.6.2 — 5.2 SARGable Queries
+
+SARGable (Search ARGument ABLE) — query có thể tận dụng index:
+
+```sql
+-- KHÔNG SARGable: function trên cột index → buộc phải scan
+WHERE YEAR(CreatedAt) = 2024
+WHERE LEFT(CompanyName, 3) = 'ABC'
+WHERE CAST(AssignedToUserId AS VARCHAR) = '5'
+
+-- SARGable: so sánh trực tiếp
+WHERE CreatedAt >= '2024-01-01' AND CreatedAt < '2025-01-01'
+WHERE CompanyName LIKE 'ABC%'          -- prefix LIKE thì SARGable, '%ABC' thì không
+WHERE AssignedToUserId = 5
+```
+
+### 12.6.3 — 5.3 N+1 bằng SQL
+
+N+1 không chỉ là vấn đề của ORM — bạn cũng có thể vô tình tạo ra nó bằng cách loop query:
+
+```sql
+-- Tệ: loop ở application, mỗi customer gọi 1 query lấy contact
+-- Fix: dùng JOIN một lần
+SELECT c.CustomerId, c.CompanyName,
+       ct.FirstName + ' ' + ct.LastName AS PrimaryContact,
+       ct.Email
+FROM   Customers c
+LEFT JOIN Contacts ct
+    ON c.CustomerId = ct.CustomerId AND ct.IsPrimary = 1;
+```
+
+### 12.6.4 — 5.4 Parameter Sniffing (SQL Server)
+
+SQL Server cache execution plan dựa trên tham số lần đầu tiên chạy. Nếu lần đầu chạy với tham số hiếm (ví dụ: Status = 'Won' chỉ có 10 rows), plan được cache là Index Seek. Lần sau chạy với Status = 'New' (100,000 rows), plan cũ không tối ưu:
+
+```sql
+-- Giải pháp 1: OPTION(RECOMPILE) — recompile mỗi lần, tốn CPU hơn
+SELECT * FROM Leads WHERE Status = @Status OPTION (RECOMPILE);
+
+-- Giải pháp 2: OPTIMIZE FOR — gợi ý optimizer dùng giá trị cụ thể
+SELECT * FROM Leads WHERE Status = @Status
+OPTION (OPTIMIZE FOR (@Status = 'New'));
+
+-- Giải pháp 3: local variable trick (ít khuyến khích)
+DECLARE @LocalStatus NVARCHAR(50) = @Status;
+SELECT * FROM Leads WHERE Status = @LocalStatus;
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [12.5 — 4. Indexing](12.5-indexing.mdx)
+- **Bài tiếp theo:** [12.7 — 6. Transactions và Locking](12.7-transactions-and-locking.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

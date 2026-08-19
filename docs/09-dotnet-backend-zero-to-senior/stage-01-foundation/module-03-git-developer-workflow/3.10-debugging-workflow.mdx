@@ -1,0 +1,94 @@
+---
+title: "3.10 — 8. Debugging Workflow"
+sidebar_position: 10
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 3.10 — 8. Debugging Workflow
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 3.10.1 — Tư duy debug đúng đắn
+
+Debug không phải là "thêm `Console.WriteLine` rồi xóa đi". Đó là quá trình có hệ thống:
+
+1. **Tái hiện lỗi** — xác định bước chính xác gây ra lỗi
+2. **Đặt giả thuyết** — tại sao đoạn code này sai?
+3. **Kiểm chứng** — dùng debugger để xác nhận hoặc bác bỏ giả thuyết
+4. **Sửa và verify** — sửa xong, chạy lại để chắc chắn không có regression
+
+### 3.10.2 — Visual Studio Debugger — các tính năng thiết yếu
+
+**Breakpoint** — dừng chương trình tại một dòng cụ thể:
+
+- Nhấn `F9` trên dòng muốn dừng, hoặc click vào margin trái
+- **Conditional breakpoint**: chuột phải vào breakpoint → Conditions → ví dụ `customer.Email == "test@example.com"` (chỉ dừng khi điều kiện đúng — rất hữu ích khi debug vòng lặp 1000 phần tử)
+
+**Các phím điều hướng khi đang debug:**
+
+| Phím | Hành động |
+|---|---|
+| `F5` | Tiếp tục chạy đến breakpoint tiếp theo |
+| `F10` | Step Over — chạy dòng hiện tại, không đi vào trong hàm |
+| `F11` | Step Into — đi vào trong hàm đang gọi |
+| `Shift+F11` | Step Out — thoát ra khỏi hàm hiện tại |
+| `F9` | Toggle breakpoint |
+
+**Watch Window** — theo dõi giá trị biến theo thời gian thực. Mở qua Debug → Windows → Watch.
+
+**Call Stack** — xem chuỗi các hàm đã gọi dẫn đến điểm hiện tại. Rất hữu ích khi debug exception ở tầng sâu:
+
+```
+CustomerController.SearchAsync()
+  → CustomerService.SearchByNameAsync()
+    → CustomerRepository.FindAsync()    ← lỗi xảy ra ở đây
+```
+
+**Exception Settings** — cấu hình để debugger dừng ngay khi exception xảy ra (kể cả exception đã được catch):
+
+Debug → Windows → Exception Settings → tích `Common Language Runtime Exceptions`
+
+### 3.10.3 — Debug trong môi trường API (.NET)
+
+Khi debug ASP.NET Core Web API cho CRM:
+
+```bash
+# Chạy với hot reload để không cần restart liên tục
+dotnet watch run
+
+# Hoặc chạy ở chế độ Development để xem đầy đủ stack trace
+ASPNETCORE_ENVIRONMENT=Development dotnet run
+```
+
+Dùng file `launch.json` trong So với Code để cấu hình debug profile, hoặc nhấn `F5` trong Visual Studio sau khi chọn project API làm Startup Project.
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [3.9 — 7. Developer Workflow thực tế](3.9-real-world-developer-workflow.mdx)
+- **Bài tiếp theo:** [3.11 — 9. Conventional Commits](3.11-conventional-commits.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

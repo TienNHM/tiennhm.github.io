@@ -1,0 +1,230 @@
+---
+title: "15.15 — Review and Assessment"
+sidebar_position: 15
+description: "Ôn tập & tự đánh giá Docker Deployment: multi-stage Dockerfile, Docker Compose, GitHub Actions CI/CD, health check và checklist production."
+tags:
+  - review
+  - assessment
+  - docker
+  - deployment
+keywords:
+  - review and assessment
+  - Docker
+  - GitHub Actions
+  - health checks
+  - non-root
+enableComments: true
+draft: false
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 15.15 — Review and Assessment
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 15.15.1 — Thực hành
+
+### Bài 1: Dockerize CRM API
+
+**Mục tiêu**: Chạy CRM API hoàn chỉnh trên máy local bằng Docker Compose.
+
+**Yêu cầu**:
+1. Viết `Dockerfile` multi-stage cho CRM API (build + runtime stage, non-root user).
+2. Thêm `.dockerignore` phù hợp.
+3. Viết `docker-compose.yml` với các service: `crm-api`, `sqlserver`, `redis`.
+4. Cấu hình `depends_on` + `healthcheck` đảm bảo API chỉ start sau khi DB healthy.
+5. Thêm Seq service, cấu hình Serilog trong API ghi log vào Seq.
+6. Chạy `docker compose up -d`, mở `http://localhost:5000/swagger` và `http://localhost:5341` (Seq).
+7. Chạy `docker compose logs -f crm-api`, tạo một customer qua Swagger, xác nhận log xuất hiện trong Seq.
+
+**Deliverable**: `docker-compose.yml`, `Dockerfile`, `.dockerignore`, screenshot Seq dashboard có log.
+
+### Bài 2: GitHub Actions Pipeline
+
+**Mục tiêu**: Tự động build, test, và deploy khi push lên nhánh `main`.
+
+**Yêu cầu**:
+1. Tạo workflow `.github/workflows/deploy.yml` với 3 job: `build-and-test`, `docker-build-push`, `deploy`.
+2. Dùng GitHub Container Registry (`ghcr.io`) làm private registry.
+3. Job `build-and-test`: restore → build → test (dotnet test với TRX report).
+4. Job `docker-build-push`: build image, tag bằng `sha-{commit}` và `latest`, push lên ghcr.io.
+5. Job `deploy`: SSH vào VPS (hoặc dùng mock), chạy `docker compose pull && docker compose up -d`.
+6. Thêm environment `production` với required reviewer.
+7. Push code, theo dõi Actions tab, xác nhận pipeline xanh.
+
+**Deliverable**: File workflow YAML, screenshot Actions run thành công.
+
+### Bài 3: Production Checklist
+
+**Mục tiêu**: Hardening CRM API cho production.
+
+**Yêu cầu**:
+1. **Health check**: implement `/health`, `/health/ready`, `/health/live` với `AspNetCore.Diagnostics.HealthChecks`. Check SQL Server và Redis.
+2. **Structured logging**: cấu hình Serilog với `WriteTo.Seq` và `WriteTo.Console(JsonFormatter)`. Log enrichment: `MachineName`, `ThreadId`, `CorrelationId` (via middleware).
+3. **HTTPS**: cấu hình Kestrel với HTTPS trong production. Nếu deploy Docker Compose, cấu hình nginx terminate SSL với Let's Encrypt.
+4. **Secret management**: loại bỏ tất cả hardcode credential, dùng biến môi trường hoặc `.env` file. Kiểm tra `docker inspect` không thấy secret trong image layer.
+5. **Graceful shutdown**: đảm bảo API xử lý `SIGTERM` đúng cách (ASP.NET Core làm tự động, verify bằng `docker stop` và xem log).
+6. **Rate limiting**: thêm `AddRateLimiter` cho endpoint public (ASP.NET Core 7+).
+
+**Deliverable**: Code health check, cấu hình Serilog, nginx config, danh sách checklist đã hoàn thành.
+
+---
+
+### 15.15.2 — Tóm tắt
+
+Module này đưa CRM từ máy dev ra production với đầy đủ hạ tầng:
+
+- **Docker multi-stage build** giảm image size xuống còn ~220 MB, không leak source code hay SDK.
+- **Docker Compose** là "hợp đồng" stack — một lệnh `docker compose up -d` dựng toàn bộ CRM.
+- **GitHub Actions** tự động hóa pipeline: commit code → test → build image → deploy, giảm human error.
+- **Linux VPS** với nginx + Certbot là lựa chọn tiết kiệm cho project nhỏ-vừa.
+- **Azure Container Apps** là lựa chọn cloud managed phù hợp khi không muốn quản lý server.
+- **Structured logging** (Serilog + Seq) và **health check** là nền tảng observability không thể thiếu.
+- **Kubernetes** cần thiết khi scale lên nhiều node — Module 18 sẽ đi sâu hơn.
+- **.NET Aspire** giúp local development cloud-native dễ hơn, nhưng không thay thế Docker Compose cho production.
+
+> **Mindset production**: Security (non-root, no hardcoded secrets), Observability (logs, health, metrics), Automation (CI/CD, IaC) — ba trụ cột mọi deploy production cần có.
+
+---
+
+### 15.15.3 — Checklist trước khi sang bài tiếp theo
+
+- Bạn đã nắm được các khái niệm chính và giải thích lại được bằng ví dụ của riêng mình.
+- Bạn đã chạy hoặc mô phỏng ít nhất một ví dụ trong bài.
+- Bạn đã hoàn thành phần quiz/lab cơ bản (hoặc ít nhất tự làm lại theo trí nhớ).
+- Bạn đã ghi lại 3 ý chính: học được gì, còn vướng gì, sẽ áp dụng ở đâu trong CRM.
+
+### 15.15.4 — Kiểm tra & Thực hành (100 điểm)
+
+### 15.15.5 — Bối cảnh giáo trình (mục tiêu xuyên suốt)
+
+> **Trục CRM — một mục tiêu rõ:** bạn hướng tới **CRM production** trong [From Zero → Senior .NET (Backend-first)](../../roadmap-dotnet-backend-zero-to-senior.mdx). Giáo trình **ưu tiên backend**, bám chuỗi **API → dữ liệu → vận hành → kiến trúc phân tán**, thay vì trải rộng theo hướng full-stack. Mỗi module củng cố **một lớp kỹ năng** trên **cùng một CRM học tập** bạn phát triển xuyên suốt khóa.
+
+| Chuỗi năng lực | Đóng góp vào CRM học tập |
+|----------------|--------------------------|
+| **Giai đoạn 1 — Foundation** | Đọc hiểu yêu cầu, mô hình client–server, Git — nền **collaboration** khi CRM lớn dần. |
+| **Giai đoạn 2 — C# + P1** | Domain, OOP, LINQ, async, DI — **rule nghiệp vụ & tầng ứng dụng** (Inventory là bản mẫu trước CRM). |
+| **Giai đoạn 3 — ASP.NET + P2** | Host, routing, validation, JWT, SignalR — **CRM Backend API** thực tế. |
+| **Giai đoạn 4 — Data + P3** | SQL, EF, cache, job, container — CRM **ổn định & có thể triển khai**. |
+| **Giai đoạn 5 — Senior + Final** | Clean Architecture, event/outbox, gateway, observability, perf — CRM/ERP **chịu tải & có chủ**. |
+
+#### 15.15.5.1 — Vai trò *giai đoạn này* trong chuỗi
+
+SQL, EF Core, cache, job nền, Docker + **Project 3** — CRM **chạy được** như môi trường thật (dữ liệu, hiệu năng, vận hành).
+
+#### 15.15.5.2 — Vị trí bài học (trước / sau)
+
+| Mốc | Điểm nối trong giáo trình |
+|-----|---------------------------|
+| **Trước** | [Module 14 — Caching + Background Jobs](../module-14-caching-background-jobs) |
+| **Tiếp theo** | [Project 3 — Production CRM Platform](../project-03-production-crm-platform.mdx) |
+
+### 15.15.6 — Quy trình làm bài (hệ thống)
+
+| Bước | Việc cần làm | Output nên có |
+|------|----------------|-----------------|
+| 1 | Làm **Quiz** *trước*, tự ghi đáp án + 1 dòng lý do | Không xem đáp án; giữ bản nháp |
+| 2 | Đối chiếu **Đáp án**; sửa hiểu sai, ghi *takeaway* vào README hoặc nhật ký học | 3–5 bullet “tôi đã hiểu…” |
+| 3 | Làm **Lab** theo rubric; trong README nêu **phần CRM** nào được chạm (Lead, Customer, Deal, Billing…) | Repo / zip + ảnh `dotnet run` hoặc log |
+| 4 | **Tự chấm** theo bảng điểm; chuẩn bị 1 phút “vấn đáp” nếu mentor hỏi ngẫu nhiên | Điểm + chỗ còn yếu |
+
+---
+
+### 15.15.7 — Phần A — Quiz trắc nghiệm (20 điểm)
+
+> **Gợi ý làm bài:** mỗi câu **4 điểm**. Ưu tiên suy nghĩ *hệ quả trên CRM* (tiền, dữ liệu, đa tenant, hiệu năng, bảo mật) — không chỉ nhớ định nghĩa.
+
+Mỗi câu **4 điểm**.
+
+1. Multi-stage Dockerfile với .NET thường nhằm?  
+   A. Tăng kích thước image B. Image runtime nhỏ, không mang SDK vào prod C. Bắt buộc dùng Windows D. Tắt HTTPS  
+   > **Đáp án:** B.
+
+2. `HEALTHCHECK` trong Compose/K8s probe dùng để?  
+   A. Backup DB B. Orchestrator biết instance có sẵn sàng traffic C. Build nhanh hơn D. Mã hóa volume  
+   > **Đáp án:** B.
+
+3. Secret trong production không nên?  
+   A. Dùng Docker secrets / vault / env inject B. Hardcode trong Git C. Mount file read-only D. User Secrets dev-only  
+   > **Đáp án:** B.
+
+4. `docker compose up` khác `docker build` ở?  
+   A. Giống nhau B. Compose orchestrate nhiều service/network/volume C. Chỉ xóa image D. Chỉ cho Windows container  
+   > **Đáp án:** B.
+
+5. Non-root user trong container giúp?  
+   A. Giảm attack surface khi container bị compromise B. Tăng RAM C. Bắt buộc cho HTTP/2 D. Thay TLS  
+   > **Đáp án:** A.
+
+### 15.15.8 — Phần B — Lab thực tế (80 điểm)
+
+> **Lab & rubric:** trong README, map từng nhóm điểm rubric sang **phần CRM** (Lead, Customer, Deal, Billing, Notification…) và **artifact** (test, log, screenshot, migration).
+
+| Tiêu chí | Điểm | Ghi chú |
+|----------|------|---------|
+| `Dockerfile` multi-stage + image chạy được `dotnet` API | 25 | |
+| `docker-compose.yml`: API + SQL Server hoặc Postgres + (tuỳ chọn) Redis | 25 | |
+| Health check wired vào compose `depends_on` condition (hoặc tương đương) | 15 | |
+| GitHub Action build + push image (hoặc build matrix) | 10 | |
+| README: biến môi trường, port, lệnh chạy | 5 | |
+
+#### 15.15.8.1 — Ngưỡng tổng điểm (Quiz 20 + Lab 80)
+
+| Mức | Điểm | Ý nghĩa |
+|-----|------|---------|
+| **Đạt** | ≥ 70 | Đủ nền để học module kế mà không “lủng” kiến thức cốt lõi. |
+| **Khá** | ≥ 85 | Có minh chứng code + nêu được liên hệ CRM rõ ràng trong README. |
+| **Giỏi** | ≥ 95 | Có mở rộng / edge case / ADR ngắn / test bổ trợ (tùy rubric từng bài). |
+
+### 15.15.9 — Phần C — Reflect & nối chuỗi (không chấm điểm)
+
+Viết **5–8 câu** (README hoặc `docs/learning-log.md`):
+
+1. Kiến thức *module / project này* sẽ được **tái sử dụng trực tiếp** ở module hoặc project CRM nào tiếp theo? (ghi tên module / P2 / P3 / Final).
+2. Nếu bỏ qua phần lab, **rủi ro** lớn nhất cho CRM ở giai đoạn sau là gì?
+3. Một **quyết định kỹ thuật** (nhỏ) bạn sẵn sàng ghi thành **ADR một đoạn** sau khi làm lab.
+
+---
+
+### 15.15.10 — Tài liệu tham khảo
+
+- [Docker Documentation](https://docs.docker.com/) — tài liệu chính thức Docker
+- [Dockerize an ASP.NET Core app](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/docker/building-net-docker-images) — Microsoft Docs
+- [Docker Compose file reference](https://docs.docker.com/compose/compose-file/) — v3 spec
+- [GitHub Actions for .NET](https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-net) — CI/CD với .NET
+- [appleboy/ssh-action](https://github.com/appleboy/ssh-action) — deploy via SSH
+- [Azure Container Apps docs](https://learn.microsoft.com/en-us/azure/container-apps/) — Microsoft Docs
+- [Serilog Documentation](https://serilog.net/) — structured logging
+- [ASP.NET Core Health Checks](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/health-checks) — Microsoft Docs
+- [.NET Aspire docs](https://learn.microsoft.com/en-us/dotnet/aspire/get-started/aspire-overview) — cloud-native local dev
+- [AspNetCore.Diagnostics.HealthChecks](https://github.com/Xabaril/AspNetCore.Diagnostics.HealthChecks) — extended health checks (SQL, Redis, URLs)
+- [Kubernetes Basics](https://kubernetes.io/docs/tutorials/kubernetes-basics/) — chính thức từ CNCF
+
+## Bài tập tổng hợp
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [15.14 — Ví dụ thực tế nhanh](15.14-quick-real-world-example.mdx)
+- **Bài tiếp theo:** Không có (bài cuối module).
+- **Về module:** [Trang mục lục](index.mdx)

@@ -1,0 +1,96 @@
+---
+title: "10.6 — 5. Policy-based Authorization"
+sidebar_position: 6
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 10.6 — 5. Policy-based Authorization
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 10.6.1 — Cấu hình Policies
+
+```csharp
+builder.Services.AddAuthorization(options =>
+{
+    // Chỉ SalesRep và Manager mới truy cập customer pipeline
+    options.AddPolicy("CanAccessPipeline", policy =>
+        policy.RequireRole(CrmRoles.SalesRep, CrmRoles.Manager));
+
+    // Chỉ Manager/Admin mới approve deal
+    options.AddPolicy("CanApproveDeal", policy =>
+        policy.RequireRole(CrmRoles.Admin, CrmRoles.Manager));
+
+    // Yêu cầu claim territory tồn tại
+    options.AddPolicy("HasTerritory", policy =>
+        policy.RequireClaim("territory"));
+});
+```
+
+### 10.6.2 — Custom Requirement
+
+```csharp
+// Requirement: deal value >= threshold
+public class MinDealValueRequirement : IAuthorizationRequirement
+{
+    public decimal Threshold { get; }
+    public MinDealValueRequirement(decimal threshold) => Threshold = threshold;
+}
+
+public class MinDealValueHandler
+    : AuthorizationHandler<MinDealValueRequirement, Deal>
+{
+    protected override Task HandleRequirementAsync(
+        AuthorizationHandlerContext context,
+        MinDealValueRequirement requirement,
+        Deal deal)
+    {
+        bool isApprover = context.User.IsInRole(CrmRoles.Admin)
+                       || context.User.IsInRole(CrmRoles.Manager);
+
+        if (isApprover && deal.Value >= requirement.Threshold)
+            context.Succeed(requirement);
+
+        return Task.CompletedTask;
+    }
+}
+
+// Đăng ký
+builder.Services.AddSingleton<IAuthorizationHandler, MinDealValueHandler>();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("ApproveBigDeal", policy =>
+        policy.AddRequirements(new MinDealValueRequirement(500_000_000m))); // 500 triệu VND
+});
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [10.5 — 4. Role-based Authorization](10.5-role-based-authorization.mdx)
+- **Bài tiếp theo:** [10.7 — 6. Resource-based Authorization](10.7-resource-based-authorization.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

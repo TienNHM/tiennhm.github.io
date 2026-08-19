@@ -1,0 +1,125 @@
+---
+title: "10.8 — 7. Permission System"
+sidebar_position: 8
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 10.8 — 7. Permission System
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+Khi roles không đủ chi tiết, dùng permission table để kiểm soát từng hành động.
+
+### 10.8.1 — Permission Enum
+
+```csharp
+[Flags]
+public enum Permission : long
+{
+    None              = 0,
+    CustomerRead      = 1 << 0,
+    CustomerCreate    = 1 << 1,
+    CustomerUpdate    = 1 << 2,
+    CustomerDelete    = 1 << 3,
+    DealRead          = 1 << 4,
+    DealCreate        = 1 << 5,
+    DealApprove       = 1 << 6,
+    ReportView        = 1 << 7,
+    UserManage        = 1 << 8,
+}
+```
+
+### 10.8.2 — Lưu trữ và Load Permissions
+
+```csharp
+// Bảng UserPermissions (EF Core)
+public class UserPermission
+{
+    public string UserId    { get; set; } = default!;
+    public Permission Value { get; set; }
+}
+
+// Thêm permissions vào JWT claims khi login
+var permissionValue = await _db.UserPermissions
+    .Where(up => up.UserId == user.Id)
+    .Select(up => up.Value)
+    .FirstOrDefaultAsync();
+
+claims.Add(new Claim("permissions", ((long)permissionValue).ToString()));
+```
+
+### 10.8.3 — PermissionRequirement và Handler
+
+```csharp
+public class PermissionRequirement : IAuthorizationRequirement
+{
+    public Permission Permission { get; }
+    public PermissionRequirement(Permission permission) => Permission = permission;
+}
+
+public class PermissionHandler : AuthorizationHandler<PermissionRequirement>
+{
+    protected override Task HandleRequirementAsync(
+        AuthorizationHandlerContext context,
+        PermissionRequirement requirement)
+    {
+        var permClaim = context.User.FindFirstValue("permissions");
+        if (permClaim is not null && long.TryParse(permClaim, out var permValue))
+        {
+            var userPerms = (Permission)permValue;
+            if (userPerms.HasFlag(requirement.Permission))
+                context.Succeed(requirement);
+        }
+        return Task.CompletedTask;
+    }
+}
+
+// Đăng ký
+builder.Services.AddSingleton<IAuthorizationHandler, PermissionHandler>();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("CanApproveDeal",
+        p => p.AddRequirements(new PermissionRequirement(Permission.DealApprove)));
+    options.AddPolicy("CanManageUsers",
+        p => p.AddRequirements(new PermissionRequirement(Permission.UserManage)));
+});
+```
+
+### 10.8.4 — Attribute Helper
+
+```csharp
+[Authorize(Policy = "CanApproveDeal")]
+[HttpPost("deals/{id}/approve")]
+public async Task<IActionResult> ApproveDeal(Guid id) { /* ... */ }
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [10.7 — 6. Resource-based Authorization](10.7-resource-based-authorization.mdx)
+- **Bài tiếp theo:** [10.9 — 8. ASP.NET Core Identity (Overview)](10.9-overview.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

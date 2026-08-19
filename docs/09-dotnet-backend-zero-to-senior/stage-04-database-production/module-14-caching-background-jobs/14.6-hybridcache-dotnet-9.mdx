@@ -1,0 +1,87 @@
+---
+title: "14.6 — 5. HybridCache (.NET 9)"
+sidebar_position: 6
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 14.6 — 5. HybridCache (.NET 9)
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+HybridCache kết hợp L1 (in-process `IMemoryCache`) và L2 (Redis) trong một API thống nhất, đồng thời có **stampede protection** sẵn có.
+
+### 14.6.1 — Setup
+
+```csharp
+// Program.cs
+builder.Services.AddHybridCache(options =>
+{
+    options.MaximumPayloadBytes = 1_024 * 1_024; // 1 MB
+    options.DefaultEntryOptions = new HybridCacheEntryOptions
+    {
+        Expiration = TimeSpan.FromMinutes(5),
+        LocalCacheExpiration = TimeSpan.FromMinutes(1) // L1 ngắn hơn L2
+    };
+});
+// Redis vẫn cần được đăng ký như IDistributedCache
+builder.Services.AddStackExchangeRedisCache(o =>
+    o.Configuration = builder.Configuration.GetConnectionString("Redis"));
+```
+
+### 14.6.2 — Sử dụng
+
+```csharp
+public class ProductService(HybridCache hybridCache, AppDbContext db)
+{
+    public async Task<ProductDto?> GetProductAsync(int id, CancellationToken ct = default)
+    {
+        return await hybridCache.GetOrCreateAsync(
+            $"product_{id}",
+            async token => await db.Products
+                .Where(p => p.Id == id)
+                .Select(p => new ProductDto(p.Id, p.Name, p.Price))
+                .FirstOrDefaultAsync(token),
+            cancellationToken: ct);
+    }
+
+    public async Task InvalidateProductAsync(int id)
+        => await hybridCache.RemoveAsync($"product_{id}");
+}
+```
+
+**Ưu điểm HybridCache so với dùng riêng lẻ:**
+- L1 phục vụ hot data trong cùng process mà không qua network.
+- L2 đảm bảo consistency giữa nhiều instance.
+- Stampede protection: chỉ một goroutine gọi factory khi cache miss.
+- Tag-based invalidation hỗ trợ sẵn.
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [14.5 — 4. Cache Invalidation Strategies](14.5-cache-invalidation-strategies.mdx)
+- **Bài tiếp theo:** [14.7 — 6. Background Jobs với Hangfire](14.7-hangfire-background-jobs.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

@@ -1,0 +1,204 @@
+---
+title: "10.3 — 2. JWT Authentication"
+sidebar_position: 3
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 10.3 — 2. JWT Authentication
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 10.3.1 — Cấu trúc JWT
+
+JWT gồm 3 phần ngăn cách bởi dấu chấm: `header.payload.signature`
+
+```
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9   ← Header (Base64Url)
+.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFAYi5jb20iLCJyb2xlIjoiU2FsZXNSZXAiLCJleHAiOjE3MTk4MDAwMDB9
+.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c  ← Signature (HMAC-SHA256)
+```
+
+**Payload thường dùng trong CRM:**
+
+```json
+{
+  "sub": "user-guid-here",
+  "email": "a.nguyen@crm.com",
+  "role": "SalesRep",
+  "territory": "HCM",
+  "permissions": ["customer.read", "deal.create"],
+  "exp": 1719800000,
+  "iss": "crm-api",
+  "aud": "crm-client"
+}
+```
+
+### 10.3.2 — Cấu hình trong Program.cs
+
+```csharp
+// appsettings.json
+// "Jwt": {
+//   "SecretKey": "your-256-bit-secret-key-here-minimum-32-chars",
+//   "Issuer": "crm-api",
+//   "Audience": "crm-client",
+//   "ExpiryMinutes": 15
+// }
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme    = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    var jwtSettings = builder.Configuration.GetSection("Jwt");
+    var key = Encoding.UTF8.GetBytes(jwtSettings["SecretKey"]!);
+
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer           = true,
+        ValidIssuer              = jwtSettings["Issuer"],
+        ValidateAudience         = true,
+        ValidAudience            = jwtSettings["Audience"],
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey         = new SymmetricSecurityKey(key),
+        ValidateLifetime         = true,
+        ClockSkew                = TimeSpan.Zero  // không cho phép trễ
+    };
+});
+
+builder.Services.AddAuthorization();
+// ...
+app.UseAuthentication();
+app.UseAuthorization();
+```
+
+### 10.3.3 — Token Generation Service
+
+```csharp
+public interface ITokenService
+{
+    string GenerateAccessToken(AppUser user, IList<string> roles);
+    string GenerateRefreshToken();
+}
+
+public class TokenService : ITokenService
+{
+    private readonly IConfiguration _config;
+
+    public TokenService(IConfiguration config) => _config = config;
+
+    public string GenerateAccessToken(AppUser user, IList<string> roles)
+    {
+        var jwtSettings = _config.GetSection("Jwt");
+        var key = new SymmetricSecurityKey(
+            Encoding.UTF8.GetBytes(jwtSettings["SecretKey"]!));
+
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, user.Id),
+            new(ClaimTypes.Email, user.Email!),
+            new("territory", user.Territory ?? string.Empty),
+        };
+
+        // Thêm roles vào claims
+        foreach (var role in roles)
+            claims.Add(new Claim(ClaimTypes.Role, role));
+
+        var token = new JwtSecurityToken(
+            issuer:   jwtSettings["Issuer"],
+            audience: jwtSettings["Audience"],
+            claims:   claims,
+            expires:  DateTime.UtcNow.AddMinutes(
+                          double.Parse(jwtSettings["ExpiryMinutes"]!)),
+            signingCredentials: new SigningCredentials(
+                          key, SecurityAlgorithms.HmacSha256)
+        );
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    public string GenerateRefreshToken()
+    {
+        var bytes = RandomNumberGenerator.GetBytes(64);
+        return Convert.ToBase64String(bytes);
+    }
+}
+```
+
+### 10.3.4 — LoginController
+
+```csharp
+[ApiController]
+[Route("api/auth")]
+public class AuthController : ControllerBase
+{
+    private readonly UserManager<AppUser> _userManager;
+    private readonly ITokenService _tokenService;
+    private readonly AppDbContext _db;
+
+    public AuthController(UserManager<AppUser> um,
+                          ITokenService ts, AppDbContext db)
+    {
+        _userManager  = um;
+        _tokenService = ts;
+        _db           = db;
+    }
+
+    [HttpPost("login")]
+    public async Task<IActionResult> Login([FromBody] LoginRequest req)
+    {
+        var user = await _userManager.FindByEmailAsync(req.Email);
+        if (user is null || !await _userManager.CheckPasswordAsync(user, req.Password))
+            return Unauthorized(new { message = "Email hoặc mật khẩu không đúng." });
+
+        var roles        = await _userManager.GetRolesAsync(user);
+        var accessToken  = _tokenService.GenerateAccessToken(user, roles);
+        var refreshToken = _tokenService.GenerateRefreshToken();
+
+        // Lưu refresh token
+        _db.RefreshTokens.Add(new RefreshToken
+        {
+            Token      = refreshToken,
+            UserId     = user.Id,
+            ExpiresAt  = DateTime.UtcNow.AddDays(7),
+            CreatedAt  = DateTime.UtcNow,
+            IsRevoked  = false
+        });
+        await _db.SaveChangesAsync();
+
+        return Ok(new { accessToken, refreshToken });
+    }
+}
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [10.2 — 1. Authentication so với Authorization](10.2-authentication-vs-authorization.mdx)
+- **Bài tiếp theo:** [10.4 — 3. Refresh Token](10.4-refresh-token.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

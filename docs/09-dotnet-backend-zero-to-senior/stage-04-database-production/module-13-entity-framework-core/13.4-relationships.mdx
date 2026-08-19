@@ -1,0 +1,90 @@
+---
+title: "13.4 — 3. Relationships"
+sidebar_position: 4
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 13.4 — 3. Relationships
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 13.4.1 — One-to-Many: Customer → Contacts
+
+```csharp
+// Trong CustomerConfiguration
+builder.HasMany(c => c.Contacts)
+    .WithOne(ct => ct.Customer)
+    .HasForeignKey(ct => ct.CustomerId)
+    .OnDelete(DeleteBehavior.Cascade);
+```
+
+### 13.4.2 — Many-to-Many: Lead → Tags (ví dụ mở rộng)
+
+```csharp
+public class Tag
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public ICollection<Lead> Leads { get; set; } = new List<Lead>();
+}
+
+// Trong LeadConfiguration
+builder.HasMany(l => l.Tags)
+    .WithMany(t => t.Leads)
+    .UsingEntity(j => j.ToTable("LeadTags"));
+```
+
+### 13.4.3 — One-to-One: Customer → CustomerAddress (Owned Entity)
+
+```csharp
+public class CustomerAddress
+{
+    public string Street { get; set; } = string.Empty;
+    public string City { get; set; } = string.Empty;
+    public string Country { get; set; } = string.Empty;
+}
+
+// Trong Customer entity
+public CustomerAddress? Address { get; set; }
+
+// Trong CustomerConfiguration
+builder.OwnsOne(c => c.Address, addr =>
+{
+    addr.Property(a => a.Street).HasColumnName("AddressStreet").HasMaxLength(200);
+    addr.Property(a => a.City).HasColumnName("AddressCity").HasMaxLength(100);
+    addr.Property(a => a.Country).HasColumnName("AddressCountry").HasMaxLength(100);
+});
+```
+
+> **Owned Entity** lưu chung bảng với owner — phù hợp Value Object trong DDD. Không cần bảng riêng, không cần FK.
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [13.3 — 2. DbContext và Entity Configuration](13.3-dbcontext-and-entity-configuration.mdx)
+- **Bài tiếp theo:** [13.5 — 4. Migrations](13.5-migrations.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

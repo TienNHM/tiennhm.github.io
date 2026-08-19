@@ -1,0 +1,113 @@
+---
+title: "13.7 — 6. N+1 Problem"
+sidebar_position: 7
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 13.7 — 6. N+1 Problem
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 13.7.1 — Ví dụ N+1 (SART: sẽ gây hại)
+
+```csharp
+// ĐỪNG làm thế này
+var customers = await _db.Customers.ToListAsync(); // 1 query
+
+foreach (var c in customers)
+{
+    // Mỗi customer gọi THÊM 1 query → N+1 queries!
+    var contactCount = await _db.Contacts
+        .CountAsync(ct => ct.CustomerId == c.Id);
+    Console.WriteLine($"{c.Name}: {contactCount} contacts");
+}
+```
+
+**SQL log sẽ thấy:**
+```
+SELECT * FROM Customers                          -- 1 query
+SELECT COUNT(*) FROM Contacts WHERE CustomerId=1 -- query #2
+SELECT COUNT(*) FROM Contacts WHERE CustomerId=2 -- query #3
+... (N thêm queries cho N customers)
+```
+
+### 13.7.2 — Fix 1: Dùng Include
+
+```csharp
+var customers = await _db.Customers
+    .Include(c => c.Contacts)  // JOIN trong 1 query
+    .AsNoTracking()
+    .ToListAsync();
+
+foreach (var c in customers)
+    Console.WriteLine($"{c.Name}: {c.Contacts.Count} contacts");
+```
+
+### 13.7.3 — Fix 2: Projection (tốt hơn khi chỉ cần count)
+
+```csharp
+var result = await _db.Customers
+    .AsNoTracking()
+    .Select(c => new {
+        c.Name,
+        ContactCount = c.Contacts.Count()
+    })
+    .ToListAsync();
+```
+
+### 13.7.4 — Fix 3: AsSplitQuery cho nhiều collection
+
+```csharp
+// Include nhiều collection → cartesian explosion
+// AsSplitQuery tách thành nhiều query riêng, tránh duplicate row
+var customers = await _db.Customers
+    .Include(c => c.Contacts)
+    .Include(c => c.Leads)
+    .AsSplitQuery()   // EF Core 5+
+    .AsNoTracking()
+    .ToListAsync();
+```
+
+### 13.7.5 — Bật SQL Logging để debug
+
+```csharp
+// appsettings.Development.json
+{
+  "Logging": {
+    "LogLevel": {
+      "Microsoft.EntityFrameworkCore.Database.Command": "Information"
+    }
+  }
+}
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [13.6 — 5. Query Patterns](13.6-query-patterns.mdx)
+- **Bài tiếp theo:** [13.8 — 7. Performance](13.8-performance.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

@@ -1,0 +1,332 @@
+---
+title: "8.14 — Review and Assessment"
+sidebar_position: 14
+description: "Ôn tập & tự đánh giá ASP.NET Core Fundamentals: middleware, Serilog, routing, model binding, validation và checklist trước khi sang Web API."
+tags:
+  - review
+  - assessment
+  - aspnet-core
+  - fundamentals
+keywords:
+  - review and assessment
+  - middleware
+  - Serilog
+  - routing
+  - ProblemDetails
+enableComments: true
+draft: false
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 8.14 — Review and Assessment
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 8.14.1 — Thực hành
+
+### Bài 1: Project mới + Middleware đo thời gian
+
+**Yêu cầu:** Tạo project ASP.NET Core Web API, thêm middleware đo thời gian request/response.
+
+```bash
+dotnet new webapi -n CrmApi --use-controllers
+cd CrmApi
+dotnet add package Serilog.AspNetCore
+```
+
+Tạo `Middleware/RequestTimingMiddleware.cs` như phần 2, đăng ký:
+
+```csharp
+// Program.cs
+app.UseMiddleware<RequestTimingMiddleware>();
+```
+
+**Kiểm tra:** Gọi `GET /weatherforecast`, xem log xuất hiện thời gian xử lý.
+
+---
+
+### Bài 2: Serilog + Correlation ID Middleware
+
+**Yêu cầu:** Tích hợp Serilog structured logging, thêm correlation ID middleware để mỗi request log đều có `CorrelationId`.
+
+```csharp
+// Program.cs — thêm Serilog
+builder.Host.UseSerilog((ctx, _, config) =>
+    config.ReadFrom.Configuration(ctx.Configuration)
+          .Enrich.FromLogContext()
+          .WriteTo.Console());
+
+// Thêm cả hai middleware, đúng thứ tự
+app.UseMiddleware<CorrelationIdMiddleware>(); // Phải trước timing
+app.UseRequestTiming();
+app.UseSerilogRequestLogging();
+```
+
+**Kiểm tra:** Header request không có `X-Correlation-ID` → server tự sinh GUID. Header có sẵn → server dùng lại. Mọi log của request đều có `CorrelationId` cùng giá trị.
+
+---
+
+### Bài 3: CustomersController — API đầu tiên của CRM
+
+**Yêu cầu:** Xây dựng `CustomersController` với GET list (có phân trang) và GET by id, xử lý `NotFoundException` qua `GlobalExceptionHandler`.
+
+```csharp
+// Models/Customer.cs
+public class Customer
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = default!;
+    public string Email { get; set; } = default!;
+    public string? Phone { get; set; }
+    public decimal CreditLimit { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+// Models/Requests/GetCustomersRequest.cs
+public class GetCustomersRequest
+{
+    [Range(1, int.MaxValue)] public int Page { get; set; } = 1;
+    [Range(1, 100)] public int PageSize { get; set; } = 20;
+    public string? Search { get; set; }
+}
+
+// Models/Responses/PagedResponse.cs
+public class PagedResponse<T>
+{
+    public IReadOnlyList<T> Items { get; init; } = [];
+    public int Page { get; init; }
+    public int PageSize { get; init; }
+    public int TotalCount { get; init; }
+    public int TotalPages => (int)Math.Ceiling((double)TotalCount / PageSize);
+}
+
+// Controllers/CustomersController.cs
+[ApiController]
+[Route("api/v1/[controller]")]
+[Produces("application/json")]
+public class CustomersController : ControllerBase
+{
+    // Dữ liệu in-memory tạm, sẽ thay bằng EF Core ở Module sau
+    private static readonly List<Customer> _store =
+    [
+        new() { Id = 1, Name = "Nguyễn Văn A", Email = "a@example.com",
+                Phone = "0901234567", CreditLimit = 50_000_000, CreatedAt = DateTime.UtcNow.AddDays(-30) },
+        new() { Id = 2, Name = "Trần Thị B", Email = "b@example.com",
+                CreditLimit = 100_000_000, CreatedAt = DateTime.UtcNow.AddDays(-10) },
+    ];
+
+    private readonly ILogger<CustomersController> _logger;
+
+    public CustomersController(ILogger<CustomersController> logger)
+        => _logger = logger;
+
+    /// <summary>Lấy danh sách khách hàng có phân trang và tìm kiếm</summary>
+    [HttpGet]
+    [ProducesResponseType(typeof(PagedResponse<Customer>), StatusCodes.Status200OK)]
+    public ActionResult<PagedResponse<Customer>> GetAll([FromQuery] GetCustomersRequest request)
+    {
+        var query = _store.AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(request.Search))
+            query = query.Where(c =>
+                c.Name.Contains(request.Search, StringComparison.OrdinalIgnoreCase) ||
+                c.Email.Contains(request.Search, StringComparison.OrdinalIgnoreCase));
+
+        var totalCount = query.Count();
+        var items = query
+            .Skip((request.Page - 1) * request.PageSize)
+            .Take(request.PageSize)
+            .ToList();
+
+        _logger.LogInformation(
+            "GetAll customers: page={Page}, pageSize={PageSize}, total={Total}",
+            request.Page, request.PageSize, totalCount);
+
+        return Ok(new PagedResponse<Customer>
+        {
+            Items = items,
+            Page = request.Page,
+            PageSize = request.PageSize,
+            TotalCount = totalCount
+        });
+    }
+
+    /// <summary>Lấy thông tin một khách hàng theo ID</summary>
+    [HttpGet("{id:int}", Name = "GetCustomerById")]
+    [ProducesResponseType(typeof(Customer), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public ActionResult<Customer> GetById([FromRoute] int id)
+    {
+        var customer = _store.FirstOrDefault(c => c.Id == id)
+            ?? throw new NotFoundException(nameof(Customer), id);
+
+        return Ok(customer);
+    }
+}
+```
+
+**Kiểm tra:**
+- `GET /api/v1/customers` → danh sách 2 khách hàng
+- `GET /api/v1/customers?search=Nguyễn` → lọc theo tên
+- `GET /api/v1/customers/1` → khách hàng id=1
+- `GET /api/v1/customers/999` → `404 ProblemDetails` không có stack trace
+
+---
+
+### 8.14.2 — Tóm tắt
+
+| Khái niệm | Điểm chính |
+|---|---|
+| Minimal Hosting | `Program.cs` duy nhất, `WebApplication.CreateBuilder` |
+| Middleware | Thứ tự quan trọng; Exception handler phải đứng đầu |
+| Routing | Attribute routing cho API; route constraints giữ type safety |
+| Controller | Dùng `ControllerBase` + `[ApiController]`; không cần check `ModelState` |
+| Model Binding | `[FromRoute]`, `[FromQuery]`, `[FromBody]`, `[FromHeader]` |
+| Validation | DataAnnotations + tự động `ProblemDetails` 400 |
+| Configuration | Options pattern + User Secrets; không commit secret |
+| Logging | Serilog structured logging; không log sensitive data |
+| Exception | `IExceptionHandler` (.NET 8+); không trả stack trace ở production |
+| Health Check | `/health` endpoint cho Docker/K8s liveness và readiness probe |
+
+**Chuyển tiếp Module 9:** Bây giờ bạn đã có controller và pipeline hoàn chỉnh. Module tiếp theo sẽ kết nối thực sự với database qua **Entity Framework Core** — thay thế `_store` in-memory bằng SQL Server, viết migrations, và xây dựng Repository pattern cho CRM.
+
+---
+
+### 8.14.3 — Checklist trước khi sang bài tiếp theo
+
+- Bạn đã nắm được các khái niệm chính và giải thích lại được bằng ví dụ của riêng mình.
+- Bạn đã chạy hoặc mô phỏng ít nhất một ví dụ trong bài.
+- Bạn đã hoàn thành phần quiz/lab cơ bản (hoặc ít nhất tự làm lại theo trí nhớ).
+- Bạn đã ghi lại 3 ý chính: học được gì, còn vướng gì, sẽ áp dụng ở đâu trong CRM.
+
+### 8.14.4 — Kiểm tra & Thực hành (100 điểm)
+
+### 8.14.5 — Bối cảnh giáo trình (mục tiêu xuyên suốt)
+
+> **Trục CRM — một mục tiêu rõ:** bạn hướng tới **CRM production** trong [From Zero → Senior .NET (Backend-first)](../../roadmap-dotnet-backend-zero-to-senior.mdx). Giáo trình **ưu tiên backend**, bám chuỗi **API → dữ liệu → vận hành → kiến trúc phân tán**, thay vì trải rộng theo hướng full-stack. Mỗi module củng cố **một lớp kỹ năng** trên **cùng một CRM học tập** bạn phát triển xuyên suốt khóa.
+
+| Chuỗi năng lực | Đóng góp vào CRM học tập |
+|----------------|--------------------------|
+| **Giai đoạn 1 — Foundation** | Đọc hiểu yêu cầu, mô hình client–server, Git — nền **collaboration** khi CRM lớn dần. |
+| **Giai đoạn 2 — C# + P1** | Domain, OOP, LINQ, async, DI — **rule nghiệp vụ & tầng ứng dụng** (Inventory là bản mẫu trước CRM). |
+| **Giai đoạn 3 — ASP.NET + P2** | Host, routing, validation, JWT, SignalR — **CRM Backend API** thực tế. |
+| **Giai đoạn 4 — Data + P3** | SQL, EF, cache, job, container — CRM **ổn định & có thể triển khai**. |
+| **Giai đoạn 5 — Senior + Final** | Clean Architecture, event/outbox, gateway, observability, perf — CRM/ERP **chịu tải & có chủ**. |
+
+#### 8.14.5.1 — Vai trò *giai đoạn này* trong chuỗi
+
+ASP.NET Core + **Project 2 (CRM API)**: pipeline, Web API, JWT, SignalR — **bề mặt backend** mà client/tenant gọi vào.
+
+#### 8.14.5.2 — Vị trí bài học (trước / sau)
+
+| Mốc | Điểm nối trong giáo trình |
+|-----|---------------------------|
+| **Trước** | [Project 1 — Inventory (Console + API)](../../stage-02-csharp-professional/project-01-inventory-console-api.mdx) |
+| **Tiếp theo** | [Module 9 — Web API Professional](../module-09-web-api-professional) |
+
+### 8.14.6 — Quy trình làm bài (hệ thống)
+
+| Bước | Việc cần làm | Output nên có |
+|------|----------------|-----------------|
+| 1 | Làm **Quiz** *trước*, tự ghi đáp án + 1 dòng lý do | Không xem đáp án; giữ bản nháp |
+| 2 | Đối chiếu **Đáp án**; sửa hiểu sai, ghi *takeaway* vào README hoặc nhật ký học | 3–5 bullet “tôi đã hiểu…” |
+| 3 | Làm **Lab** theo rubric; trong README nêu **phần CRM** nào được chạm (Lead, Customer, Deal, Billing…) | Repo / zip + ảnh `dotnet run` hoặc log |
+| 4 | **Tự chấm** theo bảng điểm; chuẩn bị 1 phút “vấn đáp” nếu mentor hỏi ngẫu nhiên | Điểm + chỗ còn yếu |
+
+---
+
+### 8.14.7 — Phần A — Quiz trắc nghiệm (20 điểm)
+
+> **Gợi ý làm bài:** mỗi câu **4 điểm**. Ưu tiên suy nghĩ *hệ quả trên CRM* (tiền, dữ liệu, đa tenant, hiệu năng, bảo mật) — không chỉ nhớ định nghĩa.
+
+Mỗi câu **4 điểm**.
+
+1. Thứ tự middleware quan trọng vì?  
+   A. Không quan trọng B. Request đi xuôi, response đi ngược — thay đổi thứ tự đổi hành vi C. Compiler tự sắp xếp D. Chỉ ảnh hưởng Swagger  
+   > **Đáp án:** B.
+
+2. `UseRouting` / `MapControllers` liên quan gì đến endpoint?  
+   A. Chỉ static file B. Chọn endpoint theo template trước khi thực thi delegate C. Chỉ HTTPS D. Chỉ Serilog  
+   > **Đáp án:** B.
+
+3. RFC 7807 (`ProblemDetails`) dùng để?  
+   A. Serialize JWT B. Chuẩn hóa payload lỗi HTTP C. Thay thế JSON D. Chỉ cho SOAP  
+   > **Đáp án:** B.
+
+4. Health check `readiness` thường kiểm tra?  
+   A. Chỉ process còn sống B. DB/broker phụ thuộc sẵn sàng nhận traffic C. CPU fan D. Git branch  
+   > **Đáp án:** B.
+
+5. Model binding lấy dữ liệu từ đâu?  
+   A. Chỉ route B. Route, query, body, header (theo convention/attribute) C. Chỉ appsettings D. Registry Windows  
+   > **Đáp án:** B.
+
+### 8.14.8 — Phần B — Lab thực tế (80 điểm)
+
+> **Lab & rubric:** trong README, map từng nhóm điểm rubric sang **phần CRM** (Lead, Customer, Deal, Billing, Notification…) và **artifact** (test, log, screenshot, migration).
+
+| Tiêu chí | Điểm | Ghi chú |
+|----------|------|---------|
+| API có `CustomersController` (hoặc resource tương đương) + CRUD tối thiểu | 25 | |
+| Custom middleware: correlation ID hoặc request timer (log) | 20 | |
+| Validation + trả `ProblemDetails` (400) cho input sai | 15 | |
+| Global exception handler không lộ stack ở Production | 10 | |
+| Endpoint `/health` (live hoặc ready) + README chạy thử | 10 | |
+
+#### 8.14.8.1 — Ngưỡng tổng điểm (Quiz 20 + Lab 80)
+
+| Mức | Điểm | Ý nghĩa |
+|-----|------|---------|
+| **Đạt** | ≥ 70 | Đủ nền để học module kế mà không “lủng” kiến thức cốt lõi. |
+| **Khá** | ≥ 85 | Có minh chứng code + nêu được liên hệ CRM rõ ràng trong README. |
+| **Giỏi** | ≥ 95 | Có mở rộng / edge case / ADR ngắn / test bổ trợ (tùy rubric từng bài). |
+
+### 8.14.9 — Phần C — Reflect & nối chuỗi (không chấm điểm)
+
+Viết **5–8 câu** (README hoặc `docs/learning-log.md`):
+
+1. Kiến thức *module / project này* sẽ được **tái sử dụng trực tiếp** ở module hoặc project CRM nào tiếp theo? (ghi tên module / P2 / P3 / Final).
+2. Nếu bỏ qua phần lab, **rủi ro** lớn nhất cho CRM ở giai đoạn sau là gì?
+3. Một **quyết định kỹ thuật** (nhỏ) bạn sẵn sàng ghi thành **ADR một đoạn** sau khi làm lab.
+
+---
+
+### 8.14.10 — Tài liệu tham khảo
+
+- [ASP.NET Core Fundamentals — Microsoft Docs](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/)
+- [Middleware in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/middleware/)
+- [Routing in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/routing)
+- [Model Binding in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/mvc/models/model-binding)
+- [Handle errors in ASP.NET Core APIs](https://learn.microsoft.com/en-us/aspnet/core/web-api/handle-errors)
+- [Serilog — Getting Started](https://serilog.net/)
+- [Health checks in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/health-checks)
+- [RFC 7807 — Problem Details for HTTP APIs](https://datatracker.ietf.org/doc/html/rfc7807)
+
+## Bài tập tổng hợp
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [8.13 — Ví dụ thực tế nhanh](8.13-quick-real-world-example.mdx)
+- **Bài tiếp theo:** Không có (bài cuối module).
+- **Về module:** [Trang mục lục](index.mdx)

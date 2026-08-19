@@ -1,0 +1,148 @@
+---
+title: "7.8 — 6. Options Pattern"
+sidebar_position: 8
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 7.8 — 6. Options Pattern
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 7.8.1 — Tại sao cần Options Pattern?
+
+Thay vì inject `IConfiguration` trực tiếp (fragile, stringly-typed), Options Pattern cho phép bind config vào POCO class type-safe.
+
+### 7.8.2 — Ba interface
+
+| Interface | Đọc config | Reloadable | Khi nào dùng |
+|-----------|-----------|------------|-------------|
+| `IOptions<T>` | Lúc app start | Không | Singleton, config không đổi |
+| `IOptionsSnapshot<T>` | Mỗi request | Có | Scoped, config có thể reload |
+| `IOptionsMonitor<T>` | Realtime | Có (callback) | Singleton, cần phản ứng khi config thay đổi |
+
+### 7.8.3 — Ví dụ: CrmSettings và EmailSettings
+
+```json
+// appsettings.json
+{
+  "CrmSettings": {
+    "MaxLeadsPerAgent": 50,
+    "LeadExpirationDays": 30,
+    "DefaultCurrency": "VND",
+    "EnableAutoAssignment": true
+  },
+  "EmailSettings": {
+    "Host": "smtp.company.com",
+    "Port": 587,
+    "UseSsl": true,
+    "SenderName": "CRM System",
+    "SenderEmail": "crm@company.com"
+  }
+}
+```
+
+```csharp
+// CrmSettings.cs
+public sealed class CrmSettings
+{
+    public const string SectionName = "CrmSettings";
+
+    public int MaxLeadsPerAgent      { get; init; } = 50;
+    public int LeadExpirationDays    { get; init; } = 30;
+    public string DefaultCurrency    { get; init; } = "VND";
+    public bool EnableAutoAssignment { get; init; } = true;
+}
+
+// EmailSettings.cs
+public sealed class EmailSettings
+{
+    public const string SectionName = "EmailSettings";
+
+    [Required] public string Host        { get; init; } = string.Empty;
+    [Range(1, 65535)] public int Port    { get; init; } = 587;
+    public bool UseSsl                   { get; init; } = true;
+    public string SenderName             { get; init; } = string.Empty;
+    public string SenderEmail            { get; init; } = string.Empty;
+}
+```
+
+```csharp
+// Đăng ký với validation
+services.AddOptions<CrmSettings>()
+    .Bind(configuration.GetSection(CrmSettings.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart(); // Lỗi config sẽ fail ngay khi app start
+
+services.AddOptions<EmailSettings>()
+    .Bind(configuration.GetSection(EmailSettings.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+```
+
+```csharp
+// Sử dụng trong service
+public class LeadService
+{
+    private readonly ILeadRepository _repo;
+    private readonly CrmSettings _settings;
+
+    public LeadService(ILeadRepository repo, IOptions<CrmSettings> options)
+    {
+        _repo     = repo;
+        _settings = options.Value; // Lấy giá trị type-safe
+    }
+
+    public async Task<bool> CanAssignLeadAsync(string agentId)
+    {
+        var count = await _repo.CountByAgentAsync(agentId);
+        return count < _settings.MaxLeadsPerAgent;
+    }
+}
+
+// Service cần reload config (ví dụ: feature flag)
+public class EmailService
+{
+    private readonly IOptionsMonitor<EmailSettings> _optionsMonitor;
+
+    public EmailService(IOptionsMonitor<EmailSettings> optionsMonitor)
+    {
+        _optionsMonitor = optionsMonitor;
+        // Đăng ký callback khi config thay đổi
+        _optionsMonitor.OnChange(settings =>
+            Console.WriteLine($"Email config reloaded: {settings.Host}"));
+    }
+
+    public EmailSettings CurrentSettings => _optionsMonitor.CurrentValue;
+}
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [7.7 — 5. Program.cs và WebApplicationBuilder](7.7-program-cs-and-webapplicationbuilder.mdx)
+- **Bài tiếp theo:** [7.9 — 7. Keyed Services (.NET 8)](7.9-keyed-services.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

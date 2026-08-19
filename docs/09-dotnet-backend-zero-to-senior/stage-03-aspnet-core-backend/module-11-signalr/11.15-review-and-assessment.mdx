@@ -1,0 +1,252 @@
+---
+title: "11.15 — Review and Assessment"
+sidebar_position: 15
+description: "Ôn tập & tự đánh giá SignalR: real-time notifications, presence, scale-out và checklist trước khi đi sâu phần phân tán/senior."
+tags:
+  - review
+  - assessment
+  - signalr
+  - real-time
+keywords:
+  - review and assessment
+  - SignalR
+  - hubs
+  - presence
+  - scale-out
+enableComments: true
+draft: false
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 11.15 — Review and Assessment
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 11.15.1 — Thực hành
+
+### Bài 1 — Setup CrmNotificationHub và test cơ bản
+
+**Yêu cầu:**
+1. Tạo `CrmNotificationHub` với interface `ICrmNotificationClient`
+2. Đăng ký `AddSignalR()` và `MapHub<CrmNotificationHub>("/hubs/notifications")`
+3. Bật CORS cho SignalR (thêm `AllowCredentials()` và whitelist origin)
+4. Tạo HTML test page đơn giản:
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/@microsoft/signalr/dist/browser/signalr.min.js"></script>
+</head>
+<body>
+    <div id="messages"></div>
+    <script>
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl("https://localhost:7001/hubs/notifications")
+            .build();
+
+        connection.on("ReceiveNotification", (notification) => {
+            document.getElementById("messages").innerHTML +=
+                `<p>[${notification.type}] ${notification.message}</p>`;
+        });
+
+        connection.start()
+            .then(() => console.log("Connected:", connection.connectionId))
+            .catch(err => console.error(err));
+    </script>
+</body>
+</html>
+```
+
+5. Tạo endpoint `POST /api/test/notify?userId=xxx&message=yyy` dùng `IHubContext` để push notification
+6. Dùng Postman gọi endpoint và xem message xuất hiện trên HTML page
+
+**Kiểm tra**: Gửi 5 notification liên tiếp từ Postman, tất cả xuất hiện ngay lập tức trên browser.
+
+---
+
+### Bài 2 — Notification khi Lead status thay đổi
+
+**Yêu cầu:**
+1. Tạo entity `Lead` với field `AssigneeId`, `Status`
+2. Tạo `LeadService.AssignLeadAsync(leadId, assigneeId)`:
+   - Cập nhật DB
+   - Tạo `Notification` record
+   - Push real-time qua `IHubContext.Clients.User(assigneeId)`
+3. Bảo vệ Hub bằng `[Authorize]`, cấu hình JWT đọc từ query string
+4. Client TypeScript: connect với token, hiển thị notification dạng toast
+
+**Luồng kiểm tra:**
+- User A (assignee) mở browser, connect Hub với JWT token của mình
+- Gọi API `PUT /api/leads/{id}/assign` với body `{ assigneeId: "userId-A" }`
+- User A nhận notification ngay lập tức mà không refresh trang
+
+---
+
+### Bài 3 — Notification Center đầy đủ
+
+**Yêu cầu:**
+1. Tạo bảng `Notifications` trong DB với các field: `Id, UserId, Message, Type, EntityType, EntityId, IsRead, ReadAt, CreatedAt`
+2. Implement `NotificationService` với `SendAsync`, `MarkAsReadAsync`, `GetUnreadAsync`
+3. API endpoints:
+   - `GET /api/notifications?unreadOnly=true&limit=20` — lấy danh sách
+   - `PUT /api/notifications/{id}/read` — đánh dấu đã đọc
+   - `PUT /api/notifications/read-all` — đánh dấu tất cả đã đọc
+4. Real-time: khi có notification mới → push ngay qua Hub
+5. Frontend (React hoặc HTML): hiển thị badge số unread, dropdown list, click → đánh dấu đã đọc
+
+**Bonus**: Implement `LeadAssignedEventHandler` dùng MediatR notification để tách logic domain event khỏi service.
+
+---
+
+### 11.15.2 — Tóm tắt
+
+| Khái niệm | Ghi nhớ |
+|---|---|
+| Transport negotiation | WebSocket > SSE > Long Polling, SignalR tự chọn |
+| Strongly-typed Hub | Dùng `Hub<TClient>` + interface để compile-time safety |
+| JWT trong WebSocket | Truyền qua query string, đọc trong `OnMessageReceived` |
+| `Groups` | Organize connections; join khi connect, leave khi disconnect |
+| `IHubContext` | Push từ service/job ngoài Hub; inject `IHubContext<THub, TClient>` |
+| Presence | Track `OnConnectedAsync`/`OnDisconnectedAsync`; dùng Redis khi scale |
+| Scale-out | Redis backplane hoặc Azure SignalR Service; cần sticky session |
+
+SignalR giải quyết hoàn toàn bài toán real-time cho CRM: notification center, live dashboard, và presence tracking — với developer experience tốt hơn nhiều so với WebSocket thuần nhờ transport fallback, auto-reconnect và strongly-typed API.
+
+---
+
+### 11.15.3 — Checklist trước khi sang bài tiếp theo
+
+- Bạn đã nắm được các khái niệm chính và giải thích lại được bằng ví dụ của riêng mình.
+- Bạn đã chạy hoặc mô phỏng ít nhất một ví dụ trong bài.
+- Bạn đã hoàn thành phần quiz/lab cơ bản (hoặc ít nhất tự làm lại theo trí nhớ).
+- Bạn đã ghi lại 3 ý chính: học được gì, còn vướng gì, sẽ áp dụng ở đâu trong CRM.
+
+### 11.15.4 — Kiểm tra & Thực hành (100 điểm)
+
+### 11.15.5 — Bối cảnh giáo trình (mục tiêu xuyên suốt)
+
+> **Trục CRM — một mục tiêu rõ:** bạn hướng tới **CRM production** trong [From Zero → Senior .NET (Backend-first)](../../roadmap-dotnet-backend-zero-to-senior.mdx). Giáo trình **ưu tiên backend**, bám chuỗi **API → dữ liệu → vận hành → kiến trúc phân tán**, thay vì trải rộng theo hướng full-stack. Mỗi module củng cố **một lớp kỹ năng** trên **cùng một CRM học tập** bạn phát triển xuyên suốt khóa.
+
+| Chuỗi năng lực | Đóng góp vào CRM học tập |
+|----------------|--------------------------|
+| **Giai đoạn 1 — Foundation** | Đọc hiểu yêu cầu, mô hình client–server, Git — nền **collaboration** khi CRM lớn dần. |
+| **Giai đoạn 2 — C# + P1** | Domain, OOP, LINQ, async, DI — **rule nghiệp vụ & tầng ứng dụng** (Inventory là bản mẫu trước CRM). |
+| **Giai đoạn 3 — ASP.NET + P2** | Host, routing, validation, JWT, SignalR — **CRM Backend API** thực tế. |
+| **Giai đoạn 4 — Data + P3** | SQL, EF, cache, job, container — CRM **ổn định & có thể triển khai**. |
+| **Giai đoạn 5 — Senior + Final** | Clean Architecture, event/outbox, gateway, observability, perf — CRM/ERP **chịu tải & có chủ**. |
+
+#### 11.15.5.1 — Vai trò *giai đoạn này* trong chuỗi
+
+ASP.NET Core + **Project 2 (CRM API)**: pipeline, Web API, JWT, SignalR — **bề mặt backend** mà client/tenant gọi vào.
+
+#### 11.15.5.2 — Vị trí bài học (trước / sau)
+
+| Mốc | Điểm nối trong giáo trình |
+|-----|---------------------------|
+| **Trước** | [Module 10 — Authentication + Authorization](../module-10-authentication-authorization) |
+| **Tiếp theo** | [Project 2 — CRM Backend API](../project-02-crm-backend-api.mdx) |
+
+### 11.15.6 — Quy trình làm bài (hệ thống)
+
+| Bước | Việc cần làm | Output nên có |
+|------|----------------|-----------------|
+| 1 | Làm **Quiz** *trước*, tự ghi đáp án + 1 dòng lý do | Không xem đáp án; giữ bản nháp |
+| 2 | Đối chiếu **Đáp án**; sửa hiểu sai, ghi *takeaway* vào README hoặc nhật ký học | 3–5 bullet “tôi đã hiểu…” |
+| 3 | Làm **Lab** theo rubric; trong README nêu **phần CRM** nào được chạm (Lead, Customer, Deal, Billing…) | Repo / zip + ảnh `dotnet run` hoặc log |
+| 4 | **Tự chấm** theo bảng điểm; chuẩn bị 1 phút “vấn đáp” nếu mentor hỏi ngẫu nhiên | Điểm + chỗ còn yếu |
+
+---
+
+### 11.15.7 — Phần A — Quiz trắc nghiệm (20 điểm)
+
+> **Gợi ý làm bài:** mỗi câu **4 điểm**. Ưu tiên suy nghĩ *hệ quả trên CRM* (tiền, dữ liệu, đa tenant, hiệu năng, bảo mật) — không chỉ nhớ định nghĩa.
+
+Mỗi câu **4 điểm**.
+
+1. SignalR transport fallback thứ tự ưu tiên điển hình (hiện đại)?  
+   A. WebSocket → SSE → long polling B. Chỉ UDP C. FTP D. SMTP  
+   > **Đáp án:** A (tinh thần; chi tiết phụ thuộc client/server).
+
+2. Redis backplane dùng khi?  
+   A. Một instance duy nhất B. Scale-out nhiều server cần broadcast chung C. Thay thế SQL D. Chỉ dev local  
+   > **Đáp án:** B.
+
+3. Hub method nên tránh pattern nào?  
+   A. `async Task` B. Gọi DB đồng bộ chặn lâu trong hub mà không scale C. Strongly typed client D. Groups  
+   > **Đáp án:** B (cần thiết kế + async).
+
+4. Auth SignalR thường truyền JWT qua?  
+   A. Header HTTP khi negotiate/access token theo tài liệu client B. Telnet C. DNS D. ICMP  
+   > **Đáp án:** A (accessTokenFactory trên web client).
+
+5. Sticky session khi **không** dùng backplane?  
+   A. Luôn cần B. Có thể cần nếu connection không shared giữa node C. Không bao giờ D. Chỉ với gRPC  
+   > **Đáp án:** B.
+
+### 11.15.8 — Phần B — Lab thực tế (80 điểm)
+
+> **Lab & rubric:** trong README, map từng nhóm điểm rubric sang **phần CRM** (Lead, Customer, Deal, Billing, Notification…) và **artifact** (test, log, screenshot, migration).
+
+| Tiêu chí | Điểm | Ghi chú |
+|----------|------|---------|
+| Hub + client (console JS hoặc .NET client) nhận message real-time | 30 | |
+| `[Authorize]` trên hub; từ chối kết nối không token | 25 | |
+| Gửi notification khi có sự kiện domain (tạo Lead, assign…) | 15 | |
+| README: scale-out cần Redis hay chưa — giải thích | 10 | |
+
+#### 11.15.8.1 — Ngưỡng tổng điểm (Quiz 20 + Lab 80)
+
+| Mức | Điểm | Ý nghĩa |
+|-----|------|---------|
+| **Đạt** | ≥ 70 | Đủ nền để học module kế mà không “lủng” kiến thức cốt lõi. |
+| **Khá** | ≥ 85 | Có minh chứng code + nêu được liên hệ CRM rõ ràng trong README. |
+| **Giỏi** | ≥ 95 | Có mở rộng / edge case / ADR ngắn / test bổ trợ (tùy rubric từng bài). |
+
+### 11.15.9 — Phần C — Reflect & nối chuỗi (không chấm điểm)
+
+Viết **5–8 câu** (README hoặc `docs/learning-log.md`):
+
+1. Kiến thức *module / project này* sẽ được **tái sử dụng trực tiếp** ở module hoặc project CRM nào tiếp theo? (ghi tên module / P2 / P3 / Final).
+2. Nếu bỏ qua phần lab, **rủi ro** lớn nhất cho CRM ở giai đoạn sau là gì?
+3. Một **quyết định kỹ thuật** (nhỏ) bạn sẵn sàng ghi thành **ADR một đoạn** sau khi làm lab.
+
+---
+
+### 11.15.10 — Tài liệu tham khảo
+
+- [ASP.NET Core SignalR — Official Docs](https://docs.microsoft.com/aspnet/core/signalr/introduction)
+- [SignalR JavaScript Client](https://docs.microsoft.com/aspnet/core/signalr/javascript-client)
+- [Authentication and Authorization in SignalR](https://docs.microsoft.com/aspnet/core/signalr/authn-and-authz)
+- [Scale out SignalR with Redis](https://docs.microsoft.com/aspnet/core/signalr/redis-backplane)
+- [Azure SignalR Service](https://docs.microsoft.com/azure/azure-signalr/signalr-overview)
+- [SignalR Hub API Guide](https://docs.microsoft.com/aspnet/core/signalr/hubs)
+
+## Bài tập tổng hợp
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [11.14 — Ví dụ thực tế nhanh](11.14-quick-real-world-example.mdx)
+- **Bài tiếp theo:** Không có (bài cuối module).
+- **Về module:** [Trang mục lục](index.mdx)

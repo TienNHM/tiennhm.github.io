@@ -1,0 +1,78 @@
+---
+title: "4.7 — 6. Access Modifiers"
+sidebar_position: 7
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 4.7 — 6. Access Modifiers
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+| Modifier | Cùng class | Cùng assembly | Lớp con | Mọi nơi |
+|---|---|---|---|---|
+| `private` | Có | Không | Không | Không |
+| `protected` | Có | Không | Có | Không |
+| `internal` | Có | Có | Không | Không |
+| `protected internal` | Có | Có | Có | Không |
+| `private protected` | Có | Không | Có (cùng assembly) | Không |
+| `public` | Có | Có | Có | Có |
+
+**Best practice:**
+
+- Mặc định dùng `private` cho fields và helper methods
+- `public` chỉ cho API thực sự cần lộ ra ngoài
+- Properties nên `public get` + `private set` hoặc `init`
+- Dùng `internal` cho class chỉ dùng trong cùng project/library
+
+```csharp
+public class Order : BaseEntity
+{
+    private readonly List<OrderItem> _items = new();  // private field
+    private decimal _discountRate;                     // private field
+
+    public IReadOnlyList<OrderItem> Items => _items;   // public read-only
+    public decimal Total { get; private set; }         // private set
+
+    protected void RecalculateTotal()                  // protected: lớp con dùng được
+    {
+        Total = _items.Sum(i => i.SubTotal) * (1 - _discountRate);
+    }
+
+    internal void ApplyBulkDiscount(decimal rate)      // internal: chỉ trong assembly
+    {
+        _discountRate = rate;
+        RecalculateTotal();
+    }
+}
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [4.6 — 5. Abstraction](4.6-abstraction.mdx)
+- **Bài tiếp theo:** [4.8 — 7. Records và Value Objects (C# 9+)](4.8-records-and-value-objects.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

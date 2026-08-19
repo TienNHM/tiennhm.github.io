@@ -1,0 +1,80 @@
+---
+title: "15.8 — 7. Azure Deployment"
+sidebar_position: 8
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 15.8 — 7. Azure Deployment
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 15.8.1 — So sánh các lựa chọn Azure
+
+| Dịch vụ | Use case | Độ phức tạp | Chi phí |
+|---|---|---|---|
+| **App Service** | Web app, API truyền thống | Thấp | Trung bình |
+| **Container Apps** | Microservice, scale to zero | Trung bình | Thấp-trung |
+| **AKS** | Enterprise, nhiều service | Cao | Cao |
+| **Azure Functions** | Event-driven, serverless | Thấp | Rất thấp |
+
+Cho CRM monolith: **Azure Container Apps** là lựa chọn tốt — auto-scale, managed, giá hợp lý.
+
+### 15.8.2 — Deploy từ GitHub Actions lên Azure Container Apps
+
+```yaml
+- name: Login to Azure
+  uses: azure/login@v2
+  with:
+    creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+- name: Deploy to Azure Container Apps
+  uses: azure/container-apps-deploy-action@v1
+  with:
+    resourceGroup: crm-rg
+    containerAppName: crm-api
+    imageToDeploy: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+```
+
+### 15.8.3 — Các dịch vụ Azure hỗ trợ
+
+- **Azure SQL Database**: managed SQL Server, auto backup, geo-replication
+- **Azure Cache for Redis**: managed Redis, bật TLS mặc định
+- **Azure Container Registry (ACR)**: private registry, tích hợp sẵn với ACA/AKS
+- **Azure Key Vault**: quản lý secrets, certs, keys
+
+### 15.8.4 — Pricing Mindset
+
+- Luôn bật **cost alerts** trên Azure Portal.
+- Container Apps billing: CPU/memory theo giây khi có request. Scale to zero = $0 khi idle.
+- Dev/Staging environment: dùng B1/Free tier, không để chạy 24/7 nếu không cần.
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [15.7 — 6. GitHub Actions CI/CD](15.7-github-actions-ci-cd.mdx)
+- **Bài tiếp theo:** [15.9 — 8. Production Monitoring](15.9-production-monitoring.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

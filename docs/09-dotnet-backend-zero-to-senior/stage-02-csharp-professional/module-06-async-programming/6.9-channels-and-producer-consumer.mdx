@@ -1,0 +1,110 @@
+---
+title: "6.9 — 7. Channels và Producer-Consumer"
+sidebar_position: 9
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 6.9 — 7. Channels và Producer-Consumer
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+`System.Threading.Channels` cho phép truyền dữ liệu an toàn giữa producer và consumer mà không cần lock.
+
+### 6.9.1 — Ví dụ: Queue notification CRM
+
+```csharp
+// NotificationQueue.cs — Singleton service
+public class NotificationQueue : IHostedService
+{
+    private readonly Channel<NotificationMessage> _channel;
+    private readonly IServiceProvider _services;
+    private readonly ILogger<NotificationQueue> _logger;
+
+    public NotificationQueue(IServiceProvider services, ILogger<NotificationQueue> logger)
+    {
+        _services = services;
+        _logger = logger;
+        // Bounded channel — backpressure khi queue đầy
+        _channel = Channel.CreateBounded<NotificationMessage>(new BoundedChannelOptions(1000)
+        {
+            FullMode = BoundedChannelFullMode.Wait
+        });
+    }
+
+    // Producer: gọi từ bất kỳ đâu trong app
+    public async ValueTask EnqueueAsync(NotificationMessage message, CancellationToken ct = default)
+    {
+        await _channel.Writer.WriteAsync(message, ct);
+    }
+
+    // Consumer: chạy background
+    public async Task StartAsync(CancellationToken stoppingToken)
+    {
+        await foreach (var message in _channel.Reader.ReadAllAsync(stoppingToken))
+        {
+            await ProcessMessageAsync(message, stoppingToken);
+        }
+    }
+
+    public Task StopAsync(CancellationToken cancellationToken)
+    {
+        _channel.Writer.Complete();
+        return Task.CompletedTask;
+    }
+
+    private async Task ProcessMessageAsync(NotificationMessage msg, CancellationToken ct)
+    {
+        try
+        {
+            using var scope = _services.CreateScope();
+            var sender = scope.ServiceProvider.GetRequiredService<INotificationSender>();
+            await sender.SendAsync(msg, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to process notification {MessageId}", msg.Id);
+        }
+    }
+}
+
+// Model
+public record NotificationMessage(Guid Id, string Type, string Recipient, string Content);
+
+// Đăng ký trong Program.cs
+// builder.Services.AddSingleton<NotificationQueue>();
+// builder.Services.AddHostedService(sp => sp.GetRequiredService<NotificationQueue>());
+
+// Sử dụng trong controller
+// await _notificationQueue.EnqueueAsync(new NotificationMessage(Guid.NewGuid(), "email", customer.Email, body), ct);
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [6.8 — 6. Common Pitfalls](6.8-common-pitfalls.mdx)
+- **Bài tiếp theo:** [6.10 — Mở rộng và đào sâu](6.10-advanced-notes.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

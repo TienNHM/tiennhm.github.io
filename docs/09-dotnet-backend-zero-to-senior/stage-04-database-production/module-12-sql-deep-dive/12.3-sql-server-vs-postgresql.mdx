@@ -1,0 +1,100 @@
+---
+title: "12.3 — 2. SQL Server so với PostgreSQL"
+sidebar_position: 3
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 12.3 — 2. SQL Server so với PostgreSQL
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 12.3.1 — 2.1 Bảng so sánh
+
+| Tiêu chí | SQL Server | PostgreSQL |
+|---------|-----------|-----------|
+| License | Commercial (Express miễn phí, giới hạn 10GB) | Open source hoàn toàn |
+| Nền tảng | Windows native, Linux hỗ trợ từ 2017 | Linux tốt nhất, Windows ổn |
+| JSON support | `NVARCHAR(MAX)` + `JSON_VALUE`, `OPENJSON` | `jsonb` native, indexable, operators phong phú |
+| Full-text search | SQL Server FTS | `tsvector`, `tsquery` tích hợp sâu hơn |
+| Window functions | Hỗ trợ đủ | Hỗ trợ đủ + một số extension riêng |
+| Partitioning | Enterprise edition | Miễn phí từ v10 |
+| Replication / HA | Always On (phức tạp, mạnh) | Streaming replication, Patroni |
+| .NET tích hợp | `Microsoft.Data.SqlClient`, SSMS | `Npgsql`, pgAdmin |
+| Hosting cloud | Azure SQL Database | AWS RDS, Supabase, Neon, Railway |
+| Giá cloud | Tương đối cao | Nhiều lựa chọn free tier |
+
+### 12.3.2 — 2.2 Khi nào chọn cái nào
+
+**Chọn SQL Server khi:**
+- Dự án doanh nghiệp Việt Nam, khách hàng đã có SQL Server license
+- Stack Microsoft toàn phần (Azure, Active Directory, SSRS)
+- Cần SSMS, Profiler, Extended Events cho DBA
+- Team quen T-SQL và không muốn học lại
+
+**Chọn PostgreSQL khi:**
+- Startup, open-source, budget thấp
+- Cần JSON document hybrid (lưu config/metadata linh hoạt)
+- Deploy trên Linux container (Docker, Kubernetes)
+- Muốn dùng Supabase (BaaS với Postgres)
+
+### 12.3.3 — 2.3 JSON Column
+
+```sql
+-- ===== SQL SERVER =====
+-- Lưu metadata linh hoạt
+ALTER TABLE Leads ADD Metadata NVARCHAR(MAX) NULL
+    CONSTRAINT CK_Leads_Metadata CHECK (ISJSON(Metadata) = 1);
+
+-- Truy vấn JSON
+SELECT LeadId,
+       JSON_VALUE(Metadata, '$.utmSource')   AS UtmSource,
+       JSON_VALUE(Metadata, '$.campaignId')  AS CampaignId
+FROM   Leads
+WHERE  JSON_VALUE(Metadata, '$.utmSource') = 'google';
+
+-- ===== POSTGRESQL =====
+ALTER TABLE leads ADD COLUMN metadata JSONB NULL;
+
+-- JSONB có thể index
+CREATE INDEX idx_leads_metadata_utm ON leads USING GIN (metadata);
+
+-- Truy vấn với operator ->
+SELECT lead_id,
+       metadata->>'utmSource'  AS utm_source,
+       metadata->>'campaignId' AS campaign_id
+FROM   leads
+WHERE  metadata->>'utmSource' = 'google';
+```
+
+PostgreSQL `jsonb` được parse và lưu dạng binary — query nhanh hơn, có thể đánh index GIN. SQL Server JSON chỉ là text có validation — không index được trực tiếp.
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [12.2 — 1. Database Design cho CRM](12.2-crm-database-design.mdx)
+- **Bài tiếp theo:** [12.4 — 3. Queries Nâng Cao](12.4-advanced-queries.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

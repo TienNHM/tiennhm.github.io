@@ -1,0 +1,109 @@
+---
+title: "4.2 — 1. Class và Object"
+sidebar_position: 2
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 4.2 — 1. Class và Object
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 4.2.1 — Khai báo class cơ bản
+
+```csharp
+// Customer.cs
+namespace CRM.Domain;
+
+public class Customer
+{
+    // Fields - thường private
+    private string _name;
+    private string _email;
+    private int _loyaltyPoints;
+
+    // Auto-property (compiler tự tạo backing field)
+    public Guid Id { get; init; } = Guid.NewGuid();
+    public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
+
+    // Full property với validation
+    public string Name
+    {
+        get => _name;
+        set
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                throw new ArgumentException("Tên không được trống.", nameof(value));
+            _name = value.Trim();
+        }
+    }
+
+    public string Email
+    {
+        get => _email;
+        private set => _email = value?.ToLowerInvariant()
+            ?? throw new ArgumentNullException(nameof(value));
+    }
+
+    public int LoyaltyPoints
+    {
+        get => _loyaltyPoints;
+        private set => _loyaltyPoints = value >= 0 ? value : 0;
+    }
+
+    // Constructor
+    public Customer(string name, string email)
+    {
+        Name = name ?? throw new ArgumentNullException(nameof(name));
+        Email = email ?? throw new ArgumentNullException(nameof(email));
+    }
+
+    // Method
+    public void AddLoyaltyPoints(int points)
+    {
+        if (points <= 0) throw new ArgumentOutOfRangeException(nameof(points));
+        LoyaltyPoints += points;
+    }
+
+    public override string ToString() => $"Customer({Id}, {Name}, {Email})";
+}
+```
+
+### 4.2.2 — Auto-property so với Full property
+
+| Trường hợp | Nên dùng |
+|---|---|
+| Không cần validation, chỉ lưu/đọc | Auto-property: `public string Name { get; set; }` |
+| Cần validate khi gán | Full property với backing field |
+| Chỉ gán lúc khởi tạo | `{ get; init; }` (C# 9+) |
+| Tính toán từ fields khác | Computed property: `get => ...` |
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [4.1 — Module Orientation](4.1-module-orientation.mdx)
+- **Bài tiếp theo:** [4.3 — 2. Encapsulation](4.3-encapsulation.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

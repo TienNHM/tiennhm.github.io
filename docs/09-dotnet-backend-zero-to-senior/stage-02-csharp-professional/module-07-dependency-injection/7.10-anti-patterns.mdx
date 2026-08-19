@@ -1,0 +1,114 @@
+---
+title: "7.10 — 8. Anti-patterns"
+sidebar_position: 10
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 7.10 — 8. Anti-patterns
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 7.10.1 — Service Locator (tại sao xấu)
+
+```csharp
+// BAD: Service Locator anti-pattern
+public class CustomerService
+{
+    private readonly IServiceProvider _sp;
+
+    public CustomerService(IServiceProvider sp)
+    {
+        _sp = sp; // Inject container vào service — đây là vấn đề
+    }
+
+    public async Task ProcessAsync(Guid id)
+    {
+        // Dependencies ẩn — không thấy từ constructor
+        var repo  = _sp.GetRequiredService<ICustomerRepository>();
+        var email = _sp.GetRequiredService<IEmailService>();
+        // ...
+    }
+}
+
+// VẤN ĐỀ:
+// 1. Dependencies không rõ ràng — phải đọc body method mới biết cần gì
+// 2. Unit test khó — phải mock IServiceProvider thay vì mock từng service
+// 3. Vi phạm Explicit Dependencies Principle
+```
+
+### 7.10.2 — Ambient Context
+
+```csharp
+// BAD: static context ẩn
+public static class CurrentTenant
+{
+    public static string? Id { get; set; } // Global mutable state!
+}
+
+// ĐÚNG: inject ITenantContext qua constructor
+public interface ITenantContext
+{
+    string TenantId { get; }
+}
+```
+
+### 7.10.3 — Over-injection — dấu hiệu God Service
+
+```csharp
+// BAD: constructor quá nhiều params — dấu hiệu vi phạm SRP
+public class CustomerService
+{
+    public CustomerService(
+        ICustomerRepository customerRepo,
+        ILeadRepository leadRepo,
+        IOrderRepository orderRepo,
+        IEmailService emailService,
+        ISmsService smsService,
+        IPushService pushService,
+        ILeadScorer leadScorer,
+        IReportGenerator reportGenerator,
+        IExportService exportService,
+        ICacheService cacheService,
+        ILogger<CustomerService> logger)  // 11 params → God Service!
+    { ... }
+}
+
+// ĐÚNG: tách thành các service nhỏ hơn
+// CustomerService chỉ xử lý customer CRUD
+// LeadManagementService xử lý lead lifecycle
+// CustomerNotificationService xử lý notification
+// CustomerReportService xử lý report và export
+```
+
+> **Quy tắc**: Nếu constructor có hơn 4-5 dependency, hãy xem lại xem service đó có đang làm quá nhiều việc không.
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [7.9 — 7. Keyed Services (.NET 8)](7.9-keyed-services.mdx)
+- **Bài tiếp theo:** [7.11 — Mở rộng và đào sâu](7.11-advanced-notes.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

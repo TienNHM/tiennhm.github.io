@@ -1,0 +1,84 @@
+---
+title: "8.5 — 4. Controllers và Actions"
+sidebar_position: 5
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 8.5 — 4. Controllers và Actions
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 8.5.1 — ControllerBase so với Controller
+
+- `ControllerBase`: Dành cho **Web API** — không có View support
+- `Controller`: Kế thừa `ControllerBase` + thêm View/Razor support — dùng cho MVC app
+
+Luôn dùng `ControllerBase` cho API project.
+
+### 8.5.2 — [ApiController] Attribute
+
+`[ApiController]` tự động:
+- Bật automatic model validation (không cần kiểm tra `ModelState.IsValid` thủ công)
+- Binding source inference (`[FromBody]` cho complex type, `[FromRoute]` cho route param)
+- Trả `ValidationProblemDetails` khi validation fail (HTTP 400)
+
+### 8.5.3 — Model Binding
+
+```csharp
+[ApiController]
+[Route("api/v1/customers")]
+public class CustomersController : ControllerBase
+{
+    // [FromRoute] — từ URL path
+    [HttpGet("{id:int}")]
+    public IActionResult GetById([FromRoute] int id) { ... }
+
+    // [FromQuery] — từ query string ?page=1&pageSize=20
+    [HttpGet]
+    public IActionResult GetAll(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? search = null) { ... }
+
+    // [FromBody] — từ JSON body (POST/PUT)
+    [HttpPost]
+    public IActionResult Create([FromBody] CreateCustomerRequest request) { ... }
+
+    // [FromHeader] — từ HTTP header
+    [HttpPost("import")]
+    public IActionResult Import(
+        [FromHeader(Name = "X-Import-Source")] string importSource,
+        [FromBody] ImportCustomersRequest request) { ... }
+}
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [8.4 — 3. Routing](8.4-routing.mdx)
+- **Bài tiếp theo:** [8.6 — 5. Model Validation](8.6-model-validation.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

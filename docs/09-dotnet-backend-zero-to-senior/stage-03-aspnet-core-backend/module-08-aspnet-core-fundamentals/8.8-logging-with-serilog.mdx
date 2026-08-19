@@ -1,0 +1,111 @@
+---
+title: "8.8 — 7. Logging với Serilog"
+sidebar_position: 8
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 8.8 — 7. Logging với Serilog
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 8.8.1 — Cài đặt
+
+```xml
+<!-- CrmApi.csproj -->
+<PackageReference Include="Serilog.AspNetCore" Version="8.*" />
+<PackageReference Include="Serilog.Sinks.Console" Version="5.*" />
+<PackageReference Include="Serilog.Sinks.File" Version="5.*" />
+<PackageReference Include="Serilog.Enrichers.Environment" Version="2.*" />
+<PackageReference Include="Serilog.Enrichers.Thread" Version="3.*" />
+```
+
+### 8.8.2 — Cấu hình trong Program.cs
+
+```csharp
+// Program.cs
+builder.Host.UseSerilog((ctx, services, config) =>
+{
+    config
+        .ReadFrom.Configuration(ctx.Configuration)
+        .ReadFrom.Services(services)
+        .Enrich.FromLogContext()
+        .Enrich.WithMachineName()
+        .Enrich.WithThreadId()
+        .WriteTo.Console(new JsonFormatter())
+        .WriteTo.File(
+            path: "logs/crm-.log",
+            rollingInterval: RollingInterval.Day,
+            retainedFileCountLimit: 30,
+            formatter: new JsonFormatter());
+});
+
+// Middleware log HTTP request (dùng Serilog built-in)
+app.UseSerilogRequestLogging(options =>
+{
+    options.MessageTemplate =
+        "HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0000}ms";
+    options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
+    {
+        diagnosticContext.Set("RequestHost", httpContext.Request.Host.Value);
+        diagnosticContext.Set("UserAgent", httpContext.Request.Headers["User-Agent"]);
+    };
+});
+```
+
+### 8.8.3 — Structured Logging trong Code
+
+```csharp
+// ĐÚNG — structured, queryable
+_logger.LogInformation(
+    "Customer {CustomerId} created by {UserId} at {CreatedAt}",
+    customer.Id, userId, DateTime.UtcNow);
+
+// SAI — string interpolation, không queryable
+_logger.LogInformation($"Customer {customer.Id} created"); // Tránh!
+
+// CẢNH BÁO — không log sensitive data
+_logger.LogDebug("Processing payment for {CardNumber}", "****-****-****-1234"); // OK
+// _logger.LogDebug("Card: {CardNumber}", realCardNumber); // KHÔNG BAO GIỜ!
+```
+
+### 8.8.4 — Log Levels
+
+| Level | Khi nào dùng |
+|---|---|
+| `Trace` | Rất chi tiết, chỉ debug local |
+| `Debug` | Debug thông tin, không dùng ở production |
+| `Information` | Request vào/ra, business event chính |
+| `Warning` | Lỗi có thể phục hồi, retry, không mong đợi |
+| `Error` | Lỗi không phục hồi trong một request |
+| `Critical` | Ứng dụng sắp crash, cần alert ngay |
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [8.7 — 6. Configuration System](8.7-configuration-system.mdx)
+- **Bài tiếp theo:** [8.9 — 8. Global Exception Handling](8.9-global-exception-handling.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

@@ -1,0 +1,101 @@
+---
+title: "7.6 — 4. Registering Services"
+sidebar_position: 6
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 7.6 — 4. Registering Services
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 7.6.1 — Đăng ký cơ bản
+
+```csharp
+// Interface + Implementation (thường dùng nhất)
+services.AddScoped<ICustomerRepository, EfCustomerRepository>();
+services.AddScoped<ILeadRepository, EfLeadRepository>();
+services.AddSingleton<IEmailService, SmtpEmailService>();
+services.AddTransient<ILeadScorer, MlLeadScorer>();
+
+// Chỉ đăng ký concrete class (không có interface)
+services.AddScoped<CustomerService>();
+```
+
+### 7.6.2 — Factory Registration
+
+Dùng khi cần logic khởi tạo phức tạp:
+
+```csharp
+services.AddSingleton<IEmailService>(sp =>
+{
+    var config = sp.GetRequiredService<IOptions<EmailSettings>>().Value;
+    return new SmtpEmailService(config.Host, config.Port, config.UseSsl);
+});
+```
+
+### 7.6.3 — Open Generic Registration
+
+```csharp
+// Đăng ký một lần cho tất cả generic type
+services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
+
+// .NET tự resolve IRepository<Customer>, IRepository<Lead>, ...
+```
+
+### 7.6.4 — Named Service Workaround
+
+.NET DI không hỗ trợ named service trực tiếp (dùng Keyed Services ở .NET 8). Trước .NET 8, dùng delegate/factory:
+
+```csharp
+// Đăng ký nhiều implementation bằng Func factory
+services.AddScoped<SmtpEmailService>();
+services.AddScoped<SendGridEmailService>();
+services.AddScoped<Func<string, IEmailService>>(sp => key => key switch
+{
+    "smtp"     => sp.GetRequiredService<SmtpEmailService>(),
+    "sendgrid" => sp.GetRequiredService<SendGridEmailService>(),
+    _          => throw new ArgumentException($"Unknown email provider: {key}")
+});
+
+// Sử dụng
+public class NotificationService
+{
+    private readonly IEmailService _emailService;
+
+    public NotificationService(Func<string, IEmailService> emailFactory)
+    {
+        _emailService = emailFactory("sendgrid");
+    }
+}
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [7.5 — 3. Service Lifetimes](7.5-service-lifetimes.mdx)
+- **Bài tiếp theo:** [7.7 — 5. Program.cs và WebApplicationBuilder](7.7-program-cs-and-webapplicationbuilder.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

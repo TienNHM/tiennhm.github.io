@@ -1,0 +1,100 @@
+---
+title: "14.8 — 7. Quartz.NET (Alternative Overview)"
+sidebar_position: 8
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 14.8 — 7. Quartz.NET (Alternative Overview)
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 14.8.1 — Khi nào dùng Quartz thay Hangfire?
+
+| Tiêu chí | Hangfire | Quartz.NET |
+|----------|----------|-----------|
+| **Lưu trữ job** | Database (SQL/Redis) | Database hoặc RAM |
+| **Dashboard** | Có sẵn | Cần tự build |
+| **Retry** | Tích hợp | Tự implement |
+| **Clustering** | Tốt | Rất tốt (built-in) |
+| **Job chaining** | Có | Có (Job listeners) |
+| **Trigger phức tạp** | Hạn chế | Mạnh (Calendar, Cron) |
+| **License** | LGPL (free) | Apache 2.0 |
+
+**Chọn Quartz khi:** Cần trigger phức tạp (lịch nghỉ, múi giờ), clustering cao cấp, hoặc không muốn overhead của Hangfire Dashboard.
+
+### 14.8.2 — Trigger Types trong Quartz
+
+```csharp
+// Simple Trigger: lặp lại N lần với khoảng cách cố định
+ITrigger simpleTrigger = TriggerBuilder.Create()
+    .WithSimpleSchedule(s => s
+        .WithIntervalInHours(1)
+        .RepeatForever())
+    .Build();
+
+// Cron Trigger: cú pháp cron đầy đủ
+ITrigger cronTrigger = TriggerBuilder.Create()
+    .WithCronSchedule("0 0 8 * * ?") // 8:00 AM mỗi ngày
+    .Build();
+
+// Calendar Interval: bỏ qua ngày lễ
+ITrigger calendarTrigger = TriggerBuilder.Create()
+    .WithCalendarIntervalSchedule(s => s
+        .WithIntervalInWeeks(1)
+        .SkipDayIfHourDoesNotExist(true))
+    .Build();
+```
+
+### 14.8.3 — Job Chaining với Listeners
+
+```csharp
+public class LeadSyncJobListener : IJobListener
+{
+    public string Name => "LeadSyncListener";
+
+    public Task JobWasExecuted(IJobExecutionContext context,
+        JobExecutionException? jobException, CancellationToken ct)
+    {
+        if (jobException is null)
+        {
+            // Trigger job tiếp theo
+            var nextJob = JobBuilder.Create<NotifyAgentJob>().Build();
+            var trigger = TriggerBuilder.Create().StartNow().Build();
+            context.Scheduler.ScheduleJob(nextJob, trigger, ct);
+        }
+        return Task.CompletedTask;
+    }
+    // ...
+}
+```
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [14.7 — 6. Background Jobs với Hangfire](14.7-hangfire-background-jobs.mdx)
+- **Bài tiếp theo:** [14.9 — 8. Message Bus Intro](14.9-message-bus-intro.mdx)
+- **Về module:** [Trang mục lục](index.mdx)

@@ -1,0 +1,78 @@
+---
+title: "3.8 — 6. Git Conflicts"
+sidebar_position: 8
+---
+
+import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+
+# 3.8 — 6. Git Conflicts
+
+## Mục tiêu bài học
+
+- Nắm được ý chính của bài và mối liên hệ với module.
+- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
+- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+
+## Nội dung bài học
+
+### 3.8.1 — Nguyên nhân conflict
+
+Conflict xảy ra khi hai người cùng sửa **cùng một dòng** trong cùng một file và Git không thể tự quyết định dùng phiên bản nào.
+
+Ví dụ: bạn và đồng nghiệp cùng sửa `CustomerService.cs` dòng 45:
+
+```
+<<<<<<< HEAD (nhánh của bạn)
+public async Task<Customer> GetByEmailAsync(string email)
+=======
+public async Task<Customer?> GetByEmailAsync(string email)
+>>>>>>> feature/nullable-refactor (nhánh của đồng nghiệp)
+```
+
+### 3.8.2 — Cách resolve conflict
+
+```bash
+# Bước 1: Xem file nào đang conflict
+git status
+# both modified: src/Services/CustomerService.cs
+
+# Bước 2: Mở file, tìm các marker <<<<<<< và chọn phiên bản đúng
+# Trong So với Code: dùng "Accept Current Change" / "Accept Incoming Change" / "Accept Both"
+
+# Bước 3: Sau khi sửa xong, đánh dấu đã resolve
+git add src/Services/CustomerService.cs
+
+# Bước 4: Hoàn tất merge
+git commit -m "fix(crm): resolve conflict in CustomerService nullable refactor"
+```
+
+### 3.8.3 — Best practices tránh conflict
+
+- Pull `main` vào branch của mình thường xuyên (ít nhất mỗi ngày)
+- Chia nhỏ PR — PR nhỏ ít conflict hơn PR lớn
+- Giao tiếp trong team: "Mình đang sửa CustomerService.cs, đừng đụng vào nhé"
+- Dùng `git fetch` + `git log origin/main..HEAD` để xem mình đang cách main bao nhiêu commit
+
+---
+
+## Bài tập áp dụng
+
+1. Tóm tắt bài học bằng ngôn ngữ của bạn.
+2. Liên hệ nội dung với một tình huống thực tế trong dự án.
+3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+
+## Tự kiểm tra
+
+- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
+- Bạn có ví dụ áp dụng thực tế chưa?
+- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+
+## Kết luận
+
+Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+
+## Điều hướng
+
+- **Bài trước:** [3.7 — 5. GitHub và Pull Request](3.7-github-and-pull-request.mdx)
+- **Bài tiếp theo:** [3.9 — 7. Developer Workflow thực tế](3.9-real-world-developer-workflow.mdx)
+- **Về module:** [Trang mục lục](index.mdx)
