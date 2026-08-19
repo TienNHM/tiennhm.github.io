@@ -5,6 +5,7 @@ description: "Scalar là open-source API Reference UI hiện đại thay thế S
 keywords: [scalar, swagger ui, swashbuckle, openapi, dotnet 10, aspnetcore, api documentation, net10, csharp, scalar aspnetcore, swagger alternative, microsoft openapi]
 tags: [scalar, swagger, openapi, dotnet, aspnetcore, api, net10, csharp]
 authors: [tiennhm]
+image: https://scalar.com/brand/scalar-wordmark-light.png
 date: 2026-08-19
 ---
 
@@ -17,6 +18,8 @@ import { SummaryBox } from '@site/src/components/SEO';
 </SummaryBox>
 
 Nếu bạn tạo một project ASP.NET Core Web API mới với .NET 9 hoặc .NET 10 và ngạc nhiên khi không thấy Swagger UI nữa - bạn không phải người duy nhất. Microsoft đã chủ động thay thế Swashbuckle bằng một pipeline OpenAPI native, và **Scalar** là UI được khuyến nghị đi kèm.
+
+![Giao diện Scalar API Reference trên scalar.com](https://scalar.com/app-docs-animated.svg)
 
 <!-- truncate -->
 

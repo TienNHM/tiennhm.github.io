@@ -79,13 +79,6 @@ const config = {
     onBrokenLinks: 'throw',
     headTags: [
         {
-            tagName: 'link',
-            attributes: {
-                rel: 'canonical',
-                href: `https://${organizationName}.github.io/`,
-            }
-        },
-        {
             tagName: 'meta',
             attributes: {
                 name: 'google-site-verification',
@@ -102,13 +95,6 @@ const config = {
         {
             tagName: 'meta',
             attributes: {
-                name: 'description',
-                content: 'Blog cá nhân của Nguyễn Huỳnh Minh Tiến (TienNHM) về lập trình, kiến trúc hệ thống, AI, DevOps và kinh nghiệm thực chiến trong các dự án sản phẩm.',
-            }
-        },
-        {
-            tagName: 'meta',
-            attributes: {
                 name: 'author',
                 content: 'Nguyễn Huỳnh Minh Tiến (TienNHM)',
             }
@@ -116,15 +102,50 @@ const config = {
         {
             tagName: 'meta',
             attributes: {
-                property: 'og:type',
-                content: 'website',
+                property: 'og:site_name',
+                content: 'TienNHM',
             }
         },
         {
             tagName: 'meta',
             attributes: {
-                property: 'og:site_name',
-                content: 'TienNHM',
+                name: 'twitter:card',
+                content: 'summary_large_image',
+            }
+        },
+        {
+            tagName: 'meta',
+            attributes: {
+                name: 'twitter:creator',
+                content: '@TienNHM',
+            }
+        },
+        /*
+         * Site-wide OG/Twitter tags — COMMENTED OUT
+         * Các tag này ghi đè metadata của từng trang (blog, docs),
+         * khiến Facebook luôn hiện title/description của homepage.
+         * Dùng PageMetadata per-page thay thế (BlogPostPage/Metadata, Layout props).
+         * Giữ lại để tham khảo hoặc bật lại cho homepage-only nếu cần.
+         *
+        {
+            tagName: 'link',
+            attributes: {
+                rel: 'canonical',
+                href: `https://${organizationName}.github.io/`,
+            }
+        },
+        {
+            tagName: 'meta',
+            attributes: {
+                name: 'description',
+                content: 'Blog cá nhân của Nguyễn Huỳnh Minh Tiến (TienNHM) về lập trình, kiến trúc hệ thống, AI, DevOps và kinh nghiệm thực chiến trong các dự án sản phẩm.',
+            }
+        },
+        {
+            tagName: 'meta',
+            attributes: {
+                property: 'og:type',
+                content: 'website',
             }
         },
         {
@@ -158,13 +179,6 @@ const config = {
         {
             tagName: 'meta',
             attributes: {
-                name: 'twitter:card',
-                content: 'summary_large_image',
-            }
-        },
-        {
-            tagName: 'meta',
-            attributes: {
                 name: 'twitter:title',
                 content: 'TienNHM - Fullstack Developer Blog',
             }
@@ -183,13 +197,7 @@ const config = {
                 content: `https://${organizationName}.github.io/img/copyright-tiennhm.webp`,
             }
         },
-        {
-            tagName: 'meta',
-            attributes: {
-                name: 'twitter:creator',
-                content: '@TienNHM',
-            }
-        },
+        */
         {
             tagName: 'link',
             attributes: {
