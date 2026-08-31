@@ -199,6 +199,23 @@ const PROJECTS: Project[] = [
     tags: ['opensource', 'personal'],
   },
   {
+    title: 'TikTok Live Bar',
+    description: 'Turns a TikTok LIVE stream into an interactive 3D dance floor: viewers who gift, chat, like, or follow appear on the floor with their real TikTok avatar, lighting effects, a DJ booth, and fireworks. Built with a Node.js bridge and a Unity 6 client.',
+    preview: '/img/showcase/tiktok-live-bar.png',
+    website: 'https://ongchummo.com',
+    source: 'https://github.com/TienNHM/tiktok-live-bar',
+    tags: ['opensource', 'product'],
+  },
+  {
+    title: 'Ebooks',
+    description: 'A curated, community-contributed library of IT/CS ebooks spanning 39 topics — from algorithms and databases to AI, LLMs, and system design.',
+    preview: null,
+    website: 'https://tiennhm.github.io/ebooks/',
+    source: 'https://github.com/TienNHM/ebooks',
+    tags: ['favorite', 'opensource', 'personal'],
+    highlight: true,
+  },
+  {
     title: 'UI/UX Design Guide',
     description: 'Trang web tổng hợp kiến thức và kỹ năng UI/UX Design nổi bật trong năm 2025.',
     preview: '/img/blogs/ux-design-principles.png',
