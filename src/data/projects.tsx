@@ -216,6 +216,14 @@ const PROJECTS: Project[] = [
     highlight: true,
   },
   {
+    title: 'RSS Hub',
+    description: 'A self-hosted social feed aggregator: RSSHub pulls feeds from platforms like X, YouTube, Reddit and GitHub, a Python worker dedupes and filters items, and a Telegram bot delivers them — with a Streamlit dashboard for managing subscriptions.',
+    preview: '/img/showcase/rss-hub.png',
+    website: 'https://github.com/TienNHM/rss-hub',
+    source: null,
+    tags: ['personal'],
+  },
+  {
     title: 'UI/UX Design Guide',
     description: 'Trang web tổng hợp kiến thức và kỹ năng UI/UX Design nổi bật trong năm 2025.',
     preview: '/img/blogs/ux-design-principles.png',
