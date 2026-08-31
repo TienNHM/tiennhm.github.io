@@ -182,6 +182,15 @@ const PROJECTS: Project[] = [
     tags: ['opensource', 'courseproject'],
   },
   {
+    title: 'Map Timeline Visualizer',
+    description: 'A browser-based tool that turns Google Maps Timeline exports into interactive visualizations: animated route replay, heatmaps, trips, places clustering, calendar view, and a yearly recap — 100% local, nothing leaves your device.',
+    preview: '/img/showcase/map-timeline-visualizer.png',
+    website: 'https://tiennhm.github.io/map-timeline-visualizer/',
+    source: 'https://github.com/TienNHM/map-timeline-visualizer',
+    tags: ['favorite', 'opensource', 'personal'],
+    highlight: true,
+  },
+  {
     title: 'UI/UX Design Guide',
     description: 'Trang web tổng hợp kiến thức và kỹ năng UI/UX Design nổi bật trong năm 2025.',
     preview: '/img/blogs/ux-design-principles.png',
