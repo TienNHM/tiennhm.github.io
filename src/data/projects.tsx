@@ -191,6 +191,14 @@ const PROJECTS: Project[] = [
     highlight: true,
   },
   {
+    title: 'Real Estate Landing Template',
+    description: 'A Next.js + Sanity CMS landing page template for real estate marketing sites, with a lead-capture form, Telegram bot notifications, and fallback content so it runs out-of-the-box without a CMS.',
+    preview: null,
+    website: 'https://realestate-landing-template.vercel.app/',
+    source: 'https://github.com/TienNHM/realestate-landing-template',
+    tags: ['opensource', 'personal'],
+  },
+  {
     title: 'UI/UX Design Guide',
     description: 'Trang web tổng hợp kiến thức và kỹ năng UI/UX Design nổi bật trong năm 2025.',
     preview: '/img/blogs/ux-design-principles.png',
