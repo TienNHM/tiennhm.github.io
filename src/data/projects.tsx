@@ -6,6 +6,15 @@ import { Project } from '@site/src/shared/dto/Project';
 // prettier-ignore
 const PROJECTS: Project[] = [
   {
+    title: 'Đi Đâu Đây?',
+    description: 'Decision engine for local experiences in Vietnam, starting with Ho Chi Minh City. Answer a few questions and get one concrete suggestion in about 15 seconds, with directions and a shareable link. Next.js 16 static export — no database, no API, no auth; the data is static JSON validated with Zod.',
+    preview: null,
+    website: 'https://didauday.tiennhm.io.vn',
+    source: 'https://github.com/TienNHM/di-dau-day',
+    tags: ['favorite', 'opensource', 'personal'],
+    highlight: true,
+  },
+  {
     title: 'VIEvent',
     description: 'Event ticketing platform: seat-map ticket selection, VietQR payments with automatic reconciliation, refunds and organiser settlements, plus an AI chatbot. Separate portals for customers, artists, staff and admins. Built with ABP 9.2 / .NET 9 and Angular.',
     // Bản chạy trên VPS riêng. Production đặt ở vievent.io.vn (Vercel) — đổi
