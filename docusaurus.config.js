@@ -66,7 +66,8 @@ const config = {
     favicon: 'https://github.com/TienNHM.png',
 
     // Set the production url of your site here
-    url: `https://${organizationName}.github.io`,
+    // url: `https://${organizationName}.github.io`,
+    url: `https://tiennhm.io.vn`, // thay thế bằng domain của bạn
     // Set the /<baseUrl>/ pathname under which your site is served
     // For GitHub pages deployment, it is often '/<projectName>/'
     baseUrl: '/',
@@ -251,7 +252,8 @@ const config = {
                         name: 'Nguyễn Huỳnh Minh Tiến',
                         alternateName: 'TienNHM',
                         jobTitle: 'Fullstack Developer',
-                        url: `https://${organizationName}.github.io/`,
+                        // url: `https://${organizationName}.github.io/`,
+                        url: `https://tiennhm.io.vn/`, // thay thế bằng domain của bạn
                         image: 'https://github.com/TienNHM.png',
                         sameAs: [
                             'https://github.com/TienNHM',
@@ -263,7 +265,8 @@ const config = {
                     {
                         '@type': 'WebSite',
                         '@id': `https://${organizationName}.github.io/#website`,
-                        url: `https://${organizationName}.github.io/`,
+                        // url: `https://${organizationName}.github.io/`,
+                        url: `https://tiennhm.io.vn/`, // thay thế bằng domain của bạn
                         name: 'TienNHM - Fullstack Developer Blog',
                         description: 'Blog cá nhân chia sẻ kiến thức chuyên sâu về lập trình, kiến trúc hệ thống, AI và kinh nghiệm triển khai sản phẩm thực tế.',
                         inLanguage: ['vi', 'en'],
