@@ -15,6 +15,7 @@ const PROJECTS: Project[] = [
     // Repo riêng tư (2thuancr/VIEvent), đặt link vào là khách ra 404.
     source: null,
     tags: ['favorite', 'courseproject'],
+    highlight: true,
   },
   // --- WooIndustry: 9 cửa hàng demo theo ngành ---------------------------
   // Cùng một bộ mã nguồn (theme cha + plugin lõi), mỗi ngành chỉ khác child
@@ -30,7 +31,8 @@ const PROJECTS: Project[] = [
     preview: null,
     website: 'https://bakery.tiennhm.io.vn',
     source: null,
-    tags: ['ecommerce', 'product'],
+    tags: ['favorite', 'ecommerce', 'product'],
+    highlight: true,
   },
   {
     title: 'Tiệm Hoa',
@@ -86,7 +88,7 @@ const PROJECTS: Project[] = [
     preview: null,
     website: 'https://automotive.tiennhm.io.vn',
     source: null,
-    tags: ['ecommerce', 'product'],
+    tags: ['favorite', 'ecommerce', 'product'],
   },
   {
     title: 'Cửa Hàng Xe Máy',
@@ -102,7 +104,7 @@ const PROJECTS: Project[] = [
     preview: 'https://res.cloudinary.com/tiennhm/image/upload/v1725682636/blog/images/simple-paint_v6xyjn.webp',
     website: 'https://tiennhm.github.io/SimplePaint',
     source: 'https://github.com/TienNHM/SimplePaint',
-    tags: ['favorite', 'courseproject'],
+    tags: ['courseproject'],
   },
   {
     title: 'TienNHM',
@@ -111,7 +113,7 @@ const PROJECTS: Project[] = [
     preview: null,
     website: 'https://github.com/TienNHM',
     source: 'https://github.com/TienNHM/TienNHM',
-    tags: ['favorite', 'personal'],
+    tags: ['personal'],
   },
   {
     title: 'Game Oggy',
@@ -119,8 +121,7 @@ const PROJECTS: Project[] = [
     preview: 'https://res.cloudinary.com/tiennhm/image/upload/v1725682014/blog/images/game-oggy_hmbx58.webp',
     website: 'https://tiennhm.github.io/OGGY/',
     source: 'https://github.com/TienNHM/OGGY',
-    tags: ['favorite', 'courseproject'],
-    highlight: true,
+    tags: ['courseproject'],
   },
   {
     title: "Artist Style Transfer CycleGAN",
@@ -206,7 +207,7 @@ const PROJECTS: Project[] = [
     preview: null,
     website: 'https://www.npmjs.com/package/create-simple-blog',
     source: 'https://github.com/TienNHM/create-simple-blog',
-    tags: ['opensource', 'favorite'],
+    tags: ['opensource'],
   },
   {
     title: 'Keylogger',
@@ -321,7 +322,6 @@ const PROJECTS: Project[] = [
     website: 'https://tiennhm.github.io/ux-design-principles/',
     source: null,
     tags: ['favorite', 'personal'],
-    highlight: true,
   },
   // {
   //   title: 'aemi - AEMI',
