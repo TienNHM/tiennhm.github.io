@@ -5,6 +5,17 @@ import { Project } from '@site/src/shared/dto/Project';
 
 // prettier-ignore
 const PROJECTS: Project[] = [
+  {
+    title: 'VIEvent',
+    description: 'Event ticketing platform: seat-map ticket selection, VietQR payments with automatic reconciliation, refunds and organiser settlements, plus an AI chatbot. Separate portals for customers, artists, staff and admins. Built with ABP 9.2 / .NET 9 and Angular.',
+    // Bản chạy trên VPS riêng. Production đặt ở vievent.io.vn (Vercel) — đổi
+    // link sang đó nếu muốn khoe bản mới nhất.
+    preview: null,
+    website: 'https://vievent.tiennhm.io.vn',
+    // Repo riêng tư (2thuancr/VIEvent), đặt link vào là khách ra 404.
+    source: null,
+    tags: ['favorite', 'courseproject'],
+  },
   // --- WooIndustry: 9 cửa hàng demo theo ngành ---------------------------
   // Cùng một bộ mã nguồn (theme cha + plugin lõi), mỗi ngành chỉ khác child
   // theme và file config khai trường dữ liệu riêng. Mô tả dưới đây lấy đúng
