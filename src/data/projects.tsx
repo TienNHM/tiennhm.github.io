@@ -98,6 +98,7 @@ const PROJECTS: Project[] = [
     website: 'https://automotive.tiennhm.io.vn',
     source: null,
     tags: ['favorite', 'ecommerce', 'product'],
+    highlight: true,
   },
   {
     title: 'Cửa Hàng Xe Máy',
@@ -331,6 +332,7 @@ const PROJECTS: Project[] = [
     website: 'https://tiennhm.github.io/ux-design-principles/',
     source: null,
     tags: ['favorite', 'personal'],
+    highlight: true,
   },
   // {
   //   title: 'aemi - AEMI',
