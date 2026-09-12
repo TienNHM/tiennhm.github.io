@@ -5,6 +5,86 @@ import { Project } from '@site/src/shared/dto/Project';
 
 // prettier-ignore
 const PROJECTS: Project[] = [
+  // --- WooIndustry: 9 cửa hàng demo theo ngành ---------------------------
+  // Cùng một bộ mã nguồn (theme cha + plugin lõi), mỗi ngành chỉ khác child
+  // theme và file config khai trường dữ liệu riêng. Mô tả dưới đây lấy đúng
+  // các trường đó chứ không viết chung chung.
+  //
+  // preview: null  → showcase tự chụp màn hình trang thật.
+  // source:  null  → repo woo-industry-starter đang RIÊNG TƯ, đặt link vào thì
+  //                  khách bấm ra 404. Điền lại khi nào repo công khai.
+  {
+    title: 'Tiệm Bánh',
+    description: 'Bakery storefront. Made-to-order cakes show a prep-time notice; products carry shelf life, storage, servings, ingredients and allergen warnings.',
+    preview: null,
+    website: 'https://bakery.tiennhm.io.vn',
+    source: null,
+    tags: ['ecommerce', 'product'],
+  },
+  {
+    title: 'Tiệm Hoa',
+    description: 'Florist storefront. Arrangements by flower type, occasion and size, with freshness guidance and whether a vase or basket is included.',
+    preview: null,
+    website: 'https://florist.tiennhm.io.vn',
+    source: null,
+    tags: ['ecommerce', 'product'],
+  },
+  {
+    title: 'Mộc & Lành',
+    description: 'Cosmetics storefront. Each product lists volume, suitable skin types, key actives, the full INCI list and the PAO (period-after-opening) symbol.',
+    preview: null,
+    website: 'https://cosmetics.tiennhm.io.vn',
+    source: null,
+    tags: ['ecommerce', 'product'],
+  },
+  {
+    title: 'Xưởng Handmade',
+    description: 'Handmade goods storefront. Items show material, size, days to make and technique, and can be ordered as custom work.',
+    preview: null,
+    website: 'https://handmade.tiennhm.io.vn',
+    source: null,
+    tags: ['ecommerce', 'product'],
+  },
+  {
+    title: 'Quà Lưu Niệm',
+    description: 'Souvenir storefront. Products carry region of origin, material and size, with optional name engraving and gift wrapping.',
+    preview: null,
+    website: 'https://souvenir.tiennhm.io.vn',
+    source: null,
+    tags: ['ecommerce', 'product'],
+  },
+  {
+    title: 'Pet House',
+    description: 'Pet supplies storefront. Products are filtered by target animal and age range, with packaging, ingredients and origin.',
+    preview: null,
+    website: 'https://petshop.tiennhm.io.vn',
+    source: null,
+    tags: ['ecommerce', 'product'],
+  },
+  {
+    title: 'Bếp & Phin',
+    description: 'Restaurant menu site. Dishes list portion size, cook time, spice level, dietary suitability and main ingredients so allergies are visible before ordering.',
+    preview: null,
+    website: 'https://restaurant.tiennhm.io.vn',
+    source: null,
+    tags: ['ecommerce', 'product'],
+  },
+  {
+    title: 'Showroom Ô Tô',
+    description: 'Car showroom in catalog-only mode: no cart or checkout. Prices read "contact for a quote" and enquiries go through a lead form. Listings show seats and body style.',
+    preview: null,
+    website: 'https://automotive.tiennhm.io.vn',
+    source: null,
+    tags: ['ecommerce', 'product'],
+  },
+  {
+    title: 'Cửa Hàng Xe Máy',
+    description: 'Motorcycle dealership, also catalog-only. Listings show vehicle class and the licence required, and buyers pick which dealer they want to visit.',
+    preview: null,
+    website: 'https://motorcycle.tiennhm.io.vn',
+    source: null,
+    tags: ['ecommerce', 'product'],
+  },
   {
     title: 'Simple Paint',
     description: 'A simple paint app made with Windows Forms and C#.',

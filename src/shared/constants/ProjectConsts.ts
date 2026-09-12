@@ -8,7 +8,8 @@ export type ProjectTagType =
     | 'opensource'
     | 'product'
     | 'personal'
-    | 'courseproject';
+    | 'courseproject'
+    | 'ecommerce';
 
 export const ProjectTags: { [type in ProjectTagType]: Tag } = {
 
@@ -48,6 +49,16 @@ export const ProjectTags: { [type in ProjectTagType]: Tag } = {
             id: 'showcase.tag.personal.description',
         }),
         color: '#14cfc3',
+    },
+
+    ecommerce: {
+        label: translate({ message: 'E-commerce' }),
+        description: translate({
+            message:
+                'Online storefronts built on WooCommerce',
+            id: 'showcase.tag.ecommerce.description',
+        }),
+        color: '#7c5cff',
     },
 
     courseproject: {
