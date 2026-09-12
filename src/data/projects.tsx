@@ -297,8 +297,11 @@ const PROJECTS: Project[] = [
     description: 'A Next.js + Sanity CMS landing page template for real estate marketing sites, with a lead-capture form, Telegram bot notifications, and fallback content so it runs out-of-the-box without a CMS.',
     preview: null,
     website: 'https://realestate-landing-template.vercel.app/',
-    source: 'https://github.com/TienNHM/realestate-landing-template',
-    tags: ['opensource', 'personal'],
+    // Repo riêng tư — link cũ trả 404. Vì vậy cũng KHÔNG gắn tag
+    // 'opensource': theo quy ước trong ProjectConsts.ts, tag đó đòi phải
+    // có link mã nguồn của chính website.
+    source: null,
+    tags: ['personal'],
   },
   {
     title: 'TikTok Live Bar',
