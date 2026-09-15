@@ -44,6 +44,10 @@ const footerLinks = [
                 to: '/blog',
             },
             {
+                label: 'Lưu trữ bài viết',
+                to: '/blog/archive',
+            },
+            {
                 label: 'GitHub',
                 href: 'https://github.com/TienNHM',
             },
@@ -334,10 +338,13 @@ const config = {
                     // Remove this to remove the "edit this page" links.
                     editUrl: `https://github.com/${organizationName}/${projectName}/tree/master`,
                     postsPerPage: 5,
-                    // blogSidebarCount: 'ALL',
-                    blogSidebarTitle: 'Bài viết gần đây',
+                    // Sidebar liệt kê đủ mọi bài, không dừng ở 5 bài mặc định.
+                    blogSidebarCount: 'ALL',
+                    blogSidebarTitle: 'Tất cả bài viết',
                     blogTitle: 'Blog',
                     blogDescription: 'Blog của TienNHM',
+                    // Trang /blog/archive gom toàn bộ bài theo năm.
+                    archiveBasePath: 'archive',
                     // blogListComponent: '@theme/BlogListPage',
                     // blogAuthorsPostsComponent: '@theme/BlogAuthorsPostsPage',
                     // blogPostComponent: '@theme/BlogPostPage',
@@ -451,7 +458,15 @@ const config = {
                         position: 'left',
                         label: 'Tutorial',
                     },
-                    { to: '/blog', label: 'Blog', position: 'left' },
+                    {
+                        label: 'Blog',
+                        position: 'left',
+                        items: [
+                            { to: '/blog', label: 'Bài viết mới nhất' },
+                            { to: '/blog/archive', label: 'Lưu trữ theo năm' },
+                            { to: '/blog/tags', label: 'Thẻ' },
+                        ],
+                    },
                     { to: '/showcase', label: 'Showcase', position: 'left' },
                     // { to: '/cv', label: 'CV', position: 'left' },
                     { to: '/about', label: 'About', position: 'left' },
