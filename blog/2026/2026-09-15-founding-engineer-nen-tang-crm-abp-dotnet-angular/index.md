@@ -1,253 +1,258 @@
 ---
-title: "Commit thứ ba của dự án là của tôi: 20 tháng xây một nền tảng CRM 18 microservice"
+title: "Dựng một nền tảng CRM multi-tenant từ con số không: chuyện nghề 20 tháng"
 slug: founding-engineer-nen-tang-crm-abp-dotnet-angular
-description: "Chuyện nghề từ vị trí founding engineer của một nền tảng CRM doanh nghiệp: 18 microservice ABP/.NET 9, 13 Angular library, ~8.500 commit (27% toàn repo, top 1 trên 25 dev), 228 EF Core migration. Bài viết kể lại những quyết định kỹ thuật đáng nhớ nhất — mô hình phân quyền theo bản ghi, một lần nâng Angular thất bại phải revert, và cách tách bounded context Messaging sang service khác bằng feature-toggle dual-read mà không downtime."
-keywords: [founding engineer, abp framework, abp 9.3, dotnet 9, angular 20, primeng, clickhouse, microservices, bounded context, strangler fig, feature toggle, dual read, record level permission, ownership filter, ef core migration, signalr, omnichannel chat, gitops, helm, kubernetes, openiddict, yarp, architecture decision record, adr, fullstack developer, crm platform, devex, kinh nghiem lam san pham, kien truc microservice]
-tags: [career, architecture, dotnet, abp, angular, microservices, clickhouse, devops, product]
+description: "Sản phẩm đầu tiên mình được giao init và dựng từ đầu: một nền tảng CRM multi-tenant, đi demo cho nhiều ngành gần một năm rồi chuyển sang delivery thật cho khách ngành y tế, sau 20 tháng thành 18 microservice ABP/.NET 9 và 13 Angular library. Chuyện nghề kể theo mạch thời gian, có cái màn hình export bị quên phân quyền, có lần nâng Angular hỏng phải revert, có ba tháng không commit dòng nào, và một lần migration nhàm chán tới mức chẳng ai để ý là nó đã xảy ra."
+keywords: [chuyen nghe lap trinh, multi tenant, multi tenancy, abp framework, abp 9.3, dotnet 9, angular 20, primeng, microservices, bounded context, strangler fig, feature toggle, dual read, record level permission, ownership filter, ef core migration, signalr, omnichannel chat, gitops, helm, kubernetes, openiddict, yarp, architecture decision record, adr, fullstack developer, crm platform, devex, nang cap angular, monorepo, kinh nghiem lam san pham]
+tags: [career, architecture, dotnet, abp, angular, microservices, devops, product]
 authors: [tiennhm]
 date: 2026-09-15
 ---
 
 import { SummaryBox, FAQSection, Checklist } from '@site/src/components/SEO';
 
-# Commit thứ ba của dự án là của tôi
+# Dựng một nền tảng CRM multi-tenant từ con số không
 
 <SummaryBox>
-Tháng 01/2025, một repo CRM doanh nghiệp được khởi tạo. Commit thứ ba của cả dự án là của tôi: dựng schema database và project skeleton. 20 tháng sau, sản phẩm đó là **18 microservice** trên [ABP Framework](https://abp.io/) / [.NET 9](https://learn.microsoft.com/en-us/dotnet/core/whats-new/dotnet-9) và **13 Angular library**, còn tôi đứng ở **~8.500 commit** — chiếm **27% toàn bộ monorepo** và gấp hơn hai lần người đứng thứ hai, trên tổng 25 developer. Bài này không kể thành tích, kể **quyết định**: vì sao mô hình phân quyền theo bản ghi là thứ khó thay thế nhất, một lần nâng Angular thất bại phải revert rồi 4 tháng sau làm lại thành công, và cách tách một bounded context ra service khác bằng feature-toggle dual-read mà không ai phải tắt hệ thống.
+Tháng 01/2025 mình được giao init một sản phẩm, lần đầu tiên trong nghề, là một nền tảng CRM multi-tenant mà lúc nhận thì repo còn trống trơn. Gần một năm đầu nó sống ở chế độ đi demo cho nhiều khách thuộc nhiều ngành, rồi tới gần cuối 2025 thì chốt được khách ngành y tế và chuyển sang delivery thật. Hai mươi tháng sau nó là 18 microservice trên [ABP Framework](https://abp.io/) / [.NET 9](https://learn.microsoft.com/en-us/dotnet/core/whats-new/dotnet-9) và 13 Angular library, của một team đã lớn lên tới 25 người. Bài này không phải bài kỹ thuật mà là chuyện nghề kể theo thứ tự thời gian, trong đó có cái màn hình export bị quên phân quyền, có hai tuần làm Angular xong phải revert, có ba tháng giữa năm mình không commit dòng nào, và có một lần migration nhàm chán tới mức chẳng ai để ý là nó đã xảy ra.
 </SummaryBox>
 
-Có một chi tiết trong `git log` mà tôi thích hơn mọi dòng nào khác trong CV của mình.
+Ngày 14 tháng 1 năm 2025, mình mở một cái repo trống trơn mà trong đầu chẳng có gì ngoài mấy câu hỏi rất tầm thường, kiểu đặt tên solution là gì, thư mục nào để đâu, database thì chia bảng thế nào.
+
+Trước đó mình toàn nhận những codebase đã chạy sẵn rồi, công việc chỉ là đọc, sửa và thêm màn hình, nên lần này thấy khác hẳn: không có gì để bắt chước, mà cái gì mình gõ ra thì sau này người khác lại cứ thế làm theo. Nghe kể thì oai, chứ lúc ngồi trước cái repo trống ấy mình hơi ngợp thật.
+
+Commit hôm đó của mình chỉ có một dòng, `Init - Databases, projects`, và cũng chẳng có gì long trọng cả.
+
+Hai mươi tháng sau, cái repo ấy có 18 microservice với 29.607 commit của 25 người. Mình vẫn còn ở đó, và thỉnh thoảng vẫn mở `git log --reverse` ra xem lại mấy dòng đầu.
 
 ```bash
 git log --reverse --format="%h %ad %an %s" --date=short | head -5
 ```
 
-Dòng thứ ba trả về tên tôi, ngày **14/01/2025**, với message gọn lỏn: `Init - Databases, projects`.
-
-Không phải join giữa chừng để "maintain". Không phải nhận một codebase có sẵn rồi thêm màn hình. Mà là có mặt từ lúc repo còn trống, và ở lại đủ lâu để thấy thứ mình dựng trong ba ngày đầu vẫn đang được cả team dùng ở tháng thứ hai mươi.
-
-Bài này là bản kể lại 20 tháng đó — và vì sản phẩm thuộc doanh nghiệp nên tôi ẩn mọi tên riêng: tên sản phẩm, tên repo, tên khách hàng, tên các library nội bộ. **Tech stack thì để nguyên**, vì đó mới là phần đáng nói với anh em làm nghề.
+Bài này mình viết để vài năm nữa đọc lại. Vì sản phẩm là của công ty nên tên riêng mình ẩn hết, từ tên sản phẩm, tên repo, tên khách hàng cho tới tên mấy library nội bộ, còn tech stack thì để nguyên vì đó là phần kể được.
 
 <!-- truncate -->
 
-## Ba ngày đầu quyết định 20 tháng sau
+## Mấy ngày đầu
 
-Tuần đầu tiên của một dự án là tuần có đòn bẩy cao nhất. Không phải vì code nhiều, mà vì mọi thứ viết ra lúc đó sẽ được sao chép hàng nghìn lần sau này.
+Tuần đầu của một dự án là tuần kỳ nhất, tại vì không ai giục mình, cũng chẳng có bug nào để sửa, mà đồng thời cũng không có gì để bám vào.
 
-Ba việc tôi làm trong ba ngày đầu:
+Chỉ có đúng một ràng buộc được nói rõ ngay từ đầu, là sản phẩm phải multi-tenant và phải demo được cho nhiều domain nghiệp vụ khác nhau. Nghe qua thì thấy bình thường, nhưng lúc làm mới thấy nó ăn vào từng lớp, bởi vì mình không được để cứng bất cứ thứ gì thuộc về một ngành cụ thể, từ tên trường dữ liệu, tới luồng nghiệp vụ, tới cả cái nhãn hiển thị trên giao diện. Riêng schema thì phải tách được dữ liệu theo tenant ngay từ cái bảng đầu tiên, chứ để chạy một thời gian rồi mới chắp vá thì trả giá rất đắt.
 
-**1. Schema database + project skeleton.** Toàn bộ cấu trúc solution, quy ước đặt tên, ranh giới module.
+Phần khung thì [multi-tenancy của ABP](https://abp.io/docs/latest/framework/architecture/multi-tenancy) đỡ cho mình gần hết, còn mấy chỗ riêng của sản phẩm như cấu hình theo từng tenant, phân quyền theo cơ sở hay mấy trường tuỳ biến thì vẫn phải tự thiết kế. Và suốt hai mươi tháng sau đó, cứ có ai hỏi "cái này để cứng cho nhanh được không" là mình lại phải nói không, nhiều tới mức thành phản xạ.
 
-**2. Nâng [ABP](https://abp.io/docs/latest) lên `9.0.3` để sửa Swagger.** Một bug nhỏ của bản cũ làm trang API doc không load. Ba ngày đầu là lúc rẻ nhất để nâng version — sau này mỗi lần nâng là một chiến dịch (xem phần dưới, tôi trả giá đủ rồi).
+Ba ngày đầu mình làm ba việc, mà hai việc đầu thì bình thường: dựng schema database với project skeleton, rồi nâng [ABP](https://abp.io/docs/latest) lên `9.0.3` vì bản cũ có bug làm trang Swagger không load được. Lúc đó mình chưa biết là mình vừa gặp may, tại ba ngày đầu là quãng nâng version rẻ nhất trong cả vòng đời dự án, còn về sau thì mỗi lần nâng là một chiến dịch, chuyện này mình trả giá đủ rồi và sẽ kể ở dưới.
 
-**3. Hạ tầng sinh Angular proxy tự động.** Đây mới là thứ có tuổi thọ dài nhất: một cặp file cấu hình `generate-proxy.json` cùng script Node chạy [ABP service proxy schematics](https://abp.io/docs/latest/framework/ui/angular/service-proxies), sinh toàn bộ service client TypeScript từ API .NET.
+Việc thứ ba mới là việc đáng nhớ, là mình viết một cái pipeline sinh Angular proxy tự động, gồm file `generate-proxy.json` với một script Node chạy [ABP service proxy schematics](https://abp.io/docs/latest/framework/ui/angular/service-proxies) để sinh hết service client TypeScript từ API .NET. Lý do làm thì cũng không cao siêu gì, chỉ là mình lười gõ tay DTO.
 
-Việc thứ ba đáng nói riêng. Nó chỉ là một script. Nhưng nó có nghĩa là trong 20 tháng sau đó, **không một developer nào trong team phải viết tay một DTO hay một HTTP client nào**. Backend đổi contract, chạy lại một lệnh, frontend có type mới kèm lỗi compile chỉ đúng chỗ cần sửa.
+Nhưng rồi hai mươi tháng sau đó, cả team không một ai phải viết tay một cái DTO hay một cái HTTP client nào, vì backend đổi contract thì chỉ cần chạy một lệnh là frontend có type mới, và lỗi compile sẽ nổ đúng chỗ cần sửa. Cái script viết trong một buổi chiều mà tới giờ vẫn chạy, nghĩ lại thấy vui.
 
-> Bài học đầu tiên và cũng là cái tôi nhắc nhiều nhất khi mentor: **trong tuần đầu, hãy ưu tiên thứ nhân bản được hơn thứ chạy được.** Một màn hình chạy được phục vụ một nghiệp vụ. Một pipeline sinh code phục vụ mọi nghiệp vụ còn chưa ai nghĩ ra.
+Cũng phải nói cho công bằng là có mấy chỗ mình đặt tên sai ngay tuần đó, và tới hôm nay cả team vẫn đang sống chung với nó, cho nên tuần đầu ảnh hưởng mạnh theo cả hai chiều chứ không riêng chiều tốt.
 
-## Con số, để dễ hình dung quy mô
+## Cái màn hình export
 
-Tôi quét `git log` toàn bộ các repo của sản phẩm, lọc theo email của mình. Đây là kết quả:
+Nửa đầu 2025 là giai đoạn dựng lõi CRM, và phần lớn thời gian mình đổ vào một chuyện nghe rất buồn ngủ, là phân quyền.
 
-| Chỉ số | Số liệu |
-| --- | --- |
-| Commit của tôi trong monorepo chính | **8.059** / 29.607 — **27%** |
-| Xếp hạng trong team 25 dev | **Top 1** (người thứ hai: 3.696) |
-| Commit thực, không tính merge | 2.851 |
-| Lượt file thay đổi | 44.703 |
-| [EF Core migration](https://learn.microsoft.com/en-us/ef/core/managing-schemas/migrations/) tự viết | **228** |
-| File test ([xUnit](https://xunit.net/) + spec) | 187 |
-| Angular library đã làm việc trên đó | **13 / 13** |
-| Backend service đã làm việc trên đó | **18** |
-| Commit [GitOps](https://opengitops.dev/) môi trường QA | 371 |
-| Commit promote QA → UAT (17 service) | 95 |
-| Work item [Azure DevOps](https://learn.microsoft.com/en-us/azure/devops/boards/) gắn trực tiếp vào commit | 35 |
+Yêu cầu thì dễ coi thường lắm: hai người cùng mở danh sách Lead phải thấy hai tập dữ liệu khác nhau, mà khác theo ai đang sở hữu bản ghi, ai là quản lý của ai, bản ghi được chia sẻ cho ai, rồi người dùng thuộc cơ sở nào. Cách làm thì ai cũng biết, là thêm `if` vào service, xong entity mới thì copy cái `if` đó sang, và mình đã đi đúng con đường ấy một quãng mà vẫn thấy bình thường.
 
-Cộng cả các repo phụ: **~8.541 commit**.
+Cho tới một hôm có người phát hiện màn hình export trả ra nhiều dữ liệu hơn màn hình danh sách.
 
-Hai lưu ý để trung thực với số liệu, vì tôi tin một CV bị hỏi ngược mà trả lời được thì mạnh hơn một CV có số to:
+Lý do thì tầm thường tới mức hơi buồn, là bên danh sách có đoạn lọc quyền còn bên export thì không, vì lúc viết export mình quên. Chẳng ai làm sai quy trình gì cả, chỉ là khi để một quy tắc quan trọng phụ thuộc vào chuyện lập trình viên có nhớ hay không thì sớm muộn cũng sẽ có người quên, và hôm đó người quên là mình.
 
-- Con số dòng code (`+4.32M / −2.60M`) tôi **không dùng**, vì nó bị bơm bởi proxy sinh tự động và lockfile. Số commit, số migration, số service thì không bơm được.
-- Có một quãng ba tháng giữa năm 2026 tôi gần như không commit vào repo này (làm việc khác). Nên tôi ghi "01/2025 – nay", không ghi "20 tháng liên tục".
+Sau vụ đó thì chúng mình dồn hết về một tầng:
 
-## Phần khó thay thế nhất: phân quyền theo bản ghi
+- `EntityAccessPolicy` để khai báo quyền theo từng loại entity, thay vì rải `if` khắp code nghiệp vụ.
+- `AttributePermission` để phân quyền tới từng field, nhờ vậy sales chỉ thấy tên khách còn quản lý mới thấy giá trị hợp đồng, mà vẫn dùng chung một API và một DTO.
+- `ApplyOwnershipFilterAsync`, một hàm duy nhất áp filter sở hữu vào [IQueryable](https://learn.microsoft.com/en-us/dotnet/api/system.linq.iqueryable), dùng chung cho Lead, Account, Order, CrmTask và mọi entity thêm sau này.
+- `GetUserIdsUnderManagerAsync` kèm cache, giải cây phân cấp quản lý một lần rồi giữ lại, khỏi phải truy vấn đệ quy mỗi request.
 
-Nếu chỉ được giữ lại một đóng góp, tôi chọn cái này.
+Câu chốt của cả giai đoạn này thì mình đọc được ở đâu đó từ lâu rồi, là quyền phải áp ở tầng query chứ đừng áp ở tầng UI, nhưng biết vậy mà vẫn phải tự vấp mới tin. Ẩn một cái cột trên giao diện thì chỉ là trang trí, còn lọc ở `IQueryable` mới là bảo mật thật.
 
-CRM doanh nghiệp có một yêu cầu nghe đơn giản mà làm thì rất dễ sai: **hai người cùng mở một danh sách Lead phải thấy hai tập dữ liệu khác nhau** — và sự khác nhau đó phụ thuộc vào ai sở hữu bản ghi, ai là quản lý của ai, bản ghi được chia sẻ cho ai, người dùng thuộc cơ sở nào.
+Cái được là từ đó về sau, mọi API viết mới đều được bảo vệ sẵn mà chẳng ai phải nhớ gì nữa, và với một codebase 25 người cùng sửa thì chuyện "không phải nhớ" hoá ra quan trọng hơn mình tưởng nhiều.
 
-Cách làm sai mà hầu hết dự án đều đi qua: thêm `if` vào từng service. Rồi mỗi entity mới lại copy đoạn `if` đó. Sáu tháng sau không ai dám sửa, và luôn có đúng một chỗ bị quên — thường là màn hình export.
+Cùng giai đoạn đó còn có một dynamic filter engine (`GetFilterableFields`, `FilterOperatorType`) cho người dùng cuối tự dựng điều kiện lọc, rồi các module Lead, Account, Order, Quotation, Product Catalog, Pricebook, Ticket, Contract sinh Word/PDF và Call Log nối tổng đài. Phần này thì đúng kiểu làm CRM, không có gì kịch tính để kể.
 
-Cách chúng tôi làm, tập trung vào một tầng duy nhất:
+## Lúc code của mình thành đồ dùng chung
 
-- **`EntityAccessPolicy`** — khai báo quyền trên từng loại entity, thay vì rải rác trong code nghiệp vụ.
-- **`AttributePermission`** — phân quyền **tới từng field**. Sales thấy tên khách; chỉ quản lý thấy giá trị hợp đồng. Cùng một API, cùng một DTO.
-- **`ApplyOwnershipFilterAsync`** — một hàm duy nhất áp filter sở hữu vào [IQueryable](https://learn.microsoft.com/en-us/dotnet/api/system.linq.iqueryable), dùng chung cho Lead, Account, Order, CrmTask và mọi entity thêm sau.
-- **`GetUserIdsUnderManagerAsync` + cache** — giải cây phân cấp quản lý một lần rồi cache, chứ không truy vấn đệ quy mỗi request.
+Sang nửa sau 2025 thì mình chuyển nhiều sức sang tầng frontend platform, và bắt đầu hiểu một kiểu áp lực khác hẳn.
 
-Điểm quan trọng không nằm ở tên hàm. Nó nằm ở chỗ: **quyền được áp ở tầng query, không phải tầng UI.** Ẩn cột trên giao diện là trang trí; lọc ở `IQueryable` mới là bảo mật. Mọi API mới sau đó tự động được bảo vệ mà lập trình viên không cần nhớ gì cả — đó là thứ duy nhất có thể sống nổi qua 25 developer và hàng trăm endpoint.
+Library dùng chung của sản phẩm lúc đó thành thư mục có nhiều lượt thay đổi nhất repo với 11.987 lượt file, trong đó là bộ component nghiệp vụ, [PrimeNG](https://primeng.org/) tuỳ biến lại, theme token cho chế độ dark với dim, rồi sidebar, pagination, table helper, shared-ui.
 
-Cùng thời gian này là một **dynamic filter engine** (`GetFilterableFields`, `FilterOperatorType`) để người dùng cuối tự dựng điều kiện lọc, và các module nghiệp vụ: Lead, Account, Order, Quotation, Product Catalog, Pricebook, Ticket, Contract (sinh file Word/PDF), Call Log tích hợp tổng đài.
+Làm feature thì bug của mình chỉ là bug của một màn hình, còn làm đồ dùng chung thì khác, tại sửa sai một token màu là 40 màn hình lệch cùng lúc, mà đổi signature một component thì cả team compile lỗi rồi mọi người nhìn sang. Lần đầu bị như vậy mình khá xấu hổ, ngồi sửa tới tối mới xong.
 
-## Design system: khi bạn viết code mà 24 người khác dùng
+Nhưng được cái là làm một lần thì ăn cả sản phẩm, kiểu tối ưu table helper một lần là mọi cái bảng trong hệ thống nhanh hơn, hay chuẩn hoá theme token một lần là màn hình mới sinh ra đã đúng thiết kế mà không cần ai review màu sắc nữa.
 
-Nửa sau 2025, tôi chuyển nhiều sức sang tầng frontend platform. Library dùng chung của sản phẩm trở thành **thư mục có nhiều lượt thay đổi nhất toàn repo — 11.987 lượt file**.
+Thứ mình học được ở giai đoạn này hoá ra lại không phải kỹ thuật, mà là cái nhịp làm việc phải đổi, bởi code dùng chung thì cần review lâu hơn, cần nói trước khi định làm breaking change, và cần chịu chậm đi một nhịp để những người khác nhanh lên. Nghe thì hiển nhiên, nhưng lúc đang bị hối deadline thì làm được mới khó.
 
-Trong đó có: bộ component nghiệp vụ dùng chung, [PrimeNG](https://primeng.org/) được tuỳ biến lại, theme token cho chế độ dark và dim, sidebar, pagination, table helper, shared-ui.
+## Cuối 2025: từ đi demo sang làm thật
 
-Việc này khác hẳn làm feature, ở một điểm đau: **bug của bạn không còn là bug của một màn hình.** Sửa sai một token màu, 40 màn hình lệch cùng lúc. Đổi signature một component, cả team compile lỗi.
+Suốt gần một năm đầu, sản phẩm sống ở chế độ đi demo. Cứ có khách quan tâm là mang đi trình bày, mà khách thì thuộc nhiều ngành khác nhau, nên cái ràng buộc "không được để cứng thứ gì thuộc một ngành cụ thể" từ tuần đầu hoá ra là lý do sản phẩm demo được cho ngành nào cũng được. Giai đoạn đó làm khá nhanh và cũng khá thoải mái, vì sai thì chỉ mất mặt trong một buổi demo chứ chưa ảnh hưởng tới ai.
 
-Nhưng đổi lại, đây là vị trí đòn bẩy cao nhất trong một team frontend đông người. Một lần tối ưu table helper là mọi bảng trong sản phẩm nhanh hơn. Một lần chuẩn hoá theme token là mọi màn hình mới sinh ra đã đúng thiết kế, không cần ai review màu sắc nữa.
+Tới gần cuối 2025 thì chốt được khách ngành y tế, và từ đó tới giờ sản phẩm chuyển hẳn sang chế độ delivery thật. Với mình thì đây là quãng đổi nhiều nhất, mà đổi ở ba chỗ.
 
-> Nếu bạn muốn nhảy từ mid lên senior: hãy tìm cách sở hữu **hạ tầng** mà team đứng trên, đừng đếm số màn hình đã làm.
+Thứ nhất là nghiệp vụ y tế đòi cấu hình sâu hơn mức mình tưởng là đã đủ. Mấy chỗ hồi trước nghĩ "cấu hình được rồi" thì tới lúc gặp nghiệp vụ thật lại thiếu thêm một lớp nữa, nên phần lớn thời gian là đi khoét sâu những chỗ mình từng cho là xong.
 
-## Lần nâng Angular thất bại — và 4 tháng sau làm lại
+Thứ hai là team đông lên hẳn, không chỉ thêm dev mà thêm cả BA, QA và PM. Đây là lúc mấy thứ làm ở giai đoạn trước mới trả lại giá trị, kiểu như ownership filter áp một tầng, pipeline sinh proxy, hay bộ component dùng chung. Hồi ít người thì chúng chỉ tiện, còn lúc đông người thì cái chuyện "không ai phải nhớ quy tắc nào" mới thành sống còn thật.
 
-Phần này tôi đưa vào có chủ ý, vì một bài kể chuyện nghề mà chỉ có thành công thì không đáng đọc.
+Thứ ba là quy trình siết lại, vì giờ đã có commitment với khách hàng. Không còn deploy kiểu thấy ổn thì đẩy nữa, mọi thứ phải đi qua QA, phải có evidence, phải đúng hẹn. Nói thật là lúc đầu mình thấy hơi bó, nhưng về sau mới hiểu đó là cái giá tự nhiên của việc sản phẩm có người dùng thật, và cũng chính nó buộc mình phải làm mọi migration sau này theo kiểu có nút quay lại, chứ không còn dám đặt cược vào một đêm deploy nữa.
 
-Tháng 11/2025, tôi nâng [Angular](https://angular.dev/) 19 lên 20 cho toàn bộ 13 library. **Thất bại. Phải revert.**
+## Vụ Angular, tháng 11/2025
 
-Lý do không phải Angular. Lý do là tôi làm cùng lúc quá nhiều thứ: nâng framework, đồng thời xử lý breaking change của PrimeNG với việc đổi `p-dropdown` sang [`p-select`](https://primeng.org/select) rải khắp hàng trăm template, trong khi các team feature vẫn đang merge vào cùng nhánh mỗi ngày. Diff phình tới mức không ai review nổi, và mỗi lần rebase lại sinh conflict mới. Revert là quyết định đúng.
+Phần này mình kể nhanh thôi, vì kể chậm thì đau.
 
-Tháng 03/2026, làm lại và thành công. Khác biệt ở cách chia việc:
+Mình nhận việc nâng [Angular](https://angular.dev/) 19 lên 20 cho cả 13 library, làm hai tuần, và cuối cùng phải revert.
+
+Lỗi không nằm ở Angular mà nằm ở chỗ mình tham, tại mình vừa nâng framework lại vừa xử luôn breaking change của PrimeNG với việc đổi `p-dropdown` sang [`p-select`](https://primeng.org/select) rải khắp hàng trăm template, trong khi các team feature vẫn merge vào cùng nhánh mỗi ngày. Đến lúc diff phình lên tới mức không ai review nổi thì mỗi lần rebase lại ra một mớ conflict mới, và mình ngồi sửa conflict còn nhiều hơn sửa code.
+
+Cái cảm giác lúc chấp nhận là nó không về đích được thì mình vẫn nhớ, mà không phải kiểu tiếc công, chỉ là biết từ mấy hôm trước rồi mà vẫn cố thêm.
+
+Bốn tháng sau, tới tháng 03/2026 thì mình làm lại và xong, cùng một khối lượng việc, khác đúng ở cách chia.
 
 <Checklist
-  title="Cách nâng major version trên monorepo nhiều team"
+  title="Lần thứ hai mình làm thế này"
   items={[
-    { text: "Tách breaking change của thư viện UI ra trước, thành PR riêng, merge độc lập với việc nâng framework", checked: true },
-    { text: "Dùng đúng lộ trình chính thức của Angular Update Guide thay vì tự nâng package.json bằng tay", checked: true },
-    { text: "Chốt một cửa sổ đóng băng merge ngắn, thay vì nâng song song với luồng feature", checked: true },
-    { text: "Nâng library theo thứ tự phụ thuộc, build xanh từng bước, không gộp 13 library vào một commit", checked: true },
-    { text: "Chấp nhận revert sớm khi diff vượt ngưỡng review được — revert rẻ hơn debug một nhánh chết", checked: true }
+    { text: "Tách breaking change của thư viện UI ra PR riêng, merge trước, không dính vào việc nâng framework", checked: true },
+    { text: "Đi theo Angular Update Guide chứ đừng tự sửa package.json bằng tay", checked: true },
+    { text: "Chốt một cửa sổ đóng băng merge ngắn, đừng nâng song song với luồng feature", checked: true },
+    { text: "Nâng từng library theo thứ tự phụ thuộc, build xanh rồi mới đi tiếp", checked: true },
+    { text: "Diff mà vượt ngưỡng review được thì revert luôn, đừng cố thêm một tuần", checked: true }
   ]}
 />
 
-Lộ trình chính thức nằm ở [Angular Update Guide](https://angular.dev/update-guide) — công cụ này liệt kê đúng từng bước theo cặp version, và nó đáng tin hơn trực giác của bạn rất nhiều.
+[Angular Update Guide](https://angular.dev/update-guide) liệt kê đúng từng bước theo cặp version, và nói thật là nó đáng tin hơn trực giác của mình nhiều.
 
-Toàn bộ chặng đường nâng cấp nền tảng, tính từ ngày đầu: **ABP 9.0 → 9.3.6**, **.NET SDK 9.0.101**, **Angular 16 → 20**, PrimeNG migration — và không có lần phát hành nào bị gián đoạn vì việc này. Hiện tôi đang khảo sát đường nâng tiếp lên ABP 10.x và .NET 10.
+Tính từ ngày đầu tới giờ thì chặng nâng cấp là ABP 9.0 lên 9.3.6, .NET SDK 9.0.101, Angular 16 lên 20, kèm cả PrimeNG, và không có lần phát hành nào bị gián đoạn vì mấy việc đó. Giờ mình đang nhìn sang ABP 10.x với .NET 10, lần này thì biết đường hơn rồi.
 
-## Omnichannel: dựng một chat service gần như một mình
+## Làm chat, và làm sai thứ tự
 
-Quý 1/2026 là quãng vui nhất. Nhiệm vụ: thêm năng lực hội thoại đa kênh vào CRM.
+Quý 1/2026 là quãng mình thích nhất, đơn giản vì phần lớn là thứ chưa từng làm, đó là thêm năng lực hội thoại đa kênh vào CRM.
 
-Kết quả là một service riêng, gồm:
+Kết quả ra được một service riêng, gồm Chat Inbox có thread hội thoại, gán tag và zen mode cho tư vấn viên tập trung; tích hợp kênh Facebook/Messenger qua một nền tảng trung gian rồi chuẩn hoá webhook về một schema chung; realtime bằng [SignalR](https://learn.microsoft.com/en-us/aspnet/core/signalr/introduction); mô hình tổng đài đầy đủ với Hotline, Queue, Agent, Extension, Queue Membership, cắm thêm [Stringee](https://stringee.com/) webphone để gọi ngay trên trình duyệt. Và cái mình thích nhất là mắt nối tạo Lead trực tiếp từ hội thoại, nhờ vậy chat không còn là kênh hỗ trợ đơn thuần nữa.
 
-- **Chat Inbox** — thread hội thoại, gán tag, zen mode để tư vấn viên tập trung, copy link chia sẻ hội thoại nội bộ.
-- **Tích hợp kênh Facebook/Messenger** qua nền tảng trung gian, chuẩn hoá webhook về một schema chung.
-- **Realtime bằng [SignalR](https://learn.microsoft.com/en-us/aspnet/core/signalr/introduction)** — tin nhắn, trạng thái đang gõ, phân phối hội thoại.
-- **Telephony**: Hotline, Queue, Agent, Extension, Queue Membership — mô hình tổng đài đầy đủ, cắm với [Stringee](https://stringee.com/) webphone để gọi ngay trên trình duyệt.
-- **Tạo Lead trực tiếp từ hội thoại** — mắt nối quan trọng nhất, biến chat từ kênh hỗ trợ thành kênh bán hàng.
+Chuyện đáng kể ở đây là mình làm sai thứ tự.
 
-Điều tôi học được ở đây là về **realtime ở tầng hạ tầng**: SignalR chạy một instance thì đẹp như demo; chạy nhiều pod trên [Kubernetes](https://kubernetes.io/docs/concepts/) thì bạn phải trả lời câu hỏi "user này đang nối vào pod nào" trước khi viết dòng code nghiệp vụ đầu tiên.
+SignalR chạy một instance thì đẹp như demo, nên mình viết nghiệp vụ trước, chạy local thấy mượt, vui lắm. Rồi lên [Kubernetes](https://kubernetes.io/docs/concepts/) nhiều pod là gặp ngay câu hỏi mà đúng ra phải giải quyết từ dòng code đầu tiên, là user này đang nối vào pod nào. Mất thêm một quãng nữa mới sửa xong, và từ đó mình xếp realtime vào loại quyết định hạ tầng, dù nó nằm trong một cái ticket feature.
 
-## Đóng góp tôi tự hào nhất: tách bounded context mà không downtime
+## Ba tháng mình không commit gì
 
-Quý 3/2026. Bài toán: module quản lý mẫu tin nhắn (`MessageTemplate`) đang nằm sai chỗ — nó sống trong hai service khác nhau, trong khi về mặt [bounded context](https://martinfowler.com/bliki/BoundedContext.html) nó thuộc về service thông báo. Ba service khác đang gọi vào nó mỗi ngày, trên hệ thống đang chạy thật.
+Chỗ này mình để trong bài có chủ ý, tại nếu chỉ kể phần đẹp thì bài này thành tờ quảng cáo.
 
-Cách làm ngây thơ: một PR lớn, đổi hết, deploy đêm thứ Bảy, cầu nguyện.
+Khoảng tháng 5 tới tháng 7 năm 2026, mình gần như không commit vào repo này, cả quãng đó đúng một commit, vì lúc ấy mình làm việc khác. Cho nên trong CV mình ghi "01/2025 – nay" chứ không ghi "20 tháng liên tục", hai cách viết đó khác nhau và ai chịu mở `git log` ra xem thì cũng sẽ thấy khác nhau.
 
-Cách chúng tôi làm, theo tinh thần [Strangler Fig](https://martinfowler.com/bliki/StranglerFigApplication.html) và [branch by abstraction](https://martinfowler.com/bliki/BranchByAbstraction.html):
+Mình kể chuyện này vì nó dính tới một thói quen giữ khá chặt, là chỉ dùng những con số mà mình dám bị hỏi ngược.
 
-1. **Dựng nguồn mới song song** ở service thông báo, dữ liệu cũ vẫn nguyên tại chỗ.
-2. **Feature toggle đọc hai nguồn (dual-read).** Bật cờ thì đọc nguồn mới, tắt cờ thì đọc nguồn cũ — đổi bằng cấu hình, không cần deploy.
-3. **Cutover từng caller một**, theo slice: Ticket trước, rồi Campaign, rồi service còn lại. Mỗi slice là một PR nhỏ, review được, rollback được trong vài giây bằng cách tắt cờ.
-4. **Verify trên QA sau từng slice** rồi mới sang slice tiếp theo.
+Để có số liệu cho bài, mình quét `git log` toàn bộ các repo rồi lọc theo email của mình:
 
-Kết quả: **zero downtime, zero big-bang deploy**, và ở mỗi thời điểm luôn có đúng một nút để quay lại.
+| Chỉ số | Số liệu |
+| --- | --- |
+| Commit trong monorepo chính | 8.059 / 29.607 |
+| Commit thực, không tính merge | 2.851 |
+| Lượt file thay đổi | 44.703 |
+| [EF Core migration](https://learn.microsoft.com/en-us/ef/core/managing-schemas/migrations/) tự viết | 228 |
+| File test ([xUnit](https://xunit.net/) + spec) | 187 |
+| Angular library đã làm việc trên đó | 13 / 13 |
+| Backend service đã làm việc trên đó | 18 |
+| Commit [GitOps](https://opengitops.dev/) môi trường QA | 371 |
+| Commit promote QA lên UAT (17 service) | 95 |
+| Work item [Azure DevOps](https://learn.microsoft.com/en-us/azure/devops/boards/) gắn thẳng vào commit | 35 |
 
-> Đây là thứ tôi sẽ mang đi kể ở mọi buổi phỏng vấn kiến trúc. Không phải vì nó phức tạp — mà vì nó **nhàm chán một cách có chủ ý**. Migration tốt thì người dùng không biết nó đã xảy ra.
+Giờ nói rõ về mấy con số này một chút.
 
-Cùng quý, tôi dựng lại một service khác theo layout [ABP single-layer (nolayer)](https://abp.io/docs/latest/solution-templates/single-layer-web-application), đổi namespace toàn bộ và phục hồi pipeline build cho nó.
+Số commit thì gần như không đo được khối lượng việc, vì cùng một lượng việc mà người commit gộp với người commit nhỏ sẽ cho ra hai con số lệch nhau rất xa, còn mình thì thuộc nhóm commit nhỏ nên con số bị đẩy lên. Mấy chỉ số sát với phạm vi việc hơn là số migration, số service và số library.
 
-## ClickHouse, phân khúc khách hàng, và cái bẫy đệ quy tiếng Việt
+Con số dòng code thì mình bỏ hẳn, vì `git log` báo `+4.32M / −2.60M` nghe rất oách nhưng phần lớn là proxy sinh tự động với lockfile, đưa vào CV thì chỉ để chờ người ta hỏi một câu là lộ.
 
-Module phân khúc khách hàng (Segment) chạy trên [ClickHouse](https://clickhouse.com/docs), gồm:
+Còn điều hiển nhiên nhất thì cũng là điều cần nói to nhất, là 18 service đó vốn là việc của 25 người, nên những gì mình kể trong bài chỉ là phần mình làm chứ không phải cả sản phẩm.
 
-- **Filter builder động** — toán tử ngày tương đối ("trong 30 ngày qua"), `NotBetween`, [`ILIKE`](https://clickhouse.com/docs/en/sql-reference/functions/string-search-functions) cho tìm kiếm không phân biệt hoa thường.
-- **Đếm audience theo người, không theo số điện thoại.** Nghe nhỏ nhưng đây là lỗi kinh điển làm mọi báo cáo marketing sai: một người có ba số điện thoại bị đếm thành ba khách hàng.
-- **Loại trừ lead đã convert hoặc đã merge** khỏi phép đếm.
-- **Breakdown theo cơ sở** và **scope preview theo đúng quyền của người đang xem** — nối lại với mô hình phân quyền ở phần trên.
+## Lần migration mình thích nhất
 
-Và một cái bẫy đáng ghi thành [ADR](https://adr.github.io/) riêng: so khớp tiếng Việt không dấu. Khi bạn cài extension [`unaccent`](https://www.postgresql.org/docs/current/unaccent.html) của PostgreSQL rồi bọc nó trong một hàm **cùng tên** ở schema `public`, hàm đó **gọi lại chính nó** — đệ quy vô hạn, query treo. Chi tiết nằm trong ADR-005 của dự án, cùng với thứ tự deploy extension so với migration phụ thuộc vào nó.
+Nếu có ai hỏi hai mươi tháng đó mình làm được gì thì mình sẽ kể cái này, dù nó là việc ít kịch tính nhất trong cả bài.
 
-Ngoài Segment, quý này còn có **send-log tin nhắn xuyên ba service** (`UNION` dữ liệu từ ba nguồn khác nhau) kèm export nền ra Excel/SharePoint.
+Bài toán là module quản lý mẫu tin nhắn (`MessageTemplate`) đang nằm sai chỗ, nó sống trong hai service khác nhau trong khi xét theo [bounded context](https://martinfowler.com/bliki/BoundedContext.html) thì phải thuộc service thông báo, mà ba service khác thì vẫn đang gọi vào nó mỗi ngày trên hệ thống đã có người dùng thật.
 
-## Phần không ai bắt làm, nhưng làm rồi thì khác hẳn
+Cách mà mình-năm-2024 chắc sẽ chọn là gom thành một PR to, đổi hết, deploy đêm thứ Bảy, mở sẵn tab log rồi cầu nguyện.
 
-Đây là mảng tôi nghĩ tạo nên khác biệt giữa "dev làm feature" và "engineer làm sản phẩm".
+Lần này thì làm theo kiểu [Strangler Fig](https://martinfowler.com/bliki/StranglerFigApplication.html) với [branch by abstraction](https://martinfowler.com/bliki/BranchByAbstraction.html):
 
-**Một CLI quản lý service cục bộ.** Monorepo 18 service thì `dotnet run` bằng tay là bất khả thi. Tôi viết một CLI nội bộ dựa trên [PM2](https://pm2.keymetrics.io/docs/usage/quick-start/): chạy/dừng/xem log theo tên service, chế độ build tiết kiệm RAM cho máy yếu, cờ `--with-tests`. Cả team dùng hằng ngày.
+1. Dựng nguồn mới song song ở service thông báo, còn dữ liệu cũ vẫn để nguyên tại chỗ.
+2. Đặt feature toggle đọc hai nguồn, bật cờ thì đọc nguồn mới còn tắt cờ thì về nguồn cũ, đổi bằng cấu hình chứ không cần deploy.
+3. Cutover từng caller một theo slice, Ticket trước rồi tới Campaign rồi service còn lại, mỗi slice là một PR nhỏ review được và rollback được trong vài giây bằng cách tắt cờ.
+4. Verify trên QA sau từng slice rồi mới đi slice kế tiếp.
 
-**Bộ chuẩn code tự động kiểm tra.** Các rule về comment ngắn gọn, kiểm tra việc đang làm dở, chuẩn viết .NET service, chuẩn khai báo permission — kèm script check tự động thay vì trông vào review thủ công.
+Kết quả là không downtime, không big-bang deploy, và cũng không ai phải trực đêm.
 
-**ADR và lessons-learned sau mỗi sự cố.** Identity service `CrashLoopBackOff`; migration không đồng nhất giữa các service; thứ tự deploy extension database. Mỗi sự cố một tài liệu ngắn. Viết 20 phút, tiết kiệm cho người sau vài giờ.
+Chẳng ai để ý là nó đã xảy ra, mà đó mới là chỗ mình thích. Sau vụ Angular tháng 11 thì mình hiểu ra thứ mình cần không phải làm nhanh hơn, mà là lúc nào cũng còn một nút để quay lại. Kiểu migration này khó khoe vì nhìn vào chẳng có gì ly kỳ, nhưng mình vẫn nghĩ nó là việc làm tử tế nhất trong hai mươi tháng.
 
-**Sửa ở tầng hạ tầng, không sửa ở tầng triệu chứng.** Scope [OpenIddict](https://documentation.openiddict.com/) giữa các service; [ABP dynamic C# client](https://abp.io/docs/latest/framework/api-development/dynamic-csharp-clients) yêu cầu controller phải implement interface; routing của [YARP](https://microsoft.github.io/reverse-proxy/) ở gateway; [HealthChecksUI](https://github.com/Xabaril/AspNetCore.Diagnostics.HealthChecks) bind sai địa chỉ trên Kubernetes.
+Cùng quý đó mình cũng dựng lại một service khác theo layout [ABP single-layer](https://abp.io/docs/latest/solution-templates/single-layer-web-application), đổi namespace toàn bộ rồi phục hồi pipeline build cho nó, nhưng việc này thì buồn ngủ thật, không có gì kể.
 
-**Fix bug có bằng chứng.** Giai đoạn gần đây, 35 work item Azure DevOps được gắn thẳng vào commit message, mỗi bug một nhánh `fix/AB{id}`, và có unit test kèm theo — ví dụ bộ test cho resolver kiểm tra quyền chia sẻ khi tạo Booking/Task.
+## Những việc không ai giao
 
-Song song là **371 commit GitOps** cho môi trường QA ([Helm](https://helm.sh/docs/) values, configmap, identity client, image tag) và **95 commit** promote 17 service lên UAT. Phần này ít ai đưa vào CV, nhưng nó là câu trả lời cho câu hỏi phỏng vấn kinh điển: "code của bạn ra production bằng đường nào?"
+Có một mảng việc không nằm trong sprint nào cả, và với mình nó luôn bắt đầu từ chỗ rất tầm thường là tự thấy bất tiện.
 
-{/* TODO — ba con số này git không đo được, tra ADO/ops rồi điền vào đây để bài mạnh hơn:
+**Cái CLI chạy service cục bộ.** Monorepo 18 service thì `dotnet run` bằng tay là bất khả thi, mình thử rồi, mở tám cửa sổ terminal xong không biết cái nào là cái nào. Nên mình viết một CLI nội bộ dựa trên [PM2](https://pm2.keymetrics.io/docs/usage/quick-start/) để chạy, dừng, xem log theo tên service, thêm chế độ build tiết kiệm RAM cho máy yếu và cờ `--with-tests`. Giờ cả team dùng hằng ngày, mà mỗi lần thấy ai gõ nó mình vẫn thấy vui vui.
+
+**Bộ chuẩn code có script check tự động.** Gồm rule về comment ngắn gọn, kiểm tra việc đang làm dở, chuẩn viết .NET service và chuẩn khai báo permission. Lý do làm thì đơn giản là mình phát hiện đang nhắc lại cùng một góp ý trong review tới lần thứ tư.
+
+**[ADR](https://adr.github.io/) và lessons-learned sau sự cố.** Identity service `CrashLoopBackOff`, migration không đồng nhất giữa các service, thứ tự deploy extension database, mỗi sự cố mình ghi một tài liệu ngắn tốn chừng 20 phút. Thú thật là mình vấp vài lần rồi mới bắt đầu ghi, nên cái danh sách ADR của dự án cũng chính là danh sách những chỗ mình từng mất thời gian.
+
+**Sửa ở tầng hạ tầng chứ đừng sửa chỗ nó báo lỗi.** Scope [OpenIddict](https://documentation.openiddict.com/) giữa các service, [ABP dynamic C# client](https://abp.io/docs/latest/framework/api-development/dynamic-csharp-clients) đòi controller phải implement interface, routing của [YARP](https://microsoft.github.io/reverse-proxy/) ở gateway, [HealthChecksUI](https://github.com/Xabaril/AspNetCore.Diagnostics.HealthChecks) bind sai địa chỉ trên Kubernetes. Mấy lỗi này giống nhau ở chỗ nếu sửa ngay tại nơi nó báo lỗi thì hai tuần sau nó quay lại.
+
+**Fix bug có bằng chứng.** Gần đây mình gắn thẳng 35 work item Azure DevOps vào commit message, mỗi bug một nhánh `fix/AB{id}` và kèm unit test, ví dụ bộ test cho resolver kiểm tra quyền chia sẻ khi tạo Booking/Task. Nghe khô khan nhưng nó dẹp được cái mệt nhất trong nghề, là tranh luận xem bug đã fix chưa.
+
+Cuối cùng là 371 commit GitOps cho môi trường QA ([Helm](https://helm.sh/docs/) values, configmap, identity client, image tag) cùng 95 commit promote 17 service lên UAT, tức là phần đưa code từ máy mình ra tới tay người dùng. Chẳng ai để ý tới nó, cho tới hôm nó hỏng.
+
+{/* TODO — ba con số này git không đo được, tra ADO/ops rồi điền vào để bài chắc hơn:
      1. Số user / tenant / đơn vị đang chạy hệ thống thật.
      2. Tỉ lệ bug reopen trước vs sau khi áp quy trình fix-có-bằng-chứng.
      3. Thời gian build/deploy hoặc thời gian onboard dev mới trước vs sau khi có CLI + bộ rule.
      Điền xong thì xoá block comment này. */}
 
-## Năm điều tôi muốn nói với chính mình 20 tháng trước
+## Mấy thứ mình ghi lại
 
-1. **Tuần đầu là tuần đắt giá nhất.** Ưu tiên pipeline và quy ước hơn màn hình đầu tiên. Cái script sinh proxy tôi viết ngày thứ ba vẫn đang chạy hôm nay.
+Tuần đầu là tuần ảnh hưởng mạnh nhất và ảnh hưởng theo cả hai chiều, vì cái script mình viết vì lười ở ngày thứ ba thì tới giờ vẫn chạy, còn mấy cái tên đặt sai ở tuần đó thì cả team vẫn đang sống chung.
 
-2. **Quyền phải áp ở tầng query.** Nếu bảo mật của bạn nằm ở chỗ ẩn cột trên UI, bạn chưa có bảo mật — bạn có trang trí.
+Đừng để một quy tắc quan trọng phụ thuộc vào chuyện người ta có nhớ hay không, cái màn hình export dạy mình câu đó, và nó đúng cho cả phân quyền, cả coding convention lẫn quy trình fix bug.
 
-3. **Sở hữu hạ tầng, đừng đếm màn hình.** Một lần chuẩn hoá design system có đòn bẩy lớn hơn ba tháng làm feature, dù nhìn vào bảng task thì ngược lại.
+Nhận code dùng chung thì phải nhận cả hai mặt của nó, làm một lần ăn cả sản phẩm nhưng sai một lần cũng lan cả sản phẩm, và không có cách nào lấy mặt này mà bỏ mặt kia.
 
-4. **Migration hay là migration nhàm chán.** Slice nhỏ, feature toggle, dual-read, cutover từng caller, rollback bằng một lần tắt cờ. Đừng bao giờ đặt cược vào một đêm deploy.
+Migration thì càng nhàm càng tốt, cứ slice nhỏ, feature toggle, dual-read và rollback bằng một lần tắt cờ, tuy lâu hơn nhưng mình nghĩ đó là chỗ đáng chậm.
 
-5. **Revert không phải thất bại, để diff phình mới là thất bại.** Lần nâng Angular đầu tiên tôi sai không phải vì thiếu năng lực, mà vì gộp quá nhiều thay đổi vào một nhánh. Bốn tháng sau chia nhỏ ra thì xong.
+Còn revert thì nên revert sớm, cái này mình trả học phí bằng đúng hai tuần của tháng 11.
 
 <FAQSection
-  title="Câu hỏi thường gặp"
+  title="Mấy câu anh em hay hỏi lại mình"
   items={[
     {
-      question: "Con số ~8.500 commit có ý nghĩa gì không, hay chỉ là commit nhỏ chia nhiều lần?",
-      answer: "Bản thân số commit đơn lẻ thì dễ bơm, nên nó cần đọc kèm các số khó bơm hơn: 2.851 commit không tính merge, 228 EF Core migration tự viết, 187 file test, và làm việc trên cả 18 backend service cùng 13/13 Angular library. Ngược lại, con số dòng code (+4.32M) tôi chủ động không dùng, vì nó bị bơm bởi proxy sinh tự động và lockfile. Nguyên tắc của tôi khi đưa số vào CV: chỉ dùng số mà người phỏng vấn có thể hỏi ngược và mình trả lời được."
-    },
-    {
       question: "Tách bounded context sang service khác mà không downtime thì làm thế nào?",
-      answer: "Bốn bước. Một, dựng nguồn dữ liệu mới ở service đích và để nguồn cũ nguyên vẹn. Hai, đặt feature toggle cho phép đọc từ cả hai nguồn (dual-read), đổi bằng cấu hình chứ không cần deploy. Ba, cutover từng caller một theo slice nhỏ, mỗi slice là một PR review được và rollback được bằng cách tắt cờ. Bốn, verify trên môi trường QA sau từng slice rồi mới sang slice kế tiếp. Điểm cốt lõi là ở mọi thời điểm luôn tồn tại đúng một nút để quay lại, nên không cần cửa sổ downtime nào."
+      answer: "Mình làm bốn bước. Một là dựng nguồn dữ liệu mới ở service đích và để nguồn cũ nguyên vẹn. Hai là đặt feature toggle cho phép đọc từ cả hai nguồn, gọi là dual-read, và đổi bằng cấu hình chứ không cần deploy. Ba là cutover từng caller một theo slice nhỏ, mỗi slice là một PR review được và rollback được bằng cách tắt cờ. Bốn là verify trên môi trường QA sau từng slice rồi mới sang slice kế tiếp. Cốt lõi là ở mọi thời điểm luôn còn đúng một nút để quay lại, nên không cần cửa sổ downtime nào."
     },
     {
-      question: "Phân quyền theo bản ghi (record-level permission) trong CRM nên thiết kế ra sao?",
-      answer: "Áp ở tầng query, không áp ở tầng UI. Cụ thể: một policy khai báo quyền theo loại entity thay vì rải if trong code nghiệp vụ; một lớp phân quyền tới từng thuộc tính để cùng một DTO trả về field khác nhau theo vai trò; một hàm duy nhất áp filter sở hữu vào IQueryable, dùng chung cho mọi entity; và cache kết quả giải cây phân cấp quản lý thay vì truy vấn đệ quy mỗi request. Lợi ích lớn nhất là mọi API viết sau đó được bảo vệ mặc định, lập trình viên không cần nhớ quy tắc nào."
+      question: "Phân quyền theo bản ghi trong CRM nên thiết kế ra sao?",
+      answer: "Nên áp ở tầng query chứ đừng áp ở tầng UI, đây là bài học mình trả giá bằng một màn hình export bị quên lọc quyền. Cụ thể là một policy khai báo quyền theo loại entity thay vì rải if trong code nghiệp vụ, một lớp phân quyền tới từng thuộc tính để cùng một DTO trả về field khác nhau theo vai trò, một hàm duy nhất áp filter sở hữu vào IQueryable dùng chung cho mọi entity, và cache kết quả giải cây phân cấp quản lý thay vì truy vấn đệ quy mỗi request. Cái được lớn nhất là mọi API viết sau đều được bảo vệ sẵn mà không ai phải nhớ quy tắc nào."
     },
     {
-      question: "Nâng major version Angular trên monorepo nhiều team thì tránh gì?",
-      answer: "Tránh gộp việc nâng framework với breaking change của thư viện UI vào cùng một nhánh, và tránh nâng song song khi các team feature vẫn merge vào đó mỗi ngày. Lần đầu tôi làm cả hai điều đó và phải revert. Lần thứ hai thành công nhờ: tách breaking change UI ra PR riêng merge trước, dùng đúng Angular Update Guide, chốt một cửa sổ đóng băng merge ngắn, và nâng từng library theo thứ tự phụ thuộc với build xanh sau mỗi bước."
+      question: "Nâng major version Angular trên monorepo nhiều team thì nên tránh gì?",
+      answer: "Nên tránh gộp việc nâng framework với breaking change của thư viện UI vào cùng một nhánh, và tránh nâng song song khi các team feature vẫn merge vào đó mỗi ngày. Lần đầu mình làm cả hai điều đó nên hai tuần sau phải revert. Lần thứ hai thì xong, nhờ tách breaking change UI ra PR riêng merge trước, đi theo Angular Update Guide, chốt một cửa sổ đóng băng merge ngắn, và nâng từng library theo thứ tự phụ thuộc với build xanh sau mỗi bước."
     },
     {
-      question: "Vì sao đếm audience theo người quan trọng hơn đếm theo số điện thoại?",
-      answer: "Vì một người có thể có nhiều số điện thoại, và một số điện thoại có thể xuất hiện ở nhiều bản ghi lead khác nhau. Nếu đếm theo số, một khách hàng có ba số bị tính thành ba người, làm phồng mọi chỉ số phân khúc và mọi báo cáo chiến dịch dựa trên nó. Đếm theo thực thể người, đồng thời loại trừ các lead đã convert hoặc đã merge, mới cho ra con số dùng được để ra quyết định marketing."
+      question: "Làm sản phẩm multi-tenant thì quyết định nào phải chốt sớm nhất?",
+      answer: "Là cách tách dữ liệu theo tenant, và phải chốt ngay từ cái bảng đầu tiên vì chắp vá sau thì rất đắt. Framework như ABP lo được phần khung multi-tenancy, còn những thứ riêng của sản phẩm thì vẫn phải tự thiết kế, gồm cấu hình theo từng tenant, phân quyền theo cơ sở và các trường dữ liệu tuỳ biến. Kèm theo đó là một ràng buộc phải giữ suốt dự án, là không để cứng bất cứ thứ gì thuộc về một ngành cụ thể, nên tên trường, luồng nghiệp vụ hay nhãn hiển thị đều phải cấu hình được."
     },
     {
-      question: "Extension unaccent của PostgreSQL gây đệ quy vô hạn là sao?",
-      answer: "Khi cần so khớp tiếng Việt không dấu, nhiều người bọc hàm unaccent trong một hàm wrapper đặt ở schema public. Nếu wrapper đó cũng tên unaccent, lời gọi bên trong sẽ phân giải về chính nó thay vì về hàm của extension, tạo đệ quy vô hạn và làm query treo. Cách tránh: đặt tên wrapper khác, hoặc chỉ định rõ schema của extension khi gọi, và cố định thứ tự deploy extension trước các migration phụ thuộc vào nó."
-    },
-    {
-      question: "Founding engineer khác senior engineer join sau ở điểm nào?",
-      answer: "Khác ở loại quyết định được đưa ra. Người join sau tối ưu trong khuôn khổ đã có; founding engineer tạo ra khuôn khổ đó — schema, ranh giới module, quy ước đặt tên, pipeline sinh code, mô hình phân quyền. Đổi lại, mọi quyết định sai ở giai đoạn đầu cũng được nhân bản y hệt, nên phần việc thật sự khó không phải viết code nhanh mà là chọn thứ chịu được 25 người và hai năm thay đổi yêu cầu."
+      question: "Sản phẩm chuyển từ giai đoạn đi demo sang delivery thật thì đổi những gì?",
+      answer: "Theo trải nghiệm của mình thì đổi ba chỗ. Một là nghiệp vụ của khách đòi cấu hình sâu hơn mức mình tưởng đã đủ, nên phần lớn thời gian là đi khoét sâu những chỗ từng cho là xong. Hai là team đông lên, không chỉ thêm dev mà thêm cả BA, QA và PM, và đây mới là lúc những thứ như phân quyền áp một tầng hay pipeline sinh code trả lại giá trị, vì lúc đông người thì chuyện không ai phải nhớ quy tắc nào mới thành sống còn. Ba là quy trình siết lại vì đã có commitment với khách, mọi thứ phải qua QA và phải có evidence, không còn deploy kiểu thấy ổn thì đẩy nữa."
     }
   ]}
 />
 
 ## Kết
 
-Hai mươi tháng, một repo từ trống tới 18 microservice, và một dòng `git log` ở vị trí thứ ba mà tôi sẽ còn kể lại nhiều lần.
+Hai mươi tháng, một cái repo từ trống tới 18 microservice, và là sản phẩm đầu tiên mình được giao dựng từ đầu.
 
-Thứ tôi mang đi không phải con số commit. Là bốn phản xạ: **áp quy tắc ở tầng thấp nhất có thể**, **ưu tiên thứ nhân bản được**, **migration phải nhàm chán**, và **revert sớm hơn là gồng**.
+Nhưng nhớ lại thật thà thì phần lớn thời gian của mình chẳng nằm ở chỗ nào hào nhoáng cả, mà là đi sửa một chỗ phân quyền bị quên, chia một PR quá to thành sáu PR nhỏ, hay ngồi viết ADR để người sau khỏi vấp đúng chỗ mình đã vấp.
 
-Nếu bạn đang ở tuần đầu của một dự án mới — hãy dùng nó để dựng thứ mà 25 người sau bạn sẽ đứng lên. Đó là khoản đầu tư có lãi suất cao nhất trong nghề này.
+Bốn thứ còn lại với mình là áp quy tắc ở tầng thấp nhất có thể, ưu tiên thứ nhân bản được, giữ cho migration nhàm chán, và revert sớm, mà cả bốn thì đều học được bằng cách làm sai trước.
+
+Ai đang ở tuần đầu của một dự án mới thì mình nghĩ tuần đó nên dành cho quy ước với pipeline hơn là cho màn hình đầu tiên. Còn nếu vài tháng sau có phải gõ `git revert` cho công sức hai tuần thì cũng không sao đâu, mình cũng vậy, và hoá ra đó lại là chỗ học được nhiều nhất.
 
 ---
 
