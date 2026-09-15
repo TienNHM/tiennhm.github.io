@@ -66,7 +66,8 @@ const config = {
     favicon: 'https://github.com/TienNHM.png',
 
     // Set the production url of your site here
-    url: `https://${organizationName}.github.io`,
+    // url: `https://${organizationName}.github.io`,
+    url: `https://tiennhm.io.vn`, // thay thế bằng domain của bạn
     // Set the /<baseUrl>/ pathname under which your site is served
     // For GitHub pages deployment, it is often '/<projectName>/'
     baseUrl: '/',
@@ -78,13 +79,6 @@ const config = {
     trailingSlash: false,
     onBrokenLinks: 'throw',
     headTags: [
-        {
-            tagName: 'link',
-            attributes: {
-                rel: 'canonical',
-                href: `https://${organizationName}.github.io/`,
-            }
-        },
         {
             tagName: 'meta',
             attributes: {
@@ -102,13 +96,6 @@ const config = {
         {
             tagName: 'meta',
             attributes: {
-                name: 'description',
-                content: 'Blog cá nhân của Nguyễn Huỳnh Minh Tiến (TienNHM) về lập trình, kiến trúc hệ thống, AI, DevOps và kinh nghiệm thực chiến trong các dự án sản phẩm.',
-            }
-        },
-        {
-            tagName: 'meta',
-            attributes: {
                 name: 'author',
                 content: 'Nguyễn Huỳnh Minh Tiến (TienNHM)',
             }
@@ -116,15 +103,50 @@ const config = {
         {
             tagName: 'meta',
             attributes: {
-                property: 'og:type',
-                content: 'website',
+                property: 'og:site_name',
+                content: 'TienNHM',
             }
         },
         {
             tagName: 'meta',
             attributes: {
-                property: 'og:site_name',
-                content: 'TienNHM',
+                name: 'twitter:card',
+                content: 'summary_large_image',
+            }
+        },
+        {
+            tagName: 'meta',
+            attributes: {
+                name: 'twitter:creator',
+                content: '@TienNHM',
+            }
+        },
+        /*
+         * Site-wide OG/Twitter tags — COMMENTED OUT
+         * Các tag này ghi đè metadata của từng trang (blog, docs),
+         * khiến Facebook luôn hiện title/description của homepage.
+         * Dùng PageMetadata per-page thay thế (BlogPostPage/Metadata, Layout props).
+         * Giữ lại để tham khảo hoặc bật lại cho homepage-only nếu cần.
+         *
+        {
+            tagName: 'link',
+            attributes: {
+                rel: 'canonical',
+                href: `https://${organizationName}.github.io/`,
+            }
+        },
+        {
+            tagName: 'meta',
+            attributes: {
+                name: 'description',
+                content: 'Blog cá nhân của Nguyễn Huỳnh Minh Tiến (TienNHM) về lập trình, kiến trúc hệ thống, AI, DevOps và kinh nghiệm thực chiến trong các dự án sản phẩm.',
+            }
+        },
+        {
+            tagName: 'meta',
+            attributes: {
+                property: 'og:type',
+                content: 'website',
             }
         },
         {
@@ -158,13 +180,6 @@ const config = {
         {
             tagName: 'meta',
             attributes: {
-                name: 'twitter:card',
-                content: 'summary_large_image',
-            }
-        },
-        {
-            tagName: 'meta',
-            attributes: {
                 name: 'twitter:title',
                 content: 'TienNHM - Fullstack Developer Blog',
             }
@@ -183,13 +198,7 @@ const config = {
                 content: `https://${organizationName}.github.io/img/copyright-tiennhm.webp`,
             }
         },
-        {
-            tagName: 'meta',
-            attributes: {
-                name: 'twitter:creator',
-                content: '@TienNHM',
-            }
-        },
+        */
         {
             tagName: 'link',
             attributes: {
@@ -243,7 +252,8 @@ const config = {
                         name: 'Nguyễn Huỳnh Minh Tiến',
                         alternateName: 'TienNHM',
                         jobTitle: 'Fullstack Developer',
-                        url: `https://${organizationName}.github.io/`,
+                        // url: `https://${organizationName}.github.io/`,
+                        url: `https://tiennhm.io.vn/`, // thay thế bằng domain của bạn
                         image: 'https://github.com/TienNHM.png',
                         sameAs: [
                             'https://github.com/TienNHM',
@@ -255,7 +265,8 @@ const config = {
                     {
                         '@type': 'WebSite',
                         '@id': `https://${organizationName}.github.io/#website`,
-                        url: `https://${organizationName}.github.io/`,
+                        // url: `https://${organizationName}.github.io/`,
+                        url: `https://tiennhm.io.vn/`, // thay thế bằng domain của bạn
                         name: 'TienNHM - Fullstack Developer Blog',
                         description: 'Blog cá nhân chia sẻ kiến thức chuyên sâu về lập trình, kiến trúc hệ thống, AI và kinh nghiệm triển khai sản phẩm thực tế.',
                         inLanguage: ['vi', 'en'],

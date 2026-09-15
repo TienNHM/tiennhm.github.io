@@ -6,12 +6,115 @@ import { Project } from '@site/src/shared/dto/Project';
 // prettier-ignore
 const PROJECTS: Project[] = [
   {
+    title: 'Đi Đâu Đây?',
+    description: 'Decision engine for local experiences in Vietnam, starting with Ho Chi Minh City. Answer a few questions and get one concrete suggestion in about 15 seconds, with directions and a shareable link. Next.js 16 static export — no database, no API, no auth; the data is static JSON validated with Zod.',
+    preview: null,
+    website: 'https://didauday.tiennhm.io.vn',
+    source: 'https://github.com/TienNHM/di-dau-day',
+    tags: ['favorite', 'opensource', 'personal'],
+    highlight: true,
+  },
+  {
+    title: 'VIEvent',
+    description: 'Event ticketing platform: seat-map ticket selection, VietQR payments with automatic reconciliation, refunds and organiser settlements, plus an AI chatbot. Separate portals for customers, artists, staff and admins. Built with ABP 9.2 / .NET 9 and Angular.',
+    // Bản chạy trên VPS riêng. Production đặt ở vievent.io.vn (Vercel) — đổi
+    // link sang đó nếu muốn khoe bản mới nhất.
+    preview: null,
+    website: 'https://vievent.tiennhm.io.vn',
+    // Repo riêng tư (2thuancr/VIEvent), đặt link vào là khách ra 404.
+    source: null,
+    tags: ['favorite', 'courseproject'],
+    highlight: true,
+  },
+  // --- WooIndustry: 9 cửa hàng demo theo ngành ---------------------------
+  // Cùng một bộ mã nguồn (theme cha + plugin lõi), mỗi ngành chỉ khác child
+  // theme và file config khai trường dữ liệu riêng. Mô tả dưới đây lấy đúng
+  // các trường đó chứ không viết chung chung.
+  //
+  // preview: null  → showcase tự chụp màn hình trang thật.
+  // source:  null  → repo woo-industry-starter đang RIÊNG TƯ, đặt link vào thì
+  //                  khách bấm ra 404. Điền lại khi nào repo công khai.
+  {
+    title: 'Tiệm Bánh',
+    description: 'Bakery storefront. Made-to-order cakes show a prep-time notice; products carry shelf life, storage, servings, ingredients and allergen warnings.',
+    preview: null,
+    website: 'https://bakery.tiennhm.io.vn',
+    source: null,
+    tags: ['favorite', 'ecommerce', 'product'],
+    highlight: true,
+  },
+  {
+    title: 'Tiệm Hoa',
+    description: 'Florist storefront. Arrangements by flower type, occasion and size, with freshness guidance and whether a vase or basket is included.',
+    preview: null,
+    website: 'https://florist.tiennhm.io.vn',
+    source: null,
+    tags: ['ecommerce', 'product'],
+  },
+  {
+    title: 'Mộc & Lành',
+    description: 'Cosmetics storefront. Each product lists volume, suitable skin types, key actives, the full INCI list and the PAO (period-after-opening) symbol.',
+    preview: null,
+    website: 'https://cosmetics.tiennhm.io.vn',
+    source: null,
+    tags: ['ecommerce', 'product'],
+  },
+  {
+    title: 'Xưởng Handmade',
+    description: 'Handmade goods storefront. Items show material, size, days to make and technique, and can be ordered as custom work.',
+    preview: null,
+    website: 'https://handmade.tiennhm.io.vn',
+    source: null,
+    tags: ['ecommerce', 'product'],
+  },
+  {
+    title: 'Quà Lưu Niệm',
+    description: 'Souvenir storefront. Products carry region of origin, material and size, with optional name engraving and gift wrapping.',
+    preview: null,
+    website: 'https://souvenir.tiennhm.io.vn',
+    source: null,
+    tags: ['ecommerce', 'product'],
+  },
+  {
+    title: 'Pet House',
+    description: 'Pet supplies storefront. Products are filtered by target animal and age range, with packaging, ingredients and origin.',
+    preview: null,
+    website: 'https://petshop.tiennhm.io.vn',
+    source: null,
+    tags: ['ecommerce', 'product'],
+  },
+  {
+    title: 'Bếp & Phin',
+    description: 'Restaurant menu site. Dishes list portion size, cook time, spice level, dietary suitability and main ingredients so allergies are visible before ordering.',
+    preview: null,
+    website: 'https://restaurant.tiennhm.io.vn',
+    source: null,
+    tags: ['ecommerce', 'product'],
+  },
+  {
+    title: 'Showroom Ô Tô',
+    description: 'Car showroom in catalog-only mode: no cart or checkout. Prices read "contact for a quote" and enquiries go through a lead form. Listings show seats and body style.',
+    preview: null,
+    website: 'https://automotive.tiennhm.io.vn',
+    source: null,
+    tags: ['favorite', 'ecommerce', 'product'],
+    highlight: true,
+  },
+  {
+    title: 'Cửa Hàng Xe Máy',
+    description: 'Motorcycle dealership, also catalog-only. Listings show vehicle class and the licence required, and buyers pick which dealer they want to visit.',
+    preview: null,
+    website: 'https://motorcycle.tiennhm.io.vn',
+    source: null,
+    tags: ['ecommerce', 'product'],
+  },
+  {
     title: 'Simple Paint',
     description: 'A simple paint app made with Windows Forms and C#.',
     preview: 'https://res.cloudinary.com/tiennhm/image/upload/v1725682636/blog/images/simple-paint_v6xyjn.webp',
     website: 'https://tiennhm.github.io/SimplePaint',
     source: 'https://github.com/TienNHM/SimplePaint',
-    tags: ['favorite', 'courseproject'],
+    tags: ['courseproject'],
   },
   {
     title: 'TienNHM',
@@ -20,7 +123,7 @@ const PROJECTS: Project[] = [
     preview: null,
     website: 'https://github.com/TienNHM',
     source: 'https://github.com/TienNHM/TienNHM',
-    tags: ['favorite', 'personal'],
+    tags: ['personal'],
   },
   {
     title: 'Game Oggy',
@@ -28,8 +131,7 @@ const PROJECTS: Project[] = [
     preview: 'https://res.cloudinary.com/tiennhm/image/upload/v1725682014/blog/images/game-oggy_hmbx58.webp',
     website: 'https://tiennhm.github.io/OGGY/',
     source: 'https://github.com/TienNHM/OGGY',
-    tags: ['favorite', 'courseproject'],
-    highlight: true,
+    tags: ['courseproject'],
   },
   {
     title: "Artist Style Transfer CycleGAN",
@@ -115,7 +217,7 @@ const PROJECTS: Project[] = [
     preview: null,
     website: 'https://www.npmjs.com/package/create-simple-blog',
     source: 'https://github.com/TienNHM/create-simple-blog',
-    tags: ['opensource', 'favorite'],
+    tags: ['opensource'],
   },
   {
     title: 'Keylogger',
@@ -180,6 +282,51 @@ const PROJECTS: Project[] = [
     website: 'https://tiennhm.github.io/VietShop/',
     source: 'https://github.com/TienNHM/VietShop',
     tags: ['opensource', 'courseproject'],
+  },
+  {
+    title: 'Map Timeline Visualizer',
+    description: 'A browser-based tool that turns Google Maps Timeline exports into interactive visualizations: animated route replay, heatmaps, trips, places clustering, calendar view, and a yearly recap — 100% local, nothing leaves your device.',
+    preview: '/img/showcase/map-timeline-visualizer.png',
+    website: 'https://tiennhm.github.io/map-timeline-visualizer/',
+    source: 'https://github.com/TienNHM/map-timeline-visualizer',
+    tags: ['favorite', 'opensource', 'personal'],
+    highlight: true,
+  },
+  {
+    title: 'Real Estate Landing Template',
+    description: 'A Next.js + Sanity CMS landing page template for real estate marketing sites, with a lead-capture form, Telegram bot notifications, and fallback content so it runs out-of-the-box without a CMS.',
+    preview: null,
+    website: 'https://realestate-landing-template.vercel.app/',
+    // Repo riêng tư — link cũ trả 404. Vì vậy cũng KHÔNG gắn tag
+    // 'opensource': theo quy ước trong ProjectConsts.ts, tag đó đòi phải
+    // có link mã nguồn của chính website.
+    source: null,
+    tags: ['personal'],
+  },
+  {
+    title: 'TikTok Live Bar',
+    description: 'Turns a TikTok LIVE stream into an interactive 3D dance floor: viewers who gift, chat, like, or follow appear on the floor with their real TikTok avatar, lighting effects, a DJ booth, and fireworks. Built with a Node.js bridge and a Unity 6 client.',
+    preview: '/img/showcase/tiktok-live-bar.png',
+    website: 'https://ongchummo.com',
+    source: 'https://github.com/TienNHM/tiktok-live-bar',
+    tags: ['opensource', 'product'],
+  },
+  {
+    title: 'Ebooks',
+    description: 'A curated, community-contributed library of IT/CS ebooks spanning 39 topics — from algorithms and databases to AI, LLMs, and system design.',
+    preview: null,
+    website: 'https://tiennhm.github.io/ebooks/',
+    source: 'https://github.com/TienNHM/ebooks',
+    tags: ['favorite', 'opensource', 'personal'],
+    highlight: true,
+  },
+  {
+    title: 'RSS Hub',
+    description: 'A self-hosted social feed aggregator: RSSHub pulls feeds from platforms like X, YouTube, Reddit and GitHub, a Python worker dedupes and filters items, and a Telegram bot delivers them — with a Streamlit dashboard for managing subscriptions.',
+    preview: '/img/showcase/rss-hub.png',
+    website: 'https://github.com/TienNHM/rss-hub',
+    source: null,
+    tags: ['personal'],
   },
   {
     title: 'UI/UX Design Guide',

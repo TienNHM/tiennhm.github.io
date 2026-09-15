@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { Redirect, useLocation } from "@docusaurus/router";
+import ExecutionEnvironment from '@docusaurus/ExecutionEnvironment';
 
 import { auth } from "../../config/firebase-config";
 import { Login } from "../Login";
@@ -11,9 +12,14 @@ import { BASE, LOGOUT_PATH, LOGIN_PATH, PROTECTED_PATHS } from "@site/src/utils/
 
 export function AuthCheck({ children }) {
   const [user, setUser] = useState(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  // Chỉ loading trên client — SSR/SSG phải render children để metadata (og:title, og:image) có trong HTML tĩnh
+  const [authLoading, setAuthLoading] = useState(() => ExecutionEnvironment.canUseDOM);
 
   useEffect(() => {
+    if (!ExecutionEnvironment.canUseDOM) {
+      return;
+    }
+
     if (!auth) {
       setAuthLoading(false);
       return;
@@ -31,6 +37,11 @@ export function AuthCheck({ children }) {
 
   const location = useLocation();
   let from = location.pathname;
+
+  // SSR/SSG: luôn render nội dung trang cho crawler (Facebook, Google, AI agents)
+  if (!ExecutionEnvironment.canUseDOM) {
+    return children;
+  }
 
   if (authLoading) return <Loading />;
 

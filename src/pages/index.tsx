@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import clsx from 'clsx';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
+import Head from '@docusaurus/Head';
 import Layout from '@theme/Layout';
 import Image from '@theme/IdealImage';
 import HomepageFeatures from '@site/src/components/HomepageFeatures';
@@ -72,11 +73,18 @@ function HomepageHeader() {
 
 export default function Home(): JSX.Element {
   const { siteConfig } = useDocusaurusContext();
+  const siteUrl = siteConfig.url?.replace(/\/$/, '') ?? 'https://TienNHM.github.io';
+  const ogImage = `${siteUrl}/img/copyright-tiennhm.webp`;
+
   return (
     <Layout 
       title="TienNHM - Fullstack Developer Blog" 
       description="Fullstack Developer từ Việt Nam. Chia sẻ kiến thức về lập trình, công nghệ, phát triển phần mềm, tutorials và best practices cho developers."
     >
+      <Head>
+        <meta property="og:image" content={ogImage} />
+        <meta name="twitter:image" content={ogImage} />
+      </Head>
       <HomepageHeader />
       <main>
         <HomepageFeatures />
