@@ -1,9 +1,9 @@
 ---
 title: "Dựng một nền tảng CRM multi-tenant từ con số không: chuyện nghề 20 tháng"
 slug: founding-engineer-nen-tang-crm-abp-dotnet-angular
-description: "Sản phẩm đầu tiên mình được giao init và dựng từ đầu: một nền tảng CRM multi-tenant, đi demo cho nhiều ngành gần một năm rồi chuyển sang delivery thật cho khách ngành y tế, sau 20 tháng thành 18 microservice ABP/.NET 9 và 13 Angular library. Chuyện nghề kể theo mạch thời gian, có cái màn hình export bị quên phân quyền, có lần nâng Angular hỏng phải revert, có ba tháng không commit dòng nào, và một lần migration nhàm chán tới mức chẳng ai để ý là nó đã xảy ra."
-keywords: [chuyen nghe lap trinh, multi tenant, multi tenancy, abp framework, abp 9.3, dotnet 9, angular 20, primeng, microservices, bounded context, strangler fig, feature toggle, dual read, record level permission, ownership filter, ef core migration, signalr, omnichannel chat, gitops, helm, kubernetes, openiddict, yarp, architecture decision record, adr, fullstack developer, crm platform, devex, nang cap angular, monorepo, kinh nghiem lam san pham]
-tags: [career, architecture, dotnet, abp, angular, microservices, devops, product]
+description: "Sản phẩm đầu tiên mình được giao init và dựng từ đầu: một nền tảng CRM multi-tenant, đi demo cho nhiều ngành gần một năm rồi chuyển sang delivery thật cho khách ngành y tế, sau 20 tháng thành 18 microservice ABP/.NET 9 và 13 Angular library. Chuyện nghề kể theo mạch thời gian, có cái màn hình export bị quên phân quyền, có lần nâng Angular hỏng phải revert, có ba tháng bị điều sang dự án loyalty khác nên không commit dòng nào, và một lần migration nhàm chán tới mức chẳng ai để ý là nó đã xảy ra."
+keywords: [chuyen nghe lap trinh, mentor intern, dynamic filter, filter operator, eav, entity attribute value, dynamic attributes, custom fields, multi tenant, multi tenancy, abp framework, abp 9.3, dotnet 9, angular 20, primeng, microservices, bounded context, strangler fig, feature toggle, dual read, record level permission, ownership filter, ef core migration, signalr, omnichannel chat, gitops, helm, kubernetes, openiddict, yarp, architecture decision record, adr, fullstack developer, crm platform, devex, nang cap angular, monorepo, kinh nghiem lam san pham, ai driven development, cursor ide, claude code, chatgpt lap trinh, ai pair programming, coding standards]
+tags: [career, architecture, dotnet, abp, angular, microservices, devops, product, ai]
 authors: [tiennhm]
 date: 2026-09-15
 ---
@@ -13,7 +13,7 @@ import { SummaryBox, FAQSection, Checklist } from '@site/src/components/SEO';
 # Dựng một nền tảng CRM multi-tenant từ con số không
 
 <SummaryBox>
-Tháng 01/2025 mình được giao init một sản phẩm, lần đầu tiên trong nghề, là một nền tảng CRM multi-tenant mà lúc nhận thì repo còn trống trơn. Gần một năm đầu nó sống ở chế độ đi demo cho nhiều khách thuộc nhiều ngành, rồi tới gần cuối 2025 thì chốt được khách ngành y tế và chuyển sang delivery thật. Hai mươi tháng sau nó là 18 microservice trên [ABP Framework](https://abp.io/) / [.NET 9](https://learn.microsoft.com/en-us/dotnet/core/whats-new/dotnet-9) và 13 Angular library, của một team đã lớn lên tới 25 người. Bài này không phải bài kỹ thuật mà là chuyện nghề kể theo thứ tự thời gian, trong đó có cái màn hình export bị quên phân quyền, có hai tuần làm Angular xong phải revert, có ba tháng giữa năm mình không commit dòng nào, và có một lần migration nhàm chán tới mức chẳng ai để ý là nó đã xảy ra.
+Tháng 01/2025 mình được giao init một sản phẩm, lần đầu tiên trong nghề, là một nền tảng CRM multi-tenant mà lúc nhận thì repo còn trống trơn. Gần một năm đầu nó sống ở chế độ đi demo cho nhiều khách thuộc nhiều ngành, rồi tới gần cuối 2025 thì chốt được khách ngành y tế và chuyển sang delivery thật. Hai mươi tháng sau nó là 18 microservice trên [ABP Framework](https://abp.io/) / [.NET 9](https://learn.microsoft.com/en-us/dotnet/core/whats-new/dotnet-9) và 13 Angular library, của một team đã lớn lên tới 25 người. Bài này không phải bài kỹ thuật mà là chuyện nghề kể theo thứ tự thời gian, trong đó có cái màn hình export bị quên phân quyền, có hai tuần làm Angular xong phải revert, có ba tháng giữa năm mình được chuyển sang dự án loyalty khác nên không commit dòng nào, và có một lần migration nhàm chán tới mức chẳng ai để ý là nó đã xảy ra. Trong bài cũng có đoạn về kiến trúc EAV cho phép khách tự cấu hình trường dữ liệu trên portal, kèm mấy tháng mình vật lộn với performance của nó và của bộ dynamic filter nằm trên nó, đoạn kể quãng mình lần đầu làm mentor cho bốn bạn intern, và đoạn kể cách mình viết code đổi dần từ gõ tay sang dùng ChatGPT, rồi Cursor, rồi Claude.
 </SummaryBox>
 
 Ngày 14 tháng 1 năm 2025, mình mở một cái repo trống trơn mà trong đầu chẳng có gì ngoài mấy câu hỏi rất tầm thường, kiểu đặt tên solution là gì, thư mục nào để đâu, database thì chia bảng thế nào.
@@ -48,6 +48,26 @@ Nhưng rồi hai mươi tháng sau đó, cả team không một ai phải viết
 
 Cũng phải nói cho công bằng là có mấy chỗ mình đặt tên sai ngay tuần đó, và tới hôm nay cả team vẫn đang sống chung với nó, cho nên tuần đầu ảnh hưởng mạnh theo cả hai chiều chứ không riêng chiều tốt.
 
+## EAV, và mấy tháng vật lộn với performance
+
+Cái ràng buộc "không được để cứng thứ gì thuộc một ngành" ở trên thì phải có một cách làm cụ thể, và cách chúng mình chọn là [EAV, tức Entity Attribute Value](https://en.wikipedia.org/wiki/Entity%E2%80%93attribute%E2%80%93value_model).
+
+Nói đơn giản thì thay vì mỗi trường dữ liệu là một cột cứng trong database, sẽ có một bảng định nghĩa attribute và một bảng lưu giá trị, nên mỗi attribute của mỗi bản ghi là một dòng riêng. Nhờ vậy khách tự thêm trường ngay trên portal, chọn kiểu dữ liệu, đặt nhãn, quyết định nó có bắt buộc hay không, mà không cần ai viết migration hay chờ một lần deploy. Với một sản phẩm phải demo cho nhiều ngành rồi sau đó đi vào nghiệp vụ y tế thì gần như không có đường nào khác, tại mỗi khách lại cần một bộ trường riêng mà mình thì không thể đoán trước được.
+
+Chỉ là với mình lúc đó, EAV là kiến thức hoàn toàn mới. Trước đây mình chỉ làm với schema cố định, đặt cột, đặt index, xong. Nên cái giá phải trả tới rất nhanh, và mình vật lộn với nó khá lâu.
+
+Chỗ đau nhất là lọc và sắp xếp theo attribute động. Với cột cứng thì `WHERE` với `ORDER BY` là chuyện bình thường, còn ở EAV thì giá trị nằm rải trong bảng value nên mỗi điều kiện lọc lại thêm một lần join. Người dùng chỉ cần lọc ba trường rồi sắp xếp theo một trường thứ tư là câu query phình ra thấy rõ, mà đây lại là thao tác họ làm nhiều nhất chứ không phải trường hợp hiếm.
+
+Nằm ngay trên đó là bộ dynamic filter, tức chỗ cho người dùng cuối tự dựng điều kiện lọc mà không cần ai code thêm màn hình. Mình làm nó bằng `GetFilterableFields` để trả về danh sách trường lọc được, với `FilterOperatorType` cho các toán tử. Nghe thì gọn, nhưng nó gánh luôn cái chậm của EAV, tại mỗi điều kiện người dùng thêm vào đều dịch xuống thành một lần đụng bảng value nữa.
+
+Phần rắc rối thêm là tập toán tử phải đổi theo kiểu dữ liệu của từng attribute. Trường chữ thì cần chứa, bắt đầu bằng, khác rỗng. Trường số với trường ngày thì cần lớn hơn, nhỏ hơn, trong khoảng, ngoài khoảng, kèm mấy mốc tương đối kiểu trong ba mươi ngày qua. Trường chọn một hoặc chọn nhiều thì lại cần thuộc danh sách hay không thuộc danh sách. Mà attribute thì do khách tự tạo trên portal, nên không thể viết cứng bảng ánh xạ ở một chỗ rồi xong, phải để backend tự suy ra bộ toán tử hợp lệ từ kiểu dữ liệu rồi trả cho frontend dựng UI theo. Đây là chỗ mình sửa lại nhiều lần nhất, vì hễ bỏ sót một kiểu là màn hình lọc của khách hiện ra toán tử vô nghĩa.
+
+Chỗ thứ hai là màn hình danh sách với nhiều cột động. Nhìn trên giao diện thì chỉ là một trang 20 dòng, nhưng nếu mỗi dòng cần hiển thị vài chục attribute thì bên dưới là mấy trăm dòng value phải đọc lên rồi gom lại thành 20 dòng, và cái phần gom đó cũng tốn chứ không miễn phí.
+
+Thứ giúp được nhiều nhất hoá ra không phải một câu query khôn hơn, mà là cache lại metadata định nghĩa attribute. Danh sách attribute với kiểu dữ liệu của chúng thì rất ít đổi, có khi cả tuần không ai sửa, nhưng trước đó mỗi request đều đi hỏi lại từ đầu để biết cần đọc những gì và ép về kiểu nào. Cache phần đó đi thì bớt được một lượng truy vấn đáng kể, mà lại là loại lặp lại nhiều nhất trong ngày.
+
+Nói thật là mình không coi đây là bài toán đã xong hẳn. Nó vẫn là chỗ mình theo dõi kỹ nhất mỗi lần có màn hình danh sách mới, và bài học rút ra khá thẳng: EAV mua được sự linh hoạt trên portal bằng cách trả giá ở mọi câu query đọc, nên trước khi chọn nó thì phải biết mình đang đánh đổi cái gì.
+
 ## Cái màn hình export
 
 Nửa đầu 2025 là giai đoạn dựng lõi CRM, và phần lớn thời gian mình đổ vào một chuyện nghe rất buồn ngủ, là phân quyền.
@@ -69,7 +89,19 @@ Câu chốt của cả giai đoạn này thì mình đọc được ở đâu đ
 
 Cái được là từ đó về sau, mọi API viết mới đều được bảo vệ sẵn mà chẳng ai phải nhớ gì nữa, và với một codebase 25 người cùng sửa thì chuyện "không phải nhớ" hoá ra quan trọng hơn mình tưởng nhiều.
 
-Cùng giai đoạn đó còn có một dynamic filter engine (`GetFilterableFields`, `FilterOperatorType`) cho người dùng cuối tự dựng điều kiện lọc, rồi các module Lead, Account, Order, Quotation, Product Catalog, Pricebook, Ticket, Contract sinh Word/PDF và Call Log nối tổng đài. Phần này thì đúng kiểu làm CRM, không có gì kịch tính để kể.
+Cùng giai đoạn đó còn có các module Lead, Account, Order, Quotation, Product Catalog, Pricebook, Ticket, Contract sinh Word/PDF và Call Log nối tổng đài. Phần này thì đúng kiểu làm CRM, không có gì kịch tính để kể.
+
+## Giữa 2025: lần đầu làm mentor
+
+Giữa 2025 thì mình được giao mentor bốn bạn intern, và đây là việc mình không hình dung trước được là nó khó theo kiểu khác.
+
+Phần khó đầu tiên không phải giảng kiến thức, mà là chia task. Mình quen tự làm cho nhanh, nên lúc đầu ngồi giải thích một việc mất cả tiếng trong khi tự gõ chỉ mất mười lăm phút, thấy sốt ruột thật. Nhưng rồi mình nhận ra phần lớn lúc các bạn làm ra một thứ khác hẳn cái mình tưởng thì không phải các bạn làm sai, mà là do mình mô tả task chưa đủ rõ. Viết được một cái task vừa sức, có ranh giới rõ ràng và nói được cả lý do vì sao cần làm, hoá ra là một kỹ năng riêng, chẳng liên quan gì tới việc code giỏi.
+
+Phần khó thứ hai là review. Trước đó mình review kiểu chỉ ra chỗ sai rồi nói sửa lại, xong việc. Với các bạn intern thì cách đó không ăn, vì các bạn sẽ sửa đúng cái chỗ mình chỉ rồi lần sau lặp lại y hệt ở một file khác. Phải nói được vì sao chỗ đó sai và nếu làm đúng thì được gì thì mới hết, mà cái đó tốn thời gian gấp mấy lần.
+
+Rồi còn phần quản lý con người nữa, là theo tiến độ của bốn người cùng lúc, biết bạn nào đang bị kẹt mà chưa dám nói, sắp việc sao cho các bạn vừa học được thứ mới vừa không nhận một task quá sức tới mức mất tự tin. Chỗ này mình làm bằng cảm tính nhiều hơn là bằng phương pháp, và chắc cũng có lúc sắp chưa hợp.
+
+Nhìn lại thì quãng đó đổi cách mình làm việc nhiều hơn là đổi kỹ năng code. Cụ thể nhất là nó đẩy mình bắt đầu ghi mọi chuẩn ra thành tài liệu, tại tới lần thứ tư phải giải thích cùng một quy ước thì mình hiểu là nên viết xuống một lần cho xong, thay vì nói lại trong từng lần review.
 
 ## Lúc code của mình thành đồ dùng chung
 
@@ -136,7 +168,9 @@ SignalR chạy một instance thì đẹp như demo, nên mình viết nghiệp 
 
 Chỗ này mình để trong bài có chủ ý, tại nếu chỉ kể phần đẹp thì bài này thành tờ quảng cáo.
 
-Khoảng tháng 5 tới tháng 7 năm 2026, mình gần như không commit vào repo này, cả quãng đó đúng một commit, vì lúc ấy mình làm việc khác. Cho nên trong CV mình ghi "01/2025 – nay" chứ không ghi "20 tháng liên tục", hai cách viết đó khác nhau và ai chịu mở `git log` ra xem thì cũng sẽ thấy khác nhau.
+Khoảng tháng 5 tới tháng 7 năm 2026, mình gần như không commit vào repo này, cả quãng đó đúng một commit. Không phải vì hết việc hay ngồi chơi, mà là mình được chuyển sang một dự án khác về loyalty một thời gian, rồi sau đó mới quay lại. Cho nên trong CV mình ghi "01/2025 – nay" chứ không ghi "20 tháng liên tục", hai cách viết đó khác nhau và ai chịu mở `git log` ra xem thì cũng sẽ thấy khác nhau.
+
+Mà nhìn lại thì quãng đi làm loyalty đó lại có ích cho việc quay về, vì sang một sản phẩm khác mới thấy rõ những quy ước nào của mình là hợp lý thật, còn những chỗ nào chỉ là do mình quen tay rồi tưởng là chuẩn.
 
 Mình kể chuyện này vì nó dính tới một thói quen giữ khá chặt, là chỉ dùng những con số mà mình dám bị hỏi ngược.
 
@@ -183,6 +217,22 @@ Kết quả là không downtime, không big-bang deploy, và cũng không ai ph�
 Chẳng ai để ý là nó đã xảy ra, mà đó mới là chỗ mình thích. Sau vụ Angular tháng 11 thì mình hiểu ra thứ mình cần không phải làm nhanh hơn, mà là lúc nào cũng còn một nút để quay lại. Kiểu migration này khó khoe vì nhìn vào chẳng có gì ly kỳ, nhưng mình vẫn nghĩ nó là việc làm tử tế nhất trong hai mươi tháng.
 
 Cùng quý đó mình cũng dựng lại một service khác theo layout [ABP single-layer](https://abp.io/docs/latest/solution-templates/single-layer-web-application), đổi namespace toàn bộ rồi phục hồi pipeline build cho nó, nhưng việc này thì buồn ngủ thật, không có gì kể.
+
+## Cách mình viết code đổi hẳn trong hai mươi tháng đó
+
+Có một thứ đổi âm thầm suốt cả quãng này mà nhìn vào `git log` thì không thấy, là cách mình viết ra code.
+
+Đầu 2025 thì mình gõ tay hết. Có dùng [ChatGPT](https://chatgpt.com/) nhưng chỉ ở mức tra cứu, kiểu hỏi cú pháp hay nhờ giải thích một cái stack trace, xong tự gõ lại vào project. Nó tiện hơn Google một chút chứ chưa đổi được gì về cách làm việc, tại nó không biết codebase của mình trông ra sao.
+
+Bước đổi thật là lúc chuyển sang [Cursor](https://cursor.com/), vì tự nhiên AI đọc được context của cả repo. Code nó gợi ý bắt đầu hợp với quy ước sẵn có thay vì ra một đoạn chung chung phải sửa lại từ đầu. Với một monorepo 18 service mà mỗi service có cách bố trí giống nhau thì cái này ăn tiền, nhất là mấy việc lặp đi lặp lại như thêm một entity kèm đủ bộ application service, DTO, permission và migration.
+
+Sau đó mình chuyển sang [Claude](https://claude.ai/), lúc đầu là bản standard rồi lên bản premium khi thấy đụng trần giới hạn hơi nhiều. Điều mình đánh giá cao ở giai đoạn này không phải tốc độ gõ, mà là chất lượng đồng đều hơn. Trước đó thì code mình viết lúc tỉnh táo với lúc chạy deadline chênh nhau thấy rõ, còn giờ thì cái sàn chất lượng được giữ ổn định hơn, kể cả mấy hôm mệt.
+
+Chỗ này nối thẳng với bộ rule engineering mà mình kể ở dưới. Mấy chuẩn kiểu comment ngắn gọn, cách viết .NET service, cách khai báo permission, ban đầu mình viết ra để nhắc người trong team, nhưng về sau chúng thành thứ để nói cho AI biết dự án này làm theo lối nào. Viết rule một lần rồi AI cứ thế áp, hoá ra hiệu quả hơn hẳn việc mình đi nhắc lại trong từng lần review. Và đúng lúc team đông lên với quy trình siết lại thì cái đó càng quan trọng, vì giữ cho code của nhiều người trông như của một người là việc rất khó làm bằng tay.
+
+Tất nhiên là có chỗ mình không giao cho AI. Phân quyền, migration dữ liệu, mấy đoạn đụng tới tenant thì vẫn tự đọc kỹ từng dòng, vì đó là những chỗ sai một cái là ảnh hưởng người dùng thật chứ không phải chỉ đỏ cái build. Nói chung mình xem nó như một người mới vào team: làm được nhiều việc, nhanh, nhưng review vẫn là phần của mình.
+
+Mình có viết kỹ hơn về chủ đề này trong [loạt bài AI-Driven Development](/blog/phat-trien-phan-mem-ai-driven-development), còn ở đây chỉ kể phần dính tới dự án.
 
 ## Những việc không ai giao
 
@@ -236,6 +286,10 @@ Còn revert thì nên revert sớm, cái này mình trả học phí bằng đú
     {
       question: "Làm sản phẩm multi-tenant thì quyết định nào phải chốt sớm nhất?",
       answer: "Là cách tách dữ liệu theo tenant, và phải chốt ngay từ cái bảng đầu tiên vì chắp vá sau thì rất đắt. Framework như ABP lo được phần khung multi-tenancy, còn những thứ riêng của sản phẩm thì vẫn phải tự thiết kế, gồm cấu hình theo từng tenant, phân quyền theo cơ sở và các trường dữ liệu tuỳ biến. Kèm theo đó là một ràng buộc phải giữ suốt dự án, là không để cứng bất cứ thứ gì thuộc về một ngành cụ thể, nên tên trường, luồng nghiệp vụ hay nhãn hiển thị đều phải cấu hình được."
+    },
+    {
+      question: "Dùng kiến trúc EAV cho dynamic attributes thì chậm ở đâu?",
+      answer: "Hai chỗ đau nhất theo trải nghiệm của mình. Một là lọc và sắp xếp theo attribute động, vì giá trị nằm rải trong bảng value nên mỗi điều kiện lọc lại thêm một lần join, người dùng chỉ cần lọc ba trường rồi sắp xếp theo trường thứ tư là query phình ra thấy rõ. Hai là màn hình danh sách nhiều cột động, nhìn trên giao diện chỉ là một trang 20 dòng nhưng bên dưới là mấy trăm dòng value phải đọc lên rồi gom lại. Thứ giúp được nhiều nhất hoá ra không phải một câu query khôn hơn mà là cache lại metadata định nghĩa attribute, vì danh sách attribute với kiểu dữ liệu của chúng rất ít đổi nhưng trước đó mỗi request đều đi hỏi lại từ đầu."
     },
     {
       question: "Sản phẩm chuyển từ giai đoạn đi demo sang delivery thật thì đổi những gì?",
