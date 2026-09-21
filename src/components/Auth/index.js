@@ -38,6 +38,20 @@ export function AuthCheck({ children }) {
   const location = useLocation();
   let from = location.pathname;
 
+  // Chỉ 5 đường dẫn cần xác thực. Với mọi trang còn lại (blog, docs, trang chủ)
+  // thoát sớm và trả thẳng children.
+  //
+  // Vì sao quan trọng: trước đây SSR trả về children còn lần render đầu ở client
+  // lại trả <Loading /> (do authLoading khởi tạo bằng canUseDOM === true). Hai
+  // cây khác nhau ở cùng một lần hydrate => React báo lỗi #418/#423, vứt toàn bộ
+  // HTML dựng sẵn từ server và render lại từ đầu bằng client. Tức là mọi trang
+  // trên site đều mất lợi ích của SSG và tốn thêm một lượt render.
+  const needsAuth =
+    from === LOGIN_PATH || PROTECTED_PATHS.some((x) => from.includes(x));
+  if (!needsAuth) {
+    return children;
+  }
+
   // SSR/SSG: luôn render nội dung trang cho crawler (Facebook, Google, AI agents)
   if (!ExecutionEnvironment.canUseDOM) {
     return children;

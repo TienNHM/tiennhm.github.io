@@ -14,6 +14,18 @@ const { authorProfile } = require('./src/data/authorProfile');
 const organizationName = "TienNHM";
 const projectName = "tiennhm.github.io"; // tên repo GitHub, không phải domain
 const siteUrl = "https://tiennhm.io.vn"; // domain chính thức (canonical)
+
+// Search chỉ bật khi có đủ credential thật từ biến môi trường.
+const algoliaConfig =
+    process.env.ALGOLIA_APP_ID && process.env.ALGOLIA_API_KEY
+        ? {
+              appId: process.env.ALGOLIA_APP_ID,
+              apiKey: process.env.ALGOLIA_API_KEY,
+              indexName: process.env.ALGOLIA_INDEX_NAME || 'tiennhmio',
+              contextualSearch: true,
+              insights: true,
+          }
+        : undefined;
 const footerLinks = [
     {
         title: 'Docs',
@@ -201,15 +213,6 @@ const config = {
             }
         },
         */
-        {
-            tagName: 'link',
-            attributes: {
-                rel: 'preload',
-                as: 'image',
-                href: '/img/background/cat-sunset-city-min.webp',
-                fetchpriority: 'high',
-            }
-        },
         {
             tagName: 'link',
             attributes: {
@@ -409,7 +412,9 @@ const config = {
         [
             '@docusaurus/plugin-pwa',
             {
-                debug: true,
+                // Bật log chỉ khi chạy dev. Để true ở production thì mọi khách
+                // truy cập đều thấy một loạt log [Docusaurus-PWA] trong console.
+                debug: process.env.NODE_ENV !== 'production',
                 offlineModeActivationStrategies: [
                     'appInstalled',
                     'standalone',
@@ -533,16 +538,18 @@ const config = {
                         'TienNHM, Nguyễn Huỳnh Minh Tiến, fullstack developer, .NET, ASP.NET Core, ABP Framework, Angular, microservices, database, AI-driven development',
                 },
             ],
-            algolia: {
-                // The application ID provided by Algolia
-                appId: process.env.ALGOLIA_APP_ID || 'GR7L3OTLFL',
-                // Public API key: it is safe to commit it
-                apiKey: process.env.ALGOLIA_API_KEY || 'KahpusCmJyTWNzsOBu_IjSN9SlluR7BH6lq4SnfsFsQ',
-                indexName: process.env.ALGOLIA_INDEX_NAME || 'tiennhmio',
-                contextualSearch: true,
-                insights: true,
-
-            },
+            // Chỉ khai báo Algolia khi có đủ credential thật.
+            //
+            // Trước đây apiKey fallback về 'Kahpus...FsQ' — đúng là chuỗi token
+            // google-site-verification ở headTags phía trên, bị copy nhầm sang.
+            // CI không truyền biến môi trường nào nên production luôn dùng giá
+            // trị fallback đó, khiến mọi request search trả 403 Invalid
+            // Application-ID or API key. Thà không có ô search còn hơn có một ô
+            // search hỏng: bỏ hẳn fallback thay vì đoán một key khác.
+            //
+            // Đặt ALGOLIA_APP_ID / ALGOLIA_API_KEY / ALGOLIA_INDEX_NAME trong
+            // GitHub Actions secrets (xem .github/workflows/deploy.yml) để bật lại.
+            ...(algoliaConfig ? { algolia: algoliaConfig } : {}),
             mermaid: {
                 theme: { light: 'neutral', dark: 'dark' },
             },
