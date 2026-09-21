@@ -1,7 +1,7 @@
 ---
-title: "Đọc bộ tài liệu .NET Backend Zero → Senior theo thứ tự nào: 5 giai đoạn, 19 module và những chỗ hay tắc"
+title: "Học .NET backend bắt đầu từ đâu? Lộ trình 5 giai đoạn, 19 module"
 slug: lo-trinh-dotnet-backend-zero-to-senior
-description: "Hướng dẫn điều hướng bộ tài liệu .NET Backend Zero → Senior trên site: 5 giai đoạn, 19 module, 3 project và 1 final project. Bài viết giải thích từng giai đoạn mở khoá năng lực gì, giai đoạn nào là điều kiện tiên quyết của giai đoạn nào, và những module thường khiến người học tắc lại. Mọi nội dung đều dẫn thẳng tới trang tài liệu tương ứng."
+description: "Lộ trình .NET backend gồm 5 giai đoạn, 19 module, 3 project và 1 final project, xếp theo quan hệ phụ thuộc chứ không theo độ phổ biến của chủ đề. Bài viết nói rõ xong mỗi giai đoạn thì làm được gì, giai đoạn nào bắt buộc trước giai đoạn nào, và bốn module người học hay tắc lại nhất."
 keywords: [lo trinh dotnet backend, hoc dotnet tu dau, roadmap dotnet backend tieng viet, dotnet zero to senior, hoc csharp tu co ban den nang cao, aspnet core roadmap, lo trinh backend developer, entity framework core, ef core n+1, service lifetimes dependency injection, async await csharp, jwt authentication aspnet core, signalr real time, sql server indexing, clean architecture dotnet, vertical slice architecture, outbox pattern, microservices dotnet, benchmarkdotnet, performance engineering, docker aspnet core, github actions ci cd, hangfire background jobs, redis distributed cache, hybridcache, crm backend api, hoc backend co lo trinh, dotnet backend learning path, csharp learning roadmap vietnamese, tai lieu dotnet tieng viet]
 tags: [dotnet, csharp, aspnetcore, backend, architecture, microservices, performance, roadmap, docs]
 authors: [tiennhm]
@@ -10,7 +10,7 @@ date: 2026-09-21
 
 import { SummaryBox, FAQSection } from '@site/src/components/SEO';
 
-# Đọc bộ tài liệu .NET Backend Zero → Senior theo thứ tự nào
+# Học .NET backend bắt đầu từ đâu?
 
 <SummaryBox>
 Bộ tài liệu [.NET Backend: Zero → Senior](/docs/dotnet-backend-zero-to-senior) trên site gồm 5 giai đoạn, 19 module, 3 project trung gian và 1 final project, tất cả neo vào một miền nghiệp vụ duy nhất là CRM. Bài này là bản đồ đọc: mỗi giai đoạn mở khoá năng lực gì, giai đoạn nào bắt buộc phải xong trước giai đoạn nào, nhịp đọc gợi ý theo tuần, và bốn module mà người học hay tắc lại nhất kèm lý do.

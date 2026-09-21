@@ -1,7 +1,7 @@
 ---
-title: "Học web security bằng cách tự tay tấn công một app cố tình lỗ hổng: đọc bộ lab WebGoat theo thứ tự nào"
+title: "Học web security từ đâu? 30 bài lab WebGoat theo nhóm OWASP"
 slug: hoc-web-security-qua-webgoat
-description: "Bộ tài liệu WebGoat trong docs gồm 30 bài lab, trải trên WebGoat 7 và WebGoat 2023.8. Bài này vẽ lại bản đồ của series đó theo các nhóm OWASP mà nó thực sự chạm tới - Injection Flaws, Broken Access Control và Security Misconfiguration - rồi đề xuất một thứ tự đọc hợp lý, chỗ nào là tiền đề của chỗ nào, và những hiểu lầm hay gặp ở từng phần."
+description: "30 bài lab WebGoat trên WebGoat 7 và WebGoat 2023.8, sắp lại theo ba nhóm OWASP mà chúng thực sự chạm tới: Injection Flaws, Broken Access Control và Security Misconfiguration. Kèm thứ tự nên làm, bài nào là tiền đề của bài nào, và những hiểu lầm hay gặp ở từng nhóm."
 keywords: [hoc web security, webgoat, webgoat 2023.8, webgoat 7, owasp top 10, broken access control, idor, insecure direct object references, missing function level access control, session hijacking, spoofing authentication cookie, xxe, xml external entity, security misconfiguration, injection flaws, command injection, numeric sql injection, log spoofing, burp suite, zap proxy, webwolf, blind xxe, billion laughs, lab bao mat web, tan cong ung dung web, an toan thong tin, appsec]
 tags: [web-security, webgoat, owasp, broken-access-control, xxe, injection-flaws]
 authors: [tiennhm]
@@ -10,7 +10,7 @@ date: 2026-09-21
 
 import { SummaryBox, FAQSection } from '@site/src/components/SEO';
 
-# Học web security bằng cách tự tay tấn công một app cố tình lỗ hổng: đọc bộ lab WebGoat theo thứ tự nào
+# Học web security từ đâu?
 
 <SummaryBox>
 [Bộ tài liệu WebGoat](/docs/web-security) trong docs gồm 30 bài lab trải trên hai phiên bản: WebGoat 7 với nhóm Injection Flaws, và WebGoat 2023.8 tổ chức theo OWASP với hai nhóm A1 - Broken Access Control và A5 - Security Misconfiguration. Bài viết này không thêm bài lab mới, mà vẽ lại bản đồ của series: nó thực sự phủ được những lớp lỗ hổng nào, đâu là chỗ nên bắt đầu, phần nào là tiền đề cho phần nào, và những hiểu lầm hay gặp ở từng chặng. Mục tiêu là để bạn biết mình đang học gì trước khi mở từng trang.
