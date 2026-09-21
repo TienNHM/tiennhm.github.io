@@ -26,3 +26,6 @@ export type { ArticleStructuredDataProps } from './ArticleStructuredData';
 
 export { HowToStructuredData } from './HowToStructuredData';
 export type { HowToStep, HowToStructuredDataProps } from './HowToStructuredData';
+
+export { ProfilePageStructuredData } from './ProfilePageStructuredData';
+export type { ProfilePageStructuredDataProps } from './ProfilePageStructuredData';
