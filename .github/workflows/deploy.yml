@@ -14,6 +14,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          # Lấy toàn bộ lịch sử git: Docusaurus dùng `git log` để suy ra
+          # "last update time" cho docs và blog (showLastUpdateTime).
+          # Với shallow clone mặc định (depth=1) mọi file sẽ có cùng một ngày
+          # là ngày commit deploy => dateModified trong JSON-LD sẽ sai toàn bộ.
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v3

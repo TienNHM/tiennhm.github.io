@@ -7,6 +7,10 @@ require('dotenv').config({ path: `.env.local`, override: true });
 const lightCodeTheme = require('prism-react-renderer').themes.github;
 const darkCodeTheme = require('prism-react-renderer').themes.dracula;
 
+// Hồ sơ tác giả dùng chung cho JSON-LD (site-wide @graph + ProfilePage ở /about).
+// Xem src/data/authorProfile.js để biết vì sao từng mục knowsAbout có mặt ở đó.
+const { authorProfile } = require('./src/data/authorProfile');
+
 const organizationName = "TienNHM";
 const projectName = "tiennhm.github.io"; // tên repo GitHub, không phải domain
 const siteUrl = "https://tiennhm.io.vn"; // domain chính thức (canonical)
@@ -253,12 +257,10 @@ const config = {
                         // url: `https://${organizationName}.github.io/`,
                         url: `${siteUrl}/`,
                         image: 'https://github.com/TienNHM.png',
-                        sameAs: [
-                            'https://github.com/TienNHM',
-                            'https://www.linkedin.com/in/tien-nhm',
-                            'https://www.youtube.com/TienNguyen09',
-                            'https://g.dev/TienNHM',
-                        ],
+                        sameAs: authorProfile.sameAs,
+                        // Các chủ đề chuyên môn — chỉ liệt kê thứ THỰC SỰ có nội dung
+                        // trên docs/ hoặc blog/. Nguồn: src/data/authorProfile.js
+                        knowsAbout: authorProfile.knowsAbout,
                     },
                     {
                         '@type': 'WebSite',
@@ -328,6 +330,14 @@ const config = {
                 },
                 blog: {
                     showReadingTime: true,
+                    // Bật để metadata.lastUpdatedAt của blog post có dữ liệu thật,
+                    // nhờ đó `dateModified` trong JSON-LD BlogPosting phản ánh đúng
+                    // lần sửa gần nhất thay vì luôn copy lại datePublished.
+                    // Nguồn dữ liệu: frontmatter `last_update` nếu bài viết khai báo,
+                    // nếu không thì commit git cuối cùng chạm vào file.
+                    // LƯU Ý: cần checkout đủ lịch sử git (fetch-depth: 0) trong CI,
+                    // xem .github/workflows/deploy.yml.
+                    showLastUpdateTime: true,
                     // Please change this to your repo.
                     // Remove this to remove the "edit this page" links.
                     editUrl: `https://github.com/${organizationName}/${projectName}/tree/master`,
@@ -506,7 +516,22 @@ const config = {
                 additionalLanguages: ['powershell', 'bash', 'csharp', 'java', 'sql', 'python', 'json', 'git', 'csv', 'sass', 'scss', 'log', 'http', 'diff', 'prolog'],
             },
             metadata: [
-                { name: 'keywords', content: 'TienNHM, Nguyễn Huỳnh Minh Tiến, blog, coding, tools' },
+                /*
+                 * KIỂM CHỨNG: thẻ này KHÔNG ghi đè keywords của từng trang.
+                 * theme-classic render `themeConfig.metadata` trong SiteMetadata,
+                 * còn mỗi trang render PageMetadata riêng; react-helmet gộp theo
+                 * `name` và ưu tiên khai báo của trang. Đã đối chiếu HTML build:
+                 *   /about, /docs/**, /blog/** đều hiện keywords từ frontmatter,
+                 *   chỉ trang chủ và các trang list (không có frontmatter keywords)
+                 *   mới rơi về giá trị dưới đây.
+                 * => Giữ lại làm fallback, nhưng thay chuỗi vô nghĩa
+                 *    ("blog, coding, tools") bằng các chủ đề thật sự có nội dung.
+                 */
+                {
+                    name: 'keywords',
+                    content:
+                        'TienNHM, Nguyễn Huỳnh Minh Tiến, fullstack developer, .NET, ASP.NET Core, ABP Framework, Angular, microservices, database, AI-driven development',
+                },
             ],
             algolia: {
                 // The application ID provided by Algolia
