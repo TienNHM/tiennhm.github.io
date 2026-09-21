@@ -5,7 +5,7 @@ authors: [tiennhm]
 tags: [database, dbml, schema, documentation, tools]
 ---
 
-import { SummaryBox } from '@site/src/components/SEO';
+import { SummaryBox, FAQSection } from '@site/src/components/SEO';
 
 # Giới thiệu DBML - Database Markup Language
 
@@ -344,6 +344,31 @@ DBML là một công cụ mạnh mẽ và linh hoạt cho việc quản lý data
 Việc áp dụng DBML vào dự án không chỉ giúp cải thiện chất lượng code mà còn tăng hiệu quả làm việc của team, đặc biệt trong các dự án có database schema phức tạp.
 
 Bạn có thể bắt đầu sử dụng DBML ngay hôm nay bằng cách truy cập [dbdiagram.io](https://dbdiagram.io) để tạo sơ đồ đầu tiên của mình!
+
+<FAQSection
+  items={[
+    {
+      question: "DBML là gì?",
+      answer: "DBML (Database Markup Language) là một ngôn ngữ DSL mã nguồn mở được thiết kế để định nghĩa và tài liệu hóa các cấu trúc, lược đồ cơ sở dữ liệu. Cú pháp của DBML đơn giản, nhất quán và dễ đọc hơn so với việc viết SQL DDL truyền thống."
+    },
+    {
+      question: "DBML có phụ thuộc vào hệ quản trị cơ sở dữ liệu nào không?",
+      answer: "Không. DBML không phụ thuộc vào bất kỳ hệ quản trị cơ sở dữ liệu cụ thể nào như MySQL, PostgreSQL hay SQL Server, nên có thể sử dụng linh hoạt trong nhiều môi trường khác nhau."
+    },
+    {
+      question: "Định nghĩa quan hệ giữa các bảng trong DBML như thế nào?",
+      answer: "Dùng từ khóa Ref. Quan hệ một-nhiều viết dạng: Ref: posts.user_id > users.id. Quan hệ một-một dùng dấu gạch ngang: Ref: user_profiles.user_id - users.id. Quan hệ nhiều-nhiều được mô tả qua một bảng trung gian với hai Ref trỏ tới hai bảng gốc."
+    },
+    {
+      question: "Có những công cụ nào hỗ trợ DBML?",
+      answer: "dbdiagram.io là công cụ trực tuyến miễn phí vẽ sơ đồ ER từ mã DBML và export sang PNG, PDF, SQL. dbdocs.io tạo tài liệu cơ sở dữ liệu tự động từ mã DBML. DBML CLI chuyển đổi giữa SQL và DBML, import từ database hiện có và tích hợp với CI/CD pipeline. Ngoài ra còn có extension cho Visual Studio Code với syntax highlighting và preview sơ đồ."
+    },
+    {
+      question: "Vì sao DBML phù hợp với việc quản lý phiên bản mã nguồn?",
+      answer: "Vì DBML là text-based nên rất phù hợp với hệ thống quản lý phiên bản, giúp theo dõi thay đổi schema hiệu quả, dễ dàng track changes và rollback khi cần, đồng thời giữ cho tài liệu database luôn được cập nhật."
+    }
+  ]}
+/>
 
 ---
 

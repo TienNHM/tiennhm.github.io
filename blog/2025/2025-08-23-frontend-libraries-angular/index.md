@@ -10,7 +10,7 @@ enableComments: true
 draft: false
 ---
 
-import { SummaryBox } from '@site/src/components/SEO';
+import { SummaryBox, FAQSection } from '@site/src/components/SEO';
 
 <p align="right">
     <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2FTienNHM.github.io%2Fblog%2Ffrontend-libraries-angular&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
@@ -585,6 +585,31 @@ Việc lựa chọn thư viện UI phù hợp cho Angular phụ thuộc vào nhi
 - [PrimeNG Documentation](https://primefaces.org/primeng/)
 - [Angular Material](https://material.angular.io/)
 - [Tailwind CSS Documentation](https://tailwindcss.com/docs)
+
+<FAQSection
+  items={[
+    {
+      question: "Nên chọn thư viện UI nào cho dự án Angular?",
+      answer: "Theo khuyến nghị trong bài: Bootstrap là lựa chọn an toàn cho dự án nhỏ và MVP; Ant Design phù hợp cho ứng dụng doanh nghiệp; PrimeNG tốt cho dự án cần nhiều component; Angular Material lý tưởng khi theo thiết kế Material Design; Tailwind CSS tuyệt vời cho dự án cần tùy chỉnh cao."
+    },
+    {
+      question: "Thư viện UI nào nhẹ nhất về kích thước bundle?",
+      answer: "Theo bảng so sánh kích thước bundle (gzip) trong bài, Tailwind CSS nhẹ nhất với khoảng 15 KB, tiếp đến là Bootstrap 40 KB, Angular Material 60 KB, Ant Design 75 KB, và nặng nhất là PrimeNG với khoảng 95 KB."
+    },
+    {
+      question: "PrimeNG và Ant Design khác nhau ra sao?",
+      answer: "PrimeNG có hơn 80 component, nhiều theme có sẵn và được tối ưu hóa cho Angular, phù hợp dự án enterprise cần UI phức tạp. Ant Design (dùng qua ng-zorro-antd) là design system của Alibaba với hơn 60 component, mạnh về giao diện doanh nghiệp, đa ngôn ngữ và accessibility. Cả hai đều có bundle khá nặng và khó tùy chỉnh sâu."
+    },
+    {
+      question: "Tailwind CSS có thay thế được thư viện component không?",
+      answer: "Không hoàn toàn. Tailwind là utility-first CSS framework cho phép kiểm soát hoàn toàn thiết kế và chỉ include CSS cần thiết, nhưng nhược điểm là không có component sẵn có, HTML dễ trở nên dài và khó đọc, đồng thời team cần kỹ năng thiết kế tốt."
+    },
+    {
+      question: "Làm sao giảm kích thước bundle khi dùng thư viện UI trong Angular?",
+      answer: "Chỉ import đúng module cần dùng để tận dụng tree shaking, ví dụ import MatButtonModule và MatCardModule thay vì import toàn bộ thư viện, đồng thời áp dụng lazy loading cho các feature module."
+    }
+  ]}
+/>
 
 ---
 

@@ -7,7 +7,7 @@ authors: [tiennhm]
 date: 2025-08-23
 ---
 
-import { SummaryBox } from '@site/src/components/SEO';
+import { SummaryBox, FAQSection } from '@site/src/components/SEO';
 
 # Giới thiệu RabbitMQ - Message Broker mạnh mẽ với ví dụ .NET 8
 
@@ -373,6 +373,31 @@ Trong bài viết này, chúng ta đã tìm hiểu:
 - [AMQP Protocol](https://www.amqp.org/)
 
 Trên đây là một số ví dụ cơ bản về RabbitMQ và cách sử dụng nó trong ứng dụng .NET 8, hy vọng bạn thấy hữu ích.
+
+<FAQSection
+  items={[
+    {
+      question: "RabbitMQ là gì?",
+      answer: "RabbitMQ là một open-source message broker (còn gọi là message queue) được phát triển bởi Rabbit Technologies. Nó hỗ trợ nhiều messaging protocol như AMQP, MQTT, STOMP và HTTP thông qua các plugin, thường được dùng trong kiến trúc microservices để xử lý message bất đồng bộ."
+    },
+    {
+      question: "Producer, Consumer, Queue, Exchange, Binding và Routing Key khác nhau thế nào?",
+      answer: "Producer là ứng dụng gửi message, Consumer là ứng dụng nhận và xử lý message, Queue là nơi lưu trữ message. Exchange nhận message từ producer và định tuyến đến queue, Binding là quy tắc kết nối exchange với queue, còn Routing Key là khóa để exchange định tuyến message."
+    },
+    {
+      question: "Cài đặt RabbitMQ nhanh nhất bằng cách nào?",
+      answer: "Cách được khuyến nghị là dùng Docker với lệnh: docker run -d --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3-management. Sau khi chạy, truy cập RabbitMQ Management UI tại http://localhost:15672 với username và password mặc định là guest/guest."
+    },
+    {
+      question: "Làm sao để message không bị mất khi RabbitMQ khởi động lại?",
+      answer: "Khai báo queue với durable là true để queue được lưu trữ, đồng thời đặt thuộc tính Persistent là true cho message khi publish. Ngoài ra nên tắt auto-ack bằng autoAck false và tự gọi BasicAck sau khi xử lý xong, dùng BasicNack với requeue khi xử lý thất bại."
+    },
+    {
+      question: "Message xử lý thất bại thì đi đâu?",
+      answer: "Bạn có thể cấu hình Dead Letter Exchange: khai báo một exchange riêng (ví dụ dlx), rồi khai báo queue chính với arguments x-dead-letter-exchange và x-dead-letter-routing-key để message lỗi được chuyển sang đó."
+    }
+  ]}
+/>
 
 ## 🚀 Source Code Mẫu
 
