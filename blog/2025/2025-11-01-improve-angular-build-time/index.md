@@ -460,7 +460,7 @@ Với build time 52 phút, mỗi lần hotfix là một cơn ác mộng. Stakeho
     },
     {
       question: "Build nhanh hơn thì bundle size có bị tăng không?",
-      answer: "Không. Trong trường hợp được chia sẻ ở bài viết, bundle size giữ nguyên sau khi migrate nên không có trade-off về chất lượng output. Dù vậy vẫn nên so sánh bundle size trước và sau khi migrate để chắc chắn không tăng đột biến."
+      answer: "Bài viết này chỉ đo build time chứ không đo bundle size, nên không có số liệu cụ thể để khẳng định. Về mặt cơ chế thì Application Builder có tree-shaking chính xác hơn và code splitting tự động nên bundle không có lý do gì phải phình ra. Dù vậy đây là suy luận chứ không phải số đo, nên vẫn nên tự so sánh bundle size trước và sau khi migrate."
     },
     {
       question: "Kết quả cụ thể đo được sau khi migrate là bao nhiêu?",
