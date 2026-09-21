@@ -26,7 +26,7 @@ const PROJECTS: Project[] = [
     tags: ['favorite', 'courseproject'],
     highlight: true,
   },
-  // --- WooIndustry: 9 cửa hàng demo theo ngành ---------------------------
+  // --- WooIndustry: 10 site demo theo ngành ------------------------------
   // Cùng một bộ mã nguồn (theme cha + plugin lõi), mỗi ngành chỉ khác child
   // theme và file config khai trường dữ liệu riêng. Mô tả dưới đây lấy đúng
   // các trường đó chứ không viết chung chung.
@@ -107,6 +107,15 @@ const PROJECTS: Project[] = [
     website: 'https://motorcycle.tiennhm.io.vn',
     source: null,
     tags: ['ecommerce', 'product'],
+  },
+  {
+    title: 'An Khang Land',
+    description: 'Real-estate agency site, catalog-only like the vehicle ones. Each listing carries area, bedrooms, aspect, floor or lot, furnishing, legal status and handover date; prices with no public figure read "contact for the price list". Each development also gets its own landing page — key figures, location map with travel times, on-site amenities, a per-unit price table pulled from the catalogue, payment stages, construction milestones and an enquiry form.',
+    preview: null,
+    website: 'https://realestate.tiennhm.io.vn',
+    source: null,
+    tags: ['favorite', 'ecommerce', 'product'],
+    highlight: true,
   },
   {
     title: 'Simple Paint',
