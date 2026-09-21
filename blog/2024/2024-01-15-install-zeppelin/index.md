@@ -5,7 +5,7 @@ authors: [tiennhm]
 tags: [apache, zeppelin, installation, tutorial, windows]
 enableComments: true # for Gisqus comments, set to true
 draft: false # set to true to hide this post from the site
-image: ./images/zeppelin-spark.png
+image: /img/blogs/zeppelin-spark.png
 ---
 
 import { SummaryBox } from '@site/src/components/SEO';

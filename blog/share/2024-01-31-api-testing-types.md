@@ -5,7 +5,7 @@ authors: [tiennhm]
 tags: [api, testing, types]
 enableComments: true # for Gisqus comments, set to true
 draft: false # set to true to hide this post from the site
-image: ./images/api-testing-types.gif
+image: /img/blogs/api-testing-types.gif
 ---
 
 import { SummaryBox } from '@site/src/components/SEO';
