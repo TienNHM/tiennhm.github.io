@@ -10,7 +10,7 @@ enableComments: true
 draft: false
 ---
 
-import { SummaryBox } from '@site/src/components/SEO';
+import { SummaryBox, FAQSection } from '@site/src/components/SEO';
 
 <p align="right">
     <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2FTienNHM.github.io%2Fblog%2Fimprove-angular-build-time&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
@@ -443,6 +443,31 @@ Với build time 52 phút, mỗi lần hotfix là một cơn ác mộng. Stakeho
 - 🧪 **Test kỹ lưỡng** trên staging trước khi deploy production
 - 📊 **Monitor metrics**: Theo dõi build time và bundle size sau khi migrate
 - 💬 **Share với team**: Nếu bạn thấy hiệu quả, hãy share với team để mọi người cùng benefit!
+
+<FAQSection
+  items={[
+    {
+      question: "Application Builder khác gì so với Browser Builder?",
+      answer: "Browser Builder (@angular-devkit/build-angular:browser) dựa trên Webpack với nhiều plugin và loader, build qua nhiều bước nên chậm với project lớn. Application Builder (@angular-devkit/build-angular:application) được thiết kế lại từ Angular 17+, dùng esbuild viết bằng Go cùng kiến trúc kiểu Vite, có caching thông minh hơn, tree-shaking và code splitting hiệu quả hơn."
+    },
+    {
+      question: "Migrate sang Application Builder có phải sửa code không?",
+      answer: "Không. Chỉ cần sửa file angular.json: đổi builder từ browser sang application, đổi option main thành browser, và chuyển polyfills từ chuỗi đơn sang mảng. Không cần thay đổi source code hay migrate dependencies phức tạp."
+    },
+    {
+      question: "Cần Angular phiên bản nào để dùng Application Builder?",
+      answer: "Application Builder có từ Angular 17 trở lên, tốt nhất là từ Angular 18 như project trong bài. Ngoài ra cần kiểm tra các thư viện đang dùng có tương thích không, và nếu project có custom webpack config thì phải điều chỉnh hoặc bỏ đi vì Application Builder không dùng Webpack nữa."
+    },
+    {
+      question: "Build nhanh hơn thì bundle size có bị tăng không?",
+      answer: "Không. Trong trường hợp được chia sẻ ở bài viết, bundle size giữ nguyên sau khi migrate nên không có trade-off về chất lượng output. Dù vậy vẫn nên so sánh bundle size trước và sau khi migrate để chắc chắn không tăng đột biến."
+    },
+    {
+      question: "Kết quả cụ thể đo được sau khi migrate là bao nhiêu?",
+      answer: "Với một webapp enterprise viết bằng Angular 18, build production giảm từ khoảng 52 phút xuống khoảng 26 phút (giảm 50%), rebuild giảm từ khoảng 40 phút xuống khoảng 18 phút (giảm 55%). Nhờ đó thời gian deploy hotfix production cũng rút ngắn một nửa."
+    }
+  ]}
+/>
 
 ---
 

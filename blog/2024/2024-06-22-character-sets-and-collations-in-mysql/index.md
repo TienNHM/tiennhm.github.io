@@ -10,7 +10,7 @@ enableComments: true # for Gisqus comments, set to true
 draft: false # set to true to hide this post from the site
 ---
 
-import { SummaryBox } from '@site/src/components/SEO';
+import { SummaryBox, FAQSection } from '@site/src/components/SEO';
 
 <p align="right">
     <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Fcharacter-sets-and-collations-in-mysql&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
@@ -361,6 +361,31 @@ Error Code: 1253. COLLATION 'utf8_bin' is not valid for CHARACTER SET 'utf8mb4'
 Trong bài viết này, chúng ta đã tìm hiểu về các bảng mã và cách so sánh chuỗi trong MySQL, những vấn đề cần lưu ý khi làm việc với các bảng mã khác nhau. Hy vọng bài viết này giúp bạn hiểu rõ hơn về collation và cách so sánh chuỗi trong MySQL.
 
 Nếu bạn có bất kỳ câu hỏi hoặc ý kiến đóng góp nào, hãy để lại bình luận bên dưới. Cảm ơn bạn đã đọc bài viết!
+
+<FAQSection
+  items={[
+    {
+      question: "Character set và collation trong MySQL khác nhau như thế nào?",
+      answer: "Character set (bảng mã) là tập hợp các ký tự được phép lưu trong một cột kiểu văn bản cùng cách mã hóa chúng. Collation (thứ tự ký tự) là quy tắc xác định cách so sánh và sắp xếp các ký tự trong bảng mã đó. Mỗi character set có ít nhất một collation mặc định, và hầu hết character set có nhiều collation."
+    },
+    {
+      question: "Hậu tố _ci, _cs và _bin trong tên collation nghĩa là gì?",
+      answer: "Hậu tố _ci (case-insensitive) nghĩa là không phân biệt chữ hoa và chữ thường, ví dụ utf8_general_ci xem A và a là giống nhau. Hậu tố _cs (case-sensitive) thì phân biệt chữ hoa và chữ thường. Collation _bin như utf8_bin so sánh chính xác từng ký tự nên phân biệt cả chữ hoa chữ thường lẫn dấu thanh."
+    },
+    {
+      question: "Tại sao truy vấn WHERE name = 'Alice' lại trả về cả alice và ALICE?",
+      answer: "Vì cột đang dùng collation không phân biệt chữ hoa chữ thường, ví dụ utf8_general_ci hoặc latin1_general_ci. Nếu cột dùng collation nhị phân như utf8_bin hay latin1_bin thì cùng truy vấn đó chỉ trả về đúng dòng có name là Alice."
+    },
+    {
+      question: "Làm sao ghi đè collation cho một truy vấn cụ thể?",
+      answer: "Dùng từ khóa COLLATE ngay trong câu lệnh, ví dụ: SELECT * FROM users WHERE name COLLATE utf8_bin = 'Alice'. COLLATE có thể dùng với WHERE, ORDER BY, GROUP BY, HAVING, DISTINCT, với bí danh AS và cả các hàm aggregation như MIN(). Nếu không chỉ định, MySQL dùng collation mặc định của cột."
+    },
+    {
+      question: "Lỗi Error Code 1253 COLLATION is not valid for CHARACTER SET xảy ra khi nào?",
+      answer: "Khi bạn so sánh hai biểu thức có collation không tương thích với nhau, ví dụ SELECT 'Alice' COLLATE utf8_bin = 'Alice' COLLATE utf8_general_ci. Trong trường hợp này MySQL báo lỗi thay vì tự chọn một collation."
+    }
+  ]}
+/>
 
 ## Tham khảo {#references}
 

@@ -9,7 +9,7 @@ image: https://scalar.com/brand/scalar-wordmark-light.png
 date: 2026-08-19
 ---
 
-import { SummaryBox } from '@site/src/components/SEO';
+import { SummaryBox, FAQSection } from '@site/src/components/SEO';
 
 # Scalar là gì? Tại sao nên dùng Scalar thay Swagger UI trong ASP.NET Core 10
 
@@ -298,31 +298,35 @@ app.MapScalarApiReference().RequireAuthorization("AdminOnly");
 
 ---
 
-## Câu hỏi thường gặp (FAQ) {#faq}
-
-### Scalar có miễn phí không?
-
-Có. Scalar là open-source (MIT license) và hoàn toàn miễn phí. Package `Scalar.AspNetCore` trên NuGet cũng miễn phí.
-
-### Swagger có bị xóa hoàn toàn trong .NET 10 không?
-
-Không. Swashbuckle vẫn là community package và hoạt động trên .NET 10. Điều thay đổi là nó không còn nằm trong template mặc định `dotnet new webapi` từ .NET 9 trở đi.
-
-### Scalar có hỗ trợ Controller-based API không, hay chỉ Minimal API?
-
-Scalar hỗ trợ cả hai. `Microsoft.AspNetCore.OpenApi` sinh document từ cả Minimal APIs lẫn Controller-based APIs. Scalar chỉ đọc file OpenAPI JSON nên không phân biệt cách API được định nghĩa.
-
-### Tôi có thể dùng Scalar với Swagger UI cùng lúc không?
-
-Có. Hai UI này hoàn toàn độc lập, cùng đọc file OpenAPI JSON. Đây là cách migration an toàn: chạy cả hai song song, rồi tắt cái cũ sau khi chuyển xong.
-
-### OpenAPI JSON bây giờ ở đường dẫn nào?
-
-Từ .NET 9 với `Microsoft.AspNetCore.OpenApi`, document nằm tại `/openapi/v1.json` (thay vì `/swagger/v1/swagger.json` của Swashbuckle). Đây là điều hay bị bỏ qua khi migration, làm hỏng CI pipeline và API gateway import.
-
-### Scalar có hỗ trợ xác thực OAuth2 không?
-
-Có. Scalar hỗ trợ OAuth2 với PKCE flow, API Key, và Bearer token. Bạn có thể cấu hình pre-fill authentication credentials thông qua options `Authentication`.
+<FAQSection
+  title="Câu hỏi thường gặp (FAQ)"
+  items={[
+    {
+      question: "Scalar có miễn phí không?",
+      answer: "Có. Scalar là open-source (MIT license) và hoàn toàn miễn phí. Package Scalar.AspNetCore trên NuGet cũng miễn phí."
+    },
+    {
+      question: "Swagger có bị xóa hoàn toàn trong .NET 10 không?",
+      answer: "Không. Swashbuckle vẫn là community package và hoạt động trên .NET 10. Điều thay đổi là nó không còn nằm trong template mặc định dotnet new webapi từ .NET 9 trở đi."
+    },
+    {
+      question: "Scalar có hỗ trợ Controller-based API không, hay chỉ Minimal API?",
+      answer: "Scalar hỗ trợ cả hai. Microsoft.AspNetCore.OpenApi sinh document từ cả Minimal APIs lẫn Controller-based APIs. Scalar chỉ đọc file OpenAPI JSON nên không phân biệt cách API được định nghĩa."
+    },
+    {
+      question: "Tôi có thể dùng Scalar với Swagger UI cùng lúc không?",
+      answer: "Có. Hai UI này hoàn toàn độc lập, cùng đọc file OpenAPI JSON. Đây là cách migration an toàn: chạy cả hai song song, rồi tắt cái cũ sau khi chuyển xong."
+    },
+    {
+      question: "OpenAPI JSON bây giờ ở đường dẫn nào?",
+      answer: "Từ .NET 9 với Microsoft.AspNetCore.OpenApi, document nằm tại /openapi/v1.json (thay vì /swagger/v1/swagger.json của Swashbuckle). Đây là điều hay bị bỏ qua khi migration, làm hỏng CI pipeline và API gateway import."
+    },
+    {
+      question: "Scalar có hỗ trợ xác thực OAuth2 không?",
+      answer: "Có. Scalar hỗ trợ OAuth2 với PKCE flow, API Key, và Bearer token. Bạn có thể cấu hình pre-fill authentication credentials thông qua options Authentication."
+    }
+  ]}
+/>
 
 ---
 

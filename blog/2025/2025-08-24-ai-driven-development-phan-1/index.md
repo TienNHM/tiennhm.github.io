@@ -9,7 +9,7 @@ description: 'Tìm hiểu về AI-DD (AI-Driven Development) - cách tiếp cậ
 hide_table_of_contents: false
 ---
 
-import { SummaryBox } from '@site/src/components/SEO';
+import { SummaryBox, FAQSection } from '@site/src/components/SEO';
 
 <p align="right">
     <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2FTienNHM.github.io%2Fblog%2Fai-driven-development-phan-1&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
@@ -332,6 +332,27 @@ Trong **Phần 2**, chúng ta sẽ khám phá chi tiết các công cụ AI như
 :::
 
 ---
+
+<FAQSection
+  items={[
+    {
+      question: "AI-DD là gì và khác gì với việc chỉ dùng AI để hỗ trợ?",
+      answer: "AI-DD (AI-Driven Development) là phương pháp phát triển phần mềm do AI dẫn dắt. Ở cách tiếp cận truyền thống, AI chỉ hỗ trợ các công việc cụ thể như viết tài liệu, hoàn thiện code hay kiểm thử, còn con người vẫn làm theo quy trình cũ. Với AI-DD, AI trở thành cộng tác viên trung tâm, khởi tạo và chỉ đạo quy trình làm việc, còn con người tập trung vào các quyết định quan trọng và tư duy sáng tạo."
+    },
+    {
+      question: "AI-DD dựa trên những nguyên tắc cốt lõi nào?",
+      answer: "Ba nguyên tắc: AI thực thi với sự giám sát của con người, tức AI tạo kế hoạch làm việc chi tiết, tìm kiếm làm rõ và để lại quyết định quan trọng cho con người; cộng tác nhóm năng động, các thành viên làm việc trong không gian chung để giải quyết vấn đề theo thời gian thực; và tích lũy ngữ cảnh liên tục, tức AI lưu trữ và duy trì thông tin ngữ cảnh xuyên suốt tất cả các giai đoạn phát triển."
+    },
+    {
+      question: "Chu kỳ làm việc của AI-DD khác Sprint truyền thống thế nào?",
+      answer: "Phương pháp truyền thống chạy sprint kéo dài 2-4 tuần với các cuộc họp lập kế hoạch dài dòng. AI-DD thay bằng chu kỳ Bolts được đo bằng giờ hoặc ngày, hướng tới giao hàng liên tục, theo vòng lặp: AI tạo kế hoạch, AI tìm kiếm làm rõ, AI thực hiện giải pháp, rồi con người xác nhận."
+    },
+    {
+      question: "AI-DD có những rủi ro gì?",
+      answer: "Bài viết nêu bốn rủi ro chính: thiên kiến trong mô hình AI có thể bị sao chép và khuếch đại từ dữ liệu huấn luyện; vi phạm sở hữu trí tuệ do code AI tạo ra có thể trùng với tài liệu có bản quyền; lỗ hổng bảo mật như SQL injection hay XSS trong code AI tạo ra; và tự tin sai lầm khi nhóm giả định AI luôn làm đúng. Cách giảm thiểu gồm giám sát của con người và góc nhìn đa dạng, chính sách IP rõ ràng cùng quy trình đánh giá code, đánh giá code tập trung vào bảo mật và kiểm thử bảo mật tự động, cùng nguyên tắc nếu bạn không thể giải thích thì đừng triển khai."
+    }
+  ]}
+/>
 
 ## 📚 **Tài Liệu Tham Khảo**
 

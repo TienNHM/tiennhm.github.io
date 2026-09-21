@@ -5,7 +5,7 @@ authors: [tiennhm]
 tags: [uuid, database, programming, identifier, unique-id]
 ---
 
-import { SummaryBox } from '@site/src/components/SEO';
+import { SummaryBox, FAQSection } from '@site/src/components/SEO';
 
 # Giới thiệu UUID (Universally Unique Identifier) - Định danh duy nhất toàn cầu
 
@@ -450,6 +450,31 @@ const isValidUUID = (str) => {
 UUID là một công cụ mạnh mẽ cho việc tạo định danh duy nhất trong các ứng dụng hiện đại. Mặc dù có một số nhược điểm về hiệu suất và kích thước, nhưng lợi ích về tính duy nhất, bảo mật và khả năng phân tán làm cho nó trở thành lựa chọn lý tưởng cho nhiều trường hợp sử dụng.
 
 Khi quyết định sử dụng UUID, hãy cân nhắc kỹ lưỡng về yêu cầu của hệ thống, đặc biệt là về hiệu suất và bảo mật. Với sự hiểu biết đúng đắn, UUID sẽ giúp bạn xây dựng các hệ thống robust và scalable.
+
+<FAQSection
+  items={[
+    {
+      question: "Nên dùng UUID phiên bản nào?",
+      answer: "UUID v4 (random) phù hợp cho hầu hết trường hợp vì không thể dự đoán và bảo mật cao. Dùng v1 khi cần sắp xếp theo thời gian tạo. Dùng v5 khi cần UUID deterministic sinh từ dữ liệu có sẵn như URL, email hay tên file; v5 dùng SHA-1 nên an toàn hơn và được khuyến khích thay cho v3 vốn dùng MD5 đã lỗi thời."
+    },
+    {
+      question: "UUID v3, v5 khác gì so với v4?",
+      answer: "v3 và v5 là name-based: chúng hash một namespace cộng với một name nên cùng input luôn tạo ra cùng một UUID, tức là deterministic. v4 hoàn toàn ngẫu nhiên nên không deterministic nhưng bù lại không thể dự đoán được. v3 dùng MD5, còn v5 dùng SHA-1 an toàn hơn."
+    },
+    {
+      question: "UUID có ảnh hưởng đến hiệu suất database không?",
+      answer: "Có. UUID chiếm 16 bytes so với 4-8 bytes của integer, chậm hơn integer khi indexing và sorting, đồng thời tốn nhiều bộ nhớ hơn. Vì vậy không nên dùng UUID cho database nhỏ, khi cần hiệu suất cao nhất, khi primary key thường xuyên được join, hoặc khi cần ID ngắn gọn dễ đọc."
+    },
+    {
+      question: "Khi nào nên chọn UUID thay cho auto-increment?",
+      answer: "Nên dùng UUID khi xây hệ thống phân tán hoặc kiến trúc microservices, khi cần bảo mật cao, khi phải merge dữ liệu từ nhiều nguồn, và với API public. UUID không cần server trung tâm cấp phát ID như auto-increment và không tiết lộ số lượng record."
+    },
+    {
+      question: "Tạo UUID trong các ngôn ngữ lập trình phổ biến như thế nào?",
+      answer: "Node.js và trình duyệt dùng crypto.randomUUID(), hoặc thư viện uuid với hàm uuidv4(). Python dùng uuid.uuid4(). Java dùng UUID.randomUUID(). C# dùng Guid.NewGuid(). Go dùng uuid.New() từ package github.com/google/uuid."
+    }
+  ]}
+/>
 
 ---
 
