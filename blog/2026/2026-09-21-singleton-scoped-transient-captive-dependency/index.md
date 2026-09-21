@@ -24,7 +24,7 @@ builder.Services.AddScoped<ICustomerRepository, EfCustomerRepository>();
 builder.Services.AddSingleton<CustomerCacheRefresher>();               // ← thuốc nổ
 ```
 
-App chạy bình thường ở máy dev. Lên môi trường có tải, log bắt đầu xuất hiện `A second operation was started on this context instance before a previous operation completed`, hoặc `Cannot access a disposed context instance`, hoặc tệ hơn là không có exception nào cả mà chỉ có dữ liệu cũ trả về mãi không đổi. Bài này giải thích cơ chế đằng sau, và code của cả bản hỏng lẫn bản sửa.
+App qua được CI và lên staging. Lên môi trường có tải, log bắt đầu xuất hiện `A second operation was started on this context instance before a previous operation completed`, hoặc `Cannot access a disposed context instance`, hoặc tệ hơn là không có exception nào cả mà chỉ có dữ liệu cũ trả về mãi không đổi. Bài này giải thích cơ chế đằng sau, và code của cả bản hỏng lẫn bản sửa.
 
 <!-- truncate -->
 
@@ -88,10 +88,13 @@ DI container của .NET có sẵn cơ chế phát hiện chuyện này: **scope 
 Cannot consume scoped service 'ICustomerRepository' from singleton 'CustomerCacheRefresher'.
 ```
 
-Vấn đề là host mặc định chỉ bật `ValidateScopes` khi môi trường là **Development**. Ở Staging hay Production, mặc định nó tắt để tiết kiệm chi phí kiểm tra lúc khởi động. Cộng thêm hai điều nữa:
+Mặc định của host (`CreateDefaultServiceProviderOptions` trong `Microsoft.Extensions.Hosting`) đặt **cả** `ValidateScopes` **lẫn** `ValidateOnBuild` bằng `isDevelopment`. Nghĩa là với ví dụ ở trên, chạy local ở môi trường Development thì `ValidateOnBuild` duyệt các đăng ký ngay tại `builder.Build()` và app **chết ngay lúc khởi động** — bạn sẽ thấy lỗi trước khi kịp gửi request nào.
 
-- Validate xảy ra **lúc resolve**, nên nếu `Singleton` đó chỉ được tạo trong một nhánh hiếm gặp, chạy local bình thường sẽ không chạm tới nó.
-- Validate chỉ nhìn được quan hệ khai báo qua constructor. Nếu bạn resolve tay từ `IServiceProvider`, container không có gì để kiểm tra.
+Vậy tại sao bug này vẫn ra được production? Vì cả hai cờ đó tắt khi môi trường không phải Development. Ba đường thoát thường gặp:
+
+- **Staging và Production tắt cả hai.** Nếu đoạn code lỗi được thêm vào rồi deploy thẳng mà không ai chạy Development, không có gì chặn nó.
+- **`ValidateOnBuild` không duyệt được mọi đăng ký.** Open generic và đăng ký bằng factory lambda bị bỏ qua, vì container không biết trước lambda sẽ dựng ra cái gì. Những trường hợp này chỉ lộ lúc resolve.
+- **Resolve tay từ `IServiceProvider` thì container không có gì để kiểm tra.** `GetRequiredService` gọi trong thân method nằm ngoài tầm nhìn của cả hai cơ chế.
 
 Cách khoá lại là bật kiểm tra ở mọi môi trường và bắt lỗi ngay lúc build container thay vì lúc phục vụ request:
 
@@ -134,7 +137,7 @@ public sealed class CustomerCacheRefresher
 
 Ba chi tiết dễ làm sai trong đúng đoạn code ngắn này:
 
-- **`CreateAsyncScope` chứ không phải `CreateScope`** khi bên trong có service implement `IAsyncDisposable` — `DbContext` là một trong số đó. `CreateScope` với `using` thường sẽ ném `InvalidOperationException` khi gặp service chỉ hỗ trợ async dispose.
+- **Ưu tiên `CreateAsyncScope` trong code async.** `DbContext` implement cả `IDisposable` lẫn `IAsyncDisposable` nên `CreateScope` với `using` thường vẫn dispose được, không ném exception. `InvalidOperationException` ("only implements IAsyncDisposable. Use DisposeAsync to dispose the container.") chỉ xảy ra với service implement **duy nhất** `IAsyncDisposable`. Dùng `CreateAsyncScope` để khỏi phải nhớ service nào thuộc loại nào.
 - **Không cho object của scope thoát ra ngoài scope.** Trả về `IQueryable` hay entity còn lazy-loading từ trong đó là bạn đổi lỗi captive dependency lấy lỗi disposed context. Đọc xong, map sang DTO, rồi mới ra.
 - **Một scope cho một đơn vị công việc**, không phải một scope cho cả vòng đời vòng lặp. Trong `BackgroundService`, scope phải nằm **bên trong** vòng lặp:
 
@@ -188,7 +191,7 @@ public sealed class CacheWarmupWorker : BackgroundService
     },
     {
       question: "Scope validation bắt được lỗi này ở Development, sao vẫn lọt lên Production?",
-      answer: "Host mặc định chỉ bật ValidateScopes khi môi trường là Development, còn Staging và Production thì tắt. Thêm nữa việc kiểm tra xảy ra lúc resolve, nên một Singleton chỉ được tạo trong nhánh hiếm gặp có thể không bị chạm tới khi chạy local, và container không kiểm tra được những dependency bạn tự lấy qua IServiceProvider.GetRequiredService. Cách khoá lại là gọi UseDefaultServiceProvider và bật ValidateScopes cùng ValidateOnBuild cho mọi môi trường để app fail ngay lúc khởi động."
+      answer: "Host mặc định đặt cả ValidateScopes lẫn ValidateOnBuild bằng isDevelopment, nên ở Development app sẽ chết ngay lúc Build() — nhưng ở Staging và Production thì cả hai đều tắt. Ngoài ra ValidateOnBuild bỏ qua open generic và đăng ký bằng factory lambda, còn dependency bạn tự lấy qua IServiceProvider.GetRequiredService thì nằm ngoài tầm kiểm tra của container. Cách khoá lại là gọi UseDefaultServiceProvider và bật ValidateScopes cùng ValidateOnBuild cho mọi môi trường để app fail ngay lúc khởi động."
     },
     {
       question: "Trong BackgroundService thì nên tạo scope ở đâu?",
@@ -196,7 +199,7 @@ public sealed class CacheWarmupWorker : BackgroundService
     },
     {
       question: "CreateScope và CreateAsyncScope khác nhau ra sao?",
-      answer: "CreateAsyncScope trả về scope hỗ trợ await using, cần thiết khi trong scope có service chỉ implement IAsyncDisposable — DbContext là một ví dụ. Nếu dùng CreateScope với using thường mà gặp service như vậy, việc dispose có thể ném InvalidOperationException. Mặc định nên dùng CreateAsyncScope trong code async."
+      answer: "CreateAsyncScope trả về scope hỗ trợ await using. Nó bắt buộc khi trong scope có service implement duy nhất IAsyncDisposable — lúc đó CreateScope với using thường sẽ ném InvalidOperationException. DbContext không thuộc nhóm này vì nó implement cả hai interface, nên sync dispose vẫn chạy. Dù vậy trong code async vẫn nên mặc định dùng CreateAsyncScope để dispose đi đúng đường async."
     },
     {
       question: "Transient có nghĩa là instance được thu hồi ngay sau khi dùng xong không?",

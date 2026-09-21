@@ -1,5 +1,5 @@
 ---
-title: "Vì sao .Result gây deadlock trong C#, còn ASP.NET Core thì không?"
+title: "Gọi .Result khi nào thì deadlock, khi nào thì không?"
 slug: deadlock-result-wait-csharp
 description: "Gọi .Result hay .Wait() trên một Task treo cứng ứng dụng WPF và ASP.NET Framework, nhưng chạy bình thường trong console và ASP.NET Core. Nguyên nhân nằm ở SynchronizationContext mà await bắt lại khi tạm dừng. Bài viết mổ cơ chế đó, giải thích vì sao ConfigureAwait(false) chỉ vá được một nửa vấn đề, và vì sao code không deadlock trong ASP.NET Core vẫn có thể chết vì thread pool starvation."
 keywords: [deadlock result wait csharp, async await deadlock, synchronizationcontext, configureawait false, configureawait la gi, async all the way, async void, thread pool starvation, aspnet core khong co synchronizationcontext, getawaiter getresult, task run result, blocking async code, dotnet async, csharp async await, wpf deadlock, aspnet framework deadlock, tai sao result gay deadlock, cach sua deadlock async, valuetask, task whenall, cancellationtoken, dotnet backend]
@@ -10,7 +10,7 @@ date: 2026-09-21
 
 import { SummaryBox, FAQSection } from '@site/src/components/SEO';
 
-# Vì sao .Result gây deadlock trong C#, còn ASP.NET Core thì không?
+# Gọi .Result khi nào thì deadlock, khi nào thì không?
 
 <SummaryBox>
 `.Result` và `.Wait()` block thread hiện tại. Khi `await` tạm dừng, nó bắt lại `SynchronizationContext` đang hiện hành để chạy phần code phía sau đúng trên context đó. Nếu context chỉ cho phép một thread tại một thời điểm — UI thread của WPF, request context của ASP.NET Framework — mà thread đó lại đang bị `.Result` block, thì continuation không bao giờ vào được: deadlock. Console và ASP.NET Core không có `SynchronizationContext`, nên continuation chạy trên thread pool và không kẹt. Cách sửa thật sự là async all the way.

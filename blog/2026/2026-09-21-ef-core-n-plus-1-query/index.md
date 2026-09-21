@@ -56,7 +56,7 @@ SELECT COUNT(*) FROM [Contacts] AS [c] WHERE [c].[CustomerId] = 2;
 
 **Vòng lặp lộ thiên** như ví dụ trên là dạng dễ nhất, code review bắt được.
 
-**Lazy loading** khó hơn, vì không có dòng code nào trông giống một truy vấn cả. EF Core chỉ bật lazy loading khi bạn cài gói proxy và khai báo navigation property là `virtual`:
+**Lazy loading** khó hơn, vì không có dòng code nào trông giống một truy vấn cả. Cách phổ biến nhất để bật lazy loading là cài gói proxy và khai báo navigation property là `virtual` (ngoài ra còn cách tiêm `ILazyLoader` vào entity, không cần proxy):
 
 ```csharp
 public class Customer
@@ -155,7 +155,16 @@ var customers = await _db.Customers
     .ToListAsync();
 ```
 
-Lý do cần nó nằm ở mục ngay sau đây. Nếu muốn áp cho toàn bộ ứng dụng thì dùng `UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)` lúc đăng ký `DbContext`, rồi dùng `AsSingleQuery()` cho những chỗ muốn quay lại hành vi cũ.
+Lý do cần nó nằm ở mục ngay sau đây. Nếu muốn áp cho toàn bộ ứng dụng thì đặt mặc định lúc đăng ký `DbContext`. Lưu ý `UseQuerySplittingBehavior` là extension của `RelationalDbContextOptionsBuilder`, nên nó phải nằm **bên trong** lambda của provider chứ không nằm thẳng trên `DbContextOptionsBuilder`:
+
+```csharp
+builder.Services.AddDbContext<CrmDbContext>(options =>
+    options.UseSqlServer(
+        connectionString,
+        sql => sql.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)));
+```
+
+Sau đó dùng `AsSingleQuery()` cho những truy vấn muốn quay lại hành vi cũ.
 
 ### 4. AsNoTracking, giảm chi phí chứ không giảm số query
 
@@ -222,7 +231,7 @@ Ví dụ gốc của vấn đề này kèm ngữ cảnh CRM thì nằm ở [bài
     },
     {
       question: "Có nên bật AsSplitQuery cho toàn bộ ứng dụng không?",
-      answer: "Chỉ nên nếu phần lớn truy vấn của bạn Include từ hai collection trở lên. Split query đánh đổi bằng nhiều round trip hơn, bằng khả năng dữ liệu không nhất quán khi có ghi xen giữa các lần đọc, và bằng yêu cầu phải có thứ tự xác định khi phân trang. Với Include đúng một collection thì single query thường rẻ hơn. Có thể đặt mặc định bằng UseQuerySplittingBehavior rồi dùng AsSingleQuery cho những chỗ cần quay lại hành vi cũ."
+      answer: "Chỉ nên nếu phần lớn truy vấn của bạn Include từ hai collection trở lên. Split query đánh đổi bằng nhiều round trip hơn, bằng khả năng dữ liệu không nhất quán khi có ghi xen giữa các lần đọc, và bằng yêu cầu phải có thứ tự xác định khi phân trang. Với Include đúng một collection thì single query thường rẻ hơn. Có thể đặt mặc định bằng UseQuerySplittingBehavior — lưu ý nó nằm trong lambda của provider, ví dụ UseSqlServer(conn, sql => sql.UseQuerySplittingBehavior(...)) — rồi dùng AsSingleQuery cho những chỗ cần quay lại hành vi cũ."
     },
     {
       question: "AsNoTracking có làm giảm số lượng query không?",
