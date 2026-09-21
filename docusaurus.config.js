@@ -94,13 +94,6 @@ const config = {
         {
             tagName: 'meta',
             attributes: {
-                name: 'robots',
-                content: 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
-            }
-        },
-        {
-            tagName: 'meta',
-            attributes: {
                 name: 'author',
                 content: 'Nguyễn Huỳnh Minh Tiến (TienNHM)',
             }
@@ -363,9 +356,21 @@ const config = {
                     customCss: require.resolve('./src/css/custom.css'),
                 },
                 sitemap: {
-                    changefreq: 'daily',
+                    changefreq: 'weekly',
                     priority: 0.5,
                     filename: 'sitemap.xml',
+                    // Loại các trang điều hướng/tổng hợp khỏi sitemap: chúng mỏng,
+                    // trùng lặp và chiếm crawl budget của nội dung thật.
+                    // Đồng bộ với THIN_ROUTES trong src/theme/Robots.js.
+                    ignorePatterns: [
+                        '/**/tags/**',
+                        '/search',
+                        '/**/search',
+                        '/blog/archive',
+                        '/blog/authors',
+                        '/blog/authors/**',
+                        '/**/page/*',
+                    ],
                 },
                 googleTagManager: {
                     containerId: process.env.GOOGLE_TAG_MANAGER_ID || 'GTM-N3QR867G',
