@@ -8,7 +8,8 @@ const lightCodeTheme = require('prism-react-renderer').themes.github;
 const darkCodeTheme = require('prism-react-renderer').themes.dracula;
 
 const organizationName = "TienNHM";
-const projectName = "tiennhm.github.io";
+const projectName = "tiennhm.github.io"; // tên repo GitHub, không phải domain
+const siteUrl = "https://tiennhm.io.vn"; // domain chính thức (canonical)
 const footerLinks = [
     {
         title: 'Docs',
@@ -71,7 +72,7 @@ const config = {
 
     // Set the production url of your site here
     // url: `https://${organizationName}.github.io`,
-    url: `https://tiennhm.io.vn`, // thay thế bằng domain của bạn
+    url: siteUrl,
     // Set the /<baseUrl>/ pathname under which your site is served
     // For GitHub pages deployment, it is often '/<projectName>/'
     baseUrl: '/',
@@ -136,7 +137,7 @@ const config = {
             tagName: 'link',
             attributes: {
                 rel: 'canonical',
-                href: `https://${organizationName}.github.io/`,
+                href: `${siteUrl}/`,
             }
         },
         {
@@ -157,7 +158,7 @@ const config = {
             tagName: 'meta',
             attributes: {
                 property: 'og:url',
-                content: `https://${organizationName}.github.io/`,
+                content: `${siteUrl}/`,
             }
         },
         {
@@ -178,7 +179,7 @@ const config = {
             tagName: 'meta',
             attributes: {
                 property: 'og:image',
-                content: `https://${organizationName}.github.io/img/copyright-tiennhm.webp`,
+                content: `${siteUrl}/img/copyright-tiennhm.webp`,
             }
         },
         {
@@ -199,7 +200,7 @@ const config = {
             tagName: 'meta',
             attributes: {
                 name: 'twitter:image',
-                content: `https://${organizationName}.github.io/img/copyright-tiennhm.webp`,
+                content: `${siteUrl}/img/copyright-tiennhm.webp`,
             }
         },
         */
@@ -252,12 +253,12 @@ const config = {
                 '@graph': [
                     {
                         '@type': 'Person',
-                        '@id': `https://${organizationName}.github.io/#person`,
+                        '@id': `${siteUrl}/#person`,
                         name: 'Nguyễn Huỳnh Minh Tiến',
                         alternateName: 'TienNHM',
                         jobTitle: 'Fullstack Developer',
                         // url: `https://${organizationName}.github.io/`,
-                        url: `https://tiennhm.io.vn/`, // thay thế bằng domain của bạn
+                        url: `${siteUrl}/`,
                         image: 'https://github.com/TienNHM.png',
                         sameAs: [
                             'https://github.com/TienNHM',
@@ -268,21 +269,21 @@ const config = {
                     },
                     {
                         '@type': 'WebSite',
-                        '@id': `https://${organizationName}.github.io/#website`,
+                        '@id': `${siteUrl}/#website`,
                         // url: `https://${organizationName}.github.io/`,
-                        url: `https://tiennhm.io.vn/`, // thay thế bằng domain của bạn
+                        url: `${siteUrl}/`,
                         name: 'TienNHM - Fullstack Developer Blog',
                         description: 'Blog cá nhân chia sẻ kiến thức chuyên sâu về lập trình, kiến trúc hệ thống, AI và kinh nghiệm triển khai sản phẩm thực tế.',
                         inLanguage: ['vi', 'en'],
                         publisher: {
-                            '@id': `https://${organizationName}.github.io/#person`,
+                            '@id': `${siteUrl}/#person`,
                         },
                         potentialAction: [
                             {
                                 '@type': 'SearchAction',
                                 target: {
                                     '@type': 'EntryPoint',
-                                    urlTemplate: `https://${organizationName}.github.io/search?q={search_term_string}`,
+                                    urlTemplate: `${siteUrl}/search?q={search_term_string}`,
                                 },
                                 'query-input': 'required name=search_term_string',
                             },
