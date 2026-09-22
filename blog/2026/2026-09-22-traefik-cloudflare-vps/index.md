@@ -1,5 +1,5 @@
 ---
-title: "Traefik sau Cloudflare: vì sao cert hết hạn đồng loạt sau 60 ngày?"
+title: "Traefik + Cloudflare: vì sao cert hết hạn đồng loạt sau 60 ngày?"
 slug: traefik-cloudflare-https-tu-dong-vps
 description: "Một VPS, 14 container, 13 hostname, tất cả nằm sau Cloudflare và đều cần HTTPS tự động. Bài viết mổ kiến trúc Traefik v3 + Cloudflare đang chạy thật: vì sao ACME HTTP-01 cấp được cert lần đầu nhưng chắc chắn trượt lúc gia hạn, vì sao DNS-01 giải quyết được nhưng lại đẻ ra một ràng buộc mới, và vì sao thiếu router bắt-tất thì Cloudflare trả lỗi 526."
 keywords: [traefik cloudflare, traefik v3, acme dns-01, dns challenge cloudflare, http-01 vs dns-01, lets encrypt wildcard, traefik lets encrypt, cloudflare full strict, cloudflare flexible redirect loop, loi 526 cloudflare, traefik docker labels, reverse proxy docker, forwardedheaders trustedips, cloudflare ip ranges, traefik catchall router, hostregexp traefik, cf_dns_api_token, traefik acme.json, wildcard certificate, docker network edge, exposedbydefault, traefik entrypoints redirect https, multi site vps, https tu dong, cau hinh traefik, gia han cert that bai, zone could not be found, traefik priority router]
@@ -10,7 +10,7 @@ date: 2026-09-22
 
 import { SummaryBox, FAQSection, Checklist } from '@site/src/components/SEO';
 
-# Traefik sau Cloudflare: vì sao cert hết hạn đồng loạt sau 60 ngày?
+# Traefik + Cloudflare: vì sao cert hết hạn đồng loạt sau 60 ngày?
 
 <SummaryBox>
 Khi domain bật proxy Cloudflare (mây cam) với SSL mode **Full (strict)**, ACME **HTTP-01 không dùng được**: Let's Encrypt gọi `http://domain/.well-known/acme-challenge/...` ở cổng 80, Cloudflare nhận rồi gọi ngược về origin bằng **HTTPS:443** — nơi bộ xử lý challenge của Traefik không có mặt. Bạn cần cert để qua được Cloudflare, mà cần qua Cloudflare mới lấy được cert. Lách lần đầu bằng cách tạm tắt mây cam thì được, nhưng **lần gia hạn tự động sau ~60 ngày sẽ trượt âm thầm và mọi site hết hạn cùng lúc**. Lối ra là **DNS-01**: xác thực bằng bản ghi TXT qua API Cloudflare, không request nào chạm origin. Đổi lại, cert chỉ cấp được cho những zone mà API token nhìn thấy.
@@ -251,7 +251,7 @@ Nghĩa là 11 cert kia về mặt kỹ thuật là thừa — cert wildcard đã
 Nếu làm lại, tôi sẽ cân nhắc khai cert wildcard làm **default certificate** của Traefik và bỏ `certresolver` khỏi router của từng site. Đổi lại thì mất đi tính độc lập: mọi site chung một cert, và một lần gia hạn trượt là ảnh hưởng tất cả. Với 11 site thuộc cùng một zone thì tôi nghiêng về wildcard; nếu các site thuộc nhiều khách hàng khác nhau thì cert riêng lại hợp lý hơn.
 
 <Checklist
-  title="Danh sách kiểm khi dựng Traefik sau Cloudflare"
+  title="Danh sách kiểm khi đặt Traefik phía sau Cloudflare"
   items={[
     { text: "Cloudflare SSL/TLS đặt Full (strict), tuyệt đối không Flexible" },
     { text: "Dùng DNS-01, không dùng HTTP-01, kể cả khi HTTP-01 đang chạy được" },
@@ -303,7 +303,7 @@ Mục cuối là mục tôi học được đắt nhất, và nó vẫn đang n�
       answer: "Chỉ hai quyền: Zone → Zone → Read để tra zone ID, và Zone → DNS → Edit để tạo rồi xoá bản ghi TXT. Giới hạn Zone Resources vào đúng zone đang dùng và bật Client IP Filtering cho đúng IP của VPS. Không dùng Global API Key vì khoá đó toàn quyền trên toàn bộ tài khoản và không thu hồi lẻ được. Lưu ý token chỉ thấy zone được cấp quyền, nên domain thuộc zone khác sẽ trượt với lỗi zone could not be found."
     },
     {
-      question: "Vì sao cần forwardedheaders.trustedips khi chạy sau Cloudflare?",
+      question: "Vì sao cần forwardedheaders.trustedips khi Traefik nằm phía sau Cloudflare?",
       answer: "Vì khi có proxy đứng trước, IP nguồn mà container nhìn thấy là IP của Cloudflare chứ không phải của khách. Hệ quả là log sai, rate limit theo IP vô dụng, và plugin chống brute force chặn nhầm. IP thật nằm trong header X-Forwarded-For, nhưng Traefik chỉ tin header đó từ những nguồn bạn khai trong trustedips. Phải khai đúng dải IP công bố của Cloudflare — nếu tin mọi nguồn thì ai cũng giả được header này và vượt qua mọi cơ chế dựa trên IP."
     },
     {
@@ -319,11 +319,11 @@ Phần Traefik của kiến trúc này gần như không có gì để kể: m�
 
 Ba điều tôi mang đi:
 
-1. **Chọn kiểu ACME challenge theo lần gia hạn, đừng theo lần cấp.** HTTP-01 sau mây cam cấp được nếu bạn can thiệp tay, và chính điều đó làm nó nguy hiểm — bạn tưởng đã xong, trong khi đồng hồ 60 ngày đã bắt đầu chạy.
+1. **Chọn kiểu ACME challenge theo lần gia hạn, đừng theo lần cấp.** HTTP-01 khi đã bật mây cam vẫn cấp được nếu bạn can thiệp tay, và chính điều đó làm nó nguy hiểm — bạn tưởng đã xong, trong khi đồng hồ 60 ngày đã bắt đầu chạy.
 2. **Đổi cách xác thực là đổi thứ có thể hỏng.** DNS-01 gỡ được sự phụ thuộc vào cổng 80, nhưng buộc mọi domain phải nằm trong zone mà token nhìn thấy. Log của tôi đang lặp lại đúng bài học đó mỗi ngày.
 3. **Mặc định của reverse proxy được chọn cho một VPS trần.** `exposedbydefault`, cert tự ký cho SNI lạ, tin cậy header chuyển tiếp — cả ba đều hợp lý khi không có ai đứng trước, và đều sai khi có Cloudflare ở giữa.
 
-Nếu bạn đang dựng Traefik sau Cloudflare và HTTP-01 vẫn đang chạy tốt, hãy mở lịch ra đếm tới ngày thứ 60.
+Nếu bạn đang đặt Traefik phía sau Cloudflare và HTTP-01 vẫn đang chạy tốt, hãy mở lịch ra đếm tới ngày thứ 60.
 
 ---
 
