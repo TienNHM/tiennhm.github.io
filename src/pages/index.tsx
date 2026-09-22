@@ -9,6 +9,7 @@ import styles from './index.module.css';
 import { CONTACTS, Contact } from '@site/src/data/contacts';
 import ContactItem from '@site/src/components/ContactItem';
 import { AVATAR_URL, GITHUB_USER } from '@site/src/utils/constants';
+import { getSiteDescription } from '@site/src/utils/siteDescription';
 
 function HomepageHeader() {
   const { siteConfig } = useDocusaurusContext();
@@ -79,10 +80,9 @@ export default function Home(): JSX.Element {
   return (
     <Layout
       title={siteConfig.title}
-      // Một nguồn duy nhất cho câu branding: tagline được khai báo theo locale
-      // trong docusaurus.config.js (SITE_DESCRIPTIONS), nên bản en không còn rơi
-      // về mô tả tiếng Việt như khi chuỗi này bị hardcode tại đây.
-      description={siteConfig.tagline}
+      // Câu branding lấy qua translate() chứ không qua siteConfig.tagline —
+      // xem src/utils/siteDescription.ts để biết vì sao config không dùng được.
+      description={getSiteDescription()}
     >
       <Head>
         <meta property="og:image" content={ogImage} />
