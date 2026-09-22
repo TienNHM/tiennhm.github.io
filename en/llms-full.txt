@@ -18,8 +18,8 @@ của trang — mỗi mục bên dưới có dòng `URL:` là canonical URL củ
 
 ## Phạm vi & giới hạn
 
-- Tổng số tài liệu quét được: 463 (docs: 431, blog: 32).
-- Số tài liệu có mặt trong file này: 463.
+- Tổng số tài liệu quét được: 464 (docs: 431, blog: 33).
+- Số tài liệu có mặt trong file này: 464.
 - Ngân sách dung lượng: 2.0 MB. Trần nội dung mỗi tài liệu: 6 KB.
 - Khi thiếu chỗ: blog giữ 30% ngân sách (ưu tiên bài mới nhất), phần còn lại dành cho docs/.
 - Nội dung đã được strip khỏi MDX/JSX và frontmatter; chữ bên trong các
@@ -27,8 +27,9 @@ của trang — mỗi mục bên dưới có dòng `URL:` là canonical URL củ
 - Khối code dài bị rút gọn; mọi chỗ rút gọn đều được đánh dấu tại chỗ.
 - Mỗi tài liệu bắt đầu bằng một dòng `========…` rồi tới `# <tiêu đề>` và `URL: …`.
 
-### Tài liệu bị rút gọn (103) — fetch URL để lấy bản đầy đủ
+### Tài liệu bị rút gọn (104) — fetch URL để lấy bản đầy đủ
 
+- ONNX Runtime chết trên Alpine: lỗi ld-linux-x86-64.so.2 và vì sao libc6-compat không cứu được — https://tiennhm.io.vn/blog/onnx-runtime-alpine-ld-linux-x86-64-so-2
 - Unit of Work trong .NET và ABP: SaveChangesAsync không phải commit — https://tiennhm.io.vn/blog/unit-of-work-dotnet-abp
 - Gọi .Result khi nào thì deadlock, khi nào thì không? — https://tiennhm.io.vn/blog/deadlock-result-wait-csharp
 - Vì sao EF Core bắn 201 query cho 1 màn hình danh sách? Cách sửa N+1 — https://tiennhm.io.vn/blog/ef-core-n-plus-1-query
@@ -42252,6 +42253,139 @@ Nội dung chi tiết...
 />
 
 ## Câu hỏi thường gặp
+
+[… phần còn lại đã lược bớt]
+
+============================================================================
+
+# ONNX Runtime chết trên Alpine: lỗi ld-linux-x86-64.so.2 và vì sao libc6-compat không cứu được
+
+URL: https://tiennhm.io.vn/blog/onnx-runtime-alpine-ld-linux-x86-64-so-2
+Source: blog/2026/2026-09-22-onnx-runtime-alpine-ld-linux/index.md
+Date: 2026-09-22
+Description: Container Node.js build xong, chạy lên, rồi chết ngay khi nạp model: Error loading shared library ld-linux-x86-64.so.2. Bài viết mổ nguyên nhân bằng readelf trên chính binary của onnxruntime-node, chứng minh vì sao libc6-compat và gcompat chỉ đẩy lỗi sang chỗ khác, và so sánh bốn hướng xử lý kèm cái giá thật của mỗi hướng.
+Tags: docker, alpine, onnx, nodejs, linux, devops, troubleshooting
+Note: Nội dung dưới đây đã được rút gọn để giữ dung lượng file. Bản đầy đủ tại https://tiennhm.io.vn/blog/onnx-runtime-alpine-ld-linux-x86-64-so-2
+
+# ONNX Runtime chết trên Alpine: lỗi `ld-linux-x86-64.so.2`
+
+`onnxruntime-node` phát hành binary dựng sẵn cho glibc, và `libonnxruntime.so.1` khai báo `DT_NEEDED` trỏ thẳng vào `ld-linux-x86-64.so.2` — chính là bộ nạp động của glibc. Alpine dùng musl, nơi file đó không tồn tại, nên `dlopen` hỏng ngay ở bước nạp thư viện. Cài `libc6-compat` hay `gcompat` không sửa được: chúng cấp file loader nên qua được lỗi thứ nhất, rồi chết ở lỗi thứ hai là `__vsnprintf_chk: symbol not found`. Cách xử lý thực tế là đổi base image sang `node:22-bookworm-slim`, trả thêm khoảng 89 MB image để đổi lấy một thứ chạy được.
+
+21 giờ 30, tôi thêm `Dockerfile` cho ClubDay — một web app sự kiện có trò vẽ hình được chấm điểm bằng model ONNX chạy ngay trên máy chủ. Base image chọn theo phản xạ: `node:22-alpine`, vì nhẹ.
+
+Image build sạch. Container lên. `docker ps` xanh. Rồi đến lúc server nạp model thì mọi thứ đổ, với một dòng lỗi không nhắc gì tới ONNX:
+
+[code]
+Error loading shared library ld-linux-x86-64.so.2: No such file or directory
+(needed by /app/node_modules/onnxruntime-node/bin/napi-v6/linux/x64/libonnxruntime.so.1)
+[/code]
+
+21 giờ 44 tôi đổi một dòng trong `Dockerfile` và mọi thứ chạy. Nhưng mười bốn phút ở giữa đáng được viết ra, vì dòng lỗi đó nói về một file mà bạn chưa bao giờ cài, chưa bao giờ khai trong `package.json`, và trên máy dev thì nó vẫn luôn ở đó.
+
+## Tóm tắt nhanh (TL;DR)
+- Triệu chứng: build thành công, container chạy, chết lúc nạp native module.
+- Nguyên nhân: `libonnxruntime.so.1` có `DT_NEEDED: ld-linux-x86-64.so.2` — loader của glibc. Alpine dùng musl (`ld-musl-x86_64.so.1`), không có file đó.
+- `libc6-compat` / `gcompat` không sửa được: qua lỗi nạp, chết ở `Error relocating ...: __vsnprintf_chk: symbol not found`.
+- Cách sửa: đổi `node:22-alpine` → `node:22-bookworm-slim`. Đúng một dòng.
+- Giá phải trả: image 238 MB → 327 MB, tăng khoảng 89 MB.
+- Kiểm tra trước khi chọn base image: `readelf -d  .so | grep NEEDED`.
+
+## Lỗi thật trông như thế nào
+Bạn không cần dựng lại cả dự án để thấy nó. Chỉ cần mount thư mục `onnxruntime-node` có sẵn vào một container Alpine rồi `dlopen` thẳng file binding:
+
+[code bash]
+docker run --rm -v "$PWD/node_modules/onnxruntime-node:/ort:ro" node:22-alpine \
+  node -e "process.dlopen({exports:{}}, '/ort/bin/napi-v6/linux/x64/onnxruntime_binding.node')"
+[/code]
+
+Kết quả, chạy trên `onnxruntime-node` 1.24.3:
+
+[code]
+Error loading shared library ld-linux-x86-64.so.2: No such file or directory
+(needed by /ort/bin/napi-v6/linux/x64/libonnxruntime.so.1)
+[/code]
+
+Hai chi tiết trong dòng lỗi này đáng để ý.
+
+Thứ nhất, thứ bị thiếu không phải một thư viện bình thường mà là bộ nạp động. `ld-linux-x86-64.so.2` là chương trình mà kernel gọi để nạp mọi thư viện khác của một binary glibc. Thiếu nó thì không có gì nạp được cả.
+
+Thứ hai, thủ phạm không phải file bạn gọi. Bạn nạp `onnxruntime_binding.node` (376 KB), nhưng file hỏng là `libonnxruntime.so.1` (34 MB) — thứ mà binding kéo theo. Đây là lý do tìm theo tên package thường không ra gì: lỗi nằm ở một phụ thuộc bắc cầu, cách `package.json` của bạn hai lớp.
+
+Trong ClubDay thì chuỗi đó là: `@huggingface/transformers` → `onnxruntime-node` → `libonnxruntime.so.1` → glibc. Không có dòng nào trong `package.json` nhắc tới ONNX, và cũng chẳng có dòng nào nhắc tới glibc.
+
+## Vì sao Alpine không chạy được binary glibc
+Alpine không dùng glibc mà dùng musl — một bản hiện thực libc khác, gọn hơn nhiều. Đây không phải chuyện phiên bản cũ mới, mà là hai thứ khác nhau, tên file cũng khác nhau:
+
+| | glibc (Debian, Ubuntu, RHEL) | musl (Alpine) |
+|---|---|---|
+| Bộ nạp động | `/lib64/ld-linux-x86-64.so.2` | `/lib/ld-musl-x86_64.so.1` |
+| Thư viện C | `libc.so.6` | `libc.musl-x86_64.so.1` |
+| Binary glibc dựng sẵn chạy được? | Có | Không |
+
+Kiểm chứng trong chính image `node:22-alpine`:
+
+[code]
+/lib/libc.musl-x86_64.so.1
+/lib/ld-musl-x86_64.so.1
+(không có ld-linux-x86-64.so.2)
+[/code]
+
+Giờ nhìn sang phía binary. `readelf` cho thấy `libonnxruntime.so.1` cần những gì:
+
+[code bash]
+readelf -d node_modules/onnxruntime-node/bin/napi-v6/linux/x64/libonnxruntime.so.1 | grep NEEDED
+[/code]
+
+[code]
+(NEEDED) Shared library: [libdl.so.2]
+(NEEDED) Shared library: [librt.so.1]
+(NEEDED) Shared library: [libpthread.so.0]
+(NEEDED) Shared library: [libstdc++.so.6]
+(NEEDED) Shared library: [libm.so.6]
+(NEEDED) Shared library: [libgcc_s.so.1]
+(NEEDED) Shared library: [libc.so.6]
+(NEEDED) Shared library: [ld-linux-x86-64.so.2]      ← đây
+[/code]
+
+Dòng cuối là mấu chốt, và nó cũng giải thích tại sao thông báo lỗi lại nêu đúng tên file đó. `DT_NEEDED` là danh sách thư viện mà loader phải nạp. Ở đây bản thân loader của glibc bị liệt kê như một thư viện thông thường — nên khi musl đọc danh sách này, nó cố đi tìm một file tên `ld-linux-x86-64.so.2`, không thấy, và dừng.
+
+Chưa hết. Binary còn đòi các symbol có version của glibc:
+
+[code bash]
+readelf -V libonnxruntime.so.1 | grep -o "GLIBC_[0-9.]*" | sort -uV | tail -3
+[/code]
+
+[code]
+GLIBC_2.17
+GLIBC_2.27
+[/code]
+
+Nghĩa là kể cả khi có loader, nó vẫn cần một libc cung cấp đúng những symbol đã được gắn version như vậy. musl không làm thế, vì musl không dùng cơ chế symbol versioning của glibc.
+
+## Vì sao `libc6-compat` và `gcompat` không cứu được
+Câu trả lời bạn gặp nhiều nhất khi tìm lỗi này là "cài `libc6-compat` là xong". Tôi đã thử, và đây là kết quả thật.
+
+Sau khi `apk add libc6-compat`, file loader xuất hiện:
+
+[code]
+-rwxr-xr-x 1 root root 22728 /lib/ld-linux-x86-64.so.2
+[/code]
+
+Lỗi cũ biến mất thật. Nhưng nó được thay bằng lỗi mới:
+
+[code]
+Error relocating /ort/bin/napi-v6/linux/x64/libonnxruntime.so.1:
+__vsnprintf_chk: symbol not found
+[/code]
+
+Thử tiếp với `gcompat`, shim đầy đủ hơn và thường được khuyên dùng thay `libc6-compat`, kết quả giống hệt: vẫn `__vsnprintf_chk: symbol not found`.
+
+Sự khác nhau giữa hai thông báo lỗi nói lên toàn bộ vấn đề:
+
+| Giai đoạn | Thông báo | Ý nghĩa |
+|---|---|---|
+| Nạp thư viện | `Error loading shared library` | Không tìm thấy file |
+| Phân giải symbol | `Error relocating` | Tìm thấy file, nhưng thiếu symbol bên trong |
 
 [… phần còn lại đã lược bớt]
 
