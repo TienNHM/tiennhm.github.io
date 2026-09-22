@@ -7,13 +7,27 @@ require('dotenv').config({ path: `.env.local`, override: true });
 const lightCodeTheme = require('prism-react-renderer').themes.github;
 const darkCodeTheme = require('prism-react-renderer').themes.dracula;
 
-// Hồ sơ tác giả dùng chung cho JSON-LD (site-wide @graph + ProfilePage ở /about).
-// Xem src/data/authorProfile.js để biết vì sao từng mục knowsAbout có mặt ở đó.
-const { authorProfile } = require('./src/data/authorProfile');
-
 const organizationName = "TienNHM";
 const projectName = "tiennhm.github.io"; // tên repo GitHub, không phải domain
 const siteUrl = "https://tiennhm.io.vn"; // domain chính thức (canonical)
+
+// Docusaurus đặt DOCUSAURUS_CURRENT_LOCALE trước khi require file config này,
+// và require lại config cho từng locale khi build. Nhờ vậy cùng một file sinh
+// ra metadata khác nhau cho vi và en, thay vì hardcode tiếng Việt cho cả hai.
+const currentLocale = process.env.DOCUSAURUS_CURRENT_LOCALE || 'vi';
+
+// Một câu branding duy nhất cho mỗi locale, dùng chung cho tagline, meta
+// description của trang chủ (src/pages/index.tsx đọc siteConfig.tagline) và
+// JSON-LD WebSite (src/theme/SiteStructuredData). Trước đây ba chỗ này có ba
+// câu khác nhau, nên search engine nhận ba mô tả cho cùng một site.
+const SITE_DESCRIPTIONS = {
+    vi: 'Fullstack Developer — chia sẻ kiến thức chuyên sâu về lập trình, kiến trúc hệ thống, AI và kinh nghiệm triển khai sản phẩm thực tế.',
+    en: 'Fullstack developer writing in depth about programming, system architecture, AI, and lessons from shipping real products.',
+};
+// So sánh tường minh thay vì index bằng biến string, để `// @ts-check` ở đầu
+// file không báo lỗi thiếu index signature. Thêm locale mới thì nối thêm nhánh.
+const siteDescription =
+    currentLocale === 'en' ? SITE_DESCRIPTIONS.en : SITE_DESCRIPTIONS.vi;
 
 // Search chỉ bật khi có đủ credential thật từ biến môi trường.
 const algoliaConfig =
@@ -83,7 +97,7 @@ const footerLinks = [
 /** @type {import('@docusaurus/types').Config} */
 const config = {
     title: 'TienNHM - Fullstack Developer Blog',
-    tagline: 'Fullstack Developer từ Việt Nam - Chia sẻ kiến thức về lập trình, công nghệ và phát triển phần mềm',
+    tagline: siteDescription,
     favicon: 'https://github.com/TienNHM.png',
 
     // Set the production url of your site here
@@ -243,53 +257,18 @@ const config = {
                 href: 'https://slorber-api-screenshot.netlify.app',
             }
         },
-        {
-            tagName: 'script',
-            attributes: {
-                type: 'application/ld+json',
-            },
-            innerHTML: JSON.stringify({
-                '@context': 'https://schema.org',
-                '@graph': [
-                    {
-                        '@type': 'Person',
-                        '@id': `${siteUrl}/#person`,
-                        name: 'Nguyễn Huỳnh Minh Tiến',
-                        alternateName: 'TienNHM',
-                        jobTitle: 'Fullstack Developer',
-                        // url: `https://${organizationName}.github.io/`,
-                        url: `${siteUrl}/`,
-                        image: 'https://github.com/TienNHM.png',
-                        sameAs: authorProfile.sameAs,
-                        // Các chủ đề chuyên môn — chỉ liệt kê thứ THỰC SỰ có nội dung
-                        // trên docs/ hoặc blog/. Nguồn: src/data/authorProfile.js
-                        knowsAbout: authorProfile.knowsAbout,
-                    },
-                    {
-                        '@type': 'WebSite',
-                        '@id': `${siteUrl}/#website`,
-                        // url: `https://${organizationName}.github.io/`,
-                        url: `${siteUrl}/`,
-                        name: 'TienNHM - Fullstack Developer Blog',
-                        description: 'Blog cá nhân chia sẻ kiến thức chuyên sâu về lập trình, kiến trúc hệ thống, AI và kinh nghiệm triển khai sản phẩm thực tế.',
-                        inLanguage: ['vi', 'en'],
-                        publisher: {
-                            '@id': `${siteUrl}/#person`,
-                        },
-                        potentialAction: [
-                            {
-                                '@type': 'SearchAction',
-                                target: {
-                                    '@type': 'EntryPoint',
-                                    urlTemplate: `${siteUrl}/search?q={search_term_string}`,
-                                },
-                                'query-input': 'required name=search_term_string',
-                            },
-                        ],
-                    },
-                ],
-            }),
-        },
+        /*
+         * JSON-LD site-wide (@graph: Person + WebSite) ĐÃ CHUYỂN sang
+         * src/theme/SiteStructuredData, được render từ src/theme/Root.
+         *
+         * Lý do: node WebSite cần `url`/`@id` trỏ đúng gốc của locale đang
+         * build (/ cho vi, /en/ cho en). baseUrl của locale chỉ được tính sau
+         * khi config đã load — và còn phụ thuộc cách chạy build: `build` đầy đủ
+         * cho en baseUrl `/en/`, còn `build --locale en` lại cho `/`
+         * (xem isAutomaticBaseUrlLocalizationDisabled trong @docusaurus/core).
+         * Hardcode ở đây sẽ sai ở một trong hai trường hợp, nên phải đọc
+         * siteConfig.baseUrl từ context lúc render.
+         */
     ],
 
     markdown: {

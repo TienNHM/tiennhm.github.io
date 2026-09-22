@@ -9,7 +9,7 @@ Index: https://tiennhm.io.vn/llms.txt
 Sitemap: https://tiennhm.io.vn/sitemap.xml
 Owner: Nguyễn Huỳnh Minh Tiến (TienNHM)
 Language: vi (chính), en (một phần)
-Generated: 2026-09-21 (scripts/generate-llms-full.js)
+Generated: 2026-09-22 (scripts/generate-llms-full.js)
 
 ## Attribution
 
@@ -18,8 +18,8 @@ của trang — mỗi mục bên dưới có dòng `URL:` là canonical URL củ
 
 ## Phạm vi & giới hạn
 
-- Tổng số tài liệu quét được: 458 (docs: 431, blog: 27).
-- Số tài liệu có mặt trong file này: 458.
+- Tổng số tài liệu quét được: 463 (docs: 431, blog: 32).
+- Số tài liệu có mặt trong file này: 463.
 - Ngân sách dung lượng: 2.0 MB. Trần nội dung mỗi tài liệu: 6 KB.
 - Khi thiếu chỗ: blog giữ 30% ngân sách (ưu tiên bài mới nhất), phần còn lại dành cho docs/.
 - Nội dung đã được strip khỏi MDX/JSX và frontmatter; chữ bên trong các
@@ -27,8 +27,13 @@ của trang — mỗi mục bên dưới có dòng `URL:` là canonical URL củ
 - Khối code dài bị rút gọn; mọi chỗ rút gọn đều được đánh dấu tại chỗ.
 - Mỗi tài liệu bắt đầu bằng một dòng `========…` rồi tới `# <tiêu đề>` và `URL: …`.
 
-### Tài liệu bị rút gọn (98) — fetch URL để lấy bản đầy đủ
+### Tài liệu bị rút gọn (103) — fetch URL để lấy bản đầy đủ
 
+- Unit of Work trong .NET và ABP: SaveChangesAsync không phải commit — https://tiennhm.io.vn/blog/unit-of-work-dotnet-abp
+- Gọi .Result khi nào thì deadlock, khi nào thì không? — https://tiennhm.io.vn/blog/deadlock-result-wait-csharp
+- Vì sao EF Core bắn 201 query cho 1 màn hình danh sách? Cách sửa N+1 — https://tiennhm.io.vn/blog/ef-core-n-plus-1-query
+- Đổi id trên URL ra dữ liệu người khác? Chặn IDOR ở một tầng duy nhất — https://tiennhm.io.vn/blog/idor-broken-access-control-aspnet-core
+- Singleton, Scoped hay Transient? Chọn sai là DbContext sống mãi — https://tiennhm.io.vn/blog/singleton-scoped-transient-captive-dependency
 - Dựng một nền tảng CRM multi-tenant từ con số không: chuyện nghề 20 tháng — https://tiennhm.io.vn/blog/founding-engineer-nen-tang-crm-abp-dotnet-angular
 - Vì sao .NET ngốn 96% RAM container dù app đang rảnh? Server GC và cách giảm 65% bộ nhớ — https://tiennhm.io.vn/blog/dotnet-workstation-gc-giam-ram-container
 - Scalar là gì? Tại sao nên dùng Scalar thay Swagger UI trong ASP.NET Core 10 — https://tiennhm.io.vn/blog/gioi-thieu-scalar-api-reference-thay-the-swagger-ui
@@ -42247,6 +42252,550 @@ Nội dung chi tiết...
 />
 
 ## Câu hỏi thường gặp
+
+[… phần còn lại đã lược bớt]
+
+============================================================================
+
+# Unit of Work trong .NET và ABP: SaveChangesAsync không phải commit
+
+URL: https://tiennhm.io.vn/blog/unit-of-work-dotnet-abp
+Source: blog/2026/2026-09-22-unit-of-work-dotnet-abp/index.md
+Date: 2026-09-22
+Description: DbContext của EF Core bản thân nó đã là một Unit of Work, nên bọc thêm một interface IUnitOfWork gọi SaveChanges thường chỉ thêm lớp trung gian vô ích. ABP đi hướng khác: Unit of Work là ambient, tự mở theo request, và SaveChangesAsync bên trong nó không commit — chỉ CompleteAsync mới commit. Bài này giải thích cơ chế, những chỗ hay sập trong background job, và cách chạy side effect sau khi commit bằng OnCompleted.
+Tags: dotnet, abp, aspnetcore, ef-core, architecture, backend
+Note: Nội dung dưới đây đã được rút gọn để giữ dung lượng file. Bản đầy đủ tại https://tiennhm.io.vn/blog/unit-of-work-dotnet-abp
+
+# Unit of Work trong .NET và ABP
+
+`DbContext` của EF Core đã là một Unit of Work sẵn: nó gom thay đổi trong change tracker rồi đẩy xuống database trong một transaction khi gọi `SaveChanges`. Vì vậy tự viết thêm một `IUnitOfWork` chỉ để gọi `SaveChanges` thường là thừa. ABP thì khác hẳn: Unit of Work ở đây là ambient, tự mở theo mỗi request, và `SaveChangesAsync` bên trong một UoW không commit transaction — chỉ `CompleteAsync` mới commit. Hiểu sai chỗ này là nguồn gốc của phần lớn bug "dữ liệu lúc có lúc không".
+
+Unit of Work là một trong những pattern bị viết lại nhiều nhất trong thế giới .NET, và cũng là pattern bị viết lại một cách thừa thãi nhiều nhất. Bài này tách làm hai phần: EF Core thuần thì bạn cần gì, và ABP đã làm sẵn những gì mà bạn nên hiểu trước khi đụng vào.
+
+## Phần 1 — `DbContext` đã là Unit of Work rồi
+
+Định nghĩa gốc của pattern: gom một nhóm thao tác đọc/ghi thành một đơn vị công việc, theo dõi những gì đã đổi, rồi đẩy tất cả xuống database một lượt, thành công hết hoặc hỏng hết.
+
+Đọc lại định nghĩa đó rồi nhìn `DbContext`:
+
+- change tracker theo dõi mọi entity đã `Add`, `Update`, `Remove`
+- `SaveChanges` sinh ra các câu lệnh và bọc chúng trong một transaction nếu chưa có transaction nào đang mở
+
+Nói cách khác, `DbContext` chính là một implementation của Unit of Work. Nó được thiết kế để sống đúng một đơn vị công việc — thường là một HTTP request — và đó cũng là lý do nó được đăng ký `Scoped`. Phần vòng đời này tôi đã viết riêng trong bài Singleton, Scoped hay Transient, vì giữ một `DbContext` sống lâu hơn một đơn vị công việc là một lớp bug riêng.
+
+Cho nên đoạn code kiểu này:
+
+[code csharp]
+public interface IUnitOfWork
+{
+    Task<int> SaveChangesAsync(CancellationToken ct = default);
+}
+
+public class UnitOfWork : IUnitOfWork
+{
+    private readonly CrmDbContext _db;
+    public UnitOfWork(CrmDbContext db) => _db = db;
+    public Task<int> SaveChangesAsync(CancellationToken ct = default) => _db.SaveChangesAsync(ct);
+}
+[/code]
+
+chỉ là một lớp bọc quanh thứ vốn đã làm đúng việc đó. Nó không thêm khả năng nào, nhưng thêm một interface phải maintain và một lớp gián tiếp khiến người đọc code phải nhảy thêm một bước. Phần đánh đổi giữa dùng Repository/UoW và dùng thẳng `DbContext` được bàn kỹ hơn ở 13.10 — Unit of Work và Repository pattern.
+
+### Khi nào thì thật sự cần nhiều hơn `SaveChanges`
+
+Có ba tình huống `DbContext` một mình không giải quyết được:
+
+1. Nhiều `DbContext` trong cùng một thao tác. Mỗi `SaveChanges` là một transaction riêng. Muốn chúng cùng thành công hoặc cùng hỏng thì cần một transaction bao ngoài.
+2. Trộn database với resource khác. Ghi database rồi bắn message lên broker. `SaveChanges` không biết gì về broker, nên nếu message bay đi trước khi transaction commit, bạn vừa tạo ra một sự kiện mô tả chuyện chưa từng xảy ra.
+3. Cần kiểm soát isolation level. Hành vi mặc định không phải lúc nào cũng đúng cho báo cáo hay cho thao tác đọc rồi ghi. Chi tiết ở 12.7 — Transactions và locking.
+
+Đây chính là khoảng trống mà Unit of Work của ABP lấp vào.
+
+## Phần 2 — Unit of Work trong ABP là ambient
+
+Khác biệt lớn nhất: trong ABP bạn không tự tạo Unit of Work cho luồng thông thường. Nó đã ở sẵn đó.
+
+`ApplicationService` của ABP implement interface đánh dấu `IUnitOfWorkEnabled`. Interceptor của framework nhìn thấy marker đó và tự mở một Unit of Work bao quanh lời gọi method. Nghĩa là mọi method trong application service của bạn đã chạy trong một UoW mà không cần khai báo gì thêm.
+
+Truy cập UoW đang hiện hành qua `IUnitOfWorkManager`:
+
+[code csharp]
+public class LeadAppService : ApplicationService, ILeadAppService
+{
+    private readonly IRepository<Lead, Guid> _leadRepository;
+
+    public LeadAppService(IRepository<Lead, Guid> leadRepository)
+        => _leadRepository = leadRepository;
+
+    public async Task<Guid> CreateAsync(CreateLeadDto input)
+    {
+        var lead = new Lead(GuidGenerator.Create(), input.Name);
+        await _leadRepository.InsertAsync(lead);
+
+        // Không cần gọi SaveChanges hay CompleteAsync ở đây.
+        // UoW ambient do interceptor mở sẽ tự complete khi method trả về.
+        return lead.Id;
+    }
+}
+[/code]
+
+### `SaveChangesAsync` và `CompleteAsync` không phải là một
+
+Đây là chỗ hay hiểu nhầm nhất, và cũng là lý do bài này có cái tiêu đề như vậy.
+
+`IUnitOfWork` của ABP có cả hai method, và chúng làm hai việc khác nhau:
+
+- `SaveChangesAsync` đẩy các thay đổi đang chờ xuống database để lấy ID sinh bởi database, để câu truy vấn kế tiếp nhìn thấy dữ liệu vừa ghi, hoặc để một constraint nổ sớm. Nó không commit transaction.
+- `CompleteAsync` mới là thứ commit: nó save changes lần cuối rồi commit toàn bộ transaction của UoW đó.
+
+Hệ quả thực tế: gọi `SaveChangesAsync` xong mà đâu đó phía sau ném exception thì toàn bộ, bao gồm cả phần vừa "save", đều bị rollback. Đúng như thiết kế — nhưng nếu bạn tưởng `SaveChangesAsync` là điểm không quay lại thì hành vi này trông y hệt một bug ma.
+
+[code csharp]
+public class ImportAppService : ApplicationService
+{
+    private readonly IUnitOfWorkManager _unitOfWorkManager;
+
+    public ImportAppService(IUnitOfWorkManager unitOfWorkManager)
+        => _unitOfWorkManager = unitOfWorkManager;
+
+    public async Task ImportAsync(List<CreateLeadDto> rows)
+    {
+        // requiresNew: true => tách hẳn khỏi UoW đang có, không nhập vào nó
+        using var uow = _unitOfWorkManager.Begin(requiresNew: true, isTransactional: true);
+
+        foreach (var row in rows)
+        {
+            await _leadRepository.InsertAsync(new Lead(GuidGenerator.Create(), row.Name));
+        }
+
+        // Ép ghi xuống DB giữa chừng, nhưng CHƯA commit
+        await uow.SaveChangesAsync();
+
+        // Đây mới là commit
+        await uow.CompleteAsync();
+    }
+}
+[/code]
+
+Chữ ký thật của extension method này là `Begin(bool requiresNew = false, bool isTransactional = false, IsolationLevel? isolationLevel = null, TimeSpan? timeout = null)`.
+
+### `requiresNew` và Unit of Work lồng nhau
+
+[… phần còn lại đã lược bớt]
+
+============================================================================
+
+# Gọi .Result khi nào thì deadlock, khi nào thì không?
+
+URL: https://tiennhm.io.vn/blog/deadlock-result-wait-csharp
+Source: blog/2026/2026-09-21-deadlock-result-wait-csharp/index.md
+Date: 2026-09-21
+Description: Gọi .Result hay .Wait() trên một Task treo cứng ứng dụng WPF và ASP.NET Framework, nhưng chạy bình thường trong console và ASP.NET Core. Nguyên nhân nằm ở SynchronizationContext mà await bắt lại khi tạm dừng. Bài viết mổ cơ chế đó, giải thích vì sao ConfigureAwait(false) chỉ vá được một nửa vấn đề, và vì sao code không deadlock trong ASP.NET Core vẫn có thể chết vì thread pool starvation.
+Tags: dotnet, csharp, aspnetcore, async, performance, concurrency
+Note: Nội dung dưới đây đã được rút gọn để giữ dung lượng file. Bản đầy đủ tại https://tiennhm.io.vn/blog/deadlock-result-wait-csharp
+
+# Gọi .Result khi nào thì deadlock, khi nào thì không?
+
+`.Result` và `.Wait()` block thread hiện tại. Khi `await` tạm dừng, nó bắt lại `SynchronizationContext` đang hiện hành để chạy phần code phía sau đúng trên context đó. Nếu context chỉ cho phép một thread tại một thời điểm — UI thread của WPF, request context của ASP.NET Framework — mà thread đó lại đang bị `.Result` block, thì continuation không bao giờ vào được: deadlock. Console và ASP.NET Core không có `SynchronizationContext`, nên continuation chạy trên thread pool và không kẹt. Cách sửa thật sự là async all the way.
+
+Đoạn code dưới đây chạy hoàn hảo trong một console app, và treo cứng khi bạn copy nguyên xi vào một controller của ASP.NET Framework hoặc một nút bấm trong WPF:
+
+[code csharp]
+public string GetCustomerName(int id)
+{
+    return GetCustomerAsync(id).Result;   // treo ở đây
+}
+
+private async Task<string> GetCustomerAsync(int id)
+{
+    var response = await _http.GetStringAsync($"/customers/{id}");
+    return Parse(response).Name;
+}
+[/code]
+
+Không có exception, không có stack trace, không có timeout. Thread đứng im vĩnh viễn. Chuyện này không phải do `HttpClient`, cũng không phải do `async` "bị lỗi" — nó là hệ quả trực tiếp của một quyết định thiết kế trong cách `await` hoạt động.
+
+## `await` bắt lại cái gì khi nó tạm dừng
+
+Compiler biến mỗi method `async` thành một state machine: mỗi `await` là một checkpoint, code phía sau checkpoint được đóng gói thành một continuation để chạy lại sau khi Task hoàn thành (chi tiết state machine ở đây).
+
+Câu hỏi quan trọng là: continuation đó sẽ chạy trên thread nào?
+
+Mặc định, tại thời điểm `await` tạm dừng, awaiter đọc `SynchronizationContext.Current`. Nếu khác `null`, nó ghi nhớ context này và sau đó `Post` continuation vào đúng context ấy. Nếu `SynchronizationContext.Current` là `null`, nó lùi sang `TaskScheduler.Current`; và nếu cái đó cũng là scheduler mặc định, continuation chạy thẳng trên thread pool.
+
+Đây là hành vi mong muốn chứ không phải bug. Trong WPF, nó cho phép bạn viết `await` rồi gán thẳng vào control ở dòng sau mà không cần `Dispatcher.Invoke`, vì continuation được đảm bảo quay về UI thread.
+
+## Vì sao "quay về context" cộng với "block" thành deadlock
+
+Điểm mấu chốt: một số `SynchronizationContext` chỉ cho phép một thread chạy tại một thời điểm.
+
+- `DispatcherSynchronizationContext` (WPF) và `WindowsFormsSynchronizationContext` gắn chặt vào đúng một UI thread. `Post` nghĩa là xếp công việc vào message queue của thread đó.
+- `AspNetSynchronizationContext` của ASP.NET Framework (`System.Web`) không gắn vào một thread cố định, nhưng nó tuần tự hoá: trong một request, tại một thời điểm chỉ một thread được phép chạy trong context của request đó.
+
+Ghép hai mảnh lại, trình tự deadlock như sau:
+
+1. UI thread (hoặc request thread) gọi `GetCustomerAsync(id)`.
+2. Method chạy tới `await`, bắt lại context hiện tại, trả về một `Task` chưa hoàn thành.
+3. `.Result` block chính thread đó để chờ `Task`.
+4. HTTP call xong trên một thread pool thread. Awaiter `Post` continuation vào context đã bắt.
+5. Context cần thread đang bị block ở bước 3 — hoặc chờ nó rời khỏi context. Nhưng thread đó chỉ rời đi khi `Task` hoàn thành, mà `Task` chỉ hoàn thành khi continuation chạy xong.
+
+Hai bên chờ nhau. Không ai nhường. Đây là deadlock theo đúng nghĩa đen, không phải "chậm".
+
+Chú ý là nó không phụ thuộc vào việc I/O có nhanh hay không. Nếu Task tình cờ đã hoàn thành trước khi tới `await` — cache hit chẳng hạn — `await` chạy đồng bộ, không tạm dừng, không có continuation nào cần post, và code chạy trót lọt. Chính điều này làm bug trở nên ác: nó xuất hiện không đều, phụ thuộc vào timing, và thường chỉ nổ trên môi trường thật.
+
+## Console và ASP.NET Core khác ở chỗ nào
+
+Đây là đoạn hay bị nói sai nhất, nên cần tách bạch hai chuyện khác nhau.
+
+Chuyện thứ nhất — vì sao không deadlock. Trong một console app, `SynchronizationContext.Current` trên thread `Main` là `null`. ASP.NET Core thì cố ý không cài `SynchronizationContext` nào cả; toàn bộ pipeline request được thiết kế async từ đầu tới cuối (kiến trúc pipeline). Không có context để bắt, nên continuation rơi thẳng xuống thread pool, không cần xin phép thread nào đang bị block. Vòng chờ bị phá, `.Result` trả về bình thường.
+
+Chuyện thứ hai — vì sao vẫn không nên block. Việc không deadlock không có nghĩa là `.Result` an toàn trong ASP.NET Core. Mỗi lần bạn block, bạn giữ một thread pool thread đứng im để chờ I/O. Thread pool phát triển rất dè dặt sau khi chạm mức tối thiểu — thứ tự vài trăm mili-giây cho mỗi thread được thêm vào. Dưới tải, số request đến nhanh hơn tốc độ thread pool nở ra, và bạn rơi vào thread pool starvation: latency tăng vọt, request xếp hàng, health check trượt, hệ thống trông như "treo".
+
+Triệu chứng giống deadlock nên rất hay bị gọi nhầm là deadlock. Nhưng nguyên nhân khác hẳn, và cách sửa cũng khác: deadlock cần phá vòng chờ context, còn starvation cần ngừng block để thread quay lại phục vụ request khác (vì sao async nâng throughput).
+
+Tóm lại:
+
+| Môi trường | Có SynchronizationContext? | `.Result` gây deadlock? | `.Result` có hại? |
+|---|---|---|---|
+| Console / worker | Không | Không | Có — block thread vô ích |
+| ASP.NET Core | Không | Không | Có — thread pool starvation dưới tải |
+| ASP.NET Framework | Có, tuần tự hoá theo request | Có | Rất |
+| WPF / WinForms | Có, gắn vào UI thread | Có | Rất |
+
+## Cách sửa thật sự: async all the way
+
+Sửa deadlock không phải là tìm một cái flag. Nó là đổi chữ ký của cả chuỗi gọi để không còn chỗ nào block:
+
+[code csharp]
+// Controller / handler
+public async Task<IActionResult> Detail(int id, CancellationToken ct)
+{
+    var name = await GetCustomerNameAsync(id, ct);
+    return View(name);
+}
+
+public async Task<string> GetCustomerNameAsync(int id, CancellationToken ct)
+{
+    var customer = await GetCustomerAsync(id, ct);
+    return customer?.Name ?? string.Empty;
+}
+[/code]
+
+Truyền luôn `CancellationToken` khi bạn đã sửa chữ ký — sau này thêm vào từng tầng một sẽ tốn công hơn nhiều.
+
+Khi đụng một biên giới thật sự không cho phép `async Task`, có đường thoát riêng cho từng loại, chứ không phải `.Result`:
+
+[… phần còn lại đã lược bớt]
+
+============================================================================
+
+# Vì sao EF Core bắn 201 query cho 1 màn hình danh sách? Cách sửa N+1
+
+URL: https://tiennhm.io.vn/blog/ef-core-n-plus-1-query
+Source: blog/2026/2026-09-21-ef-core-n-plus-1-query/index.md
+Date: 2026-09-21
+Description: Một màn hình 200 dòng mà log SQL ghi 201 câu lệnh là dấu hiệu của N+1 query. Bài viết giải thích cơ chế sinh ra nó trong EF Core, cách bật log để nhìn thấy, và bốn cách sửa: projection bằng Select, Include/ThenInclude, AsSplitQuery và AsNoTracking. Kèm cái bẫy ít người để ý là Include chữa được N+1 nhưng lại tạo ra cartesian explosion.
+Tags: dotnet, csharp, database, performance, aspnetcore, efcore
+Note: Nội dung dưới đây đã được rút gọn để giữ dung lượng file. Bản đầy đủ tại https://tiennhm.io.vn/blog/ef-core-n-plus-1-query
+
+# Vì sao EF Core bắn 201 query cho 1 màn hình danh sách?
+
+Một danh sách 200 dòng mà log ghi 201 câu SQL chính là N+1: một truy vấn lấy danh sách, rồi mỗi dòng lại thêm một truy vấn để nạp dữ liệu liên quan. Gốc rễ là navigation property bị nạp rời rạc thay vì nạp chung. Cách sửa mặc định là projection bằng Select xuống DTO. Include chỉ hợp khi cần entity thật, và nếu Include từ hai collection trở lên thì phải thêm AsSplitQuery để khỏi nổ cartesian.
+
+Bạn mở trang danh sách khách hàng, API trả về sau bốn giây, nhưng CPU của database gần như không nhúc nhích và câu SQL nào nhìn riêng lẻ cũng chạy trong vài mili-giây. Bật log lên thì hoá ra vấn đề không nằm ở một câu chậm, mà ở 201 câu nhanh xếp hàng nối đuôi nhau.
+
+Đó là N+1 query. Nó không làm code sai, không ném exception, không bị unit test bắt, và trên máy local với hai mươi dòng dữ liệu seed thì nó thậm chí còn nhanh hơn bản sửa đúng. Nó chỉ lộ ra khi bảng có dữ liệu thật và độ trễ mạng tới database khác không.
+
+## Công thức 1 + N
+
+Đoạn code dưới đây là dạng dễ nhận ra nhất, vì vòng lặp nằm ngay trước mắt:
+
+[code csharp]
+var customers = await _db.Customers
+    .Where(c => c.Status == CustomerStatus.Active)
+    .ToListAsync();                                  // 1 query
+
+var rows = new List<CustomerRowDto>();
+foreach (var c in customers)
+{
+    var contactCount = await _db.Contacts
+        .CountAsync(ct => ct.CustomerId == c.Id);     // + N query
+
+    rows.Add(new CustomerRowDto(c.Id, c.Name, contactCount));
+}
+[/code]
+
+Log SQL sẽ có dạng:
+
+[code sql]
+SELECT [c].[Id], [c].[Name], ... FROM [Customers] AS [c] WHERE [c].[Status] = 1;
+SELECT COUNT(*) FROM [Contacts] AS [c] WHERE [c].[CustomerId] = 1;
+SELECT COUNT(*) FROM [Contacts] AS [c] WHERE [c].[CustomerId] = 2;
+-- ... lặp lại đúng N lần
+[/code]
+
+Điểm chết người là chi phí không nằm ở việc database làm việc nặng, mà ở số lần đi lại. Mỗi câu lệnh là một round trip: gửi lệnh, chờ, nhận kết quả. Nếu mỗi round trip tốn 1 mili-giây thì 200 dòng đã là 200 mili-giây chỉ để đi lại; database nằm ở mạng khác với độ trễ 5 mili-giây thì con số đó thành một giây, trong khi mọi biểu đồ đo tải database vẫn xanh.
+
+## Ba nơi N+1 hay trốn
+
+Vòng lặp lộ thiên như ví dụ trên là dạng dễ nhất, code review bắt được.
+
+Lazy loading khó hơn, vì không có dòng code nào trông giống một truy vấn cả. Cách phổ biến nhất để bật lazy loading là cài gói proxy và khai báo navigation property là `virtual` (ngoài ra còn cách tiêm `ILazyLoader` vào entity, không cần proxy):
+
+[code csharp]
+public class Customer
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public virtual ICollection<Contact> Contacts { get; set; } = new List<Contact>();
+}
+
+services.AddDbContext<CrmDbContext>(opt => opt
+    .UseLazyLoadingProxies()
+    .UseSqlServer(connectionString));
+[/code]
+
+Từ lúc đó, `c.Contacts.Count` nằm trong một vòng `foreach` sẽ âm thầm bắn một truy vấn cho mỗi dòng. Tệ hơn, lazy loading là đồng bộ: nó chặn thread ngay giữa một action `async`. Cách khai báo quan hệ và navigation property được nói kỹ hơn ở bài relationships.
+
+Mapping sau khi đã materialize là dạng thứ ba. Khi bạn `ToListAsync()` trước rồi mới map entity sang DTO bằng AutoMapper, mọi navigation property mà mapper chạm vào đều là một lần nạp rời. Dùng `ProjectTo` thay cho `Map` sẽ đẩy phép chiếu xuống thành SQL, thay vì chạy trên đối tượng đã nằm trong bộ nhớ.
+
+## Nhìn thấy nó trước khi đoán
+
+Đừng suy luận bằng mắt, hãy bật log câu lệnh. Trong `appsettings.Development.json`:
+
+[code json]
+{
+  "Logging": {
+    "LogLevel": {
+      "Microsoft.EntityFrameworkCore.Database.Command": "Information"
+    }
+  }
+}
+[/code]
+
+Hoặc gắn thẳng vào `DbContext` khi chạy môi trường phát triển:
+
+[code csharp]
+optionsBuilder
+    .LogTo(Console.WriteLine, LogLevel.Information)
+    .EnableSensitiveDataLogging();   // chỉ bật ở Development
+[/code]
+
+Với một truy vấn cụ thể, `ToQueryString()` cho bạn xem SQL mà không cần chạy:
+
+[code csharp]
+var query = _db.Customers
+    .Where(c => c.Status == CustomerStatus.Active)
+    .Include(c => c.Contacts);
+
+Console.WriteLine(query.ToQueryString());
+[/code]
+
+Cách đọc log thì đơn giản: gọi API một lần, đếm số câu lệnh, rồi gọi lại với tập dữ liệu lớn hơn. Nếu con số đó tăng theo số dòng trả về thì bạn đang có N+1, không cần đo thêm gì nữa. Cấu hình log có cấu trúc để đếm được trên môi trường thật thì xem bài logging với Serilog, còn các công cụ debug khác của EF Core nằm ở bài performance.
+
+## Bốn cách sửa, và khi nào dùng cái nào
+
+### 1. Projection bằng Select, mặc định nên chọn
+
+Với màn hình chỉ đọc, đây gần như luôn là câu trả lời đúng:
+
+[code csharp]
+var rows = await _db.Customers
+    .AsNoTracking()
+    .Where(c => c.Status == CustomerStatus.Active)
+    .OrderBy(c => c.Name)
+    .Select(c => new CustomerRowDto(
+        c.Id,
+        c.Name,
+        c.Contacts.Count(),
+        c.Leads.Where(l => l.Status == LeadStatus.Won).Sum(l => (decimal?)l.Value) ?? 0))
+    .ToListAsync();
+[/code]
+
+EF Core dịch cả khối này thành một câu lệnh duy nhất, với các phép đếm và tổng nằm ở dạng subquery. Bạn được ba thứ cùng lúc: một round trip, chỉ những cột thật sự cần thay vì đọc cả hàng, và không có gì phải đưa vào change tracker. Các dạng projection khác được liệt kê trong bài query patterns.
+
+### 2. Include và ThenInclude, khi bạn cần entity thật
+
+Khi phải sửa dữ liệu rồi `SaveChangesAsync`, hoặc khi domain logic cần entity đầy đủ, projection không dùng được. Lúc đó mới tới lượt eager loading:
+
+[code csharp]
+var customer = await _db.Customers
+    .Include(c => c.Contacts)
+    .Include(c => c.Leads)
+        .ThenInclude(l => l.AssignedUser)
+    .FirstOrDefaultAsync(c => c.Id == customerId);
+[/code]
+
+Một chi tiết hay làm người ta mất thời gian: nếu truy vấn kết thúc bằng một phép chiếu sang DTO thì `Include` bị bỏ qua hoàn toàn, và EF Core chỉ ghi một dòng cảnh báo trong log chứ không báo lỗi. Include và Select là hai con đường khác nhau, đừng trộn.
+
+### 3. AsSplitQuery, khi Include từ hai collection trở lên
+
+[… phần còn lại đã lược bớt]
+
+============================================================================
+
+# Đổi id trên URL ra dữ liệu người khác? Chặn IDOR ở một tầng duy nhất
+
+URL: https://tiennhm.io.vn/blog/idor-broken-access-control-aspnet-core
+Source: blog/2026/2026-09-21-idor-broken-access-control-aspnet-core/index.md
+Date: 2026-09-21
+Description: IDOR xảy ra khi API nhận id từ request rồi đọc thẳng bản ghi mà không hỏi xem người gọi có sở hữu bản ghi đó không. Bài viết giải thích cơ chế, cách tự dò trên chính API của bạn, vì sao đổi sang GUID hay mã hoá id không phải là cách sửa, và cách áp kiểm tra quyền sở hữu ở một tầng duy nhất trong ASP.NET Core bằng resource-based authorization cùng query filter theo người dùng.
+Tags: security, owasp, aspnetcore, dotnet, csharp, api
+Note: Nội dung dưới đây đã được rút gọn để giữ dung lượng file. Bản đầy đủ tại https://tiennhm.io.vn/blog/idor-broken-access-control-aspnet-core
+
+# Đổi id trên URL ra dữ liệu người khác? Chặn IDOR ở một tầng duy nhất
+
+IDOR xảy ra khi endpoint nhận id từ request rồi nạp thẳng bản ghi, chỉ kiểm tra người gọi đã đăng nhập chứ không kiểm tra người gọi có quyền trên đúng bản ghi đó. Đổi id sang GUID hay mã hoá id không sửa được lỗi, vì id vẫn rò ra ở chỗ khác. Cách sửa là bắt buộc mọi truy vấn phải đi qua một tầng ràng buộc quyền sở hữu ở server, thay vì rải lệnh kiểm tra trong từng controller.
+
+Bạn có một endpoint rất đỗi bình thường: `GET /api/orders/1043` trả về chi tiết đơn hàng. Nó nằm sau `[Authorize]`, token hợp lệ mới gọi được, và trên giao diện thì người dùng chỉ bấm được vào đơn của chính họ.
+
+Rồi một người đăng nhập bằng tài khoản thật của họ, sửa `1043` thành `1044` và bấm gửi. Nếu server trả về đơn hàng của người khác thì đó là Insecure Direct Object Reference, gọi tắt là IDOR. Không có payload, không có kỹ thuật gì, chỉ là một con số bị đổi.
+
+## IDOR là gì và vì sao nó đứng đầu bảng OWASP
+
+Direct Object Reference nghĩa là ứng dụng dùng dữ liệu người dùng gửi lên để trỏ trực tiếp tới một đối tượng ở phía sau: một dòng trong database, một file, một bản ghi. Bản thân chuyện đó không sai, gần như mọi REST API đều làm vậy. Nó trở thành insecure khi tham chiếu ấy được dùng mà không có bước kiểm tra xem người gọi có được phép chạm vào đối tượng đó hay không. Phần mô tả đầy đủ kèm các dạng biến thể nằm ở bài giới thiệu IDOR.
+
+Trong OWASP Top 10 bản 2021, Broken Access Control leo lên vị trí A01, và IDOR là dạng cụ thể hay gặp nhất của nhóm này. Lý do nó xếp cao không phải vì khó khai thác, mà vì ngược lại: chi phí khai thác gần bằng không, trong khi hậu quả là lộ dữ liệu của toàn bộ người dùng nếu id là số chạy tuần tự.
+
+Có hai trục phân quyền cần phân biệt, và bài về secure object references trình bày rõ cả hai:
+
+- Ngang (horizontal): hai người cùng vai trò, A đọc được dữ liệu của B. Đây chính là IDOR kinh điển.
+- Dọc (vertical): người dùng thường gọi được chức năng của admin. Đây là Missing Function Level Access Control, một lỗi anh em nhưng khác cơ chế; bản so sánh giữa hai loại giúp bạn không nhầm hai thứ khi đi rà soát.
+
+## Vì sao lỗi này phổ biến đến thế
+
+Vì authentication và authorization là hai việc khác nhau, mà framework chỉ tự động lo giúp bạn việc thứ nhất.
+
+`[Authorize]` trả lời câu hỏi "anh là ai". Nó xác minh chữ ký token, dựng `ClaimsPrincipal`, và đến đó là hết. Nó không biết gì về đơn hàng số 1044, cũng không có cách nào biết đơn đó thuộc về ai. Câu hỏi "anh có được phép động vào bản ghi này không" phải do code nghiệp vụ trả lời, và vì không có cái gì bắt buộc, nên khi deadline gấp thì đó đúng là dòng code bị bỏ quên. Ranh giới giữa hai khái niệm được tách bạch trong bài authentication vs authorization.
+
+Một nguồn gây lỗi nữa là niềm tin vào giao diện. Màn hình chỉ hiển thị đơn của người dùng hiện tại, nên developer ngầm cho rằng id gửi lên luôn hợp lệ. Nhưng HTTP client nào cũng gửi được request tuỳ ý, còn giao diện thì không phải là một lớp bảo vệ, nó chỉ là một gợi ý.
+
+Thứ ba là dữ liệu thừa trong response. Một API trả về nguyên entity, giao diện chỉ hiển thị vài trường, và những trường còn lại vẫn nằm trong JSON: `userId`, `role`, `ownerId`. Chúng chính là nguyên liệu để người ta đoán ra id tiếp theo cần thử. Bài lab so sánh response thô với dữ liệu hiển thị cho bạn thấy đúng bước này trên một hệ thống thật.
+
+## Cách tự dò IDOR trên chính API của bạn
+
+Quy trình rất cơ học, và bạn nên chạy nó trước khi người khác chạy:
+
+1. Tạo hai tài khoản cùng vai trò, gọi là A và B, mỗi tài khoản có một ít dữ liệu riêng.
+2. Đăng nhập bằng A, mở tab Network, ghi lại mọi request có id trên path, trên query string hoặc trong body.
+3. Giữ nguyên token của A, thay id bằng id của B rồi gửi lại.
+4. So sánh: `200` kèm dữ liệu của B là lỗi. `403` hoặc `404` là đúng kỳ vọng.
+5. Lặp lại cho mọi HTTP method chứ không chỉ `GET`. Nhiều hệ thống chặn đọc nhưng quên chặn `PUT` và `DELETE` trên cùng một route, đúng như tình huống trong bài thực hành đổi id kèm đổi method.
+
+Bước bổ sung là đoán route. Một API RESTful có quy luật đặt tên rất dễ suy ra, nên nếu `/api/orders/{id}` tồn tại thì `/api/orders/{id}/attachments` thường cũng tồn tại, kể cả khi không có màn hình nào gọi tới. Kiểu suy luận này được mô tả trong bài về đoán mẫu URL.
+
+Trong CI, cách rẻ nhất để giữ kết quả là viết integration test khẳng định điều ngược lại: đăng nhập bằng A, gọi tài nguyên của B, assert status code không phải `200`. Mỗi endpoint một test, chạy mãi về sau.
+
+## Ba cách chữa không phải là chữa
+
+Ẩn id đi. Chuyển id từ URL xuống body, hay không hiển thị nó trên giao diện, chỉ làm request trông sạch hơn. Nó vẫn nằm trong payload và vẫn sửa được.
+
+Đổi sang GUID. Tăng chi phí đoán là thật, và vẫn nên làm để tránh việc ai đó quét hết id từ 1 tới 100000. Nhưng GUID rò rỉ ở rất nhiều chỗ: kết quả tìm kiếm, response của endpoint danh sách, webhook, link chia sẻ, log, báo cáo export. Chỉ cần một id lọt ra là bản ghi đó không còn được bảo vệ, bởi vì lớp phòng thủ duy nhất ở đây là "kẻ tấn công không biết chuỗi này".
+
+Mã hoá hoặc hash id thành indirect reference. Bạn đổi `/profile/1234` thành `/profile/8f3e9d72a1` rồi ánh xạ ngược ở server. Đây là một lớp bổ sung có ích, nhưng chính tài liệu về indirect reference cũng nói thẳng là nó không thay thế được kiểm tra quyền.
+
+Điểm chung của cả ba: chúng làm id khó đoán hơn, còn lỗi thật thì nằm ở chỗ server chấp nhận bất kỳ id nào nó nhận được. Cùng một logic đó áp dụng cho session id — nếu giá trị phiên đoán được thì không cần đoán id nữa, như bài hijack a session minh hoạ.
+
+## Cách sửa: ràng buộc quyền sở hữu, và đặt nó ở một chỗ
+
+Nguyên tắc: id đến từ request là dữ liệu chưa tin được, danh tính đến từ token mới là dữ liệu tin được. Mọi truy vấn phải mang cả hai.
+
+Cách trực tiếp nhất là đưa điều kiện sở hữu vào chính câu query, thay vì tải bản ghi lên rồi mới so sánh:
+
+[code csharp]
+[Authorize]
+[HttpGet("api/orders/{id:guid}")]
+public async Task<IActionResult> GetOrder(Guid id)
+{
+    var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+[… phần còn lại đã lược bớt]
+
+============================================================================
+
+# Singleton, Scoped hay Transient? Chọn sai là DbContext sống mãi
+
+URL: https://tiennhm.io.vn/blog/singleton-scoped-transient-captive-dependency
+Source: blog/2026/2026-09-21-singleton-scoped-transient-captive-dependency/index.md
+Date: 2026-09-21
+Description: Ba lifetime trong DI container của ASP.NET Core khác nhau ở thời điểm tạo và thời điểm dispose instance. Bài này giải thích scope của một HTTP request là gì, vì sao inject service Scoped vào Singleton lại giữ DbContext sống suốt đời ứng dụng, vì sao scope validation bắt được lỗi ở Development mà không chắc bắt được ở Production, và cách sửa đúng bằng IServiceScopeFactory.
+Tags: dotnet, aspnetcore, csharp, dependency-injection, service-lifetime, ef-core, architecture
+Note: Nội dung dưới đây đã được rút gọn để giữ dung lượng file. Bản đầy đủ tại https://tiennhm.io.vn/blog/singleton-scoped-transient-captive-dependency
+
+# Singleton, Scoped hay Transient? Chọn sai là DbContext sống mãi
+
+Chọn lifetime là chọn thời điểm container tạo instance và thời điểm nó dispose. `Transient` tạo mới mỗi lần resolve, `Scoped` một instance cho mỗi HTTP request, `Singleton` một instance cho cả vòng đời process. Quy tắc quan trọng nhất: service sống lâu không được nhận trực tiếp service sống ngắn. Inject một repository `Scoped` vào một `Singleton` là bạn vừa giữ `DbContext` đó sống tới lúc app tắt. Cách sửa là inject `IServiceScopeFactory` rồi tự mở scope khi cần.
+
+Dòng đăng ký gây ra lỗi này trông vô hại tới mức review không ai dừng lại:
+
+[code csharp]
+builder.Services.AddDbContext<CrmDbContext>(o => o.UseSqlServer(conn)); // Scoped
+builder.Services.AddScoped<ICustomerRepository, EfCustomerRepository>();
+builder.Services.AddSingleton<CustomerCacheRefresher>();               // ← thuốc nổ
+[/code]
+
+App qua được CI và lên staging. Lên môi trường có tải, log bắt đầu xuất hiện `A second operation was started on this context instance before a previous operation completed`, hoặc `Cannot access a disposed context instance`, hoặc tệ hơn là không có exception nào cả mà chỉ có dữ liệu cũ trả về mãi không đổi. Bài này giải thích cơ chế đằng sau, và code của cả bản hỏng lẫn bản sửa.
+
+## Ba lifetime thực sự khác nhau ở chỗ nào
+
+Container không quản lý "kiểu" service, nó quản lý instance và thời điểm dispose instance đó. Ba lifetime chỉ là ba câu trả lời cho câu hỏi "lần resolve tiếp theo có được dùng lại instance cũ không".
+
+| Lifetime | Tạo instance mới khi nào | Được dispose khi nào | Hợp với loại service nào |
+|---|---|---|---|
+| `Transient` | Mỗi lần resolve | Khi scope resolve nó bị dispose | Stateless, rẻ, không giữ tài nguyên |
+| `Scoped` | Lần đầu resolve trong mỗi scope | Khi scope kết thúc | `DbContext`, Unit of Work, repository, ngữ cảnh người dùng |
+| `Singleton` | Lần đầu resolve trong cả app | Khi host shutdown | Cache in-memory, cấu hình đã parse, factory |
+
+Có một chi tiết hay bị bỏ qua: container chịu trách nhiệm dispose những instance nó tạo ra mà implement `IDisposable`. Mỗi scope giữ một danh sách các disposable đã tạo trong scope đó. Nghĩa là một service `Transient` implement `IDisposable` mà bạn resolve từ root provider sẽ nằm trong danh sách của root scope và chỉ được giải phóng lúc app tắt — `Transient` không hề đồng nghĩa với "được thu hồi ngay". Bảng so sánh chi tiết hơn nằm ở 7.5 — Service Lifetimes.
+
+## "Scope" trong một HTTP request là cái gì
+
+Trong ASP.NET Core, scope không phải khái niệm trừu tượng mà là một object có thật. Với mỗi request đi vào, hạ tầng tạo một `IServiceScope`, gắn `ServiceProvider` của scope đó vào `HttpContext.RequestServices`, chạy toàn bộ pipeline middleware, rồi dispose scope khi response đã hoàn tất.
+
+Hệ quả trực tiếp: trong cùng một request, controller, service nghiệp vụ và hai repository khác nhau đều nhận cùng một `CrmDbContext`. Đó chính là thứ làm cho unit of work hoạt động — bạn sửa entity ở repository A, thêm entity ở repository B, rồi gọi `SaveChangesAsync` một lần và cả hai nằm chung một transaction. Lý do `DbContext` được đăng ký `Scoped` mặc định nằm ở đây, chứ không phải vì nó "nặng" (13.3 — DbContext và entity configuration).
+
+Hệ quả thứ hai quan trọng hơn: ngoài request thì không có scope nào tự sinh ra. Background job, hosted service, consumer message queue, code chạy lúc startup — tất cả đều sống ở root scope. Nếu ở đó bạn cần một service `Scoped`, bạn phải tự tạo scope.
+
+## Captive dependency: vì sao Singleton nuốt luôn DbContext
+
+Đây là bản hỏng, rất phổ biến vì nó biên dịch được và chạy được:
+
+[code csharp]
+// BUG: Singleton nhận thẳng một dependency Scoped
+public sealed class CustomerCacheRefresher
+{
+    private readonly ICustomerRepository _repo;   // Scoped!
+    private readonly ConcurrentDictionary<Guid, CustomerDto> _cache = new();
+
+    public CustomerCacheRefresher(ICustomerRepository repo) => _repo = repo;
+
+    public async Task RefreshAsync(Guid tenantId, CancellationToken ct)
+    {
+        foreach (var c in await _repo.GetActiveAsync(tenantId, ct))
+            _cache[c.Id] = c;
+    }
+}
+[/code]
+
+Container resolve `CustomerCacheRefresher` đúng một lần, vào lần đầu có ai đó cần tới nó. Tại đúng khoảnh khắc ấy nó dựng luôn một `EfCustomerRepository` kèm một `CrmDbContext` và nhét vào field. Instance `Singleton` sống tới lúc app tắt, nên cái `DbContext` bên trong cũng vậy. Nói cách khác, lifetime hiệu dụng của một dependency bằng lifetime của consumer sống lâu nhất giữ nó. Service `Scoped` đã bị "bắt giữ" — tên gọi captive dependency đến từ đó.
+
+Bốn hậu quả xảy ra theo thứ tự này:
+
+- Change tracker phình vô hạn. Mỗi entity từng được đọc lên vẫn nằm trong bộ nhớ của `DbContext` đó. Đây là rò rỉ bộ nhớ trông y hệt một memory leak bình thường và rất khó truy nguyên.
+- Dữ liệu cũ. Query sau sẽ trả về instance đã tracked từ trước thay vì giá trị mới dưới database, nên cache "làm mới" bằng dữ liệu đứng yên.
+- Race condition. `DbContext` không thread-safe và không được thiết kế cho nhiều thao tác song song. Singleton thì mặc định bị nhiều request gọi cùng lúc, nên `A second operation was started on this context instance` là chuyện sớm muộn.
+- Rò rỉ dữ liệu giữa tenant hoặc giữa user, nếu `DbContext` mang theo filter theo tenant hay ngữ cảnh người dùng được gắn lúc khởi tạo.
+
+Cùng một cơ chế, một biến thể khó thấy hơn là inject `IServiceProvider` vào constructor rồi `GetRequiredService` bên trong method. Nó vừa là captive dependency vừa là Service Locator, vì dependency thật bị giấu khỏi constructor và không còn kiểm tra được từ bên ngoài.
+
+## Vì sao Development bắt được lỗi mà Production thì không chắc
+
+DI container của .NET có sẵn cơ chế phát hiện chuyện này: scope validation. Khi bật, provider sẽ ném exception lúc resolve nếu một service `Singleton` yêu cầu một service `Scoped`:
+
+[code]
+Cannot consume scoped service 'ICustomerRepository' from singleton 'CustomerCacheRefresher'.
+[/code]
 
 [… phần còn lại đã lược bớt]
 
