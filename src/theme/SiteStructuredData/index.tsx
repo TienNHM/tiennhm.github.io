@@ -2,6 +2,7 @@ import React from "react";
 import Head from "@docusaurus/Head";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import { authorProfile } from "@site/src/data/authorProfile";
+import { getSiteDescription } from "@site/src/utils/siteDescription";
 
 /**
  * SiteStructuredData - JSON-LD `@graph` (Person + WebSite) cho toàn site.
@@ -49,7 +50,7 @@ export default function SiteStructuredData(): JSX.Element {
         "@id": `${localeRoot}#website`,
         url: localeRoot,
         name: siteConfig.title,
-        description: siteConfig.tagline,
+        description: getSiteDescription(),
         inLanguage: i18n.currentLocale,
         publisher: {
           "@id": personId,

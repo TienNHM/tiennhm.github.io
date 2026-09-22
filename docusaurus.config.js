@@ -11,23 +11,21 @@ const organizationName = "TienNHM";
 const projectName = "tiennhm.github.io"; // tên repo GitHub, không phải domain
 const siteUrl = "https://tiennhm.io.vn"; // domain chính thức (canonical)
 
-// Docusaurus đặt DOCUSAURUS_CURRENT_LOCALE trước khi require file config này,
-// và require lại config cho từng locale khi build. Nhờ vậy cùng một file sinh
-// ra metadata khác nhau cho vi và en, thay vì hardcode tiếng Việt cho cả hai.
-const currentLocale = process.env.DOCUSAURUS_CURRENT_LOCALE || 'vi';
-
-// Một câu branding duy nhất cho mỗi locale, dùng chung cho tagline, meta
-// description của trang chủ (src/pages/index.tsx đọc siteConfig.tagline) và
-// JSON-LD WebSite (src/theme/SiteStructuredData). Trước đây ba chỗ này có ba
-// câu khác nhau, nên search engine nhận ba mô tả cho cùng một site.
-const SITE_DESCRIPTIONS = {
-    vi: 'Fullstack Developer — chia sẻ kiến thức chuyên sâu về lập trình, kiến trúc hệ thống, AI và kinh nghiệm triển khai sản phẩm thực tế.',
-    en: 'Fullstack developer writing in depth about programming, system architecture, AI, and lessons from shipping real products.',
-};
-// So sánh tường minh thay vì index bằng biến string, để `// @ts-check` ở đầu
-// file không báo lỗi thiếu index signature. Thêm locale mới thì nối thêm nhánh.
+// Câu branding chung của site.
+//
+// ĐỪNG đổi chỗ này thành đọc `process.env.DOCUSAURUS_CURRENT_LOCALE` để chọn
+// chuỗi theo locale. Cách đó KHÔNG chạy với `docusaurus build` đa locale:
+// Docusaurus nạp config qua `loadFreshModule`, hàm này dùng jiti và giữ lại
+// module đã đánh giá dù khai `requireCache: false`. Locale mặc định build
+// trước, các locale sau dùng lại đúng object config đó, nên trang tiếng Anh
+// nhận chuỗi tiếng Việt. Đã kiểm chứng: gọi loadFreshModule hai lần với hai
+// giá trị env khác nhau cho ra kết quả giống hệt.
+//
+// Bản dịch theo locale nằm ở src/utils/siteDescription.ts (qua translate() và
+// i18n/<locale>/code.json). Chuỗi dưới đây chỉ là giá trị mặc định mà
+// Docusaurus dùng khi một trang không tự khai description.
 const siteDescription =
-    currentLocale === 'en' ? SITE_DESCRIPTIONS.en : SITE_DESCRIPTIONS.vi;
+    'Fullstack Developer — chia sẻ kiến thức chuyên sâu về lập trình, kiến trúc hệ thống, AI và kinh nghiệm triển khai sản phẩm thực tế.';
 
 // Search chỉ bật khi có đủ credential thật từ biến môi trường.
 const algoliaConfig =
