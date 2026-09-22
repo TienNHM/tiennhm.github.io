@@ -2,6 +2,7 @@ import React from 'react';
 import { PrimeReactProvider, PrimeReactContext } from 'primereact/api';
 import { AuthCheck } from "../components/Auth";
 import Robots from "./Robots";
+import SiteStructuredData from "./SiteStructuredData";
 
 // Default implementation, that you can customize
 export default function Root({children}) {
@@ -14,6 +15,7 @@ export default function Root({children}) {
   return (
     <PrimeReactProvider value={value}>
         <Robots />
+        <SiteStructuredData />
         <AuthCheck children={children} />
     </PrimeReactProvider>
   );

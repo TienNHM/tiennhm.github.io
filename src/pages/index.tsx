@@ -77,9 +77,12 @@ export default function Home(): JSX.Element {
   const ogImage = `${siteUrl}/img/copyright-tiennhm.webp`;
 
   return (
-    <Layout 
-      title="TienNHM - Fullstack Developer Blog" 
-      description="Fullstack Developer từ Việt Nam. Chia sẻ kiến thức về lập trình, công nghệ, phát triển phần mềm, tutorials và best practices cho developers."
+    <Layout
+      title={siteConfig.title}
+      // Một nguồn duy nhất cho câu branding: tagline được khai báo theo locale
+      // trong docusaurus.config.js (SITE_DESCRIPTIONS), nên bản en không còn rơi
+      // về mô tả tiếng Việt như khi chuỗi này bị hardcode tại đây.
+      description={siteConfig.tagline}
     >
       <Head>
         <meta property="og:image" content={ogImage} />

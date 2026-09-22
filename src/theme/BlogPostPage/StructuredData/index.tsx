@@ -1,6 +1,7 @@
 import React from "react";
 import Head from "@docusaurus/Head";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
+import { translate } from "@docusaurus/Translate";
 import { useBlogPost } from "@docusaurus/plugin-content-blog/client";
 import { ArticleStructuredData } from "@site/src/components/SEO";
 
@@ -27,11 +28,17 @@ function toIsoDate(value: string | number | Date | undefined | null): string {
 function BlogPostBreadcrumbs() {
   const { siteConfig } = useDocusaurusContext();
   const { metadata } = useBlogPost();
-  const siteUrl = siteConfig.url;
+  const siteUrl = siteConfig.url.replace(/\/$/, "");
 
   if (!metadata.permalink) {
     return null;
   }
+
+  // baseUrl là gốc của locale đang build ("/" cho vi, "/en/" cho en) và luôn có
+  // dấu `/` ở hai đầu. `metadata.permalink` đã bao gồm baseUrl sẵn, nên chỉ hai
+  // mắt breadcrumb tự dựng ở dưới mới cần ghép tay — trước đây chúng bỏ qua
+  // baseUrl nên bản tiếng Anh trỏ ngược về trang chủ tiếng Việt.
+  const localeRoot = `${siteUrl}${siteConfig.baseUrl}`;
 
   const breadcrumbs = {
     "@context": "https://schema.org",
@@ -41,14 +48,18 @@ function BlogPostBreadcrumbs() {
       {
         "@type": "ListItem",
         position: 1,
-        name: "Trang chủ",
-        item: `${siteUrl}/`,
+        name: translate({
+          id: "structuredData.breadcrumb.home",
+          message: "Trang chủ",
+          description: "Nhãn mắt đầu tiên trong JSON-LD BreadcrumbList của blog post",
+        }),
+        item: localeRoot,
       },
       {
         "@type": "ListItem",
         position: 2,
         name: "Blog",
-        item: `${siteUrl}/blog`,
+        item: `${localeRoot}blog`,
       },
       {
         "@type": "ListItem",
