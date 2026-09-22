@@ -18,8 +18,8 @@ của trang — mỗi mục bên dưới có dòng `URL:` là canonical URL củ
 
 ## Phạm vi & giới hạn
 
-- Tổng số tài liệu quét được: 465 (docs: 431, blog: 34).
-- Số tài liệu có mặt trong file này: 465.
+- Tổng số tài liệu quét được: 468 (docs: 431, blog: 37).
+- Số tài liệu có mặt trong file này: 468.
 - Ngân sách dung lượng: 2.0 MB. Trần nội dung mỗi tài liệu: 6 KB.
 - Khi thiếu chỗ: blog giữ 30% ngân sách (ưu tiên bài mới nhất), phần còn lại dành cho docs/.
 - Nội dung đã được strip khỏi MDX/JSX và frontmatter; chữ bên trong các
@@ -27,8 +27,11 @@ của trang — mỗi mục bên dưới có dòng `URL:` là canonical URL củ
 - Khối code dài bị rút gọn; mọi chỗ rút gọn đều được đánh dấu tại chỗ.
 - Mỗi tài liệu bắt đầu bằng một dòng `========…` rồi tới `# <tiêu đề>` và `URL: …`.
 
-### Tài liệu bị rút gọn (105) — fetch URL để lấy bản đầy đủ
+### Tài liệu bị rút gọn (108) — fetch URL để lấy bản đầy đủ
 
+- Một dấu tiếng Việt làm chết lời gọi API: cf-ipcity, HttpClient và giới hạn ASCII — https://tiennhm.io.vn/blog/cloudflare-header-broke-dotnet-httpclient
+- Forward header trong ASP.NET Core: vì sao 'forward hết' là một lỗi kiến trúc — https://tiennhm.io.vn/blog/forward-http-header-an-toan-aspnet-core
+- HTTP header có chứa được tiếng Việt không? ASCII, obs-text và chỗ .NET vạch ranh giới — https://tiennhm.io.vn/blog/http-header-unicode-ascii-dotnet
 - ONNX Runtime chết trên Alpine: lỗi ld-linux-x86-64.so.2 và vì sao libc6-compat không cứu được — https://tiennhm.io.vn/blog/onnx-runtime-alpine-ld-linux-x86-64-so-2
 - Traefik + Cloudflare: vì sao cert hết hạn đồng loạt sau 60 ngày? — https://tiennhm.io.vn/blog/traefik-cloudflare-https-tu-dong-vps
 - Unit of Work trong .NET và ABP: SaveChangesAsync không phải commit — https://tiennhm.io.vn/blog/unit-of-work-dotnet-abp
@@ -42254,6 +42257,403 @@ Nội dung chi tiết...
 />
 
 ## Câu hỏi thường gặp
+
+[… phần còn lại đã lược bớt]
+
+============================================================================
+
+# Một dấu tiếng Việt làm chết lời gọi API: cf-ipcity, HttpClient và giới hạn ASCII
+
+URL: https://tiennhm.io.vn/blog/cloudflare-header-broke-dotnet-httpclient
+Source: blog/2026/2026-09-23-cloudflare-header-dotnet-httpclient/index.md
+Date: 2026-09-23
+Description: Trên một nền tảng loyalty thương mại điện tử khoảng 3 triệu khách hàng, một lời gọi HTTP nội bộ hỏng trên production trong khi database, Kubernetes và downstream đều khoẻ. Thủ phạm là header cf-ipcity của Cloudflare mang giá trị Hồ Chí Minh. Bài viết truy vết sự cố và chỉ ra chỗ .NET thực sự ném exception — không phải chỗ bạn đoán.
+Tags: dotnet, csharp, cloudflare, http, production, debugging, architecture, aspnetcore
+Note: Nội dung dưới đây đã được rút gọn để giữ dung lượng file. Bản đầy đủ tại https://tiennhm.io.vn/blog/cloudflare-header-broke-dotnet-httpclient
+
+# Một dấu tiếng Việt làm chết lời gọi API
+
+Cloudflare tự chèn `cf-ipcity` vào request đi vào, và với khách ở Việt Nam thì giá trị là `Hồ Chí Minh` — có dấu, tức non-ASCII. Service .NET forward nguyên xi mọi header sang lời gọi đi ra, nên giá trị đó rơi vào `HttpClient`. Điều bất ngờ là `Headers.Add` không ném exception, `TryAddWithoutValidation` cũng trả về `true`; mọi thứ chỉ nổ ở `SendAsync` với `HttpRequestException: Request headers must contain only ASCII characters`, và không byte nào rời khỏi tiến trình. Lỗi không nằm ở Cloudflare cũng không nằm ở .NET, mà ở chỗ ứng dụng forward mọi header vô điều kiện.
+
+Bối cảnh là một nền tảng loyalty thương mại điện tử, quy mô khoảng ba triệu khách hàng. Tôi ẩn tên khách và mọi chi tiết định danh; phần kể được là phần kỹ thuật.
+
+Mọi thứ nhìn đều bình thường. API đang chạy. Pod trên Kubernetes healthy. Database ổn. Request vào tới ứng dụng. Nhưng một lời gọi HTTP sang service nội bộ cứ hỏng trên production — và chỉ trên production.
+
+Thứ làm nó hỏng, hoá ra, là tên thành phố của chính người dùng.
+
+## Tóm tắt nhanh (TL;DR)
+- Triệu chứng: một lời gọi `HttpClient` hỏng trên production, mọi thành phần hạ tầng đều khoẻ.
+- Nguyên nhân trực tiếp: header `cf-ipcity: Hồ Chí Minh` do Cloudflare chèn, bị forward sang request đi ra.
+- Chỗ ném lỗi không phải chỗ bạn đoán: `Add()` không ném, `TryAddWithoutValidation()` trả `true`, lỗi nổ ở `SendAsync`.
+- Thông báo lỗi thật: `HttpRequestException: Request headers must contain only ASCII characters.`
+- Request chưa từng rời tiến trình — không có byte nào lên dây.
+- Vì sao header không mang được tiếng Việt: xem bài 2 về ASCII và obs-text.
+- Cách sửa đúng: xem bài 3 về forward header an toàn.
+
+## Phần 1 — Cuộc truy tìm
+Khi một lời gọi nội bộ hỏng trên production mà không hỏng ở đâu khác, danh sách nghi phạm thường đi theo thứ tự quen thuộc, và lần này tất cả đều sạch.
+
+| Nghi phạm | Kết quả |
+|---|---|
+| Database | khoẻ |
+| Redis | khoẻ |
+| Pod / Kubernetes | healthy |
+| Downstream service | khoẻ, gọi thẳng vẫn được |
+| Authentication, token | hợp lệ |
+| DNS, TLS | bình thường |
+
+Điều làm chuyện này khó chịu là request trông hoàn toàn vô hại. Không payload lạ, không ký tự điều khiển, không gì to bất thường. Và nó chạy tốt ở local.
+
+Chính chỗ "chạy tốt ở local" mới là manh mối, dù lúc đó chưa ai nhận ra. Vì local thì luồng là:
+
+[code]
+Trình duyệt → .NET API
+[/code]
+
+Còn production thì:
+
+[code]
+Trình duyệt → Cloudflare → API Gateway → .NET Service → HttpClient → Downstream
+[/code]
+
+Production có thêm hai tác nhân chèn thêm dữ liệu vào request, mà local không có.
+
+## Phần 2 — Header gây ra tất cả
+Cloudflare chèn một số header vào request đi vào để ứng dụng biết thông tin về client. Một trong số đó là header vị trí địa lý (https://developers.cloudflare.com/fundamentals/reference/http-headers/):
+
+[code http]
+cf-ipcity: Hồ Chí Minh
+[/code]
+
+Nhìn thì vô hại đến mức không ai dừng lại ở nó. Nhưng:
+
+[code]
+Hồ Chí Minh
+ ^     ^
+ ồ     í   ← non-ASCII
+[/code]
+
+Và service của chúng tôi có một đoạn code trông rất hợp lý, kiểu này:
+
+[code csharp]
+// Forward mọi header từ request đi vào sang request đi ra
+foreach (var header in incoming.Headers)
+{
+    outgoing.Headers.TryAddWithoutValidation(
+        header.Key,
+        header.Value.ToArray());
+}
+[/code]
+
+Đoạn code đó tồn tại vì một lý do chính đáng: giữ correlation ID, giữ token, giữ ngữ cảnh truy vết qua nhiều service. Vấn đề là nó không phân biệt header nào của mình với header nào do hạ tầng chèn vào. Phần sửa nằm ở bài 3.
+
+## Phần 3 — Chỗ ném lỗi không phải chỗ bạn đoán
+Đây là phần tôi thấy đáng giá nhất, vì trực giác của gần như mọi người đều sai ở đây — kể cả trực giác của tôi trước khi ngồi đo.
+
+Tôi dựng lại bằng một chương trình tối thiểu trên .NET 9.0.4, kèm một `TcpListener` thô để xem chính xác byte nào lên dây.
+
+Thử 1 — `Add()` có validation:
+
+[code csharp]
+client.DefaultRequestHeaders.Add("cf-ipcity", "Hồ Chí Minh");
+[/code]
+
+[code]
+=> KHÔNG ném exception
+[/code]
+
+Đây là điều bất ngờ đầu tiên. Rất nhiều câu trả lời trên mạng nói bạn sẽ nhận `FormatException` ngay ở bước này. Không hề. Bộ validation của `HttpHeaders` kiểm cấu trúc của giá trị — ký tự điều khiển, xuống dòng, định dạng theo từng header — chứ không kiểm việc giá trị có nằm trong bảng mã ASCII hay không.
+
+Thử 2 — `TryAddWithoutValidation()` rồi gửi thật:
+
+[code csharp]
+var ok = request.Headers.TryAddWithoutValidation("cf-ipcity", "Hồ Chí Minh");
+// ok == True
+var response = await client.SendAsync(request);
+[/code]
+
+[code]
+TryAddWithoutValidation trả về: True
+=> NÉM HttpRequestException: Request headers must contain only ASCII characters.
+[/code]
+
+Đây là điểm mấu chốt. Header được thêm vào thành công. Đối tượng request hợp lệ. Lỗi chỉ xuất hiện khi `SendAsync` đi tới tầng serialize header ra byte.
+
+Và server thấy gì?
+
+[code]
+header trên dây : (không có)
+byte (hex)      : (không thấy header)
+[/code]
+
+Không một byte nào. Kết nối TCP không hề mang request đó. Nó chết bên trong tiến trình, trước khi chạm socket.
+
+Hệ quả thực tế của chi tiết này lớn hơn vẻ ngoài của nó: mọi công cụ bạn quen dùng để gỡ lỗi mạng đều vô dụng. Bắt gói tin không thấy gì. Access log của downstream trống trơn. Trace phía nhận không có span nào. Từ mọi góc nhìn bên ngoài tiến trình, request đó chưa từng tồn tại.
+
+`Hồ` thậm chí không biểu diễn được bằng Latin-1, nên kể cả con đường khoan dung nhất mà đặc tả HTTP từng cho phép cũng không tải nổi giá trị này — phần đó tôi tách riêng sang bài 2.
+
+## Phần 4 — Vì sao vào được mà ra không được
+Câu hỏi hợp lý tiếp theo: nếu header đó không hợp lệ, sao ASP.NET Core nhận được nó ngay từ đầu?
+
+Vì nhận và gửi là hai thao tác khác nhau, với hai mức khoan dung khác nhau.
+
+| | Request đi vào | Request đi ra |
+|---|---|---|
+| Vai trò | Server đọc byte từ dây | Client ghi byte lên dây |
+| Nguyên tắc | Khoan dung với thứ nhận được | Nghiêm ngặt với thứ phát ra |
+| Hành vi | Giải mã byte thành chuỗi, chấp nhận | Từ chối nếu không biểu diễn được |
+
+[… phần còn lại đã lược bớt]
+
+============================================================================
+
+# Forward header trong ASP.NET Core: vì sao 'forward hết' là một lỗi kiến trúc
+
+URL: https://tiennhm.io.vn/blog/forward-http-header-an-toan-aspnet-core
+Source: blog/2026/2026-09-23-forward-http-header-an-toan/index.md
+Date: 2026-09-23
+Description: Vòng lặp copy mọi header từ request đi vào sang lời gọi HttpClient đi ra là đoạn code trông vô hại nhất mà tôi từng thấy gây sự cố production. Bài viết phân tích ba nhóm rủi ro của nó, trình bày pattern allowlist bằng DelegatingHandler đúng cách, cái bẫy captive dependency khi viết handler đó, và cách lọc ở gateway bằng YARP.
+Tags: dotnet, csharp, aspnetcore, http, architecture, security, backend
+Note: Nội dung dưới đây đã được rút gọn để giữ dung lượng file. Bản đầy đủ tại https://tiennhm.io.vn/blog/forward-http-header-an-toan-aspnet-core
+
+# Forward header trong ASP.NET Core
+
+Vòng lặp copy mọi header từ request đi vào sang request đi ra là một anti-pattern, và nó hỏng theo ba hướng khác nhau: sai về tính đúng đắn (một giá trị non-ASCII làm `HttpClient` ném exception), sai về bảo mật (bạn tin và chuyển tiếp dữ liệu do client tự đặt), và sai về kiến trúc (header do hạ tầng chèn trở thành một phần hợp đồng của ứng dụng). Cách sửa là allowlist — khai tường minh danh sách header được phép đi qua — đặt trong một `DelegatingHandler` dùng chung. Khi viết handler đó, cẩn thận một cái bẫy: nó không sống trong scope của request.
+
+Bài này khép lại cụm ba bài bắt đầu từ một sự cố production trên nền tảng loyalty khoảng ba triệu khách hàng, nơi header `cf-ipcity: Hồ Chí Minh` do Cloudflare chèn làm hỏng một lời gọi nội bộ. Bài đầu kể sự cố, bài hai giải thích vì sao header không mang được tiếng Việt. Bài này trả lời câu hỏi còn lại: viết lại chỗ đó thế nào cho đúng.
+
+## Tóm tắt nhanh (TL;DR)
+- Forward toàn bộ header là anti-pattern, hỏng theo ba hướng: đúng đắn, bảo mật, kiến trúc.
+- Dùng allowlist, không dùng blocklist — vì bạn không kiểm soát danh sách header mà hạ tầng chèn.
+- Đặt logic ở một `DelegatingHandler` dùng chung, không rải ở từng call site.
+- `DelegatingHandler` không nằm trong scope của request: đừng inject service `Scoped` vào nó.
+- Lọc ở gateway (YARP) là lớp phòng thủ thứ hai, không thay thế lớp thứ nhất.
+- Viết một test gửi giá trị non-ASCII để kết quả còn giữ được về sau.
+
+## Đoạn code có vấn đề
+Nó trông như thế này, và nó xuất hiện trong gần như mọi codebase microservice tôi từng đọc:
+
+[code csharp]
+// Giữ ngữ cảnh truy vết khi gọi sang service khác
+foreach (var header in httpContext.Request.Headers)
+{
+    outgoing.Headers.TryAddWithoutValidation(
+        header.Key,
+        header.Value.ToArray());
+}
+[/code]
+
+Ý định hoàn toàn chính đáng: giữ correlation ID, giữ token, để trace nối được qua nhiều service. Vấn đề nằm ở chữ mọi.
+
+## Ba hướng hỏng
+### 1. Tính đúng đắn
+
+Đây là hướng đã gây ra sự cố. Cloudflare chèn `cf-ipcity` với giá trị là tên thành phố của khách. Với khách Việt Nam thì giá trị đó có dấu, và `HttpClient` từ chối gửi — ném `HttpRequestException` ngay tại `SendAsync`, khi chưa byte nào rời khỏi tiến trình. Chi tiết cơ chế nằm ở bài hai.
+
+Điều làm nó khó chịu: lỗi phụ thuộc vào dữ liệu của người dùng, nên nó không xuất hiện ở dev, không xuất hiện trong test, và xuất hiện không đều trên production.
+
+### 2. Bảo mật
+
+Hướng này nghiêm trọng hơn nhưng ít được nói tới.
+
+Khi bạn forward mọi header, bạn đang chuyển tiếp dữ liệu do client tự đặt sang một service nội bộ. Service nội bộ thường tin tưởng thứ đến từ bên trong mạng nhiều hơn thứ đến từ Internet — và bạn vừa phá vỡ giả định đó.
+
+Vài hệ quả cụ thể:
+
+- Client đặt `X-Forwarded-For` giả, bạn chuyển tiếp, service phía sau ghi log sai IP và rate limit theo IP trở nên vô dụng. Đây đúng là vấn đề mà `forwardedheaders.trustedips` trong Traefik sinh ra để chặn — và forward mù sẽ mở lại nó ở tầng ứng dụng.
+- Client đặt một header nội bộ kiểu `X-Internal-Admin` hay `X-Tenant-Id`, bạn chuyển tiếp, và service phía sau có thể tin. Đây là cùng một họ tư duy với IDOR: dữ liệu từ request là dữ liệu chưa tin được, kể cả khi nó nằm ở header chứ không phải ở URL.
+- Header `Cookie` và `Authorization` của người dùng bị gửi sang một service lẽ ra không cần thấy chúng, mở rộng phạm vi rò rỉ nếu service đó ghi log đầy đủ.
+
+### 3. Kiến trúc
+
+Forward mù biến mọi header mà hạ tầng chèn vào thành một phần hợp đồng ngầm của ứng dụng bạn.
+
+Cloudflare chèn hàng chục header và danh sách đó thay đổi theo thời gian. Thêm một ingress mới, đổi một gateway, bật một tính năng mới ở CDN — mỗi việc đều có thể thêm header. Với forward mù, mỗi thay đổi ở tầng hạ tầng là một thay đổi tiềm tàng ở tầng ứng dụng, mà không ai review.
+
+## Allowlist, không phải blocklist
+Phản xạ đầu tiên sau sự cố thường là xoá đúng cái header gây lỗi:
+
+[code csharp]
+// Không nên: chữa đúng một triệu chứng
+context.Request.Headers.Remove("cf-ipcity");
+[/code]
+
+Cách này chữa được hôm nay và hỏng lại vào lần sau, vì bạn đang liệt kê thứ cần chặn trong khi không kiểm soát được danh sách ấy.
+
+Đảo ngược lại:
+
+[code csharp]
+// Nên: liệt kê thứ được phép, mọi thứ khác bị bỏ qua theo mặc định
+private static readonly HashSet<string> ForwardedHeaders =
+    new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Authorization",
+        "X-Correlation-ID",
+        "X-Request-ID",
+        "Accept-Language",
+    };
+[/code]
+
+Khác biệt không nằm ở số dòng code mà ở hướng của mặc định. Với allowlist, một header hạ tầng mới xuất hiện trong tương lai sẽ không đi đâu cả, và không ai phải nhớ gì. Đây cùng một nguyên tắc với `exposedbydefault=false` của Traefik, hay với việc áp filter quyền ở tầng query thay vì tầng UI: làm cho việc quên trở nên vô hại.
+
+## Đặt nó ở đâu: `DelegatingHandler`
+Rải vòng lặp forward ở từng call site nghĩa là mỗi chỗ mới lại phải nhớ. Đặt nó vào một `DelegatingHandler` thì quy tắc nằm ở đúng một nơi và tự áp cho mọi lời gọi.
+
+[code csharp]
+public sealed class HeaderPropagationHandler : DelegatingHandler
+{
+    private static readonly HashSet<string> Allowed =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            "Authorization",
+            "X-Correlation-ID",
+            "X-Request-ID",
+            "Accept-Language",
+        };
+
+    private readonly IHttpContextAccessor _accessor;
+
+    public HeaderPropagationHandler(IHttpContextAccessor accessor)
+        => _accessor = accessor;
+
+    protected override Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken)
+    {
+        var incoming = _accessor.HttpContext?.Request.Headers;
+
+        if (incoming is not null)
+        {
+            foreach (var name in Allowed)
+            {
+                // Không ghi đè thứ mà chính lời gọi đã tự đặt
+                if (request.Headers.Contains(name))
+                    continue;
+
+                if (incoming.TryGetValue(name, out var value))
+                    request.Headers.TryAddWithoutValidation(name, value.ToArray());
+            }
+        }
+
+[… phần còn lại đã lược bớt]
+
+============================================================================
+
+# HTTP header có chứa được tiếng Việt không? ASCII, obs-text và chỗ .NET vạch ranh giới
+
+URL: https://tiennhm.io.vn/blog/http-header-unicode-ascii-dotnet
+Source: blog/2026/2026-09-23-http-header-unicode-ascii/index.md
+Date: 2026-09-23
+Description: Câu trả lời ngắn là không, và lý do thú vị hơn vẻ ngoài của nó. Đặc tả HTTP cho phép byte 0x80-0xFF trong giá trị header dưới dạng obs-text, nhưng không quy định bảng mã nào để diễn giải chúng. Bài viết mổ ngữ pháp field-value trong RFC 9110, chỉ ra vì sao 'í' đi lọt được còn 'ồ' thì không, và trình bày ba cách mã hoá đúng khi bạn thật sự cần mang dữ liệu có dấu qua header.
+Tags: http, dotnet, csharp, encoding, unicode, web, standards
+Note: Nội dung dưới đây đã được rút gọn để giữ dung lượng file. Bản đầy đủ tại https://tiennhm.io.vn/blog/http-header-unicode-ascii-dotnet
+
+# HTTP header có chứa được tiếng Việt không?
+
+Trả lời ngắn: không, nếu bạn muốn nó đi qua mọi tầng an toàn. Đặc tả HTTP định nghĩa giá trị header bằng ký tự ASCII in được, cộng thêm một nhánh lỗi thời tên là obs-text cho phép byte `0x80–0xFF` nhưng không quy định bảng mã nào để diễn giải chúng. Hệ quả là một chuỗi tiếng Việt có thể đi lọt một phần: `í` nằm trong Latin-1 nên biểu diễn được, còn `ồ` thì không, vì nó là `U+1ED3` — vượt ngoài `0xFF`. .NET chọn cách dứt khoát: `HttpClient` từ chối gửi mọi giá trị header non-ASCII. Muốn mang dữ liệu có dấu thì phải mã hoá, bằng percent-encoding, RFC 8187 hoặc Base64.
+
+Bài này tách ra từ một sự cố production, nơi header `cf-ipcity: Hồ Chí Minh` do Cloudflare chèn làm `HttpClient` ném exception. Ở đó tôi dừng lại ở hiện tượng. Ở đây tôi trả lời câu hỏi mà hiện tượng ấy đặt ra: rốt cuộc HTTP header được phép chứa những gì?
+
+## Tóm tắt nhanh (TL;DR)
+- Giá trị header HTTP về bản chất là chuỗi byte, không phải chuỗi Unicode.
+- RFC 9110 cho phép `0x80–0xFF` qua nhánh obs-text, nhưng không định nghĩa charset — nên không bên nào biết chắc phải giải mã thế nào.
+- Trong thực tế mỗi bên chọn một bảng mã khác nhau, và bạn nhận về mojibake.
+- Tiếng Việt lọt một phần qua Latin-1: `í` được, `ồ` không.
+- .NET không chơi trò may rủi: `HttpClient` ném lỗi thay vì gửi byte mà nó không đảm bảo được.
+- Cách đúng: percent-encoding, RFC 8187, hoặc Base64.
+
+## Ngữ pháp thật sự của một giá trị header
+Mở RFC 9110 (https://www.rfc-editor.org/rfc/rfc9110#name-field-values) ra, phần định nghĩa giá trị của một trường header rút gọn lại còn:
+
+[code abnf]
+field-value    = *field-content
+field-content  = field-vchar [ 1*( SP / HTAB / field-vchar ) field-vchar ]
+field-vchar    = VCHAR / obs-text
+VCHAR          = %x21-7E        ; ký tự ASCII in được
+obs-text       = %x80-FF        ; byte ngoài ASCII, đã lỗi thời
+[/code]
+
+Hai dòng cuối là toàn bộ câu chuyện.
+
+`VCHAR` là ASCII in được, từ `0x21` tới `0x7E`. Đây là phần ai cũng đồng ý.
+
+`obs-text` là byte từ `0x80` tới `0xFF`. Chữ `obs` là viết tắt của obsolete — lỗi thời. Nó tồn tại trong đặc tả không phải để bạn dùng, mà để mô tả những thứ đã trót tồn tại trên Internet và không thể xoá đi được.
+
+Và đây là điểm quyết định: đặc tả không nói những byte đó thuộc bảng mã nào. Không phải "nó là UTF-8", cũng không phải "nó là Latin-1". Chỉ là byte, không kèm cách diễn giải.
+
+Một định dạng cho phép bạn gửi byte nhưng không nói người nhận phải hiểu chúng ra sao thì không phải một kênh truyền dữ liệu, nó là một lời mời gọi hiểu nhầm.
+
+## Vì sao `í` đi lọt mà `ồ` thì không
+Đây là chi tiết tôi thấy thú vị nhất, và nó giải thích vì sao loại lỗi này hay xuất hiện không đều — có khách thì hỏng, có khách thì không.
+
+Lấy đúng chuỗi trong sự cố và nhìn byte của nó ở hai bảng mã:
+
+[code]
+Chuỗi  : Hồ Chí Minh
+
+UTF-8  : 48 E1 BB 93 20 43 68 C3 AD 20 4D 69 6E 68
+Latin-1: 48 3F       20 43 68 ED    20 4D 69 6E 68
+            ^^                ^^
+            'ồ' → 0x3F        'í' → 0xED
+[/code]
+
+Đọc bảng này theo từng ký tự:
+
+| Ký tự | Điểm mã Unicode | UTF-8 | Latin-1 |
+|---|---|---|---|
+| `H` | U+0048 | `48` | `48` |
+| `ồ` | U+1ED3 | `E1 BB 93` | không biểu diễn được → `3F` (`?`) |
+| `í` | U+00ED | `C3 AD` | `ED` |
+
+`í` là `U+00ED`, nằm gọn trong `0x00–0xFF`, nên Latin-1 mang được nó bằng đúng một byte. `ồ` là `U+1ED3` — vượt xa `0xFF` — nên Latin-1 không có chỗ cho nó và phải thay bằng dấu `?`.
+
+Tiếng Việt vì vậy nằm vắt ngang ranh giới: các nguyên âm có dấu sắc, huyền, hỏi ở dạng đơn giản như `á à í ò ú` thì rơi vào Latin-1, còn các tổ hợp như `ồ ậ ữ ợ ẩ` thì không. Một hệ thống chuyền tay nhau header bằng Latin-1 sẽ chạy có vẻ ổn với Hải và vỡ với Hồ — cùng một đoạn code, khác mỗi dữ liệu.
+
+Đó là kiểu bug tệ nhất: nó phụ thuộc vào nội dung, nên nó vượt qua mọi bài test mà bạn không cố tình nghĩ tới nó.
+
+## Chuyện gì xảy ra khi hai bên chọn khác bảng mã
+Giả sử một bên ghi header bằng UTF-8 còn bên kia đọc bằng Latin-1 — tình huống mặc định trong rất nhiều stack.
+
+Bên gửi ghi `ồ` thành ba byte `E1 BB 93`. Bên nhận đọc từng byte theo Latin-1 và được ba ký tự: `á`, `»`, `“`. Chuỗi `Hồ` biến thành `Há»“`.
+
+Đây chính là mojibake, và nó không phải lỗi của bên nào. Cả hai đều làm đúng theo bảng mã mình chọn. Vấn đề là đặc tả không bắt họ chọn giống nhau.
+
+Đáng nói là mojibake im lặng. Không exception, không cảnh báo, chỉ là dữ liệu sai lặng lẽ chảy tiếp qua hệ thống, vào log, vào database, vào báo cáo. So với cách .NET ném thẳng một exception thì việc lặng lẽ hỏng dữ liệu tệ hơn nhiều.
+
+## .NET vạch ranh giới ở đâu
+Trong bài về sự cố tôi đã đo cụ thể trên .NET 9.0.4, và kết quả đáng nhắc lại vì nó cho thấy .NET chọn một lập trường rõ ràng:
+
+| Thao tác | Kết quả |
+|---|---|
+| `DefaultRequestHeaders.Add(name, "Hồ Chí Minh")` | không ném exception |
+| `TryAddWithoutValidation(name, "Hồ Chí Minh")` | trả về `true` |
+| `SendAsync(request)` | ném `HttpRequestException: Request headers must contain only ASCII characters.` |
+| Byte lên dây | không có byte nào |
+
+Điều này nói lên hai chuyện.
+
+Thứ nhất, validation của `HttpHeaders` không phải nơi kiểm bảng mã. Nó kiểm cấu trúc: ký tự điều khiển, xuống dòng, định dạng riêng của từng header. Chuyện "giá trị này có nằm trong ASCII không" thuộc về tầng serialize, tận lúc gửi.
+
+Thứ hai, .NET từ chối tham gia canh bạc obs-text. Nó có thể đã chọn ghi Latin-1 và để `ồ` thành `?`, hoặc ghi UTF-8 và để bên kia đoán. Cả hai đều dẫn tới hỏng dữ liệu âm thầm. Ném exception là lựa chọn ồn ào hơn nhưng trung thực hơn.
+
+Nếu bạn đang bực vì .NET khó tính ở chỗ này, hãy nhớ phương án thay thế không phải "nó chạy đúng", mà là "nó chạy sai mà không báo".
+
+## Ba cách mang dữ liệu có dấu qua header cho đúng
+Khi thật sự cần đặt dữ liệu có dấu vào header — tên file, tên thành phố, tên người dùng — giải pháp luôn là mã hoá về ASCII rồi giải mã ở phía nhận.
+
+### 1. Percent-encoding
+
+Cách phổ biến nhất và dễ đọc log nhất:
+
+[code csharp]
+// Bên gửi
+var encoded = Uri.EscapeDataString("Hồ Chí Minh");
+// => H%E1%BB%93%20Ch%C3%AD%20Minh
+request.Headers.TryAddWithoutValidation("X-City", encoded);
+
+// Bên nhận
+var city = Uri.UnescapeDataString(raw);
+[/code]
 
 [… phần còn lại đã lược bớt]
 
