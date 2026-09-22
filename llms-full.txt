@@ -18,8 +18,8 @@ của trang — mỗi mục bên dưới có dòng `URL:` là canonical URL củ
 
 ## Phạm vi & giới hạn
 
-- Tổng số tài liệu quét được: 468 (docs: 431, blog: 37).
-- Số tài liệu có mặt trong file này: 468.
+- Tổng số tài liệu quét được: 471 (docs: 431, blog: 40).
+- Số tài liệu có mặt trong file này: 471.
 - Ngân sách dung lượng: 2.0 MB. Trần nội dung mỗi tài liệu: 6 KB.
 - Khi thiếu chỗ: blog giữ 30% ngân sách (ưu tiên bài mới nhất), phần còn lại dành cho docs/.
 - Nội dung đã được strip khỏi MDX/JSX và frontmatter; chữ bên trong các
@@ -27,8 +27,11 @@ của trang — mỗi mục bên dưới có dòng `URL:` là canonical URL củ
 - Khối code dài bị rút gọn; mọi chỗ rút gọn đều được đánh dấu tại chỗ.
 - Mỗi tài liệu bắt đầu bằng một dòng `========…` rồi tới `# <tiêu đề>` và `URL: …`.
 
-### Tài liệu bị rút gọn (108) — fetch URL để lấy bản đầy đủ
+### Tài liệu bị rút gọn (111) — fetch URL để lấy bản đầy đủ
 
+- Có index rồi mà truy vấn vẫn quét toàn bảng? Sargability và một hàm bọc quanh cột — https://tiennhm.io.vn/blog/sql-index-khong-duoc-dung-sargable
+- LEFT JOIN của bạn đã thành INNER JOIN mà không ai báo — https://tiennhm.io.vn/blog/left-join-thanh-inner-join
+- Vì sao NOT IN của bạn trả về 0 dòng? Logic ba trị của SQL và cái bẫy NULL — https://tiennhm.io.vn/blog/sql-null-not-in-three-valued-logic
 - Một dấu tiếng Việt làm chết lời gọi API: cf-ipcity, HttpClient và giới hạn ASCII — https://tiennhm.io.vn/blog/cloudflare-header-broke-dotnet-httpclient
 - Forward header trong ASP.NET Core: vì sao 'forward hết' là một lỗi kiến trúc — https://tiennhm.io.vn/blog/forward-http-header-an-toan-aspnet-core
 - HTTP header có chứa được tiếng Việt không? ASCII, obs-text và chỗ .NET vạch ranh giới — https://tiennhm.io.vn/blog/http-header-unicode-ascii-dotnet
@@ -42257,6 +42260,468 @@ Nội dung chi tiết...
 />
 
 ## Câu hỏi thường gặp
+
+[… phần còn lại đã lược bớt]
+
+============================================================================
+
+# Có index rồi mà truy vấn vẫn quét toàn bảng? Sargability và một hàm bọc quanh cột
+
+URL: https://tiennhm.io.vn/blog/sql-index-khong-duoc-dung-sargable
+Source: blog/2026/2026-09-26-sql-index-khong-duoc-dung/index.md
+Date: 2026-09-26
+Description: Cột đã có index, câu WHERE lọc đúng cột đó, nhưng execution plan vẫn là Seq Scan. Nguyên nhân thường chỉ là một hàm bọc quanh cột. Bài viết đo trên PostgreSQL 16 với 200.000 dòng: bọc hàm mất 29,6 ms và quét toàn bảng, viết lại thành khoảng còn 5,4 ms và dùng index — kèm một chi tiết ít người để ý là planner ước lượng sai 37 lần.
+Tags: sql, database, postgresql, performance, backend
+Note: Nội dung dưới đây đã được rút gọn để giữ dung lượng file. Bản đầy đủ tại https://tiennhm.io.vn/blog/sql-index-khong-duoc-dung-sargable
+
+# Có index rồi mà vẫn quét toàn bảng?
+
+Index là một cấu trúc sắp xếp theo giá trị của cột. Khi bạn bọc một hàm quanh cột — `date_part('year', tao_luc)`, `LOWER(email)`, `CAST(...)` — thì thứ bạn đang so sánh không còn là giá trị đã được sắp xếp nữa, nên database không dùng index được và phải quét toàn bảng. Điều kiện dùng được index gọi là sargable. Đo trên PostgreSQL 16 với 200.000 dòng: bản bọc hàm chạy 29,6 ms với `Seq Scan`, bản viết lại thành khoảng chạy 5,4 ms với `Bitmap Index Scan` — nhanh hơn ~5,4 lần và trả về cùng 37.518 dòng.
+
+Tình huống quen thuộc: truy vấn chậm, bạn tạo index lên đúng cột đang lọc, chạy lại — vẫn chậm y như cũ. Index nằm đó, `\d` thấy rõ, nhưng execution plan không hề nhắc tới nó.
+
+Bài này đào sâu bài Index và bài tối ưu truy vấn trong series học SQL 30 ngày. Mọi con số là kết quả chạy thật trên PostgreSQL 16.11.
+
+## Tóm tắt nhanh (TL;DR)
+- Index sắp xếp theo giá trị gốc của cột, không theo kết quả của hàm áp lên cột.
+- Bọc hàm quanh cột trong `WHERE` → index bị bỏ qua → quét toàn bảng.
+- Điều kiện dùng được index gọi là sargable.
+- Cách sửa: viết lại thành khoảng giá trị, hoặc tạo index trên biểu thức.
+- Tác hại phụ ít người để ý: planner ước lượng sai số dòng, kéo theo chọn sai cả kế hoạch join.
+
+## Phép đo
+Hai trăm nghìn đơn hàng, index trên cột thời gian:
+
+[code sql]
+CREATE TEMP TABLE don(id serial, tao_luc timestamp, tien numeric);
+INSERT INTO don(tao_luc, tien)
+SELECT timestamp '2024-01-01' + (i % 900) * interval '1 day', (i % 1000)
+FROM generate_series(1, 200000) i;
+
+CREATE INDEX idx_don_tao_luc ON don(tao_luc);
+ANALYZE don;
+[/code]
+
+Cách viết tự nhiên nhất — lọc theo năm:
+
+[code sql]
+EXPLAIN (ANALYZE) SELECT count(*) FROM don
+WHERE date_part('year', tao_luc) = 2026;
+[/code]
+
+[code]
+Aggregate  (cost=4276.50..4276.51 rows=1)
+  ->  Seq Scan on don  (cost=0.00..4274.00 rows=1000) (actual rows=37518)
+        Filter: (date_part('year'::text, tao_luc) = '2026'::double precision)
+        Rows Removed by Filter: 162482
+Execution Time: 29.644 ms
+[/code]
+
+`Seq Scan`. Index có tồn tại nhưng không được đụng tới. Database đọc cả 200.000 dòng rồi vứt đi 162.482 dòng.
+
+Viết lại thành khoảng:
+
+[code sql]
+EXPLAIN (ANALYZE) SELECT count(*) FROM don
+WHERE tao_luc >= '2026-01-01' AND tao_luc < '2027-01-01';
+[/code]
+
+[code]
+Aggregate  (cost=2475.04..2475.05 rows=1)
+  ->  Bitmap Heap Scan on don  (cost=532.10..2379.48 rows=38225) (actual rows=37518)
+        ->  Bitmap Index Scan on idx_don_tao_luc  (cost=0.00..522.54 rows=38225)
+              Index Cond: (tao_luc >= '2026-01-01' AND tao_luc < '2027-01-01')
+Execution Time: 5.453 ms
+[/code]
+
+`Bitmap Index Scan`. 5,4 ms thay vì 29,6 ms, cùng kết quả 37.518 dòng.
+
+## Vì sao index bị bỏ qua
+Hãy hình dung index như mục lục của một cuốn sách, sắp xếp theo tên. Bạn tra "Nguyễn Văn An" thì nhảy thẳng tới chữ N. Nhưng nếu câu hỏi là "tìm những người có tên chứa đúng 12 ký tự" thì mục lục vô dụng — nó không được sắp theo độ dài tên.
+
+Index B-tree trên `tao_luc` được sắp theo giá trị timestamp. Câu `date_part('year', tao_luc) = 2026` không hỏi về giá trị timestamp, nó hỏi về kết quả của một hàm áp lên timestamp. Database không có cấu trúc nào sắp theo thứ đó, nên chỉ còn cách tính hàm cho từng dòng và so sánh — tức là quét toàn bộ.
+
+Thuật ngữ cho điều kiện dùng được index là sargable, viết tắt của Search ARGument ABLE. Quy tắc gọn: để một bên của phép so sánh là cột trần, đừng bọc gì quanh nó.
+
+## Những dạng làm mất sargability
+| Viết thế này (không sargable) | Viết lại thành |
+|---|---|
+| `date_part('year', tao_luc) = 2026` | `tao_luc >= '2026-01-01' AND tao_luc < '2027-01-01'` |
+| `DATE(tao_luc) = '2026-05-01'` | `tao_luc >= '2026-05-01' AND tao_luc < '2026-05-02'` |
+| `LOWER(email) = 'a@b.com'` | index trên biểu thức, xem mục dưới |
+| `tien * 1.1 > 1000` | `tien > 1000 / 1.1` |
+| `CAST(ma_kh AS text) = '123'` | `ma_kh = 123` |
+| `ten LIKE '%an'` | không cứu được bằng B-tree |
+| `ma_so + 0 = 100` | `ma_so = 100` |
+
+Ba dòng đáng nói thêm.
+
+`LIKE` với `%` ở đầu không dùng được B-tree, vì index sắp theo thứ tự từ trái sang và bạn không cho nó biết ký tự đầu. `LIKE 'an%'` thì dùng được. Muốn tìm chuỗi con ở giữa thì cần công cụ khác — trigram index hoặc full-text search.
+
+`CAST` ngầm là dạng khó thấy nhất, vì bạn không tự viết ra nó. So sánh một cột số với một chuỗi, hoặc so `varchar` với `nvarchar`, có thể khiến database tự chèn phép chuyển kiểu lên cột và giết index. Đây là nguồn lỗi kinh điển trong các hệ thống có cột kiểu không nhất quán — phần chọn kiểu dữ liệu nằm ở bài cấu trúc bảng.
+
+`OR` giữa hai cột khác nhau cũng thường phá kế hoạch. `WHERE a = 1 OR b = 2` khó dùng index hơn hẳn `WHERE a = 1` rồi `UNION` với `WHERE b = 2`.
+
+## Khi không viết lại được: index trên biểu thức
+Có những trường hợp phép biến đổi là bản chất của nghiệp vụ, ví dụ tra cứu email không phân biệt hoa thường. Lúc đó đừng bỏ hàm đi, mà hãy đánh index cho chính biểu thức ấy:
+
+[code sql]
+-- PostgreSQL
+CREATE INDEX idx_kh_email_lower ON kh (LOWER(email));
+
+-- Từ đây câu này dùng được index
+SELECT * FROM kh WHERE LOWER(email) = 'a@b.com';
+[/code]
+
+Điều kiện để nó hoạt động: biểu thức trong index phải khớp chính xác với biểu thức trong `WHERE`. `LOWER(email)` khác `LOWER(TRIM(email))`, và index cho cái này không phục vụ cái kia.
+
+MySQL 8.0 có functional index tương đương, còn SQL Server dùng computed column có đánh index. Cùng một ý tưởng, khác cú pháp.
+
+## Tác hại phụ ít người để ý: planner ước lượng sai
+Đây là phần tôi thấy thú vị nhất trong phép đo, và nó không nằm ở con số thời gian.
+
+Nhìn lại kế hoạch của bản bọc hàm:
+
+[code]
+Seq Scan on don  (cost=0.00..4274.00 rows=1000) (actual rows=37518)
+[/code]
+
+Planner đoán 1.000 dòng, thực tế là 37.518 dòng — sai gần 37 lần.
+
+So với bản sargable:
+
+[code]
+Bitmap Index Scan  (rows=38225)  (actual rows=37518)
+[/code]
+
+Đoán 38.225, thực tế 37.518 — sai chưa tới 2%.
+
+Lý do: database giữ thống kê về phân bố giá trị của từng cột. Khi bạn so sánh trực tiếp trên cột, nó tra thống kê và ước lượng khá chính xác. Khi bạn bọc hàm, nó không biết hàm đó làm gì với phân bố ấy, nên rơi về một con số phỏng đoán mặc định.
+
+[… phần còn lại đã lược bớt]
+
+============================================================================
+
+# LEFT JOIN của bạn đã thành INNER JOIN mà không ai báo
+
+URL: https://tiennhm.io.vn/blog/left-join-thanh-inner-join
+Source: blog/2026/2026-09-25-left-join-thanh-inner-join/index.md
+Date: 2026-09-25
+Description: Thêm một điều kiện WHERE lên cột của bảng bên phải là LEFT JOIN âm thầm biến thành INNER JOIN, và những dòng bạn cố tình giữ lại biến mất. Bài viết chứng minh bằng ba con số chạy thật trên PostgreSQL 16, giải thích thứ tự xử lý mệnh đề trong SQL, và chỉ ra khi nào điều kiện thuộc về ON còn khi nào thuộc về WHERE.
+Tags: sql, database, postgresql, backend, fundamentals
+Note: Nội dung dưới đây đã được rút gọn để giữ dung lượng file. Bản đầy đủ tại https://tiennhm.io.vn/blog/left-join-thanh-inner-join
+
+# LEFT JOIN của bạn đã thành INNER JOIN
+
+`LEFT JOIN` giữ lại mọi dòng của bảng bên trái và điền `NULL` cho phần không khớp. Nhưng `WHERE` chạy sau phép join, nên bất kỳ điều kiện nào đặt lên cột của bảng bên phải sẽ loại luôn những dòng `NULL` ấy — và `LEFT JOIN` biến thành `INNER JOIN` mà không có cảnh báo nào. Chạy thật trên PostgreSQL 16: `LEFT JOIN` thuần cho 4 dòng, thêm `WHERE` còn 2 dòng, nhưng đưa đúng điều kiện đó vào `ON` thì được 3 dòng — mới là con số đúng.
+
+Đây là lỗi tôi thấy nhiều nhất trong các câu truy vấn báo cáo. Nó không sai cú pháp, không chậm, không ném lỗi. Nó chỉ trả về thiếu dòng, và thường là thiếu đúng những dòng quan trọng nhất: khách chưa có đơn nào, sản phẩm chưa bán được cái nào, nhân viên chưa chốt được hợp đồng nào.
+
+Bài này đào sâu bài JOIN trong series học SQL 30 ngày. Mọi con số bên dưới là kết quả chạy thật trên PostgreSQL 16.11.
+
+## Tóm tắt nhanh (TL;DR)
+- `WHERE` chạy sau `JOIN`, nên nó lọc cả những dòng `NULL` mà `LEFT JOIN` vừa tạo ra.
+- Điều kiện lên bảng bên phải đặt trong `WHERE` → `LEFT JOIN` thành `INNER JOIN`.
+- Cùng điều kiện đó đặt trong `ON` → giữ nguyên ý nghĩa của `LEFT JOIN`.
+- Ngoại lệ duy nhất: `WHERE cot_ben_phai IS NULL` — đó là chủ ý, gọi là anti-join.
+- Triệu chứng nhận biết: báo cáo thiếu đúng nhóm "chưa có gì".
+
+## Ba con số
+Ba khách hàng, bốn đơn hàng, trong đó khách `Chi` chưa mua gì:
+
+[code sql]
+CREATE TEMP TABLE kh(id int, ten text);
+INSERT INTO kh VALUES (1,'An'), (2,'Binh'), (3,'Chi');
+
+CREATE TEMP TABLE dh(id int, kh_id int, tong numeric);
+INSERT INTO dh VALUES (10,1,500), (11,1,300), (12,2,700);
+[/code]
+
+Lần 1 — `LEFT JOIN` thuần:
+
+[code sql]
+SELECT count(*) FROM kh k LEFT JOIN dh d ON d.kh_id = k.id;
+[/code]
+
+[code]
+ so_dong_left_join
+-------------------
+                 4
+[/code]
+
+Bốn dòng: An có hai đơn, Binh một đơn, Chi một dòng với phần đơn hàng toàn `NULL`. Đúng như mong đợi.
+
+Lần 2 — thêm một điều kiện lọc bình thường:
+
+[code sql]
+SELECT count(*) FROM kh k LEFT JOIN dh d ON d.kh_id = k.id
+WHERE d.tong > 400;
+[/code]
+
+[code]
+ them_where
+------------
+          2
+[/code]
+
+Chi biến mất. Câu truy vấn giờ chỉ trả về An (đơn 500) và Binh (đơn 700). Nếu ý định của bạn là "liệt kê mọi khách, kèm các đơn lớn hơn 400 nếu có" thì kết quả này sai.
+
+Lần 3 — đưa đúng điều kiện đó vào `ON`:
+
+[code sql]
+SELECT count(*) FROM kh k LEFT JOIN dh d ON d.kh_id = k.id AND d.tong > 400;
+[/code]
+
+[code]
+ dieu_kien_trong_on
+--------------------
+                  3
+[/code]
+
+Ba dòng. An (500), Binh (700), và Chi với phần đơn hàng là `NULL`. Đây mới là thứ bạn muốn.
+
+Cùng một điều kiện `d.tong > 400`, đổi chỗ từ `WHERE` sang `ON`, kết quả đi từ 2 lên 3.
+
+## Vì sao
+### Thứ tự xử lý logic của một câu SELECT
+
+SQL không chạy các mệnh đề theo thứ tự bạn viết chúng. Thứ tự xử lý logic là:
+
+[code]
+1. FROM  +  JOIN ... ON      ← ghép bảng, sinh ra NULL cho phần không khớp
+2. WHERE                     ← lọc kết quả đã ghép
+3. GROUP BY
+4. HAVING
+5. SELECT
+6. ORDER BY
+7. LIMIT
+[/code]
+
+`ON` thuộc bước 1, `WHERE` thuộc bước 2. Đây là toàn bộ lời giải thích.
+
+### Diễn lại từng bước
+
+Sau bước 1 với `LEFT JOIN`, bảng trung gian trông như sau:
+
+| k.ten | d.id | d.tong |
+|---|---|---|
+| An | 10 | 500 |
+| An | 11 | 300 |
+| Binh | 12 | 700 |
+| Chi | NULL | NULL |
+
+Bước 2 áp `WHERE d.tong > 400` lên chính bảng này. Với dòng của Chi, phép so sánh là:
+
+[code]
+NULL > 400   →   UNKNOWN
+[/code]
+
+Không phải `TRUE`, không phải `FALSE`. Mà `WHERE` chỉ giữ lại dòng cho ra `TRUE`, nên dòng của Chi bị loại. Cơ chế `UNKNOWN` này chính là logic ba trị mà tôi viết riêng một bài — cùng một nguyên nhân gốc, biểu hiện ở một chỗ khác.
+
+Kết quả: mọi dòng do `LEFT JOIN` sinh ra đều bị xoá sạch, và bạn còn lại đúng những gì `INNER JOIN` sẽ cho.
+
+### Khi điều kiện nằm trong `ON`
+
+Đặt `d.tong > 400` vào `ON` thì nó tham gia vào bước 1, tức là nó quyết định dòng nào được coi là khớp. Đơn 300 của An không khớp, nên nó không xuất hiện. Nhưng `LEFT JOIN` vẫn làm đúng việc của nó: mọi khách bên trái đều được giữ, ai không có dòng khớp thì nhận `NULL`.
+
+Chi không có đơn nào khớp → Chi vẫn ở đó với `NULL`. Đúng ý định.
+
+## Quy tắc quyết định
+| Điều kiện lọc lên | Đặt ở | Vì sao |
+|---|---|---|
+| Bảng bên trái | `WHERE` | Không sinh `NULL`, đặt đâu cũng được, `WHERE` rõ ý hơn |
+| Bảng bên phải | `ON` | Đặt ở `WHERE` sẽ huỷ tính chất `LEFT` |
+| Bảng bên phải, chủ ý tìm dòng không khớp | `WHERE ... IS NULL` | Đây là anti-join, xem mục dưới |
+
+Nói ngắn gọn: với `LEFT JOIN`, điều kiện lên bảng bên phải gần như luôn thuộc về `ON`.
+
+Với `INNER JOIN` thì đặt ở đâu cũng cho cùng kết quả, vì không có dòng `NULL` nào để mất. Đó là lý do thói quen "cứ ném hết vào `WHERE`" hình thành và tồn tại được rất lâu — cho tới ngày ai đó đổi `INNER` thành `LEFT` và không hiểu vì sao số liệu không đổi.
+
+## Ngoại lệ: anti-join là chủ ý
+Có đúng một trường hợp bạn cố tình đặt điều kiện lên cột bên phải trong `WHERE`:
+
+[code sql]
+-- Tìm khách CHƯA từng mua gì
+SELECT k.*
+FROM kh k
+LEFT JOIN dh d ON d.kh_id = k.id
+WHERE d.id IS NULL;
+[/code]
+
+Đây gọi là anti-join. Bạn cố ý dùng `LEFT JOIN` để sinh ra `NULL`, rồi lọc lấy đúng những dòng `NULL` đó.
+
+Mẫu này hợp lệ và phổ biến, nhưng đáng biết rằng có cách viết rõ ý hơn:
+
+[code sql]
+SELECT k.* FROM kh k
+WHERE NOT EXISTS (SELECT 1 FROM dh d WHERE d.kh_id = k.id);
+[/code]
+
+`NOT EXISTS` nói thẳng ý định "không tồn tại đơn nào", trong khi `LEFT JOIN ... IS NULL` bắt người đọc phải suy luận ngược. Và như đã nói trong bài về NULL, tuyệt đối đừng thay nó bằng `NOT IN`.
+
+## Cách nhận ra bạn đang dính
+Không cần đọc lại từng câu truy vấn. Có ba dấu hiệu khá đáng tin.
+
+Báo cáo thiếu đúng nhóm "chưa có gì". Danh sách khách hàng không hiện khách mới, báo cáo doanh thu theo sản phẩm bỏ qua sản phẩm bán được 0 cái, thống kê theo nhân viên thiếu người chưa chốt hợp đồng. Nhóm bị mất luôn là nhóm có `NULL`.
+
+Tổng số dòng bằng đúng `INNER JOIN`. Thử đổi `LEFT JOIN` thành `INNER JOIN` rồi so số dòng. Nếu hai con số giống hệt nhau thì chữ `LEFT` của bạn không có tác dụng gì.
+
+[… phần còn lại đã lược bớt]
+
+============================================================================
+
+# Vì sao NOT IN của bạn trả về 0 dòng? Logic ba trị của SQL và cái bẫy NULL
+
+URL: https://tiennhm.io.vn/blog/sql-null-not-in-three-valued-logic
+Source: blog/2026/2026-09-24-sql-null-not-in/index.md
+Date: 2026-09-24
+Description: Một câu NOT IN trả về đúng 0 dòng trong khi bảng có dữ liệu, còn NOT EXISTS cùng ý định lại trả về đủ. Khác biệt nằm ở chỗ SQL không dùng logic đúng-sai mà dùng logic ba trị, và NULL không phải một giá trị mà là sự vắng mặt của giá trị. Bài viết chứng minh bằng kết quả chạy thật trên PostgreSQL 16 và chỉ ra bốn chỗ khác mà NULL âm thầm đổi kết quả.
+Tags: sql, database, postgresql, backend, fundamentals
+Note: Nội dung dưới đây đã được rút gọn để giữ dung lượng file. Bản đầy đủ tại https://tiennhm.io.vn/blog/sql-null-not-in-three-valued-logic
+
+# Vì sao NOT IN của bạn trả về 0 dòng?
+
+`NULL` trong SQL không phải một giá trị mà là ký hiệu cho "không biết". Mọi phép so sánh với nó đều cho ra `UNKNOWN`, và `WHERE` chỉ giữ lại dòng nào cho ra `TRUE` — nên `UNKNOWN` bị loại y như `FALSE`. Hệ quả nghiêm trọng nhất nằm ở `NOT IN`: chỉ cần subquery chứa một `NULL` là toàn bộ câu truy vấn trả về 0 dòng, kể cả khi dữ liệu rõ ràng có. Tôi chạy thử trên PostgreSQL 16: cùng một ý định, `NOT IN` cho 0 dòng còn `NOT EXISTS` cho 3 dòng. Câu lệnh không báo lỗi, không cảnh báo, chỉ lặng lẽ trả về sai.
+
+Đây là loại lỗi không làm ứng dụng sập. Nó chỉ làm báo cáo thiếu số, làm màn hình danh sách trống, làm một chiến dịch gửi thiếu khách hàng — và không để lại dấu vết nào trong log.
+
+Bài này đào sâu một chi tiết trong series học SQL 30 ngày, cụ thể là phần toán tử và biểu thức cùng subquery. Mọi con số dưới đây là kết quả chạy thật trên PostgreSQL 16.11.
+
+## Tóm tắt nhanh (TL;DR)
+- `NULL` không phải giá trị, nó là sự vắng mặt của giá trị.
+- So sánh bất kỳ thứ gì với `NULL` cho ra `UNKNOWN`, không phải `TRUE` hay `FALSE`.
+- `WHERE` chỉ giữ dòng cho ra `TRUE`, nên `UNKNOWN` bị loại giống hệt `FALSE`.
+- `NOT IN` với subquery chứa `NULL` → luôn trả về 0 dòng.
+- `NOT EXISTS` không dính bẫy này. Dùng nó thay thế.
+- `NULL` còn âm thầm đổi kết quả ở `COUNT`, `GROUP BY`, `UNIQUE` và `LEFT JOIN`.
+
+## Thí nghiệm
+Ba khách hàng, một người chưa khai thành phố:
+
+[code sql]
+CREATE TEMP TABLE kh(id int, ten text, thanh_pho text);
+INSERT INTO kh VALUES (1,'An','HCM'), (2,'Binh','HN'), (3,'Chi', NULL);
+[/code]
+
+Bây giờ hỏi một câu hoàn toàn bình thường: "đếm những khách không ở cùng thành phố với khách số 3".
+
+[code sql]
+SELECT count(*) FROM kh
+WHERE thanh_pho NOT IN (SELECT thanh_pho FROM kh WHERE id = 3);
+[/code]
+
+[code]
+ ket_qua_not_in
+----------------
+              0
+[/code]
+
+Không một dòng nào. Trong khi bảng có ba khách và hai người trong số đó rõ ràng ở HCM với HN.
+
+Viết lại cùng ý định bằng `NOT EXISTS`:
+
+[code sql]
+SELECT count(*) FROM kh k
+WHERE NOT EXISTS (
+    SELECT 1 FROM kh x WHERE x.id = 3 AND x.thanh_pho = k.thanh_pho
+);
+[/code]
+
+[code]
+ ket_qua_not_exists
+--------------------
+                  3
+[/code]
+
+Ba dòng. Cùng một câu hỏi bằng tiếng Việt, hai câu SQL, hai kết quả khác nhau hoàn toàn. Không có lỗi cú pháp, không có cảnh báo.
+
+## Vì sao lại thế
+### `NULL` không phải một giá trị
+
+Đây là chỗ trực giác đánh lừa gần như tất cả mọi người. Chúng ta đọc `NULL` như "rỗng", "trống", hay "chưa có" — tức là vẫn hình dung nó như một giá trị nào đó. SQL thì không.
+
+`NULL` nghĩa là không biết. Và một khi bạn chấp nhận cách đọc đó thì mọi hành vi kỳ quặc của nó trở nên hợp lý:
+
+[code sql]
+SELECT NULL = NULL;    -- không phải true, mà là NULL
+SELECT NULL <> NULL;   -- cũng NULL
+SELECT NULL + 1;       -- NULL
+[/code]
+
+"Một số tôi không biết" có bằng "một số khác tôi cũng không biết" không? Câu trả lời trung thực là không biết. Đó chính xác là thứ SQL trả về.
+
+Vì vậy để kiểm tra `NULL`, bạn không dùng `=` mà phải dùng toán tử riêng:
+
+[code sql]
+WHERE thanh_pho IS NULL       -- đúng
+WHERE thanh_pho = NULL        -- luôn UNKNOWN, không bao giờ khớp
+[/code]
+
+### Logic ba trị
+
+Hệ quả là SQL không chạy trên logic hai trị `TRUE`/`FALSE` như hầu hết ngôn ngữ lập trình, mà trên logic ba trị: `TRUE`, `FALSE`, `UNKNOWN`.
+
+Bảng chân trị của `AND` và `OR` mở rộng như sau:
+
+| A | B | A AND B | A OR B |
+|---|---|---|---|
+| TRUE | UNKNOWN | UNKNOWN | TRUE |
+| FALSE | UNKNOWN | FALSE | UNKNOWN |
+| UNKNOWN | UNKNOWN | UNKNOWN | UNKNOWN |
+
+Hai ô in đậm đáng chú ý: `FALSE AND UNKNOWN` vẫn ra `FALSE` (vì sai một vế là đủ sai), và `TRUE OR UNKNOWN` vẫn ra `TRUE` (vì đúng một vế là đủ đúng). Ở những chỗ khác, cái không biết lan ra và nuốt kết quả.
+
+Và đây là quy tắc quyết định: `WHERE` chỉ giữ lại dòng cho ra `TRUE`. `FALSE` bị loại, `UNKNOWN` cũng bị loại. Hai thứ rất khác nhau về mặt ý nghĩa nhưng nhận cùng một số phận.
+
+### Ráp lại: vì sao `NOT IN` chết
+
+`x NOT IN (a, b, c)` được SQL khai triển thành:
+
+[code]
+x <> a AND x <> b AND x <> c
+[/code]
+
+Trong thí nghiệm, subquery trả về đúng một giá trị là `NULL`, nên điều kiện thành:
+
+[code]
+'HCM' <> NULL   →   UNKNOWN
+[/code]
+
+Không phải `TRUE`. Không phải `FALSE`. `UNKNOWN`. Và `WHERE` loại nó đi.
+
+Chuyện tương tự xảy ra với mọi dòng, kể cả dòng có `thanh_pho` là `NULL`. Kết quả: 0 dòng.
+
+Đáng chú ý là `IN` (không có `NOT`) không dính bẫy này theo cùng cách. `x IN (a, b, NULL)` vẫn trả về `TRUE` nếu `x` khớp `a` hoặc `b`, vì `TRUE OR UNKNOWN` vẫn là `TRUE`. Chỉ khi không khớp gì thì nó mới ra `UNKNOWN` thay vì `FALSE`. Sự bất đối xứng giữa `IN` và `NOT IN` chính là lý do bẫy này khó nhớ.
+
+### Vì sao `NOT EXISTS` an toàn
+
+`EXISTS` không so sánh giá trị. Nó chỉ hỏi: subquery có trả về dòng nào không? Câu hỏi đó luôn có câu trả lời dứt khoát — có hoặc không — nên không bao giờ sinh ra `UNKNOWN`.
+
+Bên trong subquery, phép `x.thanh_pho = k.thanh_pho` vẫn cho `UNKNOWN` khi gặp `NULL`, nên dòng đó không được chọn, nên subquery rỗng, nên `NOT EXISTS` là `TRUE`. Cái không biết dừng lại ở ranh giới subquery thay vì lan ra ngoài.
+
+## Bốn chỗ khác NULL âm thầm đổi kết quả
+Bẫy `NOT IN` nổi tiếng nhất, nhưng không phải duy nhất.
+
+### 1. `COUNT(*)` khác `COUNT(cột)`
+
+[code sql]
+SELECT count(*), count(thanh_pho) FROM kh;
+-- 3, 2
+[/code]
+
+`COUNT(*)` đếm dòng. `COUNT(cột)` đếm giá trị không NULL. Chênh lệch giữa hai con số chính là số dòng thiếu dữ liệu — đôi khi đó là thứ bạn cần, đôi khi đó là bug trong báo cáo. Chi tiết về các hàm tổng hợp nằm ở bài hàm tổng hợp.
+
+Cùng logic ấy, `AVG(cột)` bỏ qua `NULL` chứ không coi chúng là 0. Trung bình của `(10, NULL, 20)` là `15`, không phải `10`.
+
+### 2. `GROUP BY` gom mọi `NULL` vào một nhóm
+
+[code sql]
+SELECT thanh_pho, count(*) FROM kh GROUP BY thanh_pho;
+[/code]
+
+Tất cả dòng có `thanh_pho` là `NULL` rơi vào cùng một nhóm, dù về mặt logic chúng là "không biết" chứ không phải "giống nhau". Đây là một ngoại lệ có chủ ý của chuẩn SQL, và nó mâu thuẫn với chính quy tắc `NULL <> NULL` ở trên. Xem thêm bài GROUP BY và HAVING.
+
+### 3. `UNIQUE` không chặn nhiều `NULL`
 
 [… phần còn lại đã lược bớt]
 
