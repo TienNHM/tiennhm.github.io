@@ -1,4 +1,5 @@
 import React from 'react';
+import { translate } from '@docusaurus/Translate';
 import styles from './SummaryBox.module.css';
 
 export interface SummaryBoxProps {
@@ -17,9 +18,25 @@ export interface SummaryBoxProps {
  * </SummaryBox>
  * ```
  */
-export function SummaryBox({ children, title = 'Tóm tắt' }: SummaryBoxProps) {
+export function SummaryBox({ children, title }: SummaryBoxProps) {
+  // Mặc định phải đi qua translate() chứ không hardcode: component này được
+  // dùng ở mọi bài, và không bài nào truyền `title`, nên chuỗi cứng sẽ hiện
+  // tiếng Việt trên toàn bộ trang tiếng Anh.
+  const heading =
+    title ??
+    translate({
+      id: 'component.summaryBox.title',
+      message: 'Tóm tắt',
+      description: 'Tiêu đề khối tóm tắt TL;DR ở đầu bài viết',
+    });
+  const ariaLabel = translate({
+    id: 'component.summaryBox.ariaLabel',
+    message: 'Tóm tắt bài viết',
+    description: 'Nhãn trợ năng cho khối tóm tắt',
+  });
+
   return (
-    <div className={styles.summaryBox} role="note" aria-label="Tóm tắt bài viết">
+    <div className={styles.summaryBox} role="note" aria-label={ariaLabel}>
       <div className={styles.summaryBox__header}>
         <svg
           className={styles.summaryBox__icon}
@@ -38,7 +55,7 @@ export function SummaryBox({ children, title = 'Tóm tắt' }: SummaryBoxProps) 
           <line x1="16" y1="17" x2="8" y2="17" />
           <polyline points="10 9 9 9 8 9" />
         </svg>
-        <strong className={styles.summaryBox__title}>{title}</strong>
+        <strong className={styles.summaryBox__title}>{heading}</strong>
       </div>
       <div className={styles.summaryBox__content}>
         {children}

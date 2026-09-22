@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { translate } from '@docusaurus/Translate';
 import styles from './FAQSection.module.css';
 
 export interface FAQItem {
@@ -34,9 +35,17 @@ export interface FAQSectionProps {
  */
 export function FAQSection({ 
   items, 
-  title = 'Câu hỏi thường gặp',
+  title,
   generateStructuredData = true 
 }: FAQSectionProps) {
+  // Xem ghi chú ở SummaryBox: mặc định hardcode sẽ rò tiếng Việt sang locale en.
+  const heading =
+    title ??
+    translate({
+      id: 'component.faqSection.title',
+      message: 'Câu hỏi thường gặp',
+      description: 'Tiêu đề mặc định của khối FAQ trong bài viết',
+    });
   const structuredData = useMemo(() => {
     if (!generateStructuredData || !items.length) return null;
 
@@ -64,7 +73,7 @@ export function FAQSection({
       )}
       <section className={styles.faqSection} aria-labelledby="faq-title">
         <h2 id="faq-title" className={styles.faqSection__title}>
-          {title}
+          {heading}
         </h2>
         <div className={styles.faqSection__list}>
           {items.map((item, index) => (
