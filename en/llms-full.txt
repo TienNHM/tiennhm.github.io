@@ -9,7 +9,7 @@ Index: https://tiennhm.io.vn/llms.txt
 Sitemap: https://tiennhm.io.vn/sitemap.xml
 Owner: Nguyễn Huỳnh Minh Tiến (TienNHM)
 Language: vi (chính), en (một phần)
-Generated: 2026-09-21 (scripts/generate-llms-full.js)
+Generated: 2026-09-22 (scripts/generate-llms-full.js)
 
 ## Attribution
 
@@ -18,8 +18,8 @@ của trang — mỗi mục bên dưới có dòng `URL:` là canonical URL củ
 
 ## Phạm vi & giới hạn
 
-- Tổng số tài liệu quét được: 462 (docs: 431, blog: 31).
-- Số tài liệu có mặt trong file này: 462.
+- Tổng số tài liệu quét được: 463 (docs: 431, blog: 32).
+- Số tài liệu có mặt trong file này: 463.
 - Ngân sách dung lượng: 2.0 MB. Trần nội dung mỗi tài liệu: 6 KB.
 - Khi thiếu chỗ: blog giữ 30% ngân sách (ưu tiên bài mới nhất), phần còn lại dành cho docs/.
 - Nội dung đã được strip khỏi MDX/JSX và frontmatter; chữ bên trong các
@@ -27,8 +27,9 @@ của trang — mỗi mục bên dưới có dòng `URL:` là canonical URL củ
 - Khối code dài bị rút gọn; mọi chỗ rút gọn đều được đánh dấu tại chỗ.
 - Mỗi tài liệu bắt đầu bằng một dòng `========…` rồi tới `# <tiêu đề>` và `URL: …`.
 
-### Tài liệu bị rút gọn (102) — fetch URL để lấy bản đầy đủ
+### Tài liệu bị rút gọn (103) — fetch URL để lấy bản đầy đủ
 
+- Unit of Work trong .NET và ABP: SaveChangesAsync không phải commit — https://tiennhm.io.vn/blog/unit-of-work-dotnet-abp
 - Gọi .Result khi nào thì deadlock, khi nào thì không? — https://tiennhm.io.vn/blog/deadlock-result-wait-csharp
 - Vì sao EF Core bắn 201 query cho 1 màn hình danh sách? Cách sửa N+1 — https://tiennhm.io.vn/blog/ef-core-n-plus-1-query
 - Đổi id trên URL ra dữ liệu người khác? Chặn IDOR ở một tầng duy nhất — https://tiennhm.io.vn/blog/idor-broken-access-control-aspnet-core
@@ -42251,6 +42252,134 @@ Nội dung chi tiết...
 />
 
 ## Câu hỏi thường gặp
+
+[… phần còn lại đã lược bớt]
+
+============================================================================
+
+# Unit of Work trong .NET và ABP: SaveChangesAsync không phải commit
+
+URL: https://tiennhm.io.vn/blog/unit-of-work-dotnet-abp
+Source: blog/2026/2026-09-22-unit-of-work-dotnet-abp/index.md
+Date: 2026-09-22
+Description: DbContext của EF Core bản thân nó đã là một Unit of Work, nên bọc thêm một interface IUnitOfWork gọi SaveChanges thường chỉ thêm lớp trung gian vô ích. ABP đi hướng khác: Unit of Work là ambient, tự mở theo request, và SaveChangesAsync bên trong nó không commit — chỉ CompleteAsync mới commit. Bài này giải thích cơ chế, những chỗ hay sập trong background job, và cách chạy side effect sau khi commit bằng OnCompleted.
+Tags: dotnet, abp, aspnetcore, ef-core, architecture, backend
+Note: Nội dung dưới đây đã được rút gọn để giữ dung lượng file. Bản đầy đủ tại https://tiennhm.io.vn/blog/unit-of-work-dotnet-abp
+
+# Unit of Work trong .NET và ABP
+
+`DbContext` của EF Core đã là một Unit of Work sẵn: nó gom thay đổi trong change tracker rồi đẩy xuống database trong một transaction khi gọi `SaveChanges`. Vì vậy tự viết thêm một `IUnitOfWork` chỉ để gọi `SaveChanges` thường là thừa. ABP thì khác hẳn: Unit of Work ở đây là ambient, tự mở theo mỗi request, và `SaveChangesAsync` bên trong một UoW không commit transaction — chỉ `CompleteAsync` mới commit. Hiểu sai chỗ này là nguồn gốc của phần lớn bug "dữ liệu lúc có lúc không".
+
+Unit of Work là một trong những pattern bị viết lại nhiều nhất trong thế giới .NET, và cũng là pattern bị viết lại một cách thừa thãi nhiều nhất. Bài này tách làm hai phần: EF Core thuần thì bạn cần gì, và ABP đã làm sẵn những gì mà bạn nên hiểu trước khi đụng vào.
+
+## Phần 1 — `DbContext` đã là Unit of Work rồi
+
+Định nghĩa gốc của pattern: gom một nhóm thao tác đọc/ghi thành một đơn vị công việc, theo dõi những gì đã đổi, rồi đẩy tất cả xuống database một lượt, thành công hết hoặc hỏng hết.
+
+Đọc lại định nghĩa đó rồi nhìn `DbContext`:
+
+- change tracker theo dõi mọi entity đã `Add`, `Update`, `Remove`
+- `SaveChanges` sinh ra các câu lệnh và bọc chúng trong một transaction nếu chưa có transaction nào đang mở
+
+Nói cách khác, `DbContext` chính là một implementation của Unit of Work. Nó được thiết kế để sống đúng một đơn vị công việc — thường là một HTTP request — và đó cũng là lý do nó được đăng ký `Scoped`. Phần vòng đời này tôi đã viết riêng trong bài Singleton, Scoped hay Transient, vì giữ một `DbContext` sống lâu hơn một đơn vị công việc là một lớp bug riêng.
+
+Cho nên đoạn code kiểu này:
+
+[code csharp]
+public interface IUnitOfWork
+{
+    Task<int> SaveChangesAsync(CancellationToken ct = default);
+}
+
+public class UnitOfWork : IUnitOfWork
+{
+    private readonly CrmDbContext _db;
+    public UnitOfWork(CrmDbContext db) => _db = db;
+    public Task<int> SaveChangesAsync(CancellationToken ct = default) => _db.SaveChangesAsync(ct);
+}
+[/code]
+
+chỉ là một lớp bọc quanh thứ vốn đã làm đúng việc đó. Nó không thêm khả năng nào, nhưng thêm một interface phải maintain và một lớp gián tiếp khiến người đọc code phải nhảy thêm một bước. Phần đánh đổi giữa dùng Repository/UoW và dùng thẳng `DbContext` được bàn kỹ hơn ở 13.10 — Unit of Work và Repository pattern.
+
+### Khi nào thì thật sự cần nhiều hơn `SaveChanges`
+
+Có ba tình huống `DbContext` một mình không giải quyết được:
+
+1. Nhiều `DbContext` trong cùng một thao tác. Mỗi `SaveChanges` là một transaction riêng. Muốn chúng cùng thành công hoặc cùng hỏng thì cần một transaction bao ngoài.
+2. Trộn database với resource khác. Ghi database rồi bắn message lên broker. `SaveChanges` không biết gì về broker, nên nếu message bay đi trước khi transaction commit, bạn vừa tạo ra một sự kiện mô tả chuyện chưa từng xảy ra.
+3. Cần kiểm soát isolation level. Hành vi mặc định không phải lúc nào cũng đúng cho báo cáo hay cho thao tác đọc rồi ghi. Chi tiết ở 12.7 — Transactions và locking.
+
+Đây chính là khoảng trống mà Unit of Work của ABP lấp vào.
+
+## Phần 2 — Unit of Work trong ABP là ambient
+
+Khác biệt lớn nhất: trong ABP bạn không tự tạo Unit of Work cho luồng thông thường. Nó đã ở sẵn đó.
+
+`ApplicationService` của ABP implement interface đánh dấu `IUnitOfWorkEnabled`. Interceptor của framework nhìn thấy marker đó và tự mở một Unit of Work bao quanh lời gọi method. Nghĩa là mọi method trong application service của bạn đã chạy trong một UoW mà không cần khai báo gì thêm.
+
+Truy cập UoW đang hiện hành qua `IUnitOfWorkManager`:
+
+[code csharp]
+public class LeadAppService : ApplicationService, ILeadAppService
+{
+    private readonly IRepository<Lead, Guid> _leadRepository;
+
+    public LeadAppService(IRepository<Lead, Guid> leadRepository)
+        => _leadRepository = leadRepository;
+
+    public async Task<Guid> CreateAsync(CreateLeadDto input)
+    {
+        var lead = new Lead(GuidGenerator.Create(), input.Name);
+        await _leadRepository.InsertAsync(lead);
+
+        // Không cần gọi SaveChanges hay CompleteAsync ở đây.
+        // UoW ambient do interceptor mở sẽ tự complete khi method trả về.
+        return lead.Id;
+    }
+}
+[/code]
+
+### `SaveChangesAsync` và `CompleteAsync` không phải là một
+
+Đây là chỗ hay hiểu nhầm nhất, và cũng là lý do bài này có cái tiêu đề như vậy.
+
+`IUnitOfWork` của ABP có cả hai method, và chúng làm hai việc khác nhau:
+
+- `SaveChangesAsync` đẩy các thay đổi đang chờ xuống database để lấy ID sinh bởi database, để câu truy vấn kế tiếp nhìn thấy dữ liệu vừa ghi, hoặc để một constraint nổ sớm. Nó không commit transaction.
+- `CompleteAsync` mới là thứ commit: nó save changes lần cuối rồi commit toàn bộ transaction của UoW đó.
+
+Hệ quả thực tế: gọi `SaveChangesAsync` xong mà đâu đó phía sau ném exception thì toàn bộ, bao gồm cả phần vừa "save", đều bị rollback. Đúng như thiết kế — nhưng nếu bạn tưởng `SaveChangesAsync` là điểm không quay lại thì hành vi này trông y hệt một bug ma.
+
+[code csharp]
+public class ImportAppService : ApplicationService
+{
+    private readonly IUnitOfWorkManager _unitOfWorkManager;
+
+    public ImportAppService(IUnitOfWorkManager unitOfWorkManager)
+        => _unitOfWorkManager = unitOfWorkManager;
+
+    public async Task ImportAsync(List<CreateLeadDto> rows)
+    {
+        // requiresNew: true => tách hẳn khỏi UoW đang có, không nhập vào nó
+        using var uow = _unitOfWorkManager.Begin(requiresNew: true, isTransactional: true);
+
+        foreach (var row in rows)
+        {
+            await _leadRepository.InsertAsync(new Lead(GuidGenerator.Create(), row.Name));
+        }
+
+        // Ép ghi xuống DB giữa chừng, nhưng CHƯA commit
+        await uow.SaveChangesAsync();
+
+        // Đây mới là commit
+        await uow.CompleteAsync();
+    }
+}
+[/code]
+
+Chữ ký thật của extension method này là `Begin(bool requiresNew = false, bool isTransactional = false, IsolationLevel? isolationLevel = null, TimeSpan? timeout = null)`.
+
+### `requiresNew` và Unit of Work lồng nhau
 
 [… phần còn lại đã lược bớt]
 
