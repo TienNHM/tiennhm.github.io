@@ -18,8 +18,8 @@ của trang — mỗi mục bên dưới có dòng `URL:` là canonical URL củ
 
 ## Phạm vi & giới hạn
 
-- Tổng số tài liệu quét được: 464 (docs: 431, blog: 33).
-- Số tài liệu có mặt trong file này: 464.
+- Tổng số tài liệu quét được: 465 (docs: 431, blog: 34).
+- Số tài liệu có mặt trong file này: 465.
 - Ngân sách dung lượng: 2.0 MB. Trần nội dung mỗi tài liệu: 6 KB.
 - Khi thiếu chỗ: blog giữ 30% ngân sách (ưu tiên bài mới nhất), phần còn lại dành cho docs/.
 - Nội dung đã được strip khỏi MDX/JSX và frontmatter; chữ bên trong các
@@ -27,9 +27,10 @@ của trang — mỗi mục bên dưới có dòng `URL:` là canonical URL củ
 - Khối code dài bị rút gọn; mọi chỗ rút gọn đều được đánh dấu tại chỗ.
 - Mỗi tài liệu bắt đầu bằng một dòng `========…` rồi tới `# <tiêu đề>` và `URL: …`.
 
-### Tài liệu bị rút gọn (104) — fetch URL để lấy bản đầy đủ
+### Tài liệu bị rút gọn (105) — fetch URL để lấy bản đầy đủ
 
 - ONNX Runtime chết trên Alpine: lỗi ld-linux-x86-64.so.2 và vì sao libc6-compat không cứu được — https://tiennhm.io.vn/blog/onnx-runtime-alpine-ld-linux-x86-64-so-2
+- Traefik sau Cloudflare: vì sao HTTP-01 sẽ hỏng sau 60 ngày và DNS-01 là lối ra — https://tiennhm.io.vn/blog/traefik-cloudflare-https-tu-dong-vps
 - Unit of Work trong .NET và ABP: SaveChangesAsync không phải commit — https://tiennhm.io.vn/blog/unit-of-work-dotnet-abp
 - Gọi .Result khi nào thì deadlock, khi nào thì không? — https://tiennhm.io.vn/blog/deadlock-result-wait-csharp
 - Vì sao EF Core bắn 201 query cho 1 màn hình danh sách? Cách sửa N+1 — https://tiennhm.io.vn/blog/ef-core-n-plus-1-query
@@ -42386,6 +42387,109 @@ Sự khác nhau giữa hai thông báo lỗi nói lên toàn bộ vấn đề:
 |---|---|---|
 | Nạp thư viện | `Error loading shared library` | Không tìm thấy file |
 | Phân giải symbol | `Error relocating` | Tìm thấy file, nhưng thiếu symbol bên trong |
+
+[… phần còn lại đã lược bớt]
+
+============================================================================
+
+# Traefik sau Cloudflare: vì sao HTTP-01 sẽ hỏng sau 60 ngày và DNS-01 là lối ra
+
+URL: https://tiennhm.io.vn/blog/traefik-cloudflare-https-tu-dong-vps
+Source: blog/2026/2026-09-22-traefik-cloudflare-vps/index.md
+Date: 2026-09-22
+Description: Một VPS, 14 container, 13 hostname, tất cả nằm sau Cloudflare và đều cần HTTPS tự động. Bài viết mổ kiến trúc Traefik v3 + Cloudflare đang chạy thật: vì sao ACME HTTP-01 cấp được cert lần đầu nhưng chắc chắn trượt lúc gia hạn, vì sao DNS-01 giải quyết được nhưng lại đẻ ra một ràng buộc mới, và vì sao thiếu router bắt-tất thì Cloudflare trả lỗi 526.
+Tags: traefik, cloudflare, docker, devops, https, tls, vps, architecture
+Note: Nội dung dưới đây đã được rút gọn để giữ dung lượng file. Bản đầy đủ tại https://tiennhm.io.vn/blog/traefik-cloudflare-https-tu-dong-vps
+
+# Traefik sau Cloudflare: vì sao HTTP-01 sẽ hỏng sau 60 ngày
+
+Khi domain bật proxy Cloudflare (mây cam) với SSL mode Full (strict), ACME HTTP-01 không dùng được: Let's Encrypt gọi `http://domain/.well-known/acme-challenge/...` ở cổng 80, Cloudflare nhận rồi gọi ngược về origin bằng HTTPS:443 — nơi bộ xử lý challenge của Traefik không có mặt. Bạn cần cert để qua được Cloudflare, mà cần qua Cloudflare mới lấy được cert. Lách lần đầu bằng cách tạm tắt mây cam thì được, nhưng lần gia hạn tự động sau ~60 ngày sẽ trượt âm thầm và mọi site hết hạn cùng lúc. Lối ra là DNS-01: xác thực bằng bản ghi TXT qua API Cloudflare, không request nào chạm origin. Đổi lại, cert chỉ cấp được cho những zone mà API token nhìn thấy.
+
+Trên VPS này đang có 14 container chung một reverse proxy: 10 site WordPress, một API .NET, một app Angular, một web app sự kiện, và Traefik. Mười ba hostname, tất cả nằm sau Cloudflare, tất cả cần HTTPS và không ai muốn gia hạn cert bằng tay.
+
+Phần kiến trúc thì đơn giản đến mức nhàm. Phần thú vị nằm ở chỗ Cloudflare và Let's Encrypt, mỗi bên làm đúng việc của mình, nhưng ghép lại thì tạo ra một vòng luẩn quẩn mà bạn chỉ phát hiện vào ngày cert hết hạn — tức là hai tháng sau khi mọi thứ trông có vẻ đã xong.
+
+## Tóm tắt nhanh (TL;DR)
+- Kiến trúc: Cloudflare (mây cam) → Traefik v3 trên network `edge` → container. SSL mode Full (strict).
+- SSL mode Flexible là bẫy số một: Cloudflare gọi HTTP, Traefik redirect sang HTTPS → vòng lặp vô tận ở `wp-admin`.
+- HTTP-01 hỏng ở bước gia hạn, không phải bước cấp. Đây là lý do nó nguy hiểm.
+- DNS-01 là lối ra, và cũng là cách duy nhất lấy được cert wildcard.
+- Cái giá của DNS-01: token Cloudflare chỉ thấy zone được cấp quyền. Domain ở zone khác sẽ trượt — log thật của tôi đang lặp lại lỗi này từ 19/09.
+- Thiếu router bắt-tất: wildcard DNS + tên lạ → Traefik chìa cert tự ký → Cloudflare trả 526.
+- Cần `forwardedheaders.trustedips`, không thì mọi app thấy IP của Cloudflare thay vì IP khách.
+
+## Kiến trúc: một proxy, một network, label trên từng container
+Toàn bộ hệ thống chỉ có ba tầng:
+
+[code]
+Khách → Cloudflare (mây cam, Full strict) → Traefik :443 → container :80
+                                              └── network "edge"
+[/code]
+
+Traefik chạy một lần duy nhất trên VPS. Các stack khác không biết gì về nhau, chúng chỉ cần tham gia vào một network Docker dùng chung tên `edge` và khai vài label. Hiện `edge` có 14 container.
+
+Traefik được cấu hình để không tự động route mọi thứ nó nhìn thấy:
+
+[code yaml]
+- --providers.docker=true
+# Chỉ route container nào khai báo traefik.enable=true
+- --providers.docker.exposedbydefault=false
+- --providers.docker.network=edge
+- --entrypoints.web.address=:80
+- --entrypoints.websecure.address=:443
+# Ép toàn bộ HTTP sang HTTPS
+- --entrypoints.web.http.redirections.entrypoint.to=websecure
+- --entrypoints.web.http.redirections.entrypoint.scheme=https
+[/code]
+
+`exposedbydefault=false` là mặc định nên bật cho mọi cài đặt Traefik. Không có nó, mỗi container mới lên là một router mới được sinh tự động, gồm cả những thứ không bao giờ nên ra Internet như database hay adminer.
+
+Phía site thì mỗi container chỉ cần sáu dòng label. Đây là label thật của một site WordPress đang chạy:
+
+[code yaml]
+traefik.enable: "true"
+traefik.docker.network: edge
+traefik.http.routers.bakery.rule: Host(`bakery.tiennhm.io.vn`)
+traefik.http.routers.bakery.entrypoints: websecure
+traefik.http.routers.bakery.tls.certresolver: letsencrypt
+traefik.http.services.bakery.loadbalancer.server.port: "80"
+[/code]
+
+Thêm một site là thêm một thư mục với sáu dòng này, không sửa gì ở Traefik. Đó là toàn bộ giá trị của mô hình label-driven: cấu hình routing sống cùng chỗ với thứ được route.
+
+## Bẫy 1: SSL mode Flexible gây vòng lặp chuyển hướng
+Trước khi nói tới cert, phải chốt SSL mode ở Cloudflare, vì chọn sai thì không có gì chạy được cả.
+
+| SSL mode | Cloudflare gọi origin bằng | Kết quả với cấu hình trên |
+|---|---|---|
+| Flexible | HTTP :80 | Vòng lặp vô tận |
+| Full | HTTPS :443, không kiểm cert | Chạy, nhưng chấp nhận cả cert giả mạo |
+| Full (strict) | HTTPS :443, kiểm cert hợp lệ | Nên dùng |
+
+Với Flexible, chuỗi sự kiện là: khách gọi HTTPS tới Cloudflare → Cloudflare gọi origin bằng HTTP → entrypoint `web` của Traefik redirect 301 sang HTTPS → Cloudflare thấy redirect, trả về cho trình duyệt → trình duyệt gọi lại HTTPS → lặp lại từ đầu.
+
+Triệu chứng kinh điển là `wp-admin` quay vòng không vào được, còn trang chủ thì có vẻ vẫn ổn vì đã bị cache. Trong tài liệu vận hành của tôi, đây là mục số một của phần khắc phục sự cố, và nó ở đó vì tôi đã dính.
+
+Full (strict) là lựa chọn đúng, nhưng nó kéo theo một yêu cầu: origin phải có cert hợp lệ, công nhận được. Giữ ý đó trong đầu, vì phần tiếp theo là hệ quả trực tiếp.
+
+## Bẫy 2: HTTP-01 và cái vòng luẩn quẩn
+ACME HTTP-01 là kiểu xác thực mặc định mà hầu hết hướng dẫn Traefik dùng. Cách nó hoạt động: Let's Encrypt gọi `http:// /.well-known/acme-challenge/ ` ở cổng 80, và server phải trả về đúng nội dung.
+
+Trên một VPS trần thì hoàn hảo. Sau Cloudflare với Full (strict) thì hỏng, theo đúng chuỗi này:
+
+1. Let's Encrypt gọi `http://bakery.tiennhm.io.vn/.well-known/acme-challenge/abc`
+2. Record đang bật mây cam nên request đi vào Cloudflare, không vào VPS
+3. Cloudflare gọi ngược về origin — nhưng ở chế độ Full (strict) thì nó gọi bằng HTTPS cổng 443
+4. Bộ xử lý challenge của Traefik chỉ nằm trên entrypoint `web`, tức cổng 80
+5. Cổng 443 trả 404 cho đường dẫn đó → challenge trượt
+
+Nói gọn: cần cert để qua được Cloudflare, cần qua Cloudflare mới lấy được cert.
+
+Vòng này lách được. Tắt mây cam cho record về DNS only (mây xám), để Let's Encrypt gọi thẳng VPS, lấy cert xong rồi bật mây cam lại. Tôi từng làm đúng vậy và nó chạy.
+
+Và đó chính là chỗ nguy hiểm.
+
+Vì sau khi bật lại mây cam, mọi thứ trông hoàn hảo: site chạy HTTPS, cert hợp lệ, Cloudflare Full (strict) vui vẻ. Không có cảnh báo nào. Nhưng cert Let's Encrypt sống 90 ngày và Traefik sẽ thử gia hạn tự động ở khoảng ngày thứ 60 — lúc đó bạn không ngồi cạnh để tắt mây cam nữa. Challenge trượt, Traefik ghi một dòng lỗi vào log rồi thử lại, im lặng, ngày này qua ngày khác.
 
 [… phần còn lại đã lược bớt]
 
