@@ -1,0 +1,343 @@
+# M01.01 - Introduction to the Cloud
+
+> Nguồn: https://tiennhm.io.vn/docs/aws-cloud-practitioner-essentials/introduction-to-the-cloud/introduction-to-the-cloud
+> Khám phá nền tảng của Cloud Computing với AWS Cloud Practitioner Essentials Module 1. Tìm hiểu định nghĩa Cloud Computing, lịch sử hình thành AWS, các loại cloud deployment (Cloud, On-premises, Hybrid), và các khái niệm cơ bản về on-demand delivery, IT resources, pay-as-you-go pricing.
+
+> Bài học M01.01 giới thiệu nền tảng Cloud Computing trong khóa AWS Cloud Practitioner Essentials, bao gồm định nghĩa Cloud Computing, lịch sử hình thành AWS, các mô hình triển khai (Cloud, On-premises, Hybrid) và các khái niệm cơ bản như on-demand delivery, IT resources và pay-as-you-go pricing.
+
+## Welcome to AWS Cloud Practitioner Essentials
+
+Chào mừng bạn đến với series **AWS Cloud Practitioner Essentials**! Đây là series đầu tiên trong hành trình học tập và chứng nhận AWS Cloud Practitioner của mình.
+
+Trong phần đầu tiên của training này, bạn bắt đầu với hiểu biết nền tảng về cloud computing và cách cloud cách mạng hóa cách businesses hoạt động. Đến cuối bộ bài học đầu tiên này, bạn sẽ quen thuộc với các core concepts, benefits, và shared responsibilities của cloud computing.
+
+## Mục tiêu học tập
+
+Sau khi hoàn thành bài học này, bạn sẽ có thể:
+
+- ✅ Mô tả client-server model ở mức cơ bản
+- ✅ Hiểu định nghĩa Cloud Computing
+- ✅ Nhận biết các loại cloud deployment
+- ✅ Hiểu lịch sử hình thành AWS
+
+## Giới thiệu về Instructors
+
+Trước khi bắt đầu, hãy gặp các instructors của bạn:
+
+**Morgan Willis** - Principal Cloud Technologist với AWS Training and Certification. Morgan đã làm việc trong IT world khoảng 15 năm và có kinh nghiệm trong IT support và teaching tại software development bootcamp trước khi đến AWS.
+
+**Rudy Chetty** - Chief Techfluencer và Principle Solutions Architect cho AWS Partners. Rudy đến từ Cape Town, South Africa và đã làm việc trong technology space hơn hai thập kỷ, giúp customers trên toàn thế giới thực hiện application và cloud dreams của họ.
+
+**Alan Meridian** - Instructor trong AWS Training and Certification. Alan đã làm việc với AWS hơn 8 năm, cung cấp hàng trăm trainings giới thiệu learners đến AWS concepts, services, và solutions.
+
+## Phương pháp học tập
+
+Cloud computing có thể phức tạp. Nhưng đừng lo lắng. Đây là lý do tại sao chúng ta ở đây! Curriculum của chúng ta cung cấp analogies, examples, và use cases sẽ giúp bạn hiểu rõ hơn các concepts này. Chúng ta sẽ cover tất cả thông tin cần thiết để bạn cảm thấy thoải mái khi thảo luận về AWS. Ngoài ra, chúng ta sẽ thêm một số AWS service demos để cho bạn thấy cách mọi thứ hoạt động trong thực tế. Cách tiếp cận học tập theo lớp này sẽ thực sự củng cố các concepts. Và chúng ta hứa sẽ giữ nó đơn giản.
+
+## AWS - World's Most Comprehensive Cloud
+
+AWS cung cấp một loạt services khổng lồ cho mọi business. AWS là cloud toàn diện và được áp dụng rộng rãi nhất thế giới, và hàng triệu customers sử dụng AWS để trở nên agile hơn, giảm costs, và innovate nhanh hơn. Cho dù bạn đang tìm kiếm compute power, generative AI, databases, storage, content delivery, hoặc specialized services cho một số functionality khác, AWS có các services bạn cần để giúp bạn xây dựng sophisticated applications cho business của mình.
+
+Đó là một loạt services khổng lồ, và chúng ta ước chúng ta có thời gian để cover tất cả. Nhưng chúng ta đã hứa sẽ giữ nó đơn giản. Vì vậy, hãy bắt đầu cuộc trò chuyện này với một fundamental concept của computing: **the client-server model**.
+
+## Client-Server Model
+
+### Coffee Shop Analogy
+
+Để làm cho mọi thứ dễ hiểu hơn, chúng ta sẽ sử dụng một **coffee shop analogy**. Coffee shop này sẽ hoạt động như một real-world metaphor để cho bạn thấy các phần khác nhau của cloud computing model. Và, analogy sẽ giúp bạn hiểu cách AWS có thể thay đổi cách IT của bạn hoạt động.
+
+Đầu tiên, hãy nghĩ về coffee shop và cách nó có thể đại diện cho **client-server model**.
+
+### Ví dụ: Client-Server Model trong Coffee Shop
+
+Hãy để Morgan là **server**, barista. Và tôi (Alan) sẽ là **client**, hoặc customer. Tôi sẽ đưa ra một request. Trong trường hợp này, đó là cho coffee. Trong computing world, request có thể là bất cứ thứ gì. Nó có thể là rain pattern analysis ở South Africa, hoặc nó có thể là latest x-rays của đầu gối bạn, hoặc videos của kittens. Bất cứ business needs nào là nơi request bắt đầu. Về cơ bản, một customer đưa ra request, và với permissions, server phản hồi request đó. Tất cả những gì tôi muốn là một caffeinated beverage. Morgan đại diện cho phần server của client-server model. Trong AWS, cô ấy sẽ là một virtual server.
+
+Vì vậy, từ góc độ cloud computing architectural, coffee shop transaction khá đơn giản. Tôi, user, đã đưa ra request đến Morgan, server. Morgan đã validate rằng request là hợp lệ. Trong trường hợp này, tôi có đưa tiền cho cô ấy không? Item mà tôi đặt có phải là thứ họ có thể làm không? Sau đó cô ấy trả về response, trong ví dụ này, là một triple mocha với extra caramel shots.
+
+### Client-Server Model trong Real World
+
+Bây giờ, trong real world, applications thường phức tạp hơn chỉ một single transaction với một single server. Trong một business solution trưởng thành hơn, nó có thể trở nên beautifully complex. Nhưng một lần nữa, chúng ta sẽ bắt đầu với basics. Khi curriculum tiến triển, các basic concepts này sẽ tiếp tục build on each other. Và hy vọng, đến cuối, những beautifully complex concepts đó sẽ có ý nghĩa hơn nhiều.
+
+Bạn đã tackle cloud computing concept đầu tiên của mình. Vì vậy bây giờ, hãy tiếp tục với một key concept của AWS, và đó là: **bạn chỉ trả cho những gì bạn sử dụng**.
+
+## Pay Only for What You Use
+
+Hãy nghĩ về nguyên tắc này khi áp dụng cho việc staffing một coffee shop. Employees chỉ được trả cho giờ họ làm việc trong shop thực tế. Vì vậy, nếu nói Morgan và tôi off the clock, thì chúng ta không được trả vì chúng ta không làm việc bất kỳ giờ nào. Hơn nữa, store owner quyết định họ cần bao nhiêu baristas cho bất kỳ ngày nào trong tuần. Những ngày bận rộn yêu cầu nhiều employees hơn và những ngày chậm hơn yêu cầu ít hơn.
+
+Hãy lấy một ví dụ. Nói coffee shop đang phát hành một thức uống hoàn toàn mới gọi là Rudy's Rhubarb Refresher. Trademark. Shop dự đoán demand tăng lên do thức uống rất ngon, vì vậy họ staff shop với 10 baristas cả ngày. Mặc dù điều này hoạt động với sudden surge của customers, nó không tuyệt vời cho slower periods trong ngày. Một số baristas có thể idle, và sẽ khó để justify trả họ chỉ để ở đó trong trường hợp họ được cần. Monetary cost chỉ không có ý nghĩa tài chính tốt.
+
+Và tuy nhiên, đây chính xác là những gì xảy ra trong một on-premises data center nơi bạn không thể chỉ snap fingers và triple capacity của mình. Tại AWS, bạn không pre-pay cho bất cứ thứ gì. Và bạn không phải lo lắng về capacity constraints.
+
+Khi bạn cần nhiều resources hơn, bạn chỉ provision chúng ngay lúc đó. Thật tuyệt vời phải không? Sau đó, khi bạn không cần những resources đó nữa, bạn có thể deprovision nhanh chóng như vậy. Bạn chỉ thiết lập configuration đúng và nó được thực hiện tự động. Và phần tốt nhất là khi bạn deprovision resources, bạn ngừng trả cho chúng ngay lập tức. Giống như bạn chỉ trả employees cho giờ họ đang làm việc, bạn chỉ trả cho AWS resources mà bạn consume.
+
+Vì vậy, **paying only for what you use** là AWS specific concept đầu tiên chúng ta đã cover—và nó chỉ là một trong nhiều benefits khi nói đến running business của bạn trên AWS. Và đó thực sự là lý do tại sao chúng ta ở đây: để bạn có thể hiểu cách AWS được xây dựng để giúp bạn chạy business tốt hơn.
+
+Bạn đã học một số foundational concepts về cloud...và đó chỉ là khởi đầu!
+
+## The AWS Cloud Practitioner Coffee Shop
+
+Trong training này, chúng ta sử dụng coffee shop analogy để giúp bạn hiểu rõ hơn các cloud concepts cơ bản. Coffee shop sẽ xuất hiện xuyên suốt các bài học để minh họa các khái niệm khác nhau.
+
+Hãy cùng bắt đầu hành trình khám phá thế giới Cloud Computing nhé! ☁️
+
+## Lịch sử hình thành AWS: Từ nhu cầu nội bộ đến dịch vụ toàn cầu
+
+Trước khi đi sâu vào Cloud Computing, hãy cùng quay ngược thời gian để hiểu cách Amazon phát triển và tạo ra Amazon Web Services.
+
+### Những ngày đầu của Amazon.com
+
+Vào đầu những năm 2000, **Amazon.com** là một trang thương mại điện tử (ecommerce site) mà khách hàng sử dụng để mua sách và các hàng hóa tiêu dùng khác. Khi ngày càng nhiều người sử dụng trang web, đội ngũ IT của Amazon phải liên tục nâng cấp để đảm bảo mọi thứ hoạt động trơn tru:
+
+- 🖥️ Thêm nhiều servers (máy chủ)
+- 💾 Thêm nhiều storage (lưu trữ)
+- ⚙️ Thêm nhiều compute power (sức mạnh tính toán)
+- 🔧 Và nhiều hạ tầng khác...
+
+Họ đang triển khai tất cả những gì cần thiết để đáp ứng nhu cầu ngày càng tăng!
+
+### Sự ra đời của ý tưởng AWS
+
+Đội ngũ Amazon cuối cùng đã quyết định phát triển các công cụ, cơ chế và phương pháp tiêu chuẩn hóa để làm cho mọi thứ hiệu quả và có khả năng mở rộng (scalable) hơn. Những phương pháp này đã chứng minh là khá hiệu quả, và vào năm **2003**, các nhân viên đã nghĩ:
+
+> "Có lẽ kiến thức này sẽ có giá trị đối với các công ty khác đang gặp những thách thức tương tự."
+
+Do đó, Amazon bắt đầu hình dung một dịch vụ cho phép các doanh nghiệp **thuê sức mạnh tính toán, lưu trữ và các tài nguyên khác theo nhu cầu (on-demand)**. Mô hình kinh doanh này có thể loại bỏ nhu cầu đầu tư trước vào phần cứng (hardware).
+
+### AWS ra mắt và phát triển
+
+Chỉ một năm sau, vào **tháng 11 năm 2004**, AWS đã ra mắt dịch vụ hạ tầng công khai đầu tiên: **Amazon Simple Queue Service (SQS)**.
+
+Hai năm sau, AWS tiếp tục ra mắt:
+- **Amazon Simple Storage Service (S3)** - cho việc lưu trữ dữ liệu
+- **Amazon Elastic Compute Cloud (EC2)** - cho tính toán có khả năng mở rộng
+
+Ban đầu, AWS được sử dụng bởi các start-up nhỏ và các developers. Tuy nhiên, khả năng mở rộng (scalability), hiệu quả chi phí (cost-effectiveness) và dễ sử dụng của nó nhanh chóng thu hút các doanh nghiệp lớn hơn.
+
+### AWS ngày nay
+
+Trong những năm tiếp theo, AWS đã mở rộng nhanh chóng các dịch vụ của mình bằng cách thêm:
+- 🗄️ Databases (Cơ sở dữ liệu)
+- 🌐 Networking (Mạng)
+- 📊 Analytics (Phân tích)
+- 🤖 AI/ML services (Dịch vụ AI/ML)
+- Và nhiều dịch vụ cloud-based khác
+
+Ngày nay, **AWS cung cấp năng lượng cho một phần đáng kể của internet**, phục vụ hàng triệu khách hàng trên toàn thế giới - từ các start-up nhỏ và doanh nghiệp, đến các tập đoàn lớn, cơ quan chính phủ và nhiều hơn nữa.
+
+Những gì bắt đầu như một giải pháp nội bộ cho nhu cầu IT của chính Amazon đã phát triển thành một nhà lãnh đạo cloud computing toàn cầu! 🌍
+
+## Định nghĩa Cloud Computing
+
+Với bài học lịch sử ngắn gọn đó, hãy xem định nghĩa làm việc của Cloud Computing:
+
+> **Cloud Computing là việc cung cấp theo nhu cầu (on-demand delivery) các tài nguyên IT qua internet với mô hình định giá trả theo sử dụng (pay-as-you-go pricing).**
+
+![Định nghĩa Cloud Computing](https://tiennhm.io.vn/img/docs/AWS-Cloud-Practitioner-Essentials/M01_L2_DefinitionCloudv2.png)
+
+Hãy cùng phân tích từng phần của định nghĩa này:
+
+### 1. On-demand delivery (Cung cấp theo nhu cầu)
+
+**On-demand** có nghĩa là bạn sử dụng tài nguyên khi cần. Ví dụ:
+
+- 🎯 **Kịch bản thực tế**: Doanh nghiệp của bạn cần **2,000 TB** storage
+- ✅ **Giải pháp**: Mở tài khoản AWS, upload một số files vào **Amazon S3**, và xong! Bạn đã sẵn sàng sử dụng
+- 🗑️ **Khi không cần nữa**: Xóa files và ngừng thanh toán ngay lập tức
+
+**Đặc điểm chính:**
+- ⚡ Khách hàng có thể truy cập các tài nguyên computing (như storage hoặc compute power) trong vài giây và khi cần
+- 📈 Người dùng có thể scale (mở rộng) hoặc scale down (thu hẹp) việc sử dụng tài nguyên dựa trên yêu cầu hiện tại
+- 🚫 Không cần các quy trình provisioning (cung cấp) dài dòng
+
+### 2. of IT resources (Các tài nguyên IT)
+
+Khía cạnh **of IT resources** làm nổi bật mảng rộng lớn các tài sản công nghệ thông tin trong không gian cloud computing:
+
+**Các tài nguyên bao gồm:**
+- 🖥️ **Servers** (Máy chủ)
+- 💾 **Storage solutions** (Giải pháp lưu trữ)
+- 🗄️ **Databases** (Cơ sở dữ liệu)
+- 🌐 **Networking components** (Thành phần mạng)
+- 🤖 **AI/ML tools** (Công cụ AI/ML)
+- 🔧 Và nhiều hơn nữa...
+
+**Khái niệm Data Center:**
+Tất cả dữ liệu này được lưu trữ trong một **data center** (trung tâm dữ liệu), về cơ bản là một tòa nhà hoặc một nhóm tòa nhà dành riêng để chứa các servers chứa tất cả dữ liệu này.
+
+Data centers được thiết kế với:
+- ⚡ **Redundant power** (Nguồn điện dự phòng)
+- ❄️ **Cooling systems** (Hệ thống làm mát)
+- 🔒 **Security measures** (Biện pháp bảo mật)
+
+Tất cả để đảm bảo hoạt động an toàn và liên tục.
+
+**Lịch sử vs Hiện tại:**
+- **Trước đây**: Các doanh nghiệp chạy ứng dụng trong data centers của chính họ hoặc đặt cùng với các khách hàng khác trong một cơ sở chia sẻ. Không có lựa chọn nào khác.
+- **Bây giờ với AWS**: Các công ty có thể chạy ứng dụng của họ trong các data centers khác mà họ không thực sự sở hữu. Không còn cần quản lý hạ tầng. Không còn các tác vụ lặp đi lặp lại và tốn thời gian. Bằng cách sử dụng AWS, các team giờ đây có thể tập trung vào **innovation** (đổi mới)!
+
+### 3. over the internet (Qua internet)
+
+Phần **over the internet** có nghĩa là bạn có thể truy cập các tài nguyên đó từ xa:
+
+- 🏠 Bạn có thể ở nhà
+- 🏢 Ở nơi làm việc
+- ✈️ Đang thăm gia đình ở khắp nơi trên thế giới
+
+**Tất cả những gì bạn cần:**
+- 🌐 Một kết nối internet
+- 💻 Đăng nhập vào AWS Account của bạn
+- 🖱️ Quản lý hạ tầng ngay từ web browser
+
+Internet hoạt động như một kênh dẫn, cung cấp quyền truy cập từ xa vào sức mạnh tính toán, lưu trữ và ứng dụng từ bất kỳ đâu trên thế giới.
+
+### 4. with pay-as-you-go pricing (Với mô hình định giá trả theo sử dụng)
+
+**Pay-as-you-go pricing** là một khía cạnh kinh tế cơ bản của cloud computing:
+
+- 💰 Người dùng chỉ trả cho các tài nguyên họ thực sự sử dụng
+- 📝 Không cần cam kết với các hợp đồng dài hạn, cố định
+- 🎯 Mô hình định giá dựa trên sử dụng này mang lại hiệu quả chi phí và linh hoạt tài chính
+
+**Ví dụ thực tế:**
+Nếu bạn không cần một phần cụ thể của hạ tầng, chỉ cần **deprovision** (hủy cung cấp) nó. Đơn giản vậy thôi! Không cần hợp đồng. Không cần gọi đại diện bán hàng.
+
+## Tóm tắt định nghĩa Cloud Computing
+
+Để nhắc lại một lần nữa:
+
+> **Cloud Computing là việc cung cấp theo nhu cầu các tài nguyên IT qua internet với mô hình định giá trả theo sử dụng.**
+
+Hãy ghi nhớ định nghĩa này khi bạn tiếp tục với phần còn lại của nội dung này! 📚
+
+## Các loại Cloud Deployment (Triển khai Cloud)
+
+Bạn có thể triển khai các tài nguyên cloud theo nhiều cách: **Cloud**, **On-premises**, và **Hybrid**. Mỗi loại cung cấp những lợi ích và cân nhắc riêng, và khám phá các tùy chọn này có thể giúp bạn đưa ra quyết định sáng suốt về chiến lược cloud của mình.
+
+### 1. Cloud (Điện toán đám mây)
+
+Trong mô hình triển khai dựa trên cloud, bạn có sự linh hoạt để:
+
+- 🔄 **Migrate** (Di chuyển) các tài nguyên hiện có lên cloud
+- 🏗️ **Thiết kế và xây dựng** các ứng dụng mới trong môi trường cloud
+- 🔀 Hoặc **kết hợp cả hai**
+
+**Ví dụ thực tế:**
+Một công ty có thể migrate các tài nguyên dữ liệu lên cloud, sau đó phát triển một ứng dụng bao gồm virtual servers, databases và các thành phần networking hoàn toàn được host trong cloud.
+
+### 2. On-premises (Tại chỗ)
+
+Triển khai tài nguyên **on-premises** (tại chỗ) sử dụng công nghệ ảo hóa (virtualization) và công cụ quản lý tài nguyên không cung cấp nhiều lợi ích của cloud computing. Tuy nhiên, đôi khi nó được tìm kiếm vì:
+
+- 🎯 Khả năng cung cấp tài nguyên chuyên dụng (dedicated resources)
+- ⚡ Độ trễ thấp (low latency)
+
+**Lưu ý quan trọng:**
+Trong hầu hết các trường hợp, mô hình triển khai này giống với hạ tầng IT legacy (kế thừa) trong khi sử dụng công nghệ quản lý ứng dụng và ảo hóa để cố gắng tăng việc sử dụng tài nguyên.
+
+### 3. Hybrid (Lai)
+
+Trong triển khai **hybrid** (lai), các tài nguyên dựa trên cloud và hạ tầng on-premises hoạt động cùng nhau.
+
+**Khi nào nên sử dụng Hybrid:**
+- 🔒 Các ứng dụng legacy phải ở lại on-premises do:
+  - Sở thích bảo trì
+  - Yêu cầu quy định (regulatory requirements)
+- ☁️ Sử dụng dịch vụ cloud cho các tác vụ tiên tiến như:
+  - Xử lý dữ liệu nâng cao
+  - Analytics (Phân tích)
+
+**Ví dụ thực tế:**
+Một công ty có thể chọn giữ lại các ứng dụng legacy được quy định nhất định on-premises trong khi sử dụng dịch vụ cloud cho xử lý dữ liệu nâng cao và analytics.
+
+**Lưu ý:** Multi-cloud deployments (triển khai đa cloud) cũng có thể được coi là hybrid deployments.
+
+## Kiểm tra kiến thức: Bài tập thực hành
+
+Hãy thử giải quyết tình huống sau để kiểm tra hiểu biết của bạn:
+
+### Tình huống
+
+Bạn làm việc cho một tổ chức từ thiện địa phương. Tổ chức của bạn có dữ liệu nhạy cảm phải được giữ trong nước vì lý do tuân thủ (compliance). Tuy nhiên, bạn cũng cần một giải pháp có thể scale nhanh chóng để xử lý các đợt tăng đột biến theo mùa (seasonal spikes) trong nhu cầu.
+
+Bạn quyết định:
+- 🔒 Giữ tài nguyên on-premises cho compliance
+- ☁️ Sử dụng tài nguyên dựa trên cloud cho dynamic scaling
+
+### Câu hỏi
+
+**Loại triển khai cloud nào mô tả tình huống này?**
+
+- ❌ On-premises deployment
+- ❌ Public cloud deployment
+- ✅ **Hybrid deployment** ← Đáp án đúng!
+- ❌ Data-compliance deployment
+
+### Giải thích
+
+Với giải pháp hybrid cloud, bạn có thể:
+- 🔒 Giữ dữ liệu nhạy cảm on-premises để đáp ứng yêu cầu compliance
+- ☁️ Đồng thời sử dụng tài nguyên dựa trên cloud cho dynamic scaling
+
+Đây chính xác là những gì tình huống mô tả! 🎯
+
+## Test your skills
+
+### Câu hỏi về Client-Server Model
+
+**In our coffee shop example, a barista and customer were used to represent the client-server model. The barista represents the server and a customer represents the client.**
+
+**Which scenario BEST describes how the client-server model works in this analogy?**
+
+- ❌ The customer takes a cup of coffee from a self-serve station without informing the barista. This describes how a client and server do not interact.
+- ❌ The barista proactively prepares a coffee and brings it to the customer without being asked. This describes how the client does not need to submit a request to the server.
+- ❌ The customer makes their own coffee using the coffee shop equipment without interacting with the barista. This describes how the client does not require the server.
+- ✅ **The customer goes to the barista and places an order for a coffee. The barista prepares the coffee and hands it back to the customer. This describes how the client places the request, and the server responds.** ← Correct
+
+**Giải thích:** Scenario này mô tả chính xác client-server model. Client (customer) đưa ra request đến server (barista), và server xử lý request và gửi lại response.
+
+## Tổng kết
+
+Module 1 đã giới thiệu cho chúng ta:
+
+### ✅ Những gì đã học:
+
+1. **Client-Server Model**: Khái niệm cơ bản về cách client đưa ra request và server phản hồi
+2. **Pay Only for What You Use**: Nguyên tắc cơ bản của AWS - chỉ trả cho resources bạn sử dụng
+3. **Lịch sử AWS**: Từ nhu cầu nội bộ của Amazon đến dịch vụ cloud toàn cầu
+4. **Định nghĩa Cloud Computing**:
+   - On-demand delivery
+   - of IT resources
+   - over the internet
+   - with pay-as-you-go pricing
+5. **Các loại Cloud Deployment**:
+   - Cloud
+   - On-premises
+   - Hybrid
+6. **Khái niệm Data Center**: Nơi lưu trữ và vận hành các tài nguyên IT
+
+### 🎯 Điểm quan trọng cần nhớ:
+
+- **Client-Server Model** = Client đưa ra request, server xử lý và phản hồi
+- **Pay Only for What You Use** = Nguyên tắc cơ bản của AWS - chỉ trả cho resources bạn consume
+- **Cloud Computing** = On-demand delivery of IT resources over the internet with pay-as-you-go pricing
+- **On-demand** = Sử dụng khi cần, scale up/down dễ dàng
+- **Pay-as-you-go** = Chỉ trả cho những gì bạn sử dụng
+- **Hybrid deployment** = Kết hợp cloud và on-premises để tận dụng ưu điểm của cả hai
+
+### 🚀 Bước tiếp theo
+
+Trong bài tiếp theo, chúng ta sẽ khám phá **6 lợi ích chính của AWS Cloud** để hiểu rõ hơn tại sao cloud computing lại có sức mạnh như vậy!
+
+---
+
+## Tài liệu tham khảo
+
+- 📚 [AWS Cloud Practitioner Essentials Course](https://aws.amazon.com/training/learning-paths/aws-certified-cloud-practitioner/)
+- 📖 [AWS Well-Architected Framework](https://aws.amazon.com/architecture/well-architected/)
+- 🔍 [AWS Documentation](https://docs.aws.amazon.com/)
+
+---
+
+*Bài viết này là phần đầu tiên trong Module 1 - Introduction to the Cloud của series AWS Cloud Practitioner Essentials. Bài viết được cập nhật vào tháng 11/2025 dựa trên nội dung khóa học AWS Cloud Practitioner Essentials.*
+
+**Bạn có câu hỏi hay muốn thảo luận về Cloud Computing? Hãy chia sẻ ở phần comment bên dưới nhé! ☁️**

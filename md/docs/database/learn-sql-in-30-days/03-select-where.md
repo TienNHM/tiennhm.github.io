@@ -1,0 +1,224 @@
+# 03. SELECT, WHERE
+
+> Nguồn: https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/03-select-where
+> Giới thiệu cách sử dụng SELECT và WHERE trong SQL. Học cách truy vấn dữ liệu từ bảng, lọc dữ liệu với điều kiện WHERE.
+
+> Bài 3 tập trung vào câu lệnh SELECT để truy vấn dữ liệu và mệnh đề WHERE để lọc kết quả theo điều kiện (so sánh, LIKE, BETWEEN, IN...). Đây là kỹ năng cốt lõi để lấy đúng dữ liệu bạn cần từ bảng.
+
+# 🔥 **3: SELECT & WHERE – Truy vấn và Lọc Dữ Liệu**
+
+> **Mục tiêu bài học:** Hiểu cách sử dụng `SELECT` để truy vấn dữ liệu từ bảng và `WHERE` để lọc dữ liệu theo điều kiện.
+
+---
+
+## **1️⃣ `SELECT` – Truy vấn dữ liệu từ bảng**
+Lệnh `SELECT` dùng để lấy dữ liệu từ bảng trong SQL.
+
+#### **🔹 Cú pháp cơ bản**
+```sql
+SELECT column1, column2
+FROM table_name;
+```
+
+📌 **Ví dụ: Lấy tất cả dữ liệu từ bảng `Products`**
+```sql
+SELECT *
+FROM Products;
+```
+
+📌 **Ví dụ: Chỉ lấy `ProductID`, `Name` và `Price`**
+```sql
+SELECT
+    ProductID,
+    Name,
+    Price
+FROM Products;
+```
+
+📖 **Tham khảo:**
+- SQL SELECT Statement: [https://www.w3schools.com/sql/sql_select.asp](https://www.w3schools.com/sql/sql_select.asp).
+
+---
+
+## **2️⃣ `WHERE` – Lọc dữ liệu theo điều kiện**
+Lệnh `WHERE` giúp lọc dữ liệu dựa trên các điều kiện cụ thể.
+
+#### **🔹 Cú pháp cơ bản**
+```sql
+SELECT column1, column2
+FROM table_name
+WHERE condition;
+```
+
+📌 **Ví dụ: Lấy sản phẩm có giá lớn hơn 100.000**
+```sql
+SELECT *
+FROM Products
+WHERE Price > 100000;
+```
+
+📖 **Tham khảo:**
+- SQL WHERE Clause: [https://www.w3schools.com/sql/sql_where.asp](https://www.w3schools.com/sql/sql_where.asp).
+
+---
+
+## **3️⃣ Các toán tử trong `WHERE`**
+
+### **🔹 Toán tử so sánh**
+| Toán tử | Ý nghĩa |
+|---------|--------|
+| `=`     | Bằng |
+| `!=` hoặc `<>` | Khác |
+| `>`     | Lớn hơn |
+| `<`     | Nhỏ hơn |
+| `>=`    | Lớn hơn hoặc bằng |
+| `<=`    | Nhỏ hơn hoặc bằng |
+
+📌 **Ví dụ:**
+```sql
+SELECT *
+FROM Products
+WHERE StockQuantity <= 10; -- Lấy sản phẩm có số lượng <= 10
+```
+
+---
+
+### **🔹 Toán tử `LIKE` – Tìm kiếm mẫu chuỗi**
+| Ký tự  | Ý nghĩa |
+|--------|---------|
+| `%`    | Đại diện cho **bất kỳ chuỗi ký tự nào** |
+| `_`    | Đại diện cho **một ký tự bất kỳ** |
+
+📌 **Ví dụ:**
+```sql
+SELECT *
+FROM Products
+WHERE Name LIKE 'Samsung%'; -- Bắt đầu bằng "Samsung"
+
+SELECT *
+FROM Products
+WHERE Name LIKE '%iPhone%'; -- Chứa từ "iPhone"
+
+SELECT *
+FROM Products
+WHERE Name LIKE 'MacBook_Pro'; -- "MacBook Pro" hoặc "MacBook-Pro"
+```
+
+---
+
+### **🔹 Toán tử `BETWEEN` – Lọc trong khoảng**
+📌 **Ví dụ: Lọc sản phẩm có giá từ 100k đến 500k**
+```sql
+SELECT *
+FROM Products
+WHERE Price BETWEEN 100000 AND 500000;
+```
+
+📌 **Ví dụ: Lọc sản phẩm tạo trong khoảng thời gian cụ thể**
+```sql
+SELECT *
+FROM Products
+WHERE CreatedAt BETWEEN '2024-01-01' AND '2024-02-23';
+```
+
+---
+
+### **🔹 Toán tử `IN` – Lọc nhiều giá trị cụ thể**
+📌 **Ví dụ: Lấy sản phẩm có ID là 1, 3 hoặc 5**
+```sql
+SELECT *
+FROM Products
+WHERE ProductID IN (1, 3, 5);
+```
+
+📌 **Ví dụ: Lọc sản phẩm thuộc danh mục `Điện thoại`, `Laptop`**
+```sql
+SELECT *
+FROM Products
+WHERE Category IN ('Điện thoại', 'Laptop');
+```
+
+---
+
+### **🔹 Toán tử `AND` & `OR` – Kết hợp nhiều điều kiện**
+📌 **Ví dụ: Lấy sản phẩm có giá từ 100k đến 500k và còn hàng**
+```sql
+SELECT *
+FROM Products
+WHERE
+    Price BETWEEN 100000 AND 500000
+    AND StockQuantity > 0;
+```
+
+📌 **Ví dụ: Lọc sản phẩm có giá dưới 100k hoặc hết hàng**
+```sql
+SELECT *
+FROM Products
+WHERE
+    Price < 100000
+    OR StockQuantity = 0;
+```
+
+📖 **Tham khảo:**
+- SQL Operators: [https://www.w3schools.com/sql/sql_operators.asp](https://www.w3schools.com/sql/sql_operators.asp).
+
+---
+
+## **4️⃣ Thực hành: Lọc dữ liệu từ bảng `Products`**
+#### **👉 Bài tập 1:** Lấy tất cả sản phẩm có giá trên 500.000.
+```sql
+SELECT *
+FROM Products
+WHERE Price > 500000;
+```
+
+#### **👉 Bài tập 2:** Lọc sản phẩm có tên chứa từ "iPhone".
+```sql
+SELECT *
+FROM Products
+WHERE Name LIKE '%iPhone%';
+```
+
+#### **👉 Bài tập 3:** Tìm sản phẩm có số lượng trong kho từ 5 đến 20.
+```sql
+SELECT *
+FROM Products
+WHERE StockQuantity BETWEEN 5 AND 20;
+```
+
+#### **👉 Bài tập 4:** Lọc sản phẩm thuộc danh mục "Laptop" hoặc "Tablet".
+```sql
+SELECT *
+FROM Products
+WHERE Category IN ('Laptop', 'Tablet');
+```
+
+#### **👉 Bài tập 5:** Tìm sản phẩm có giá trên 1 triệu nhưng không phải là "Laptop".
+```sql
+SELECT *
+FROM Products
+WHERE
+    Price > 1000000
+    AND Category != 'Laptop';
+```
+
+#### 📖 **Tham khảo:**
+- SQL Practice Exercises: [https://sqlzoo.net/](https://sqlzoo.net/).
+
+---
+
+## 📌 **Quick Quiz**
+1. Lệnh `SELECT * FROM Customers WHERE Age >= 18;` sẽ trả về dữ liệu gì?
+2. Sự khác biệt giữa `LIKE '%abc%'` và `LIKE 'abc%'` là gì?
+3. Toán tử nào dùng để tìm các giá trị nằm giữa 2 khoảng?
+
+---
+
+#### ✅ **Tóm tắt Ngày 3**
+✔️ Sử dụng `SELECT` để truy vấn dữ liệu.
+✔️ Sử dụng `WHERE` để lọc dữ liệu theo điều kiện.
+✔️ Thực hành với các toán tử `=, !=, >, <, LIKE, BETWEEN, IN`.
+
+🚀 **Tiếp theo:** Học về [Câu lệnh ORDER BY & LIMIT để sắp xếp và giới hạn kết quả](04.%20ORDER%20BY%20-%20LIMIT.md)!
+
+📌 **Lộ trình:** [Học SQL trong 30 ngày](00.%2030-Day%20SQL%20Learning%20Roadmap.md)

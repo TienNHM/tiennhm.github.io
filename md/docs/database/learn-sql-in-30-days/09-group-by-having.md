@@ -1,0 +1,259 @@
+# 09. GROUP BY - HAVING
+
+> Nguồn: https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/09-group-by-having
+> Giới thiệu về GROUP BY và HAVING trong SQL, cách sử dụng và ví dụ minh họa.
+
+> Bài 9 dạy bạn nhóm dữ liệu với GROUP BY và lọc kết quả nhóm bằng HAVING, rất quan trọng khi làm báo cáo tổng hợp (doanh thu theo khách hàng, số đơn hàng theo ngày, v.v.).
+
+# 🔥 **9: GROUP BY - HAVING**
+
+> 📌 **Mục tiêu bài học:** Hiểu cách **nhóm dữ liệu** với `GROUP BY` và **lọc kết quả nhóm** bằng `HAVING` trong SQL, giúp tổ chức dữ liệu hiệu quả hơn trong báo cáo và phân tích.
+
+---
+
+## **1️⃣ Chuẩn bị dữ liệu**
+
+Nếu chưa có database, chạy lệnh này để tạo lại:
+```sql
+CREATE DATABASE ShopDB;
+USE ShopDB;
+
+CREATE TABLE Orders (
+    ID INT AUTO_INCREMENT PRIMARY KEY,
+    CustomerID INT NOT NULL,
+    TotalAmount FLOAT NOT NULL,
+    OrderDate DATE NOT NULL
+);
+
+INSERT INTO Orders (CustomerID, TotalAmount, OrderDate) VALUES
+(1, 1500, '2024-02-20'),
+(2, 1200, '2024-02-21'),
+(3, 500, '2024-02-22'),
+(1, 800, '2024-02-22'),
+(2, 2000, '2024-02-23'),
+(3, 700, '2024-02-23');
+```
+
+## **2️⃣ GROUP BY**
+
+### 🔹 **GROUP BY là gì?**
+**`GROUP BY`** trong SQL dùng để **nhóm các hàng có cùng giá trị trong một hoặc nhiều cột**, giúp thực hiện các phép tính tổng hợp trên từng nhóm dữ liệu.
+
+💡 **Ứng dụng:**
+- Nhóm dữ liệu theo danh mục (ví dụ: doanh thu theo ngày, tổng đơn hàng theo khách hàng).
+- Kết hợp với **Aggregate Functions** như `COUNT()`, `SUM()`, `AVG()`, `MIN()`, `MAX()`.
+
+📌 **Cú pháp:**
+```sql
+SELECT column1, AggregateFunction(column2)
+FROM table_name
+GROUP BY column1;
+```
+🔹 Trong đó:
+- `column1` là cột dùng để nhóm.
+- `AggregateFunction(column2)` là hàm tổng hợp áp dụng cho nhóm đó.
+
+### 🔹 **GROUP BY với nhiều cột**
+
+Bạn có thể nhóm theo nhiều cột bằng cách liệt kê các cột trong `GROUP BY`:
+```sql
+SELECT CustomerID, OrderDate, SUM(TotalAmount) AS DailySpent
+FROM Orders
+GROUP BY CustomerID, OrderDate;
+```
+✅ Kết quả:
+| CustomerID | OrderDate  | DailySpent |
+|------------|------------|------------|
+| 1          | 2024-02-20 | 1500       |
+| 1          | 2024-02-22 | 800        |
+| 2          | 2024-02-21 | 1200       |
+| 2          | 2024-02-23 | 2000       |
+
+🔹 **Lưu ý:** Khi dùng `GROUP BY` với nhiều cột, dữ liệu sẽ nhóm theo từng tổ hợp duy nhất của các cột đó.
+
+### 🔹 **Ví dụ minh họa**
+
+📌 **Đếm số đơn hàng của mỗi khách hàng**
+```sql
+SELECT CustomerID, COUNT(*) AS OrderCount
+FROM Orders
+GROUP BY CustomerID;
+```
+✅ Kết quả:
+| CustomerID | OrderCount |
+|------------|------------|
+| 1          | 2          |
+| 2          | 2          |
+| 3          | 2          |
+
+📌 **Tính tổng doanh thu theo từng ngày**
+```sql
+SELECT OrderDate, SUM(TotalAmount) AS DailyRevenue
+FROM Orders
+GROUP BY OrderDate;
+```
+✅ Kết quả:
+| OrderDate  | DailyRevenue |
+|------------|--------------|
+| 2024-02-20 | 1500         |
+| 2024-02-21 | 1200         |
+| 2024-02-22 | 1300         |
+| 2024-02-23 | 2700         |
+
+## **3️⃣ HAVING**
+
+### 🔹 **HAVING là gì?**
+`HAVING` dùng để **lọc dữ liệu sau khi nhóm (`GROUP BY`)**, tương tự như `WHERE`, nhưng **`WHERE` không thể dùng với Aggregate Functions**.
+
+💡 **Ứng dụng:**
+- Lọc nhóm dữ liệu theo điều kiện cụ thể (ví dụ: chỉ lấy nhóm có tổng chi tiêu lớn hơn 2000).
+- Giúp lọc dữ liệu sau khi nhóm (thông thường dùng với `COUNT()`, `SUM()`, `AVG()`), khi `WHERE` không thể dùng.
+
+📌 **Cú pháp:**
+```sql
+SELECT column1, AggregateFunction(column2)
+FROM table_name
+GROUP BY column1
+HAVING AggregateFunction(column2) condition;
+```
+
+### 🔹 **So sánh `WHERE` và `HAVING`**
+
+| 🔍 **Tính năng**       | ❌ `WHERE` không dùng được | ✅ `HAVING` dùng được |
+|-----------------|-------------------|----------------|
+| Lọc theo giá trị cụ thể | ✅ Hỗ trợ  | ✅ Hỗ trợ  |
+| Lọc dựa trên Aggregate Functions | ❌ Không hỗ trợ  | ✅ Hỗ trợ  |
+| Sử dụng với `GROUP BY` | ❌ Không được  | ✅ Hỗ trợ  |
+
+### 🔹 **Ví dụ minh họa**
+
+📌 **Chỉ lấy khách hàng có tổng chi tiêu > 2000**
+```sql
+SELECT CustomerID, SUM(TotalAmount) AS TotalSpent
+FROM Orders
+GROUP BY CustomerID
+HAVING SUM(TotalAmount) > 2000;
+```
+✅ Kết quả:
+| CustomerID | TotalSpent |
+|------------|------------|
+| 2          | 3200       |
+
+📌 **Chỉ lấy các ngày có tổng doanh thu >= 2000**
+```sql
+SELECT OrderDate, SUM(TotalAmount) AS DailyRevenue
+FROM Orders
+GROUP BY OrderDate
+HAVING SUM(TotalAmount) >= 2000;
+```
+✅ Kết quả:
+| OrderDate  | DailyRevenue |
+|------------|--------------|
+| 2024-02-23 | 2700         |
+
+## **4️⃣ Lưu ý khi sử dụng kết hợp GROUP BY, HAVING và ORDER BY**
+
+### 🔹 **Các lỗi thường gặp**
+⚠️ **1. Các cột trong SELECT phải có trong GROUP BY hoặc là Aggregate Function**
+Ví dụ sau sẽ báo lỗi:
+```sql
+SELECT CustomerID, OrderDate, SUM(TotalAmount)
+FROM Orders
+GROUP BY CustomerID;
+```
+⛔ **Lý do:** `OrderDate` không có trong `GROUP BY` và cũng không được dùng với Aggregate Function nào.
+✅ **Sửa đúng:**
+```sql
+SELECT CustomerID, SUM(TotalAmount)
+FROM Orders
+GROUP BY CustomerID;
+```
+
+⚠️ **2. Sắp xếp dữ liệu sau khi nhóm với ORDER BY**
+Mặc định, `GROUP BY` **không sắp xếp dữ liệu**, do đó cần dùng `ORDER BY`:
+```sql
+SELECT CustomerID, COUNT(*) AS OrderCount
+FROM Orders
+GROUP BY CustomerID
+ORDER BY OrderCount DESC;
+```
+
+⚠️ **3. Không thể dùng WHERE để lọc Aggregate Function**
+⛔ Sai:
+```sql
+SELECT CustomerID, SUM(TotalAmount)
+FROM Orders
+WHERE SUM(TotalAmount) > 2000
+GROUP BY CustomerID;
+```
+✅ Đúng (dùng `HAVING` thay vì `WHERE`):
+```sql
+SELECT CustomerID, SUM(TotalAmount)
+FROM Orders
+GROUP BY CustomerID
+HAVING SUM(TotalAmount) > 2000;
+```
+
+⚠️ **4. Tránh nhóm dữ liệu quá lớn**
+Nếu bảng chứa hàng triệu bản ghi, việc `GROUP BY` có thể gây hiệu suất chậm.
+✅ **Giải pháp:** Lọc trước với `WHERE` trước khi `GROUP BY`.
+```sql
+SELECT CustomerID, SUM(TotalAmount)
+FROM Orders
+WHERE OrderDate >= '2024-02-01' -- Giảm số lượng bản ghi trước
+GROUP BY CustomerID;
+```
+
+### 🔹 **Ví dụ minh họa**
+
+📌 **Lấy danh sách khách hàng có từ 2 đơn hàng trở lên, sắp xếp theo tổng chi tiêu giảm dần**
+```sql
+SELECT
+    CustomerID,
+    COUNT(*) AS OrderCount,
+    SUM(TotalAmount) AS TotalSpent
+FROM Orders
+GROUP BY CustomerID
+HAVING COUNT(*) >= 2
+ORDER BY TotalSpent DESC;
+```
+✅ Kết quả:
+| CustomerID | OrderCount | TotalSpent |
+|------------|------------|------------|
+| 2          | 2          | 3200       |
+| 1          | 2          | 2300       |
+| 3          | 2          | 1200       |
+
+## **5️⃣ Bài tập thử thách 🚀**
+
+Hãy thử viết các câu lệnh SQL để giải các bài tập sau:
+
+👉 **Bài 1:** Tính số lượng đơn hàng theo từng ngày.
+👉 **Bài 2:** Tìm khách hàng có tổng chi tiêu lớn hơn `1000`.
+👉 **Bài 3:** Đếm số lượng khách hàng có ít nhất `2 đơn hàng`.
+👉 **Bài 4:** Tính doanh thu trung bình mỗi ngày, chỉ lấy ngày có doanh thu lớn hơn `1500`.
+👉 **Bài 5:** Lấy danh sách ngày có trên `1 đơn hàng`, sắp xếp theo số lượng đơn hàng giảm dần.
+
+## **6️⃣ Tài liệu tham khảo** 📚
+
+1️⃣ **Official SQL Documentation:**
+🔗 [MySQL GROUP BY & HAVING](https://dev.mysql.com/doc/refman/8.0/en/group-by-modifiers.html)
+🔗 [PostgreSQL GROUP BY](https://www.postgresql.org/docs/current/queries-table-expressions.html#QUERIES-GROUPING-SETOPS)
+🔗 [SQL Server GROUP BY & HAVING](https://learn.microsoft.com/en-us/sql/t-sql/queries/select-group-by-transact-sql)
+
+2️⃣ **Sách & Khóa học:**
+📘 *SQL for Data Analysis* - Cathy Tanimura
+📘 *Learning SQL* - Alan Beaulieu
+🎓 *[Mode Analytics SQL Tutorial](https://mode.com/sql-tutorial/)*
+
+---
+
+#### ✅ **Tóm tắt bài học**
+
+✔️ `GROUP BY` - Nhóm dữ liệu theo một hoặc nhiều cột.
+✔️ `HAVING` - Lọc dữ liệu sau khi nhóm (`WHERE` không dùng được với Aggregate Functions).
+✔️ Kết hợp với `ORDER BY` để sắp xếp kết quả.
+
+🚀 **Tiếp theo:** Học về [`JOIN` để kết nối nhiều bảng dữ liệu](10.%20JOIN.md)!
+
+📌 **Lộ trình:** [Học SQL trong 30 ngày](00.%2030-Day%20SQL%20Learning%20Roadmap.md)

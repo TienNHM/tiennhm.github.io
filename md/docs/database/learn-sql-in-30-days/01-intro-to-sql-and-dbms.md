@@ -1,0 +1,149 @@
+# 01. Giới thiệu SQL & DBMS
+
+> Nguồn: https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/01-intro-to-sql-and-dbms
+> Giới thiệu SQL và hệ quản trị cơ sở dữ liệu (DBMS)
+
+> Bài 1 giới thiệu SQL và hệ quản trị cơ sở dữ liệu quan hệ (RDBMS), giải thích SQL là gì, các nhóm lệnh chính (DDL, DML, DCL, TCL) và các hệ quản trị phổ biến như MySQL, PostgreSQL, SQL Server. Đây là nền tảng để hiểu các bài còn lại trong lộ trình 30 ngày học SQL.
+
+> **Mục tiêu bài học:** Giới thiệu về các khái niệm cơ bản của SQL và hệ quản trị cơ sở dữ liệu (DBMS). Tìm hiểu về các loại DBMS phổ biến và cách chúng hoạt động.
+
+## **1️⃣ Giới thiệu SQL**
+SQL (*Structured Query Language*) là ngôn ngữ tiêu chuẩn để **truy vấn, thao tác và quản lý dữ liệu** trong hệ quản trị cơ sở dữ liệu quan hệ (*Relational Database Management System – RDBMS*).
+
+📌 **SQL được sử dụng rộng rãi trong:**
+✔️ Phân tích dữ liệu (Data Analytics).
+✔️ Lập trình ứng dụng (Back-end, Full-stack development).
+✔️ Quản lý dữ liệu doanh nghiệp (ERP, CRM).
+✔️ Machine Learning (Kết hợp với BigQuery, Snowflake).
+
+🔹 **Các nhóm lệnh chính trong SQL:**
+| Nhóm lệnh | Chức năng | Ví dụ |
+|-----------|----------|------|
+| **DDL (Data Definition Language)** | Định nghĩa cấu trúc database | `CREATE`, `ALTER`, `DROP` |
+| **DML (Data Manipulation Language)** | Thao tác dữ liệu | `INSERT`, `UPDATE`, `DELETE`, `SELECT` |
+| **DCL (Data Control Language)** | Quản lý quyền truy cập | `GRANT`, `REVOKE` |
+| **TCL (Transaction Control Language)** | Kiểm soát giao dịch | `COMMIT`, `ROLLBACK` |
+
+📖 **Tham khảo:**
+- ANSI SQL Standard: [ISO/IEC 9075](https://www.iso.org/standard/63555.html).
+- MySQL Documentation: [https://dev.mysql.com/doc/](https://dev.mysql.com/doc/).
+- PostgreSQL Docs: [https://www.postgresql.org/docs/](https://www.postgresql.org/docs/).
+
+## **2️⃣ Hệ quản trị cơ sở dữ liệu quan hệ (RDBMS)**
+### **2.1 RDBMS là gì?**
+Một **RDBMS** là hệ thống quản lý cơ sở dữ liệu dựa trên **mô hình quan hệ**, trong đó dữ liệu được lưu trong **bảng (table)**.
+
+🛠 **Cấu trúc cơ bản của RDBMS:**
+✔️ **Database** – Chứa các bảng dữ liệu.
+✔️ **Table (Bảng)** – Chứa các cột (column) và hàng (row).
+✔️ **Primary Key (Khóa chính)** – Xác định duy nhất một hàng.
+✔️ **Foreign Key (Khóa ngoại)** – Dùng để liên kết các bảng.
+
+### **2.2 So sánh các hệ quản trị CSDL phổ biến**
+| DBMS | Ưu điểm | Nhược điểm | Ứng dụng thực tế |
+|------|--------|------------|----------------|
+| **MySQL** | Dễ học, nhanh, phổ biến | Ít hỗ trợ NoSQL | Website, eCommerce (WordPress, Shopify) |
+| **PostgreSQL** | Mạnh mẽ, hỗ trợ JSON, NoSQL | Phức tạp hơn MySQL | Phân tích dữ liệu, tài chính |
+| **SQL Server** | Tích hợp tốt với Windows | Đắt đỏ | Doanh nghiệp lớn |
+| **SQLite** | Nhẹ, không cần cài server | Không hỗ trợ tốt nhiều người dùng | Mobile App (Android, iOS) |
+
+📖 **Tham khảo:**
+- Database System Concepts (Silberschatz, Korth, Sudarshan).
+
+---
+
+## **3️⃣ Cài đặt MySQL, PostgreSQL hoặc SQLite**
+🔹 **Cài MySQL**
+```sh
+# Ubuntu
+sudo apt update && sudo apt install mysql-server
+# Windows
+# Download từ https://dev.mysql.com/downloads/
+```
+🔹 **Cài PostgreSQL**
+```sh
+# Ubuntu
+sudo apt update && sudo apt install postgresql
+# Windows
+# Download từ https://www.postgresql.org/download/
+```
+🔹 **Cài SQLite (Không cần server)**
+```sh
+# Cài SQLite CLI trên Ubuntu
+sudo apt install sqlite3
+```
+📖 **Tài liệu tham khảo:**
+- Hướng dẫn cài MySQL: [https://dev.mysql.com/doc/refman/](https://dev.mysql.com/doc/refman/).
+- PostgreSQL Docs: [https://www.postgresql.org/docs/manuals/](https://www.postgresql.org/docs/manuals/).
+
+---
+
+## **4️⃣ Thực hành: Tạo database đơn giản**
+Sau khi cài đặt, hãy thực hành tạo database và bảng.
+
+📌 **MySQL/PostgreSQL**
+```sql
+CREATE DATABASE ShopDB;
+```
+```sql
+USE ShopDB; -- MySQL
+\c ShopDB; -- PostgreSQL
+```
+**Tạo bảng `Customers`:**
+```sql
+CREATE TABLE Customers (
+    CustomerID SERIAL PRIMARY KEY,
+    Name VARCHAR(100) NOT NULL,
+    Email VARCHAR(100) UNIQUE NOT NULL,
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+🔎 **Kiểm tra bảng:**
+```sql
+SHOW TABLES; -- MySQL
+SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'; -- PostgreSQL
+```
+
+📌 **SQLite**
+```sh
+sqlite3 ShopDB.db
+```
+```sql
+CREATE TABLE Customers (
+    CustomerID INTEGER PRIMARY KEY AUTOINCREMENT,
+    Name TEXT NOT NULL,
+    Email TEXT UNIQUE NOT NULL,
+    CreatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+```
+🔎 **Xem danh sách bảng:**
+```sql
+.tables  -- SQLite
+```
+
+---
+
+## 📌 **Quick Quiz**
+1. SQL khác gì so với NoSQL?
+2. PostgreSQL có gì nổi bật hơn MySQL?
+3. Dòng lệnh nào để xem danh sách bảng trong MySQL?
+
+---
+
+#### 📖 **Tài liệu tham khảo**
+1. Silberschatz, Korth, Sudarshan. *Database System Concepts*. McGraw-Hill.
+2. ISO/IEC 9075:2023 – SQL Standard.
+3. MySQL Documentation: [https://dev.mysql.com/doc/](https://dev.mysql.com/doc/)
+4. PostgreSQL Docs: [https://www.postgresql.org/docs/](https://www.postgresql.org/docs/)
+
+---
+
+#### ✅ **Tóm tắt Ngày 1**
+✔️ Hiểu SQL là gì và tại sao nó quan trọng.
+✔️ Biết các hệ quản trị cơ sở dữ liệu phổ biến.
+✔️ Cài đặt MySQL, PostgreSQL hoặc SQLite.
+✔️ Thực hành tạo database và bảng đầu tiên.
+
+🚀 **Tiếp theo:** Học về [Cấu trúc bảng và kiểu dữ liệu](02.%20Table%20structure%20and%20data%20types.md)
+
+📌 **Lộ trình:** [Học SQL trong 30 ngày](00.%2030-Day%20SQL%20Learning%20Roadmap.md)

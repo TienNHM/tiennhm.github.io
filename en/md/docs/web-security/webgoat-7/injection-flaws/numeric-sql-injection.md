@@ -1,0 +1,26 @@
+# Numeric SQL Injection
+
+> Nguồn: https://tiennhm.io.vn/en/docs/web-security/webgoat-7/injection-flaws/numeric-sql-injection
+> Giới thiệu về lỗ hổng Numeric SQL Injection trong bảo mật ứng dụng web.
+
+Trong bài viết này, mình sẽ giới thiệu về lỗ hổng Numeric SQL Injection. Đây là một lỗ hổng rất nguy hiểm, nó cho phép attacker thực thi các lệnh SQL trên server.
+
+## Giới thiệu
+
+Numeric SQL Injection là một lỗ hổng cho phép attacker thực thi các lệnh SQL trên server. Lỗ hổng này xảy ra khi ứng dụng web không kiểm tra các input của người dùng và thực thi các lệnh SQL trên server.
+
+## Cách khai thác
+
+Để khai thác lỗ hổng này, attacker sẽ thực thi các lệnh SQL trên server thông qua các input của người dùng. Các lệnh này sẽ được thực thi bởi ứng dụng web.
+
+## Cách phòng chống
+
+Để phòng chống lỗ hổng này, ứng dụng web cần kiểm tra các input của người dùng và không thực thi các lệnh SQL trên server.
+
+## Tổng kết
+
+Trong bài viết này, mình đã giới thiệu về lỗ hổng Numeric SQL Injection. Hy vọng bài viết này sẽ giúp ích cho các bạn.
+
+> **Tip: Để xem thêm các video khác, các bạn có thể truy cập vào [kênh Youtube](https://www.youtube.com/TienNguyen09) của mình.**
+>
+>

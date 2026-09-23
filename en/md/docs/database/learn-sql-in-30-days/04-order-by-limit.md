@@ -1,0 +1,197 @@
+# 04. ORDER BY, LIMIT
+
+> Nguồn: https://tiennhm.io.vn/en/docs/database/learn-sql-in-30-days/04-order-by-limit
+> Giới thiệu cách sử dụng ORDER BY và LIMIT trong SQL. Học cách sắp xếp kết quả truy vấn và giới hạn số lượng hàng trả về.
+
+> Bài 4 giới thiệu ORDER BY để sắp xếp kết quả truy vấn và LIMIT (kết hợp OFFSET) để giới hạn số dòng trả về, phục vụ các use case như lấy top N bản ghi hoặc phân trang dữ liệu.
+
+# 🔥 **4: ORDER BY & LIMIT trong SQL**
+
+> **Mục tiêu bài học:** Hiểu cách sử dụng `ORDER BY` để sắp xếp kết quả truy vấn và `LIMIT` để giới hạn số dòng trả về. Học cách kết hợp với `OFFSET` để phân trang dữ liệu.
+
+## **1️⃣ `ORDER BY` – Sắp xếp kết quả truy vấn**
+
+Lệnh `ORDER BY` giúp sắp xếp dữ liệu theo một hoặc nhiều cột, theo thứ tự **tăng dần (`ASC`)** hoặc **giảm dần (`DESC`)**.
+
+#### **🔹 Cú pháp cơ bản**
+```sql
+SELECT column1, column2
+FROM table_name
+ORDER BY column_name [ASC | DESC];
+```
+📌 **Mặc định, `ORDER BY` sẽ sắp xếp theo thứ tự tăng dần (`ASC`).**
+
+#### **📌 Ví dụ 1: Sắp xếp sản phẩm theo giá tăng dần**
+```sql
+SELECT *
+FROM Products
+ORDER BY Price ASC;
+```
+➡️ Kết quả: Danh sách sản phẩm được sắp xếp theo giá từ thấp đến cao.
+
+#### **📌 Ví dụ 2: Sắp xếp sản phẩm theo giá giảm dần**
+```sql
+SELECT *
+FROM Products
+ORDER BY Price DESC;
+```
+➡️ Kết quả: Danh sách sản phẩm được sắp xếp theo giá từ cao đến thấp.
+
+---
+
+## **2️⃣ `LIMIT` – Giới hạn số dòng kết quả**
+
+Lệnh `LIMIT` giúp giới hạn số lượng kết quả trả về từ truy vấn.
+
+#### **🔹 Cú pháp cơ bản**
+```sql
+SELECT column1, column2
+FROM table_name
+ORDER BY column_name
+LIMIT số_dòng;
+```
+
+#### **📌 Ví dụ 1: Lấy 5 sản phẩm có giá thấp nhất**
+```sql
+SELECT *
+FROM Products
+ORDER BY Price ASC
+LIMIT 5;
+```
+➡️ Kết quả: 5 sản phẩm rẻ nhất trong danh sách.
+
+#### **📌 Ví dụ 2: Lấy 10 khách hàng mới nhất**
+```sql
+SELECT *
+FROM Customers
+ORDER BY CreatedAt DESC
+LIMIT 10;
+```
+➡️ Kết quả: 10 khách hàng được tạo gần đây nhất.
+
+---
+
+## **3️⃣ `ORDER BY` kết hợp với nhiều cột**
+
+Có thể sắp xếp theo nhiều cột cùng lúc để tối ưu kết quả truy vấn.
+
+#### **📌 Ví dụ 1: Sắp xếp sản phẩm theo danh mục (A → Z), sau đó theo giá giảm dần**
+```sql
+SELECT *
+FROM Products
+ORDER BY Category ASC, Price DESC;
+```
+➡️ Kết quả: Danh sách sản phẩm được sắp xếp theo danh mục (A → Z), trong từng danh mục, sản phẩm có giá cao hơn được xếp trước.
+
+#### **📌 Ví dụ 2: Sắp xếp khách hàng theo ngày tạo tài khoản mới nhất và tên (A → Z)**
+```sql
+SELECT *
+FROM Customers
+ORDER BY CreatedAt DESC, Name ASC;
+```
+➡️ Kết quả: Danh sách khách hàng mới nhất sẽ hiển thị trước, nếu có cùng ngày tạo, sẽ sắp xếp theo tên theo thứ tự A → Z.
+
+---
+
+## **4️⃣ `LIMIT` kết hợp với `OFFSET` – Phân trang**
+
+`OFFSET` giúp bỏ qua một số dòng đầu tiên trong kết quả trả về. Điều này hữu ích cho việc **phân trang** dữ liệu.
+
+#### **🔹 Cú pháp cơ bản**
+```sql
+SELECT column1, column2
+FROM table_name
+ORDER BY column_name
+LIMIT số_dòng OFFSET số_dòng_bỏ_qua;
+```
+
+#### **📌 Ví dụ 1: Lấy 5 sản phẩm đắt nhất nhưng bỏ qua sản phẩm đắt nhất đầu tiên**
+```sql
+SELECT *
+FROM Products
+ORDER BY Price DESC
+LIMIT 5 OFFSET 1;
+```
+➡️ Kết quả: 5 sản phẩm đắt nhất nhưng bỏ qua sản phẩm có giá cao nhất.
+
+#### **📌 Ví dụ 2: Lấy 10 khách hàng từ trang 2 (bỏ qua 10 khách hàng đầu tiên)**
+```sql
+SELECT *
+FROM Customers
+ORDER BY CreatedAt DESC
+LIMIT 10 OFFSET 10;
+```
+➡️ Kết quả: Danh sách khách hàng từ hàng thứ 11 đến 20, dùng cho phân trang.
+
+---
+
+## **5️⃣ Thực hành**
+
+📌 **Bài tập 1:** Lấy 5 sản phẩm có giá cao nhất.
+```sql
+SELECT *
+FROM Products
+ORDER BY Price DESC
+LIMIT 5;
+```
+
+📌 **Bài tập 2:** Lấy 10 khách hàng mới nhất.
+```sql
+SELECT *
+FROM Customers
+ORDER BY CreatedAt DESC
+LIMIT 10;
+```
+
+📌 **Bài tập 3:** Lấy 3 sản phẩm rẻ nhất trong danh mục "Laptop".
+```sql
+SELECT *
+FROM Products
+WHERE Category = 'Laptop'
+ORDER BY Price ASC
+LIMIT 3;
+```
+
+📌 **Bài tập 4:** Lấy 5 sản phẩm đắt nhất nhưng bỏ qua sản phẩm đắt nhất đầu tiên.
+```sql
+SELECT *
+FROM Products
+ORDER BY Price DESC
+LIMIT 5 OFFSET 1;
+```
+
+📌 **Bài tập 5:** Lấy danh sách khách hàng có tên bắt đầu bằng "A", sắp xếp theo ngày tạo mới nhất.
+```sql
+SELECT *
+FROM Customers
+WHERE Name LIKE 'A%'
+ORDER BY CreatedAt DESC;
+```
+
+---
+
+## 📌 **Quick Quiz**
+1. Nếu muốn lấy 20 sản phẩm từ trang số 3 (mỗi trang có 20 sản phẩm), truy vấn SQL sẽ như thế nào?
+2. `ORDER BY` mặc định sử dụng `ASC` hay `DESC` nếu không có chỉ định?
+3. Khác biệt giữa `LIMIT 5` và `LIMIT 5 OFFSET 2` là gì?
+
+---
+
+#### 📖 **Tài liệu tham khảo**
+1. ISO/IEC 9075:2023 – SQL Standard.
+2. MySQL Documentation: [https://dev.mysql.com/doc/](https://dev.mysql.com/doc/)
+3. PostgreSQL Docs: [https://www.postgresql.org/docs/](https://www.postgresql.org/docs/)
+4. Silberschatz, Korth, Sudarshan. *Database System Concepts*. McGraw-Hill.
+
+---
+
+#### ✅ **Tóm tắt Ngày 4**
+✔️ `ORDER BY` dùng để sắp xếp kết quả truy vấn theo **tăng dần (`ASC`)** hoặc **giảm dần (`DESC`)**.
+✔️ `LIMIT` giúp giới hạn số lượng dòng kết quả.
+✔️ `OFFSET` giúp bỏ qua một số dòng đầu tiên, hỗ trợ **phân trang**.
+✔️ Biết cách **sắp xếp dữ liệu theo nhiều cột** và kết hợp `ORDER BY`, `LIMIT`, `OFFSET` hiệu quả.
+✔️ Thực hành với các truy vấn sắp xếp, giới hạn và phân trang dữ liệu.
+
+🚀 **Tiếp theo:** Học về [Toán tử & Biểu thức trong SQL](05.%20Operators%20-%20Expressions.md).
+
+📌 **Lộ trình:** [Học SQL trong 30 ngày](00.%2030-Day%20SQL%20Learning%20Roadmap.md)

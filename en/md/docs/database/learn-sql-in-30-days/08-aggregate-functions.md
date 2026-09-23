@@ -1,0 +1,186 @@
+# 08. Aggregate Functions
+
+> Nguồn: https://tiennhm.io.vn/en/docs/database/learn-sql-in-30-days/08-aggregate-functions
+> Giới thiệu về các hàm tổng hợp trong SQL. Học cách sử dụng các hàm tổng hợp để thực hiện các phép tính trên dữ liệu trong cơ sở dữ liệu.
+
+> Bài 8 giới thiệu các hàm tổng hợp (COUNT, SUM, AVG, MIN, MAX...) để tính toán trên nhiều dòng dữ liệu và trả về một giá trị duy nhất, là nền tảng cho thống kê, báo cáo và kết hợp với GROUP BY.
+
+# 🔥 **8: Aggregate Functions (Hàm Tổng Hợp)**
+
+> 📌 **Mục tiêu bài học:**  Học cách sử dụng **các hàm tổng hợp (Aggregate Functions)** trong SQL để thực hiện các phép tính trên dữ liệu, giúp tóm tắt và phân tích thông tin từ bảng.
+
+---
+
+## **1️⃣ Định nghĩa Aggregate Functions**
+
+**Hàm tổng hợp (Aggregate Functions)** trong SQL là các hàm thực hiện **tính toán trên nhiều dòng dữ liệu và trả về một giá trị duy nhất**.
+
+💡 **Ứng dụng:**
+- Tóm tắt dữ liệu (tính tổng, đếm số lượng, tìm giá trị lớn nhất/nhỏ nhất, v.v.).
+- Hỗ trợ phân tích dữ liệu trong báo cáo, thống kê.
+- Kết hợp với `GROUP BY` để nhóm dữ liệu theo tiêu chí cụ thể.
+
+---
+
+## **2️⃣ Các hàm tổng hợp phổ biến**
+
+| 🛠️ **Hàm**    | 🔎 **Chức năng**                           |
+|---------------|------------------------------------|
+| `COUNT(*)`    | Đếm số lượng dòng trong bảng       |
+| `SUM(column)` | Tính tổng giá trị trong một cột số |
+| `AVG(column)` | Tính trung bình của một cột số     |
+| `MIN(column)` | Tìm giá trị nhỏ nhất trong cột     |
+| `MAX(column)` | Tìm giá trị lớn nhất trong cột     |
+
+---
+
+## **3️⃣ Chuẩn bị dữ liệu**
+
+📌 **Tạo database và bảng `Orders` để thực hành**
+
+```sql
+CREATE DATABASE ShopDB;
+USE ShopDB;
+
+CREATE TABLE Orders (
+    ID INT AUTO_INCREMENT PRIMARY KEY,
+    CustomerID INT NOT NULL,
+    TotalAmount FLOAT NOT NULL,
+    OrderDate DATE NOT NULL
+);
+
+INSERT INTO Orders (CustomerID, TotalAmount, OrderDate) VALUES
+(1, 1500, '2024-02-20'),
+(2, 1200, '2024-02-21'),
+(3, 500, '2024-02-22'),
+(1, 800, '2024-02-22'),
+(2, 2000, '2024-02-23'),
+(3, 700, '2024-02-23');
+```
+✅ **Sau khi chạy lệnh trên**, bạn sẽ có bảng `Orders` chứa dữ liệu mẫu để thực hành.
+
+---
+
+## **4️⃣ `COUNT()` – Đếm số dòng**
+
+Hàm `COUNT()` giúp **đếm số lượng bản ghi** trong bảng.
+
+📌 **Đếm số đơn hàng trong bảng `Orders`**
+```sql
+SELECT COUNT(*) AS TotalOrders FROM Orders;
+```
+🔹 **Kết quả:** `6` (Có 6 đơn hàng trong hệ thống).
+
+📌 **Đếm số đơn hàng của khách hàng có `CustomerID = 1`**
+```sql
+SELECT COUNT(*) AS OrdersByCustomer
+FROM Orders
+WHERE CustomerID = 1;
+```
+🔹 **Kết quả:** `2` (Khách hàng 1 có 2 đơn hàng).
+
+---
+
+## **5️⃣ `SUM()` – Tính tổng**
+
+Hàm `SUM()` giúp **tính tổng giá trị** của một cột số.
+
+📌 **Tính tổng doanh thu của cửa hàng**
+```sql
+SELECT SUM(TotalAmount) AS TotalRevenue FROM Orders;
+```
+🔹 **Kết quả:** `6700` (Tổng doanh thu từ tất cả đơn hàng).
+
+📌 **Tính tổng doanh thu của khách hàng có `CustomerID = 2`**
+```sql
+SELECT SUM(TotalAmount) AS RevenueByCustomer
+FROM Orders
+WHERE CustomerID = 2;
+```
+🔹 **Kết quả:** `3200` (Doanh thu từ khách hàng 2).
+
+---
+
+## **6️⃣ `AVG()` – Giá trị trung bình**
+
+Hàm `AVG()` giúp **tính giá trị trung bình** của một cột số.
+
+📌 **Tính giá trị trung bình của đơn hàng**
+```sql
+SELECT AVG(TotalAmount) AS AverageOrderValue FROM Orders;
+```
+🔹 **Kết quả:** `1116.67` (Giá trị trung bình mỗi đơn hàng).
+
+📌 **Tính trung bình giá trị đơn hàng của khách hàng 3**
+```sql
+SELECT AVG(TotalAmount) AS AvgOrderValue
+FROM Orders
+WHERE CustomerID = 3;
+```
+🔹 **Kết quả:** `600` (Khách hàng 3 có trung bình 600/đơn).
+
+---
+
+## **7️⃣ `MIN()` & `MAX()` – Giá trị nhỏ nhất/lớn nhất**
+
+Hàm `MIN()` và `MAX()` giúp **tìm giá trị nhỏ nhất hoặc lớn nhất** trong một cột.
+
+📌 **Tìm đơn hàng có giá trị nhỏ nhất**
+```sql
+SELECT MIN(TotalAmount) AS MinOrderValue FROM Orders;
+```
+🔹 **Kết quả:** `500` (Đơn hàng rẻ nhất).
+
+📌 **Tìm đơn hàng có giá trị lớn nhất**
+```sql
+SELECT MAX(TotalAmount) AS MaxOrderValue FROM Orders;
+```
+🔹 **Kết quả:** `2000` (Đơn hàng lớn nhất).
+
+📌 **Tìm ngày có đơn hàng lớn nhất**
+```sql
+SELECT OrderDate
+FROM Orders
+WHERE TotalAmount = (SELECT MAX(TotalAmount) FROM Orders);
+```
+🔹 **Kết quả:** `2024-02-23` (Ngày có đơn hàng lớn nhất).
+
+---
+
+## 📌 **Quick Quiz**
+
+Hãy thử viết các câu lệnh SQL để giải các bài tập sau:
+
+👉 **Bài 1:** Đếm số khách hàng có trong bảng `Customers`.
+👉 **Bài 2:** Tính tổng doanh thu của tất cả đơn hàng vào ngày `'2024-02-22'`.
+👉 **Bài 3:** Tìm tất cả đơn hàng có giá trị **cao hơn giá trị trung bình**.
+👉 **Bài 4:** Xác định **ngày có giá trị đơn hàng thấp nhất**.
+👉 **Bài 5:** Đếm số lượng đơn hàng có giá trị **trên 1000**.
+
+---
+
+## **9️⃣ Tài liệu tham khảo** 📚
+
+1️⃣ **Official SQL Documentation:**
+🔗 [MySQL Aggregate Functions](https://dev.mysql.com/doc/refman/8.0/en/group-by-functions.html)
+🔗 [PostgreSQL Aggregate Functions](https://www.postgresql.org/docs/current/functions-aggregate.html)
+🔗 [SQL Server Aggregate Functions](https://learn.microsoft.com/en-us/sql/t-sql/functions/aggregate-functions-transact-sql)
+
+2️⃣ **Sách & Khóa học:**
+📘 *SQL for Data Analysis* - Cathy Tanimura
+📘 *Learning SQL* - Alan Beaulieu
+🎓 *[Mode Analytics SQL Tutorial](https://mode.com/sql-tutorial/)*
+
+---
+
+#### ✅ **Tóm tắt bài học**
+
+✔️ **Aggregate Functions** giúp tính toán trên nhiều dòng dữ liệu.
+✔️ `COUNT()` - Đếm số dòng trong bảng.
+✔️ `SUM()` - Tính tổng giá trị.
+✔️ `AVG()` - Tính giá trị trung bình.
+✔️ `MIN()` / `MAX()` - Tìm giá trị nhỏ nhất/lớn nhất.
+
+🚀 **Tiếp theo:** Học về [`GROUP BY` và `HAVING`](09.%20GROUP%20BY%20-%20HAVING.md) để phân nhóm dữ liệu!
+
+📌 **Lộ trình:** [Học SQL trong 30 ngày](00.%2030-Day%20SQL%20Learning%20Roadmap.md)

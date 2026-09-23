@@ -1,0 +1,167 @@
+# 10. JOIN
+
+> Nguồn: https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/10-join
+> Giới thiệu về các loại JOIN trong SQL, cách sử dụng và ví dụ minh họa.
+
+> Bài 10 giới thiệu các loại JOIN (INNER, LEFT, RIGHT, FULL) để kết hợp dữ liệu từ nhiều bảng dựa trên khóa chung, là kỹ năng bắt buộc khi làm việc với schema quan hệ thực tế.
+
+> Mục tiêu bài học: Giới thiệu về các loại JOIN trong SQL, cách sử dụng và ví dụ minh họa.
+
+Hôm nay, bạn sẽ học cách **kết hợp dữ liệu từ nhiều bảng** với các loại `JOIN` khác nhau, giúp bạn truy xuất thông tin liên quan từ các bảng khác nhau.
+
+---
+
+## **1️⃣ JOIN là gì?**
+`JOIN` giúp **kết hợp dữ liệu từ nhiều bảng** dựa trên **một khóa chung** (thường là khóa chính - khóa ngoại).
+
+Các loại `JOIN` phổ biến:
+1. **`INNER JOIN`** - Chỉ lấy dữ liệu khớp ở cả hai bảng.
+2. **`LEFT JOIN`** - Lấy tất cả dữ liệu từ bảng bên trái, kèm dữ liệu khớp từ bảng bên phải.
+3. **`RIGHT JOIN`** - Ngược lại với `LEFT JOIN`.
+4. **`FULL JOIN`** - Lấy tất cả dữ liệu từ cả hai bảng, kể cả dữ liệu không khớp.
+
+📌 **Dữ liệu mẫu:**
+Tạo database đơn giản nếu bạn chưa có:
+```sql
+CREATE DATABASE ShopDB;
+USE ShopDB;
+
+CREATE TABLE Customers (
+    CustomerID INT PRIMARY KEY,
+    Name VARCHAR(50),
+    Email VARCHAR(50)
+);
+
+CREATE TABLE Orders (
+    OrderID INT PRIMARY KEY,
+    CustomerID INT,
+    OrderDate DATE,
+    TotalAmount FLOAT,
+    FOREIGN KEY (CustomerID) REFERENCES Customers(CustomerID)
+);
+
+INSERT INTO Customers (CustomerID, Name, Email) VALUES
+(1, 'Nguyễn Văn A', 'a@email.com'),
+(2, 'Trần Thị B', 'b@email.com'),
+(3, 'Lê Văn C', 'c@email.com');
+
+INSERT INTO Orders (OrderID, CustomerID, OrderDate, TotalAmount) VALUES
+(1, 1, '2024-02-20', 1500),
+(2, 2, '2024-02-21', 1200),
+(3, 1, '2024-02-22', 800),
+(4, 3, '2024-02-23', 2000);
+```
+
+---
+
+## **2️⃣ INNER JOIN - Chỉ lấy dữ liệu khớp**
+📌 **Lấy danh sách đơn hàng kèm thông tin khách hàng**
+```sql
+SELECT Orders.OrderID, Orders.OrderDate, Orders.TotalAmount,
+       Customers.Name, Customers.Email
+FROM Orders
+INNER JOIN Customers ON Orders.CustomerID = Customers.CustomerID;
+```
+
+✅ **Kết quả:**
+| OrderID | OrderDate  | TotalAmount | Name         | Email        |
+|---------|------------|-------------|--------------|--------------|
+| 1       | 2024-02-20 | 1500        | Nguyễn Văn A | a@email.com  |
+| 2       | 2024-02-21 | 1200        | Trần Thị B   | b@email.com  |
+| 3       | 2024-02-22 | 800         | Nguyễn Văn A | a@email.com  |
+| 4       | 2024-02-23 | 2000        | Lê Văn C     | c@email.com  |
+
+---
+
+## **3️⃣ LEFT JOIN - Lấy tất cả từ bảng trái**
+📌 **Lấy tất cả khách hàng, kể cả người chưa có đơn hàng**
+```sql
+SELECT
+    Customers.Name,
+    Orders.OrderID,
+    Orders.TotalAmount
+FROM Customers
+LEFT JOIN Orders ON Customers.CustomerID = Orders.CustomerID;
+```
+
+✅ **Kết quả (nếu có khách chưa mua hàng, vẫn hiển thị):**
+| Name          | OrderID | TotalAmount |
+|---------------|---------|-------------|
+| Nguyễn Văn A  | 1       | 1500        |
+| Nguyễn Văn A  | 3       | 800         |
+| Trần Thị B    | 2       | 1200        |
+| Lê Văn C      | 4       | 2000        |
+| **Khách mới** | NULL    | NULL        |
+
+---
+
+## **4️⃣ RIGHT JOIN - Lấy tất cả từ bảng phải**
+📌 **Lấy tất cả đơn hàng, kể cả nếu khách hàng không tồn tại trong danh sách khách hàng**
+```sql
+SELECT
+    Customers.Name,
+    Orders.OrderID,
+    Orders.TotalAmount
+FROM Customers
+RIGHT JOIN Orders ON Customers.CustomerID = Orders.CustomerID;
+```
+
+✅ **Tương tự `LEFT JOIN`, nhưng ưu tiên bảng `Orders`**.
+
+---
+
+## **5️⃣ FULL JOIN - Lấy tất cả từ cả hai bảng**
+📌 **Lấy tất cả khách hàng và tất cả đơn hàng, kể cả khi không có dữ liệu khớp**
+```sql
+SELECT
+    Customers.Name,
+    Orders.OrderID,
+    Orders.TotalAmount
+FROM Customers
+FULL JOIN Orders ON Customers.CustomerID = Orders.CustomerID;
+```
+
+🚨 **Lưu ý:** `FULL JOIN` không được hỗ trợ trên MySQL (nhưng có thể dùng `UNION` để thay thế).
+
+---
+
+## **6️⃣ Kết hợp JOIN với GROUP BY**
+📌 **Tính tổng tiền mà mỗi khách hàng đã chi tiêu**
+```sql
+SELECT
+    Customers.Name,
+    SUM(Orders.TotalAmount) AS TotalSpent
+FROM Customers
+LEFT JOIN Orders ON Customers.CustomerID = Orders.CustomerID
+GROUP BY Customers.Name;
+```
+
+✅ **Kết quả:**
+| Name          | TotalSpent |
+|---------------|------------|
+| Nguyễn Văn A  | 2300       |
+| Trần Thị B    | 1200       |
+| Lê Văn C      | 2000       |
+| **Khách mới** | NULL       |
+
+---
+
+## **7️⃣ Bài tập thử thách 🚀**
+👉 **Bài 1:** Lấy danh sách đơn hàng, kèm tên khách hàng (dùng `INNER JOIN`).
+👉 **Bài 2:** Lấy danh sách khách hàng và đơn hàng, kể cả khách chưa mua hàng (dùng `LEFT JOIN`).
+👉 **Bài 3:** Đếm số lượng đơn hàng của mỗi khách hàng (dùng `JOIN` và `GROUP BY`).
+👉 **Bài 4:** Tìm khách hàng có tổng chi tiêu lớn hơn `2000` (dùng `JOIN`, `GROUP BY`, `HAVING`).
+👉 **Bài 5:** Lấy danh sách khách hàng chưa có đơn hàng (dùng `LEFT JOIN` và `WHERE Orders.OrderID IS NULL`).
+
+---
+
+✅ **Tóm tắt Ngày 10:**
+✔️ `INNER JOIN` - Chỉ lấy dữ liệu khớp.
+✔️ `LEFT JOIN` - Lấy tất cả từ bảng trái, kể cả khi không có dữ liệu khớp.
+✔️ `RIGHT JOIN` - Lấy tất cả từ bảng phải.
+✔️ `FULL JOIN` - Lấy tất cả từ cả hai bảng.
+✔️ Kết hợp `JOIN` với `GROUP BY` để tổng hợp dữ liệu.
+
+🚀 **Tiếp theo:** Học về [Subquery (Truy vấn lồng nhau)](11.%20Subquery.md)
+
+📌 **Lộ trình:** [Học SQL trong 30 ngày](00.%2030-Day%20SQL%20Learning%20Roadmap.md)

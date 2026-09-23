@@ -1,0 +1,123 @@
+# 02. Cấu trúc bảng và kiểu dữ liệu
+
+> Nguồn: https://tiennhm.io.vn/en/docs/database/learn-sql-in-30-days/02-table-structure-and-data-types
+> Giới thiệu cấu trúc bảng và kiểu dữ liệu trong SQL
+
+> Bài 2 giới thiệu cấu trúc bảng (table), cột (column), hàng (row), khóa chính/khóa ngoại và các kiểu dữ liệu phổ biến trong SQL (INT, VARCHAR, DATE, BOOLEAN, DECIMAL...). Đây là nền tảng để thiết kế schema đúng và chuẩn bị cho các truy vấn sau này.
+
+# 🔥 **2: Cấu trúc bảng & Kiểu dữ liệu trong SQL**
+
+> **Mục tiêu bài học:** Tìm hiểu cấu trúc bảng và kiểu dữ liệu trong SQL. Học cách tạo bảng, thêm cột, định nghĩa kiểu dữ liệu cho cột.
+
+## **1️⃣ Hiểu về Bảng, Cột và Hàng trong SQL**
+Trong hệ quản trị cơ sở dữ liệu quan hệ (**RDBMS**), dữ liệu được lưu trữ trong **bảng (table)**.
+
+📌 **Thành phần chính của một bảng:**
+✔️ **Cột (Columns):** Đại diện cho thuộc tính của dữ liệu, ví dụ: `Name`, `Email`, `DateOfBirth`.
+✔️ **Hàng (Rows):** Mỗi dòng dữ liệu thực tế trong bảng, chứa một bản ghi (**record**).
+✔️ **Khóa chính (Primary Key - PK):** Xác định duy nhất một hàng trong bảng.
+✔️ **Khóa ngoại (Foreign Key - FK):** Liên kết giữa các bảng để duy trì tính toàn vẹn dữ liệu.
+
+📌 **Ví dụ về bảng `Users`:**
+| UserID (PK) | Name    | Email            | DateOfBirth | IsActive (BOOLEAN) |
+|-------------|---------|------------------|-------------|--------------------|
+| 1           | Alice   | alice@gmail.com  | 1990-05-10  | TRUE               |
+| 2           | Bob     | bob@yahoo.com    | 1988-12-22  | FALSE              |
+
+---
+
+## **2️⃣ Các kiểu dữ liệu phổ biến trong SQL**
+SQL hỗ trợ nhiều loại kiểu dữ liệu khác nhau để phù hợp với từng loại thông tin cần lưu trữ.
+
+### **🔹 Kiểu số (Numeric Types)**
+| Kiểu dữ liệu    | Mô tả                                  |
+|-----------------|----------------------------------------|
+| `INT`           | Số nguyên (4 bytes), ví dụ: `10`, `-5` |
+| `BIGINT`        | Số nguyên lớn (8 bytes)                |
+| `SMALLINT`      | Số nguyên nhỏ (2 bytes)                |
+| `FLOAT`         | Số thực dấu phẩy động                  |
+| `DECIMAL(p, s)` | Số thập phân chính xác cao, `p` là tổng số chữ số, `s` là số chữ số phần thập phân. Ví dụ: `DECIMAL(10,2)` lưu `12345.67`. |
+
+### **🔹 Kiểu ký tự (String/Text Types)**
+| Kiểu dữ liệu | Mô tả                                                     |
+|--------------|-----------------------------------------------------------|
+| `CHAR(n)`    | Chuỗi cố định `n` ký tự, nhanh hơn khi có độ dài cố định. |
+| `VARCHAR(n)` | Chuỗi biến đổi tối đa `n` ký tự, ví dụ: `VARCHAR(255)`.  |
+| `TEXT`       | Lưu trữ chuỗi dài hơn `VARCHAR`, ví dụ: mô tả sản phẩm.  |
+
+### **🔹 Kiểu ngày giờ (Date & Time Types)**
+| Kiểu dữ liệu | Mô tả                                            |
+|--------------|--------------------------------------------------|
+| `DATE`       | Chỉ chứa ngày (YYYY-MM-DD), ví dụ: `2024-02-23`. |
+| `TIME`       | Chỉ chứa giờ (HH:MI:SS), ví dụ: `14:30:00`.      |
+| `DATETIME`   | Lưu cả ngày & giờ, ví dụ: `2024-02-23 14:30:00`. |
+| `TIMESTAMP`  | Tương tự `DATETIME` nhưng có timezone.           |
+
+### **🔹 Kiểu Boolean (TRUE/FALSE)**
+| Database     | Kiểu dữ liệu Boolean | Giá trị |
+|-------------|----------------------|---------|
+| **MySQL**   | `TINYINT(1)`         | `1` = TRUE, `0` = FALSE |
+| **PostgreSQL** | `BOOLEAN`           | `TRUE` hoặc `FALSE` |
+| **SQL Server** | `BIT`               | `1` hoặc `0` |
+
+📖 **Tham khảo:**
+- ANSI SQL Standard: [ISO/IEC 9075](https://www.iso.org/standard/63555.html).
+- MySQL Documentation: [https://dev.mysql.com/doc/](https://dev.mysql.com/doc/).
+- PostgreSQL Docs: [https://www.postgresql.org/docs/](https://www.postgresql.org/docs/).
+
+---
+
+## **3️⃣ Thực hành: Tạo bảng với nhiều kiểu dữ liệu**
+Chúng ta sẽ tạo bảng `Products` chứa thông tin sản phẩm với nhiều kiểu dữ liệu khác nhau.
+
+### **📌 MySQL / PostgreSQL / SQLite**
+```sql
+CREATE TABLE Products (
+    ProductID SERIAL PRIMARY KEY,       -- Khóa chính, tự động tăng
+    Name VARCHAR(255) NOT NULL,         -- Tên sản phẩm, không được để trống
+    Description TEXT,                   -- Mô tả sản phẩm (chuỗi dài)
+    Price DECIMAL(10,2) NOT NULL,       -- Giá sản phẩm (2 số thập phân)
+    StockQuantity INT DEFAULT 0,        -- Số lượng trong kho
+    IsActive BOOLEAN DEFAULT TRUE,      -- Trạng thái hoạt động
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP -- Ngày tạo sản phẩm
+);
+```
+
+### **📌 Kiểm tra bảng vừa tạo**
+🔎 **MySQL:**
+```sql
+SHOW TABLES;
+DESCRIBE Products;
+```
+🔎 **PostgreSQL:**
+```sql
+SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';
+\d Products;
+```
+🔎 **SQLite:**
+```sql
+.tables
+PRAGMA table_info(Products);
+```
+
+📖 **Tham khảo:**
+- MySQL Data Types: [https://dev.mysql.com/doc/refman/](https://dev.mysql.com/doc/refman/).
+- PostgreSQL Data Types: [https://www.postgresql.org/docs/](https://www.postgresql.org/docs/).
+
+---
+
+## 📌 **Quick Quiz**
+1. Sự khác biệt giữa `VARCHAR` và `TEXT` là gì?
+2. PostgreSQL có kiểu dữ liệu nào để lưu số nguyên lớn hơn `BIGINT`?
+3. Dòng lệnh nào để kiểm tra danh sách bảng trong PostgreSQL?
+
+---
+
+#### ✅ **Tóm tắt Ngày 2**
+✔️ Hiểu về bảng, cột, hàng trong SQL.
+✔️ Tìm hiểu các kiểu dữ liệu phổ biến trong SQL.
+✔️ Thực hành tạo bảng `Products` với nhiều kiểu dữ liệu khác nhau.
+
+🚀 **Tiếp theo:** Học về [Câu lệnh SELECT và WHERE trong SQL](03.%20SELECT%20-%20WHERE.md).
+
+📌 **Lộ trình:** [Học SQL trong 30 ngày](00.%2030-Day%20SQL%20Learning%20Roadmap.md)

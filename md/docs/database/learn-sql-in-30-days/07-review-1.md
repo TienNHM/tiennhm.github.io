@@ -1,0 +1,196 @@
+# 07. Review 1
+
+> Nguồn: https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/07-review-1
+> Kiểm tra kiến thức - Bài tập tổng hợp cho tuần 1 học SQL.
+
+> Bài 7 là bài review tuần 1: bạn sẽ thiết kế một database đơn giản (VD hệ thống cửa hàng) và luyện lại đầy đủ các thao tác đã học: SELECT, WHERE, ORDER BY, LIMIT, INSERT, UPDATE, DELETE.
+
+# 🔥 **7: Review 1**
+
+> Mục tiêu bài học: Kiểm tra kiến thức - Bài tập tổng hợp cho tuần 1 học SQL.
+
+Hôm nay, bạn sẽ tổng hợp lại những gì đã học bằng cách **xây dựng một database đơn giản** và thực hành các truy vấn với `SELECT`, `INSERT`, `UPDATE`, `DELETE`, `WHERE`, `ORDER BY`, `LIMIT`.
+
+---
+
+## **1️⃣ Thiết kế Database**
+
+Bạn sẽ tạo **hệ thống quản lý cửa hàng** với 2 bảng đơn giản:
+
+1. **Bảng `Products` (Sản phẩm)**: Lưu thông tin sản phẩm.
+2. **Bảng `Customers` (Khách hàng)**: Lưu thông tin khách hàng.
+
+### **📌 Cấu trúc bảng**
+
+**🟢 Bảng `Products`**
+| Cột           | Kiểu dữ liệu                     | Mô tả                 |
+|---------------|----------------------------------|-----------------------|
+| `ID`          | `INT PRIMARY KEY AUTO_INCREMENT` | Mã sản phẩm (tự tăng) |
+| `ProductName` | `VARCHAR(100) NOT NULL`          | Tên sản phẩm          |
+| `Price`       | `FLOAT NOT NULL`                 | Giá sản phẩm          |
+| `Stock`       | `INT NOT NULL`                   | Số lượng trong kho    |
+
+**🟢 Bảng `Customers`**
+| Cột            | Kiểu dữ liệu                     | Mô tả                   |
+|----------------|----------------------------------|-------------------------|
+| `ID`           | `INT PRIMARY KEY AUTO_INCREMENT` | Mã khách hàng (tự tăng) |
+| `CustomerName` | `VARCHAR(100) NOT NULL`          | Tên khách hàng          |
+| `Email`        | `VARCHAR(100) UNIQUE NOT NULL`   | Email                   |
+| `Phone`        | `VARCHAR(15) NOT NULL`           | Số điện thoại           |
+
+---
+
+## **2️⃣ Tạo database & bảng**
+
+```sql
+CREATE DATABASE ShopDB;
+USE ShopDB;
+
+CREATE TABLE Products (
+    ID INT AUTO_INCREMENT PRIMARY KEY,
+    ProductName VARCHAR(100) NOT NULL,
+    Price FLOAT NOT NULL,
+    Stock INT NOT NULL
+);
+
+CREATE TABLE Customers (
+    ID INT AUTO_INCREMENT PRIMARY KEY,
+    CustomerName VARCHAR(100) NOT NULL,
+    Email VARCHAR(100) UNIQUE NOT NULL,
+    Phone VARCHAR(15) NOT NULL
+);
+```
+
+---
+
+## **3️⃣ Chèn dữ liệu (`INSERT INTO`)**
+
+```sql
+INSERT INTO Products (ProductName, Price, Stock) VALUES
+('Laptop Dell', 1500, 10),
+('iPhone 15', 1200, 5),
+('Samsung Galaxy S23', 1000, 8),
+('Tai nghe Sony', 200, 15),
+('Bàn phím cơ', 100, 20);
+
+INSERT INTO Customers (CustomerName, Email, Phone) VALUES
+('Nguyễn Văn A', 'nguyenvana@example.com', '0912345678'),
+('Trần Thị B', 'tranthib@example.com', '0987654321'),
+('Lê Văn C', 'levanc@example.com', '0933445566');
+```
+
+---
+
+## **4️⃣ Truy vấn dữ liệu (`SELECT`, `WHERE`, `ORDER BY`, `LIMIT`)**
+
+📌 **Lấy danh sách tất cả sản phẩm**
+```sql
+SELECT *
+FROM Products;
+```
+
+📌 **Lọc sản phẩm có giá trên 1000**
+```sql
+SELECT *
+FROM Products
+WHERE Price > 1000;
+```
+
+📌 **Lấy sản phẩm có giá từ 500 đến 1500**
+```sql
+SELECT *
+FROM Products
+WHERE Price BETWEEN 500 AND 1500;
+```
+
+📌 **Lấy sản phẩm có chữ "iPhone" trong tên**
+```sql
+SELECT *
+FROM Products
+WHERE ProductName LIKE '%iPhone%';
+```
+
+📌 **Sắp xếp sản phẩm theo giá từ cao xuống thấp**
+```sql
+SELECT *
+FROM Products
+ORDER BY Price DESC;
+```
+
+📌 **Lấy 3 sản phẩm có giá cao nhất**
+```sql
+SELECT *
+FROM Products
+ORDER BY Price DESC
+LIMIT 3;
+```
+
+📌 **Lấy danh sách khách hàng có số điện thoại bắt đầu bằng "09"**
+```sql
+SELECT *
+FROM Customers
+WHERE Phone LIKE '09%';
+```
+
+---
+
+## **5️⃣ Cập nhật dữ liệu (`UPDATE`)**
+
+📌 **Cập nhật giá của iPhone 15 lên 1300**
+```sql
+UPDATE Products
+SET Price = 1300
+WHERE ProductName = 'iPhone 15';
+```
+
+📌 **Tăng số lượng tồn kho của "Tai nghe Sony" lên 20**
+```sql
+UPDATE Products
+SET Stock = 20
+WHERE ProductName = 'Tai nghe Sony';
+```
+
+📌 **Đổi email của "Nguyễn Văn A"**
+```sql
+UPDATE Customers
+SET Email = 'nguyenvana.new@example.com'
+WHERE CustomerName = 'Nguyễn Văn A';
+```
+
+---
+
+## **6️⃣ Xóa dữ liệu (`DELETE`)**
+
+📌 **Xóa sản phẩm có giá nhỏ hơn 200**
+```sql
+DELETE FROM Products
+WHERE Price < 200;
+```
+
+📌 **Xóa khách hàng có email "tranthib@example.com"**
+```sql
+DELETE FROM Customers
+ WHERE Email = 'tranthib@example.com';
+```
+
+---
+
+## **7️⃣ Bài tập thử thách 🚀**
+👉 **Bài 1:** Lấy danh sách 2 sản phẩm rẻ nhất.
+👉 **Bài 2:** Lấy khách hàng có số điện thoại kết thúc bằng "66".
+👉 **Bài 3:** Tăng giá tất cả sản phẩm thêm 10%.
+👉 **Bài 4:** Xóa tất cả sản phẩm có số lượng tồn kho bằng 0.
+👉 **Bài 5:** Cập nhật số lượng tồn kho của iPhone 15 thành 3 nếu giá của nó lớn hơn 1200.
+
+---
+
+✅ **Tóm tắt Ngày 7:**
+✔️ Tạo database và bảng (`CREATE TABLE`).
+✔️ Chèn dữ liệu (`INSERT INTO`).
+✔️ Truy vấn dữ liệu (`SELECT`, `WHERE`, `ORDER BY`, `LIMIT`).
+✔️ Cập nhật dữ liệu (`UPDATE`).
+✔️ Xóa dữ liệu (`DELETE`).
+
+🚀 **Tiếp theo:** Học về [Hàm trong SQL - Aggregate Functions](08.%20Aggregate%20Functions.md).
+
+📌 **Lộ trình:** [Học SQL trong 30 ngày](00.%2030-Day%20SQL%20Learning%20Roadmap.md)

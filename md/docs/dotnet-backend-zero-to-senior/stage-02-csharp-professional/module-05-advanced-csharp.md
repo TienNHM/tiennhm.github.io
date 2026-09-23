@@ -1,0 +1,20 @@
+# Module 5 — Advanced C#
+
+> Nguồn: https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-05-advanced-csharp/
+> C# nâng cao: generics, LINQ, nullable reference types, spans, exception semantics — tối ưu an toàn kiểu và hiện diện bộ nhớ trong service layer.
+
+## Nội dung module
+
+- [5.1 — Module Orientation](5.1-module-orientation.mdx)
+- [5.2 — 1. SOLID Principles](5.2-solid-principles.mdx)
+- [5.3 — 2. Generics](5.3-generics.mdx)
+- [5.4 — 3. LINQ](5.4-linq.mdx)
+- [5.5 — 4. Delegates và Events](5.5-delegates-and-events.mdx)
+- [5.6 — 5. Extension Methods](5.6-extension-methods.mdx)
+- [5.7 — 6. Nullable Reference Types (C# 8+)](5.7-nullable-reference-types.mdx)
+- [5.8 — 7. Expression Trees và Reflection (Overview)](5.8-overview.mdx)
+- [5.9 — 8. Tuples và Deconstruction](5.9-tuples-and-deconstruction.mdx)
+- [5.10 — Mở rộng và đào sâu](5.10-advanced-notes.mdx)
+- [5.11 — Mini case study](5.11-mini-case-study.mdx)
+- [5.12 — Ví dụ thực tế nhanh](5.12-quick-real-world-example.mdx)
+- [5.13 — Review and Assessment](5.13-review-and-assessment.mdx)

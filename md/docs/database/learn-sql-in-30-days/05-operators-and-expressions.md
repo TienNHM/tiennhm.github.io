@@ -1,0 +1,197 @@
+# 05. Toán tử, Biểu thức
+
+> Nguồn: https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/05-operators-and-expressions
+> Giới thiệu cách sử dụng toán tử và biểu thức trong SQL. Học cách so sánh, kết hợp điều kiện và thực hiện các phép toán trong truy vấn SQL.
+
+> Bài 5 giúp bạn nắm các toán tử số học, so sánh, logic và cách kết hợp chúng trong biểu thức SQL để tính toán, lọc và biến đổi dữ liệu trực tiếp trong truy vấn.
+
+# 🔥 **5: Toán tử & Biểu thức trong SQL**
+
+> 🎯 **Mục tiêu:** Hiểu và sử dụng các toán tử số học, logic và biểu thức trong SQL để thao tác dữ liệu một cách hiệu quả.
+
+## **1️⃣ Toán tử số học trong SQL**
+
+### 📖 **Khái niệm**
+Toán tử số học giúp thực hiện các phép toán trên dữ liệu số (`INT`, `FLOAT`, `DECIMAL`, v.v.). Chúng thường được sử dụng để tính toán trực tiếp trên cột dữ liệu hoặc trong các biểu thức tạo cột mới.
+
+### **🔹 Các toán tử số học phổ biến**
+| Toán tử | Ý nghĩa     | Ví dụ                       |
+|---------|------------|-----------------------------|
+| `+`     | Cộng       | `Price + 1000`              |
+| `-`     | Trừ        | `Price - 500`               |
+| `*`     | Nhân       | `Price * 1.1` (tăng 10%)    |
+| `/`     | Chia       | `Price / 2` (giảm một nửa)  |
+| `%`     | Chia dư    | `Quantity % 2` (số chẵn/lẻ) |
+
+📌 **Ví dụ: Tính giá sau khi giảm 10%**
+```sql
+SELECT
+    Name,
+    Price,
+    Price * 0.9 AS DiscountedPrice
+FROM Products;
+```
+
+📌 **Ví dụ: Tính lợi nhuận nếu giá bán cao hơn giá nhập 20%**
+```sql
+SELECT
+    Name,
+    CostPrice,
+    CostPrice * 1.2 AS SellingPrice
+FROM Products;
+```
+
+### 📌 **Lưu ý**
+- Khi chia `/`, nếu số bị chia là số nguyên (`INT`), kết quả cũng sẽ là số nguyên trừ khi dùng kiểu `FLOAT` hoặc `DECIMAL`.
+- Toán tử `%` chỉ hoạt động trên số nguyên, không thể dùng cho `FLOAT` hoặc `DECIMAL`.
+
+---
+
+## **2️⃣ Toán tử logic trong SQL**
+
+### 📖 **Khái niệm**
+Toán tử logic giúp kết hợp nhiều điều kiện trong câu lệnh `WHERE`, giúp lọc dữ liệu chính xác hơn.
+
+### **🔹 Các toán tử logic cơ bản**
+| Toán tử | Ý nghĩa | Ví dụ |
+|---------|--------|-------|
+| `AND`   | Đúng khi **cả hai** điều kiện đúng | `Price > 100 AND Stock > 0` |
+| `OR`    | Đúng khi **ít nhất một** điều kiện đúng | `Category = 'Laptop' OR Category = 'Tablet'` |
+| `NOT`   | Phủ định điều kiện | `NOT (Price < 5000)` (tức là `Price >= 5000`) |
+
+📌 **Ví dụ: Lọc sản phẩm có giá > 100k và còn hàng**
+```sql
+SELECT *
+FROM Products
+WHERE Price > 100000 AND StockQuantity > 0;
+```
+
+📌 **Ví dụ: Lấy sản phẩm thuộc danh mục "Laptop" hoặc "Tablet"**
+```sql
+SELECT *
+FROM Products
+WHERE Category = 'Laptop' OR Category = 'Tablet';
+```
+
+📌 **Ví dụ: Lọc sản phẩm KHÔNG phải "Laptop"**
+```sql
+SELECT *
+FROM Products
+WHERE NOT Category = 'Laptop';
+```
+
+### 📌 **Lưu ý**
+- `AND` có độ ưu tiên cao hơn `OR`, do đó `A AND B OR C` tương đương với `(A AND B) OR C`.
+- Sử dụng `NOT` có thể làm truy vấn khó đọc, thay vào đó có thể dùng toán tử quan hệ (VD: `Category <> 'Laptop'`).
+
+---
+
+## **3️⃣ Kết hợp toán tử số học & logic**
+
+📌 **Ví dụ: Lọc sản phẩm có giá sau khi giảm 20% vẫn > 500k**
+```sql
+SELECT *
+FROM Products
+WHERE Price * 0.8 > 500000;
+```
+
+📌 **Ví dụ: Lấy sản phẩm có giá từ 100k đến 500k, nhưng không phải "Laptop"**
+```sql
+SELECT *
+FROM Products
+WHERE
+    Price BETWEEN 100000 AND 500000
+    AND NOT Category = 'Laptop';
+```
+
+### 📌 **Lưu ý**
+- Khi kết hợp toán tử số học với điều kiện `WHERE`, SQL thực hiện phép toán trước rồi mới lọc dữ liệu.
+- Có thể dùng `CASE WHEN` nếu cần logic phức tạp hơn.
+
+---
+
+## **❓ Quick Quiz**
+
+❓ **Câu 1:** Toán tử nào có độ ưu tiên cao hơn?
+A. `AND`
+B. `OR`
+C. `NOT`
+D. Cả A & C
+
+❓ **Câu 2:** Kết quả của `SELECT 10 / 3;` trên MySQL là gì?
+A. `3`
+B. `3.33`
+C. Lỗi
+D. `3.0`
+
+❓ **Câu 3:** Toán tử `%` có thể dùng với kiểu dữ liệu nào?
+A. `INT`
+B. `FLOAT`
+C. `DECIMAL`
+D. Tất cả các loại trên
+
+❓ **Câu 4:** Câu nào dưới đây tìm sản phẩm có giá từ 500k đến 1 triệu?
+A. `WHERE Price >= 500000 OR Price <= 1000000`
+B. `WHERE Price BETWEEN 500000 AND 1000000`
+C. `WHERE Price > 500000 AND Price < 1000000`
+D. `WHERE Price >= 500000 AND Price <= 1000000`
+
+👉 **Gợi ý:** Đọc lại phần toán tử logic và số học để tìm câu trả lời đúng!
+
+---
+
+## **💡 Bài tập thực hành**
+
+💡 **Bài tập 1:** Lấy sản phẩm có giá lớn hơn 1 triệu và số lượng tồn kho > 10.
+```sql
+SELECT *
+FROM Products
+WHERE Price > 1000000 AND StockQuantity > 10;
+```
+
+💡 **Bài tập 2:** Lọc sản phẩm có giá nhỏ hơn 500k hoặc hết hàng.
+```sql
+SELECT *
+FROM Products
+WHERE Price < 500000 OR StockQuantity = 0;
+```
+
+💡 **Bài tập 3:** Tăng giá tất cả sản phẩm thêm 10% và hiển thị cột giá mới.
+```sql
+SELECT
+    Name,
+    Price,
+    Price * 1.1 AS NewPrice
+FROM Products;
+```
+
+💡 **Bài tập 4:** Lấy sản phẩm có giá sau khi giảm 15% vẫn trên 1 triệu.
+```sql
+SELECT *
+FROM Products
+WHERE Price * 0.85 > 1000000;
+```
+
+💡 **Bài tập 5:** Lọc khách hàng đăng ký trong năm 2024 nhưng không ở Hà Nội.
+```sql
+SELECT *
+FROM Customers
+WHERE
+    YEAR(CreatedAt) = 2024
+    AND NOT City = 'Hà Nội';
+```
+
+---
+
+#### 📚 **Tài liệu tham khảo:**
+🔹 [SQL Operators - W3Schools](https://www.w3schools.com/sql/sql_operators.asp)
+🔹 [MySQL Documentation](https://dev.mysql.com/doc/)
+
+#### ✅ **Tóm tắt Ngày 5**
+✔️ **Toán tử số học:** `+`, `-`, `*`, `/`, `%` để thực hiện phép tính.
+✔️ **Toán tử logic:** `AND`, `OR`, `NOT` để lọc dữ liệu theo điều kiện.
+✔️ **Kết hợp toán tử số học & logic** để viết truy vấn phức tạp.
+
+🚀 **Tiếp theo:** Học về [Chỉnh sửa dữ liệu với INSERT, UPDATE, DELETE](06.%20INSERT%20-%20UPDATE%20-%20DELETE.md).
+
+📌 **Lộ trình:** [Học SQL trong 30 ngày](00.%2030-Day%20SQL%20Learning%20Roadmap.md)

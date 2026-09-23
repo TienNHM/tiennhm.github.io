@@ -1,0 +1,24 @@
+# Cách tạo Github profile
+
+> Nguồn: https://tiennhm.io.vn/blog/github-profile
+> Hướng dẫn cách tạo Github Profile đơn giản, đẹp mắt với README cho người mới bắt đầu.
+
+> Bài viết hướng dẫn cách tạo GitHub Profile đơn giản và đẹp mắt bằng cách sử dụng README file trong repository có tên trùng với username. GitHub Profile cho phép bạn tạo một trang profile cá nhân với thông tin giới thiệu, skills, projects và các thông tin khác. Bài viết bao gồm các bước chi tiết từ tạo repository đến viết README với Markdown, giúp người mới bắt đầu có thể tạo profile GitHub chuyên nghiệp.
+
+Trong bài viết này, mình sẽ hướng dẫn các bạn cách tạo Github Profile. Đây là một tính năng mới của Github, nó cho phép các bạn tạo một trang profile của riêng mình.
+
+## Giới thiệu
+
+Github Profile là một tính năng mới của Github, nó cho phép các bạn tạo một trang profile của riêng mình. Trang profile này sẽ hiển thị các thông tin về bạn, các project của bạn, các kỹ năng của bạn, ...
+
+## Cách tạo Github Profile
+
+Để tạo Github Profile, các bạn làm theo hướng dẫn sau:
+
+## Tổng kết
+
+Trong bài viết này, mình đã hướng dẫn các bạn cách tạo Github Profile. Hy vọng bài viết này sẽ giúp ích cho các bạn.
+
+> **Tip: Để xem thêm các video khác, các bạn có thể truy cập vào [kênh Youtube](https://www.youtube.com/TienNguyen09) của mình.**
+>
+>

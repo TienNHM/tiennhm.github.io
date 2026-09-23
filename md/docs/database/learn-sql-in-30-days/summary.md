@@ -1,0 +1,72 @@
+# Summary
+
+> Nguồn: https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/summary
+> Tổng kết lộ trình 30 ngày học SQL
+
+> Trang này tổng kết toàn bộ lộ trình 30 ngày học SQL, từ kiến thức cơ bản (SELECT, JOIN, GROUP BY) đến các chủ đề nâng cao (Index, Optimization, Security, Big Data). Đây là điểm neo để AI Agents và người đọc nhanh chóng nắm được những gì đã học và các bước tiếp theo.
+
+# 🎯 **Tổng Kết Lộ Trình 30 Ngày Học SQL**
+
+📌 **Chúc mừng bạn đã hoàn thành 30 ngày học SQL!** 🎉
+Bạn đã đi qua một hành trình từ **cơ bản** đến **nâng cao**, từ những truy vấn đơn giản đến tối ưu hóa, bảo mật và quản trị cơ sở dữ liệu.
+
+---
+
+## **1️⃣ Nhìn Lại Hành Trình 30 Ngày**
+💡 Trong 30 ngày qua, bạn đã học được:
+✅ **SQL Cơ Bản**: SELECT, INSERT, UPDATE, DELETE, JOIN, GROUP BY, HAVING.
+✅ **SQL Nâng Cao**: Indexing, Partitioning, Stored Procedures, Recursive Queries, Window Functions.
+✅ **Tối Ưu & Debug**: EXPLAIN ANALYZE, tối ưu truy vấn, xử lý lỗi SQL.
+✅ **Bảo Mật & Quản Trị**: Phân quyền, ngăn chặn SQL Injection, Backup & Restore.
+✅ **Ứng Dụng Thực Tế**: Nhập & xuất dữ liệu, SQL trong Big Data, NoSQL.
+
+🌟 **Bạn đã đi từ một người mới đến một người có thể tự tin làm việc với SQL chuyên sâu!** 🚀
+
+---
+
+## **2️⃣ Bảng Tổng Hợp 30 Ngày Học SQL**
+
+| **Tuần**   | **Chủ đề chính** |
+|------------|------------------|
+| **Tuần 1** | SQL cơ bản: SELECT, WHERE, JOIN, GROUP BY, INSERT, UPDATE, DELETE |
+| **Tuần 2** | Các hàm & Truy vấn nâng cao: Aggregate Functions, Subqueries, CASE WHEN |
+| **Tuần 3** | SQL nâng cao & Tối ưu hóa: Indexing, Transactions, Stored Procedures, Views, Triggers |
+| **Tuần 4** | Thực hành với dữ liệu thực tế & NoSQL: Import/Export, Big Data, Recursive Queries, Security |
+
+---
+
+## **3️⃣ Câu Hỏi Ôn Tập Cuối Khóa**
+
+💡 **Hãy thử trả lời các câu hỏi sau để kiểm tra kiến thức của bạn:**
+
+1️⃣ Viết một truy vấn lấy **tất cả đơn hàng trong 3 tháng gần nhất**, sắp xếp theo ngày.
+2️⃣ Tạo một **Stored Procedure** nhận vào `customer_id` và trả về tổng số đơn hàng.
+3️⃣ Sử dụng **Window Function** để xếp hạng doanh thu của từng khách hàng.
+4️⃣ Làm thế nào để **tối ưu hóa một truy vấn chậm**?
+5️⃣ Bạn sẽ dùng **cách nào để ngăn chặn SQL Injection**?
+
+💡 **Gợi ý đáp án sẽ có trong các bài học trước đó!** Hãy thử ôn lại kiến thức nhé.
+
+---
+
+## **4️⃣ Tiếp Theo Nên Học Gì?**
+
+🔹 **Nếu bạn muốn phát triển kỹ năng hơn nữa, hãy thử:**
+✔ **NoSQL** (MongoDB, Firebase) – Khi nào nên dùng NoSQL thay vì SQL?
+✔ **Data Engineering** – Làm việc với dữ liệu lớn (Big Data, Data Warehouse).
+✔ **SQL nâng cao** – Học thêm về **Materialized Views, Sharding, Caching**.
+✔ **Phân tích dữ liệu (Data Analytics)** – Kết hợp SQL với Python, Power BI.
+
+🚀 **SQL không chỉ là một ngôn ngữ, mà còn là nền tảng để làm việc với dữ liệu chuyên sâu!**
+
+---
+
+## **5️⃣ Lời Kết**
+
+🎉 **Bạn đã hoàn thành khóa học SQL 30 ngày!**
+Bây giờ, hãy tiếp tục luyện tập, thử sức với các dự án thực tế và trở thành một chuyên gia SQL thực thụ!
+
+🔹 **Bạn thích phần nào nhất trong khóa học này?**
+🔹 **Bạn muốn bổ sung thêm nội dung nào cho các khóa học tiếp theo?**
+
+💬 Hãy chia sẻ suy nghĩ của bạn! 🚀

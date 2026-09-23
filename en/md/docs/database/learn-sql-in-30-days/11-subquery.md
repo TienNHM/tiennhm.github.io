@@ -1,0 +1,115 @@
+# 11. Truy vấn con (Subquery)
+
+> Nguồn: https://tiennhm.io.vn/en/docs/database/learn-sql-in-30-days/11-subquery
+> Giới thiệu về truy vấn con (Subquery) trong SQL, cách sử dụng và ví dụ minh họa.
+
+> Bài 11 giới thiệu Subquery (truy vấn con) – truy vấn lồng bên trong truy vấn khác, được dùng trong SELECT, FROM và WHERE để xử lý các logic phức tạp như lọc theo tập con, so sánh với kết quả tính toán, tồn tại/không tồn tại bản ghi.
+
+> Mục tiêu bài học: Giới thiệu về truy vấn con (Subquery) trong SQL, cách sử dụng và ví dụ minh họa.
+
+Hôm nay, bạn sẽ học về **Subquery** (truy vấn con) trong SQL, một công cụ mạnh mẽ giúp **truy vấn lồng nhau** và xử lý dữ liệu phức tạp.
+
+---
+
+## **1️⃣ Subquery là gì?**
+**Subquery** là một truy vấn SQL **nằm bên trong một truy vấn khác**. Nó có thể nằm trong:
+- **SELECT** → Dùng để tính toán dữ liệu bổ sung.
+- **FROM** → Dùng như một bảng tạm.
+- **WHERE** → Dùng để lọc dữ liệu dựa trên một điều kiện.
+
+📌 **Cấu trúc chung của một Subquery**:
+```sql
+SELECT column_name
+FROM table_name
+WHERE column_name OPERATOR (SELECT column_name FROM another_table);
+```
+Trong đó:
+✅ **Subquery** nằm trong dấu ngoặc `()`.
+✅ **Operator** có thể là `=`, `>`, `<`, `IN`, `NOT IN`, `EXISTS`, v.v.
+
+---
+
+## **2️⃣ Subquery trong WHERE - Lọc dữ liệu**
+📌 **Ví dụ 1: Tìm sản phẩm có giá cao hơn giá trung bình**
+```sql
+SELECT ProductName, Price
+FROM Products
+WHERE Price > (SELECT AVG(Price) FROM Products);
+```
+
+✅ **Giải thích:**
+- `SELECT AVG(Price) FROM Products` → Tính giá trung bình của tất cả sản phẩm.
+- `WHERE Price > (kết quả trên)` → Lọc ra các sản phẩm có giá cao hơn trung bình.
+
+📌 **Ví dụ 2: Lấy danh sách khách hàng đã từng đặt hàng**
+```sql
+SELECT Name
+FROM Customers
+WHERE CustomerID IN (SELECT DISTINCT CustomerID FROM Orders);
+```
+
+✅ **Giải thích:**
+- `SELECT DISTINCT CustomerID FROM Orders` → Lấy danh sách khách hàng có đơn hàng.
+- `WHERE CustomerID IN (...)` → Lọc danh sách khách hàng từ bảng `Customers`.
+
+---
+
+## **3️⃣ Subquery trong SELECT - Tính toán bổ sung**
+📌 **Ví dụ: Hiển thị tổng số đơn hàng của từng khách hàng**
+```sql
+SELECT Name,
+       (SELECT COUNT(*) FROM Orders WHERE Orders.CustomerID = Customers.CustomerID) AS TotalOrders
+FROM Customers;
+```
+
+✅ **Giải thích:**
+- `COUNT(*)` → Đếm số lượng đơn hàng của từng khách.
+- `AS TotalOrders` → Hiển thị kết quả như một cột bổ sung.
+
+---
+
+## **4️⃣ Subquery trong FROM - Tạo bảng tạm**
+📌 **Ví dụ: Tìm top 3 sản phẩm có giá cao nhất**
+```sql
+SELECT ProductName, Price
+FROM (SELECT ProductName, Price FROM Products ORDER BY Price DESC LIMIT 3) AS TopProducts;
+```
+
+✅ **Giải thích:**
+- `ORDER BY Price DESC LIMIT 3` → Lấy 3 sản phẩm đắt nhất.
+- Dùng subquery như một bảng tạm.
+
+---
+
+## **5️⃣ Subquery với EXISTS - Kiểm tra sự tồn tại**
+📌 **Ví dụ: Tìm khách hàng có đơn hàng trên 1000$**
+```sql
+SELECT Name
+FROM Customers C
+WHERE EXISTS (SELECT 1 FROM Orders O WHERE O.CustomerID = C.CustomerID AND O.TotalAmount > 1000);
+```
+
+✅ **Giải thích:**
+- `EXISTS` kiểm tra nếu có đơn hàng **thỏa mãn điều kiện** (`TotalAmount > 1000`).
+- Nếu có ít nhất một đơn hợp lệ, khách hàng đó được chọn.
+
+---
+
+## **6️⃣ Bài tập thử thách 🚀**
+👉 **Bài 1:** Tìm sản phẩm có giá thấp hơn giá trung bình.
+👉 **Bài 2:** Lấy danh sách khách hàng chưa từng mua hàng.
+👉 **Bài 3:** Hiển thị số đơn hàng của mỗi khách hàng như một cột (`SELECT`).
+👉 **Bài 4:** Lấy danh sách nhân viên có mức lương cao nhất (`FROM`).
+👉 **Bài 5:** Tìm tất cả khách hàng có đơn hàng trị giá trên 2000$ (`EXISTS`).
+
+---
+
+✅ **Tóm tắt Ngày 11:**
+✔️ **Subquery trong WHERE** → Lọc dữ liệu dựa trên một giá trị tính toán.
+✔️ **Subquery trong SELECT** → Tính toán và hiển thị dữ liệu bổ sung.
+✔️ **Subquery trong FROM** → Sử dụng truy vấn con như một bảng tạm.
+✔️ **Subquery với EXISTS** → Kiểm tra sự tồn tại của dữ liệu.
+
+🚀 **Tiếp theo:** Học về [UNION & INTERSECT trong SQL](12.%20UNION%20-%20INTERSECT.md)!
+
+📌 **Lộ trình:** [Học SQL trong 30 ngày](00.%2030-Day%20SQL%20Learning%20Roadmap.md)

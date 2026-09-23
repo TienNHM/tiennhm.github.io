@@ -1,0 +1,189 @@
+# 30. Database security
+
+> Nguồn: https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/30-database-security
+> Học cách quản trị & bảo mật database, phân quyền, ngăn chặn SQL Injection, sao lưu & khôi phục dữ liệu đúng cách.
+
+> Ngày 30 tập trung vào quản trị và bảo mật database: quản lý người dùng, vai trò và quyền truy cập; ngăn chặn SQL Injection; và sao lưu/khôi phục dữ liệu đúng cách. Đây là bước cuối cùng giúp bạn không chỉ viết truy vấn tốt mà còn vận hành hệ thống database an toàn và đáng tin cậy.
+
+# 📌 **Ngày 30: Quản Trị & Bảo Mật Database**
+
+## **1️⃣ Giới Thiệu**
+🔹 Quản trị cơ sở dữ liệu (DBA) là một kỹ năng quan trọng để **bảo vệ dữ liệu, quản lý quyền truy cập và đảm bảo hệ thống an toàn**.
+🔹 Trong bài học này, bạn sẽ học:
+✔ **Quản lý người dùng, vai trò & quyền truy cập** (`GRANT`, `REVOKE`).
+✔ **Ngăn chặn SQL Injection & bảo mật dữ liệu**.
+✔ **Sao lưu & khôi phục dữ liệu (Backup & Restore)**.
+
+💡 **Mục tiêu:**
+✔ Biết cách **phân quyền** trong SQL Server, MySQL, PostgreSQL.
+✔ Hiểu cách **phát hiện & ngăn chặn SQL Injection**.
+✔ Biết **thực hiện sao lưu & phục hồi dữ liệu** đúng cách.
+
+---
+
+## **2️⃣ Quản Lý Người Dùng, Vai Trò & Quyền Truy Cập**
+### ✅ **2.1. Tạo User & Gán Quyền**
+🔹 **Câu lệnh `CREATE USER`** dùng để tạo tài khoản database.
+🔹 **Câu lệnh `GRANT`** dùng để cấp quyền truy cập dữ liệu.
+
+💡 **Ví dụ:** Tạo user và cấp quyền truy cập bảng `Orders`
+```sql
+-- Tạo user mới
+CREATE USER 'sales_user'@'localhost' IDENTIFIED BY 'securepassword';
+
+-- Cấp quyền chỉ đọc dữ liệu
+GRANT SELECT ON sales_db.Orders TO 'sales_user'@'localhost';
+
+-- Cấp quyền cập nhật dữ liệu
+GRANT UPDATE, INSERT ON sales_db.Orders TO 'sales_user'@'localhost';
+```
+🔹 **Các quyền quan trọng:**
+✔ `SELECT`: Xem dữ liệu.
+✔ `INSERT`: Thêm dữ liệu.
+✔ `UPDATE`: Sửa dữ liệu.
+✔ `DELETE`: Xóa dữ liệu.
+✔ `ALL PRIVILEGES`: Toàn quyền truy cập.
+
+---
+
+### ✅ **2.2. Thu Hồi Quyền Truy Cập**
+🔹 **Câu lệnh `REVOKE`** dùng để thu hồi quyền truy cập.
+
+💡 **Ví dụ:** Thu hồi quyền sửa dữ liệu
+```sql
+REVOKE UPDATE, INSERT ON sales_db.Orders FROM 'sales_user'@'localhost';
+```
+
+🔹 **Xóa user khỏi hệ thống:**
+```sql
+DROP USER 'sales_user'@'localhost';
+```
+
+---
+
+### ✅ **2.3. Tạo Vai Trò (Roles) & Gán Quyền**
+🔹 **Roles** giúp quản lý nhiều user cùng lúc dễ dàng hơn.
+
+💡 **Ví dụ:** Tạo role **"Nhân viên bán hàng"** và gán quyền
+```sql
+-- Tạo role mới
+CREATE ROLE SalesRole;
+
+-- Gán quyền cho role
+GRANT SELECT, INSERT ON sales_db.Orders TO SalesRole;
+
+-- Gán role cho user
+GRANT SalesRole TO 'sales_user'@'localhost';
+```
+
+---
+
+## **3️⃣ Phát Hiện & Ngăn Chặn SQL Injection**
+🔹 **SQL Injection** là kỹ thuật tấn công bằng cách chèn mã SQL vào các input đầu vào.
+🔹 Kẻ tấn công có thể **truy vấn, xóa, sửa dữ liệu** nếu không kiểm tra input chặt chẽ.
+
+💡 **Ví dụ:** Một truy vấn bị lỗi bảo mật
+```sql
+SELECT * FROM Users WHERE username = 'admin' AND password = '1234' OR '1'='1';
+```
+🔹 **Vấn đề:** `'1'='1'` luôn đúng, khiến hacker đăng nhập mà không cần mật khẩu.
+
+---
+
+### ✅ **3.1. Cách Ngăn Chặn SQL Injection**
+✔ **Dùng Prepared Statements hoặc Stored Procedures.**
+✔ **Không nối chuỗi trực tiếp vào SQL.**
+✔ **Kiểm tra input người dùng (Validation & Sanitization).**
+
+💡 **Ví dụ:** **Dùng Prepared Statements (MySQL, PostgreSQL)**
+```sql
+PREPARE stmt FROM 'SELECT * FROM Users WHERE username = ? AND password = ?';
+SET @user = 'admin', @pass = '1234';
+EXECUTE stmt USING @user, @pass;
+```
+🔹 **Lợi ích:**
+✔ Biến `?` được xử lý an toàn, không thể chèn mã độc.
+
+---
+
+## **4️⃣ Sao Lưu & Phục Hồi Dữ Liệu (Backup & Restore)**
+### ✅ **4.1. Sao Lưu Database (Backup)**
+🔹 **Tạo file backup toàn bộ dữ liệu** để phòng trường hợp lỗi hệ thống.
+
+💡 **Ví dụ:** Sao lưu toàn bộ database MySQL
+```bash
+mysqldump -u root -p sales_db > sales_backup.sql
+```
+
+🔹 **Sao lưu trong SQL Server:**
+```sql
+BACKUP DATABASE SalesDB TO DISK = 'C:\Backups\SalesDB.bak' WITH FORMAT;
+```
+
+---
+
+### ✅ **4.2. Khôi Phục Database (Restore)**
+🔹 **Dùng file backup để khôi phục dữ liệu khi bị mất.**
+
+💡 **Ví dụ:** Khôi phục MySQL từ file backup
+```bash
+mysql -u root -p sales_db < sales_backup.sql
+```
+
+🔹 **Khôi phục SQL Server:**
+```sql
+RESTORE DATABASE SalesDB FROM DISK = 'C:\Backups\SalesDB.bak' WITH REPLACE;
+```
+
+---
+
+## **5️⃣ Bài Tập Thực Hành & Gợi Ý Đáp Án**
+### 🔹 **Bài 1: Tạo user và cấp quyền truy cập**
+📌 **Yêu cầu:**
+✔ Tạo user `report_user`.
+✔ Cấp quyền `SELECT` trên bảng `Orders`.
+
+📝 **Gợi ý đáp án:**
+```sql
+CREATE USER 'report_user'@'localhost' IDENTIFIED BY 'securepass';
+GRANT SELECT ON sales_db.Orders TO 'report_user'@'localhost';
+```
+
+---
+
+### 🔹 **Bài 2: Ngăn chặn SQL Injection với Prepared Statement**
+📌 **Yêu cầu:**
+✔ Viết truy vấn lấy thông tin user nhưng phải an toàn.
+
+📝 **Gợi ý đáp án:**
+```sql
+PREPARE stmt FROM 'SELECT * FROM Users WHERE username = ? AND password = ?';
+SET @user = 'admin', @pass = 'mypassword';
+EXECUTE stmt USING @user, @pass;
+```
+
+---
+
+### 🔹 **Bài 3: Sao lưu & khôi phục database**
+📌 **Yêu cầu:**
+✔ Sao lưu database `sales_db` thành file `sales_backup.sql`.
+✔ Khôi phục lại từ file backup.
+
+📝 **Gợi ý đáp án:**
+```bash
+mysqldump -u root -p sales_db > sales_backup.sql
+mysql -u root -p sales_db < sales_backup.sql
+```
+
+---
+
+#### 📌 **Tóm tắt bài học**
+🔹 **Quản lý quyền truy cập (GRANT, REVOKE, ROLES) giúp bảo mật dữ liệu.**
+🔹 **SQL Injection là nguy hiểm, cần sử dụng Prepared Statements.**
+🔹 **Sao lưu thường xuyên để bảo vệ dữ liệu trước sự cố.**
+
+---
+
+🚀 **Tiếp theo:** [Tổng kết series.](99.%20Summary.md).
+
+📌 **Lộ trình:** [Học SQL trong 30 ngày](00.%2030-Day%20SQL%20Learning%20Roadmap.md).

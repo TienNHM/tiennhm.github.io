@@ -1,0 +1,109 @@
+# 12. UNION - INTERSECT
+
+> Nguồn: https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/12-union-intersect
+> Giới thiệu về truy vấn hợp nhất (UNION) và truy vấn giao nhau (INTERSECT) trong SQL, cách sử dụng và ví dụ minh họa.
+
+> Bài 12 giới thiệu UNION/UNION ALL để hợp nhất kết quả từ nhiều truy vấn và INTERSECT để lấy phần giao giữa chúng, giúp bạn kết hợp hoặc so sánh tập dữ liệu từ nhiều nguồn/bảng khác nhau.
+
+> Mục tiêu bài học: Giới thiệu về truy vấn hợp nhất (UNION) và truy vấn giao nhau (INTERSECT) trong SQL, cách sử dụng và ví dụ minh họa.
+
+Hôm nay, bạn sẽ học cách **kết hợp dữ liệu từ nhiều truy vấn khác nhau** bằng cách sử dụng `UNION` và `INTERSECT`. Đây là các công cụ hữu ích khi bạn cần **hợp nhất hoặc tìm dữ liệu chung** từ nhiều bảng trong cơ sở dữ liệu.
+
+---
+
+## **1️⃣ UNION - Hợp dữ liệu từ nhiều truy vấn**
+
+### **📌 Cách hoạt động của UNION**
+- **`UNION` dùng để kết hợp kết quả của hai hoặc nhiều truy vấn.**
+- Mặc định, `UNION` **loại bỏ các dòng trùng lặp**.
+- Để giữ lại tất cả các dòng, kể cả trùng lặp, dùng **`UNION ALL`**.
+
+### **📌 Cấu trúc**
+```sql
+SELECT column1, column2 FROM table1
+UNION
+SELECT column1, column2 FROM table2;
+```
+
+📌 **Lưu ý:**
+✔️ Số cột của cả hai truy vấn phải giống nhau.
+✔️ Kiểu dữ liệu của các cột tương ứng phải tương thích.
+
+### **📌 Ví dụ 1: Hợp danh sách khách hàng từ hai bảng**
+```sql
+SELECT Name, Email FROM Customers_USA
+UNION
+SELECT Name, Email FROM Customers_Europe;
+```
+
+✅ **Kết quả:**
+Danh sách khách hàng từ cả hai bảng **không chứa trùng lặp**.
+
+### **📌 Ví dụ 2: Giữ lại dữ liệu trùng với UNION ALL**
+```sql
+SELECT Name, Email FROM Customers_USA
+UNION ALL
+SELECT Name, Email FROM Customers_Europe;
+```
+
+✅ **Kết quả:**
+Danh sách khách hàng từ cả hai bảng **bao gồm cả trùng lặp**.
+
+---
+
+## **2️⃣ INTERSECT - Lấy dữ liệu chung giữa hai tập kết quả**
+
+### **📌 Cách hoạt động của INTERSECT**
+- **`INTERSECT` chỉ lấy các dòng xuất hiện trong cả hai truy vấn.**
+- Không có `INTERSECT ALL` như `UNION ALL`.
+- Không phải tất cả hệ quản trị SQL đều hỗ trợ `INTERSECT` (MySQL không hỗ trợ).
+
+### **📌 Cấu trúc**
+```sql
+SELECT column1, column2 FROM table1
+INTERSECT
+SELECT column1, column2 FROM table2;
+```
+
+📌 **Lưu ý:**
+✔️ Số lượng cột và kiểu dữ liệu phải giống nhau.
+
+### **📌 Ví dụ 3: Tìm khách hàng có ở cả hai bảng**
+```sql
+SELECT Name, Email FROM Customers_USA
+INTERSECT
+SELECT Name, Email FROM Customers_Europe;
+```
+
+✅ **Kết quả:**
+Danh sách khách hàng xuất hiện **cả ở USA và Europe**.
+
+---
+
+## **3️⃣ So sánh UNION vs INTERSECT**
+
+| Tính năng            | `UNION`      | `UNION ALL`    | `INTERSECT`    |
+|----------------------|--------------|----------------|----------------|
+| Kết hợp dữ liệu      | ✅ Có        | ✅ Có         | ❌ Không       |
+| Loại bỏ trùng        | ✅ Có        | ❌ Không      | ✅ Có          |
+| Hiển thị tất cả dòng | ❌ Không     | ✅ Có         | ❌ Không       |
+| Lấy dữ liệu chung    | ❌ Không     | ❌ Không      | ✅ Có          |
+
+---
+
+## **4️⃣ Bài tập thử thách 🚀**
+👉 **Bài 1:** Lấy danh sách tất cả khách hàng từ bảng `Customers_Online` và `Customers_Offline`.
+👉 **Bài 2:** Tìm danh sách sản phẩm được bán cả ở cửa hàng và online (`Products_Store` & `Products_Online`).
+👉 **Bài 3:** Hợp danh sách nhân viên từ hai chi nhánh khác nhau.
+👉 **Bài 4:** Tìm khách hàng đã từng mua hàng ở cả Mỹ và châu Âu.
+
+---
+
+✅ **Tóm tắt Ngày 12:**
+✔️ **`UNION`** kết hợp kết quả của hai truy vấn và loại bỏ trùng lặp.
+✔️ **`UNION ALL`** kết hợp tất cả dữ liệu và giữ lại trùng lặp.
+✔️ **`INTERSECT`** lấy phần dữ liệu chung giữa hai truy vấn.
+
+🚀 **Tiếp theo:** Học về [CASE WHEN (Điều kiện trong SQL)](13.%20CASE%20WHEN.md)!
+
+📌 **Lộ trình:** [Học SQL trong 30 ngày](00.%2030-Day%20SQL%20Learning%20Roadmap.md)

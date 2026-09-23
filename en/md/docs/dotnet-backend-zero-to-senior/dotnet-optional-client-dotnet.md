@@ -1,0 +1,57 @@
+# Tùy chọn — Client .NET (ngoài phạm vi backend-first)
+
+> Nguồn: https://tiennhm.io.vn/en/docs/dotnet-backend-zero-to-senior/dotnet-optional-client-dotnet
+> Phụ lục: Blazor, .NET MAUI, Razor-heavy UI — ngoài phạm vi backend-first; tham chiếu roadmap.sh và Microsoft Learn.
+
+**Scope note.** Giải thích vì sao **UI client trên .NET** không thuộc lõi giáo trình backend-first, và cung cấp **đường dẫn tham chiếu** (Microsoft Learn, roadmap.sh) cho học viên mở rộng theo nhu cầu tổ chức.
+
+## Liên kết điều phối (curriculum graph)
+
+- **Hub lộ trình**: [00. Lộ trình From Zero → Senior .NET (Backend-first)](roadmap-dotnet-backend-zero-to-senior.mdx)
+- **Chương trước**: [Final Project — Enterprise CRM / ERP Platform](stage-05-senior-engineering/final-project-enterprise-crm-erp.mdx)
+
+## Tham chiếu có thẩm quyền (E‑E‑A‑T / retrieval)
+
+Danh sách sau ưu tiên **tài liệu gốc** (Microsoft Learn, đặc tả hệ sinh thái .NET) nhằm tăng **độ tin cậy trích dẫn** và hỗ trợ **công cụ tìm kiếm / tác tử AI** (RAG, overview synthesis).
+
+- [.NET documentation — Microsoft Learn](https://learn.microsoft.com/dotnet/)
+- [ASP.NET Core documentation](https://learn.microsoft.com/aspnet/core/)
+- [ASP.NET Core Developer roadmap — roadmap.sh](https://roadmap.sh/aspnet-core)
+- [Blazor documentation](https://learn.microsoft.com/aspnet/core/blazor/)
+- [.NET MAUI documentation](https://learn.microsoft.com/dotnet/maui/)
+
+## Từ khóa chỉ mục (semantic hooks)
+
+Các thẻ `tags` / `keywords` trong frontmatter của trang này được chọn để **đồng nhất ngữ nghĩa** với chủ đề chương và với **đồ thị nội bộ** của giáo trình — hỗ trợ khám phá theo chủ đề và câu hỏi dạng *"học .NET backend theo lộ trình nào?"*.
+
+## Mục đích trang
+
+Giáo trình **From Zero → Senior .NET (Backend-first)** tập trung API, data, distributed system và production. Các hướng **UI client .NET** (Blazor WebAssembly/Server, .NET MAUI, Razor Components nặng UI) **không** nằm trong lộ trình lõi.
+
+## Khi nào nên học thêm
+
+- Team internal tool cần UI nhanh trên stack Microsoft.
+- Sản phẩm cần desktop/mobile chung ecosystem .NET.
+
+## Hướng dẫn chọn nhanh
+
+Nếu bạn đang phân vân có nên học nhánh client .NET ngay hay không, hãy chọn theo mục tiêu công việc:
+
+- **Muốn đi làm backend sớm:** tiếp tục bám lộ trình lõi, chưa cần học sâu Blazor/MAUI.
+- **Team dùng full Microsoft stack:** học thêm Blazor Server để làm dashboard nội bộ nhanh.
+- **Cần app mobile/desktop dùng chung C#:** học MAUI sau khi đã nắm chắc API backend.
+
+Một nguyên tắc đơn giản: **backend vững trước, UI mở rộng sau**. Khi chưa chắc HTTP, auth, database mà nhảy sang UI sớm, bạn rất dễ biết "vẽ màn" nhưng không hiểu hệ thống chạy bên dưới.
+
+## Ví dụ lộ trình mở rộng 4 tuần (sau khi xong lõi backend)
+
+- **Tuần 1:** đọc tổng quan Blazor, chạy sample component đơn giản.
+- **Tuần 2:** gọi API CRM backend từ Blazor, hiển thị danh sách khách hàng.
+- **Tuần 3:** thêm đăng nhập JWT và xử lý trạng thái hết hạn token trên UI.
+- **Tuần 4:** đóng gói bản demo (Blazor hoặc MAUI) và viết README triển khai.
+
+Mục tiêu của track tùy chọn là giúp bạn mở rộng năng lực theo nhu cầu dự án, không thay thế trục backend-first của giáo trình chính.
+
+## Tài liệu ngoài
+
+- [ASP.NET Core Developer Roadmap (roadmap.sh)](https://roadmap.sh/aspnet-core) — nhánh Blazor / client .NET trên cùng một graph kỹ năng.

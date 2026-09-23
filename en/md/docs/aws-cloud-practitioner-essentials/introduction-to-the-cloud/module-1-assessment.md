@@ -1,0 +1,307 @@
+# M01.06 - Module 1 Assessment
+
+> Nguồn: https://tiennhm.io.vn/en/docs/aws-cloud-practitioner-essentials/introduction-to-the-cloud/module-1-assessment
+> Bài kiểm tra Module 1 - Introduction to the Cloud. Bạn phải đạt 80% trở lên để vượt qua module này. Bạn có thể làm lại không giới hạn số lần.
+
+> **Info: 📝 Thông tin Bài kiểm tra**
+>
+> **Yêu cầu:** Bạn phải đạt **80% trở lên** (7/8 câu đúng) để vượt qua module này.
+>
+> **Số lần làm lại:** Không giới hạn
+>
+> **Chúc may mắn!** 🍀
+---
+
+## Question 01/08
+
+### English 🇺🇸
+
+A government agency wants to maintain complete control over its IT infrastructure, but plans to use AWS Cloud services for specific applications.
+
+Which deployment type is BEST for this situation?
+
+- ❌ On-premises
+- ✅ **Hybrid** ← Correct
+- ❌ Compliance
+- ❌ Cloud
+
+**Explanation:** Hybrid deployment is a solution where the agency can maintain control over on-premises systems while using cloud services for other applications.
+
+---
+
+### Tiếng Việt 🇻🇳
+
+Một cơ quan chính phủ muốn duy trì quyền kiểm soát hoàn toàn đối với hạ tầng IT của mình, nhưng có kế hoạch sử dụng các dịch vụ AWS Cloud cho các ứng dụng cụ thể.
+
+Loại triển khai nào TỐT NHẤT cho tình huống này?
+
+- ❌ On-premises (Tại chỗ)
+- ✅ **Hybrid (Lai)** ← Đúng
+- ❌ Compliance (Tuân thủ)
+- ❌ Cloud (Điện toán đám mây)
+
+**Giải thích:** Hybrid deployment là một giải pháp nơi cơ quan có thể duy trì quyền kiểm soát đối với các hệ thống on-premises trong khi sử dụng dịch vụ cloud cho các ứng dụng khác.
+
+---
+
+## Question 02/08
+
+### English 🇺🇸
+
+You are a software developer working for a company that is planning to migrate its existing application to the cloud. Your team lead has asked you to explain the client-server model to the rest of the team and how cloud computing fits into this model.
+
+Which statement BEST describes the client-server model and its relationship to cloud computing?
+
+- ❌ In the client-server model, the client is responsible for securing their data, and the server is responsible for securing the physical hardware. Cloud computing replaces the client-server model.
+- ❌ The client-server model is outdated and no longer used in modern applications. Cloud computing has replaced it completely.
+- ❌ In the client-server model, the server only handles data storage, and the client performs all processing tasks. Cloud computing provides data storage, but not processing power.
+- ✅ **In the client-server model, the client sends requests to the server, which processes the requests and sends back responses. Cloud computing provides scalable server resources that can be accessed over the internet.** ← Correct
+
+**Explanation:** This answer accurately describes the client-server model where the client sends requests to the server. The server processes these requests and returns the appropriate responses. Cloud computing provides scalable and flexible server resources that can be accessed over the internet.
+
+---
+
+### Tiếng Việt 🇻🇳
+
+Bạn là một developer đang làm việc cho một công ty có kế hoạch migrate ứng dụng hiện có lên cloud. Team lead của bạn yêu cầu bạn giải thích mô hình client-server cho phần còn lại của team và cách cloud computing phù hợp với mô hình này.
+
+Câu nào MÔ TẢ TỐT NHẤT mô hình client-server và mối quan hệ của nó với cloud computing?
+
+- ❌ Trong mô hình client-server, client chịu trách nhiệm bảo mật dữ liệu của họ, và server chịu trách nhiệm bảo mật phần cứng vật lý. Cloud computing thay thế mô hình client-server.
+- ❌ Mô hình client-server đã lỗi thời và không còn được sử dụng trong các ứng dụng hiện đại. Cloud computing đã thay thế nó hoàn toàn.
+- ❌ Trong mô hình client-server, server chỉ xử lý lưu trữ dữ liệu, và client thực hiện tất cả các tác vụ xử lý. Cloud computing cung cấp lưu trữ dữ liệu, nhưng không cung cấp sức mạnh xử lý.
+- ✅ **Trong mô hình client-server, client gửi requests đến server, server xử lý các requests và gửi lại responses. Cloud computing cung cấp các tài nguyên server có thể mở rộng có thể được truy cập qua internet.** ← Đúng
+
+**Giải thích:** Câu trả lời này mô tả chính xác mô hình client-server nơi client gửi requests đến server. Server xử lý các requests này và trả về các responses phù hợp. Cloud computing cung cấp các tài nguyên server có thể mở rộng và linh hoạt có thể được truy cập qua internet.
+
+---
+
+## Question 03/08
+
+### English 🇺🇸
+
+You work for a sports apparel company that is expanding its operations to global customers. The company wants to deploy resources to multiple AWS locations to achieve high availability. You are tasked with explaining the basics of AWS Global Infrastructure to your chief operating officer (COO). The COO needs help understanding the difference between AWS Regions and Availability Zones.
+
+Which statement BEST describes the difference between AWS Regions and Availability Zones?
+
+- ❌ An Availability Zone spans multiple physical locations across Regions, and Regions are located across the world.
+- ✅ **A Region is a geographical location that contains three or more Availability Zones. An Availability Zone is a distinct location within a Region that contains one or more discrete data centers.** ← Correct
+- ❌ An Availability Zone is a geographical location that contains three or more Regions. A Region is a distinct location within an Availability Zone that contains one or more discrete data centers.
+- ❌ A Region is a single data center, and an Availability Zone consists of multiple data centers.
+
+**Explanation:** A Region is a physical location around the world that contains multiple, isolated data centers. An Availability Zone consists of one or more discrete data centers, each with independent power, networking, and connectivity.
+
+---
+
+### Tiếng Việt 🇻🇳
+
+Bạn làm việc cho một công ty quần áo thể thao đang mở rộng hoạt động đến khách hàng toàn cầu. Công ty muốn triển khai tài nguyên đến nhiều vị trí AWS để đạt được tính sẵn sàng cao. Bạn được giao nhiệm vụ giải thích những điều cơ bản về AWS Global Infrastructure cho giám đốc điều hành (COO) của bạn. COO cần giúp hiểu sự khác biệt giữa AWS Regions và Availability Zones.
+
+Câu nào MÔ TẢ TỐT NHẤT sự khác biệt giữa AWS Regions và Availability Zones?
+
+- ❌ Một Availability Zone trải dài trên nhiều vị trí vật lý trên các Regions, và Regions được đặt trên khắp thế giới.
+- ✅ **Một Region là một vị trí địa lý chứa ba hoặc nhiều Availability Zones. Một Availability Zone là một vị trí riêng biệt trong một Region chứa một hoặc nhiều data centers riêng biệt.** ← Đúng
+- ❌ Một Availability Zone là một vị trí địa lý chứa ba hoặc nhiều Regions. Một Region là một vị trí riêng biệt trong một Availability Zone chứa một hoặc nhiều data centers riêng biệt.
+- ❌ Một Region là một data center duy nhất, và một Availability Zone bao gồm nhiều data centers.
+
+**Giải thích:** Một Region là một vị trí vật lý trên khắp thế giới chứa nhiều data centers được cách ly. Một Availability Zone bao gồm một hoặc nhiều data centers riêng biệt, mỗi cái có nguồn điện, mạng và kết nối độc lập.
+
+---
+
+## Question 04/08
+
+### English 🇺🇸
+
+A large enterprise is looking to lower operational costs. They are hoping to reduce the operational overhead associated with managing their own physical infrastructure.
+
+Which choice BEST describes which advantage of the cloud this enterprise can benefit from?
+
+- ✅ **Stop spending money running and maintaining data centers** ← Correct
+- ❌ Stop guessing capacity
+- ❌ Benefit from massive economies of scale
+- ❌ Increase speed and agility
+
+**Explanation:** By moving to the cloud, the enterprise can offload the responsibility of maintaining physical data centers, reducing operational overhead.
+
+---
+
+### Tiếng Việt 🇻🇳
+
+Một doanh nghiệp lớn đang tìm cách giảm chi phí vận hành. Họ hy vọng giảm overhead vận hành liên quan đến việc quản lý hạ tầng vật lý của chính họ.
+
+Lựa chọn nào MÔ TẢ TỐT NHẤT lợi ích nào của cloud mà doanh nghiệp này có thể hưởng lợi?
+
+- ✅ **Không cần chi tiền vận hành và bảo trì data centers** ← Đúng
+- ❌ Không cần đoán dung lượng
+- ❌ Hưởng lợi từ quy mô kinh tế lớn
+- ❌ Tăng tốc độ và tính linh hoạt
+
+**Giải thích:** Bằng cách chuyển sang cloud, doanh nghiệp có thể chuyển giao trách nhiệm bảo trì data centers vật lý, giảm overhead vận hành.
+
+---
+
+## Question 05/08
+
+### English 🇺🇸
+
+A finance company is interested in migrating to the cloud. They are curious if they will have enough staff to secure both their office space and the physical infrastructure of their cloud computing resources.
+
+Which statement BEST describes the company's responsibility when it comes to securing physical infrastructure of the cloud?
+
+- ❌ The company shares responsibility with the cloud provider for securing the physical infrastructure.
+- ✅ **AWS is responsible for securing the physical infrastructure, and the company can focus on securing their data and applications within the cloud.** ← Correct
+- ❌ The company does not have any responsibility when it comes to security in the cloud.
+- ❌ The company is fully responsible for securing all physical infrastructure of the cloud, including data centers.
+
+**Explanation:** AWS is responsible for the physical security of data centers. This includes measures like access controls, surveillance, and environmental controls. Companies migrating to the cloud still have responsibilities such as security configurations and data within their cloud environments.
+
+---
+
+### Tiếng Việt 🇻🇳
+
+Một công ty tài chính quan tâm đến việc migrate lên cloud. Họ tò mò liệu họ có đủ nhân viên để bảo mật cả không gian văn phòng và hạ tầng vật lý của các tài nguyên cloud computing của họ.
+
+Câu nào MÔ TẢ TỐT NHẤT trách nhiệm của công ty khi nói đến việc bảo mật hạ tầng vật lý của cloud?
+
+- ❌ Công ty chia sẻ trách nhiệm với nhà cung cấp cloud để bảo mật hạ tầng vật lý.
+- ✅ **AWS chịu trách nhiệm bảo mật hạ tầng vật lý, và công ty có thể tập trung vào việc bảo mật dữ liệu và ứng dụng của họ trong cloud.** ← Đúng
+- ❌ Công ty không có bất kỳ trách nhiệm nào khi nói đến bảo mật trong cloud.
+- ❌ Công ty hoàn toàn chịu trách nhiệm bảo mật tất cả hạ tầng vật lý của cloud, bao gồm data centers.
+
+**Giải thích:** AWS chịu trách nhiệm về bảo mật vật lý của data centers. Điều này bao gồm các biện pháp như kiểm soát truy cập, giám sát và kiểm soát môi trường. Các công ty migrate lên cloud vẫn có trách nhiệm như cấu hình bảo mật và dữ liệu trong môi trường cloud của họ.
+
+---
+
+## Question 06/08
+
+### English 🇺🇸
+
+A small business is considering migrating their IT infrastructure to the cloud. The finance team has a meeting with the IT department to discuss the costs associated with this transition. During the meeting, the finance manager says they like the idea of the reliability that comes with the cloud, but they are worried about the fixed costs.
+
+Which statement accurately defines the cloud computing model and addresses the finance manager's concern?
+
+- ❌ Cloud computing involves purchasing dedicated servers and setting up a private data center. This model often comes with fixed costs related to hardware and maintenance.
+- ❌ Cloud computing is basically just using someone else's server to host your website, and it does not offer any sort of significant cost advantages over traditional hosting solutions.
+- ✅ **Cloud computing is a model for delivering IT resources over the internet. Businesses can rent services on a pay-as-you-go basis, which can help reduce fixed costs and allow for more flexible budgeting.** ← Correct
+- ❌ Cloud computing reduces the need for additional hardware but still involves significant fixed monthly fees.
+
+**Explanation:** Cloud computing can be defined as the on-demand delivery of IT resources over the internet with pay-as-you-go pricing. This answer accurately defines cloud computing and directly addresses the finance manager's concern about fixed costs.
+
+---
+
+### Tiếng Việt 🇻🇳
+
+Một doanh nghiệp nhỏ đang cân nhắc migrate hạ tầng IT của họ lên cloud. Team tài chính có một cuộc họp với bộ phận IT để thảo luận về chi phí liên quan đến quá trình chuyển đổi này. Trong cuộc họp, quản lý tài chính nói rằng họ thích ý tưởng về độ tin cậy đi kèm với cloud, nhưng họ lo lắng về chi phí cố định.
+
+Câu nào định nghĩa chính xác mô hình cloud computing và giải quyết mối quan tâm của quản lý tài chính?
+
+- ❌ Cloud computing liên quan đến việc mua dedicated servers và thiết lập một data center riêng. Mô hình này thường đi kèm với chi phí cố định liên quan đến phần cứng và bảo trì.
+- ❌ Cloud computing về cơ bản chỉ là sử dụng server của người khác để host website của bạn, và nó không cung cấp bất kỳ lợi ích chi phí đáng kể nào so với các giải pháp hosting truyền thống.
+- ✅ **Cloud computing là một mô hình để cung cấp tài nguyên IT qua internet. Doanh nghiệp có thể thuê dịch vụ trên cơ sở pay-as-you-go, điều này có thể giúp giảm chi phí cố định và cho phép ngân sách linh hoạt hơn.** ← Đúng
+- ❌ Cloud computing giảm nhu cầu về phần cứng bổ sung nhưng vẫn liên quan đến phí hàng tháng cố định đáng kể.
+
+**Giải thích:** Cloud computing có thể được định nghĩa là việc cung cấp theo nhu cầu các tài nguyên IT qua internet với mô hình định giá pay-as-you-go. Câu trả lời này định nghĩa chính xác cloud computing và trực tiếp giải quyết mối quan tâm của quản lý tài chính về chi phí cố định.
+
+---
+
+## Question 07/08
+
+### English 🇺🇸
+
+Your company is planning to launch a new web application that will serve users around the world. To help ensure the application performs well and remains reliable, the IT team plans to use AWS for its vast global infrastructure.
+
+What BEST describes the benefits of AWS Global Infrastructure related to this situation? **(Select TWO.)**
+
+- ✅ **High availability** ← Correct
+- ❌ Cost savings
+- ✅ **Fault tolerance** ← Correct
+- ❌ Compliance with regulatory standards
+- ❌ Ease of use
+
+**Explanation:** Global infrastructure typically involves distributing resources across multiple data centers in different geographic locations. By having redundant systems in various locations, global infrastructure enhances fault tolerance. If one component fails, others can take over to minimize downtime and help ensure high availability.
+
+Ease of use, compliance, and cost savings are benefits that can be achieved by using cloud resources. However, in this case, the focus is on making resources highly available to global users.
+
+---
+
+### Tiếng Việt 🇻🇳
+
+Công ty của bạn đang lên kế hoạch ra mắt một ứng dụng web mới sẽ phục vụ người dùng trên khắp thế giới. Để giúp đảm bảo ứng dụng hoạt động tốt và duy trì độ tin cậy, team IT có kế hoạch sử dụng AWS cho hạ tầng toàn cầu rộng lớn của nó.
+
+Điều gì MÔ TẢ TỐT NHẤT các lợi ích của AWS Global Infrastructure liên quan đến tình huống này? **(Chọn HAI.)**
+
+- ✅ **High availability (Tính sẵn sàng cao)** ← Đúng
+- ❌ Cost savings (Tiết kiệm chi phí)
+- ✅ **Fault tolerance (Khả năng chịu lỗi)** ← Đúng
+- ❌ Compliance with regulatory standards (Tuân thủ các tiêu chuẩn quy định)
+- ❌ Ease of use (Dễ sử dụng)
+
+**Giải thích:** Hạ tầng toàn cầu thường liên quan đến việc phân phối tài nguyên trên nhiều data centers ở các vị trí địa lý khác nhau. Bằng cách có các hệ thống dự phòng ở nhiều vị trí, hạ tầng toàn cầu tăng cường khả năng chịu lỗi. Nếu một thành phần gặp sự cố, các thành phần khác có thể tiếp quản để giảm thiểu downtime và giúp đảm bảo tính sẵn sàng cao.
+
+Dễ sử dụng, tuân thủ và tiết kiệm chi phí là những lợi ích có thể đạt được bằng cách sử dụng tài nguyên cloud. Tuy nhiên, trong trường hợp này, trọng tâm là làm cho tài nguyên có tính sẵn sàng cao cho người dùng toàn cầu.
+
+---
+
+## Question 08/08
+
+### English 🇺🇸
+
+You are a cloud architect at a company that has recently migrated its infrastructure to AWS. Your manager has asked you to debrief your team on which responsibilities the customer has when it comes to securing cloud resources.
+
+What is the customer's responsibility, based on the AWS Shared Responsibility Model? **(Select TWO.)**
+
+- ❌ Physical security of data centers
+- ✅ **Encrypting client-side data** ← Correct
+- ❌ Networking and infrastructure hardware maintenance
+- ✅ **Managing operating system (OS) patches** ← Correct
+- ❌ Updating compute, networking, storage, and database software
+
+**Explanation:** In the AWS Shared Responsibility Model, the customer is responsible for managing OS patches. AWS provides the underlying infrastructure, but the customer must make sure that their OSs are up to date with the latest security patches. The customer is also responsible for encrypting client-side data. AWS provides various services to help with encryption, but it is the customer's responsibility to implement and manage these services.
+
+Physical security of data centers and hardware maintenance are AWS responsibilities. Updating software for compute, networking, storage, and database services is also an AWS responsibility.
+
+---
+
+### Tiếng Việt 🇻🇳
+
+Bạn là một cloud architect tại một công ty gần đây đã migrate hạ tầng của mình lên AWS. Quản lý của bạn đã yêu cầu bạn báo cáo lại cho team về những trách nhiệm mà khách hàng có khi nói đến việc bảo mật tài nguyên cloud.
+
+Trách nhiệm của khách hàng là gì, dựa trên AWS Shared Responsibility Model? **(Chọn HAI.)**
+
+- ❌ Physical security of data centers (Bảo mật vật lý của data centers)
+- ✅ **Encrypting client-side data (Mã hóa dữ liệu phía khách hàng)** ← Đúng
+- ❌ Networking and infrastructure hardware maintenance (Bảo trì mạng và phần cứng hạ tầng)
+- ✅ **Managing operating system (OS) patches (Quản lý patches hệ điều hành)** ← Đúng
+- ❌ Updating compute, networking, storage, and database software (Cập nhật phần mềm compute, networking, storage và database)
+
+**Giải thích:** Trong AWS Shared Responsibility Model, khách hàng chịu trách nhiệm quản lý OS patches. AWS cung cấp hạ tầng bên dưới, nhưng khách hàng phải đảm bảo rằng OS của họ được cập nhật với các security patches mới nhất. Khách hàng cũng chịu trách nhiệm mã hóa dữ liệu phía khách hàng. AWS cung cấp các dịch vụ khác nhau để giúp mã hóa, nhưng trách nhiệm của khách hàng là triển khai và quản lý các dịch vụ này.
+
+Bảo mật vật lý của data centers và bảo trì phần cứng là trách nhiệm của AWS. Cập nhật phần mềm cho các dịch vụ compute, networking, storage và database cũng là trách nhiệm của AWS.
+
+---
+
+## Tổng kết
+
+> **Tip: 💡 Mẹo làm bài**
+>
+> - Đọc kỹ câu hỏi và tất cả các lựa chọn trước khi trả lời
+> - Chú ý các từ khóa như "BEST", "MOST", "TWO" trong câu hỏi
+> - Loại bỏ các lựa chọn rõ ràng sai trước
+> - Xem lại các khái niệm đã học nếu cần
+**Chúc bạn làm bài tốt!** 🍀
+
+Sau khi hoàn thành, bạn có thể xem lại các bài học trong Module 1 nếu cần ôn tập thêm.
+
+---
+
+## Tài liệu tham khảo
+
+- 📚 [Module 1 - Introduction to the Cloud](./01.introduction-to-the-cloud.md)
+- 🌍 [AWS Global Infrastructure](./03.introduction-to-aws-global-infrastructure.md)
+- 🤝 [AWS Shared Responsibility Model](./04.shared-responsibility-model.md)
+- 💡 [Cloud Benefits](./02.benefits-of-the-aws-cloud.md)
+- 🌐 [Real Life Use Cases](./05.applying-cloud-concepts-to-real-life-use-cases.md)
+
+---
+
+*Bài kiểm tra này dựa trên nội dung Module 1 - Introduction to the Cloud của khóa học AWS Cloud Practitioner Essentials. Bài viết được cập nhật vào tháng 11/2025.*

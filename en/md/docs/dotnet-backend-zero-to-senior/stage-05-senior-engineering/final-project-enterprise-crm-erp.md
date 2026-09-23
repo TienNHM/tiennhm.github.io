@@ -1,0 +1,303 @@
+# docs/dotnet-backend-zero-to-senior/stage-05-senior-engineering/final-project-enterprise-crm-erp
+
+> Nguồn: https://tiennhm.io.vn/en/docs/dotnet-backend-zero-to-senior/stage-05-senior-engineering/final-project-enterprise-crm-erp
+
+## Phương pháp học tập
+
+Bài học này được dẫn dắt theo chu trình học tập chủ động:
+
+1. **Khởi động tư duy**: bắt đầu bằng câu hỏi gợi mở để kích hoạt kiến thức nền.
+2. **Kiến tạo kiến thức**: học khái niệm cốt lõi đi kèm ví dụ có ngữ cảnh.
+3. **Luyện tập có hướng dẫn**: áp dụng qua mini case và ví dụ thực tế ngắn.
+4. **Tự đánh giá và phản tư**: dùng checklist + bài thực hành để chốt năng lực.
+
+> Mục tiêu là bạn hiểu sâu, dùng được ngay, và tự đánh giá được mức độ nắm bài.
+---
+title: "Final Project — Enterprise CRM / ERP Platform"
+slug: dotnet-final-project-enterprise-crm-erp
+description: "Final enterprise CRM/ERP: kiến trúc, authZ nâng cao, thanh toán sandbox, event-driven — portfolio senior/architect."
+sidebar_position: 5
+tags:
+  - final-project
+  - enterprise-crm
+  - erp-integration
+  - event-driven-architecture
+  - payment-webhooks
+  - portfolio
+keywords:
+  - enterprise CRM architecture
+  - ERP integration patterns
+  - payment idempotency
+  - outbox event-driven
+  - senior developer portfolio
+enableComments: true
+draft: false
+---
+
+**Abstract (terminal capstone).** Yêu cầu **chứng minh quyền sở hữu kiến trúc** qua vài luồng nghiệp vụ sâu: phân quyền tinh, tích hợp thanh toán sandbox, **event-driven** có idempotency — ưu tiên **tài liệu trade-off** và quan sát production-like hơn phạm vi chức năng rộng nông.
+
+## Câu hỏi khởi động
+
+- Nếu không có kiến thức trong bài này, hệ thống CRM/ERP sẽ gặp rủi ro gì?
+- Trong dự án thực tế, bạn nghĩ phần kiến thức này nằm ở tầng nào (API, nghiệp vụ, dữ liệu, vận hành)?
+- Dấu hiệu nào cho thấy bạn đã hiểu bản chất bài học (không chỉ nhớ định nghĩa)?
+## Liên kết điều phối (curriculum graph)
+
+- **Hub lộ trình**: [00. Lộ trình From Zero → Senior .NET (Backend-first)](../roadmap-dotnet-backend-zero-to-senior.mdx)
+- **Chương trước**: [Module 19 — Performance Engineering](module-19-performance-engineering/)
+- **Chương tiếp theo**: [Tùy chọn — Client .NET (ngoài phạm vi backend-first)](../optional-client-dotnet.mdx)
+
+## Tham chiếu có thẩm quyền (E‑E‑A‑T / retrieval)
+
+Danh sách sau ưu tiên **tài liệu gốc** (Microsoft Learn, đặc tả hệ sinh thái .NET) nhằm tăng **độ tin cậy trích dẫn** và hỗ trợ **công cụ tìm kiếm / tác tử AI** (RAG, overview synthesis).
+
+- [.NET documentation — Microsoft Learn](https://learn.microsoft.com/dotnet/)
+- [ASP.NET Core documentation](https://learn.microsoft.com/aspnet/core/)
+- [ASP.NET Core Developer roadmap — roadmap.sh](https://roadmap.sh/aspnet-core)
+- [Architecting modern web applications with ASP.NET Core and Azure](https://learn.microsoft.com/dotnet/architecture/modern-web-apps-azure/)
+- [Designing Data-Intensive Applications (book reference)](https://dataintensive.net/)
+
+## Từ khóa chỉ mục (semantic hooks)
+
+Các thẻ `tags` / `keywords` trong frontmatter của trang này được chọn để **đồng nhất ngữ nghĩa** với chủ đề chương và với **đồ thị nội bộ** của giáo trình — hỗ trợ khám phá theo chủ đề và câu hỏi dạng *"học .NET backend theo lộ trình nào?"*.
+
+## 1. Mục tiêu dự án
+
+Sau final project, bạn chứng minh được:
+
+- Thiết kế **kiến trúc** (monolith module hóa hoặc vài microservice có lý do).
+- **AuthZ** phức tạp hơn CRUD (role, policy, resource-based nếu phù hợp).
+- **Event-driven** với outbox hoặc tương đương; consumer **idempotent**.
+- **Thanh toán** (sandbox) + webhook có chữ ký / idempotency key.
+- **Omnichannel** tối thiểu: một abstraction gửi tin (email + SMS *hoặc* chat) qua provider cụ thể.
+- **Observability**: log có correlation, trace xuyên service (nếu tách), metrics cơ bản.
+- **Triển khai**: Docker Compose hoặc script README rõ ràng; CI chạy test/lint.
+
+## 2. Phạm vi gợi ý (chọn lõi)
+
+Bạn không bắt buộc implement toàn bộ danh sách dưới đây — hãy **chọn trục xương sống** và làm sâu.
+
+| Miền | Ý nghĩa trong CRM/ERP |
+|------|------------------------|
+| CRM | Lead, Account, Contact, Opportunity pipeline |
+| Ticketing | Case, SLA, assignment, internal note |
+| Membership | Đăng ký gói, renewal, downgrade |
+| Loyalty | Điểm, tier, expiry rule |
+| Payment | Stripe/PayPal sandbox, invoice sync |
+| Contact center | Queue, agent, disposition code (rút gọn) |
+| Omnichannel | Email/SMS/push adapter chung |
+| Event-driven | Domain events + integration events (Module 17) |
+| Microservices | Tách 2–3 service có boundary rõ + gateway (Module 18) |
+| Production deploy | HTTPS, secret, health, backup strategy tài liệu hóa |
+
+## 3. Tiêu chí “đạt” theo cấp
+
+### 3.1 Tối thiểu (Pass)
+
+- 2 bounded context có **model riêng** (không share entity cross DbContext “chung chạ”).
+- 1 luồng **write phức tạp** có transaction rõ (ví dụ convert lead + tạo invoice draft).
+- Test tự động: **unit** domain + **integration** API chính (≥ một controller quan trọng).
+- Docker Compose: API + DB (+ broker nếu có event).
+
+### 3.2 Khá (Strong)
+
+- Outbox + worker; consumer có bảng `ProcessedMessages`.
+- Gateway YARP hoặc tương đương nếu ≥ 2 public API surface.
+- OpenTelemetry trace end-to-end cho luồng chính.
+
+### 3.3 Xuất sắc (Exemplary)
+
+- ADR (Architecture Decision Record) cho 3 quyết định quan trọng (monolith so với split, broker choice, multi-tenant model).
+- Load test nhỏ có biểu đồ latency trước/sau một tối ưu có căn cứ (Module 19).
+- Threat model ngắn: auth webhook, secret storage, tenant isolation.
+
+## 4. Gợi ý tiếp cận theo giai đoạn
+
+**Tuần 1–2: Domain & hợp đồng**
+
+- Vẽ **C4 Level 2–3** (container + component) — có thể dùng Structurizr, Mermaid, hoặc draw.io.
+- Viết glossary thuật ngữ (Lead so với Customer so với Account).
+
+**Tuần 3–4: Luồng xương sống**
+
+- Ví dụ: **Sales**: create lead → qualify → convert to customer.
+- **Billing**: tạo subscription draft khi convert; **Support**: auto ticket onboarding.
+
+**Tuần 5+: Độ tin cậy & vận hành**
+
+- Health ready/live, migration strategy, seed data, feature flag đơn giản nếu cần.
+
+## 5. Payment & webhook (ôn Module 17)
+
+- Lưu `eventId` từ provider; xử lý trùng delivery.
+- Xác thực chữ ký (Stripe `Stripe-Signature`, v.v.).
+- Không log full PAN/token nhạy cảm.
+
+## 6. Omnichannel tối thiểu
+
+Định nghĩa interface `INotificationChannel` với `SendAsync(NotificationRequest)` — triển khai `EmailChannel`, `SmsChannel` (stub được nếu không có budget SMS thật, nhưng phải có **đường đi production-like**: template, retry, dead letter nội bộ).
+
+## 7. Liên hệ CRM — triết lý portfolio
+
+Người phỏng vấn senior thường hỏi **“vì sao”** nhiều hơn **“làm được không”**:
+
+- Vì sao chọn Kafka/RabbitMQ/Service Bus?
+- Vì sao tách service này mà không tách service kia?
+- Tenant isolation: shared DB + `TenantId` hay DB per tenant — trade-off?
+
+Hãy viết **README “Decision log”** 1–2 trang trả lời trước.
+
+## 8. Tiêu chí nộp bài (checklist)
+
+- [ ] Repo công khai hoặc zip có history; LICENSE rõ.
+- [ ] `README.md`: cách chạy, biến môi trường, port, account test.
+- [ ] `docs/architecture.md` hoặc tương đương: diagram + boundary.
+- [ ] CI badge (GitHub Actions) — build + test.
+- [ ] Không commit secret; dùng User Secrets / `.env.example`.
+
+## 9. Ý tưởng mở rộng (optional)
+
+- Multi-region read (chỉ tài liệu hóa nếu chưa làm thật).
+- Fine-grained authorization với policy handler.
+- Feature module **Reporting** đọc read replica.
+
+---
+
+## Mở rộng và đào sâu
+
+### Mục đích của phần này
+
+Phần này giúp bạn nắm **bản chất** của chủ đề: học để giải quyết vấn đề gì, đặt ở đâu trong kiến trúc backend, và vì sao cách làm này quan trọng trong dự án thật.
+
+### Khung hiểu nhanh
+
+- **Bài toán**: vấn đề thực tế cần giải quyết.
+- **Cách tiếp cận**: kỹ thuật/chuẩn áp dụng trong bài.
+- **Kết quả mong đợi**: đầu ra đúng, dễ bảo trì, dễ mở rộng.
+
+## Mini case study
+
+### Tình huống
+
+Chọn một use case nhỏ trong CRM/ERP liên quan trực tiếp đến bài học này, mô tả rõ đầu vào, đầu ra và tiêu chí thành công.
+
+### Đáp án gợi ý
+
+- Tách bài toán thành các bước xử lý rõ ràng.
+- Chọn điểm đặt logic đúng tầng (API, service, data, job...).
+- Bổ sung ít nhất một trường hợp biên để kiểm tra tính ổn định.
+
+## Ví dụ thực tế nhanh
+
+- Một ví dụ áp dụng trực tiếp vào luồng CRM/ERP hiện tại.
+- Một lỗi phổ biến dễ gặp khi triển khai thật.
+- Một cách kiểm tra nhanh để tự xác nhận bạn đã hiểu đúng.
+
+## Checklist trước khi sang bài tiếp theo
+
+- Bạn đã nắm được các khái niệm chính và giải thích lại được bằng ví dụ của riêng mình.
+- Bạn đã chạy hoặc mô phỏng ít nhất một ví dụ trong bài.
+- Bạn đã hoàn thành phần quiz/lab cơ bản (hoặc ít nhất tự làm lại theo trí nhớ).
+- Bạn đã ghi lại 3 ý chính: học được gì, còn vướng gì, sẽ áp dụng ở đâu trong CRM.
+
+## Kiểm tra & Thực hành — Final (100 điểm)
+
+### Bối cảnh giáo trình (mục tiêu xuyên suốt)
+
+> **Trục CRM — một mục tiêu rõ:** bạn hướng tới **CRM production** trong [From Zero → Senior .NET (Backend-first)](../roadmap-dotnet-backend-zero-to-senior.mdx). Giáo trình **ưu tiên backend**, bám chuỗi **API → dữ liệu → vận hành → kiến trúc phân tán**, thay vì trải rộng theo hướng full-stack. Mỗi module củng cố **một lớp kỹ năng** trên **cùng một CRM học tập** bạn phát triển xuyên suốt khóa.
+
+| Chuỗi năng lực | Đóng góp vào CRM học tập |
+|----------------|--------------------------|
+| **Giai đoạn 1 — Foundation** | Đọc hiểu yêu cầu, mô hình client–server, Git — nền **collaboration** khi CRM lớn dần. |
+| **Giai đoạn 2 — C# + P1** | Domain, OOP, LINQ, async, DI — **rule nghiệp vụ & tầng ứng dụng** (Inventory là bản mẫu trước CRM). |
+| **Giai đoạn 3 — ASP.NET + P2** | Host, routing, validation, JWT, SignalR — **CRM Backend API** thực tế. |
+| **Giai đoạn 4 — Data + P3** | SQL, EF, cache, job, container — CRM **ổn định & có thể triển khai**. |
+| **Giai đoạn 5 — Senior + Final** | Clean Architecture, event/outbox, gateway, observability, perf — CRM/ERP **chịu tải & có chủ**. |
+
+#### Vai trò *giai đoạn này* trong chuỗi
+
+Senior engineering + **Final**: kiến trúc, event/outbox, microservice, đo hiệu năng — **sở hữu hệ thống** CRM/ERP phân tán.
+
+#### Vị trí bài học (trước / sau)
+
+| Mốc | Điểm nối trong giáo trình |
+|-----|---------------------------|
+| **Trước** | [Module 19 — Performance Engineering](module-19-performance-engineering/) |
+| **Tiếp theo** | — (hoàn tất chuỗi chính; ôn [lộ trình](../roadmap-dotnet-backend-zero-to-senior.mdx)) |
+
+### Quy trình làm bài (hệ thống)
+
+| Bước | Việc cần làm | Output nên có |
+|------|----------------|-----------------|
+| 1 | Làm **Quiz** *trước*, tự ghi đáp án + 1 dòng lý do | Không xem đáp án; giữ bản nháp |
+| 2 | Đối chiếu **Đáp án**; sửa hiểu sai, ghi *takeaway* vào README hoặc nhật ký học | 3–5 bullet “tôi đã hiểu…” |
+| 3 | Làm **Lab** theo rubric; trong README nêu **phần CRM** nào được chạm (Lead, Customer, Deal, Billing…) | Repo / zip + ảnh `dotnet run` hoặc log |
+| 4 | **Tự chấm** theo bảng điểm; chuẩn bị 1 phút “vấn đáp” nếu mentor hỏi ngẫu nhiên | Điểm + chỗ còn yếu |
+
+---
+
+### Phần A — Quiz trắc nghiệm (20 điểm)
+
+> **Gợi ý làm bài:** mỗi câu **4 điểm**. Ưu tiên suy nghĩ *hệ quả trên CRM* (tiền, dữ liệu, đa tenant, hiệu năng, bảo mật) — không chỉ nhớ định nghĩa.
+
+Mỗi câu **4 điểm**.
+
+1. Vì sao portfolio enterprise nên ưu tiên **vài luồng end-to-end sâu** thay vì nhiều màn hình nông?
+   A. Ít code hơn B. Chứng minh được ownership, trade-off, vận hành — sát phỏng vấn senior C. GitHub thích commit ít D. Docker cấm nhiều feature
+   > **Đáp án:** B.
+
+2. Webhook thanh toán bắt buộc cần gì?
+   A. HTTP GET không auth B. Xác thực chữ ký provider + xử lý idempotent theo id sự kiện C. Lưu PAN đầy đủ D. Gửi secret qua query string
+   > **Đáp án:** B.
+
+3. Multi-tenant row-level: test isolation quan trọng nhất vì?
+   A. Performance UI B. Rò dữ liệu tenant là lỗi bảo mật nghiêm trọng C. Swagger D. GC
+   > **Đáp án:** B.
+
+4. “Strangler fig” trong tách monolith nghĩa là?
+   A. Xóa code cũ một đêm B. Thay thế dần bằng façade/gateway và bounded context C. Chỉ đổi font UI D. Dùng một DB chung mãi
+   > **Đáp án:** B.
+
+5. ADR (Architecture Decision Record) ghi những gì tối thiểu?
+   A. Meme team B. Bối cảnh, quyết định, hậu quả, trạng thái (chấp nhận / thay thế) C. Chỉ link TikTok D. Chỉ screenshot
+   > **Đáp án:** B.
+
+### Phần B — Lab & rubric Final Project (80 điểm)
+
+> **Lab portfolio:** rubric là *bằng chứng* bạn **sở hữu** CRM/ERP — ưu tiên vài luồng end-to-end sâu, ADR, CI; không secret trong repo.
+
+| Tiêu chí | Điểm tối đa | Ghi chú |
+|----------|-------------|---------|
+| Kiến trúc & boundary (diagram + ít nhất 2 bounded context rõ) | 20 | Trừ 5 nếu không có `docs/architecture.md` tương đương |
+| Luồng end-to-end 1 (Sales/CRM): tạo → chuyển trạng thái → side effect (event/job) | 20 | |
+| Luồng end-to-end 2 (Billing hoặc Support): payment sandbox hoặc ticket + idempotency | 20 | |
+| CI (build + test) + không secret trong repo | 10 | |
+| Triển khai local reproducible (Compose/README) + health | 10 | |
+
+#### Ngưỡng tổng điểm (Quiz 20 + Lab 80)
+
+| Mức | Điểm | Ý nghĩa |
+|-----|------|---------|
+| **Đạt** | ≥ 70 | Đủ nền để học module kế mà không “lủng” kiến thức cốt lõi. |
+| **Khá** | ≥ 85 | Có minh chứng code + nêu được liên hệ CRM rõ ràng trong README. |
+| **Giỏi** | ≥ 95 | Có mở rộng / edge case / ADR ngắn / test bổ trợ (tùy rubric từng bài). |
+
+### Phần C — Reflect & nối chuỗi (không chấm điểm)
+
+Viết **5–8 câu** (README hoặc `docs/learning-log.md`):
+
+1. Kiến thức *module / project này* sẽ được **tái sử dụng trực tiếp** ở module hoặc project CRM nào tiếp theo? (ghi tên module / P2 / P3 / Final).
+2. Nếu bỏ qua phần lab, **rủi ro** lớn nhất cho CRM ở giai đoạn sau là gì?
+3. Một **quyết định kỹ thuật** (nhỏ) bạn sẵn sàng ghi thành **ADR một đoạn** sau khi làm lab.
+
+---
+
+## Tài liệu tham khảo
+
+- Trở lại [Lộ trình tổng thể](../roadmap-dotnet-backend-zero-to-senior.mdx) để đối chiếu từng module đã học.
+- *Designing Data-Intensive Applications* — cho phần event log và consistency.
+- *Building Microservices* — Sam Newman.
+
+---
+
+**Chúc mừng** khi bạn hoàn thành final project — đó là điểm kết thúc có ý nghĩa của giáo trình **From Zero → Senior .NET (Backend-first)**.

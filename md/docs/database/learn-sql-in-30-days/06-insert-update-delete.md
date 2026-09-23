@@ -1,0 +1,187 @@
+# 06. INSERT - UPDATE - DELETE
+
+> Nguồn: https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/06-insert-update-delete
+> Học cách Chỉnh sửa (thêm, cập nhật và xóa) dữ liệu trong SQL. Tìm hiểu cách thực hiện các thao tác CRUD (Create, Read, Update, Delete) trên bảng.
+
+> Bài 6 dạy bạn thực hiện đầy đủ các thao tác CRUD trên bảng dữ liệu với INSERT, UPDATE và DELETE, bao gồm các lưu ý quan trọng về điều kiện WHERE để tránh xóa/sửa nhầm dữ liệu.
+
+# 🔥 **6: INSERT - UPDATE - DELETE**
+
+> **Mục tiêu bài học:** Học cách **thêm, cập nhật và xóa** dữ liệu trong SQL bằng cách sử dụng các câu lệnh **`INSERT INTO`**, **`UPDATE`**, và **`DELETE`**. Hiểu rõ cách thực hiện các thao tác CRUD (*Create, Read, Update, Delete*) trên bảng dữ liệu.
+
+---
+
+## **1️⃣ `INSERT INTO` – Chèn dữ liệu mới**
+
+Lệnh `INSERT INTO` được sử dụng để **thêm dữ liệu mới** vào một bảng trong cơ sở dữ liệu.
+
+### **🔹 Cú pháp cơ bản**
+```sql
+INSERT INTO table_name (column1, column2, ...)
+VALUES (value1, value2, ...);
+```
+
+📌 **Ví dụ: Thêm một sản phẩm mới vào bảng `Products`**
+```sql
+INSERT INTO Products (Name, Category, Price, StockQuantity)
+VALUES ('MacBook Pro', 'Laptop', 45000000, 10);
+```
+
+📌 **Ví dụ: Thêm nhiều dòng dữ liệu cùng lúc vào bảng `Customers`**
+```sql
+INSERT INTO Customers (Name, Email, City)
+VALUES
+  ('Nguyễn Văn A', 'nguyenvana@example.com', 'Hà Nội'),
+  ('Trần Thị B', 'tranthib@example.com', 'TP.HCM'),
+  ('Lê Văn C', 'levanc@example.com', 'Đà Nẵng');
+```
+
+📌 **Lưu ý:**
+- Nếu bảng có **cột tự động tăng (`AUTO_INCREMENT`)**, không cần chèn giá trị vào cột đó.
+- Cần nhập đúng **số lượng cột** tương ứng với giá trị được chèn.
+
+---
+
+## **2️⃣ `UPDATE` – Cập nhật dữ liệu**
+
+Lệnh `UPDATE` giúp cập nhật giá trị của một hoặc nhiều dòng trong bảng.
+
+### **🔹 Cú pháp cơ bản**
+```sql
+UPDATE table_name
+SET column1 = value1, column2 = value2
+WHERE condition;
+```
+
+📌 **Ví dụ: Cập nhật giá của sản phẩm "MacBook Pro"**
+```sql
+UPDATE Products
+SET Price = 42000000
+WHERE Name = 'MacBook Pro';
+```
+
+📌 **Ví dụ: Tăng giá tất cả sản phẩm thuộc danh mục 'Laptop' thêm 10%**
+```sql
+UPDATE Products
+SET Price = Price * 1.1
+WHERE Category = 'Laptop';
+```
+
+📌 **Ví dụ: Cập nhật thành phố của khách hàng có `ID = 5`**
+```sql
+UPDATE Customers
+SET City = 'Hải Phòng'
+WHERE ID = 5;
+```
+
+📌 **Lưu ý quan trọng:**
+- **Luôn sử dụng `WHERE`** để tránh cập nhật toàn bộ dữ liệu trong bảng.
+- Nếu bỏ `WHERE`, **tất cả các dòng dữ liệu sẽ bị cập nhật!**
+
+---
+
+## **3️⃣ `DELETE` – Xóa dữ liệu**
+
+Lệnh `DELETE` giúp xóa một hoặc nhiều dòng dữ liệu khỏi bảng.
+
+### **🔹 Cú pháp cơ bản**
+```sql
+DELETE FROM table_name
+WHERE condition;
+```
+
+📌 **Ví dụ: Xóa sản phẩm có tên "MacBook Pro"**
+```sql
+DELETE FROM Products
+WHERE Name = 'MacBook Pro';
+```
+
+📌 **Ví dụ: Xóa tất cả khách hàng đến từ "Hà Nội"**
+```sql
+DELETE FROM Customers
+WHERE City = 'Hà Nội';
+```
+
+📌 **Ví dụ: Xóa các sản phẩm hết hàng (`StockQuantity = 0`)**
+```sql
+DELETE FROM Products
+WHERE StockQuantity = 0;
+```
+
+📌 **Lưu ý quan trọng:**
+- **Luôn dùng `WHERE` để tránh xóa toàn bộ dữ liệu.**
+- Nếu chạy **`DELETE FROM table_name;`** mà không có `WHERE`, **toàn bộ bảng sẽ bị xóa dữ liệu!**
+- Nếu muốn **xóa toàn bộ dữ liệu nhưng vẫn giữ cấu trúc bảng**, dùng **`TRUNCATE TABLE table_name;`**.
+
+---
+
+## **4️⃣ So sánh `DELETE` và `TRUNCATE`**
+
+| Phương thức | Mô tả | Có thể hoàn tác không? | Ảnh hưởng đến AUTO_INCREMENT |
+|------------|------|----------------|----------------------|
+| **DELETE** | Xóa từng dòng một theo điều kiện | ✅ Có (nếu có `ROLLBACK`) | ❌ Không thay đổi |
+| **TRUNCATE** | Xóa toàn bộ dữ liệu trong bảng | ❌ Không thể hoàn tác | ✅ Reset AUTO_INCREMENT |
+
+📖 **Tham khảo:**
+- [MySQL DELETE Statement](https://dev.mysql.com/doc/refman/en/delete.html)
+- [PostgreSQL DELETE Documentation](https://www.postgresql.org/docs/current/sql-delete.html)
+
+---
+
+## **5️⃣ Thực hành**
+
+👉 **Bài tập 1:** Thêm một khách hàng mới vào bảng `Customers`.
+```sql
+INSERT INTO Customers (Name, Email, City)
+VALUES ('Phạm Minh D', 'phamminhd@example.com', 'Hải Phòng');
+```
+
+👉 **Bài tập 2:** Cập nhật số lượng tồn kho của sản phẩm có `ID = 10` thành `50`.
+```sql
+UPDATE Products
+SET StockQuantity = 50
+WHERE ID = 10;
+```
+
+👉 **Bài tập 3:** Giảm giá 5% cho tất cả sản phẩm thuộc danh mục "Điện thoại".
+```sql
+UPDATE Products
+SET Price = Price * 0.95
+WHERE Category = 'Điện thoại';
+```
+
+👉 **Bài tập 4:** Xóa khách hàng có `Email = 'tranthib@example.com'`.
+```sql
+DELETE FROM Customers
+WHERE Email = 'tranthib@example.com';
+```
+
+👉 **Bài tập 5:** Xóa tất cả sản phẩm có giá dưới 100,000 VNĐ.
+```sql
+DELETE FROM Products
+WHERE Price < 100000;
+```
+
+📖 **Tham khảo:**
+- [MySQL UPDATE Statement](https://dev.mysql.com/doc/refman/en/update.html)
+- [PostgreSQL UPDATE Documentation](https://www.postgresql.org/docs/current/sql-update.html)
+
+---
+
+## 📌 **Quick Quiz**
+1. **Lệnh `INSERT INTO` có thể thêm nhiều dòng cùng lúc không?** Nếu có, cú pháp là gì?
+2. **Làm sao để tăng giá tất cả sản phẩm trong bảng `Products` lên 10%?**
+3. **Sự khác biệt giữa `DELETE` và `TRUNCATE` là gì?**
+4. **Điều gì xảy ra nếu chạy `DELETE FROM Products;` mà không có `WHERE`?**
+
+---
+
+#### ✅ **Tóm tắt Ngày 6**
+✔️ `INSERT INTO` để thêm dữ liệu mới vào bảng.
+✔️ `UPDATE` để cập nhật thông tin của một hoặc nhiều bản ghi.
+✔️ `DELETE` để xóa dữ liệu, cần cẩn thận với `WHERE`.
+✔️ `TRUNCATE TABLE` xóa toàn bộ dữ liệu trong bảng mà không thể hoàn tác.
+
+🚀 **Tiếp theo:** [Kiểm tra kiến thức - Bài tập tổng hợp tuần 1](07.%20Review%201.md).
+
+📌 **Lộ trình:** [Học SQL trong 30 ngày](00.%2030-Day%20SQL%20Learning%20Roadmap.md)
