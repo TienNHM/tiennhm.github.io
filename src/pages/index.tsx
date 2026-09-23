@@ -148,7 +148,6 @@ function HomepageHeader() {
             {
               Object.keys(contacts).map((key: string) => {
                 const contact = contacts[key] as Contact;
-                const Svg = contact.icon;
                 return (
                   <ContactItem key={key} icon={contact.faIcon} contact={contact} title={contact.title} />
                 );
