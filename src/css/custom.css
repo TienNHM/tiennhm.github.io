@@ -385,25 +385,81 @@ article h1, article h2, article h3, article h4, article h5, article h6 {
   background: rgb(239 68 68 / 18%);
 }
 
-/* Xuất PDF qua "Lưu PDF từ trang" — ẩn chrome khi in */
+/* Xuất PDF qua "Lưu PDF từ trang" — chỉ in phần nội dung bài viết.
+ *
+ * Bản trước mới ẩn được thanh điều hướng của docs (.theme-doc-sidebar-container).
+ * Trang blog dùng bố cục khác hẳn: .main-wrapper > .container > .row có
+ * <aside class="col col--3"> cho danh sách bài viết và <div class="col col--2">
+ * cho mục lục, cả hai đều lọt vào bản in. Tên class thật của chúng bị băm theo
+ * từng lần build (sidebar_re4s, tableOfContents_bqdL) nên không thể trỏ trực
+ * tiếp — phải bám vào cấu trúc và vào phần tiền tố còn đọc được của class.
+ */
 @media print {
   /* Tránh trình duyệt đưa cỡ chữ in về mặc định (to hơn màn hình) */
   html {
     font-size: var(--site-root-font-scale) !important;
   }
 
+  @page {
+    margin: 1.5cm;
+  }
+
   .pdf-export-toolbar,
+  .page-actions,
+  .copy-markdown-button,
   .navbar,
+  .navbar-sidebar,
   .footer,
+  .theme-back-to-top-button,
   .theme-doc-sidebar-container,
+  .theme-doc-toc-desktop,
   .theme-doc-footer,
   .pagination-nav,
-  .giscus {
+  .giscus,
+  .main-wrapper > .container > .row > aside {
     display: none !important;
+  }
+
+  /*
+   * Ẩn cột mục lục của blog. Tách thành quy tắc riêng vì :has() mà trình duyệt
+   * không hiểu sẽ làm hỏng CẢ danh sách chọn lọc nếu viết gộp ở trên — CSS chỉ
+   * tha thứ cho selector lạ khi nằm trong :is()/:where().
+   */
+  .main-wrapper > .container > .row > .col:has([class*='tableOfContents']) {
+    display: none !important;
+  }
+
+  /* Dự phòng cho trình duyệt chưa có :has(): ít nhất không in ra nội dung mục
+     lục, dù cột rỗng vẫn chiếm chỗ. */
+  [class*='tableOfContents'] {
+    display: none !important;
+  }
+
+  /* Cột nội dung chiếm trọn khổ giấy sau khi hai cột kia biến mất. */
+  .main-wrapper > .container > .row > main.col,
+  [class*='docItemCol'],
+  [class*='docMainContainer'] {
+    max-width: 100% !important;
+    flex: 0 0 100% !important;
+    margin-left: 0 !important;
+  }
+
+  .main-wrapper > .container,
+  [class*='docItemContainer'] {
+    max-width: 100% !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
   }
 
   body {
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
+  }
+
+  /* Bảng và ảnh bị cắt ngang trang rất khó đọc. */
+  table,
+  img,
+  figure {
+    break-inside: avoid;
   }
 }

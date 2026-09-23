@@ -10,6 +10,8 @@ import { CONTACTS, Contact } from '@site/src/data/contacts';
 import ContactItem from '@site/src/components/ContactItem';
 import { AVATAR_URL, GITHUB_USER } from '@site/src/utils/constants';
 import { getSiteDescription } from '@site/src/utils/siteDescription';
+import Link from '@docusaurus/Link';
+import { translate } from '@docusaurus/Translate';
 
 type GithubUser = {
   bio?: string;
@@ -68,7 +70,7 @@ function HomepageHeader() {
 
   const contacts = CONTACTS;
   return (
-    <header className={clsx('hero hero--primary', styles.heroBanner, styles.backgroundImage)}>
+    <header className={clsx('hero', styles.heroBanner, styles.backgroundImage)}>
       <div className={clsx('container', styles.cardContainer)}>
         <div className={clsx(styles.cardInfo)}>
           <Image 
@@ -81,16 +83,60 @@ function HomepageHeader() {
             loading='eager' 
             decoding='async' />
 
-          <h1 className="hero__title">{GITHUB_USER}</h1>
-          <h2 className="hero__subtitle">{user?.bio ?? getSiteDescription()}</h2>
+          <h1 className={styles.heroTitle}>{GITHUB_USER}</h1>
 
-          {user && (
-            <div className={clsx(styles.githubInfo)}>
-              <pre>
-              ⊕ <span>{user.followers} followers</span> - ⊛ <span>{user.following} followings</span>
-              </pre>
-            </div>
-          )}
+          {/*
+            * Dòng vai trò để TĨNH, không lấy `bio` từ GitHub API nữa.
+            *
+            * Bản trước render mô tả site khi chưa có dữ liệu rồi thay bằng bio
+            * ngay khi fetch xong. Hai chuỗi dài ngắn khác hẳn nhau nên cả khối
+            * chữ nhảy một nhịp — đó chính là hiện tượng giật khi mở trang chủ.
+            * Bio trên GitHub thực chất cũng chỉ là "Fullstack Developer", tức
+            * đổi cả bố cục để lấy về đúng chuỗi đã biết trước.
+            */}
+          <p className={styles.heroRole}>
+            {translate({
+              id: 'home.role',
+              message: 'Fullstack Developer',
+              description: 'Dòng vai trò dưới tên ở trang chủ',
+            })}
+          </p>
+          <p className={styles.heroPitch}>{getSiteDescription()}</p>
+
+          {/*
+            * Khối số liệu luôn có mặt và đã chừa sẵn chiều cao, nên lúc số nhảy
+            * vào không có gì bị đẩy đi chỗ khác.
+            */}
+          <div className={clsx(styles.githubInfo)} aria-live="polite">
+            {user && (
+              <>
+                <span className={styles.stat}>
+                  <strong>{user.followers}</strong> followers
+                </span>
+                <span className={styles.statDot} aria-hidden="true" />
+                <span className={styles.stat}>
+                  <strong>{user.following}</strong> following
+                </span>
+              </>
+            )}
+          </div>
+
+          <div className={styles.ctaGroup}>
+            <Link className="button button--primary button--lg" to="/blog">
+              {translate({
+                id: 'home.cta.blog',
+                message: 'Đọc blog',
+                description: 'Nút chính ở trang chủ, dẫn tới trang blog',
+              })}
+            </Link>
+            <Link className={clsx('button button--lg', styles.ctaGhost)} to="/docs">
+              {translate({
+                id: 'home.cta.docs',
+                message: 'Xem tài liệu',
+                description: 'Nút phụ ở trang chủ, dẫn tới trang docs',
+              })}
+            </Link>
+          </div>
 
           {/* <div style={{margin: '1rem'}}>
             <Link className={clsx('button button--primary')} title='CV' to='/my-cv'>
