@@ -198,3 +198,9 @@ Quy tắc rút gọn để nhớ: `await` bắt context, block giữ thread. Dea
     }
   ]}
 />
+
+## Bài liên quan
+
+- [Module 6 — Async Programming](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-06-async-programming) — Lập trình bất đồng bộ .NET: Task, async/await, cancellation, ConfigureAwait — mô hình I/O-bound cho ASP.NET Core và tích hợp HTTP.
+- [Module 13 — Entity Framework Core](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core) — EF Core: change tracking, migrations, raw SQL, performance patterns — ORM mapping an toàn cho domain CRM.
+- [8.3 — 2. Request Pipeline và Middleware](/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.3-request-pipeline-and-middleware) — Request Pipeline và Middleware trong ASP.NET Core: cách middleware xếp chuỗi, short-circuit, thứ tự đăng ký và correlation/timing cho CRM backend.

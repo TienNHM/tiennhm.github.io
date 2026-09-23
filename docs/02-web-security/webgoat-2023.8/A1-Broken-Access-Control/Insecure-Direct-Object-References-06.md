@@ -238,5 +238,8 @@ public IActionResult GetProfile()
 - **Cả kiểm soát truy cập ngang & dọc đều cần được bảo vệ**  
 - **Ghi log & giám sát là rất quan trọng** để phát hiện hành vi đáng ngờ  
 - **Tham chiếu gián tiếp giúp bảo mật ID nhưng không thể thay thế xác thực chặt chẽ**  
-- **API cần cơ chế xác thực mạnh mẽ, không chỉ dựa vào khóa tĩnh**  
+- **API cần cơ chế xác thực mạnh mẽ, không chỉ dựa vào khóa tĩnh**
 
+## Bài liên quan
+
+- [Đổi id trên URL ra dữ liệu người khác? Chặn IDOR ở một tầng duy nhất](/blog/idor-broken-access-control-aspnet-core) — IDOR xảy ra khi API nhận id từ request rồi đọc thẳng bản ghi mà không hỏi xem người gọi có sở hữu bản ghi đó không.

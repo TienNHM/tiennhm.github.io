@@ -106,3 +106,6 @@ Nếu kẻ tấn công thay đổi `12345` thành `12346` và hệ thống khôn
 - [CWE-639: Authorization Bypass](http://cwe.mitre.org/data/definitions/639.html)
 - [OWASP cheatsheet on IDOR](https://cheatsheetseries.owasp.org/cheatsheets/Insecure_Direct_Object_Reference_Prevention_Cheat_Sheet.html)
 
+## Bài liên quan
+
+- [Đổi id trên URL ra dữ liệu người khác? Chặn IDOR ở một tầng duy nhất](/blog/idor-broken-access-control-aspnet-core) — IDOR xảy ra khi API nhận id từ request rồi đọc thẳng bản ghi mà không hỏi xem người gọi có sở hữu bản ghi đó không.

@@ -352,3 +352,7 @@ Nếu bạn bắt đầu project mới với .NET 10, hãy dùng Scalar ngay t�
 - [Combining API versioning with OpenAPI in .NET 10 - .NET Blog](https://devblogs.microsoft.com/dotnet/api-versioning-in-dotnet-10-applications/)
 - [Swashbuckle Is Dead. Here's How to Migrate to Scalar in .NET 10](https://dev.to/jfmeyers/swashbuckle-is-dead-heres-how-to-migrate-to-scalar-in-net-10-155d)
 - [ASP.NET Core Dropped Swagger - Here's What Replaced It in .NET 10](https://codewithmukesh.com/blog/dotnet-swagger-alternatives-openapi/)
+
+## Bài liên quan
+
+- [Module 9 — Web API Professional](/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-09-web-api-professional) — Web API chuyên nghiệp: versioning, validation, Problem Details, OpenAPI, filtering/paging — hợp đồng HTTP ổn định cho client và tích hợp.
