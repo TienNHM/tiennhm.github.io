@@ -88,7 +88,7 @@ export function BlogPostStructuredData() {
   // Lấy thông tin author từ metadata hoặc frontMatter
   const authorName = metadata.authors?.[0]?.name || frontMatter.author || "Nguyễn Huỳnh Minh Tiến";
   const authorUrl = metadata.authors?.[0]?.url || "https://github.com/TienNHM";
-  const authorImage = metadata.authors?.[0]?.imageURL || "https://github.com/TienNHM.png";
+  const authorImage = metadata.authors?.[0]?.imageURL || "https://avatars.githubusercontent.com/u/33385777?v=4";
 
   // Format dates
   const datePublished = toIsoDate(metadata.date);
