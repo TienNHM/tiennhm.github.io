@@ -1,85 +1,134 @@
 ---
 title: "1.3 — 2. Điều Kiện (Conditions)"
-description: "Điều kiện cho phép chương trình ra quyết định: nếu điều này đúng thì làm A, ngược lại làm B."
+description: "if/else, switch expression và pattern matching hiện đại của C#. Kèm guard clause để code phẳng, cách kiểm tra null cho đúng, và vì sao đừng viết bảng giá thành chuỗi if-else."
 sidebar_position: 3
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
 # 1.3 — 2. Điều Kiện (Conditions)
 
+<SummaryBox>
+Điều kiện là chỗ chương trình ra quyết định — và cũng là chỗ code xấu đi nhanh nhất. Bài này đi từ `if/else` tới `switch expression` và **pattern matching**, thứ đã thay đổi hẳn cách viết điều kiện trong C# hiện đại. Ba kỹ thuật đáng mang về dùng ngay: **guard clause** để code không thụt vào thành hình mũi tên, `switch expression` để trình biên dịch nhắc khi bạn quên một nhánh, và `is null` thay cho `== null` để không bị toán tử `==` bị nạp chồng đánh lừa. Cuối bài là một cảnh báo: bảng giá và chính sách nghiệp vụ **không nên** nằm trong chuỗi `if-else`.
+</SummaryBox>
+
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Viết lại một khối `if` lồng ba tầng thành guard clause phẳng.
+- Chọn giữa `switch` statement và `switch` expression, và giải thích tính vét cạn của cái thứ hai.
+- Dùng pattern matching: kiểu, quan hệ, `and`/`or`/`not`, property pattern.
+- Giải thích vì sao `is null` an toàn hơn `== null`.
+- Nhận ra lúc nào một chuỗi `if-else` nên trở thành dữ liệu.
 
 ## Nội dung bài học
 
-### 1.3.1 — if / else
-
-Điều kiện cho phép chương trình **ra quyết định**: nếu điều này đúng thì làm A, ngược lại làm B.
+### 1.3.1 — `if` / `else` và bẫy lồng nhau
 
 ```csharp
-int diemKhachHang = 650;
+int loyaltyPoints = 650;
 
-if (diemKhachHang >= 500)
-{
-    Console.WriteLine("Khách hàng VIP — được giảm 15%");
-}
-else if (diemKhachHang >= 200)
-{
-    Console.WriteLine("Khách hàng Bạc — được giảm 5%");
-}
+if (loyaltyPoints >= 500)
+    Console.WriteLine("Khách VIP — giảm 15%");
+else if (loyaltyPoints >= 200)
+    Console.WriteLine("Khách Bạc — giảm 5%");
 else
+    Console.WriteLine("Khách Thường — không ưu đãi");
+```
+
+Vấn đề xuất hiện khi điều kiện chồng lên nhau:
+
+```csharp
+// KHÓ ĐỌC — code hình mũi tên
+public decimal TinhGiam(Customer? customer, Order? order)
 {
-    Console.WriteLine("Khách hàng Thường — không có ưu đãi");
+    if (customer != null)
+    {
+        if (customer.IsActive)
+        {
+            if (order != null)
+            {
+                if (order.Total > 0)
+                {
+                    return order.Total * customer.DiscountRate;
+                }
+            }
+        }
+    }
+    return 0m;
 }
 ```
 
-### 1.3.2 — Toán tử điều kiện (ternary)
+Bốn tầng thụt lề, và phần logic thật nằm ở tầng sâu nhất.
 
-Dùng khi muốn viết gọn một điều kiện đơn giản:
+### 1.3.2 — Guard clause: loại trừ trước, xử lý sau
 
-```csharp
-// Cú pháp: điều_kiện ? giá_trị_nếu_đúng : giá_trị_nếu_sai
-string hangKhach = diemKhachHang >= 500 ? "VIP" : "Thường";
-Console.WriteLine($"Hạng: {hangKhach}");
+```mermaid
+flowchart TD
+    A[Vao ham] --> B{Du lieu khong hop le?}
+    B -->|Co| C[Tra ve ngay]
+    B -->|Khong| D{Dieu kien tiep theo sai?}
+    D -->|Co| C
+    D -->|Khong| E[Logic chinh - khong thut le]
 ```
 
-### 1.3.3 — Ví dụ thực tế: tính phí giao hàng theo giá trị đơn
-
-Trong CRM/ERP, phí vận chuyển thường thay đổi theo tổng tiền đơn hàng:
-
 ```csharp
-decimal giaTriDon = 420_000m;
-decimal phiVanChuyen = giaTriDon >= 500_000m ? 0m : 30_000m;
+// DỄ ĐỌC — chặn các trường hợp xấu trước, logic chính nằm phẳng ở cuối
+public decimal TinhGiam(Customer? customer, Order? order)
+{
+    if (customer is null)       return 0m;
+    if (!customer.IsActive)     return 0m;
+    if (order is null)          return 0m;
+    if (order.Total <= 0)       return 0m;
 
-Console.WriteLine($"Phí vận chuyển: {phiVanChuyen:n0} VND");
+    return order.Total * customer.DiscountRate;
+}
 ```
 
-Ví dụ này giúp bạn thấy rõ cách dùng điều kiện để xử lý rule nghiệp vụ rất thường gặp.
+Cùng một logic, nhưng người đọc thấy ngay **những gì bị loại trừ**, rồi mới tới phần việc thật. Đây là một trong vài kỹ thuật cải thiện code nhiều nhất trên mỗi ký tự bỏ ra.
 
-### 1.3.4 — switch
-
-Dùng khi có nhiều nhánh dựa trên cùng một biến:
+### 1.3.3 — Toán tử điều kiện và toán tử null
 
 ```csharp
-string trangThaiLead = "new"; // Trạng thái lead trong CRM
+// Ternary: chỉ dùng khi cả hai nhánh đều ngắn
+string tier = loyaltyPoints >= 500 ? "VIP" : "Thường";
 
-switch (trangThaiLead)
+// ?. — gọi thành viên chỉ khi khác null
+int? nameLength = customer?.Name?.Length;
+
+// ?? — giá trị thay thế khi null
+string display = customer?.Name ?? "(khách vãng lai)";
+
+// ??= — gán chỉ khi đang null
+config.Timeout ??= TimeSpan.FromSeconds(30);
+```
+
+Đừng lồng ternary vào nhau. `a ? b : c ? d : e` đọc được trong 5 giây khi mới viết và không đọc được sau ba tháng.
+
+### 1.3.4 — `is null` thay vì `== null`
+
+```csharp
+if (customer is null) { }        // NÊN
+if (customer == null) { }        // Cẩn thận
+```
+
+Khác biệt: toán tử `==` **có thể bị nạp chồng**. Một lớp có thể định nghĩa lại `==` và làm nó chạy một hàm bất kỳ — kể cả khi vế trái đang là `null`. Còn `is null` được trình biên dịch dịch thẳng thành phép so sánh tham chiếu, không thể bị can thiệp.
+
+Trong thực tế, đa số kiểu không nạp chồng `==`. Nhưng `is null` ngắn hơn, không bao giờ sai, và đọc lên đúng nghĩa. Dạng phủ định là `is not null`.
+
+### 1.3.5 — `switch` statement
+
+```csharp
+string leadStatus = "new";
+
+switch (leadStatus)
 {
     case "new":
-        Console.WriteLine("Lead mới — cần liên hệ trong 24 giờ");
+        Console.WriteLine("Lead mới — liên hệ trong 24 giờ");
         break;
     case "contacted":
         Console.WriteLine("Đã liên hệ — chờ phản hồi");
-        break;
-    case "qualified":
-        Console.WriteLine("Đủ điều kiện — chuyển sang sales");
-        break;
-    case "lost":
-        Console.WriteLine("Đã mất — lưu lý do để phân tích");
         break;
     default:
         Console.WriteLine("Trạng thái không xác định");
@@ -87,39 +136,181 @@ switch (trangThaiLead)
 }
 ```
 
-### 1.3.5 — switch expression (C# 8+)
+C# **không cho phép rơi tự do** giữa các `case` như C hay JavaScript — quên `break` là lỗi biên dịch, không phải bug âm thầm. Đây là một trong những chỗ C# cố tình chặn một lớp lỗi kinh điển.
 
-Cú pháp hiện đại hơn, gọn hơn:
+### 1.3.6 — `switch` expression: gọn hơn và được kiểm tra vét cạn
 
 ```csharp
-string moTaTrangThai = trangThaiLead switch
+string label = leadStatus switch
 {
     "new"       => "Lead mới",
     "contacted" => "Đã liên hệ",
     "qualified" => "Đủ điều kiện",
     "lost"      => "Đã mất",
-    _           => "Không xác định"  // _ là default
+    _           => "Không xác định"
 };
-Console.WriteLine(moTaTrangThai);
 ```
 
----
+Giá trị lớn nhất của nó không phải là ngắn, mà là **vét cạn**: nếu bạn `switch` trên một `enum` và quên một giá trị, trình biên dịch cảnh báo. Khi ai đó thêm trạng thái mới vào enum sáu tháng sau, chính cảnh báo này chỉ ra mọi chỗ cần cập nhật.
+
+```csharp
+enum LeadStatus { New, Contacted, Qualified, Lost }
+
+// Bỏ nhánh _ đi để nhận cảnh báo khi enum có thêm giá trị mới
+decimal priority = status switch
+{
+    LeadStatus.New       => 1.0m,
+    LeadStatus.Contacted => 0.7m,
+    LeadStatus.Qualified => 0.9m,
+    LeadStatus.Lost      => 0.0m,
+};
+```
+
+Đánh đổi: nếu chạy vào một giá trị không khớp nhánh nào, chương trình ném `SwitchExpressionException` lúc chạy. Với `enum` nội bộ do bạn kiểm soát, đó là đánh đổi xứng đáng — thà nổ rõ ràng còn hơn im lặng trả về giá trị mặc định sai.
+
+### 1.3.7 — Pattern matching
+
+Đây là phần làm C# hiện đại khác hẳn C# cũ.
+
+```csharp
+// Pattern quan hệ và kết hợp and / or / not
+string tier = points switch
+{
+    < 0                => "Dữ liệu lỗi",
+    >= 0 and < 200     => "Thường",
+    >= 200 and < 500   => "Bạc",
+    >= 500             => "VIP"
+};
+
+// Pattern kiểu — thay cho chuỗi if (x is T) rồi ép kiểu
+decimal fee = payment switch
+{
+    CardPayment c     => c.Amount * 0.022m,
+    BankTransfer      => 11_000m,
+    CashPayment       => 0m,
+    null              => throw new ArgumentNullException(nameof(payment)),
+    _                 => throw new NotSupportedException()
+};
+
+// Property pattern — xét nhiều thuộc tính cùng lúc
+string shipping = order switch
+{
+    { Total: >= 500_000, Customer.IsVip: true } => "Miễn phí, giao nhanh",
+    { Total: >= 500_000 }                       => "Miễn phí",
+    { Customer.IsVip: true }                    => "Giảm 50% phí ship",
+    _                                           => "Phí tiêu chuẩn"
+};
+```
+
+So với cách viết cũ, `payment switch` bên trên thay thế cho một chuỗi `if (payment is CardPayment card)` — vừa ngắn hơn, vừa không quên được nhánh `null`.
+
+Danh sách đầy đủ các pattern: [Patterns — C# reference](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/patterns).
+
+### 1.3.8 — `&&` và `&`: đoản mạch
+
+```csharp
+if (customer != null && customer.IsActive) { }   // AN TOÀN
+if (customer != null &  customer.IsActive) { }   // NullReferenceException
+```
+
+`&&` **đoản mạch**: vế trái sai thì không chạy vế phải. `&` luôn chạy cả hai vế. Trong điều kiện, hầu như luôn dùng `&&` và `||`. Dùng `&` hay `|` chỉ khi bạn đang thao tác trên bit — mà đó là chuyện của bài khác.
+
+### 1.3.9 — Khi nào `if-else` là sai cách
+
+```csharp
+// KHÔNG NÊN — chính sách nghiệp vụ nhúng cứng vào code
+if (tier == "VIP")        return 0.15m;
+else if (tier == "Gold")  return 0.10m;
+else if (tier == "Silver")return 0.05m;
+else                      return 0m;
+```
+
+Mỗi lần kinh doanh thêm một hạng khách, ai đó phải sửa code, build lại, deploy lại. Chuỗi `if-else` này thực ra là **một bảng dữ liệu bị viết nhầm thành code**:
+
+```csharp
+// NÊN — chính sách là dữ liệu, code chỉ tra cứu
+private static readonly Dictionary<string, decimal> DiscountByTier = new()
+{
+    ["VIP"]    = 0.15m,
+    ["Gold"]   = 0.10m,
+    ["Silver"] = 0.05m,
+};
+
+public decimal GetDiscount(string tier) =>
+    DiscountByTier.TryGetValue(tier, out var rate) ? rate : 0m;
+```
+
+Bước tiếp theo là đưa bảng đó xuống database hoặc file cấu hình — lúc ấy đổi chính sách không cần deploy nữa.
+
+**Dấu hiệu nhận biết:** nếu các nhánh `if` chỉ khác nhau ở *giá trị* chứ không khác nhau ở *hành vi*, đó là dữ liệu chứ không phải logic.
+
+### 1.3.10 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát điều kiện"
+  items={[
+    { text: "Không có hàm nào lồng if quá hai tầng; phần còn lại đã chuyển thành guard clause." },
+    { text: "Kiểm tra null dùng is null / is not null thay vì == null." },
+    { text: "switch trên enum không có nhánh _, để trình biên dịch cảnh báo khi enum đổi." },
+    { text: "Không có ternary lồng ternary." },
+    { text: "Điều kiện dùng && và || chứ không phải & và |." },
+    { text: "Không có chuỗi if-else nào chỉ để tra một bảng giá trị." },
+  ]}
+/>
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **Làm phẳng.** Lấy đoạn `TinhGiam` bốn tầng ở mục 1.3.1, viết lại bằng guard clause, rồi viết lại lần nữa bằng property pattern. So sánh số dòng và mức dễ đọc của ba phiên bản.
+
+2. **Bắt lỗi vét cạn.** Tạo `enum LeadStatus` bốn giá trị và một `switch expression` không có nhánh `_`. Thêm giá trị thứ năm vào enum và xem trình biên dịch nói gì. Ghi lại mã cảnh báo.
+
+3. **Biến logic thành dữ liệu.** Tìm trong một dự án thật một chuỗi `if-else` từ bốn nhánh trở lên mà các nhánh chỉ khác nhau ở giá trị trả về. Chuyển nó thành `Dictionary`, và viết một câu trả lời: sau khi đổi, thêm một nhánh mới cần sửa mấy dòng?
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "Guard clause là gì và vì sao nó tốt hơn if lồng nhau?",
+      answer: "Guard clause là cách xử lý mọi trường hợp không hợp lệ ngay đầu hàm rồi return sớm, để phần logic chính nằm phẳng ở cuối và không bị thụt lề. Người đọc thấy ngay các điều kiện bị loại trừ, thay vì phải lần theo bốn tầng ngoặc để tìm phần việc thật."
+    },
+    {
+      question: "Vì sao nên dùng is null thay vì == null?",
+      answer: "Toán tử == có thể bị nạp chồng, nghĩa là một lớp có thể định nghĩa lại nó và chạy code bất kỳ. Còn is null được trình biên dịch dịch thẳng thành phép so sánh tham chiếu, không thể bị can thiệp. Ngoài ra is null ngắn hơn và đọc đúng nghĩa. Dạng phủ định là is not null."
+    },
+    {
+      question: "switch expression khác switch statement ở chỗ nào?",
+      answer: "switch expression trả về một giá trị và được kiểm tra vét cạn. Khi switch trên enum mà thiếu nhánh, trình biên dịch cảnh báo — nhờ đó khi ai đó thêm giá trị mới vào enum, mọi chỗ cần cập nhật đều được chỉ ra. switch statement thì chỉ thực thi lệnh và không có bảo đảm này."
+    },
+    {
+      question: "Bỏ nhánh _ trong switch expression có rủi ro gì?",
+      answer: "Nếu giá trị chạy vào không khớp nhánh nào, chương trình ném SwitchExpressionException lúc chạy. Với enum nội bộ do bạn kiểm soát thì đánh đổi này xứng đáng: nổ rõ ràng vẫn tốt hơn im lặng trả về giá trị mặc định sai. Với dữ liệu từ bên ngoài thì nên giữ nhánh _ và xử lý tường minh."
+    },
+    {
+      question: "Khi nào một chuỗi if-else nên trở thành dữ liệu?",
+      answer: "Khi các nhánh chỉ khác nhau ở giá trị chứ không khác nhau ở hành vi — ví dụ bảng giảm giá theo hạng khách. Lúc đó nó là một bảng tra cứu bị viết nhầm thành code. Chuyển sang Dictionary, rồi xa hơn là đưa xuống database hay file cấu hình, để đổi chính sách không phải deploy lại."
+    },
+    {
+      question: "&& và & khác nhau thế nào trong điều kiện?",
+      answer: "&& đoản mạch: vế trái sai thì không chạy vế phải. & luôn chạy cả hai vế. Vì vậy customer != null & customer.IsActive vẫn ném NullReferenceException, còn dùng && thì an toàn. Trong điều kiện hầu như luôn dùng && và ||."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **Guard clause trước, logic chính sau.** Code phẳng đọc nhanh hơn code thụt lề, và chi phí đổi sang chỉ là vài phút.
+2. **`switch expression` trên enum là một lưới an toàn.** Bỏ nhánh `_` đi để trình biên dịch nhắc bạn mỗi khi enum thay đổi.
+3. **Nhánh `if` chỉ khác nhau ở giá trị thì đó là dữ liệu.** Đưa nó ra khỏi code, và lần đổi chính sách sau sẽ không cần một lần deploy.
+
+## Tham khảo
+
+- [Selection statements — if, switch](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/statements/selection-statements) — cú pháp đầy đủ
+- [Patterns](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/patterns) — toàn bộ pattern matching của C#
+- [Null-coalescing operators `??` và `??=`](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/null-coalescing-operator)
+- [C# coding conventions](https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/coding-style/coding-conventions) — quy ước viết điều kiện
 
 ## Điều hướng
 
