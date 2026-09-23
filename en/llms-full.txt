@@ -18,8 +18,8 @@ của trang — mỗi mục bên dưới có dòng `URL:` là canonical URL củ
 
 ## Phạm vi & giới hạn
 
-- Tổng số tài liệu quét được: 471 (docs: 431, blog: 40).
-- Số tài liệu có mặt trong file này: 471.
+- Tổng số tài liệu quét được: 474 (docs: 431, blog: 43).
+- Số tài liệu có mặt trong file này: 470.
 - Ngân sách dung lượng: 2.0 MB. Trần nội dung mỗi tài liệu: 6 KB.
 - Khi thiếu chỗ: blog giữ 30% ngân sách (ưu tiên bài mới nhất), phần còn lại dành cho docs/.
 - Nội dung đã được strip khỏi MDX/JSX và frontmatter; chữ bên trong các
@@ -27,8 +27,11 @@ của trang — mỗi mục bên dưới có dòng `URL:` là canonical URL củ
 - Khối code dài bị rút gọn; mọi chỗ rút gọn đều được đánh dấu tại chỗ.
 - Mỗi tài liệu bắt đầu bằng một dòng `========…` rồi tới `# <tiêu đề>` và `URL: …`.
 
-### Tài liệu bị rút gọn (111) — fetch URL để lấy bản đầy đủ
+### Tài liệu bị rút gọn (113) — fetch URL để lấy bản đầy đủ
 
+- Thêm 4 index làm INSERT chậm 6 lần: cái giá không ai nhắc khi bảo bạn đánh index — https://tiennhm.io.vn/blog/chi-phi-ghi-cua-index
+- Luỹ kế của bạn sai ngay dòng đầu: window function, RANGE và cái mặc định ít ai đọc — https://tiennhm.io.vn/blog/window-function-vs-group-by
+- Hai giao dịch cùng cộng 100, số dư chỉ tăng 100: isolation level qua thí nghiệm thật — https://tiennhm.io.vn/blog/sql-isolation-level-lost-update-phantom-read
 - Có index rồi mà truy vấn vẫn quét toàn bảng? Sargability và một hàm bọc quanh cột — https://tiennhm.io.vn/blog/sql-index-khong-duoc-dung-sargable
 - LEFT JOIN của bạn đã thành INNER JOIN mà không ai báo — https://tiennhm.io.vn/blog/left-join-thanh-inner-join
 - Vì sao NOT IN của bạn trả về 0 dòng? Logic ba trị của SQL và cái bẫy NULL — https://tiennhm.io.vn/blog/sql-null-not-in-three-valued-logic
@@ -139,6 +142,15 @@ của trang — mỗi mục bên dưới có dòng `URL:` là canonical URL củ
 - 16.17 — Review and Assessment — https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-05-senior-engineering/module-16-clean-architecture/16.17-review-and-assessment
 - 17.15 — Review and Assessment — https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-05-senior-engineering/module-17-distributed-systems/17.15-review-and-assessment
 - 19.14 — Review and Assessment — https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-05-senior-engineering/module-19-performance-engineering/19.14-review-and-assessment
+
+### Tài liệu KHÔNG nằm trong file này (4) — vượt ngân sách dung lượng
+
+Các trang dưới đây vẫn công khai và nằm trong sitemap.xml; chỉ là không được
+nhúng toàn văn ở đây. Fetch trực tiếp URL để lấy nội dung.
+
+- 19.8 — 7. Distributed lock — https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-05-senior-engineering/module-19-performance-engineering/19.8-distributed-lock
+- 19.9 — Bổ sung (đối chiếu roadmap.sh) — https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-05-senior-engineering/module-19-performance-engineering/19.9-roadmap-sh-supplement
+- Tutorials — https://tiennhm.io.vn/docs
 - Hướng dẫn Tối ưu SEO/GEO cho Blog — https://tiennhm.io.vn/docs/seo-geo-guide
 
 ### File nguồn bị bỏ qua (1) — không sinh ra trang công khai
@@ -41903,96 +41915,6 @@ Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi
 
 ============================================================================
 
-# 19.8 — 7. Distributed lock
-
-URL: https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-05-senior-engineering/module-19-performance-engineering/19.8-distributed-lock
-Source: docs/09-dotnet-backend-zero-to-senior/stage-05-senior-engineering/module-19-performance-engineering/19.8-distributed-lock.mdx
-
-# 19.8 — 7. Distributed lock
-
-## Mục tiêu bài học
-
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
-
-## Nội dung bài học
-
-Khi nhiều worker cùng xử lý job (outbox dispatcher, rebuild index), cần mutual exclusion:
-
-- Redis `SET key NX EX ttl`
-- SQL `sp_getapplock` / advisory lock Postgres
-- Leader election (Lease) trên blob (Azure)
-
-Trade-off: lock sai thiết kế → split-brain hoặc availability giảm. Ưu tiên idempotent job + partition theo key để giảm lock toàn cục.
-
-## Bài tập áp dụng
-
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
-
-## Tự kiểm tra
-
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
-
-## Kết luận
-
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
-
-## Điều hướng
-
-- Bài trước: 19.7 — 6. Scaling strategy
-- Bài tiếp theo: 19.9 — Bổ sung (đối chiếu roadmap.sh)
-- Về module: Trang mục lục
-
-============================================================================
-
-# 19.9 — Bổ sung (đối chiếu roadmap.sh)
-
-URL: https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-05-senior-engineering/module-19-performance-engineering/19.9-roadmap-sh-supplement
-Source: docs/09-dotnet-backend-zero-to-senior/stage-05-senior-engineering/module-19-performance-engineering/19.9-roadmap-sh-supplement.mdx
-
-# 19.9 — Bổ sung (đối chiếu roadmap.sh)
-
-## Mục tiêu bài học
-
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
-
-## Nội dung bài học
-
-- BenchmarkDotNet — mục 2.
-- Distributed lock — mục 7; thư viện: `StackExchange.Redis`, MedallionShell, hoặc pattern lease tự viết.
-- GC / memory: theo dõi `Gen2` collections, LOH — object pool chỉ khi đo được alloc nóng.
-
-## Bài tập áp dụng
-
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
-
-## Tự kiểm tra
-
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
-
-## Kết luận
-
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
-
-## Điều hướng
-
-- Bài trước: 19.8 — 7. Distributed lock
-- Bài tiếp theo: 19.10 — Liên hệ CRM
-- Về module: Trang mục lục
-
-============================================================================
-
 # Module 19 — Performance Engineering
 
 URL: https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-05-senior-engineering/module-19-performance-engineering
@@ -42019,247 +41941,418 @@ Tags: performance-engineering, benchmarkdotnet, dotnet-gc, cpu-profiling, memory
 
 ============================================================================
 
-# Tutorials
+# Thêm 4 index làm INSERT chậm 6 lần: cái giá không ai nhắc khi bảo bạn đánh index
 
-URL: https://tiennhm.io.vn/docs
-Source: docs/index.mdx
-Description: Tổng hợp các tutorials, solutions cho các problems...
-Tags: leetcode, database, tutorial, solution, git, github, os, web-security, algorithm
+URL: https://tiennhm.io.vn/blog/chi-phi-ghi-cua-index
+Source: blog/2026/2026-09-29-chi-phi-ghi-cua-index/index.md
+Date: 2026-09-29
+Description: Mọi hướng dẫn tối ưu đều bảo thêm index, rất ít bài nói về hoá đơn. Đo trên PostgreSQL 16 với cùng 200.000 dòng: bảng không index chèn hết 287,8 ms và nặng 10,2 MB, bảng bốn index mất 1.722,3 ms và nặng 27 MB. Bài viết phân tích chi phí ghi, quy tắc leftmost prefix, index trùng lặp, và cách quyết định index nào đáng giữ.
+Tags: sql, database, postgresql, performance, architecture, backend
+Note: Nội dung dưới đây đã được rút gọn để giữ dung lượng file. Bản đầy đủ tại https://tiennhm.io.vn/blog/chi-phi-ghi-cua-index
 
-Trang tổng hợp các tutorials, solutions và best practices về lập trình, bao gồm LeetCode solutions, database tutorials, Git/GitHub guides, web security, algorithms và nhiều chủ đề khác. Tài liệu được tổ chức theo categories để dễ dàng tìm kiếm và tham khảo, giúp developers học tập và giải quyết các vấn đề thực tế trong phát triển phần mềm.
+# Thêm 4 index làm INSERT chậm 6 lần
 
-Tổng hợp các tutorials, solutions cho các problems...
+Index tăng tốc đọc bằng cách trả giá ở mỗi lần ghi, và cái giá đó lớn hơn hầu hết người ta hình dung. Đo trên PostgreSQL 16 với cùng 200.000 dòng: bảng không index chèn xong trong 287,8 ms và chiếm 10,2 MB; bảng có bốn index mất 1.722,3 ms và chiếm 27 MB. Tức là chậm gấp 6 lần và tốn gấp 2,6 lần dung lượng — chỉ để thêm bốn cấu trúc mà có thể chẳng câu truy vấn nào dùng tới. Câu hỏi đúng không phải "cột này có nên có index không" mà là "phần đọc tiết kiệm được có bù nổi phần ghi phải trả không".
+
+Mọi bài viết về tối ưu database đều kết thúc bằng lời khuyên thêm index. Rất ít bài nói về hoá đơn đi kèm, và càng ít bài đưa con số.
+
+Bài này đào sâu bài Thiết kế database và bài Index trong series học SQL 30 ngày. Mọi số liệu đo thật trên PostgreSQL 16.11.
+
+## Tóm tắt nhanh (TL;DR)
+- 4 index làm cùng một lệnh `INSERT` 200.000 dòng đi từ 287,8 ms → 1.722,3 ms (chậm 6 lần).
+- Dung lượng bảng đi từ 10,2 MB → 27 MB (gấp 2,6 lần).
+- Index phức hợp `(a, b)` không phục vụ `WHERE b = ?` — quy tắc leftmost prefix.
+- Index `(a)` khi đã có `(a, b)` là chi phí ghi thuần tuý, nên xoá.
+- Cột độ chọn lọc thấp (vài giá trị lặp lại) gần như không đáng đánh index.
+- Dùng `pg_stat_user_indexes` để tìm index chưa bao giờ được dùng.
+
+## Hoá đơn
+Hai bảng giống hệt nhau, khác mỗi số index:
+
+[code sql]
+CREATE TABLE w0(id int, a int, b int, c int, d int);
+CREATE TABLE w4(id int, a int, b int, c int, d int);
+CREATE INDEX ON w4(a); CREATE INDEX ON w4(b);
+CREATE INDEX ON w4(c); CREATE INDEX ON w4(d);
+[/code]
+
+Chèn cùng 200.000 dòng vào mỗi bảng:
+
+| | Thời gian `INSERT` | Dung lượng |
+|---|---|---|
+| Không index | 287,8 ms | 10,2 MB |
+| 4 index | 1.722,3 ms | 27 MB |
+| Chênh lệch | chậm 6,0 lần | gấp 2,6 lần |
+
+Lý do thì đơn giản: mỗi `INSERT` không chỉ ghi một dòng vào bảng, nó còn phải chèn một mục vào từng cấu trúc B-tree, giữ cho mỗi cây vẫn cân bằng, và ghi thêm vào write-ahead log cho từng thay đổi ấy. Bốn index nghĩa là năm cấu trúc phải đổi thay vì một.
+
+Điều đáng nói: con số này là chi phí bạn trả kể cả khi không câu truy vấn nào dùng tới bốn index đó. Index không dùng vẫn được cập nhật đầy đủ ở mọi lần ghi.
+
+`UPDATE` còn tệ hơn `INSERT` ở một điểm: nếu bạn sửa một cột có index, database phải xoá mục cũ và chèn mục mới trong cây. Sửa một cột không có index thì rẻ hơn nhiều — đó là lý do đánh index lên cột hay bị cập nhật (trạng thái, thời điểm sửa cuối) đắt hơn đánh lên cột tĩnh.
+
+## Leftmost prefix: thứ tự cột là một quyết định thiết kế
+Đây là quy tắc quyết định bạn cần mấy index, nên nó ảnh hưởng trực tiếp tới hoá đơn ở trên.
+
+Index phức hợp được sắp xếp theo cột trái nhất trước, rồi mới tới cột sau — giống danh bạ sắp theo họ rồi mới tới tên. Với `CREATE INDEX ON t(a, b)`:
+
+| Truy vấn | Dùng được index? |
+|---|---|
+| `WHERE a = 1` | ✅ |
+| `WHERE a = 1 AND b = 2` | ✅ |
+| `WHERE b = 2` | ❌ |
+| `WHERE a = 1 ORDER BY b` | ✅ (cả sắp xếp) |
+
+Ô thứ ba là chỗ hay gây bất ngờ. Danh bạ sắp theo họ không giúp gì khi bạn chỉ biết tên — bạn vẫn phải đọc hết.
+
+Hệ quả thực tế: một index `(a, b)` đặt đúng thứ tự thay thế được hai index riêng lẻ, còn đặt sai thứ tự thì bạn phải tạo thêm index thứ hai và trả thêm chi phí ghi. Nguyên tắc chọn thứ tự:
+
+1. Cột xuất hiện trong điều kiện bằng (`=`) đặt trước.
+2. Cột dùng cho khoảng (`>`, `<`, `BETWEEN`) đặt sau, vì sau một điều kiện khoảng thì các cột phía sau không còn dùng để thu hẹp được nữa.
+3. Cột dùng cho `ORDER BY` đặt cuối.
+
+## Ba loại index nên xoá
+### 1. Index trùng lặp
+
+Nếu đã có `(a, b)` thì `(a)` là thừa hoàn toàn — mọi truy vấn dùng được `(a)` đều dùng được `(a, b)` theo quy tắc leftmost prefix. Giữ nó lại chỉ để trả thêm chi phí ghi và thêm dung lượng.
+
+Tìm chúng trong PostgreSQL:
+
+[code sql]
+SELECT indrelid::regclass AS bang, array_agg(indexrelid::regclass) AS index_trung
+FROM pg_index
+GROUP BY indrelid, (indkey::int2[])[0:1]
+HAVING count(*) > 1;
+[/code]
+
+### 2. Index chưa bao giờ được dùng
+
+PostgreSQL đếm sẵn số lần mỗi index được quét:
+
+[code sql]
+SELECT relname AS bang, indexrelname AS index, idx_scan AS so_lan_dung,
+       pg_size_pretty(pg_relation_size(indexrelid)) AS dung_luong
+FROM pg_stat_user_indexes
+WHERE idx_scan = 0
+ORDER BY pg_relation_size(indexrelid) DESC;
+[/code]
+
+`idx_scan = 0` sau vài tuần chạy production là bằng chứng khá chắc. Hai lưu ý trước khi xoá: bộ đếm này reset khi restart hoặc khi gọi `pg_stat_reset()`, và một index phục vụ ràng buộc `UNIQUE` hay khoá chính thì không xoá được dù `idx_scan` bằng 0 — nó tồn tại để đảm bảo tính đúng đắn chứ không phải để tăng tốc đọc.
+
+### 3. Index trên cột độ chọn lọc thấp
+
+Cột `gioi_tinh` chỉ có hai giá trị, `trang_thai` có bốn. Index trên chúng gần như vô ích: mỗi giá trị khớp với một phần lớn bảng, nên database thường kết luận quét tuần tự còn rẻ hơn đi qua index rồi nhảy về bảng.
+
+Ngoại lệ đáng biết: khi phân bố lệch nặng. Nếu 99,9% đơn ở trạng thái `hoan_thanh` và 0,1% ở trạng thái `loi`, thì index một phần chỉ chứa phần hiếm lại rất hiệu quả:
+
+[code sql]
+CREATE INDEX idx_don_loi ON don_hang(tao_luc) WHERE trang_thai = 'loi';
+[/code]
+
+Index này nhỏ, rẻ để duy trì, và phục vụ đúng câu truy vấn mà bạn thật sự chạy nhiều.
+
+## Khi nào chi phí ghi đáng trả
+Không có con số vàng, nhưng có vài câu hỏi cho ra quyết định khá nhanh.
+
+Tỷ lệ đọc trên ghi của bảng này là bao nhiêu? Bảng danh mục sản phẩm đọc hàng nghìn lần và ghi vài lần mỗi ngày — index thoải mái. Bảng log sự kiện ghi liên tục và hiếm khi đọc — mỗi index là một cái thuế nặng.
+
+Câu truy vấn cần nó chạy bao nhiêu lần một ngày? Một báo cáo chạy mỗi tháng một lần không đáng để một index phải cập nhật ở mọi lần ghi suốt ba mươi ngày. Chấp nhận báo cáo đó chậm hai phút thường là lựa chọn đúng.
+
+Có index nào đang có phục vụ được không? Trước khi thêm mới, kiểm xem một index phức hợp sẵn có có phủ được truy vấn theo leftmost prefix hay không. Mở rộng một index đã có thường rẻ hơn tạo thêm một cái.
+
+Cột này có bị `UPDATE` thường xuyên không? Index trên cột hay đổi đắt gấp nhiều lần index trên cột tĩnh, vì mỗi lần sửa là một lần xoá và chèn lại trong cây.
+
+## Học tiếp
+Bài này đào sâu hai điểm trong series học SQL trong 30 ngày:
+
+[… phần còn lại đã lược bớt]
 
 ============================================================================
 
-# Hướng dẫn Tối ưu SEO/GEO cho Blog
+# Luỹ kế của bạn sai ngay dòng đầu: window function, RANGE và cái mặc định ít ai đọc
 
-URL: https://tiennhm.io.vn/docs/seo-geo-guide
-Source: docs/seo-geo-guide.mdx
-Description: Hướng dẫn sử dụng các component SEO/GEO để tối ưu blog cho AI Agents và search engines
-Tags: seo, geo, ai, optimization
-Note: Nội dung dưới đây đã được rút gọn để giữ dung lượng file. Bản đầy đủ tại https://tiennhm.io.vn/docs/seo-geo-guide
+URL: https://tiennhm.io.vn/blog/window-function-vs-group-by
+Source: blog/2026/2026-09-28-window-function-vs-group-by/index.md
+Date: 2026-09-28
+Description: GROUP BY gom 200.000 dòng thành 200, window function giữ nguyên cả 200.000 mà vẫn có số tổng của nhóm. Nhưng mặc định của OVER (ORDER BY ...) là RANGE chứ không phải ROWS, nên các dòng đồng hạng đều nhận cùng một giá trị luỹ kế — và bảng của bạn sai ngay dòng đầu tiên. Đo trên PostgreSQL 16, kèm so sánh self-join với window.
+Tags: sql, database, postgresql, backend, fundamentals
+Note: Nội dung dưới đây đã được rút gọn để giữ dung lượng file. Bản đầy đủ tại https://tiennhm.io.vn/blog/window-function-vs-group-by
 
-# Hướng dẫn Tối ưu SEO/GEO cho Blog
+# Luỹ kế của bạn sai ngay dòng đầu
 
-Hướng dẫn này giải thích cách sử dụng các component SEO/GEO đã được tích hợp sẵn trong blog để tối ưu nội dung cho AI Agents (ChatGPT, Gemini, Perplexity, Copilot, Claude) và search engines. Các component này giúp nội dung của bạn dễ dàng được AI trích dẫn, tóm tắt và giới thiệu.
+`GROUP BY` gom dòng lại, window function giữ nguyên dòng mà vẫn tính được số tổng của nhóm — đo thật: cùng một bảng 200.000 dòng, `GROUP BY` trả về 200 dòng, window trả về 200.000 dòng. Nó cũng nhanh hơn cách cũ: thay self-join bằng window đưa thời gian từ 79,2 ms xuống 22,7 ms. Nhưng có một mặc định gây sai số liệu mà rất ít người đọc tới: `OVER (ORDER BY ...)` dùng khung `RANGE`, nên mọi dòng đồng hạng đều nhận cùng một giá trị luỹ kế. Muốn cộng dồn từng dòng một thì phải ghi rõ `ROWS`.
 
-## Tổng quan về SEO → GEO
+Window function là thứ biến những câu truy vấn báo cáo dài dòng thành vài dòng đọc được. Nhưng nó cũng có đúng một cái bẫy đủ tinh vi để lọt qua review: bảng luỹ kế trông hợp lý ở giữa và sai ở chỗ có giá trị trùng nhau.
 
-Trong thời đại AI Agents, SEO không còn chỉ là "lên top Google" mà đã chuyển dịch sang tối ưu để được AI trích dẫn, tóm tắt và giới thiệu (GEO - Generative Engine Optimization).
+Bài này đào sâu bài Recursive Queries và Window Functions trong series học SQL 30 ngày. Mọi con số là kết quả chạy thật trên PostgreSQL 16.11.
 
-### Thay đổi cốt lõi
+## Tóm tắt nhanh (TL;DR)
+- `GROUP BY` gom dòng; window function giữ dòng và thêm giá trị tổng hợp bên cạnh.
+- Thay self-join bằng window: 79,2 ms → 22,7 ms trên 200.000 dòng.
+- `OVER (ORDER BY x)` mặc định dùng khung `RANGE`, gom hết dòng có cùng `x`.
+- Muốn luỹ kế từng dòng: ghi rõ `ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`.
+- `rank`, `dense_rank`, `row_number` cho ba kết quả khác nhau khi có đồng hạng.
 
-Trước đây:
-- User → Google → Click link → Đọc bài
+## Khác biệt cốt lõi: gom hay giữ
+Bảng doanh số 200.000 dòng, 200 nhân viên.
 
-Hiện nay:
-- User → AI Agent → Câu trả lời tổng hợp
-- Website không được click, nhưng được trích dẫn
+`GROUP BY` gom lại:
 
-👉 Mục tiêu SEO mới: Trở thành nguồn dữ liệu đáng tin để AI sử dụng
-
-## Các Component SEO/GEO có sẵn
-
-### 1. SummaryBox - Khối Tóm tắt (TL;DR)
-
-Component này tạo khối tóm tắt ngay đầu bài viết, giúp AI Agents dễ dàng trích xuất nội dung chính.
-
-Cách sử dụng:
-
-[code mdx]
-import { SummaryBox } from '@site/src/components/SEO';
-
-<SummaryBox>
-Đây là nội dung tóm tắt ngắn gọn 2-4 dòng về bài viết.
-AI Agents sẽ ưu tiên trích xuất nội dung này khi tổng hợp câu trả lời.
-</SummaryBox>
+[code sql]
+SELECT nhan_vien, sum(doanh_so) FROM ds GROUP BY nhan_vien;
+-- GROUP BY trả về 200 dòng
 [/code]
 
-Ví dụ thực tế:
+Window function giữ nguyên:
 
-SummaryBox giúp bạn tạo khối tóm tắt đẹp mắt và có cấu trúc, giúp cả người đọc và AI Agents nhanh chóng nắm bắt nội dung chính của bài viết.
-
-### 2. FAQSection - Câu hỏi Thường gặp
-
-Component này tạo section FAQ với structured data (FAQPage schema), giúp AI Agents và search engines hiểu rõ cấu trúc Q&A.
-
-Cách sử dụng:
-
-[code mdx]
-import { FAQSection } from '@site/src/components/SEO';
-
-<FAQSection
-  title="Câu hỏi thường gặp"
-  items={[
-    {
-      question: "SEO và GEO khác nhau như thế nào?",
-      answer: "SEO tập trung vào việc tối ưu để xuất hiện trên Google Search. GEO tập trung vào việc tối ưu để được AI Agents trích dẫn và tóm tắt trong câu trả lời."
-    },
-    {
-      question: "Tại sao structured data quan trọng?",
-      answer: "Structured data giúp AI Agents và search engines hiểu rõ cấu trúc nội dung, từ đó có thể trích xuất và tổng hợp thông tin chính xác hơn."
-    }
-  ]}
-/>
+[code sql]
+SELECT nhan_vien, doanh_so, sum(doanh_so) OVER (PARTITION BY nhan_vien) FROM ds;
+-- WINDOW trả về 200000 dòng
 [/code]
 
-Ví dụ thực tế:
+Đó là toàn bộ khác biệt về bản chất. `GROUP BY` trả lời "mỗi nhóm tổng bao nhiêu". Window function trả lời "mỗi dòng là bao nhiêu, và nhóm của nó tổng bao nhiêu" — giữ được chi tiết để bạn tính tiếp, ví dụ tỷ lệ đóng góp của từng dòng trong nhóm:
 
-### 3. Checklist - Danh sách Kiểm tra
-
-Component này tạo checklist có cấu trúc, giúp AI Agents dễ dàng trích xuất các điểm chính dạng bullet points.
-
-Cách sử dụng:
-
-[code mdx]
-import { Checklist } from '@site/src/components/SEO';
-
-<Checklist
-  title="Các bước tối ưu SEO/GEO"
-  items={[
-    { text: "Thêm SummaryBox vào đầu mỗi bài viết" },
-    { text: "Sử dụng FAQSection cho các câu hỏi thường gặp", checked: true },
-    { text: "Thêm Checklist cho các bước hướng dẫn" },
-    { text: "Sử dụng ArticleStructuredData cho blog posts" }
-  ]}
-/>
+[code sql]
+SELECT nhan_vien, thang, doanh_so,
+       round(100.0 * doanh_so / sum(doanh_so) OVER (PARTITION BY nhan_vien), 2) AS ty_le_phan_tram
+FROM ds;
 [/code]
 
-Ví dụ thực tế:
+Viết câu này bằng `GROUP BY` thuần thì phải gom rồi join ngược lại bảng gốc.
 
-### 4. ArticleStructuredData - Structured Data cho Bài viết
+## Window nhanh hơn self-join
+Trước khi window function phổ biến, cách làm là gom vào một bảng dẫn xuất rồi join ngược:
 
-Component này tự động tạo JSON-LD structured data cho bài viết, giúp AI Agents hiểu rõ metadata.
-
-Cách sử dụng:
-
-[code mdx]
-import { ArticleStructuredData } from '@site/src/components/SEO';
-
-<ArticleStructuredData
-  title="Tiêu đề bài viết"
-  description="Mô tả bài viết"
-  author={{
-    name: "Nguyễn Huỳnh Minh Tiến",
-    url: "https://github.com/TienNHM",
-    image: "https://github.com/TienNHM.png"
-  }}
-  datePublished="2025-02-09"
-  dateModified="2025-02-10"
-  image="https://example.com/image.jpg"
-  keywords={["SEO", "GEO", "AI"]}
-  articleType="BlogPosting"
-/>
+[code sql]
+-- Cách cũ
+SELECT count(*) FROM ds d
+JOIN (SELECT nhan_vien, sum(doanh_so) s FROM ds GROUP BY nhan_vien) g
+  ON g.nhan_vien = d.nhan_vien;
+-- Time: 79.196 ms
 [/code]
 
-Lưu ý: Component này thường được sử dụng trong blog post template hoặc theme customization, không phải trong từng bài viết riêng lẻ.
-
-### 5. HowToStructuredData - Structured Data cho Hướng dẫn
-
-Component này tạo JSON-LD cho hướng dẫn step-by-step, giúp AI Agents hiểu rõ cấu trúc hướng dẫn.
-
-Cách sử dụng:
-
-[code mdx]
-import { HowToStructuredData } from '@site/src/components/SEO';
-
-<HowToStructuredData
-  name="Cách tối ưu SEO cho Docusaurus"
-  description="Hướng dẫn chi tiết từng bước để tối ưu blog Docusaurus cho AI Agents"
-  totalTime="PT45M"
-  steps={[
-    {
-      name: "Bước 1: Cài đặt các component SEO",
-      text: "Import các component từ @site/src/components/SEO"
-    },
-    {
-      name: "Bước 2: Thêm SummaryBox vào bài viết",
-      text: "Thêm component SummaryBox ngay sau tiêu đề để tóm tắt nội dung"
-    },
-    {
-      name: "Bước 3: Sử dụng FAQSection cho Q&A",
-      text: "Tạo FAQSection với các câu hỏi và câu trả lời liên quan"
-    }
-  ]}
-/>
+[code sql]
+-- Cách mới
+SELECT count(*) FROM (
+  SELECT sum(doanh_so) OVER (PARTITION BY nhan_vien) FROM ds
+) q;
+-- Time: 22.659 ms
 [/code]
 
-## Best Practices cho SEO/GEO
+Nhanh hơn khoảng 3,5 lần, và ngắn hơn hẳn. Lý do: bản self-join phải quét bảng hai lần rồi ghép kết quả, còn window function quét một lần, sắp xếp theo phân vùng, và tính trong lúc đi qua dữ liệu.
 
-### 1. Viết để được trích dẫn, không chỉ để đọc
+## Cái bẫy: `RANGE` là mặc định, không phải `ROWS`
+Đây là phần đáng giá nhất của bài, và là chỗ tôi tự vấp khi dựng thí nghiệm.
 
-- Tiêu đề dạng câu hỏi: "AI Agents là gì?" thay vì "Giới thiệu về AI Agents"
-- Đoạn trả lời ngắn ngay đầu: 2-4 dòng trả lời trực tiếp câu hỏi
-- Sau đó mới phân tích sâu: Chi tiết và case studies
+Bảng ba dòng, hai dòng cùng ngày:
 
-### 2. Nội dung "Expert-level" > Content SEO rỗng
+| ngay | tien |
+|---|---|
+| 2026-01-01 | 100 |
+| 2026-01-01 | 200 |
+| 2026-01-02 | 300 |
 
-AI phân biệt được bài viết chung chung và bài viết có kinh nghiệm thật. Ưu tiên:
+Viết luỹ kế theo cách ai cũng viết:
 
-- Case studies với số liệu cụ thể
-- So sánh có lý do và trade-offs
-- Anti-patterns và hạn chế
-- Kinh nghiệm từ dự án thực tế
+[code sql]
+SELECT ngay, tien,
+       sum(tien) OVER (ORDER BY ngay) AS mac_dinh,
+       sum(tien) OVER (ORDER BY ngay ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS ro_rang
+FROM b ORDER BY ngay, tien;
+[/code]
 
-### 3. Structured Data là ngôn ngữ AI hiểu nhanh nhất
+Kết quả thật:
 
-Luôn sử dụng structured data cho:
-- FAQ → FAQPage schema
-- Hướng dẫn → HowTo schema
-- Bài viết → Article/BlogPosting schema
-- Sản phẩm → Product/SoftwareApplication schema
+| ngay | tien | mặc định (RANGE) | ghi rõ ROWS |
+|---|---|---|---|
+| 2026-01-01 | 100 | 300 | 100 |
+| 2026-01-01 | 200 | 300 | 300 |
+| 2026-01-02 | 300 | 600 | 600 |
 
-### 4. Nội dung dạng "có thể trích nguyên đoạn"
+Nhìn dòng đầu tiên: luỹ kế của một dòng có `tien = 100` lại là 300.
 
-AI thường trích:
-- Bullet points
-- Bảng so sánh
-- Định nghĩa ngắn
-- Checklist
+Lý do nằm ở khung cửa sổ (frame). Khi bạn viết `OVER (ORDER BY ngay)` mà không khai frame, SQL ngầm hiểu là:
 
-Nên có trong mỗi bài:
-- TL;DR (SummaryBox)
-- Summary box
-- Checklist
+[code sql]
+RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+[/code]
 
-## Ví dụ Template cho Blog Post
+Và `RANGE` xác định "dòng hiện tại" theo giá trị của cột `ORDER BY`, chứ không theo vị trí dòng. Hai dòng cùng ngày `2026-01-01` là đồng hạng (peer), nên cả hai đều được coi là "tới hết ngày 01/01" — và cùng nhận 300.
 
-[code mdx]
----
-title: Tiêu đề bài viết (dạng câu hỏi nếu phù hợp)
-description: Mô tả ngắn gọn 2-4 câu trả lời trực tiếp câu hỏi chính
-tags: [tag1, tag2]
-author: TienNHM
-date: 2025-02-09
-keywords: [keyword1, keyword2]
----
+`ROWS` thì đếm theo vị trí vật lý: dòng thứ nhất chỉ gồm chính nó, nên ra 100.
 
-import { SummaryBox, FAQSection, Checklist } from '@site/src/components/SEO';
+### Khi nào chọn cái nào
 
-# Tiêu đề bài viết
+| Bạn muốn | Dùng |
+|---|---|
+| Cộng dồn từng dòng một | `ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW` |
+| Tổng tới hết mỗi mốc thời gian (gom đồng hạng) | `RANGE` (mặc định) |
+| Trung bình trượt 7 dòng gần nhất | `ROWS BETWEEN 6 PRECEDING AND CURRENT ROW` |
+| Tổng toàn phân vùng | bỏ `ORDER BY` đi |
 
-<SummaryBox>
-Đây là đoạn tóm tắt ngắn gọn 2-4 dòng trả lời trực tiếp câu hỏi chính của bài viết.
-AI Agents sẽ ưu tiên trích xuất nội dung này.
-</SummaryBox>
+Chi tiết cuối đáng nhớ riêng: thêm `ORDER BY` vào `OVER()` sẽ tự động biến tổng toàn phân vùng thành luỹ kế. Rất nhiều người thêm `ORDER BY` cho "kết quả gọn hơn" rồi không hiểu vì sao cột tổng đột nhiên đổi số.
 
-## Phần 1: Giới thiệu
+[code sql]
+sum(x) OVER (PARTITION BY g)              -- tổng cả nhóm, mọi dòng giống nhau
+sum(x) OVER (PARTITION BY g ORDER BY t)   -- luỹ kế, mỗi dòng một số
+[/code]
 
-Nội dung chi tiết...
+Quy tắc thực dụng: nếu câu lệnh của bạn có `ORDER BY` bên trong `OVER()`, hãy khai frame tường minh. Viết dài hơn vài chữ, nhưng người đọc sau không phải nhớ mặc định là gì.
 
-## Phần 2: Hướng dẫn
+## Ba hàm xếp hạng, ba kết quả khác nhau
+Đây là chỗ hay chọn nhầm. Cùng một tập dữ liệu có giá trị trùng:
 
-<Checklist
-  title="Các bước thực hiện"
-  items={[
-    { text: "Bước 1: ..." },
-    { text: "Bước 2: ..." },
-    { text: "Bước 3: ..." }
-  ]}
-/>
+[code sql]
+SELECT tien,
+       rank()       OVER (ORDER BY tien DESC) AS rank,
+       dense_rank() OVER (ORDER BY tien DESC) AS dense_rank,
+       row_number() OVER (ORDER BY tien DESC) AS row_number
+FROM (VALUES (300),(200),(200),(100)) v(tien);
+[/code]
 
-## Câu hỏi thường gặp
+| tien | rank | dense_rank | row_number |
+|---|---|---|---|
+| 300 | 1 | 1 | 1 |
+| 200 | 2 | 2 | 2 |
+| 200 | 2 | 2 | 3 |
+| 100 | 4 | 3 | 4 |
+
+Ba hàm, ba hành vi:
+
+- `rank` — đồng hạng nhận cùng số, rồi nhảy cóc. Hai người hạng 2 thì người kế tiếp là hạng 4. Đây là cách xếp hạng thể thao.
+- `dense_rank` — đồng hạng nhận cùng số, nhưng không nhảy. Người kế tiếp là hạng 3. Dùng khi bạn cần "có bao nhiêu mức giá trị khác nhau".
+- `row_number` — không có đồng hạng, mỗi dòng một số. Dùng để phân trang hoặc chọn đúng một dòng đại diện mỗi nhóm.
+
+Chọn sai giữa `rank` và `dense_rank` là lỗi thầm lặng: bảng xếp hạng vẫn hiện ra hợp lý, chỉ là số hạng nhảy hoặc không nhảy trái với kỳ vọng nghiệp vụ.
+
+Còn `row_number` có một ứng dụng rất hay dùng — lấy bản ghi mới nhất của mỗi nhóm:
+
+[… phần còn lại đã lược bớt]
+
+============================================================================
+
+# Hai giao dịch cùng cộng 100, số dư chỉ tăng 100: isolation level qua thí nghiệm thật
+
+URL: https://tiennhm.io.vn/blog/sql-isolation-level-lost-update-phantom-read
+Source: blog/2026/2026-09-27-sql-isolation-level/index.md
+Date: 2026-09-27
+Description: Hai phiên cùng đọc số dư 1000 rồi cùng ghi 1100. Kết quả cuối là 1100 chứ không phải 1200, và không có lỗi nào được ném ra. Bài viết chạy thí nghiệm hai session song song trên PostgreSQL 16 cho từng mức isolation, cho thấy lost update biến thành lỗi rõ ràng ở REPEATABLE READ, và vì sao PostgreSQL chặn phantom read ở mức mà chuẩn SQL cho phép nó xảy ra.
+Tags: sql, database, postgresql, transaction, backend, concurrency
+Note: Nội dung dưới đây đã được rút gọn để giữ dung lượng file. Bản đầy đủ tại https://tiennhm.io.vn/blog/sql-isolation-level-lost-update-phantom-read
+
+# Hai giao dịch cùng cộng 100, số dư chỉ tăng 100
+
+Isolation level quyết định một giao dịch nhìn thấy gì khi có giao dịch khác chạy song song. Ở mức mặc định của hầu hết database là `READ COMMITTED`, hai phiên cùng đọc số dư 1000 rồi cùng ghi 1100 sẽ cho kết quả cuối là 1100 — một lần cộng biến mất, không có lỗi nào được ném. Nâng lên `REPEATABLE READ` thì phiên thứ hai nhận `ERROR: could not serialize access due to concurrent update`: câu trả lời sai âm thầm biến thành một lỗi rõ ràng mà ứng dụng phải thử lại. Toàn bộ số liệu dưới đây đo bằng hai session psql song song trên PostgreSQL 16.11.
+
+Đây là loại lỗi gần như không thể tái hiện trên máy dev, vì ở đó bạn chỉ có một người dùng. Nó chỉ xuất hiện khi hai request thật chạm vào cùng một dòng trong cùng một khoảnh khắc — và lúc đó nó không sập, không log, chỉ làm sai số liệu.
+
+Bài này đào sâu bài Transactions và ACID trong series học SQL 30 ngày.
+
+## Tóm tắt nhanh (TL;DR)
+- `READ COMMITTED` (mặc định) không chống được lost update trong mẫu đọc-tính-ghi.
+- `REPEATABLE READ` biến lỗi âm thầm thành exception, nên ứng dụng bắt buộc phải có cơ chế thử lại.
+- PostgreSQL chặn phantom read ngay ở `REPEATABLE READ`, dù chuẩn SQL-92 cho phép nó xảy ra ở mức này.
+- `READ UNCOMMITTED` trong PostgreSQL chạy y như `READ COMMITTED` — không có dirty read.
+- Nếu không muốn đụng isolation level: dùng `SELECT ... FOR UPDATE`, hoặc ghi bằng một câu `UPDATE` duy nhất.
+
+## Thí nghiệm 1: non-repeatable read
+Một bảng tài khoản, số dư 1000. Phiên A mở transaction và đọc, phiên B ghi 2000 rồi commit, sau đó A đọc lại trong cùng transaction.
+
+[code sql]
+CREATE TABLE tk(id int primary key, so_du int);
+INSERT INTO tk VALUES (1, 1000);
+[/code]
+
+Kết quả đo:
+
+[code]
+----- READ COMMITTED -----
+A đọc lần 1: 1000
+A đọc lần 2: 2000     ← đổi giữa chừng
+
+----- REPEATABLE READ -----
+A đọc lần 1: 1000
+A đọc lần 2: 1000     ← ổn định
+[/code]
+
+Ở `READ COMMITTED`, mỗi câu lệnh nhìn thấy trạng thái đã commit tại thời điểm câu lệnh đó chạy. Nên trong cùng một transaction, hai lần đọc cùng một dòng có thể ra hai giá trị khác nhau. Đó gọi là non-repeatable read.
+
+Hậu quả thực tế: một báo cáo đọc bảng nhiều lần trong một transaction có thể tự mâu thuẫn với chính nó — tổng ở phần đầu không khớp chi tiết ở phần sau.
+
+Ở `REPEATABLE READ`, transaction làm việc trên một ảnh chụp dữ liệu tại thời điểm nó bắt đầu, nên mọi lần đọc đều nhất quán.
+
+## Thí nghiệm 2: lost update
+Đây là thí nghiệm quan trọng nhất, vì nó mô phỏng đúng thứ code ứng dụng vẫn làm hằng ngày:
+
+[code csharp]
+var tk = await db.TaiKhoan.FindAsync(id);   // đọc:   1000
+tk.SoDu = tk.SoDu + 100;                     // tính:  1100
+await db.SaveChangesAsync();                 // ghi:   1100
+[/code]
+
+Hai phiên cùng chạy đoạn đó. Cả hai đọc 1000, cả hai ghi 1100.
+
+[code]
+----- LOST UPDATE @ READ COMMITTED -----
+B đọc thấy: 1000
+số dư cuối cùng: 1100        ← mất một lần cộng, KHÔNG có lỗi
+
+----- LOST UPDATE @ REPEATABLE READ -----
+B đọc thấy: 1000
+ERROR: could not serialize access due to concurrent update
+số dư cuối cùng: 1100        ← B bị huỷ, ứng dụng phải thử lại
+[/code]
+
+Hai kết quả này cùng một con số nhưng khác nhau hoàn toàn về bản chất.
+
+Ở `READ COMMITTED`, database làm đúng những gì được yêu cầu: B ghi đè giá trị của A. Không ai sai luật, và cũng không ai biết một giao dịch vừa bốc hơi. Nếu đây là số dư ví hay tồn kho thì bạn vừa mất tiền hoặc bán quá số lượng.
+
+Ở `REPEATABLE READ`, PostgreSQL phát hiện B đang định ghi đè lên một dòng đã bị sửa sau khi ảnh chụp của B được tạo, và từ chối. Số dư vẫn là 1100 vì chỉ có A thành công — nhưng lần này hệ thống biết là có chuyện, và ứng dụng có cơ hội chạy lại.
+
+> Điểm đáng nhớ: nâng isolation level không làm bug biến mất. Nó đổi một câu trả lời sai âm thầm lấy một exception ồn ào. Nếu code của bạn không bắt và thử lại exception đó, bạn chỉ vừa đổi kiểu hỏng.
+
+## Thí nghiệm 3: phantom read, và chỗ PostgreSQL khác chuẩn
+Phantom read là khi cùng một câu truy vấn theo điều kiện chạy hai lần trong một transaction lại trả về số dòng khác nhau, vì có transaction khác chèn thêm dòng khớp điều kiện.
+
+[code]
+----- PHANTOM READ @ READ COMMITTED -----
+A đếm lần 1: 2
+A đếm lần 2: 3     ← có bóng ma
+
+----- PHANTOM READ @ REPEATABLE READ -----
+A đếm lần 1: 2
+A đếm lần 2: 2     ← không có
+[/code]
+
+Kết quả thứ hai đáng chú ý, vì nó không khớp với bảng lý thuyết mà hầu hết tài liệu vẫn dạy:
+
+| Hiện tượng | READ UNCOMMITTED | READ COMMITTED | REPEATABLE READ | SERIALIZABLE |
+|---|:---:|:---:|:---:|:---:|
+| Dirty read | chuẩn: có thể | không | không | không |
+| Non-repeatable read | có thể | có thể | không | không |
+| Phantom read | có thể | có thể | chuẩn: có thể | không |
+
+Chuẩn SQL-92 nói `REPEATABLE READ` được phép có phantom read. Nhưng PostgreSQL hiện thực mức này bằng snapshot isolation — toàn bộ transaction làm việc trên một ảnh chụp cố định — nên phantom read không xảy ra được.
+
+Điều đó nghĩa là bảng lý thuyết ở trên mô tả giới hạn tối thiểu mà chuẩn đòi hỏi, không phải hành vi thật của database bạn đang dùng. MySQL InnoDB ở `REPEATABLE READ` cũng chặn phantom cho câu đọc thuần nhờ MVCC, nhưng hành vi với câu đọc có khoá lại khác. Đừng suy ra hành vi từ tên mức isolation — hãy thử trên chính database của bạn.
+
+Tương tự, `READ UNCOMMITTED` trong PostgreSQL chạy y hệt `READ COMMITTED`: kiến trúc MVCC của nó không có cách nào đọc dữ liệu chưa commit, nên dirty read đơn giản là không tồn tại.
+
+## Bốn cách xử lý, theo thứ tự nên thử
+### 1. Ghi bằng một câu `UPDATE` duy nhất
+
+Cách rẻ nhất, và hay bị bỏ qua vì quá đơn giản:
+
+[code sql]
+UPDATE tk SET so_du = so_du + 100 WHERE id = 1;
+[/code]
+
+Câu này đọc và ghi trong cùng một thao tác nguyên tử, nên không có khoảng hở giữa lúc đọc và lúc ghi. Hai phiên chạy đồng thời thì phiên sau chờ khoá, đọc lại giá trị mới, và cộng đúng. Kết quả là 1200.
+
+Phần lớn lost update trong thực tế đến từ việc kéo entity lên bộ nhớ, sửa, rồi lưu lại — trong khi phép tính hoàn toàn có thể đẩy xuống database.
+
+### 2. Khoá bi quan: `SELECT ... FOR UPDATE`
+
+Khi bạn thật sự cần đọc, tính toán phức tạp ở tầng ứng dụng, rồi mới ghi:
 
 [… phần còn lại đã lược bớt]
 
