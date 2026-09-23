@@ -81,3 +81,7 @@ Trong trường hợp bạn muốn cài một phiên bản cụ thể, bạn có
 Trong bài viết này, chúng ta đã tìm hiểu về k6, một công cụ kiểm tra tải hiệu suất cao, có thể viết bằng JavaScript. Chúng ta cũng đã tìm hiểu cách cài đặt k6 trên Windows thông qua file cài đặt phần mềm.
 
 Trong [bài viết tiếp theo](./part-02.md), chúng ta sẽ tìm hiểu cách viết một kịch bản kiểm tra tải đơn giản bằng k6.
+
+## Bài liên quan
+
+- [Các loại kiểm thử API](https://tiennhm.io.vn/blog/api-testing-types)

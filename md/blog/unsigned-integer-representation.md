@@ -7,6 +7,8 @@
 
 Trong bài viết này, chúng ta sẽ tìm hiểu về cách biểu diễn số nguyên dương trong các hệ số: hệ thập phân, hệ nhị phân và hệ thập lục phân.
 
+Nắm được biểu diễn nhị phân rồi thì các bài [thao tác trên bit](https://tiennhm.io.vn/docs/leetcode/bit-manipulation/191-number-of-1-bits) trong phần LeetCode là chỗ luyện trực tiếp: đếm bit 1, đếm bit cho mọi số từ 0 tới n.
+
 ## Lý thuyết
 
 ### 1. Các hệ số đếm thường sử dụng trong máy tính
@@ -145,3 +147,7 @@ d. 0216h => 534			j. 0A63h => 2659
 e. 004Bh => 75			k. 02A0h => 672
 f. 041Ch => 1052		l. 1FABh => 8107
 ```
+
+## Bài liên quan
+
+- [191. Number of 1 Bits](https://tiennhm.io.vn/docs/leetcode/bit-manipulation/191-number-of-1-bits) — Write a function that takes the binary representation of an unsigned integer and returns the number of `1` bits it has (also known as the Hamming…

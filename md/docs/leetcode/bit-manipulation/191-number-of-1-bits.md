@@ -43,3 +43,8 @@ Note:
 **Tham khảo:**
 - [C#](https://leetcode.com/submissions/detail/1040273349/)
 - [TypeScript](https://leetcode.com/submissions/detail/1040275362/)
+
+## Bài liên quan
+
+- [Biểu diễn số nguyên dương trong các hệ số](https://tiennhm.io.vn/blog/unsigned-integer-representation) — Biểu diễn số nguyên dương trong hệ thập phân, hệ nhị phân và hệ thập lục phân
+- [Lý thuyết hệ thống số trong máy tính](https://tiennhm.io.vn/blog/data-representation) — Lý thuyết hệ thống số trong máy tính: hệ nhị phân, hệ thập phân, hệ bát phân, hệ thập lục phân.

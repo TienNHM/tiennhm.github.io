@@ -17,3 +17,7 @@
 - [1.10 — Mini case study](1.10-mini-case-study.mdx)
 - [1.11 — Ví dụ thực tế nhanh](1.11-quick-real-world-example.mdx)
 - [1.12 — Review and Assessment](1.12-review-and-assessment.mdx)
+
+## Bài liên quan
+
+- [Các kiểu lập trình phổ biến](https://tiennhm.io.vn/blog/programming-paradigm) — Hướng dẫn các kiểu lập trình phổ biến trong phát triển phần mềm.

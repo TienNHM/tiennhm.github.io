@@ -280,6 +280,7 @@ Hãy bắt đầu hành trình phát triển phần mềm với AI ngay hôm nay
 - **[AWS AI-DLC Guide](https://aws.amazon.com/blogs/devops/ai-driven-development-life-cycle/)**: Official methodology
 - **[Cursor Documentation](https://cursor.sh/docs)**: Complete tool guide
 - **[AI Development Best Practices](https://docs.google.com/document/d/ai-dev-practices)**: Community guidelines
+- **[Agent Skills](https://tiennhm.io.vn/docs/agent-skills/agent-skills-01-react-best-practices)**: bộ guideline viết sẵn để đưa thẳng cho agent — React, Next.js, HTML/Tailwind, UX
 
 #### Community & Support
 - **Discord Communities**: AI Developer communities
@@ -311,3 +312,7 @@ Cảm ơn bạn đã theo dõi toàn bộ series **"Phát Triển Phần Mềm �
 [^3]: **[Enlighten Research (2025)](https://www.enlighten.co.nz/what-we-do/artificial-intelligence/ai-driven-development)**: AI-driven development methodology and best practices
 [^4]: **[Technologent Research (2025)](https://blog.technologent.com/ai-driven-software-development-uses-benefits-risks)**: AI-driven software development uses, benefits, and risks analysis
 [^5]: **[AWS AI-DLC Documentation](https://aws.amazon.com/blogs/devops/ai-driven-development-life-cycle/)**: Official AWS methodology for AI-driven development lifecycle
+
+## Bài liên quan
+
+- [Phần 1 - React Best Practices](https://tiennhm.io.vn/docs/agent-skills/agent-skills-01-react-best-practices) — Tổng hợp 53 guideline React best practices cho Agent Skills - State, Effects, Rendering, Components, Props, Events, Forms, Hooks, Context…

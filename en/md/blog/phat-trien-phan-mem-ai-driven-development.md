@@ -7,6 +7,8 @@
 
 Chào mừng bạn đến với series toàn diện về **AI-DD (AI-Driven Development)** - một cuộc cách mạng đang thay đổi hoàn toàn ngành công nghệ. Series này sẽ đưa bạn từ hiểu biết cơ bản về AI-driven development đến việc áp dụng thực tế và nhìn xa về tương lai của kỹ thuật phần mềm.
 
+Phần lý thuyết nằm ở series này; còn thứ thực sự đưa cho agent đọc thì nằm ở mục [Agent Skills](https://tiennhm.io.vn/docs/agent-skills/agent-skills-01-react-best-practices) — các bộ guideline viết sẵn để agent bám theo khi sinh code.
+
 ## 🎯 **Giới Thiệu Series**
 
 Ngành phát triển phần mềm đang chứng kiến một cuộc cách mạng lớn với sự xuất hiện của **AI-DD (AI-Driven Development)** - một cách tiếp cận hoàn toàn mới khác biệt với việc chỉ đơn thuần sử dụng AI để hỗ trợ.
@@ -164,3 +166,4 @@ Có câu hỏi hoặc muốn thảo luận? Hãy:
 ## Bài liên quan
 
 - [Module 3 — Git + Developer Workflow](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-01-foundation/module-03-git-developer-workflow) — Quy trình kỹ sư phần mềm với Git: branching, merge/rebase, code review, CI hooks — chuẩn hóa cộng tác cho dự án .NET đa module.
+- [Phần 1 - React Best Practices](https://tiennhm.io.vn/docs/agent-skills/agent-skills-01-react-best-practices) — Tổng hợp 53 guideline React best practices cho Agent Skills - State, Effects, Rendering, Components, Props, Events, Forms, Hooks, Context…

@@ -126,3 +126,4 @@ PRAGMA table_info(Products);
 
 - [Vì sao NOT IN của bạn trả về 0 dòng? Logic ba trị của SQL và cái bẫy NULL](https://tiennhm.io.vn/blog/sql-null-not-in-three-valued-logic) — Một câu NOT IN trả về đúng 0 dòng trong khi bảng có dữ liệu, còn NOT EXISTS cùng ý định lại trả về đủ.
 - [Có index rồi mà truy vấn vẫn quét toàn bảng? Sargability và một hàm bọc quanh cột](https://tiennhm.io.vn/blog/sql-index-khong-duoc-dung-sargable) — Cột đã có index, câu WHERE lọc đúng cột đó, nhưng execution plan vẫn là Seq Scan.
+- [Giới thiệu UUID (Universally Unique Identifier) - Định danh duy nhất toàn cầu](https://tiennhm.io.vn/blog/gioi-thieu-uuid-universally-unique-identifier)
