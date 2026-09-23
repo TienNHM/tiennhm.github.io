@@ -57,15 +57,19 @@ export default function HomepageFeatures(): JSX.Element {
  
         <ul className='row' style={{ listStyle: 'none', padding: 0, margin: 0 }}>
           {
+            // ShowcaseCard tự render thẻ <li> gốc, nên class lưới truyền
+            // thẳng vào nó thay vì bọc thêm một <li> nữa — xem ShowcaseCard.
             SORTED_PROJECTS.map((project: Project) => project.highlight && (
-              <li key={project.title} className={clsx('col col--4', styles.showcaseFeaturesList)}>
-                <ShowcaseCard user={project} />
-              </li>
+              <ShowcaseCard
+                key={project.title}
+                user={project}
+                className={clsx('col col--4', styles.showcaseFeaturesList)}
+              />
             ))
           }
         </ul>
 
-        <div id='top-projects' className={clsx(styles.showcaseFeaturesLink)}>
+        <div className={clsx(styles.showcaseFeaturesLink)}>
           <Link href='/showcase'>
             <Button label='View more ...' icon='pi pi-angle-double-right' 
               size='large' severity="success" rounded outlined/>

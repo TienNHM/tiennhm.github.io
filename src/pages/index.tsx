@@ -11,18 +11,59 @@ import ContactItem from '@site/src/components/ContactItem';
 import { AVATAR_URL, GITHUB_USER } from '@site/src/utils/constants';
 import { getSiteDescription } from '@site/src/utils/siteDescription';
 
+type GithubUser = {
+  bio?: string;
+  followers?: number;
+  following?: number;
+};
+
+const GITHUB_USER_CACHE_KEY = `github-user:${GITHUB_USER}`;
+
+function readCachedUser(): GithubUser | null {
+  try {
+    const raw = sessionStorage.getItem(GITHUB_USER_CACHE_KEY);
+    return raw ? (JSON.parse(raw) as GithubUser) : null;
+  } catch {
+    return null;
+  }
+}
+
 function HomepageHeader() {
   const { siteConfig } = useDocusaurusContext();
 
-  // Call Github API to get user information
-  const [user, setUser] = useState<any>({});
+  // Thông tin lấy từ GitHub API — hoàn toàn không bắt buộc: hỏng thì trang vẫn
+  // đầy đủ, chỉ thiếu dòng bio và số follower.
+  //
+  // API này giới hạn 60 request/giờ cho mỗi IP khi gọi không kèm token, và cách
+  // gọi cũ không kiểm tra response.ok cũng không bắt lỗi: khi bị chặn (trình
+  // duyệt chặn tracker, mạng công ty, hoặc chính Googlebot) thì .json() nổ ra
+  // một unhandled rejection, còn setUser nhận nguyên object lỗi của GitHub.
+  // Cache lại trong sessionStorage để mỗi phiên chỉ gọi một lần.
+  const [user, setUser] = useState<GithubUser | null>(null);
   useEffect(() => {
-    fetch(`https://api.github.com/users/${GITHUB_USER}`)
-      .then(response => response.json())
-      .then(data => {
-        // console.log(data);
+    const cached = readCachedUser();
+    if (cached) {
+      setUser(cached);
+      return;
+    }
+
+    const controller = new AbortController();
+    fetch(`https://api.github.com/users/${GITHUB_USER}`, { signal: controller.signal })
+      .then(response => (response.ok ? response.json() : null))
+      .then((data: GithubUser | null) => {
+        if (!data) return;
         setUser(data);
+        try {
+          sessionStorage.setItem(GITHUB_USER_CACHE_KEY, JSON.stringify(data));
+        } catch {
+          // sessionStorage có thể bị chặn (chế độ riêng tư) — bỏ qua.
+        }
+      })
+      .catch(() => {
+        // Mất mạng, bị chặn, hoặc vượt rate limit: giữ nguyên giao diện rút gọn.
       });
+
+    return () => controller.abort();
   }, []);
 
   const contacts = CONTACTS;
@@ -41,13 +82,15 @@ function HomepageHeader() {
             decoding='async' />
 
           <h1 className="hero__title">{GITHUB_USER}</h1>
-          <h2 className="hero__subtitle">{user?.bio}</h2>
+          <h2 className="hero__subtitle">{user?.bio ?? getSiteDescription()}</h2>
 
-          <div className={clsx(styles.githubInfo)}>
-            <pre>
-            ⊕ <span>{user?.followers} followers</span> - ⊛ <span>{user?.following} followings</span>
-            </pre>
-          </div>
+          {user && (
+            <div className={clsx(styles.githubInfo)}>
+              <pre>
+              ⊕ <span>{user.followers} followers</span> - ⊛ <span>{user.following} followings</span>
+              </pre>
+            </div>
+          )}
 
           {/* <div style={{margin: '1rem'}}>
             <Link className={clsx('button button--primary')} title='CV' to='/my-cv'>
