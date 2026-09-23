@@ -1,6 +1,7 @@
 ---
 slug: load-testing-restful-apis-with-k6-part-04
 title: Ý nghĩa các chỉ số trong kết quả của k6
+description: "Trong các bài viết trước, chúng ta đã tìm hiểu cách cài đặt k6, viết một kịch bản test đơn giản, chạy kịch bản test và xem kết quả. Trong bài viết này, chúng."
 authors: [tiennhm]
 tags: [load-testing, k6, restful-api, performance-testing, setup]
 enableComments: true # for Gisqus comments, set to true

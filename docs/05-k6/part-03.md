@@ -1,6 +1,7 @@
 ---
 slug: load-testing-restful-apis-with-k6-part-03
 title: Load testing với Virtual Users
+description: "Trong bài viết trước, chúng ta đã tìm hiểu cách sử dụng k6 để kiểm tra tải cho RESTful API thông qua một kịch bản test đơn giản để tạo, đọc, cập nhật và xóa."
 authors: [tiennhm]
 tags: [load-testing, k6, restful-api, performance-testing, setup]
 enableComments: true # for Gisqus comments, set to true

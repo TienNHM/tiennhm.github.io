@@ -1,7 +1,7 @@
 ---
 title: 2.05 | Insecure Direct Object References
 slug: insecure-direct-object-references-05
-description: Bài viết này sẽ hướng dẫn cách tấn công Insecure Direct Object References trên WebGoat 2023.8
+description: "Tương tự, để xem hồ sơ của người khác, bạn có thể thay đổi ID trong URL."
 image: https://tiennhm.github.io/img/docs/database.jpg
 sidebar_position: 2
 # sidebar_class_name: hidden

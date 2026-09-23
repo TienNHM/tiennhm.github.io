@@ -1,7 +1,7 @@
 ---
 title: 1.04 | XXE
 slug: XXE-04
-description: Bài viết này sẽ hướng dẫn cách tấn công XXE trên WebGoat 2023.8
+description: "Trước tiên, thử gửi một bình luận bình thường để xem request được gửi như thế nào."
 image: https://tiennhm.github.io/img/docs/database.jpg
 sidebar_position: 1
 # sidebar_class_name: hidden

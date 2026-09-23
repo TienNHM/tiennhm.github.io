@@ -1,7 +1,7 @@
 ---
 title: 1.08 | XXE
 slug: XXE-08
-description: Bài viết này sẽ hướng dẫn cách tấn công XXE trên WebGoat 2023.8
+description: "Bài tập này kiểm tra xem API có bị tấn công XXE (XML External Entity) hay không."
 image: https://tiennhm.github.io/img/docs/database.jpg
 sidebar_position: 1
 # sidebar_class_name: hidden

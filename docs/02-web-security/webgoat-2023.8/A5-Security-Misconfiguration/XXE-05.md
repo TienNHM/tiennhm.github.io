@@ -1,7 +1,7 @@
 ---
 title: 1.05 | XXE
 slug: XXE-05
-description: Bài viết này sẽ hướng dẫn cách tấn công XXE trên WebGoat 2023.8
+description: "Chặn request bằng Burp Suite/ZAP Proxy, sau đó thay thế body như sau:"
 image: https://tiennhm.github.io/img/docs/database.jpg
 sidebar_position: 1
 # sidebar_class_name: hidden
