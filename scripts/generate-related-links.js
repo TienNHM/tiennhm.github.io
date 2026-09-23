@@ -192,7 +192,8 @@ function score(a, b, sa, sb, idf) {
  * và tag giống hệt cả module nên điểm rất cao, nhưng dẫn người đọc tới đó thì
  * không giải thích thêm được gì.
  */
-const GENERIC_TARGET = /(review-and-assessment|module-\d+-(summary|assessment)|mini-case-study|module-orientation|quick-real-world-example)$/;
+const GENERIC_TARGET =
+    /(review-and-assessment|module-\d+-(summary|assessment)|mini-case-study|module-orientation|quick-real-world-example|advanced-notes)$/;
 const isGenericTarget = (item) => item.route === '/docs' || GENERIC_TARGET.test(item.route);
 
 // --------------------------------------------------------------- ghi file

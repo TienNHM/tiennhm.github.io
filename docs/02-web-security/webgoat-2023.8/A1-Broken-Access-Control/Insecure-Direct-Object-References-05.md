@@ -1,7 +1,7 @@
 ---
 title: 2.05 | Insecure Direct Object References
 slug: insecure-direct-object-references-05
-description: "Tương tự, để xem hồ sơ của người khác, bạn có thể thay đổi ID trong URL."
+description: "Các ứng dụng RESTful thường thay đổi phương thức HTTP để thực hiện các hành động khác nhau."
 image: https://tiennhm.github.io/img/docs/database.jpg
 sidebar_position: 2
 # sidebar_class_name: hidden

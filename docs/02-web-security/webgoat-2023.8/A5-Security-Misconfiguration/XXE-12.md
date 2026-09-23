@@ -1,7 +1,7 @@
 ---
 title: 1.12 | XXE
 slug: XXE-12
-description: "Lưu ý: Các thư viện XML khác nhau sẽ có cách cấu hình khác nhau. Hãy kiểm tra theo thư viện bạn đang dùng."
+description: "Nếu ứng dụng không bắt buộc dùng XML, hãy cân nhắc sử dụng JSON, vì JSON không hỗ trợ các thực thể XML (<!ENTITY>), giảm thiểu rủi ro XXE."
 image: https://tiennhm.github.io/img/docs/database.jpg
 sidebar_position: 1
 # sidebar_class_name: hidden

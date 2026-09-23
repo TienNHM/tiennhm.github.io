@@ -15,6 +15,26 @@ const THIN_ROUTES = [
     /(^|\/)blog\/archive$/,   // trang lưu trữ
     /(^|\/)blog\/authors(\/|$)/,
     /(^|\/)page\/\d+$/,       // phân trang: /blog/page/2
+
+    /*
+     * Bốn loại bài lặp lại ở cả 19 module của khoá .NET backend. Số đo trên
+     * nội dung thật (đã chuẩn hoá bỏ số thứ tự):
+     *
+     *   quick-real-world-example  19 trang -> 2 nội dung khác nhau, 18 chữ/trang
+     *   mini-case-study           19 trang -> 2 nội dung khác nhau, 42 chữ/trang
+     *   advanced-notes            19 trang -> 16 nội dung,          48 chữ/trang
+     *   module-orientation        19 trang -> 19 nội dung,         128 chữ/trang
+     *                                         (gần như chỉ là danh sách link)
+     *
+     * Hai loại đầu là nội dung trùng lặp đúng nghĩa: hai trang ở hai module
+     * hoàn toàn khác nhau giống hệt nhau từng chữ. Trang mỏng và gần trùng kéo
+     * tụt đánh giá chất lượng của cả site, nên cho crawler đi qua (follow) để
+     * vẫn truyền được link, nhưng không index.
+     *
+     * CỐ Ý GIỮ LẠI review-and-assessment: 19 trang là 19 nội dung riêng, trung
+     * bình 216 chữ — ngang với bài thường (225 chữ).
+     */
+    /-(module-orientation|mini-case-study|quick-real-world-example|advanced-notes)$/,
 ];
 
 /**
