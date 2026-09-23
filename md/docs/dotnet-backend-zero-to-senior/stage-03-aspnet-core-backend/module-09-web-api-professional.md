@@ -22,5 +22,5 @@
 
 ## Bài liên quan
 
-- [HTTP header có chứa được tiếng Việt không? ASCII, obs-text và chỗ .NET vạch ranh giới](https://tiennhm.io.vn/blog/http-header-unicode-ascii-dotnet) — Câu trả lời ngắn là không, và lý do thú vị hơn vẻ ngoài của nó.
 - [Scalar là gì? Tại sao nên dùng Scalar thay Swagger UI trong ASP.NET Core 10](https://tiennhm.io.vn/blog/gioi-thieu-scalar-api-reference-thay-the-swagger-ui) — Scalar là open-source API Reference UI hiện đại thay thế Swagger UI.
+- [HTTP header có chứa được tiếng Việt không? ASCII, obs-text và chỗ .NET vạch ranh giới](https://tiennhm.io.vn/blog/http-header-unicode-ascii-dotnet) — Câu trả lời ngắn là không, và lý do thú vị hơn vẻ ngoài của nó.

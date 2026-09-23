@@ -1,7 +1,7 @@
 # 2.05 | Insecure Direct Object References
 
 > Nguồn: https://tiennhm.io.vn/en/docs/web-security/webgoat-2023.8/A1-Broken-Access-Control/insecure-direct-object-references-05
-> Tương tự, để xem hồ sơ của người khác, bạn có thể thay đổi ID trong URL.
+> Các ứng dụng RESTful thường thay đổi phương thức HTTP để thực hiện các hành động khác nhau.
 
 > **Playing with the Patterns**
 

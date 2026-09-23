@@ -414,5 +414,5 @@ Happy coding! 🚀
 
 ## Bài liên quan
 
-- [Module 17 — Distributed Systems](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-05-senior-engineering/module-17-distributed-systems) — Hệ phân tán: consistency models, message brokers, idempotency, sagas — chuẩn bị tách dịch vụ và luồng tích hợp bất đồng bộ.
 - [M02.08 - Messaging and Queuing](https://tiennhm.io.vn/docs/aws-cloud-practitioner-essentials/compute-in-the-cloud/messaging-and-queuing) — Tìm hiểu về messaging và queuing trong AWS, bao gồm Amazon SQS, Amazon SNS và Amazon EventBridge.
+- [Module 17 — Distributed Systems](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-05-senior-engineering/module-17-distributed-systems) — Hệ phân tán: consistency models, message brokers, idempotency, sagas — chuẩn bị tách dịch vụ và luồng tích hợp bất đồng bộ.
