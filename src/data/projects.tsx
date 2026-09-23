@@ -295,7 +295,7 @@ const PROJECTS: Project[] = [
   {
     title: 'Map Timeline Visualizer',
     description: 'A browser-based tool that turns Google Maps Timeline exports into interactive visualizations: animated route replay, heatmaps, trips, places clustering, calendar view, and a yearly recap — 100% local, nothing leaves your device.',
-    preview: '/img/showcase/map-timeline-visualizer.png',
+    preview: '/img/showcase/map-timeline-visualizer.webp',
     website: 'https://tiennhm.github.io/map-timeline-visualizer/',
     source: 'https://github.com/TienNHM/map-timeline-visualizer',
     tags: ['favorite', 'opensource', 'personal'],
@@ -315,7 +315,7 @@ const PROJECTS: Project[] = [
   {
     title: 'TikTok Live Bar',
     description: 'Turns a TikTok LIVE stream into an interactive 3D dance floor: viewers who gift, chat, like, or follow appear on the floor with their real TikTok avatar, lighting effects, a DJ booth, and fireworks. Built with a Node.js bridge and a Unity 6 client.',
-    preview: '/img/showcase/tiktok-live-bar.png',
+    preview: '/img/showcase/tiktok-live-bar.webp',
     website: 'https://ongchummo.com',
     source: 'https://github.com/TienNHM/tiktok-live-bar',
     tags: ['opensource', 'product'],
@@ -332,7 +332,7 @@ const PROJECTS: Project[] = [
   {
     title: 'RSS Hub',
     description: 'A self-hosted social feed aggregator: RSSHub pulls feeds from platforms like X, YouTube, Reddit and GitHub, a Python worker dedupes and filters items, and a Telegram bot delivers them — with a Streamlit dashboard for managing subscriptions.',
-    preview: '/img/showcase/rss-hub.png',
+    preview: '/img/showcase/rss-hub.webp',
     website: 'https://github.com/TienNHM/rss-hub',
     source: null,
     tags: ['personal'],
@@ -340,7 +340,7 @@ const PROJECTS: Project[] = [
   {
     title: 'UI/UX Design Guide',
     description: 'Trang web tổng hợp kiến thức và kỹ năng UI/UX Design nổi bật trong năm 2025.',
-    preview: '/img/blogs/ux-design-principles.png',
+    preview: '/img/blogs/ux-design-principles.webp',
     website: 'https://tiennhm.github.io/ux-design-principles/',
     source: null,
     tags: ['favorite', 'personal'],

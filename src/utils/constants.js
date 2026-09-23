@@ -3,7 +3,7 @@
 // chuyển hướng khiến trình duyệt không khớp được tài nguyên đã tải trước với
 // request thật, nên phần preload thành công cốc và Search Console báo
 // "Lỗi chuyển hướng" cho ảnh.
-export const AVATAR_URL = "https://avatars.githubusercontent.com/u/33385777?v=4";
+export const AVATAR_URL = "https://avatars.githubusercontent.com/u/33385777?v=4&s=400";
 export const GITHUB_USER = "TienNHM";
 
 export const LOGIN_PATH = "/login";

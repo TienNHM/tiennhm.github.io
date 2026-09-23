@@ -89,7 +89,7 @@ const authorProfile = {
     name: 'Nguyễn Huỳnh Minh Tiến',
     alternateName: 'TienNHM',
     jobTitle: 'Fullstack Developer',
-    image: 'https://avatars.githubusercontent.com/u/33385777?v=4',
+    image: 'https://avatars.githubusercontent.com/u/33385777?v=4&s=400',
     email: 'tiennhm.it@gmail.com',
     description:
         'Fullstack Developer tại Việt Nam, làm sản phẩm với .NET/ASP.NET Core, ABP Framework và Angular; viết về kiến trúc microservices, database, hiệu năng và AI-driven development.',

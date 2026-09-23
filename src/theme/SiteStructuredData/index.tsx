@@ -37,7 +37,7 @@ export default function SiteStructuredData(): JSX.Element {
         alternateName: "TienNHM",
         jobTitle: "Fullstack Developer",
         url: `${siteUrl}/`,
-        image: "https://avatars.githubusercontent.com/u/33385777?v=4",
+        image: "https://avatars.githubusercontent.com/u/33385777?v=4&s=400",
         sameAs: authorProfile.sameAs,
         // Các chủ đề chuyên môn — chỉ liệt kê thứ THỰC SỰ có nội dung
         // trên docs/ hoặc blog/. Nguồn: src/data/authorProfile.js
