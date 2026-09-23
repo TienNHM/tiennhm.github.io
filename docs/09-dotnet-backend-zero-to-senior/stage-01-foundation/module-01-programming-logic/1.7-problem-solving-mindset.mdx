@@ -1,105 +1,225 @@
 ---
 title: "1.7 — 6. Tư Duy Giải Bài Toán"
-description: "Trước khi viết bất kỳ dòng code nào, hãy hiểu rõ bài toán và chia nhỏ nó ra."
+description: "Quy trình bốn bước để đi từ đề bài mơ hồ tới code chạy được: viết ví dụ trước khi viết code, liệt kê ca biên theo danh sách cố định, chia nhỏ, và đọc thông báo lỗi cho đúng cách."
 sidebar_position: 7
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
 # 1.7 — 6. Tư Duy Giải Bài Toán
 
+<SummaryBox>
+Phần lớn thời gian lập trình không dùng để gõ code, mà để **hiểu xem phải gõ cái gì**. Bài này đưa ra một quy trình bốn bước dùng được ngay, và ba kỹ thuật cụ thể hơn lời khuyên chung chung: **viết bảng ví dụ đầu vào → đầu ra trước khi viết dòng code nào** (nó biến đề bài mơ hồ thành thứ kiểm chứng được), **liệt kê ca biên theo một danh sách cố định** thay vì trông chờ trí nhớ, và **đọc stack trace từ dưới lên**. Cuối bài là phương pháp chia đôi để tìm lỗi — cách khoanh vùng một bug trong mười nghìn dòng chỉ bằng khoảng mười bốn lần thử.
+</SummaryBox>
+
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Biến một đề bài bằng lời thành bảng ví dụ đầu vào → đầu ra trước khi viết code.
+- Liệt kê ca biên theo một danh sách cố định thay vì dựa vào trí nhớ.
+- Chia một bài toán lớn thành các bước kiểm chứng được độc lập.
+- Đọc một stack trace và chỉ ra đúng dòng gây lỗi.
+- Dùng phương pháp chia đôi để khoanh vùng lỗi thay vì đọc mò.
 
 ## Nội dung bài học
 
-Trước khi viết bất kỳ dòng code nào, hãy **hiểu rõ bài toán** và **chia nhỏ** nó ra.
+### 1.7.1 — Quy trình bốn bước
 
-### 1.7.1 — Quy trình 4 bước
-
-**Bước 1 — Hiểu đầu vào và đầu ra**
-
-Câu hỏi: "Tôi có gì? Tôi cần trả về gì?"
-
-**Bước 2 — Viết pseudocode** (giả code bằng tiếng Việt)
-
-Pseudocode là mô tả logic bằng ngôn ngữ tự nhiên, không cần cú pháp chính xác.
-
-**Bước 3 — Chuyển pseudocode thành code thật**
-
-**Bước 4 — Test với các trường hợp biên** (edge cases)
-
-### 1.7.2 — Ví dụ thực tế: Phân loại lead theo doanh thu tiềm năng
-
-**Bài toán:** Cho danh sách lead với doanh thu ước tính, phân loại thành Hot/Warm/Cold và trả về số lượng mỗi loại.
-
-**Bước 1 — Đầu vào/ra:**
-- Đầu vào: danh sách số (doanh thu ước tính của từng lead)
-- Đầu ra: 3 con số (số lead Hot, Warm, Cold)
-
-**Bước 2 — Pseudocode:**
-```
-đặt hot = 0, warm = 0, cold = 0
-với mỗi lead trong danh sách:
-    nếu doanh thu >= 100 triệu: tăng hot
-    nếu doanh thu >= 20 triệu:  tăng warm
-    còn lại:                     tăng cold
-in kết quả
+```mermaid
+flowchart LR
+    A[1 - Hieu de bai] --> B[2 - Lap ke hoach]
+    B --> C[3 - Cai dat]
+    C --> D[4 - Nhin lai]
+    D -->|Phat hien hieu sai de| A
 ```
 
-**Bước 3 — Code C#:**
+Điều quan trọng nhất: **bước 1 chưa xong thì đừng sang bước 3**. Lỗi tốn kém nhất trong nghề không phải code sai — mà là code đúng cho một bài toán khác với bài toán cần giải.
+
+### 1.7.2 — Bước 1: viết ví dụ trước khi viết code
+
+Đề bài thường đến dưới dạng một câu: *"Phân loại lead theo doanh thu tiềm năng."*
+
+Đừng mở IDE. Mở một bảng:
+
+| Doanh thu tiềm năng | Số nhân viên | Kết quả mong đợi |
+|---|---|---|
+| 2.000.000.000 | 500 | Enterprise |
+| 500.000.000 | 80 | Mid-market |
+| 50.000.000 | 5 | SMB |
+| 0 | 5 | ? **cần hỏi** |
+| −10.000.000 | 5 | ? **cần hỏi** |
+| 2.000.000.000 | 2 | ? **cần hỏi** |
+
+Bảng này làm được ba việc mà đọc đề không làm được:
+
+1. Nó **lộ ra chỗ mơ hồ**. Ba dòng cuối là ba câu hỏi phải hỏi người ra đề, không phải chỗ để tự đoán.
+2. Nó **trở thành bộ test** ngay khi có câu trả lời.
+3. Nó **chốt lại ranh giới**. `500.000.000` là Mid-market hay Enterprise? Phân loại có dùng số nhân viên không, hay chỉ doanh thu?
+
+Quy tắc: nếu bạn chưa viết được ví dụ, bạn chưa hiểu đề. Viết code lúc đó là đoán.
+
+### 1.7.3 — Ca biên: dùng danh sách, đừng dùng trí nhớ
+
+Ca biên bị bỏ sót không phải vì khó, mà vì **không ai nhớ hết** lúc đang tập trung vào luồng chính. Cách chữa là có một danh sách cố định và chạy qua nó mỗi lần.
+
+<Checklist
+  title="Danh sách ca biên chuẩn"
+  items={[
+    { text: "Rỗng — danh sách không có phần tử nào, chuỗi rỗng." },
+    { text: "Một phần tử — nhiều thuật toán sai ở đúng trường hợp này." },
+    { text: "null — tham số null, phần tử null bên trong danh sách." },
+    { text: "Trùng lặp — hai bản ghi cùng khoá." },
+    { text: "Biên — đúng bằng ngưỡng, ngay dưới, ngay trên." },
+    { text: "Số âm và số không — kể cả khi 'không thể xảy ra'." },
+    { text: "Rất lớn — tràn số, hết bộ nhớ, timeout." },
+    { text: "Thứ tự — dữ liệu chưa sắp xếp, sắp xếp ngược." },
+    { text: "Unicode — tiếng Việt có dấu, emoji, chuỗi nhiều byte." },
+  ]}
+/>
+
+Dòng cuối không phải chuyện lý thuyết: bài [Một dấu tiếng Việt làm chết lời gọi API](/blog/cloudflare-header-broke-dotnet-httpclient) là một sự cố thật, bắt đầu từ đúng một ký tự có dấu ở chỗ không ai ngờ tới.
+
+### 1.7.4 — Bước 2: chia nhỏ tới mức kiểm chứng được
+
+*"Xuất báo cáo doanh thu theo tháng cho từng chi nhánh, gửi email kèm file Excel."*
+
+Câu đó không cài đặt được. Nhưng nó chia được:
+
+1. Lấy danh sách chi nhánh đang hoạt động → **kiểm chứng được**: đếm số dòng.
+2. Với mỗi chi nhánh, lấy doanh thu theo tháng → **kiểm chứng được**: đối chiếu một chi nhánh bằng tay.
+3. Ghép thành bảng dữ liệu → **kiểm chứng được**: in ra console.
+4. Xuất bảng ra file Excel → **kiểm chứng được**: mở file lên.
+5. Gửi email kèm file → **kiểm chứng được**: gửi cho chính mình.
+
+Tiêu chí chia đúng: **mỗi bước phải tự chứng minh được là đúng mà không cần chạy bước sau**. Nếu một bước chỉ kiểm tra được sau khi cả chuỗi chạy xong, nó chưa được chia đủ nhỏ.
+
+Và luôn làm bước có rủi ro cao nhất trước. Nếu thư viện Excel không chạy được trên máy chủ Linux, bạn muốn biết điều đó ở ngày thứ nhất, không phải ngày thứ tư.
+
+### 1.7.5 — Bước 3: chạy được trước, gọn gàng sau
+
+"Làm chạy đã, tối ưu sau" là lời khuyên đúng — nhưng thiếu một vế. Vế đủ là:
+
+> Làm chạy được, **rồi dọn ngay khi còn nhớ**, rồi mới tối ưu nếu đo thấy cần.
+
+Bỏ vế giữa là cách sinh ra nợ kỹ thuật. Bản nháp chạy được rất dễ trở thành bản cuối, vì "nó đang chạy mà".
+
+Còn tối ưu thì chỉ làm sau khi **đo**. Trực giác của con người về chỗ chậm gần như luôn sai — chi tiết ở bài [1.8 Big-O](1.8-data-structures-and-big-o.mdx).
+
+### 1.7.6 — Đọc thông báo lỗi cho đúng
+
+Thông báo lỗi là câu trả lời, không phải tiếng ồn. Đọc theo thứ tự này:
+
+```
+System.NullReferenceException: Object reference not set to an instance of an object.
+   at CrmApp.Services.OrderService.CalculateTotal(Order order) in OrderService.cs:line 47
+   at CrmApp.Services.OrderService.ProcessAsync(Int32 orderId) in OrderService.cs:line 22
+   at CrmApp.Controllers.OrderController.Post(Int32 id) in OrderController.cs:line 15
+```
+
+1. **Loại ngoại lệ** — `NullReferenceException`: có cái gì đó đang là `null`.
+2. **Dòng trên cùng của stack trace** — `OrderService.cs:line 47`. Đây là nơi nổ. Các dòng dưới là đường đi tới đó.
+3. **Đọc từ dưới lên** để hiểu bối cảnh: request `POST` → `ProcessAsync` → `CalculateTotal`.
+4. Mở đúng dòng 47 và hỏi: trong dòng này, cái gì có thể là `null`?
+
+Sai lầm thường gặp là đọc mỗi dòng đầu rồi đoán. Số dòng nằm ngay đó.
+
+### 1.7.7 — Bí thì chia đôi
+
+Khi lỗi không lộ ra ở chỗ nào, đừng đọc lại code từ đầu. Hãy **chia đôi**.
+
 ```csharp
-void PhanLoaiLead(List<decimal> doanhThuList)
+public async Task<Report> Build(int id)
 {
-    int hot = 0, warm = 0, cold = 0;
+    var orders = await _db.Orders.Where(o => o.CustomerId == id).ToListAsync();
+    Console.WriteLine($"[1] orders = {orders.Count}");        // đúng như mong đợi?
 
-    foreach (decimal doanhThu in doanhThuList)
-    {
-        if (doanhThu >= 100_000_000m)
-            hot++;
-        else if (doanhThu >= 20_000_000m)
-            warm++;
-        else
-            cold++;
-    }
+    var filtered = orders.Where(o => o.IsPaid).ToList();
+    Console.WriteLine($"[2] filtered = {filtered.Count}");    // còn đúng không?
 
-    Console.WriteLine($"Hot: {hot} | Warm: {warm} | Cold: {cold}");
+    var total = filtered.Sum(o => o.Total);
+    Console.WriteLine($"[3] total = {total}");                // tới đây sai chưa?
+    // ...
 }
-
-// Test
-var leads = new List<decimal> { 150_000_000m, 50_000_000m, 5_000_000m, 200_000_000m, 10_000_000m };
-PhanLoaiLead(leads);
-// Output: Hot: 2 | Warm: 1 | Cold: 2
 ```
 
-**Bước 4 — Edge cases cần test:**
-- Danh sách rỗng → không crash, in "Hot: 0 | Warm: 0 | Cold: 0"
-- Doanh thu âm → xử lý thế nào? (CRM thực tế cần validate đầu vào)
-- Doanh thu đúng bằng ngưỡng (100 triệu) → phải vào Hot
+Đặt một điểm quan sát ở giữa. Nếu dữ liệu ở đó đã sai, lỗi nằm ở nửa trên. Nếu còn đúng, lỗi nằm ở nửa dưới. Lặp lại.
 
----
+Mỗi lần chia đôi loại bỏ một nửa không gian tìm kiếm, nên **mười nghìn dòng chỉ cần khoảng mười bốn lần thử**. Đây chính là `O(log n)` xuất hiện trong công việc hằng ngày.
+
+Với lịch sử git, `git bisect` làm đúng việc này một cách tự động trên các commit.
+
+### 1.7.8 — Bước 4: nhìn lại
+
+Sau khi code chạy, dành năm phút trả lời bốn câu:
+
+1. Đầu vào nào làm nó sai? (Nếu không nghĩ ra cái nào, bạn chưa nghĩ đủ lâu.)
+2. Người tiếp theo đọc có hiểu **vì sao** viết thế này không, hay chỉ hiểu nó làm gì?
+3. Nó xử lý được dữ liệu gấp 100 lần không? Nếu không thì tới ngưỡng nào là hỏng?
+4. Đã có sẵn thư viện chuẩn làm việc này chưa?
+
+Câu 4 tiết kiệm nhiều thời gian nhất. `.NET` đã có sẵn phân trang, so sánh chuỗi không phân biệt hoa thường, thao tác ngày tháng, gom nhóm — phần lớn tiện ích bạn định tự viết đều đã tồn tại và đã được nhiều người kiểm chứng.
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **Bảng ví dụ trước.** Lấy một yêu cầu bất kỳ bạn đang làm dở. Trước khi viết thêm dòng nào, lập bảng đầu vào → đầu ra với ít nhất sáu dòng, trong đó ít nhất hai dòng bạn **không tự trả lời được**. Gửi hai dòng đó cho người ra đề.
+
+2. **Chạy qua danh sách ca biên.** Chọn một hàm bạn đã viết tuần trước. Chạy qua chín mục ở 1.7.3. Ghi lại số ca mà hàm hiện tại xử lý sai.
+
+3. **Chia đôi có tính giờ.** Nhờ đồng nghiệp cố ý gài một lỗi vào một hàm dài. Tìm nó bằng cách chia đôi, đếm số lần bạn phải đặt điểm quan sát. So với số lần nếu đọc tuần tự từ đầu.
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "Vì sao phải viết bảng ví dụ trước khi viết code?",
+      answer: "Vì nó lộ ra chỗ mơ hồ trong đề bài trước khi bạn kịp đoán sai. Bảng đầu vào và đầu ra mong đợi biến một câu mô tả thành thứ kiểm chứng được, đồng thời trở thành bộ test ngay khi có câu trả lời. Nếu chưa viết được ví dụ thì chưa hiểu đề, và viết code lúc đó chỉ là đoán."
+    },
+    {
+      question: "Vì sao nên có danh sách ca biên cố định thay vì tự nhớ?",
+      answer: "Vì ca biên bị bỏ sót không phải do khó, mà do lúc đang tập trung vào luồng chính thì không ai nhớ hết. Một danh sách cố định — rỗng, một phần tử, null, trùng lặp, biên, số âm, rất lớn, thứ tự, unicode — chạy qua mỗi lần thì không phụ thuộc vào trí nhớ nữa."
+    },
+    {
+      question: "Chia nhỏ bài toán thế nào là đủ nhỏ?",
+      answer: "Khi mỗi bước tự chứng minh được là đúng mà không cần chạy bước sau. Nếu một bước chỉ kiểm tra được sau khi cả chuỗi chạy xong thì nó chưa đủ nhỏ. Ngoài ra nên làm bước rủi ro cao nhất trước, để phát hiện trở ngại ở ngày đầu chứ không phải ngày cuối."
+    },
+    {
+      question: "Đọc stack trace theo thứ tự nào?",
+      answer: "Đọc loại ngoại lệ trước để biết chuyện gì xảy ra, rồi lấy dòng trên cùng của stack trace vì đó là nơi nổ, kèm số dòng cụ thể. Sau đó đọc từ dưới lên để hiểu đường đi tới chỗ đó. Sai lầm phổ biến là chỉ đọc dòng thông báo đầu tiên rồi đoán, trong khi số dòng đã nằm sẵn ở đó."
+    },
+    {
+      question: "Phương pháp chia đôi để tìm lỗi hoạt động ra sao?",
+      answer: "Đặt một điểm quan sát ở giữa luồng xử lý. Nếu dữ liệu tại đó đã sai thì lỗi nằm ở nửa trên, còn đúng thì lỗi nằm ở nửa dưới. Lặp lại trên nửa còn lại. Mỗi lần loại bỏ một nửa không gian tìm kiếm, nên mười nghìn dòng chỉ cần khoảng mười bốn lần thử. Với lịch sử commit, git bisect làm đúng việc này tự động."
+    },
+    {
+      question: "Câu hỏi nào khi nhìn lại tiết kiệm thời gian nhất?",
+      answer: "Câu hỏi thư viện chuẩn đã có sẵn chức năng này chưa. .NET đã có phân trang, so sánh chuỗi không phân biệt hoa thường, thao tác ngày tháng, gom nhóm — phần lớn tiện ích định tự viết đều đã tồn tại và đã được rất nhiều người kiểm chứng."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **Chưa viết được ví dụ thì chưa hiểu đề.** Bảng đầu vào → đầu ra là công cụ rẻ nhất để phát hiện mình đang giải nhầm bài.
+2. **Ca biên dùng danh sách, không dùng trí nhớ.** Chín mục ở mục 1.7.3 chạy được trong hai phút.
+3. **Bí thì chia đôi, đừng đọc lại từ đầu.** Mười nghìn dòng, mười bốn lần thử.
+
+## Tham khảo
+
+- [Debugging in Visual Studio Code](https://code.visualstudio.com/docs/editor/debugging) — breakpoint, watch, call stack
+- [git-bisect](https://git-scm.com/docs/git-bisect) — chia đôi trên lịch sử commit
+- [Best practices for exceptions](https://learn.microsoft.com/en-us/dotnet/standard/exceptions/best-practices-for-exceptions) — ngoại lệ nói gì với bạn
+- [Collections and Data Structures](https://learn.microsoft.com/en-us/dotnet/standard/collections/) — kiểm tra trước khi tự viết
 
 ## Điều hướng
 
 - **Bài trước:** [1.6 — 5. Mảng và Danh Sách (Arrays & Lists)](1.6-arrays-and-lists.mdx)
 - **Bài tiếp theo:** [1.8 — 7. Cấu Trúc Dữ Liệu Cơ Bản và Big-O](1.8-data-structures-and-big-o.mdx)
 - **Về module:** [Trang mục lục](./)
+
+## Bài liên quan
+
+- [Một dấu tiếng Việt làm chết lời gọi API: cf-ipcity, HttpClient và giới hạn ASCII](/blog/cloudflare-header-broke-dotnet-httpclient) — Trên một nền tảng loyalty thương mại điện tử khoảng 3 triệu khách hàng, một lời gọi HTTP nội bộ hỏng trên production trong khi database, Kubernetes…
