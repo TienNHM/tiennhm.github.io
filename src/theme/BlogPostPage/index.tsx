@@ -15,6 +15,7 @@ import ContentVisibility from '@theme/ContentVisibility';
 import type { Props } from '@theme/BlogPostPage';
 import type { BlogSidebar } from '@docusaurus/plugin-content-blog';
 import PdfExportActions from '@site/src/components/PdfExportActions';
+import CopyMarkdownButton from '@site/src/components/CopyMarkdownButton';
 
 function BlogPostPageContent({
   sidebar,
@@ -44,7 +45,10 @@ function BlogPostPageContent({
       }>
       <ContentVisibility metadata={metadata} />
 
-      <PdfExportActions permalink={metadata.permalink} className="margin-bottom--md" />
+      <div className="margin-bottom--md">
+        <PdfExportActions permalink={metadata.permalink} />
+        <CopyMarkdownButton className="margin-top--sm" />
+      </div>
 
       <BlogPostItem>{children}</BlogPostItem>
 
