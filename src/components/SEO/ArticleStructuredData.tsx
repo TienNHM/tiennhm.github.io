@@ -40,7 +40,7 @@ export function ArticleStructuredData({
   author = {
     name: 'Nguyễn Huỳnh Minh Tiến',
     url: 'https://github.com/TienNHM',
-    image: 'https://avatars.githubusercontent.com/u/33385777?v=4',
+    image: 'https://avatars.githubusercontent.com/u/33385777?v=4&s=400',
   },
   datePublished,
   dateModified,

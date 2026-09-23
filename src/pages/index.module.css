@@ -23,10 +23,73 @@
 }
 
 .backgroundImage {
-  background-image: url('/img/background/cat-sunset-city-min.webp');
-  background-position: bottom right;
-  background-size: cover;
+  /*
+   * Chỗ này từng là background-image trỏ tới một file .webp 3840x2160.
+   * Hai vấn đề, và cộng lại chúng chính là điểm hiệu suất 49:
+   *
+   * 1. Ảnh nền khai báo trong CSS thì bộ quét preload của trình duyệt không
+   *    thấy. Nó chỉ lộ ra sau khi CSS tải xong (bản thân file CSS đã chặn hiển
+   *    thị 930 ms) rồi layout xong. PageSpeed ghi đúng điều đó ở mục "Phát hiện
+   *    yêu cầu LCP": không tìm thấy yêu cầu trong tài liệu ban đầu.
+   *
+   * 2. Chính thẻ <header> này là phần tử LCP. Với height:100vh trên màn hình
+   *    dọc, background-size:cover phải phóng một ảnh 16:9 lên phủ kín khung
+   *    đứng — máy tầm trung phải giải nén 8,3 megapixel trước khi vẽ được.
+   *
+   * Kết quả đo trên Moto G Power + 4G chậm: LCP 11,7 giây.
+   *
+   * Gradient tốn 0 byte, không thêm request nào, và vẽ được ngay từ khung hình
+   * đầu tiên — LCP chuyển sang phần chữ trong thẻ, tức là gần bằng FCP.
+   *
+   * Muốn quay lại ảnh nền: đừng đặt trong CSS. Đặt một thẻ <img> thật trong
+   * hero (position:absolute; inset:0; object-fit:cover) kèm srcset + sizes +
+   * fetchpriority="high", và cắt sẵn một bản dọc cho điện thoại.
+   */
+  background-color: hsl(200 45% 12%);
+  background-image:
+    radial-gradient(
+      120ch 60ch at 12% -10%,
+      hsl(var(--site-primary-hue-saturation) 40% / 0.55),
+      transparent 60%
+    ),
+    radial-gradient(
+      100ch 70ch at 88% 110%,
+      hsl(195 70% 32% / 0.45),
+      transparent 60%
+    ),
+    linear-gradient(
+      160deg,
+      hsl(200 45% 12%) 0%,
+      hsl(var(--site-primary-hue-saturation) 22%) 100%
+    );
   height: 100vh;
+}
+
+/* Lưới mảnh phía trên gradient — vẫn 0 byte, chỉ là repeating-linear-gradient. */
+.backgroundImage::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(
+      to right,
+      hsl(0 0% 100% / 0.05) 0 1px,
+      transparent 1px 5rem
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      hsl(0 0% 100% / 0.05) 0 1px,
+      transparent 1px 5rem
+    );
+  mask-image: radial-gradient(75% 60% at 50% 40%, #000, transparent);
+  -webkit-mask-image: radial-gradient(75% 60% at 50% 40%, #000, transparent);
+  pointer-events: none;
+}
+
+/* Nội dung phải nằm trên lớp lưới. */
+.cardContainer {
+  position: relative;
+  z-index: 1;
 }
 
 .cardContainer {

@@ -5,8 +5,6 @@ import Feature, { FeatureItem } from './_components/Feature';
 import { Project } from '@site/src/shared/dto/Project';
 import ShowcaseCard from '@site/src/pages/showcase/_components/ShowcaseCard';
 import Link from '@docusaurus/Link';
-import { Badge } from 'primereact/badge';
-import { Button } from 'primereact/button';
 import { SORTED_PROJECTS } from '@site/src/data/projects';
 
 // const FeatureList: FeatureItem[] = [
@@ -70,9 +68,15 @@ export default function HomepageFeatures(): JSX.Element {
         </ul>
 
         <div className={clsx(styles.showcaseFeaturesLink)}>
-          <Link href='/showcase'>
-            <Button label='View more ...' icon='pi pi-angle-double-right' 
-              size='large' severity="success" rounded outlined/>
+          {/*
+            * Trước đây chỗ này là <Button> của PrimeReact. Một nút duy nhất,
+            * nhưng nó kéo theo `primereact/resources/themes/fluent-light/theme.css`
+            * (219 KB) vào stylesheet chặn hiển thị của TOÀN BỘ site. Icon
+            * `pi pi-angle-double-right` thậm chí không hiện, vì CSS của
+            * primeicons chưa bao giờ được import.
+            */}
+          <Link className='button button--primary button--lg' href='/showcase'>
+            View more&nbsp;&raquo;
           </Link>
         </div>
       </div>
