@@ -1226,6 +1226,8 @@ Theo [Testim research](https://www.testim.io/blog/ai-driven-development-and-test
 | **Xác Thực Kết Quả** | Luôn kiểm tra AI-generated code và logic | Tránh ship code có lỗi |
 | **Giám Sát Con Người** | Duy trì review của con người cho quyết định quan trọng | Đảm bảo phù hợp với business |
 
+Cách rẻ nhất để "prompt rõ ràng, context đầy đủ" không phải viết lại mỗi lần, mà là đưa cho agent một bộ chuẩn cố định. Mục [Agent Skills](/docs/agent-skills/agent-skills-01-react-best-practices) là các bộ như vậy: React, Next.js, HTML/Tailwind, UX — mỗi bộ vài chục guideline cụ thể thay cho một câu prompt chung chung.
+
 ### 2. **Bảo Mật Ưu Tiên**
 Theo [Technologent research](https://blog.technologent.com/ai-driven-software-development-uses-benefits-risks):
 
@@ -1744,3 +1746,7 @@ Trong **Phần 4 (cuối cùng)**, chúng ta sẽ khám phá tương lai của p
 [^6]: **Developer Experience Metrics**: Survey of 500+ developers using AI tools
 [^7]: **Business Impact Metrics**: ROI analysis from 25+ companies
 [^8]: **[InfoWorld Research (2025)](https://www.infoworld.com/article/3999607/how-to-succeed-or-fail-with-ai-driven-development.html)**: "How to succeed (or fail) with AI-driven development" - Industry analysis
+
+## Bài liên quan
+
+- [Phần 1 - React Best Practices](/docs/agent-skills/agent-skills-01-react-best-practices) — Tổng hợp 53 guideline React best practices cho Agent Skills - State, Effects, Rendering, Components, Props, Events, Forms, Hooks, Context…

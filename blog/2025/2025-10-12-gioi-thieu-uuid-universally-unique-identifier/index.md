@@ -339,6 +339,8 @@ func main() {
 
 ## Sử dụng UUID trong Database
 
+Chọn UUID hay số nguyên tự tăng làm khoá chính là một quyết định thiết kế, không chỉ là chọn [kiểu dữ liệu](/docs/database/learn-sql-in-30-days/02-table-structure-and-data-types). Đánh đổi của nó — kích thước khoá, thứ tự chèn, chi phí index — được bàn kỹ hơn trong bài [thiết kế database](/docs/database/learn-sql-in-30-days/27-database-design-best-practices).
+
 ### PostgreSQL
 
 ```sql
@@ -482,3 +484,8 @@ Khi quyết định sử dụng UUID, hãy cân nhắc kỹ lưỡng về yêu c
 - [RFC 4122 - UUID Specification](https://tools.ietf.org/html/rfc4122)
 - [UUID Wikipedia](https://en.wikipedia.org/wiki/Universally_unique_identifier)
 - [PostgreSQL UUID Documentation](https://www.postgresql.org/docs/current/datatype-uuid.html)
+
+## Bài liên quan
+
+- [02. Cấu trúc bảng và kiểu dữ liệu](/docs/database/learn-sql-in-30-days/02-table-structure-and-data-types) — Giới thiệu cấu trúc bảng và kiểu dữ liệu trong SQL
+- [27. Database design best practices](/docs/database/learn-sql-in-30-days/27-database-design-best-practices) — Thiết kế cơ sở dữ liệu (Database Design) - Nguyên tắc chuẩn hóa CSDL, khi nào nên phi chuẩn hóa, best practices thiết kế CSDL hiệu quả.

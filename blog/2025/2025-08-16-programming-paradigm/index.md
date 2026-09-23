@@ -22,6 +22,8 @@ Bài viết giới thiệu tổng quan về các kiểu lập trình (programmin
 
 Trong bài viết này, mình sẽ giới thiệu tổng quan về các kiểu lập trình phổ biến trong phát triển phần mềm.
 
+Nếu bạn đang ở giai đoạn dựng nền, phần [Programming Logic](/docs/dotnet-backend-zero-to-senior/stage-01-foundation/module-01-programming-logic) trong lộ trình .NET backend đi qua biến, điều kiện, vòng lặp và hàm — những thứ mọi paradigm bên dưới đều dựa lên.
+
 <!-- truncate -->
 
 Lập trình không chỉ là việc viết code để máy tính thực hiện một chuỗi lệnh. Đằng sau mỗi dòng lệnh là một **mô hình lập trình (programming paradigm)** – cách tư duy, cách tổ chức chương trình để giải quyết vấn đề. Hiểu rõ các mô hình này sẽ giúp bạn trở thành lập trình viên linh hoạt, dễ dàng chọn công cụ và ngôn ngữ phù hợp cho từng bài toán.
@@ -237,3 +239,6 @@ Nếu mới bắt đầu, bạn có thể:
 * Làm các dự án nhỏ GUI để hiểu event-driven.
 * Nghiên cứu Prolog nếu quan tâm AI hoặc logic-based problem solving.
 
+## Bài liên quan
+
+- [Module 1 — Programming Logic](/docs/dotnet-backend-zero-to-senior/stage-01-foundation/module-01-programming-logic) — Nền tảng tư duy thuật toán và cấu trúc điều khiển trong C#: kiểu dữ liệu, hàm, tập hợp, độ phức tạp tiệm cận — chuẩn bị cho backend CRM.
