@@ -1,6 +1,7 @@
 ---
 slug: load-testing-restful-apis-with-k6-part-02
 title: Load testing API đơn giản
+description: "Để viết một kịch bản test đơn giản, chúng ta sẽ sử dụng một mockup RESTful API. API này có thể được tìm thấy tại https://reqres.in/, cung cấp một số."
 authors: [tiennhm]
 tags: [load-testing, k6, restful-api, performance-testing, setup]
 enableComments: true # for Gisqus comments, set to true

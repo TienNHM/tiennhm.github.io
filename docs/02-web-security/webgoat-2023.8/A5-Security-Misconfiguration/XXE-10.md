@@ -1,7 +1,7 @@
 ---
 title: 1.10 | XXE
 slug: XXE-10
-description: Bài viết này sẽ hướng dẫn cách tấn công XXE trên WebGoat 2023.8
+description: "Làm thế nào để kiểm tra xem XXE có thành công hay không? 👉 Gửi dữ liệu đến một server do kẻ tấn công kiểm soát."
 image: https://tiennhm.github.io/img/docs/database.jpg
 sidebar_position: 1
 # sidebar_class_name: hidden

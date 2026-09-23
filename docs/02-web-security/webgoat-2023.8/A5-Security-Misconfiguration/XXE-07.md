@@ -1,7 +1,7 @@
 ---
 title: 1.07 | XXE
 slug: XXE-07
-description: Bài viết này sẽ hướng dẫn cách tấn công XXE trên WebGoat 2023.8
+description: "Trong trường hợp sử dụng Windows, bạn có thể thay đổi đường dẫn file C:\\Windows\\System32\\drivers\\etc\\hosts thay cho /etc/passwd để kiểm tra."
 image: https://tiennhm.github.io/img/docs/database.jpg
 sidebar_position: 1
 # sidebar_class_name: hidden

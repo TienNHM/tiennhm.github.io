@@ -1,6 +1,7 @@
 ---
 slug: load-testing-restful-apis-with-k6-part-01
 title: Hướng dẫn cài đặt k6
+description: "RESTful API là một trong những kiểu API phổ biến nhất hiện nay. Vì vậy, việc kiểm tra tải (load testing) là một phần quan trọng của việc kiểm tra hiệu suất."
 authors: [tiennhm]
 tags: [load-testing, k6, restful-api, performance-testing, setup]
 enableComments: true # for Gisqus comments, set to true

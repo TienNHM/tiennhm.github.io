@@ -1,7 +1,7 @@
 ---
 title: 2.04 | Insecure Direct Object References
 slug: insecure-direct-object-references-04
-description: Bài viết này sẽ hướng dẫn cách tấn công Insecure Direct Object References trên WebGoat 2023.8
+description: "Ứng dụng này dường như tuân theo mô hình RESTful, trong đó mỗi tài nguyên có thể được truy cập thông qua một đường dẫn cụ thể."
 image: https://tiennhm.github.io/img/docs/database.jpg
 sidebar_position: 2
 # sidebar_class_name: hidden

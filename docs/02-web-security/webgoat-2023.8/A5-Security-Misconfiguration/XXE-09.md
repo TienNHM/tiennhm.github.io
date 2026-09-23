@@ -1,7 +1,7 @@
 ---
 title: 1.09 | XXE
 slug: XXE-09
-description: Bài viết này sẽ hướng dẫn cách tấn công XXE trên WebGoat 2023.8
+description: "Trong bài trước, ta đã thấy XXE Injection có thể được dùng để đọc file hệ thống. Nhưng ngoài việc đọc dữ liệu, XXE cũng có thể gây tấn công từ chối dịch vụ."
 image: https://tiennhm.github.io/img/docs/database.jpg
 sidebar_position: 1
 # sidebar_class_name: hidden

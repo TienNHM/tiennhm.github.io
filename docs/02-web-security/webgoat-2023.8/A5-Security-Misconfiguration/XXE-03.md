@@ -1,7 +1,7 @@
 ---
 title: 1.03 | XXE
 slug: XXE-03
-description: Bài viết này sẽ hướng dẫn cách tấn công XXE trên WebGoat 2023.8
+description: "Khi email.xml được xử lý, nó sẽ tham chiếu đến email.dtd để xác định cấu trúc hợp lệ."
 image: https://tiennhm.github.io/img/docs/database.jpg
 sidebar_position: 1
 # sidebar_class_name: hidden

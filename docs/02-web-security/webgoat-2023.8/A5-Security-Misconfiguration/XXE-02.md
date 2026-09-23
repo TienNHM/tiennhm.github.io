@@ -1,7 +1,7 @@
 ---
 title: 1.02 | XXE
 slug: XXE-02
-description: Bài viết này sẽ hướng dẫn cách tấn công XXE trên WebGoat 2023.8
+description: "Trong XML, Entity là các thành phần có thể thay thế bằng nội dung cụ thể khi XML được parse. Có 3 loại chính: 1️⃣ Internal Entity – Được định nghĩa trong."
 image: https://tiennhm.github.io/img/docs/database.jpg
 sidebar_position: 1
 # sidebar_class_name: hidden

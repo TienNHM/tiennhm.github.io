@@ -1,7 +1,7 @@
 ---
 title: 1.11 | XXE
 slug: XXE-11
-description: Bài viết này sẽ hướng dẫn cách tấn công XXE trên WebGoat 2023.8
+description: "Đây là bài tập Blind XXE nâng cao, yêu cầu bạn tạo một file DTD để tải nội dung của tệp secret.txt từ server WebGoat lên WebWolf. Dưới đây là hướng dẫn chi."
 image: https://tiennhm.github.io/img/docs/database.jpg
 sidebar_position: 1
 # sidebar_class_name: hidden

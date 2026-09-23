@@ -1,7 +1,7 @@
 ---
 title: 1.02 | Hijack a session
 slug: hijack-a-session-02
-description: Bài viết này sẽ hướng dẫn cách tấn công Hijack a session trên WebGoat 2023.8
+description: "Bài này tập trung vào dự đoán giá trị của cookie hijackcookie, một kỹ thuật tấn công kiểu Session Prediction (Dự đoán phiên đăng nhập). Mục tiêu là xác định."
 image: https://tiennhm.github.io/img/docs/database.jpg
 sidebar_position: 1
 # sidebar_class_name: hidden

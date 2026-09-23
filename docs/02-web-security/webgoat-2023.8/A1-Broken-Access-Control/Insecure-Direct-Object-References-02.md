@@ -1,7 +1,7 @@
 ---
 title: 2.02 | Insecure Direct Object References
 slug: insecure-direct-object-references-02
-description: Bài viết này sẽ hướng dẫn cách tấn công Insecure Direct Object References trên WebGoat 2023.8
+description: "Nhiều lỗ hổng kiểm soát truy cập có thể bị khai thác bởi một người dùng đã xác thực nhưng không được cấp quyền hợp lệ."
 image: https://tiennhm.github.io/img/docs/database.jpg
 sidebar_position: 2
 # sidebar_class_name: hidden
