@@ -8,6 +8,10 @@
   text-align: center;
   position: relative;
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
 }
 
 @media screen and (max-width: 996px) {
@@ -62,7 +66,13 @@
       hsl(200 45% 12%) 0%,
       hsl(var(--site-primary-hue-saturation) 22%) 100%
     );
-  height: 100vh;
+  /*
+   * 100vh + margin-top:-10vh của thẻ để lại một mảng trống rất lớn bên dưới.
+   * 88svh vừa đủ để hero chiếm trọn màn hình đầu mà nội dung tiếp theo vẫn hé
+   * ra, và svh không bị nhảy khi thanh địa chỉ trên di động thu vào/bung ra.
+   */
+  min-height: 88vh;
+  min-height: 88svh;
 }
 
 /* Lưới mảnh phía trên gradient — vẫn 0 byte, chỉ là repeating-linear-gradient. */
@@ -86,68 +96,168 @@
   pointer-events: none;
 }
 
-/* Nội dung phải nằm trên lớp lưới. */
+/* Lớp sáng trôi rất chậm phía sau — chỉ animate transform nên hợp thành ở GPU,
+   không đụng tới layout hay paint. Tôn trọng prefers-reduced-motion. */
+.backgroundImage::after {
+  content: '';
+  position: absolute;
+  inset: -25%;
+  background:
+    radial-gradient(
+      45ch 45ch at 30% 35%,
+      hsl(var(--site-primary-hue-saturation) 45% / 0.35),
+      transparent 65%
+    ),
+    radial-gradient(40ch 40ch at 72% 70%, hsl(195 75% 45% / 0.28), transparent 65%);
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+/*
+ * Chỉ chạy chuyển động trên màn rộng. Thẻ thông tin dùng backdrop-filter, mà
+ * nền phía sau động thì trình duyệt phải chụp lại vùng mờ mỗi khung hình —
+ * trên điện thoại tầm trung đó là phần GPU đáng kể, đúng loại thiết bị mà
+ * PageSpeed đo. Đổi lại chỉ animate `transform` nên vẫn hợp thành ở GPU, không
+ * đụng layout hay paint.
+ */
+@media (min-width: 997px) and (prefers-reduced-motion: no-preference) {
+  .backgroundImage::after {
+    will-change: transform;
+    animation: heroDrift 26s ease-in-out infinite alternate;
+  }
+}
+
+@keyframes heroDrift {
+  from {
+    transform: translate3d(-3%, -2%, 0) scale(1);
+  }
+  to {
+    transform: translate3d(4%, 3%, 0) scale(1.08);
+  }
+}
+
+/* Nội dung phải nằm trên hai lớp nền. */
 .cardContainer {
   position: relative;
   z-index: 1;
 }
 
 .cardContainer {
-  margin-top: -10vh;
   padding: 1rem;
   display: flex;
   justify-content: center;
 }
 
 .cardInfo {
-  padding: 2rem;
-  background-color: rgba(255, 255, 255, 0.75);
-  border-radius: 2rem;
-  box-shadow: 0 0 1rem rgba(0, 0, 0, 0.5);
-  width: -moz-fit-content;
-  width: fit-content;
-  min-height: 200px;
+  padding: 2.5rem 2rem;
+  max-width: 44rem;
+  border-radius: 1.75rem;
+  border: 1px solid rgb(255 255 255 / 16%);
+  background-color: rgb(255 255 255 / 7%);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  box-shadow: 0 1.5rem 3rem rgb(0 0 0 / 35%);
 }
 
-.cardInfo h1 {
-  margin: 0;
-  font-size: 3rem;
+.heroTitle {
+  margin: 1rem 0 0;
+  font-size: clamp(2.4rem, 6vw, 3.4rem);
   font-weight: 900;
-  line-height: 1.2;
-  color: var(--ifm-color-primary-darkest);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: #fff;
 }
-.cardInfo h2 {
-  margin: 0;
+
+.heroRole {
+  margin: 0.35rem 0 0;
   font-family: 'Courier New', Courier, monospace;
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   font-weight: 700;
-  line-height: 1.2;
-  color: var(--ifm-color-primary-darker);
-  min-height: 1.8rem;
+  letter-spacing: 0.02em;
+  color: hsl(var(--site-primary-hue-saturation) 68%);
+}
+
+.heroPitch {
+  margin: 1rem auto 0;
+  max-width: 34rem;
+  font-size: 1rem;
+  line-height: 1.65;
+  color: rgb(255 255 255 / 74%);
+}
+
+/* Chừa sẵn chiều cao để lúc số từ GitHub nhảy vào không đẩy gì đi chỗ khác. */
+.githubInfo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  min-height: 2rem;
+  margin-top: 1.25rem;
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+  color: rgb(255 255 255 / 70%);
+}
+
+.stat strong {
+  color: #fff;
+  font-weight: 700;
+}
+
+.statDot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background-color: rgb(255 255 255 / 40%);
+}
+
+.ctaGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: center;
+  margin-top: 1.75rem;
+}
+
+.ctaGhost {
+  border: 1px solid rgb(255 255 255 / 35%);
+  background-color: transparent;
+  color: #fff;
+}
+.ctaGhost:hover {
+  border-color: rgb(255 255 255 / 60%);
+  background-color: rgb(255 255 255 / 12%);
+  color: #fff;
 }
 
 .cardInfoImage {
   border-radius: 50%;
+  border: 3px solid rgb(255 255 255 / 25%);
 }
 .cardInfoImage:hover {
-  transform: scale(1.2);
-  transition: transform 0.5s ease-in-out;
-  box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  transform: scale(1.06);
+  transition: transform 0.4s ease-in-out;
 }
 
 .buttonsGroup {
   display: flex;
   flex-wrap: wrap;
-  grid-gap: 0.5rem;
+  gap: 0.5rem;
   justify-content: center;
-  margin: 1rem 0
-};
+  margin: 1.75rem 0 0;
+}
+
+/* Nút liên hệ dùng logo nhiều màu, nên giữ nền sáng để còn đọc được trên hero tối.
+   Chọn lọc `.buttonsGroup a` (0,1,1) thắng `.cardInfoButton` (0,1,0) mà không cần !important. */
+.buttonsGroup a {
+  background-color: rgb(255 255 255 / 92%);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 30%);
+}
+.buttonsGroup a:hover {
+  background-color: #fff;
+  transform: translateY(-2px);
+  transition: transform 0.2s ease;
+}
 
 .cv {
   background-color: var(--ifm-color-primary) !important;
-}
-
-.githubInfo {
-  color: var(--ifm-color-primary-darker);
-  min-height: 1.5rem;
 }

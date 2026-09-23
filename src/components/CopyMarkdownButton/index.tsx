@@ -88,7 +88,12 @@ export default function CopyMarkdownButton({
     return (
         <button
             type="button"
-            className={clsx('button button--sm button--secondary', styles.button, className)}
+            className={clsx(
+                'button button--sm button--secondary',
+                'copy-markdown-button',
+                styles.button,
+                className,
+            )}
             onClick={handleClick}
             disabled={state === 'loading'}
             title={translate({
