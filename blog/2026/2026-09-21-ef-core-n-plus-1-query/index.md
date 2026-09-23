@@ -243,5 +243,5 @@ Ví dụ gốc của vấn đề này kèm ngữ cảnh CRM thì nằm ở [bài
 ## Bài liên quan
 
 - [Module 13 — Entity Framework Core](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core) — EF Core: change tracking, migrations, raw SQL, performance patterns — ORM mapping an toàn cho domain CRM.
+- [13.6 — 5. Query Patterns](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.6-query-patterns) — Query Patterns: AsNoTracking — khi nào dùng; Eager Loading với Include/ThenInclude; Explicit Loading (load sau khi đã có entity); Projection với…
 - [Lộ trình .NET Backend: From Zero → Senior (Backend-first)](/docs/dotnet-backend-zero-to-senior/dotnet-backend-zero-to-senior-roadmap) — Curriculum hub: lộ trình .NET backend-first (C#, ASP.NET Core, SQL, EF Core, distributed systems, microservices) với trục nghiệp vụ CRM/ERP — tối ưu…
-- [Module 5 — Advanced C#](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-05-advanced-csharp) — C# nâng cao: generics, LINQ, nullable reference types, spans, exception semantics — tối ưu an toàn kiểu và hiện diện bộ nhớ trong service layer.

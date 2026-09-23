@@ -187,5 +187,5 @@ Nên thay vì nhớ viết một câu kiểm tra ở mỗi endpoint, hãy dựng
 ## Bài liên quan
 
 - [Module 10 — Authentication + Authorization](/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-10-authentication-authorization) — Xác thực & phân quyền ASP.NET Core: JWT, OAuth2/OIDC, cookie, policy-based authorization — mô hình bảo mật đa tenant cho CRM.
-- [2.01 | Insecure Direct Object References](/docs/web-security/webgoat-2023.8/A1-Broken-Access-Control/insecure-direct-object-references-01) — Bài viết này sẽ hướng dẫn cách tấn công Insecure Direct Object References trên WebGoat 2023.8
-- [2.03 | Insecure Direct Object References](/docs/web-security/webgoat-2023.8/A1-Broken-Access-Control/insecure-direct-object-references-03) — Bài viết này sẽ hướng dẫn cách tấn công Insecure Direct Object References trên WebGoat 2023.8
+- [2.03 | Insecure Direct Object References](/docs/web-security/webgoat-2023.8/A1-Broken-Access-Control/insecure-direct-object-references-03) — Một nguyên tắc quan trọng trong tấn công bảo mật ứng dụng (AppSec) là so sánh sự khác biệt giữa phản hồi thô từ server và dữ liệu hiển thị trên giao…
+- [2.06 | Insecure Direct Object References](/docs/web-security/webgoat-2023.8/A1-Broken-Access-Control/insecure-direct-object-references-06) — Câu hỏi quan trọng: Bạn đã tài liệu hóa các quy tắc kiểm soát truy cập chưa?

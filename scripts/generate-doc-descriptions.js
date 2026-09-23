@@ -42,7 +42,10 @@ const BOILERPLATE =
 // Câu mở đầu bằng từ nối thì tách ra khỏi ngữ cảnh sẽ vô nghĩa: người đọc thấy
 // snippet "Tương tự, để xem hồ sơ của người khác..." mà không biết tương tự với
 // cái gì.
-const CONNECTIVE = /^(Tương tự|Ngoài ra|Ví dụ|Lưu ý|Tuy nhiên|Vì vậy|Do đó|Như vậy|Sau đó|Tiếp theo|Cụ thể|Trong đó|Ở đây)\b/i;
+// Không dùng \b ở đây: ranh giới từ trong regex JS chỉ tính ký tự ASCII, nên
+// sau "Tương tự" (kết thúc bằng "ự") nó không khớp và cả luật thành vô dụng.
+const CONNECTIVE =
+    /^(Tương tự|Ngoài ra|Ví dụ|Lưu ý|Tuy nhiên|Vì vậy|Do đó|Như vậy|Sau đó|Tiếp theo|Cụ thể|Trong đó|Ở đây|Mặt khác|Bên cạnh đó)[\s,:;.]/i;
 
 function walk(dir, acc = []) {
     for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
