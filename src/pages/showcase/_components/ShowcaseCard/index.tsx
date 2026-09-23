@@ -63,20 +63,22 @@ function getCardImage(project: Project): string {
 }
 
 /**
- * `className` cho phép nơi gọi gắn thêm class lưới (col col--4) lên chính thẻ
- * <li> gốc của card.
+ * Thẻ gốc PHẢI là <li>, và nơi gọi phải đặt nó trực tiếp trong <ul>.
  *
- * Trước đây trang chủ bọc card trong một <li> nữa để lấy class lưới, thành
+ * Trang chủ từng bọc card trong một <li> nữa để lấy class lưới, thành
  * <li class="col--4"><li class="card">. Trình duyệt KHÔNG dựng DOM lồng nhau
  * như vậy: gặp <li> mới khi đang mở một <li>, parser đóng thẻ cũ lại, nên card
- * trở thành anh em của <li> lưới thay vì con. HTML chuỗi do server sinh ra một
+ * trở thành anh em của thẻ bọc thay vì con. HTML chuỗi do server sinh ra một
  * đằng, DOM trình duyệt dựng ra một nẻo => React hydrate lệch ở mọi card
  * (lỗi #418), rồi bỏ toàn bộ HTML tĩnh để render lại từ đầu (lỗi #423).
+ *
+ * Khoảng cách giữa các card do `gap` của lưới CSS ở <ul> lo, không phải padding
+ * trên card — padding nằm trong nền card nên chỉ đẩy nội dung thụt vào.
  */
-function ShowcaseCard({ user, className }: { user: Project; className?: string }) {
+function ShowcaseCard({ user }: { user: Project }) {
   const image = getCardImage(user);
   return (
-    <li className={clsx('card shadow--md', className)}>
+    <li className="card shadow--md">
       <div className={clsx('card__image', styles.showcaseCardImage)}>
         <Image 
           img={image} 
