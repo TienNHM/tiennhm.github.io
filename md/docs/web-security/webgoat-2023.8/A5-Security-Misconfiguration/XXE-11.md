@@ -1,7 +1,7 @@
 # 1.11 | XXE
 
 > Nguồn: https://tiennhm.io.vn/docs/web-security/webgoat-2023.8/A5-Security-Misconfiguration/XXE-11
-> Bài viết này sẽ hướng dẫn cách tấn công XXE trên WebGoat 2023.8
+> Đây là bài tập Blind XXE nâng cao, yêu cầu bạn tạo một file DTD để tải nội dung của tệp secret.txt từ server WebGoat lên WebWolf. Dưới đây là hướng dẫn chi.
 
 Đây là bài tập Blind XXE nâng cao, yêu cầu bạn tạo một file DTD để tải nội dung của tệp `secret.txt` từ server WebGoat lên WebWolf. Dưới đây là hướng dẫn chi tiết để thực hiện bài này.
 

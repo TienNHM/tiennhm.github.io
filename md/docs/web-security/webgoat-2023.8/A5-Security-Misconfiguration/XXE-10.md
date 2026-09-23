@@ -1,7 +1,7 @@
 # 1.10 | XXE
 
 > Nguồn: https://tiennhm.io.vn/docs/web-security/webgoat-2023.8/A5-Security-Misconfiguration/XXE-10
-> Bài viết này sẽ hướng dẫn cách tấn công XXE trên WebGoat 2023.8
+> Làm thế nào để kiểm tra xem XXE có thành công hay không? 👉 Gửi dữ liệu đến một server do kẻ tấn công kiểm soát.
 
 > **Blind XXE Attack**
 

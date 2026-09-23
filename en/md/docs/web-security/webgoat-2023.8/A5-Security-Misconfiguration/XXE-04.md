@@ -1,7 +1,7 @@
 # 1.04 | XXE
 
 > Nguồn: https://tiennhm.io.vn/en/docs/web-security/webgoat-2023.8/A5-Security-Misconfiguration/XXE-04
-> Bài viết này sẽ hướng dẫn cách tấn công XXE trên WebGoat 2023.8
+> Trước tiên, thử gửi một bình luận bình thường để xem request được gửi như thế nào.
 
 > 🛠 **XXE Injection - Thử nghiệm khai thác**
 

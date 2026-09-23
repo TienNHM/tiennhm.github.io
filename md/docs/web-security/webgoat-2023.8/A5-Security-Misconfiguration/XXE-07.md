@@ -1,7 +1,7 @@
 # 1.07 | XXE
 
 > Nguồn: https://tiennhm.io.vn/docs/web-security/webgoat-2023.8/A5-Security-Misconfiguration/XXE-07
-> Bài viết này sẽ hướng dẫn cách tấn công XXE trên WebGoat 2023.8
+> Trong trường hợp sử dụng Windows, bạn có thể thay đổi đường dẫn file C:\\Windows\\System32\\drivers\\etc\\hosts thay cho /etc/passwd để kiểm tra.
 
 > 🚀 **XXE Attack trong Modern REST API**
 

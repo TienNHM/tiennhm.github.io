@@ -1,7 +1,7 @@
 # 3.04 | Missing Function Level Access Control
 
 > Nguồn: https://tiennhm.io.vn/docs/web-security/webgoat-2023.8/A1-Broken-Access-Control/missing-function-level-access-control-04
-> Bài viết này sẽ hướng dẫn cách tấn công Missing Function Level Access Control trên WebGoat 2023.8
+> Bài tập này kiểm tra cách ứng dụng xử lý các lỗ hổng bảo mật sau khi vá lỗi.
 
 > 🔥 **Phân tích & Cách khai thác lỗ hổng "The company fixed the problem, right?" trong WebGoat**
 

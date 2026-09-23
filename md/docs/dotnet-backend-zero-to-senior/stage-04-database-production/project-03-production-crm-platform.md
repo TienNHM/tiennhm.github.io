@@ -1,6 +1,7 @@
 # docs/dotnet-backend-zero-to-senior/stage-04-database-production/project-03-production-crm-platform
 
 > Nguồn: https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/project-03-production-crm-platform
+> Abstract (capstone). Tổng hợp Stage 4 thành nền tảng CRM sẵn sàng vận hành: quan sát (observability), khả năng phục hồi, tầng dữ liệu và tự động hóa triển.
 
 ## Phương pháp học tập
 

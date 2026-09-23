@@ -1,7 +1,7 @@
 # 1.12 | XXE
 
 > Nguồn: https://tiennhm.io.vn/docs/web-security/webgoat-2023.8/A5-Security-Misconfiguration/XXE-12
-> Bài viết này sẽ hướng dẫn cách tấn công XXE trên WebGoat 2023.8
+> Lưu ý: Các thư viện XML khác nhau sẽ có cách cấu hình khác nhau. Hãy kiểm tra theo thư viện bạn đang dùng.
 
 > 🛡 **XXE Mitigation - Cách Phòng Chống XXE**
 

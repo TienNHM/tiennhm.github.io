@@ -1,6 +1,7 @@
 # docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/project-02-crm-backend-api
 
 > Nguồn: https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/project-02-crm-backend-api
+> Abstract (capstone). Tích hợp Stage 3 thành backend CRM: ranh giới bounded context, use case layer, bảo mật theo vai trò và kênh thời gian thực — mô phỏng.
 
 ## Phương pháp học tập
 

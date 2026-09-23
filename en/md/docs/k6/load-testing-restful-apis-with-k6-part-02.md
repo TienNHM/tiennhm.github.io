@@ -1,6 +1,7 @@
 # Load testing API đơn giản
 
 > Nguồn: https://tiennhm.io.vn/en/docs/k6/load-testing-restful-apis-with-k6-part-02
+> Để viết một kịch bản test đơn giản, chúng ta sẽ sử dụng một mockup RESTful API. API này có thể được tìm thấy tại https://reqres.in/, cung cấp một số.
 
 [RESTful API](https://aws.amazon.com/what-is/restful-api/) là một trong những kiểu API phổ biến nhất hiện nay. Vì vậy, việc kiểm tra tải (load testing) là một phần quan trọng của việc kiểm tra hiệu suất. Trong bài viết này, chúng ta sẽ tìm hiểu cách **sử dụng** [k6](https://k6.io) để kiểm tra tải cho RESTful API.
 

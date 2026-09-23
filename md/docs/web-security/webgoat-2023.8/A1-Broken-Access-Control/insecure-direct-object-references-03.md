@@ -1,7 +1,7 @@
 # 2.03 | Insecure Direct Object References
 
 > Nguồn: https://tiennhm.io.vn/docs/web-security/webgoat-2023.8/A1-Broken-Access-Control/insecure-direct-object-references-03
-> Bài viết này sẽ hướng dẫn cách tấn công Insecure Direct Object References trên WebGoat 2023.8
+> Một nguyên tắc quan trọng trong tấn công bảo mật ứng dụng (AppSec) là so sánh sự khác biệt giữa phản hồi thô từ server và dữ liệu hiển thị trên giao diện.
 
 > **Quan sát sự khác biệt & hành vi**
 

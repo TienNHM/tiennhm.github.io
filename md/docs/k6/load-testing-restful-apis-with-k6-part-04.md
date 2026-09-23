@@ -1,6 +1,7 @@
 # Ý nghĩa các chỉ số trong kết quả của k6
 
 > Nguồn: https://tiennhm.io.vn/docs/k6/load-testing-restful-apis-with-k6-part-04
+> Trong các bài viết trước, chúng ta đã tìm hiểu cách cài đặt k6, viết một kịch bản test đơn giản, chạy kịch bản test và xem kết quả. Trong bài viết này, chúng.
 
 Trong các bài viết trước, chúng ta đã tìm hiểu cách **cài đặt** [k6](https://k6.io), **viết** một kịch bản test đơn giản, **chạy** kịch bản test và **xem** kết quả. Trong bài viết này, chúng ta sẽ tìm hiểu ý nghĩa của các chỉ số trong kết quả của k6.
 

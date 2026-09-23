@@ -1,6 +1,7 @@
 # Load testing với Virtual Users
 
 > Nguồn: https://tiennhm.io.vn/en/docs/k6/load-testing-restful-apis-with-k6-part-03
+> Trong bài viết trước, chúng ta đã tìm hiểu cách sử dụng k6 để kiểm tra tải cho RESTful API thông qua một kịch bản test đơn giản để tạo, đọc, cập nhật và xóa.
 
 Trong [bài viết trước](./part-02.md), chúng ta đã tìm hiểu cách sử dụng k6 để kiểm tra tải cho RESTful API thông qua một kịch bản test đơn giản để tạo, đọc, cập nhật và xóa một người dùng. Trong bài viết này, chúng ta sẽ tìm hiểu cách sử dụng [k6](https://k6.io) để kiểm tra tải cho RESTful API thông qua một kịch bản test với nhiều [Virtual User](https://k6.io/docs/misc/glossary/#virtual-user).
 

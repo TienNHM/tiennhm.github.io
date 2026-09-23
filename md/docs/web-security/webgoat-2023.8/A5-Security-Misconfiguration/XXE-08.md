@@ -1,7 +1,7 @@
 # 1.08 | XXE
 
 > Nguồn: https://tiennhm.io.vn/docs/web-security/webgoat-2023.8/A5-Security-Misconfiguration/XXE-08
-> Bài viết này sẽ hướng dẫn cách tấn công XXE trên WebGoat 2023.8
+> Bài tập này kiểm tra xem API có bị tấn công XXE (XML External Entity) hay không.
 
 > **XXE Injection – Assignment Solution**
 

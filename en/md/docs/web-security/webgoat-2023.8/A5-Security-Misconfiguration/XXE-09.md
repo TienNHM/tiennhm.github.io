@@ -1,7 +1,7 @@
 # 1.09 | XXE
 
 > Nguồn: https://tiennhm.io.vn/en/docs/web-security/webgoat-2023.8/A5-Security-Misconfiguration/XXE-09
-> Bài viết này sẽ hướng dẫn cách tấn công XXE trên WebGoat 2023.8
+> Trong bài trước, ta đã thấy XXE Injection có thể được dùng để đọc file hệ thống. Nhưng ngoài việc đọc dữ liệu, XXE cũng có thể gây tấn công từ chối dịch vụ.
 
 > **XXE DoS Attack – Billion Laughs Attack**
 

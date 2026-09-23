@@ -1,7 +1,7 @@
 # 1.05 | XXE
 
 > Nguồn: https://tiennhm.io.vn/en/docs/web-security/webgoat-2023.8/A5-Security-Misconfiguration/XXE-05
-> Bài viết này sẽ hướng dẫn cách tấn công XXE trên WebGoat 2023.8
+> Chặn request bằng Burp Suite/ZAP Proxy, sau đó thay thế body như sau:
 
 > 🛠 **XXE Injection - Giải pháp hoàn chỉnh**
 

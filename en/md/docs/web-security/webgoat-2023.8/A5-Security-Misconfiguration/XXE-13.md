@@ -1,7 +1,7 @@
 # 1.13 | XXE
 
 > Nguồn: https://tiennhm.io.vn/en/docs/web-security/webgoat-2023.8/A5-Security-Misconfiguration/XXE-13
-> Bài viết này sẽ hướng dẫn cách tấn công XXE trên WebGoat 2023.8
+> Phân tích mã tĩnh (Static Code Analysis) giúp tìm kiếm lỗ hổng bảo mật trong code mà không cần chạy ứng dụng. Công cụ phổ biến nhất để phân tích mã tĩnh là.
 
 > 🕵️ **Phát hiện lỗ hổng XXE bằng phân tích mã tĩnh (Static Code Analysis)**
 

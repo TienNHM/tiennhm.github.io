@@ -1,6 +1,7 @@
 # Hướng dẫn cài đặt k6
 
 > Nguồn: https://tiennhm.io.vn/docs/k6/load-testing-restful-apis-with-k6-part-01
+> RESTful API là một trong những kiểu API phổ biến nhất hiện nay. Vì vậy, việc kiểm tra tải (load testing) là một phần quan trọng của việc kiểm tra hiệu suất.
 
 [RESTful API](https://aws.amazon.com/what-is/restful-api/) là một trong những kiểu API phổ biến nhất hiện nay. Vì vậy, việc kiểm tra tải (load testing) là một phần quan trọng của việc kiểm tra hiệu suất. Trong bài viết này, chúng ta sẽ tìm hiểu cách **cài đặt** [k6](https://k6.io) để kiểm tra tải cho RESTful API.
 

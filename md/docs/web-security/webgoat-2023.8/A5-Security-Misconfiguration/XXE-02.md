@@ -1,7 +1,7 @@
 # 1.02 | XXE
 
 > Nguồn: https://tiennhm.io.vn/docs/web-security/webgoat-2023.8/A5-Security-Misconfiguration/XXE-02
-> Bài viết này sẽ hướng dẫn cách tấn công XXE trên WebGoat 2023.8
+> Trong XML, Entity là các thành phần có thể thay thế bằng nội dung cụ thể khi XML được parse. Có 3 loại chính: 1️⃣ Internal Entity – Được định nghĩa trong.
 
 > 🔍 **XML Entities & XXE Injection**
 

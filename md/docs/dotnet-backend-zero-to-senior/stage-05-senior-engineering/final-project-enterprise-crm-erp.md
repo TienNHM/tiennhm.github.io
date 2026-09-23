@@ -1,6 +1,7 @@
 # docs/dotnet-backend-zero-to-senior/stage-05-senior-engineering/final-project-enterprise-crm-erp
 
 > Nguồn: https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-05-senior-engineering/final-project-enterprise-crm-erp
+> Abstract (terminal capstone). Yêu cầu chứng minh quyền sở hữu kiến trúc qua vài luồng nghiệp vụ sâu: phân quyền tinh, tích hợp thanh toán sandbox.
 
 ## Phương pháp học tập
 

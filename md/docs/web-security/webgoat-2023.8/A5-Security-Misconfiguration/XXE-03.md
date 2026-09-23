@@ -1,7 +1,7 @@
 # 1.03 | XXE
 
 > Nguồn: https://tiennhm.io.vn/docs/web-security/webgoat-2023.8/A5-Security-Misconfiguration/XXE-03
-> Bài viết này sẽ hướng dẫn cách tấn công XXE trên WebGoat 2023.8
+> Khi email.xml được xử lý, nó sẽ tham chiếu đến email.dtd để xác định cấu trúc hợp lệ.
 
 > 🚨 **XXE Injection Example**
 

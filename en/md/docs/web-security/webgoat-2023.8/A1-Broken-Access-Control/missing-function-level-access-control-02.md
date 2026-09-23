@@ -1,7 +1,7 @@
 # 3.02 | Missing Function Level Access Control
 
 > Nguồn: https://tiennhm.io.vn/en/docs/web-security/webgoat-2023.8/A1-Broken-Access-Control/missing-function-level-access-control-02
-> Bài viết này sẽ hướng dẫn cách tấn công Missing Function Level Access Control trên WebGoat 2023.8
+> Nguy hiểm: Hacker có thể bật lại, xem hoặc đoán được các phần bị ẩn một cách dễ dàng.
 
 > 🔥 **Phân tích lỗ hổng "Relying on Obscurity" & Cách tìm Menu ẩn**
 

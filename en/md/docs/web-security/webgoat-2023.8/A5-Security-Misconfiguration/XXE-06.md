@@ -1,7 +1,7 @@
 # 1.06 | XXE
 
 > Nguồn: https://tiennhm.io.vn/en/docs/web-security/webgoat-2023.8/A5-Security-Misconfiguration/XXE-06
-> Bài viết này sẽ hướng dẫn cách tấn công XXE trên WebGoat 2023.8
+> Parser có bị ảnh hưởng bởi XXE không? ✅ Có sử dụng XMLInputFactory.newInstance() mà không vô hiệu hóa thực thể bên ngoài không? ✅ Có thuộc tính.
 
 > 🔍 **Phát hiện XXE qua Code Review**
 

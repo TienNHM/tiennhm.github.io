@@ -1,7 +1,7 @@
 # 2.06 | Insecure Direct Object References
 
 > Nguồn: https://tiennhm.io.vn/docs/web-security/webgoat-2023.8/A1-Broken-Access-Control/insecure-direct-object-references-06
-> Bài viết này sẽ hướng dẫn cách tấn công Insecure Direct Object References trên WebGoat 2023.8
+> Câu hỏi quan trọng: Bạn đã tài liệu hóa các quy tắc kiểm soát truy cập chưa?
 
 > **Bảo vệ Tham chiếu Đối tượng (Secure Object References)**
 

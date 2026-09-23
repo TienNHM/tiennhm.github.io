@@ -1,6 +1,7 @@
 # Trực quan hóa kết quả load test với Grafana và InfluxDB
 
 > Nguồn: https://tiennhm.io.vn/docs/k6/load-testing-restful-apis-with-k6-part-05
+> Trong các bài viết trước, chúng ta đã biết cách viết kịch bản test và xem kết quả trên màn hình console khi chạy kịch bản với k6. Tuy nhiên, để có thể quan.
 
 Trong các bài viết trước, chúng ta đã biết cách viết kịch bản test và xem kết quả trên màn hình console khi chạy kịch bản với k6. Tuy nhiên, để có thể quan sát và phân tích kết quả một cách trực quan hơn, chúng ta có thể kết hợp k6 với Grafana và InfluxDB.
 

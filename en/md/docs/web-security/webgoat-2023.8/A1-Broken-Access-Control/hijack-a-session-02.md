@@ -1,7 +1,7 @@
 # 1.02 | Hijack a session
 
 > Nguồn: https://tiennhm.io.vn/en/docs/web-security/webgoat-2023.8/A1-Broken-Access-Control/hijack-a-session-02
-> Bài viết này sẽ hướng dẫn cách tấn công Hijack a session trên WebGoat 2023.8
+> Bài này tập trung vào dự đoán giá trị của cookie hijackcookie, một kỹ thuật tấn công kiểu Session Prediction (Dự đoán phiên đăng nhập). Mục tiêu là xác định.
 
 ## 🚀 **1. Tóm tắt bài học**
 - `hijack_cookie` có dạng **"số tuần tự"-"timestamp Unix"**.
