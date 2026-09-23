@@ -328,3 +328,8 @@ Nếu bạn đang đặt Traefik phía sau Cloudflare và HTTP-01 vẫn đang ch
 ---
 
 **Cập nhật lần cuối**: Tháng 9, 2026
+
+## Bài liên quan
+
+- [Module 15 — Docker + Deployment](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-15-docker-deployment) — Container hóa và triển khai: Dockerfile multi-stage, compose, health checks, reverse proxy — pipeline production-like cho .NET.
+- [Module 2 — Computer Science Basics](/docs/dotnet-backend-zero-to-senior/stage-01-foundation/module-02-computer-science-basics) — CS foundation cho backend: mô hình bộ nhớ, HTTP/TCP khái quát, JSON, REST semantics, phân tích độ phức tạp — liên hệ pipeline request trong ASP.NET…

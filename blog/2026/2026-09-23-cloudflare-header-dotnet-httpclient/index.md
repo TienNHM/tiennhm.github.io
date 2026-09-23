@@ -231,3 +231,9 @@ Ba điều tôi mang đi:
 ---
 
 **Cập nhật lần cuối**: Tháng 9, 2026
+
+## Bài liên quan
+
+- [Module 15 — Docker + Deployment](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-15-docker-deployment) — Container hóa và triển khai: Dockerfile multi-stage, compose, health checks, reverse proxy — pipeline production-like cho .NET.
+- [Module 18 — Microservices](/docs/dotnet-backend-zero-to-senior/stage-05-senior-engineering/module-18-microservices) — Microservices .NET: service boundaries, API gateway, resilience, observability — đánh đổi vận hành và tốc độ phát triển.
+- [Module 5 — Advanced C#](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-05-advanced-csharp) — C# nâng cao: generics, LINQ, nullable reference types, spans, exception semantics — tối ưu an toàn kiểu và hiện diện bộ nhớ trong service layer.

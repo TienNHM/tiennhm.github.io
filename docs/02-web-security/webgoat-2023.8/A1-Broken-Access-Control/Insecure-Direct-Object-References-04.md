@@ -74,3 +74,7 @@ WebGoat/IDOR/profile/2342384
 Congratulations, you have used the alternate Url/route to view your own profile.
 {role=3, color=yellow, size=small, name=Tom Cat, userId=2342384}
 ```
+
+## Bài liên quan
+
+- [Đổi id trên URL ra dữ liệu người khác? Chặn IDOR ở một tầng duy nhất](/blog/idor-broken-access-control-aspnet-core) — IDOR xảy ra khi API nhận id từ request rồi đọc thẳng bản ghi mà không hỏi xem người gọi có sở hữu bản ghi đó không.

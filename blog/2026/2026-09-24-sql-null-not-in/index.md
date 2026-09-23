@@ -251,3 +251,9 @@ Ba điều đáng nhớ:
 ---
 
 **Cập nhật lần cuối**: Tháng 9, 2026
+
+## Bài liên quan
+
+- [11. Truy vấn con (Subquery)](/docs/database/learn-sql-in-30-days/11-subquery) — Giới thiệu về truy vấn con (Subquery) trong SQL, cách sử dụng và ví dụ minh họa.
+- [09. GROUP BY - HAVING](/docs/database/learn-sql-in-30-days/09-group-by-having) — Giới thiệu về GROUP BY và HAVING trong SQL, cách sử dụng và ví dụ minh họa.
+- [03. SELECT, WHERE](/docs/database/learn-sql-in-30-days/03-select-where) — Giới thiệu cách sử dụng SELECT và WHERE trong SQL.

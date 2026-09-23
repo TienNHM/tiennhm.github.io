@@ -243,3 +243,9 @@ Hai điều đáng nhớ:
 ---
 
 **Cập nhật lần cuối**: Tháng 9, 2026
+
+## Bài liên quan
+
+- [03. SELECT, WHERE](/docs/database/learn-sql-in-30-days/03-select-where) — Giới thiệu cách sử dụng SELECT và WHERE trong SQL.
+- [10. JOIN](/docs/database/learn-sql-in-30-days/10-join) — Giới thiệu về các loại JOIN trong SQL, cách sử dụng và ví dụ minh họa.
+- [11. Truy vấn con (Subquery)](/docs/database/learn-sql-in-30-days/11-subquery) — Giới thiệu về truy vấn con (Subquery) trong SQL, cách sử dụng và ví dụ minh họa.

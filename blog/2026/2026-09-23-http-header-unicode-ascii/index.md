@@ -225,3 +225,9 @@ Byte thì gửi được. Cái thiếu là một thoả thuận về việc nh�
 ---
 
 **Cập nhật lần cuối**: Tháng 9, 2026
+
+## Bài liên quan
+
+- [Module 9 — Web API Professional](/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-09-web-api-professional) — Web API chuyên nghiệp: versioning, validation, Problem Details, OpenAPI, filtering/paging — hợp đồng HTTP ổn định cho client và tích hợp.
+- [Lộ trình .NET Backend: From Zero → Senior (Backend-first)](/docs/dotnet-backend-zero-to-senior/dotnet-backend-zero-to-senior-roadmap) — Curriculum hub: lộ trình .NET backend-first (C#, ASP.NET Core, SQL, EF Core, distributed systems, microservices) với trục nghiệp vụ CRM/ERP — tối ưu…
+- [8.3 — 2. Request Pipeline và Middleware](/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.3-request-pipeline-and-middleware) — Request Pipeline và Middleware trong ASP.NET Core: cách middleware xếp chuỗi, short-circuit, thứ tự đăng ký và correlation/timing cho CRM backend.

@@ -292,3 +292,9 @@ Cái sai của nó không nằm ở kỹ thuật mà ở **hướng mặc địn
 ---
 
 **Cập nhật lần cuối**: Tháng 9, 2026
+
+## Bài liên quan
+
+- [8.3 — 2. Request Pipeline và Middleware](/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.3-request-pipeline-and-middleware) — Request Pipeline và Middleware trong ASP.NET Core: cách middleware xếp chuỗi, short-circuit, thứ tự đăng ký và correlation/timing cho CRM backend.
+- [Module 7 — Dependency Injection](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-07-dependency-injection) — Dependency injection trong .NET: service lifetime, composition root, options pattern — khớp với container ASP.NET Core và kiểm thử đơn vị.
+- [Module 18 — Microservices](/docs/dotnet-backend-zero-to-senior/stage-05-senior-engineering/module-18-microservices) — Microservices .NET: service boundaries, API gateway, resilience, observability — đánh đổi vận hành và tốc độ phát triển.

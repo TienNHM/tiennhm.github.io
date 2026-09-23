@@ -1106,3 +1106,7 @@ Nhóm component liên quan (Tab + TabPanel) dùng chung state qua context thay v
 | Patterns        | 3           | 🟢               |
 
 Nguồn dữ liệu: [react.csv](https://raw.githubusercontent.com/nextlevelbuilder/ui-ux-pro-max-skill/refs/heads/main/src/ui-ux-pro-max/data/stacks/react.csv) — [ui-ux-pro-max-skill](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill).
+
+## Bài liên quan
+
+- [AI-DD - Phần 2: Công Cụ AI và Nghiên Cứu Tình Huống](/blog/phat-trien-phan-mem-ai-driven-development-phan-2) — Khám phá chi tiết các công cụ AI như ChatGPT và Cursor, cùng với nghiên cứu tình huống thực tế về phát triển E-commerce Dashboard theo phương pháp…

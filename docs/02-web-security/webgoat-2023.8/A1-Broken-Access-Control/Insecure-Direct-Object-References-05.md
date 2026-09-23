@@ -71,3 +71,7 @@ Các ứng dụng RESTful thường thay đổi **phương thức HTTP** để t
 🚀 **Thử ngay và quan sát kết quả!**
 
 Xem chi tiết tại [đây](https://docs.cycubix.com/application-security-series/web-application-security-essentials/solutions/a5-broken-access-control/a1-2021-or-insecure-direct-object-reference-or-cycubix-docs/insecure-direct-object-reference-5).
+
+## Bài liên quan
+
+- [Đổi id trên URL ra dữ liệu người khác? Chặn IDOR ở một tầng duy nhất](/blog/idor-broken-access-control-aspnet-core) — IDOR xảy ra khi API nhận id từ request rồi đọc thẳng bản ghi mà không hỏi xem người gọi có sở hữu bản ghi đó không.

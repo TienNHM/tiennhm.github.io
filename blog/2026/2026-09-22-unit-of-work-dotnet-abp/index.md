@@ -211,3 +211,9 @@ Với ABP: đừng tự dựng lại thứ đã có. Hiểu rằng UoW là ambie
     }
   ]}
 />
+
+## Bài liên quan
+
+- [Module 14 — Caching + Background Jobs](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-14-caching-background-jobs) — Caching phân tầng và background jobs: IMemoryCache, distributed cache, Hangfire/Quartz — độ trễ và độ tin cậy xử lý nền cho CRM.
+- [12.7 — 6. Transactions và Locking](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-12-sql-deep-dive/12.7-transactions-and-locking) — Transactions & Locking trong SQL: ACID, isolation level, deadlock, optimistic/pessimistic concurrency — áp vào chuyển đổi dữ liệu CRM một cách an…
+- [13.10 — 9. Unit of Work và Repository Pattern](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.10-unit-of-work-and-repository-pattern)
