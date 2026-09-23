@@ -22,6 +22,8 @@ Bài viết giới thiệu về Character Sets (bảng mã) và Collations (th�
 
 Trong thực tế, khi làm việc với cơ sở dữ liệu, bạn thường phải xử lý các chuỗi văn bản, và việc so sánh chuỗi đôi khi gặp phải một số vấn đề. MySQL hỗ trợ nhiều bảng mã (Character Sets) và thứ tự ký tự (Collations) khác nhau, và cách so sánh chuỗi phụ thuộc vào collation của bảng mã.
 
+Bảng mã và collation được gắn ngay từ lúc khai báo cột, nên phần này đi kèm với [cấu trúc bảng và kiểu dữ liệu](/docs/database/learn-sql-in-30-days/02-table-structure-and-data-types) trong series học SQL 30 ngày; còn cách các phép so sánh hành xử thì nằm ở bài [toán tử và biểu thức](/docs/database/learn-sql-in-30-days/05-operators-and-expressions).
+
 Bài viết này giới thiệu về các bảng mã và cách so sánh chuỗi trong MySQL, những vấn đề cần lưu ý khi làm việc với các bảng mã khác nhau.
 
 <!--truncate-->
@@ -391,3 +393,8 @@ Nếu bạn có bất kỳ câu hỏi hoặc ý kiến đóng góp nào, hãy đ
 
 - [MySQL Character Sets and Collations](https://dev.mysql.com/doc/refman/8.0/en/charset.html)
 - [MySQL String Comparison](https://dev.mysql.com/doc/refman/8.0/en/string-comparison-functions.html)
+
+## Bài liên quan
+
+- [05. Toán tử, Biểu thức](/docs/database/learn-sql-in-30-days/05-operators-and-expressions) — Giới thiệu cách sử dụng toán tử và biểu thức trong SQL.
+- [02. Cấu trúc bảng và kiểu dữ liệu](/docs/database/learn-sql-in-30-days/02-table-structure-and-data-types) — Giới thiệu cấu trúc bảng và kiểu dữ liệu trong SQL

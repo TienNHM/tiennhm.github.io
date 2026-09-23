@@ -15,6 +15,8 @@ DBML (Database Markup Language) là một ngôn ngữ DSL mã nguồn mở đư�
 
 Trong thế giới phát triển phần mềm hiện đại, việc quản lý và tài liệu hóa cấu trúc cơ sở dữ liệu (database schema) là một thách thức không nhỏ. DBML (Database Markup Language) ra đời như một giải pháp hiệu quả để giải quyết vấn đề này.
 
+DBML lo phần mô tả và phiên bản hoá lược đồ; còn những nguyên tắc quyết định lược đồ đó trông như thế nào — chuẩn hoá, khoá, quan hệ — nằm ở bài [thiết kế database](/docs/database/learn-sql-in-30-days/27-database-design-best-practices) trong series học SQL 30 ngày.
+
 <!-- truncate -->
 
 ## DBML là gì?
@@ -376,3 +378,7 @@ Bạn có thể bắt đầu sử dụng DBML ngay hôm nay bằng cách truy c�
 - [DBML Official Documentation](https://dbml.dbdiagram.io/home)
 - [dbdiagram.io - Online DBML Editor](https://dbdiagram.io)
 - [dbdocs.io - Database Documentation](https://dbdocs.io)
+
+## Bài liên quan
+
+- [27. Database design best practices](/docs/database/learn-sql-in-30-days/27-database-design-best-practices) — Thiết kế cơ sở dữ liệu (Database Design) - Nguyên tắc chuẩn hóa CSDL, khi nào nên phi chuẩn hóa, best practices thiết kế CSDL hiệu quả.

@@ -47,6 +47,8 @@ Kiểm thử này đảm bảo rằng các bản sửa lỗi hoặc tính năng 
 ### Load Testing (Kiểm thử tải)
 
 Loại kiểm thử này kiểm tra hiệu suất của ứng dụng bằng cách mô phỏng các tải khác nhau. Sau đó, chúng ta có thể tính toán được khả năng đáp ứng của ứng dụng.
+
+Muốn làm thật thì xem loạt bài [kiểm thử tải RESTful API bằng k6](/docs/k6/load-testing-restful-apis-with-k6-part-01): cài đặt, viết kịch bản, chạy và đọc kết quả.
  
 ### Stress Testing
 
@@ -68,3 +70,7 @@ Loại kiểm thử này chèn dữ liệu đầu vào không hợp lệ hoặc 
 ## Tài liệu tham khảo
 
 - https://www.linkedin.com/posts/alexxubyte_systemdesign-coding-interviewtips-activity-7157050982437195776-s5hC
+
+## Bài liên quan
+
+- [Hướng dẫn cài đặt k6](/docs/k6/load-testing-restful-apis-with-k6-part-01) — RESTful API là một trong những kiểu API phổ biến nhất hiện nay.
