@@ -374,6 +374,10 @@ const config = {
     ],
 
     plugins: [
+        // Sinh file .md cho mỗi trang blog/docs, phục vụ nút "Copy Markdown
+        // cho AI". Đọc permalink thật qua allContentLoaded thay vì tự suy route
+        // từ đường dẫn file — xem plugins/page-markdown/index.js.
+        require.resolve('./plugins/page-markdown'),
         [
             'ideal-image',
             /** @type {import('@docusaurus/plugin-ideal-image').PluginOptions} */
