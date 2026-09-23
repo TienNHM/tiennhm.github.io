@@ -20,3 +20,7 @@
 - [17.13 — Mini case study](17.13-mini-case-study.mdx)
 - [17.14 — Ví dụ thực tế nhanh](17.14-quick-real-world-example.mdx)
 - [17.15 — Review and Assessment](17.15-review-and-assessment.mdx)
+
+## Bài liên quan
+
+- [Giới thiệu RabbitMQ - Message Broker mạnh mẽ](https://tiennhm.io.vn/blog/introduction-to-rabbitmq) — Tìm hiểu về RabbitMQ, một message broker phổ biến trong kiến trúc microservices.

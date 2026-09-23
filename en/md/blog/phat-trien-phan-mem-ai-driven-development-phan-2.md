@@ -514,3 +514,8 @@ jobs:
 [^3]: **Project Setup Metrics**: Measured across 50+ projects using Cursor
 [^4]: **Component Development Metrics**: Analysis of React component development time
 [^5]: **Time Comparison Metrics**: Based on 100+ project comparisons
+
+## Bài liên quan
+
+- [Phần 1 - React Best Practices](https://tiennhm.io.vn/docs/agent-skills/agent-skills-01-react-best-practices) — Tổng hợp 53 guideline React best practices cho Agent Skills - State, Effects, Rendering, Components, Props, Events, Forms, Hooks, Context…
+- [M01.05 - Applying Cloud Concepts to Real Life Use Cases](https://tiennhm.io.vn/docs/aws-cloud-practitioner-essentials/introduction-to-the-cloud/applying-cloud-concepts-to-real-life-use-cases) — Khám phá cách các khái niệm cloud cơ bản như AWS Global Infrastructure và AWS Shared Responsibility Model hoạt động cùng nhau để tạo ra các giải pháp…

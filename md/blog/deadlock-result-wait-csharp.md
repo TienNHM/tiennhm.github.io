@@ -181,3 +181,9 @@ Chỉ khi chữ ký bị delegate của event ép buộc, ví dụ handler Click
 ### Bị kẹt ở một biên giới đồng bộ không sửa chữ ký được thì làm sao?
 
 Chọn đường thoát theo đúng loại biên giới thay vì gọi .Result. Entry point thì dùng async Task Main từ C# 7.1. Constructor không async được thì dùng factory method static async Task CreateAsync. Việc chạy nền thì dùng BackgroundService hoặc IHostedService. Interface bên thứ ba không sửa được thì bọc adapter async. Nếu bắt buộc phải block, hãy giới hạn ở đúng một chỗ, ghi rõ lý do, và biết là trong WPF hay ASP.NET Framework chỗ đó vẫn deadlock được.
+
+## Bài liên quan
+
+- [Module 6 — Async Programming](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-06-async-programming) — Lập trình bất đồng bộ .NET: Task, async/await, cancellation, ConfigureAwait — mô hình I/O-bound cho ASP.NET Core và tích hợp HTTP.
+- [Module 13 — Entity Framework Core](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core) — EF Core: change tracking, migrations, raw SQL, performance patterns — ORM mapping an toàn cho domain CRM.
+- [8.3 — 2. Request Pipeline và Middleware](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.3-request-pipeline-and-middleware) — Request Pipeline và Middleware trong ASP.NET Core: cách middleware xếp chuỗi, short-circuit, thứ tự đăng ký và correlation/timing cho CRM backend.

@@ -33,3 +33,7 @@ size:small
 ```
 
 Vậy 2 thuộc tính không xuất hiện trên giao diện là `role` và `userId`.
+
+## Bài liên quan
+
+- [Đổi id trên URL ra dữ liệu người khác? Chặn IDOR ở một tầng duy nhất](https://tiennhm.io.vn/blog/idor-broken-access-control-aspnet-core) — IDOR xảy ra khi API nhận id từ request rồi đọc thẳng bản ghi mà không hỏi xem người gọi có sở hữu bản ghi đó không.

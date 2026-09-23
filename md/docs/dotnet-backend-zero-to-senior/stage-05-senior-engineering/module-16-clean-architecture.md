@@ -22,3 +22,7 @@
 - [16.15 — Mini case study](16.15-mini-case-study.mdx)
 - [16.16 — Ví dụ thực tế nhanh](16.16-quick-real-world-example.mdx)
 - [16.17 — Review and Assessment](16.17-review-and-assessment.mdx)
+
+## Bài liên quan
+
+- [Singleton, Scoped hay Transient? Chọn sai là DbContext sống mãi](https://tiennhm.io.vn/blog/singleton-scoped-transient-captive-dependency) — Ba lifetime trong DI container của ASP.NET Core khác nhau ở thời điểm tạo và thời điểm dispose instance.

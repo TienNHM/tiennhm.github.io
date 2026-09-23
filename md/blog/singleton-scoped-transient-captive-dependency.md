@@ -190,3 +190,9 @@ CreateAsyncScope trả về scope hỗ trợ await using. Nó bắt buộc khi t
 ### Transient có nghĩa là instance được thu hồi ngay sau khi dùng xong không?
 
 Không. Transient chỉ quy định mỗi lần resolve tạo một instance mới. Nếu instance đó implement IDisposable, container ghi nó vào danh sách disposable của scope đã resolve nó và chỉ dispose khi scope kết thúc. Resolve một Transient IDisposable từ root provider nghĩa là nó tích luỹ tới lúc app tắt, nên với service giữ tài nguyên thì phải chú ý resolve từ scope nào.
+
+## Bài liên quan
+
+- [Module 7 — Dependency Injection](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-07-dependency-injection) — Dependency injection trong .NET: service lifetime, composition root, options pattern — khớp với container ASP.NET Core và kiểm thử đơn vị.
+- [8.3 — 2. Request Pipeline và Middleware](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.3-request-pipeline-and-middleware) — Request Pipeline và Middleware trong ASP.NET Core: cách middleware xếp chuỗi, short-circuit, thứ tự đăng ký và correlation/timing cho CRM backend.
+- [Module 16 — Clean Architecture](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-05-senior-engineering/module-16-clean-architecture) — Clean Architecture & DDD tactical: layers, aggregates, application services — giảm coupling và tăng khả năng kiểm chứng cho CRM lớn.

@@ -238,3 +238,7 @@ Khi chúng ta tiếp tục học về các dịch vụ AWS khác nhau, bạn s�
 *Bài viết này là phần thứ năm trong Module 1 - Introduction to the Cloud của series AWS Cloud Practitioner Essentials. Bài viết được cập nhật vào tháng 11/2025 dựa trên nội dung khóa học AWS Cloud Practitioner Essentials.*
 
 **Bạn có câu hỏi hay muốn thảo luận về cách áp dụng các khái niệm cloud vào thực tế? Hãy chia sẻ ở phần comment bên dưới nhé! ☁️**
+
+## Bài liên quan
+
+- [AI-DD - Phần 2: Công Cụ AI và Nghiên Cứu Tình Huống](https://tiennhm.io.vn/blog/phat-trien-phan-mem-ai-driven-development-phan-2) — Khám phá chi tiết các công cụ AI như ChatGPT và Cursor, cùng với nghiên cứu tình huống thực tế về phát triển E-commerce Dashboard theo phương pháp…

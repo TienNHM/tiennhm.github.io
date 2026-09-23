@@ -19,3 +19,8 @@
 - [18.12 — Mini case study](18.12-mini-case-study.mdx)
 - [18.13 — Ví dụ thực tế nhanh](18.13-quick-real-world-example.mdx)
 - [18.14 — Review and Assessment](18.14-review-and-assessment.mdx)
+
+## Bài liên quan
+
+- [Forward header trong ASP.NET Core: vì sao 'forward hết' là một lỗi kiến trúc](https://tiennhm.io.vn/blog/forward-http-header-an-toan-aspnet-core) — Vòng lặp copy mọi header từ request đi vào sang lời gọi HttpClient đi ra là đoạn code trông vô hại nhất mà tôi từng thấy gây sự cố production.
+- [Một dấu tiếng Việt làm chết lời gọi API: cf-ipcity, HttpClient và giới hạn ASCII](https://tiennhm.io.vn/blog/cloudflare-header-broke-dotnet-httpclient) — Trên một nền tảng loyalty thương mại điện tử khoảng 3 triệu khách hàng, một lời gọi HTTP nội bộ hỏng trên production trong khi database, Kubernetes…

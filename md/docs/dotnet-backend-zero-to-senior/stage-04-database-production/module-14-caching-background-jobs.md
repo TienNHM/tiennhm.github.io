@@ -19,3 +19,7 @@
 - [14.12 — Mini case study](14.12-mini-case-study.mdx)
 - [14.13 — Ví dụ thực tế nhanh](14.13-quick-real-world-example.mdx)
 - [14.14 — Review and Assessment](14.14-review-and-assessment.mdx)
+
+## Bài liên quan
+
+- [Unit of Work trong .NET và ABP: SaveChangesAsync không phải commit](https://tiennhm.io.vn/blog/unit-of-work-dotnet-abp) — DbContext của EF Core bản thân nó đã là một Unit of Work, nên bọc thêm một interface IUnitOfWork gọi SaveChanges thường chỉ thêm lớp trung gian vô…

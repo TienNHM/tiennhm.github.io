@@ -19,3 +19,8 @@
 - [2.12 — Mini case study](2.12-mini-case-study.mdx)
 - [2.13 — Ví dụ thực tế nhanh](2.13-quick-real-world-example.mdx)
 - [2.14 — Review and Assessment](2.14-review-and-assessment.mdx)
+
+## Bài liên quan
+
+- [Traefik + Cloudflare: vì sao cert hết hạn đồng loạt sau 60 ngày?](https://tiennhm.io.vn/blog/traefik-cloudflare-https-tu-dong-vps) — Một VPS, 14 container, 13 hostname, tất cả nằm sau Cloudflare và đều cần HTTPS tự động.
+- [Vì sao .NET ngốn 96% RAM container dù app đang rảnh? Server GC và cách giảm 65% bộ nhớ](https://tiennhm.io.vn/blog/dotnet-workstation-gc-giam-ram-container) — Một container .NET 9 chiếm 987 MiB trên trần 1 GiB dù suốt 2 giờ không có request nào.

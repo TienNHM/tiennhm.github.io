@@ -165,3 +165,7 @@ GROUP BY Customers.Name;
 🚀 **Tiếp theo:** Học về [Subquery (Truy vấn lồng nhau)](11.%20Subquery.md)
 
 📌 **Lộ trình:** [Học SQL trong 30 ngày](00.%2030-Day%20SQL%20Learning%20Roadmap.md)
+
+## Bài liên quan
+
+- [LEFT JOIN của bạn đã thành INNER JOIN mà không ai báo](https://tiennhm.io.vn/blog/left-join-thanh-inner-join) — Thêm một điều kiện WHERE lên cột của bảng bên phải là LEFT JOIN âm thầm biến thành INNER JOIN, và những dòng bạn cố tình giữ lại biến mất.

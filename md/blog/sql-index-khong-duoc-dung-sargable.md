@@ -222,3 +222,9 @@ Ba điều đáng nhớ:
 ---
 
 **Cập nhật lần cuối**: Tháng 9, 2026
+
+## Bài liên quan
+
+- [28. SQL query optimization](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/28-sql-query-optimization) — Hướng dẫn tối ưu hóa truy vấn SQL, phân tích truy vấn với EXPLAIN ANALYZE, tránh lỗi phổ biến khi viết SQL, tận dụng Index, Partition, Caching để…
+- [20. Query Performance](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/20-query-performance) — Tìm hiểu cách phân tích và tối ưu hiệu suất truy vấn SQL bằng EXPLAIN ANALYZE.
+- [15. Index](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/15-index) — Giới thiệu về Index trong SQL, cách tạo và sử dụng Index, cách tối ưu truy vấn SQL với Index.

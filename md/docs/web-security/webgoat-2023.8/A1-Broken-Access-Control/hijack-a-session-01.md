@@ -15,3 +15,7 @@ Khi một ứng dụng web tạo ra **Session ID** không đủ phức tạp ho�
 
 ## **2. Mục tiêu bài tập**
 Mục tiêu của bạn trong bài tập này là **chiếm quyền truy cập vào một phiên đã xác thực của người dùng khác** bằng cách khai thác lỗ hổng về quản lý phiên.
+
+## Bài liên quan
+
+- [Đổi id trên URL ra dữ liệu người khác? Chặn IDOR ở một tầng duy nhất](https://tiennhm.io.vn/blog/idor-broken-access-control-aspnet-core) — IDOR xảy ra khi API nhận id từ request rồi đọc thẳng bản ghi mà không hỏi xem người gọi có sở hữu bản ghi đó không.

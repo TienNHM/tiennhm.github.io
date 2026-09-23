@@ -193,3 +193,9 @@ Vì lúc đó transaction chưa commit. Nếu sau đó có exception và transac
 ### Trong BackgroundService hay Hangfire job thì Unit of Work hoạt động thế nào?
 
 Không tự động. Interceptor của ABP gắn vào các type implement IUnitOfWorkEnabled như ApplicationService, còn BackgroundService và job handler nằm ngoài phạm vi đó. Trong worker bạn phải tự tạo DI scope cho mỗi lần chạy rồi tự gọi IUnitOfWorkManager.Begin, giống như cách xử lý captive dependency với service Scoped trong một singleton.
+
+## Bài liên quan
+
+- [Module 14 — Caching + Background Jobs](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-14-caching-background-jobs) — Caching phân tầng và background jobs: IMemoryCache, distributed cache, Hangfire/Quartz — độ trễ và độ tin cậy xử lý nền cho CRM.
+- [12.7 — 6. Transactions và Locking](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-12-sql-deep-dive/12.7-transactions-and-locking) — Transactions & Locking trong SQL: ACID, isolation level, deadlock, optimistic/pessimistic concurrency — áp vào chuyển đổi dữ liệu CRM một cách an…
+- [13.10 — 9. Unit of Work và Repository Pattern](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.10-unit-of-work-and-repository-pattern)

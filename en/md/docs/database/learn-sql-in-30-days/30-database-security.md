@@ -187,3 +187,7 @@ mysql -u root -p sales_db < sales_backup.sql
 🚀 **Tiếp theo:** [Tổng kết series.](99.%20Summary.md).
 
 📌 **Lộ trình:** [Học SQL trong 30 ngày](00.%2030-Day%20SQL%20Learning%20Roadmap.md).
+
+## Bài liên quan
+
+- [Hai giao dịch cùng cộng 100, số dư chỉ tăng 100: isolation level qua thí nghiệm thật](https://tiennhm.io.vn/blog/sql-isolation-level-lost-update-phantom-read) — Hai phiên cùng đọc số dư 1000 rồi cùng ghi 1100.

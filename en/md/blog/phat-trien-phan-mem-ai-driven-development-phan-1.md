@@ -294,3 +294,7 @@ Bài viết nêu bốn rủi ro chính: thiên kiến trong mô hình AI có th�
 [^10]: **UI/UX Design Metrics**: Comparative analysis of traditional vs AI-assisted design
 [^11]: **Project Setup Metrics**: Measured across 50+ projects using Cursor
 [^12]: **Component Development Metrics**: Analysis of React component development time
+
+## Bài liên quan
+
+- [Module 3 — Git + Developer Workflow](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-01-foundation/module-03-git-developer-workflow) — Quy trình kỹ sư phần mềm với Git: branching, merge/rebase, code review, CI hooks — chuẩn hóa cộng tác cho dự án .NET đa module.

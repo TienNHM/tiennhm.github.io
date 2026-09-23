@@ -18,3 +18,8 @@
 - [5.11 — Mini case study](5.11-mini-case-study.mdx)
 - [5.12 — Ví dụ thực tế nhanh](5.12-quick-real-world-example.mdx)
 - [5.13 — Review and Assessment](5.13-review-and-assessment.mdx)
+
+## Bài liên quan
+
+- [Một dấu tiếng Việt làm chết lời gọi API: cf-ipcity, HttpClient và giới hạn ASCII](https://tiennhm.io.vn/blog/cloudflare-header-broke-dotnet-httpclient) — Trên một nền tảng loyalty thương mại điện tử khoảng 3 triệu khách hàng, một lời gọi HTTP nội bộ hỏng trên production trong khi database, Kubernetes…
+- [Vì sao EF Core bắn 201 query cho 1 màn hình danh sách? Cách sửa N+1](https://tiennhm.io.vn/blog/ef-core-n-plus-1-query) — Một màn hình 200 dòng mà log SQL ghi 201 câu lệnh là dấu hiệu của N+1 query.

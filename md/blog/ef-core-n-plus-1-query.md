@@ -222,3 +222,9 @@ Chỉ nên nếu phần lớn truy vấn của bạn Include từ hai collection
 ### AsNoTracking có làm giảm số lượng query không?
 
 Không. AsNoTracking chỉ bỏ bước chụp snapshot entity vào change tracker, nên nó giảm chi phí bộ nhớ và chi phí materialize chứ không đổi số câu lệnh gửi xuống database. Nó vẫn đáng bật cho mọi màn hình chỉ đọc, và nên đi kèm projection. Nếu cần hai dòng cùng khoá chính trỏ về cùng một đối tượng trong bộ nhớ thì dùng NoTrackingWithIdentityResolution thay vì AsNoTracking thuần.
+
+## Bài liên quan
+
+- [Module 13 — Entity Framework Core](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core) — EF Core: change tracking, migrations, raw SQL, performance patterns — ORM mapping an toàn cho domain CRM.
+- [Lộ trình .NET Backend: From Zero → Senior (Backend-first)](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/dotnet-backend-zero-to-senior-roadmap) — Curriculum hub: lộ trình .NET backend-first (C#, ASP.NET Core, SQL, EF Core, distributed systems, microservices) với trục nghiệp vụ CRM/ERP — tối ưu…
+- [Module 5 — Advanced C#](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-05-advanced-csharp) — C# nâng cao: generics, LINQ, nullable reference types, spans, exception semantics — tối ưu an toàn kiểu và hiện diện bộ nhớ trong service layer.

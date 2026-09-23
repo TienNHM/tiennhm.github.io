@@ -222,3 +222,9 @@ Ba điều đáng nhớ:
 ---
 
 **Cập nhật lần cuối**: Tháng 9, 2026
+
+## Bài liên quan
+
+- [29. Recursive Queries & Window Functions](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/29-recursive-queries-window-functions) — Giới thiệu về Recursive Queries và Window Functions trong SQL, cách viết truy vấn đệ quy, ứng dụng thực tế, cách sử dụng Window Functions để phân…
+- [09. GROUP BY - HAVING](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/09-group-by-having) — Giới thiệu về GROUP BY và HAVING trong SQL, cách sử dụng và ví dụ minh họa.
+- [08. Aggregate Functions](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/08-aggregate-functions) — Giới thiệu về các hàm tổng hợp trong SQL.

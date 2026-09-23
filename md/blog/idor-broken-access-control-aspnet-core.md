@@ -166,3 +166,9 @@ Dựng WebGoat rồi đi qua nhóm bài Broken Access Control theo thứ tự: �
 IDOR không phải là một lỗi tinh vi. Nó là hệ quả trực tiếp của việc framework lo giúp bạn phần "anh là ai" và im lặng ở phần "anh được phép làm gì với cái này".
 
 Nên thay vì nhớ viết một câu kiểm tra ở mỗi endpoint, hãy dựng một tầng khiến việc quên trở nên khó: điều kiện sở hữu nằm trong query, query filter ở `DbContext`, và một handler duy nhất cho mỗi loại resource. Rồi thêm vài integration test khẳng định A không đọc được dữ liệu của B — đó mới là thứ còn giữ được kết quả sau nhiều tháng và nhiều người cùng sửa code.
+
+## Bài liên quan
+
+- [Module 10 — Authentication + Authorization](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-10-authentication-authorization) — Xác thực & phân quyền ASP.NET Core: JWT, OAuth2/OIDC, cookie, policy-based authorization — mô hình bảo mật đa tenant cho CRM.
+- [2.01 | Insecure Direct Object References](https://tiennhm.io.vn/docs/web-security/webgoat-2023.8/A1-Broken-Access-Control/insecure-direct-object-references-01) — Bài viết này sẽ hướng dẫn cách tấn công Insecure Direct Object References trên WebGoat 2023.8
+- [2.03 | Insecure Direct Object References](https://tiennhm.io.vn/docs/web-security/webgoat-2023.8/A1-Broken-Access-Control/insecure-direct-object-references-03) — Bài viết này sẽ hướng dẫn cách tấn công Insecure Direct Object References trên WebGoat 2023.8

@@ -18,3 +18,7 @@
 - [12.11 — Mini case study](12.11-mini-case-study.mdx)
 - [12.12 — Ví dụ thực tế nhanh](12.12-quick-real-world-example.mdx)
 - [12.13 — Review and Assessment](12.13-review-and-assessment.mdx)
+
+## Bài liên quan
+
+- [Hai giao dịch cùng cộng 100, số dư chỉ tăng 100: isolation level qua thí nghiệm thật](https://tiennhm.io.vn/blog/sql-isolation-level-lost-update-phantom-read) — Hai phiên cùng đọc số dư 1000 rồi cùng ghi 1100.

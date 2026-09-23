@@ -220,3 +220,8 @@ Trường hợp cụ thể ở đây: **822 MB xuống 280 MB, giảm 65%, khôn
 ---
 
 **Cập nhật lần cuối**: Tháng 9, 2026
+
+## Bài liên quan
+
+- [Module 19 — Performance Engineering](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-05-senior-engineering/module-19-performance-engineering) — Performance engineering: profiling, allocation, GC, benchmarking — định lượng cải tiến cho hot path CRM.
+- [Module 2 — Computer Science Basics](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-01-foundation/module-02-computer-science-basics) — CS foundation cho backend: mô hình bộ nhớ, HTTP/TCP khái quát, JSON, REST semantics, phân tích độ phức tạp — liên hệ pipeline request trong ASP.NET…

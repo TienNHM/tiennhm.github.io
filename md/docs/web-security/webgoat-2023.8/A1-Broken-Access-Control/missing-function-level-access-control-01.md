@@ -84,3 +84,7 @@ public IActionResult DeleteUser([FromBody] DeleteUserDto request)
 | **API không kiểm tra quyền** | Luôn dùng `[Authorize(Roles = "...")]` để giới hạn quyền truy cập |
 | **Lộ API quan trọng** | Đặt tên API chung chung để tránh bị lộ |
 | **Không có log giám sát** | Ghi log mọi hành động quan trọng để dễ điều tra |
+
+## Bài liên quan
+
+- [Đổi id trên URL ra dữ liệu người khác? Chặn IDOR ở một tầng duy nhất](https://tiennhm.io.vn/blog/idor-broken-access-control-aspnet-core) — IDOR xảy ra khi API nhận id từ request rồi đọc thẳng bản ghi mà không hỏi xem người gọi có sở hữu bản ghi đó không.

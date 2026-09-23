@@ -160,3 +160,7 @@ Có câu hỏi hoặc muốn thảo luận? Hãy:
 2. Pilot với 1 project nhỏ
 3. Scale lên toàn team/organization
 4. **Transform your software development forever**
+
+## Bài liên quan
+
+- [Module 3 — Git + Developer Workflow](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-01-foundation/module-03-git-developer-workflow) — Quy trình kỹ sư phần mềm với Git: branching, merge/rebase, code review, CI hooks — chuẩn hóa cộng tác cho dự án .NET đa module.

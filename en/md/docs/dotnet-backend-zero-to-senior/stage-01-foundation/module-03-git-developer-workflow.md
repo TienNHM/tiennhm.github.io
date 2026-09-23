@@ -20,3 +20,8 @@
 - [3.13 — Mini case study](3.13-mini-case-study.mdx)
 - [3.14 — Ví dụ thực tế nhanh](3.14-quick-real-world-example.mdx)
 - [3.15 — Review and Assessment](3.15-review-and-assessment.mdx)
+
+## Bài liên quan
+
+- [AI-DD - Phần 1: Giới Thiệu và Tác Động](https://tiennhm.io.vn/blog/phat-trien-phan-mem-ai-driven-development-phan-1) — Tìm hiểu về AI-DD (AI-Driven Development) - cách tiếp cận mới thay đổi hoàn toàn quy trình làm việc và tác động đến từng vai trò trong team phát…
+- [AI-DD: Phát Triển Phần Mềm AI-Driven - Series Toàn Diện](https://tiennhm.io.vn/blog/phat-trien-phan-mem-ai-driven-development) — Series toàn diện về AI-DD (AI-Driven Development) - phương pháp phát triển phần mềm do AI dẫn dắt, xu hướng mới thay đổi hoàn toàn cách làm việc của…
