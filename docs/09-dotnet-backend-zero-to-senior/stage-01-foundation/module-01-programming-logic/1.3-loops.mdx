@@ -392,9 +392,9 @@ seq 1 2000000 > lon.txt     # khoảng 15 MB
 **Lời giải.**
 
 ```csharp
-static List<string> DocHet(string path) => File.ReadAllLines(path).ToList();
+static List<string> ReadAll(string path) => File.ReadAllLines(path).ToList();
 
-static IEnumerable<string> DocDan(string path)
+static IEnumerable<string> ReadLazily(string path)
 {
     using var reader = new StreamReader(path);
     string? line;
@@ -402,17 +402,17 @@ static IEnumerable<string> DocDan(string path)
         yield return line;
 }
 
-static void Do(string ten, Func<IEnumerable<string>> lay)
+static void Measure(string label, Func<IEnumerable<string>> read)
 {
-    var truoc = GC.GetTotalMemory(true);
-    int dem = 0;
-    foreach (var line in lay()) dem++;
-    var sau = GC.GetTotalMemory(false);
-    Console.WriteLine($"{ten,-8} {dem} dòng, tăng {(sau - truoc) / 1024 / 1024} MB");
+    var before = GC.GetTotalMemory(true);
+    int count = 0;
+    foreach (var line in read()) count++;
+    var after = GC.GetTotalMemory(false);
+    Console.WriteLine($"{label,-8} {count} dòng, tăng {(after - before) / 1024 / 1024} MB");
 }
 
-Do("List", () => DocHet("lon.txt"));
-Do("yield", () => DocDan("lon.txt"));
+Measure("List", () => ReadAll("lon.txt"));
+Measure("yield", () => ReadLazily("lon.txt"));
 ```
 
 **Kết quả đo thật trên .NET 9, file 15 MB gồm 2 triệu dòng:**

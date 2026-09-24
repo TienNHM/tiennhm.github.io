@@ -28,19 +28,19 @@ Sau bài này bạn có thể:
 **Nên học ngay sau Module 1.** Bạn sẽ gặp nó trong mọi dự án .NET.
 
 ```csharp
-// Viet tay
-var khachVip = new List<Customer>();
-foreach (var k in danhSach)
+// Viết tay
+var vipCustomers = new List<Customer>();
+foreach (var c in customers)
 {
-    if (k.TongChiTieu > 100_000_000m)
-        khachVip.Add(k);
+    if (c.TotalSpent > 100_000_000m)
+        vipCustomers.Add(c);
 }
-khachVip.Sort((a, b) => b.TongChiTieu.CompareTo(a.TongChiTieu));
+vipCustomers.Sort((a, b) => b.TotalSpent.CompareTo(a.TotalSpent));
 
-// LINQ — cung ket qua
-var khachVip = danhSach
-    .Where(k => k.TongChiTieu > 100_000_000m)
-    .OrderByDescending(k => k.TongChiTieu)
+// LINQ — cùng kết quả
+var vipCustomers = customers
+    .Where(c => c.TotalSpent > 100_000_000m)
+    .OrderByDescending(c => c.TotalSpent)
     .ToList();
 ```
 
@@ -57,17 +57,17 @@ Năm thao tác dùng nhiều nhất:
 **Cái bẫy quan trọng nhất — deferred execution:**
 
 ```csharp
-var query = danhSach.Where(k => k.TongChiTieu > 100_000_000m);
-danhSach.Add(new Customer { TongChiTieu = 200_000_000m });
+var query = customers.Where(c => c.TotalSpent > 100_000_000m);
+customers.Add(new Customer { TotalSpent = 200_000_000m });
 
-var count = query.Count();      // TINH LAI tai day -> bao gom ca phan tu vua them
+var count = query.Count();      // TÍNH LẠI tại đây -> bao gồm cả phần tử vừa thêm
 ```
 
 LINQ **không chạy ngay** khi bạn viết `Where` — nó chỉ mô tả truy vấn. Việc chạy xảy ra khi bạn duyệt kết quả hoặc gọi `ToList`, `Count`, `First`. Gọi hai lần là chạy hai lần.
 
 ```csharp
-// Dung ToList() khi can ket qua CO DINH va dung nhieu lan
-var khachVip = danhSach.Where(...).ToList();
+// Dùng ToList() khi cần kết quả CỐ ĐỊNH và dùng nhiều lần
+var vipCustomers = customers.Where(...).ToList();
 ```
 
 Đây cũng là nền tảng để hiểu EF Core, vì truy vấn database dùng chính cơ chế này ([bài 13.6](../../stage-04-database-production/module-13-entity-framework-core/13.5-query-patterns.mdx)).
@@ -75,17 +75,17 @@ var khachVip = danhSach.Where(...).ToList();
 ### 1.9.2 — Pattern matching: học sớm
 
 ```csharp
-// Chuoi if dai
-string XepHang(decimal tongChiTieu)
+// Chuỗi if dài
+string Rank(decimal totalSpent)
 {
-    if (tongChiTieu >= 500_000_000m) return "Kim cương";
-    else if (tongChiTieu >= 100_000_000m) return "Vàng";
-    else if (tongChiTieu >= 10_000_000m) return "Bạc";
+    if (totalSpent >= 500_000_000m) return "Kim cương";
+    else if (totalSpent >= 100_000_000m) return "Vàng";
+    else if (totalSpent >= 10_000_000m) return "Bạc";
     else return "Thường";
 }
 
-// Switch expression — ngan hon va de doc hon
-string XepHang(decimal tongChiTieu) => tongChiTieu switch
+// Switch expression — ngắn hơn và dễ đọc hơn
+string Rank(decimal totalSpent) => totalSpent switch
 {
     >= 500_000_000m => "Kim cương",
     >= 100_000_000m => "Vàng",
@@ -97,13 +97,13 @@ string XepHang(decimal tongChiTieu) => tongChiTieu switch
 Lợi ích không chỉ là ngắn hơn: trình biên dịch **cảnh báo** nếu bạn bỏ sót trường hợp với kiểu enum, điều mà chuỗi `if` không làm được.
 
 ```csharp
-// Khop theo kieu va thuoc tinh
-decimal TinhPhiVanChuyen(DonHang don) => don switch
+// Khớp theo kiểu và thuộc tính
+decimal CalculateShippingFee(Order order) => order switch
 {
-    { GiaTri: > 1_000_000m }                  => 0,
-    { KhuVuc: "HCM" or "HN" }                 => 20_000m,
-    { CanNang: > 10 }                         => 50_000m,
-    _                                          => 35_000m
+    { Total: > 1_000_000m }        => 0,
+    { Region: "HCM" or "HN" }      => 20_000m,
+    { WeightKg: > 10 }             => 50_000m,
+    _                              => 35_000m
 };
 ```
 
@@ -112,13 +112,13 @@ decimal TinhPhiVanChuyen(DonHang don) => don switch
 ### 1.9.3 — Đệ quy: học để hiểu, ít dùng để viết
 
 ```csharp
-// De quy — dung nhung nguy hiem trong backend
-decimal TinhTongCayDanhMuc(DanhMuc dm)
+// Đệ quy — đúng nhưng nguy hiểm trong backend
+decimal SumCategoryTree(Category category)
 {
-    decimal tong = dm.GiaTri;
-    foreach (var con in dm.DanhMucCon)
-        tong += TinhTongCayDanhMuc(con);          // goi chinh no
-    return tong;
+    decimal total = category.Value;
+    foreach (var child in category.Children)
+        total += SumCategoryTree(child);          // gọi chính nó
+    return total;
 }
 ```
 
@@ -127,27 +127,27 @@ Vấn đề cụ thể: nếu dữ liệu có **vòng lặp** (A là con của B
 Và đây là điểm nguy hiểm nhất: **`StackOverflowException` không bắt được bằng `try/catch`** trong .NET. Nó giết luôn tiến trình, kéo theo mọi request khác đang chạy trên cùng process.
 
 ```csharp
-// Dung stack tuong minh — kiem soat duoc, va phat hien vong lap
-decimal TinhTongCayDanhMuc(DanhMuc goc)
+// Dùng stack tường minh — kiểm soát được, và phát hiện vòng lặp
+decimal SumCategoryTree(Category root)
 {
-    decimal tong = 0;
-    var daTham = new HashSet<int>();
-    var stack = new Stack<DanhMuc>();
-    stack.Push(goc);
+    decimal total = 0;
+    var visited = new HashSet<int>();
+    var stack = new Stack<Category>();
+    stack.Push(root);
 
     while (stack.Count > 0)
     {
-        var dm = stack.Pop();
+        var category = stack.Pop();
 
-        if (!daTham.Add(dm.Id))
-            throw new InvalidOperationException($"Danh mục {dm.Id} tạo vòng lặp");
+        if (!visited.Add(category.Id))
+            throw new InvalidOperationException($"Danh mục {category.Id} tạo vòng lặp");
 
-        tong += dm.GiaTri;
-        foreach (var con in dm.DanhMucCon)
-            stack.Push(con);
+        total += category.Value;
+        foreach (var child in category.Children)
+            stack.Push(child);
     }
 
-    return tong;
+    return total;
 }
 ```
 
@@ -158,16 +158,16 @@ Với dữ liệu cây trong database, thường tốt hơn nữa là để data
 ### 1.9.4 — Immutability
 
 ```csharp
-// record — bat bien, so sanh theo GIA TRI
-public record DiaChi(string SoNha, string Duong, string Quan, string ThanhPho);
+// record — bất biến, so sánh theo GIÁ TRỊ
+public record Address(string HouseNumber, string Street, string District, string City);
 
-var dc1 = new DiaChi("12", "Nguyễn Huệ", "1", "HCM");
-var dc2 = new DiaChi("12", "Nguyễn Huệ", "1", "HCM");
+var a1 = new Address("12", "Nguyễn Huệ", "1", "HCM");
+var a2 = new Address("12", "Nguyễn Huệ", "1", "HCM");
 
-Console.WriteLine(dc1 == dc2);          // True — so sanh gia tri
+Console.WriteLine(a1 == a2);            // True — so sánh giá trị
 
-// Muon doi thi tao ban moi
-var dcMoi = dc1 with { Quan = "3" };
+// Muốn đổi thì tạo bản mới
+var a3 = a1 with { District = "3" };
 ```
 
 Hai lợi ích thực tế: đối tượng bất biến **an toàn khi dùng đa luồng** (không ai đổi được nó giữa chừng), và code dễ suy luận hơn vì giá trị không thay đổi sau khi tạo.
@@ -179,14 +179,14 @@ Hai lợi ích thực tế: đối tượng bất biến **an toàn khi dùng đ
 Một công cụ tư duy để viết vòng lặp đúng: **điều gì luôn đúng ở mỗi lần lặp?**
 
 ```csharp
-// Bat bien: sau vong lap thu i, "max" la gia tri lon nhat trong danhSach[0..i]
-decimal max = danhSach[0];
-for (int i = 1; i < danhSach.Count; i++)
+// Bất biến: sau vòng lặp thứ i, "max" là giá trị lớn nhất trong amounts[0..i]
+decimal max = amounts[0];
+for (int i = 1; i < amounts.Count; i++)
 {
-    if (danhSach[i] > max)
-        max = danhSach[i];
+    if (amounts[i] > max)
+        max = amounts[i];
 }
-// Ket thuc: max la gia tri lon nhat toan danh sach
+// Kết thúc: max là giá trị lớn nhất toàn danh sách
 ```
 
 Phát biểu được bất biến nghĩa là bạn hiểu vòng lặp đang làm gì. Nó cũng giúp bắt hai lỗi phổ biến: khởi tạo sai (bắt đầu từ `i = 0` sẽ so sánh phần tử đầu với chính nó — vô hại ở đây nhưng không phải lúc nào cũng vậy) và điều kiện dừng sai (`<=` thay vì `<` gây `IndexOutOfRangeException`).

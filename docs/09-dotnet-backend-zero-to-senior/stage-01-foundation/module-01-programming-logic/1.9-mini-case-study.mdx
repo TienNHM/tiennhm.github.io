@@ -69,35 +69,35 @@ Kiểm chứng bảng bằng ba ví dụ tự tính tay **trước khi** viết 
 ### 1.10.3 — Code
 
 ```csharp
-public static decimal TinhHoaHong(decimal doanhSo, bool laThuViec)
+public static decimal CalculateCommission(decimal sales, bool isProbation)
 {
-    if (doanhSo < 0)
-        throw new ArgumentException("Doanh số không được âm", nameof(doanhSo));
+    if (sales < 0)
+        throw new ArgumentException("Doanh số không được âm", nameof(sales));
 
-    const decimal MocBac2 = 100_000_000m;
-    const decimal MocBac3 = 500_000_000m;
+    const decimal Tier2Threshold = 100_000_000m;
+    const decimal Tier3Threshold = 500_000_000m;
 
-    decimal hoaHong = 0m;
+    decimal commission = 0m;
 
-    // Bac 1: phan tu 0 den 100 trieu
-    decimal phanBac1 = Math.Min(doanhSo, MocBac2);
-    hoaHong += phanBac1 * 0.02m;
+    // Bậc 1: phần từ 0 đến 100 triệu
+    decimal tier1 = Math.Min(sales, Tier2Threshold);
+    commission += tier1 * 0.02m;
 
-    // Bac 2: phan tu 100 den 500 trieu
-    if (doanhSo > MocBac2)
+    // Bậc 2: phần từ 100 đến 500 triệu
+    if (sales > Tier2Threshold)
     {
-        decimal phanBac2 = Math.Min(doanhSo, MocBac3) - MocBac2;
-        hoaHong += phanBac2 * 0.05m;
+        decimal tier2 = Math.Min(sales, Tier3Threshold) - Tier2Threshold;
+        commission += tier2 * 0.05m;
     }
 
-    // Bac 3: phan vuot 500 trieu
-    if (doanhSo > MocBac3)
+    // Bậc 3: phần vượt 500 triệu
+    if (sales > Tier3Threshold)
     {
-        decimal phanBac3 = doanhSo - MocBac3;
-        hoaHong += phanBac3 * 0.08m;
+        decimal tier3 = sales - Tier3Threshold;
+        commission += tier3 * 0.08m;
     }
 
-    return laThuViec ? hoaHong * 0.5m : hoaHong;
+    return isProbation ? commission * 0.5m : commission;
 }
 ```
 
@@ -110,9 +110,9 @@ Bốn quyết định trong code này đáng giải thích:
 **`Math.Min` thay vì lồng `if`.** So sánh với cách viết lồng nhau:
 
 ```csharp
-// Kho doc hon, va de sai bien
-if (doanhSo <= 100_000_000m) { ... }
-else if (doanhSo <= 500_000_000m) { ... }
+// Khó đọc hơn, và dễ sai biên
+if (sales <= 100_000_000m) { ... }
+else if (sales <= 500_000_000m) { ... }
 else { ... }
 ```
 
@@ -125,11 +125,11 @@ else { ... }
 Đề bài chỉ nhắc một trong năm. Bốn cái còn lại bạn phải **tự nghĩ ra** — và đây chính là kỹ năng phân biệt người mới với người có kinh nghiệm.
 
 ```csharp
-TinhHoaHong(0, false)              // 0 — khong co doanh so
-TinhHoaHong(100_000_000m, false)   // DUNG moc — 2 trieu (khong phai 5 trieu)
-TinhHoaHong(500_000_000m, false)   // DUNG moc — 22 trieu
-TinhHoaHong(-1000, false)          // Am — phai nem exception
-TinhHoaHong(0, true)               // Thu viec doanh so 0 — 0, khong phai loi
+CalculateCommission(0, false)              // 0 — không có doanh số
+CalculateCommission(100_000_000m, false)   // ĐÚNG mốc — 2 triệu (không phải 5 triệu)
+CalculateCommission(500_000_000m, false)   // ĐÚNG mốc — 22 triệu
+CalculateCommission(-1000, false)          // Âm — phải ném ngoại lệ
+CalculateCommission(0, true)               // Thử việc doanh số 0 — 0, không phải lỗi
 ```
 
 Kiểm chứng hai mốc bằng tay:
@@ -147,20 +147,20 @@ Kiểm chứng hai mốc bằng tay:
 [Theory]
 [InlineData(0,           false, 0)]
 [InlineData(80_000_000,  false, 1_600_000)]
-[InlineData(100_000_000, false, 2_000_000)]      // dung moc
+[InlineData(100_000_000, false, 2_000_000)]      // đúng mốc
 [InlineData(300_000_000, false, 12_000_000)]
-[InlineData(500_000_000, false, 22_000_000)]     // dung moc
+[InlineData(500_000_000, false, 22_000_000)]     // đúng mốc
 [InlineData(600_000_000, false, 30_000_000)]
-[InlineData(600_000_000, true,  15_000_000)]     // thu viec
-public void TinhHoaHong_TraVeDungKetQua(decimal doanhSo, bool thuViec, decimal mongDoi)
+[InlineData(600_000_000, true,  15_000_000)]     // thử việc
+public void CalculateCommission_ReturnsExpected(decimal sales, bool isProbation, decimal expected)
 {
-    Assert.Equal(mongDoi, TinhHoaHong(doanhSo, thuViec));
+    Assert.Equal(expected, CalculateCommission(sales, isProbation));
 }
 
 [Fact]
-public void TinhHoaHong_NemLoi_KhiDoanhSoAm()
+public void CalculateCommission_Throws_WhenSalesNegative()
 {
-    Assert.Throws<ArgumentException>(() => TinhHoaHong(-1000, false));
+    Assert.Throws<ArgumentException>(() => CalculateCommission(-1000, false));
 }
 ```
 

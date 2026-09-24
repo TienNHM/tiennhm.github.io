@@ -123,7 +123,7 @@ public async Task<Result<OrderDto>> CreateAsync(
 {
     var existing = await _store.GetAsync(idempotencyKey, ct);
     if (existing is not null)
-        return Result.Success(existing.Response);    // tra lai ket qua cu
+        return Result.Success(existing.Response);    // trả lại kết quả cũ
 
     var order = await _orders.CreateAsync(request, ct);
     await _store.SaveAsync(idempotencyKey, order, TimeSpan.FromHours(24), ct);
@@ -203,11 +203,287 @@ Chi tiết ở [bài 9.5](9.4-pagination-filtering-sorting.mdx).
 
 ## Bài tập áp dụng
 
-1. **Tạo đơn trùng.** Viết endpoint `POST /orders` không có idempotency key, mô phỏng timeout phía client rồi retry, và xác nhận có hai đơn hàng. Thêm `Idempotency-Key` và kiểm chứng lại.
+#### Bài 1 — Tạo đơn trùng do thử lại
 
-2. **`PUT` bị hiểu nhầm.** Cài `PUT` đúng ngữ nghĩa thay thế toàn bộ, gọi nó với body thiếu trường `email`, và ghi lại điều xảy ra với dữ liệu. Thảo luận xem client của bạn có biết điều đó không.
+Viết endpoint `POST /orders` **không** có khoá idempotency, mô phỏng client hết giờ chờ rồi thử lại, và xác nhận có hai đơn hàng. Thêm `Idempotency-Key` và kiểm chứng lại.
 
-3. **Phá stateless.** Lưu bước hiện tại của một wizard vào bộ nhớ tiến trình, chạy hai instance sau load balancer round-robin, và ghi lại tỷ lệ request thất bại.
+**Tiêu chí hoàn thành:** bạn nêu được vì sao client **không thể** tự tránh việc này.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Khi client hết giờ chờ, nó biết gì về kết quả? Câu trả lời: **không biết gì cả**. Request có thể đã tới server và được xử lý xong, hoặc chưa bao giờ tới.
+
+**Lời giải — tái hiện:**
+
+```csharp
+app.MapPost("/orders", async (CreateOrderRequest req, CrmDbContext db, CancellationToken ct) =>
+{
+    await Task.Delay(3000, ct);                  // mô phỏng xử lý chậm
+    var order = new Order { CustomerId = req.CustomerId, Total = req.Total };
+    db.Orders.Add(order);
+    await db.SaveChangesAsync(ct);
+    return Results.Created($"/orders/{order.Id}", order);
+});
+```
+
+```bash
+# Client hết giờ after 2 giây rồi thử lại
+curl -m 2 -X POST localhost:5000/orders -d '{"customerId":1,"total":500000}' -H "Content-Type: application/json"
+# curl: (28) Operation timed out
+curl -m 10 -X POST localhost:5000/orders -d '{"customerId":1,"total":500000}' -H "Content-Type: application/json"
+# {"id":2,...}
+
+psql -c 'SELECT COUNT(*) FROM "Orders" WHERE "CustomerId" = 1;'
+# 2     <- HAI đơn hàng cho một lần đặt
+```
+
+**Vì sao client không thể tự tránh.** Khi hết giờ chờ, client ở trong tình trạng **hoàn toàn mù**:
+
+| Khả năng | Client phân biệt được? |
+|---|---|
+| Request chưa tới server | Không |
+| Request tới, server đang xử lý | Không |
+| Server xử lý xong, phản hồi mất trên đường về | **Không** |
+
+Cả ba trường hợp trông giống hệt nhau từ phía client. Nếu client **không** thử lại, nó có thể mất một đơn hàng hợp lệ. Nếu **có** thử lại, nó có thể tạo đơn trùng. Không có lựa chọn an toàn nào — **vấn đề phải được giải quyết ở phía server**.
+
+**Bản có khoá idempotency:**
+
+```csharp
+app.MapPost("/orders", async (
+    CreateOrderRequest req,
+    [FromHeader(Name = "Idempotency-Key")] string? key,
+    CrmDbContext db, CancellationToken ct) =>
+{
+    if (string.IsNullOrWhiteSpace(key))
+        return Results.BadRequest("Thiếu header Idempotency-Key");
+
+    // Ghi khoá TRƯỚC, dựa vào ràng buộc duy nhất của database
+    var record = new IdempotencyRecord { Key = key, CreatedAt = DateTime.UtcNow };
+    db.IdempotencyRecords.Add(record);
+    try
+    {
+        await db.SaveChangesAsync(ct);
+    }
+    catch (DbUpdateException) when (IsUniqueViolation())
+    {
+        // Đã xử lý rồi — trả lại kết quả cũ
+        var saved = await db.IdempotencyRecords.AsNoTracking()
+                           .FirstAsync(x => x.Key == key, ct);
+        return Results.Ok(JsonSerializer.Deserialize<Order>(saved.Response!));
+    }
+
+    var order = new Order { CustomerId = req.CustomerId, Total = req.Total };
+    db.Orders.Add(order);
+    record.Response = JsonSerializer.Serialize(order);
+    await db.SaveChangesAsync(ct);
+
+    return Results.Created($"/orders/{order.Id}", order);
+});
+```
+
+Thử lại với **cùng** khoá cho ra cùng một đơn hàng, và bảng `Orders` chỉ có một dòng.
+
+**Ba điểm quan trọng trong cách cài đặt trên:**
+
+1. **Dựa vào ràng buộc duy nhất của database, không dựa vào việc kiểm tra trước.** Kiểm tra rồi mới ghi có khoảng trống đua, đúng như [bài 2.6](../../stage-01-foundation/module-02-computer-science-basics/2.6-what-is-a-database.mdx) đã chứng minh. Ràng buộc duy nhất là lớp bảo đảm thật.
+2. **Lưu lại phản hồi**, để lần thử lại nhận được **cùng một kết quả** chứ không phải một lỗi.
+3. **Dọn bản ghi cũ** theo lịch — thường giữ 24 tới 48 giờ là đủ.
+
+**Client sinh khoá thế nào.** Một `Guid` cho **mỗi ý định thao tác**, không phải mỗi lần gọi:
+
+```ts
+const key = crypto.randomUUID();
+for (let i = 0; i < 3; i++) {
+  try { return await post('/orders', body, { 'Idempotency-Key': key }); }   // CÙNG key
+  catch (e) { if (i === 2) throw e; await sleep(2 ** i * 1000); }
+}
+```
+
+Sinh khoá mới ở mỗi lần thử lại là quay lại đúng vấn đề ban đầu.
+
+**Endpoint nào cần.** Mọi endpoint **thay đổi dữ liệu và không idempotent tự nhiên**: tạo bản ghi, thanh toán, gửi thông báo. `PUT` và `DELETE` idempotent theo bản chất nên không cần. [Module 17](../../stage-05-senior-engineering/module-17-distributed-systems/) mở rộng ý này cho xử lý thông điệp.
+
+</details>
+
+#### Bài 2 — `PUT` đúng ngữ nghĩa thay thế toàn bộ
+
+Cài `PUT` đúng nghĩa thay thế toàn bộ, gọi với thân request **thiếu** trường `email`, và ghi lại điều xảy ra. Thảo luận xem client của bạn có biết điều đó không.
+
+**Tiêu chí hoàn thành:** bạn nêu được vì sao `PUT` đúng chuẩn lại **nguy hiểm** với client viết cẩu thả.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Ngữ nghĩa của `PUT` là *"thay thế tài nguyên bằng cái tôi gửi"*. Vậy trường không được gửi nghĩa là gì?
+
+**Lời giải.**
+
+```csharp
+app.MapPut("/customers/{id:int}", async (int id, CustomerDto dto, CrmDbContext db, CancellationToken ct) =>
+{
+    var customer = await db.Customers.FindAsync([id], ct);
+    if (customer is null) return Results.NotFound();
+
+    // PUT = THAY THẾ TOÀN BỘ
+    customer.Name  = dto.Name;
+    customer.Email = dto.Email;        // dto.Email là null vì client không gửi
+    customer.Phone = dto.Phone;
+    customer.Note  = dto.Note;
+
+    await db.SaveChangesAsync(ct);
+    return Results.NoContent();
+});
+```
+
+```bash
+curl -X PUT localhost:5000/customers/42 \
+     -H "Content-Type: application/json" \
+     -d '{"name":"Nguyễn Văn An"}'
+```
+
+Kết quả: `Email`, `Phone`, `Note` đều **bị xoá thành null**. Theo chuẩn HTTP, đây là hành vi **đúng** — client đã nói "tài nguyên này giờ chỉ có tên".
+
+**Vì sao nguy hiểm.** Client thường không nghĩ như vậy. Mẫu sai rất phổ biến ở phía giao diện:
+
+```ts
+// Form chỉ cho sửa tên
+await fetch(`/customers/${id}`, {
+  method: 'PUT',
+  body: JSON.stringify({ name: tenMoi })      // chỉ gửi trường vừa sửa
+});
+```
+
+Lập trình viên frontend nghĩ "tôi chỉ sửa tên nên chỉ gửi tên". Server làm đúng chuẩn và xoá sạch phần còn lại. **Không bên nào sai về mặt kỹ thuật**, nhưng dữ liệu đã mất.
+
+Tệ hơn: lỗi này **không báo gì cả**. Phản hồi là `204 No Content` — thành công. Người dùng chỉ phát hiện khi mở lại hồ sơ và thấy email biến mất.
+
+**Ba cách xử lý:**
+
+```csharp
+// Cách 1 — dùng PATCH cho cập nhật một phần (khuyến nghị)
+app.MapPatch("/customers/{id:int}", async (int id, JsonElement body, ...) =>
+{
+    if (body.TryGetProperty("name", out var n))  customer.Name = n.GetString();
+    if (body.TryGetProperty("email", out var e)) customer.Email = e.GetString();
+    // trường không gửi -> không đụng tới
+});
+
+// Cách 2 — PUT nhưng bắt buộc gửi đủ, từ chối nếu thiếu
+public record CustomerDto
+{
+    public required string Name { get; init; }
+    public required string Email { get; init; }
+    public required string Phone { get; init; }
+}
+// thiếu trường -> 400 với thông báo rõ ràng
+
+// Cách 3 — JSON Patch theo RFC 6902
+[{ "op": "replace", "path": "/name", "value": "Nguyễn Văn An" }]
+```
+
+**Cách 2 đáng chú ý.** Nó giữ đúng ngữ nghĩa `PUT` mà vẫn an toàn: client quên gửi trường nào sẽ nhận `400` kèm danh sách trường thiếu, thay vì âm thầm mất dữ liệu. Từ .NET 8, `required` kết hợp với `System.Text.Json` làm việc này tự động — xem [bài 5.6](../../stage-02-csharp-professional/module-05-advanced-csharp/5.6-nullable-reference-types.mdx).
+
+**Bảng so sánh:**
+
+| | `PUT` | `PATCH` |
+|---|---|---|
+| Ngữ nghĩa | Thay thế toàn bộ | Cập nhật một phần |
+| Trường không gửi | **Bị xoá** | Giữ nguyên |
+| Idempotent | **Có** | Tuỳ cài đặt |
+| Phân biệt "xoá" và "không đổi" | Không cần | **Cần** — xem [bài 2.5](../../stage-01-foundation/module-02-computer-science-basics/2.5-api-and-json.mdx) |
+
+**Khuyến nghị thực dụng.** Với API phục vụ form có nhiều trường, **dùng `PATCH`**. Chỉ dùng `PUT` khi client thật sự gửi toàn bộ trạng thái — ví dụ đồng bộ dữ liệu giữa hai hệ thống, hoặc cấu hình được quản lý bằng file.
+
+Và dù chọn cách nào, **ghi rõ trong tài liệu API**. Đây là một trong những chỗ mà giả định ngầm giữa hai đội gây mất dữ liệu nhiều nhất.
+
+</details>
+
+#### Bài 3 — Phá tính phi trạng thái
+
+Lưu bước hiện tại của một biểu mẫu nhiều bước vào bộ nhớ tiến trình, chạy hai thể hiện sau bộ cân bằng tải luân phiên, và ghi lại tỉ lệ request thất bại.
+
+**Tiêu chí hoàn thành:** bạn tính được tỉ lệ thất bại theo công thức, và nêu được ba nơi đúng để lưu trạng thái đó.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Bài này lặp lại thí nghiệm ở [bài 2.8](../../stage-01-foundation/module-02-computer-science-basics/2.8-hosting-and-cloud-co-ban.mdx) nhưng với hệ quả nghiệp vụ rõ hơn. Công thức tỉ lệ thất bại: với `n` thể hiện và phân phối đều, xác suất một request rơi đúng thể hiện giữ trạng thái là `1/n`.
+
+**Lời giải.**
+
+```csharp
+public static class WizardStore
+{
+    private static readonly ConcurrentDictionary<string, WizardState> _store = new();
+    public static void Save(string id, WizardState s) => _store[id] = s;
+    public static WizardState? Get(string id) => _store.GetValueOrDefault(id);
+}
+
+app.MapPost("/wizard/{id}/steps/{n:int}", (string id, int n, StepData data) =>
+{
+    var s = WizardStore.Get(id) ?? new WizardState();
+    s.Step = n;
+    s.Data[n] = data;
+    WizardStore.Save(id, s);
+    return Results.Ok(new { nextStep = n + 1 });
+});
+
+app.MapGet("/wizard/{id}", (string id) =>
+    WizardStore.Get(id) is { } s ? Results.Ok(s) : Results.NotFound("Phiên đã hết hạn"));
+```
+
+Chạy hai thể hiện sau Nginx luân phiên, đi qua 5 bước:
+
+```text
+Bước 1 -> thể hiện A   (lưu trạng thái ở A)
+Bước 2 -> thể hiện B   -> KHÔNG thấy trạng thái -> tạo mới, MẤT dữ liệu bước 1
+Bước 3 -> thể hiện A   -> thấy trạng thái cũ của A, thiếu bước 2
+Bước 4 -> thể hiện B
+Bước 5 -> thể hiện A   -> dữ liệu chắp vá, không hoàn tất được
+```
+
+**Tỉ lệ thất bại theo công thức.** Với `n` thể hiện, xác suất một request rơi đúng thể hiện giữ trạng thái là `1/n`, nên tỉ lệ thất bại là `(n−1)/n`:
+
+| Số thể hiện | Tỉ lệ request đọc sai |
+|---|---|
+| 2 | **50%** |
+| 3 | 67% |
+| 5 | 80% |
+
+Với biểu mẫu 5 bước trên 2 thể hiện, xác suất **hoàn tất trọn vẹn** chỉ là `(1/2)⁴ ≈ 6%`.
+
+**Vì sao lỗi này thoát khỏi mọi khâu kiểm tra.** Trên máy phát triển có **một** thể hiện, tỉ lệ thất bại là **0%**. Nó chạy hoàn hảo. Lỗi chỉ xuất hiện sau khi mở rộng lên hai thể hiện — thường là lúc hệ thống đã có người dùng thật.
+
+**Ba nơi đúng để lưu trạng thái này:**
+
+| Nơi | Hợp khi | Lưu ý |
+|---|---|---|
+| **Client** — trong biểu mẫu hoặc `sessionStorage` | Dữ liệu không nhạy cảm, không cần xác thực giữa các bước | Server **phải** xác thực lại toàn bộ ở bước cuối |
+| **Redis** với thời hạn | Cần giữ giữa các thiết bị, hoặc dữ liệu lớn | Đặt thời hạn, đừng để tích tụ |
+| **Database** dưới dạng bản nháp | Người dùng cần quay lại sau nhiều ngày | Có bản ghi thật, truy vấn được, báo cáo được |
+
+**Lựa chọn tốt nhất cho phần lớn trường hợp là cách thứ nhất.** Nếu client giữ trạng thái và gửi toàn bộ ở bước cuối, server hoàn toàn phi trạng thái — và bạn không cần thêm hạ tầng nào.
+
+Điều bắt buộc: **server không được tin dữ liệu client gửi**. Mọi quy tắc nghiệp vụ phải được kiểm tra lại ở bước cuối, đúng nguyên tắc ở [bài 2.3](../../stage-01-foundation/module-02-computer-science-basics/2.3-client.mdx).
+
+**Vì sao "dính phiên" không phải giải pháp.** Cấu hình bộ cân bằng tải luôn gửi một người dùng về cùng một thể hiện sẽ làm biểu mẫu chạy được. Nhưng nó giữ nguyên bệnh:
+
+- Thể hiện đó khởi động lại là mất trạng thái — và triển khai nào cũng khởi động lại.
+- Tải phân bố không đều.
+- Không thu nhỏ số thể hiện được khi vắng khách.
+
+**Danh sách trạng thái cục bộ cần rà trong dự án:**
+
+```bash
+grep -rn "static.*Dictionary\|static.*List\|static.*ConcurrentDictionary" --include=*.cs src/ \
+  | grep -v "readonly.*=.*new.*{.*}"      # bỏ bảng tra hằng số
+```
+
+Mỗi kết quả là một ứng viên: nó có bị **ghi vào** sau khi khởi tạo không? Có thì nó là trạng thái cục bộ.
+
+</details>
 
 ## Tự kiểm tra
 

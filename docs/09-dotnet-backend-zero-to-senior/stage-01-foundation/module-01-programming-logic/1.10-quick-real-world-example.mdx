@@ -26,18 +26,18 @@ Sau bài này bạn có thể:
 ### 1.11.1 — Code gây ra sự cố
 
 ```csharp
-// Tinh tong gia tri don hang cho moi khach — LOGIC DUNG, hieu nang tham hoa
-var ketQua = new List<BaoCaoKhachHang>();
+// Tính tổng giá trị đơn hàng cho mỗi khách — LOGIC ĐÚNG, hiệu năng thảm hoạ
+var report = new List<CustomerReport>();
 
-foreach (var khach in danhSachKhach)              // 5.000 khach
+foreach (var customer in customers)               // 5.000 khách
 {
-    decimal tong = 0;
-    foreach (var don in danhSachDon)              // 200.000 don
+    decimal total = 0;
+    foreach (var order in orders)                 // 200.000 đơn
     {
-        if (don.MaKhach == khach.Ma)
-            tong += don.GiaTri;
+        if (order.CustomerId == customer.Id)
+            total += order.Total;
     }
-    ketQua.Add(new BaoCaoKhachHang(khach.Ten, tong));
+    report.Add(new CustomerReport(customer.Name, total));
 }
 ```
 
@@ -65,24 +65,24 @@ Hệ quả thực tế: hệ thống trông ổn cho tới một ngưỡng nào 
 ### 1.11.3 — Sửa bằng Dictionary
 
 ```csharp
-// Buoc 1: gom don hang theo ma khach — duyet danh sach don DUNG MOT LAN
-var tongTheoKhach = new Dictionary<int, decimal>();
+// Bước 1: gom đơn hàng theo mã khách — duyệt danh sách đơn ĐÚNG MỘT LẦN
+var totalByCustomer = new Dictionary<int, decimal>();
 
-foreach (var don in danhSachDon)                  // 200.000 lan
+foreach (var order in orders)                     // 200.000 lần
 {
-    if (tongTheoKhach.ContainsKey(don.MaKhach))
-        tongTheoKhach[don.MaKhach] += don.GiaTri;
+    if (totalByCustomer.ContainsKey(order.CustomerId))
+        totalByCustomer[order.CustomerId] += order.Total;
     else
-        tongTheoKhach[don.MaKhach] = don.GiaTri;
+        totalByCustomer[order.CustomerId] = order.Total;
 }
 
-// Buoc 2: duyet khach, tra cuu TUC THI
-var ketQua = new List<BaoCaoKhachHang>();
+// Bước 2: duyệt khách, tra cứu TỨC THÌ
+var report = new List<CustomerReport>();
 
-foreach (var khach in danhSachKhach)              // 5.000 lan
+foreach (var customer in customers)               // 5.000 lần
 {
-    decimal tong = tongTheoKhach.GetValueOrDefault(khach.Ma, 0m);
-    ketQua.Add(new BaoCaoKhachHang(khach.Ten, tong));
+    decimal total = totalByCustomer.GetValueOrDefault(customer.Id, 0m);
+    report.Add(new CustomerReport(customer.Name, total));
 }
 ```
 
@@ -98,12 +98,12 @@ Lý do `Dictionary` nhanh: nó dùng bảng băm, nên tra cứu theo khoá mấ
 **Viết gọn hơn với LINQ:**
 
 ```csharp
-var tongTheoKhach = danhSachDon
-    .GroupBy(d => d.MaKhach)
-    .ToDictionary(g => g.Key, g => g.Sum(d => d.GiaTri));
+var totalByCustomer = orders
+    .GroupBy(o => o.CustomerId)
+    .ToDictionary(g => g.Key, g => g.Sum(o => o.Total));
 
-var ketQua = danhSachKhach
-    .Select(k => new BaoCaoKhachHang(k.Ten, tongTheoKhach.GetValueOrDefault(k.Ma, 0m)))
+var report = customers
+    .Select(c => new CustomerReport(c.Name, totalByCustomer.GetValueOrDefault(c.Id, 0m)))
     .ToList();
 ```
 
@@ -112,11 +112,11 @@ Hai cách cho hiệu năng tương đương. Chọn cách nào là tuỳ đội 
 ### 1.11.4 — Cái bẫy tinh vi hơn
 
 ```csharp
-// Nhin KHONG thay vong lap long — nhung van la O(n^2)
-foreach (var khach in danhSachKhach)
+// Nhìn KHÔNG thấy vòng lặp lồng — nhưng vẫn là O(n²)
+foreach (var customer in customers)
 {
-    var donCuaKhach = danhSachDon.Where(d => d.MaKhach == khach.Ma);   // duyet HET
-    ketQua.Add(new BaoCaoKhachHang(khach.Ten, donCuaKhach.Sum(d => d.GiaTri)));
+    var customerOrders = orders.Where(o => o.CustomerId == customer.Id);   // duyệt HẾT
+    report.Add(new CustomerReport(customer.Name, customerOrders.Sum(o => o.Total)));
 }
 ```
 
@@ -128,18 +128,18 @@ Cùng một lỗi xuất hiện với `List.Contains`:
 
 ```csharp
 // Cham — Contains tren List duyet tuyen tinh
-var maDaXuLy = new List<int>();
-foreach (var don in danhSachDon)
+var processedIds = new List<int>();
+foreach (var order in orders)
 {
-    if (maDaXuLy.Contains(don.Ma)) continue;      // O(n) moi lan goi
-    maDaXuLy.Add(don.Ma);
+    if (processedIds.Contains(order.Id)) continue;   // O(n) mỗi lần gọi
+    processedIds.Add(order.Id);
 }
 
-// Nhanh — HashSet tra cuu tuc thi
-var maDaXuLy = new HashSet<int>();
-foreach (var don in danhSachDon)
+// Nhanh — HashSet tra cứu tức thì
+var processedIds = new HashSet<int>();
+foreach (var order in orders)
 {
-    if (!maDaXuLy.Add(don.Ma)) continue;          // Add tra ve false neu da co
+    if (!processedIds.Add(order.Id)) continue;    // Add trả về false nếu đã có
 }
 ```
 

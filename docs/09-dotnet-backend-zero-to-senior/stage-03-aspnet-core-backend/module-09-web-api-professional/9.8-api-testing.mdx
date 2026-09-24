@@ -189,7 +189,7 @@ public sealed class TestAuthHandler(
 {
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        // Doc vai tro tu header de moi test tu chon danh tinh
+        // Đọc vai trò từ header để mỗi bài kiểm thử tự chọn danh tính
         var roles = Context.Request.Headers["X-Test-Roles"].ToString()
             .Split(',', StringSplitOptions.RemoveEmptyEntries);
 
@@ -238,7 +238,7 @@ Phân quyền vẫn chạy đầy đủ; chỉ phần lấy danh tính bị thay
 public async Task Create_WithInvalidEmail_Returns400WithProblemDetails()
 {
     var response = await _client.PostAsJsonAsync("/api/v1/customers",
-        new { name = "Test", email = "khong-phai-email" });
+        new { name = "Test", email = "not-an-email" });
 
     Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
 
@@ -264,7 +264,7 @@ public async Task Create_ReturnsLocationHeader()
     Assert.NotNull(response.Headers.Location);
 
     var follow = await _client.GetAsync(response.Headers.Location);
-    Assert.Equal(HttpStatusCode.OK, follow.StatusCode);      // URL tra ve phai dung
+    Assert.Equal(HttpStatusCode.OK, follow.StatusCode);      // URL trả về phải dùng được
 }
 ```
 
@@ -290,11 +290,359 @@ Bài test thứ ba đáng chú ý: nó kiểm tra rằng URL trong header `Locat
 
 ## Bài tập áp dụng
 
-1. **InMemory nói dối.** Viết test kiểm tra ràng buộc unique trên email. Chạy với `UseInMemoryDatabase` và xác nhận nó **xanh** dù code sai. Chuyển sang Testcontainers và xác nhận nó bắt được lỗi.
+#### Bài 1 — `InMemoryDatabase` nói dối
 
-2. **Test ảnh hưởng nhau.** Viết hai lớp test cùng tạo dữ liệu và một test đếm tổng số bản ghi. Chạy riêng từng lớp (xanh) rồi chạy cùng nhau (đỏ). Thêm Respawn và kiểm chứng lại.
+Viết một bài kiểm thử cho ràng buộc duy nhất trên email. Chạy với `UseInMemoryDatabase` và xác nhận nó **xanh** dù code sai. Chuyển sang Testcontainers và xác nhận nó bắt được lỗi.
 
-3. **`Location` sai.** Đổi tên route của `GetById` mà không sửa `CreatedAtRoute`, và xác nhận test theo header `Location` bắt được lỗi trong khi unit test của controller vẫn xanh.
+**Tiêu chí hoàn thành:** bạn liệt kê được ít nhất **bốn** thứ mà `InMemoryDatabase` không mô phỏng.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** `InMemoryDatabase` không phải một database quan hệ — nó là một kho đối tượng trong bộ nhớ có API giống EF Core. Vậy nó có biết gì về ràng buộc, khoá, hay SQL không?
+
+**Lời giải — bài kiểm thử:**
+
+```csharp
+[Fact]
+public async Task KhongChoPhepEmailTrung()
+{
+    using var db = CreateContext();
+
+    db.Customers.Add(new Customer("An",  new Email("a@x.com")));
+    db.Customers.Add(new Customer("Bình", new Email("a@x.com")));   // TRÙNG
+
+    await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
+}
+```
+
+**Với `InMemoryDatabase`:**
+
+```csharp
+var opt = new DbContextOptionsBuilder<CrmDbContext>()
+    .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+```
+
+```text
+Assert.ThrowsAsync() Failure: No exception was thrown
+```
+
+Bài kiểm thử **đỏ vì lý do sai**: `SaveChangesAsync` thành công, hai bản ghi trùng email được lưu. Nếu bạn viết bài kiểm thử theo chiều ngược lại — khẳng định lưu thành công — nó sẽ **xanh** dù ràng buộc duy nhất chưa hề tồn tại trong database thật.
+
+**Với Testcontainers:**
+
+```csharp
+public class DatabaseFixture : IAsyncLifetime
+{
+    private readonly PostgreSqlContainer _db = new PostgreSqlBuilder()
+        .WithImage("postgres:16-alpine")
+        .Build();
+
+    public string ConnectionString => _db.GetConnectionString();
+
+    public async Task InitializeAsync()
+    {
+        await _db.StartAsync();
+        using var ctx = new CrmDbContext(Options());
+        await ctx.Database.MigrateAsync();       // chạy migration THẬT
+    }
+
+    public Task DisposeAsync() => _db.DisposeAsync().AsTask();
+}
+```
+
+```text
+DbUpdateException: 23505: duplicate key value violates unique constraint
+"IX_Customers_Email"
+```
+
+Bài kiểm thử bắt được đúng vấn đề.
+
+**Bốn thứ `InMemoryDatabase` không mô phỏng:**
+
+| Không có | Hậu quả |
+|---|---|
+| **Ràng buộc duy nhất và khoá ngoại** | Dữ liệu trùng và mồ côi lọt qua kiểm thử |
+| **Giao dịch thật** | Không kiểm chứng được tính nguyên tử ở [bài 2.6](../../stage-01-foundation/module-02-computer-science-basics/2.6-what-is-a-database.mdx) |
+| **SQL thật** | Truy vấn không dịch được vẫn "chạy", nên lỗi chỉ lộ ra trên production |
+| **Kiểu dữ liệu và độ chính xác** | `decimal(18,2)` không cắt bớt, chuỗi quá dài không bị từ chối |
+
+Thêm hai thứ nữa: không có **so sánh chuỗi theo quy tắc của database** — nên `Where(x => x.Ten == "AN")` có thể cho kết quả khác giữa kiểm thử và thực tế — và không có **khoá mức dòng**, nên không kiểm chứng được xử lý đồng thời.
+
+**Điểm nguy hiểm nhất là dòng thứ ba.** Từ EF Core 3.0, truy vấn không dịch được sang SQL sẽ **ném ngoại lệ** với nhà cung cấp thật. Với `InMemoryDatabase`, mọi thứ chạy trong bộ nhớ nên **không bao giờ ném** — bài kiểm thử xanh, production hỏng.
+
+**Khi nào `InMemoryDatabase` vẫn dùng được.** Khi bài kiểm thử **không quan tâm tới database**, chỉ cần một chỗ chứa tạm:
+
+```csharp
+// Kiểm thử logic tính hoa hồng — database chỉ là nơi lấy dữ liệu
+var db = CreateInMemory();
+db.Orders.AddRange(CreateSampleData());
+await db.SaveChangesAsync();
+
+var result = await new CommissionService(db).CalculateAsync(42, default);
+Assert.Equal(1_250_000m, result);
+```
+
+Nhưng ngay cả ở đây, **SQLite trong bộ nhớ** thường là lựa chọn tốt hơn: nó là database quan hệ thật, có ràng buộc và giao dịch, và vẫn chạy trong vài mili-giây.
+
+```csharp
+var conn = new SqliteConnection("DataSource=:memory:");
+conn.Open();                                   // giữ mở, đóng là mất dữ liệu
+var opt = new DbContextOptionsBuilder<CrmDbContext>().UseSqlite(conn).Options;
+```
+
+**Bảng chọn:**
+
+| Mục tiêu kiểm thử | Dùng |
+|---|---|
+| Logic nghiệp vụ thuần | Bản giả repository, không cần database |
+| Logic có dùng dữ liệu, không quan tâm SQL | SQLite trong bộ nhớ |
+| Truy vấn, migration, ràng buộc, giao dịch | **Testcontainers** |
+| Toàn bộ đường ống HTTP | `WebApplicationFactory` + Testcontainers |
+
+Microsoft cũng khuyến nghị **không** dùng `InMemoryDatabase` cho kiểm thử — nó tồn tại từ trước khi Testcontainers phổ biến, và tài liệu chính thức nay khuyên dùng database thật.
+
+</details>
+
+#### Bài 2 — Bài kiểm thử ảnh hưởng lẫn nhau
+
+Viết hai lớp kiểm thử cùng tạo dữ liệu và một bài đếm tổng số bản ghi. Chạy riêng từng lớp (xanh) rồi chạy cùng nhau (đỏ). Thêm cơ chế dọn dữ liệu và kiểm chứng lại.
+
+**Tiêu chí hoàn thành:** bạn nêu được vì sao loại lỗi này **khó chẩn đoán hơn** lỗi thông thường.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** xUnit chạy các lớp kiểm thử **song song** theo mặc định. Nếu chúng dùng chung một database, chúng dùng chung trạng thái.
+
+**Lời giải.**
+
+```csharp
+public class CustomerTests(DatabaseFixture fx) : IClassFixture<DatabaseFixture>
+{
+    [Fact]
+    public async Task CreateCustomer()
+    {
+        using var db = fx.CreateContext();
+        db.Customers.Add(new Customer("An", new Email("an@x.com")));
+        await db.SaveChangesAsync();
+        Assert.Equal(1, await db.Customers.CountAsync());      // giả định database trống
+    }
+}
+
+public class OrderTests(DatabaseFixture fx) : IClassFixture<DatabaseFixture>
+{
+    [Fact]
+    public async Task CreateOrder()
+    {
+        using var db = fx.CreateContext();
+        db.Customers.Add(new Customer("Bình", new Email("binh@x.com")));
+        await db.SaveChangesAsync();
+        Assert.Equal(1, await db.Customers.CountAsync());      // cũng giả định vậy
+    }
+}
+```
+
+```bash
+dotnet test --filter "FullyQualifiedName~CustomerTests"   # XANH
+dotnet test --filter "FullyQualifiedName~OrderTests"      # XANH
+dotnet test                                                # ĐỎ
+```
+
+```text
+Assert.Equal() Failure: Values differ
+Expected: 1
+Actual:   2
+```
+
+**Vì sao khó chẩn đoán hơn lỗi thông thường — bốn lý do:**
+
+1. **Chạy riêng thì xanh.** Phản xạ đầu tiên của lập trình viên là chạy lại đúng bài kiểm thử đỏ — và nó xanh. Kết luận sai: "chắc lỗi vặt".
+2. **Kết quả không ổn định.** Thứ tự chạy song song thay đổi giữa các lần, nên có lần đỏ có lần xanh.
+3. **Bài kiểm thử báo lỗi không phải bài có vấn đề.** `OrderTests` đỏ vì `CustomerTests` chèn dữ liệu. Người điều tra đi sửa nhầm chỗ.
+4. **Máy nhanh và máy chậm cho kết quả khác nhau.** Nó thường xanh trên máy cá nhân và đỏ trên CI, dẫn tới kết luận sai là "CI có vấn đề".
+
+Hậu quả cuối cùng và tệ nhất: bộ kiểm thử mất uy tín. Khi một bài đỏ, người ta chạy lại thay vì điều tra — và một ngày nào đó nó đỏ vì lỗi thật mà không ai để ý.
+
+**Ba cách sửa, theo thứ tự nên chọn:**
+
+**Cách 1 — dọn database giữa các bài kiểm thử:**
+
+```csharp
+public class DatabaseFixture : IAsyncLifetime
+{
+    private Respawner _respawner = null!;
+
+    public async Task InitializeAsync()
+    {
+        await _db.StartAsync();
+        await RunMigrationsAsync();
+
+        _respawner = await Respawner.CreateAsync(ConnectionString, new RespawnerOptions
+        {
+            DbAdapter = DbAdapter.Postgres,
+            TablesToIgnore = ["__EFMigrationsHistory"]
+        });
+    }
+
+    public Task CleanAsync() => _respawner.ResetAsync(ConnectionString);
+}
+```
+
+Gọi `CleanAsync()` trước mỗi bài. Respawner xoá dữ liệu mà giữ nguyên lược đồ, nên nhanh hơn nhiều so với tạo lại database.
+
+**Cách 2 — mỗi bài kiểm thử một giao dịch, quay lui ở cuối:**
+
+```csharp
+public async Task InitializeAsync()
+{
+    _tx = await _db.Database.BeginTransactionAsync();
+}
+public async Task DisposeAsync()
+{
+    await _tx.RollbackAsync();          // mọi thay đổi biến mất
+}
+```
+
+Nhanh nhất, nhưng không dùng được khi bài kiểm thử tự quản lý giao dịch, hoặc khi đi qua `WebApplicationFactory` (mỗi request là một phạm vi khác).
+
+**Cách 3 — mỗi lớp kiểm thử một database riêng:**
+
+```csharp
+[CollectionDefinition("Database", DisableParallelization = true)]
+public class DatabaseCollection : ICollectionFixture<DatabaseFixture> { }
+```
+
+Đơn giản nhất nhưng chậm nhất, vì mất hết tính song song.
+
+**Nguyên tắc: mỗi bài kiểm thử phải tự dựng đủ dữ liệu nó cần và không giả định gì về trạng thái ban đầu.**
+
+Viết lại bài kiểm thử ở trên cho đúng:
+
+```csharp
+[Fact]
+public async Task CreateCustomer()
+{
+    await fx.CleanAsync();
+    using var db = fx.CreateContext();
+    db.Customers.Add(new Customer("An", new Email("an@x.com")));
+    await db.SaveChangesAsync();
+
+    // Khẳng định theo dữ liệu MÌNH tạo, không theo tổng số
+    Assert.NotNull(await db.Customers.FirstOrDefaultAsync(c => c.Email.Value == "an@x.com"));
+}
+```
+
+Chú ý khẳng định đã đổi: thay vì đếm tổng — vốn phụ thuộc vào trạng thái chung — nó kiểm tra **đúng bản ghi mình vừa tạo**. Đây là thói quen nên áp dụng kể cả khi đã có cơ chế dọn dữ liệu.
+
+</details>
+
+#### Bài 3 — Header `Location` sai mà unit test không bắt được
+
+Đổi tên route của `GetById` mà không sửa `CreatedAtRoute`, và xác nhận bài kiểm thử theo header `Location` bắt được lỗi trong khi unit test của controller vẫn xanh.
+
+**Tiêu chí hoàn thành:** bạn nêu được lớp lỗi mà **chỉ** kiểm thử tích hợp bắt được.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Unit test gọi thẳng phương thức của controller và nhận về một `IActionResult`. Nó có biết gì về bảng định tuyến không?
+
+**Lời giải — code có lỗi:**
+
+```csharp
+[HttpGet("{id:int}", Name = "GetCustomerById")]
+public async Task<IActionResult> TheoId(int id) { }
+
+[HttpPost]
+public async Task<IActionResult> Create(CreateCustomerRequest req, CancellationToken ct)
+{
+    var customer = await _svc.CreateAsync(req, ct);
+    return CreatedAtRoute("GetCustomerById", new { id = customer.Id }, customer);
+    //                     ^^^^^^^^^^^^^^^ tên route KHÔNG TỒN TẠI
+}
+```
+
+**Unit test vẫn xanh:**
+
+```csharp
+[Fact]
+public async Task Create_Returns201()
+{
+    var ctrl = new CustomersController(_svcGia);
+    var result = await ctrl.Create(new CreateCustomerRequest("An", "an@x.com"), default);
+
+    var created = Assert.IsType<CreatedAtRouteResult>(result);
+    Assert.Equal(201, created.StatusCode);      // XANH
+}
+```
+
+`CreatedAtRouteResult` chỉ là một **đối tượng mô tả ý định**. Nó chưa hề sinh URL, nên tên route sai không gây vấn đề gì ở tầng này.
+
+**Kiểm thử tích hợp bắt được:**
+
+```csharp
+[Fact]
+public async Task Create_ReturnsValidLocation()
+{
+    var res = await _client.PostAsJsonAsync("/api/v1/customers",
+        new { name = "An", email = "an@x.com" });
+
+    Assert.Equal(HttpStatusCode.Created, res.StatusCode);
+    Assert.NotNull(res.Headers.Location);                     // ĐỎ
+
+    // Và quan trọng hơn: địa chỉ đó phải gọi được
+    var kiemTra = await _client.GetAsync(res.Headers.Location);
+    Assert.Equal(HttpStatusCode.OK, kiemTra.StatusCode);
+}
+```
+
+```text
+InvalidOperationException: No route matches the supplied values.
+```
+
+Vì phải **sinh URL thật**, lỗi lộ ra ngay.
+
+**Lớp lỗi chỉ kiểm thử tích hợp bắt được:**
+
+| Loại lỗi | Unit test | Tích hợp |
+|---|---|---|
+| Tên route sai trong `CreatedAtRoute` | Không | **Có** |
+| Thứ tự middleware sai — [bài 7.6](../../stage-02-csharp-professional/module-07-dependency-injection/7.6-program-cs-and-webapplicationbuilder.mdx) | Không | **Có** |
+| Route nhập nhằng — [bài 8.3](../module-08-aspnet-core-fundamentals/8.3-routing.mdx) | Không | **Có** |
+| Đăng ký DI thiếu | Không | **Có** |
+| Gắn dữ liệu không như mong đợi | Không | **Có** |
+| Cấu hình JSON, quy ước đặt tên trường | Không | **Có** |
+| Xác thực và phân quyền | Không | **Có** |
+| Migration chưa chạy được | Không | **Có** |
+
+Điểm chung của tám dòng trên: chúng là lỗi ở **chỗ ghép nối**, không ở bên trong một lớp. Unit test kiểm tra từng mảnh; chỉ kiểm thử tích hợp kiểm tra chúng **lắp vào nhau**.
+
+**Không có nghĩa là bỏ unit test.** Hai loại có vai trò khác nhau:
+
+| | Unit test | Kiểm thử tích hợp |
+|---|---|---|
+| Kiểm tra | Logic bên trong một lớp | Các mảnh ghép với nhau |
+| Tốc độ | Vài mili-giây | Vài trăm mili-giây |
+| Số lượng nên có | **Nhiều** | Vừa đủ luồng chính |
+| Khi đỏ, biết sai ở đâu | Chính xác | Phải điều tra |
+
+Tỉ lệ thực dụng: unit test bao phủ **mọi nhánh nghiệp vụ**; kiểm thử tích hợp bao phủ **một luồng thành công và một luồng lỗi cho mỗi endpoint**.
+
+**Một kiểm thử tích hợp đáng có cho mọi API:**
+
+```csharp
+[Fact]
+public async Task MoiEndpointDeuKhoiDongDuoc()
+{
+    var nguon = _factory.Services.GetRequiredService<EndpointDataSource>();
+    Assert.NotEmpty(nguon.Endpoints);
+}
+```
+
+Nó xác nhận ứng dụng dựng được toàn bộ đồ thị DI và bảng định tuyến — bắt được lớp lỗi "khởi động không lên" trong CI thay vì lúc triển khai.
+
+</details>
 
 ## Tự kiểm tra
 
