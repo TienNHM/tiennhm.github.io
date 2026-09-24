@@ -362,7 +362,6 @@ const config = {
                         '/**/page/*',
                         // Bài lặp lại ở cả 19 module của khoá .NET backend —
                         // xem phần giải thích trong src/theme/Robots.js.
-                        '/**/*-module-orientation',
                         '/**/*-mini-case-study',
                         '/**/*-quick-real-world-example',
                         '/**/*-advanced-notes',

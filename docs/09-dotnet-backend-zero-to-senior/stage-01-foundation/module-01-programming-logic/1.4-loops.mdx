@@ -255,11 +255,182 @@ var materialized = expensive.ToList();             // chạy đúng 1 lần
 
 ## Bài tập áp dụng
 
-1. **Tự gây ra lỗi.** Tạo một `List<int>` mười phần tử, `foreach` qua nó và `Remove` phần tử chẵn. Chạy và ghi lại thông báo lỗi đầy đủ. Sau đó sửa bằng cả ba cách ở mục 1.4.3 và so sánh.
+### Bài 1 — Tự gây ra lỗi sửa collection khi đang duyệt
 
-2. **Đếm query.** Dựng một `DbContext` với logging ở mức `Information`, viết vòng lặp N+1 ở mục 1.4.5 với 50 bản ghi, đếm số dòng log `Executed DbCommand`. Sửa lại theo cách đúng và đếm lần nữa.
+Tạo một `List<int>` mười phần tử, dùng `foreach` duyệt và `Remove` các phần tử chẵn. Chạy, ghi lại thông báo lỗi đầy đủ. Sau đó sửa bằng cả ba cách ở mục 1.4.3 và so sánh.
 
-3. **Đo bộ nhớ của `yield`.** Viết hai hàm đọc một file lớn: một trả `List<string>`, một dùng `yield return`. Chạy mỗi hàm và in `GC.GetTotalMemory(true)` trước và sau. Giải thích khác biệt.
+**Tiêu chí hoàn thành:** cả ba cách sửa cho ra cùng một danh sách kết quả, và bạn nêu được vì sao cách 3 phải duyệt ngược.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Lỗi này ném ngay ở vòng lặp **kế tiếp** sau lần xoá đầu tiên, không phải ngay tại dòng `Remove`. Lý do: `List<T>` giữ một bộ đếm phiên bản, tăng lên mỗi lần danh sách thay đổi, và trình duyệt kiểm tra bộ đếm đó mỗi lần lấy phần tử tiếp theo.
+
+**Lời giải — tái hiện lỗi:**
+
+```csharp
+var numbers = Enumerable.Range(1, 10).ToList();
+
+foreach (var n in numbers)
+{
+    if (n % 2 == 0) numbers.Remove(n);   // ném ở vòng lặp kế tiếp
+}
+```
+
+Thông báo lỗi:
+
+```text
+Unhandled exception. System.InvalidOperationException:
+Collection was modified; enumeration operation may not execute.
+```
+
+**Ba cách sửa:**
+
+```csharp
+// Cách 1 — tạo danh sách mới (rõ ràng nhất)
+var odd = numbers.Where(n => n % 2 != 0).ToList();
+
+// Cách 2 — RemoveAll (ngắn nhất, sửa tại chỗ)
+numbers.RemoveAll(n => n % 2 == 0);
+
+// Cách 3 — duyệt ngược bằng for (khi buộc phải xoá tại chỗ và cần chỉ số)
+for (int i = numbers.Count - 1; i >= 0; i--)
+{
+    if (numbers[i] % 2 == 0) numbers.RemoveAt(i);
+}
+```
+
+Cả ba cho `[1, 3, 5, 7, 9]`.
+
+**Vì sao cách 3 phải duyệt ngược.** Xoá phần tử ở chỉ số `i` làm mọi phần tử phía sau **dịch lên một chỗ**. Đi xuôi thì phần tử vừa dịch vào vị trí `i` bị bỏ qua, vì vòng lặp tiếp theo đã sang `i+1`. Thử nghiệm nhanh cho thấy rõ: đi xuôi trên `[2, 4, 6]` chỉ xoá được `2` và `6`, còn sót `4`. Đi ngược thì phần chưa duyệt nằm ở phía trước chỉ số hiện tại nên không bị ảnh hưởng.
+
+**Chọn cách nào.** Mặc định dùng cách 2 khi chỉ cần xoá theo điều kiện — nó ngắn, rõ ý định, và không có chỗ để viết sai. Dùng cách 1 khi muốn giữ nguyên danh sách gốc, chẳng hạn khi danh sách đó còn được dùng ở chỗ khác. Dùng cách 3 khi cần chỉ số trong quá trình xoá hoặc khi làm việc với kiểu tập hợp không có `RemoveAll`.
+
+</details>
+
+### Bài 2 — Đếm số truy vấn của lỗi N+1
+
+Dựng một `DbContext` với logging ở mức `Information`, viết vòng lặp N+1 như mục 1.4.5 với 50 bản ghi, đếm số dòng log `Executed DbCommand`. Sửa lại theo cách đúng và đếm lần nữa.
+
+**Tiêu chí hoàn thành:** bạn có hai con số cụ thể và giải thích được tỉ lệ giữa chúng.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Bật log SQL bằng cách cấu hình `DbContext`:
+
+```csharp
+optionsBuilder
+    .UseSqlite("Data Source=thu.db")
+    .LogTo(Console.WriteLine, LogLevel.Information);
+```
+
+Nếu ngại dựng database, dùng nhà cung cấp SQLite trong bộ nhớ — không cần cài gì thêm và vẫn sinh SQL thật. Đừng dùng nhà cung cấp `InMemory`, vì nó không sinh SQL nên bài tập mất ý nghĩa.
+
+Đếm số truy vấn bằng cách lọc output:
+
+```bash
+dotnet run | grep -c "Executed DbCommand"
+```
+
+**Lời giải — bản sai:**
+
+```csharp
+var orders = await db.Orders.Take(50).ToListAsync();      // 1 truy vấn
+
+foreach (var order in orders)
+{
+    var customer = await db.Customers
+        .FirstAsync(c => c.Id == order.CustomerId);       // 50 truy vấn
+    Console.WriteLine(customer.Name);
+}
+```
+
+Số truy vấn: **51**.
+
+**Bản đúng:**
+
+```csharp
+var orders = await db.Orders.Take(50).ToListAsync();      // 1 truy vấn
+
+var ids = orders.Select(o => o.CustomerId).Distinct().ToList();
+var customers = await db.Customers
+    .Where(c => ids.Contains(c.Id))
+    .ToDictionaryAsync(c => c.Id);                        // 1 truy vấn
+
+foreach (var order in orders)
+    Console.WriteLine(customers[order.CustomerId].Name);
+```
+
+Số truy vấn: **2**.
+
+**Vì sao chênh lệch lớn hơn tỉ lệ 51 chia 2.** Chi phí thật của một truy vấn không nằm ở công sức database xử lý, mà ở **vòng khứ hồi qua mạng**. Mỗi lần đi và về mất khoảng 1 tới 5 mili-giây ngay cả khi database rảnh rỗi. 51 truy vấn nghĩa là 51 lần chờ tuần tự, tức khoảng 50 tới 250 mili-giây chỉ để chờ mạng, cộng thêm 51 lần mượn và trả kết nối.
+
+Điều khiến lỗi này nguy hiểm là nó **không ném ngoại lệ nào**. Với 50 bản ghi trên máy phát triển, trang vẫn tải trong chớp mắt. Với 5000 bản ghi trên production và độ trễ mạng cao hơn, cùng đoạn code đó mất vài chục giây.
+
+**Cách phòng lâu dài.** EF Core có thể được cấu hình để **báo lỗi** khi phát hiện truy vấn tải lười trong vòng lặp. Bài [Vì sao EF Core bắn 201 query cho 1 màn hình danh sách?](/blog/ef-core-n-plus-1-query) đo chi tiết chi phí, còn [Module 13](../../stage-04-database-production/module-13-entity-framework-core/) trình bày `Include` và các chiến lược tải dữ liệu để tránh lỗi này một cách hệ thống.
+
+</details>
+
+### Bài 3 — Đo bộ nhớ của `yield return`
+
+Viết hai hàm đọc một file văn bản lớn: một trả `List<string>`, một dùng `yield return`. Chạy mỗi hàm và in `GC.GetTotalMemory(true)` trước và sau. Giải thích khác biệt.
+
+**Tiêu chí hoàn thành:** bạn nêu được bộ nhớ của bản `yield` gần như không phụ thuộc kích thước file, còn bản `List` thì tỉ lệ thuận.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Tạo file thử bằng một dòng lệnh thay vì đi tìm file lớn:
+
+```bash
+seq 1 2000000 > lon.txt     # khoảng 15 MB
+```
+
+Điểm dễ nhầm: nếu bạn gọi `.ToList()` lên kết quả của hàm `yield` thì mọi lợi ích biến mất, vì bạn vừa nạp lại toàn bộ vào bộ nhớ. Hãy duyệt trực tiếp bằng `foreach`.
+
+**Lời giải.**
+
+```csharp
+static List<string> DocHet(string path) => File.ReadAllLines(path).ToList();
+
+static IEnumerable<string> DocDan(string path)
+{
+    using var reader = new StreamReader(path);
+    string? line;
+    while ((line = reader.ReadLine()) is not null)
+        yield return line;
+}
+
+static void Do(string ten, Func<IEnumerable<string>> lay)
+{
+    var truoc = GC.GetTotalMemory(true);
+    int dem = 0;
+    foreach (var line in lay()) dem++;
+    var sau = GC.GetTotalMemory(false);
+    Console.WriteLine($"{ten,-8} {dem} dòng, tăng {(sau - truoc) / 1024 / 1024} MB");
+}
+
+Do("List", () => DocHet("lon.txt"));
+Do("yield", () => DocDan("lon.txt"));
+```
+
+**Kết quả đo thật trên .NET 9, file 15 MB gồm 2 triệu dòng:**
+
+```text
+List     2000000 dòng, tăng 122 MB
+yield    2000000 dòng, tăng 4 MB
+```
+
+**Vì sao chênh nhiều hơn kích thước file.** File 15 MB nhưng bản `List` chiếm 122 MB, vì mỗi dòng trở thành một đối tượng `string` riêng trên heap: chuỗi trong .NET dùng UTF-16 nên mỗi ký tự chiếm 2 byte, cộng thêm phần tiêu đề đối tượng khoảng 22 byte mỗi chuỗi, cộng thêm mảng con trỏ của chính `List`. Con số cụ thể tuỳ máy, nhưng tỉ lệ khoảng 8 tới 10 lần kích thước file là bình thường.
+
+Bản `yield` giữ đúng **một** dòng trong bộ nhớ tại mỗi thời điểm. Các dòng đã xử lý xong trở thành rác và được thu hồi, nên mức tiêu thụ gần như không đổi dù file 15 MB hay 15 GB. Con số 4 MB là bộ đệm của `StreamReader` cộng phần rác chưa kịp thu hồi, không phải dữ liệu tích luỹ.
+
+**Cái giá của `yield`.** Nó không miễn phí. Mỗi lần duyệt là một lần đọc file mới, nên duyệt hai lần là đọc file hai lần. Bạn cũng không biết trước số phần tử, và không truy cập được theo chỉ số. Quy tắc chọn: **dùng `yield` khi dữ liệu lớn hoặc chỉ duyệt một lần; dùng `List` khi dữ liệu nhỏ hoặc cần duyệt nhiều lần.**
+
+**Liên hệ về sau.** Đây chính là ý tưởng nền của `IAsyncEnumerable` mà [Module 6 bài 6.7](../../stage-02-csharp-professional/module-06-async-programming/6.7-async-patterns.mdx) dùng để stream dữ liệu lớn qua API mà không làm phình bộ nhớ máy chủ.
+
+</details>
 
 ## Tự kiểm tra
 
