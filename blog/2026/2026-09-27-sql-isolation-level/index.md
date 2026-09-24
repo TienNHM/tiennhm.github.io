@@ -256,4 +256,4 @@ Ba điều đáng nhớ:
 
 - [12.7 — 6. Transactions và Locking](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-12-sql-deep-dive/12.7-transactions-and-locking) — ACID, bốn isolation level và hiện tượng mỗi mức cho phép, RCSI, deadlock và thứ tự khoá, optimistic vs pessimistic concurrency, và retry.
 - [Module 12 — SQL Deep Dive](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-12-sql-deep-dive) — SQL chuyên sâu: indexing, execution plans, transaction isolation, locking — hiệu năng truy vấn cho workload CRM.
-- [16. Transactions - ACID](/docs/database/learn-sql-in-30-days/16-transactions-acid) — Giới thiệu về Transactions trong SQL, cách sử dụng và đảm bảo tính nhất quán dữ liệu với ACID.
+- [30. Database security](/docs/database/learn-sql-in-30-days/30-database-security) — Học cách quản trị & bảo mật database, phân quyền, ngăn chặn SQL Injection, sao lưu & khôi phục dữ liệu đúng cách.

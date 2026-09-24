@@ -1,40 +1,301 @@
 ---
 title: "13.14 — Ví dụ thực tế nhanh"
-description: "Ví dụ thực tế ngắn cho Module 13 — Entity framework core: áp dụng kiến thức vừa học vào một tình huống CRM/.NET backend cụ thể."
+description: "Hai người sửa cùng một lead, người sau ghi đè người trước mà không ai biết: lost update và cách chống bằng row version."
 sidebar_position: 14
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
 # 13.14 — Ví dụ thực tế nhanh
 
+<SummaryBox>
+Một lỗi dữ liệu **không gây exception nào** và có thể tồn tại nhiều năm mà không ai phát hiện: hai người mở cùng một bản ghi, cùng sửa, và người lưu **sau** ghi đè toàn bộ thay đổi của người lưu **trước**. Không có cảnh báo, không có log lỗi — người bị mất dữ liệu chỉ phát hiện khi tình cờ mở lại và thấy thay đổi của mình biến mất. Đây gọi là **lost update**, và nó xảy ra vì `SaveChangesAsync` mặc định sinh `UPDATE ... WHERE Id = @id` — nó ghi đè **bất kể** dữ liệu đã đổi kể từ lúc bạn đọc. Cách chống chỉ mất **một dòng cấu hình**: `IsRowVersion()`.
+</SummaryBox>
+
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Nhận ra lost update trong ứng dụng của bạn.
+- Cài optimistic concurrency bằng row version.
+- Xử lý xung đột theo cách hợp lý cho người dùng.
+- Biết khi nào cần pessimistic locking.
 
 ## Nội dung bài học
 
-- Một ví dụ áp dụng trực tiếp vào luồng CRM/ERP hiện tại.
-- Một lỗi phổ biến dễ gặp khi triển khai thật.
-- Một cách kiểm tra nhanh để tự xác nhận bạn đã hiểu đúng.
+### 13.14.1 — Vấn đề
+
+```
+10:00  An mo lead #123: { Ten: "Cong ty ABC", GiaTri: 5tr, GhiChu: "" }
+10:01  Binh mo lead #123: cung du lieu
+
+10:05  An sua GhiChu = "Da goi dien, quan tam" -> Luu
+       Database: { Ten: "Cong ty ABC", GiaTri: 5tr, GhiChu: "Da goi dien..." }
+
+10:07  Binh sua GiaTri = 8tr -> Luu
+       Binh gui CA BAN GHI voi GhiChu = "" (gia tri luc Binh MO form)
+       Database: { Ten: "Cong ty ABC", GiaTri: 8tr, GhiChu: "" }   <- MAT ghi chu cua An
+```
+
+```csharp
+// Code hoan toan binh thuong
+var lead = await _db.Leads.FindAsync([id], ct);
+lead.Update(request.Name, request.Value, request.Note);
+await _db.SaveChangesAsync(ct);
+```
+
+```sql
+-- SQL EF Core sinh ra
+UPDATE Leads SET Name = @p0, Value = @p1, Note = @p2 WHERE Id = @p3;
+```
+
+`WHERE Id = @p3` ghi đè **bất kể** hàng đó đã thay đổi kể từ lúc bạn đọc.
+
+Không có exception. Không có log. An chỉ phát hiện khi mở lại và thấy ghi chú biến mất — và có thể nghĩ mình quên bấm lưu.
+
+### 13.14.2 — Sửa: row version
+
+```csharp
+public class Lead
+{
+    public LeadId Id { get; private set; }
+    public string Name { get; private set; }
+    public Money Value { get; private set; }
+    public string Note { get; private set; }
+
+    [Timestamp]
+    public byte[] RowVersion { get; private set; } = null!;
+}
+```
+
+```csharp
+// Hoac cau hinh bang Fluent API
+b.Property(l => l.RowVersion).IsRowVersion();
+```
+
+```sql
+-- SQL gio kem dieu kien phien ban
+UPDATE Leads SET Name = @p0, Value = @p1, Note = @p2
+WHERE Id = @p3 AND RowVersion = @p4;
+
+-- Neu 0 hang bi anh huong -> ai do da sua truoc
+```
+
+`ROWVERSION` là kiểu của SQL Server tự tăng mỗi khi hàng thay đổi — bạn không cần quản lý gì. Trên PostgreSQL, dùng cột `xmin` hệ thống:
+
+```csharp
+b.UseXminAsConcurrencyToken();      // Npgsql
+```
+
+```csharp
+try
+{
+    await _db.SaveChangesAsync(ct);
+}
+catch (DbUpdateConcurrencyException)
+{
+    return Result.Conflict("Bản ghi đã được người khác cập nhật. Vui lòng tải lại.");
+}
+```
+
+Giờ Bình nhận thông báo thay vì âm thầm ghi đè.
+
+### 13.14.3 — Ba cách xử lý xung đột
+
+**Cách 1 — báo người dùng tải lại (đơn giản nhất):**
+
+```csharp
+catch (DbUpdateConcurrencyException)
+{
+    return Conflict(new ProblemDetails
+    {
+        Status = StatusCodes.Status409Conflict,
+        Title = "Dữ liệu đã thay đổi",
+        Detail = "Người khác vừa cập nhật bản ghi này. Vui lòng tải lại và thử lại."
+    });
+}
+```
+
+Đủ cho hầu hết trường hợp, và người dùng hiểu ngay chuyện gì xảy ra.
+
+**Cách 2 — gộp tự động khi không đụng nhau:**
+
+```csharp
+catch (DbUpdateConcurrencyException ex)
+{
+    var entry = ex.Entries.Single();
+    var giaTriHienTai = await entry.GetDatabaseValuesAsync(ct);
+
+    if (giaTriHienTai is null)
+        return Result.NotFound("Bản ghi đã bị xoá");
+
+    // Chi ghi de nhung truong NGUOI DUNG NAY thuc su doi
+    foreach (var property in entry.Metadata.GetProperties())
+    {
+        var goc = entry.OriginalValues[property];
+        var moi = entry.CurrentValues[property];
+        var db  = giaTriHienTai[property];
+
+        if (Equals(goc, moi))                        // nguoi dung khong doi truong nay
+            entry.CurrentValues[property] = db;      // -> giu gia tri cua nguoi kia
+    }
+
+    entry.OriginalValues.SetValues(giaTriHienTai);
+    await _db.SaveChangesAsync(ct);                  // thu lai
+}
+```
+
+Trong ví dụ đầu bài, cách này cho kết quả đúng nhất: An đổi `GhiChu`, Bình đổi `GiaTri` — **không đụng nhau**, nên gộp được cả hai.
+
+Nó chỉ thất bại khi cả hai người sửa **cùng một trường** — và khi đó báo xung đột là đúng.
+
+**Cách 3 — hiển thị khác biệt cho người dùng chọn:**
+
+```csharp
+return Conflict(new
+{
+    Title = "Xung đột dữ liệu",
+    GiaTriCuaBan = entry.CurrentValues.ToObject(),
+    GiaTriTrenServer = giaTriHienTai.ToObject()
+});
+```
+
+Frontend hiện hai cột cạnh nhau cho người dùng quyết định. Tốt nhất về mặt trải nghiệm nhưng tốn công làm giao diện.
+
+### 13.14.4 — Optimistic hay pessimistic
+
+| | Optimistic (row version) | Pessimistic (khoá) |
+|---|---|---|
+| Cách hoạt động | Cho sửa, kiểm tra lúc lưu | Khoá ngay khi đọc |
+| Xung đột | Phát hiện muộn | Ngăn từ đầu |
+| Hiệu năng | **Tốt** — không giữ khoá | Kém — giữ khoá lâu |
+| Phù hợp | **Xung đột hiếm** | Xung đột thường xuyên |
+| Rủi ro | Người dùng phải làm lại | **Deadlock**, chờ đợi |
+
+```csharp
+// Pessimistic — khoa hang cho toi khi transaction ket thuc
+var lead = await _db.Leads
+    .FromSqlRaw("SELECT * FROM Leads WITH (UPDLOCK, ROWLOCK) WHERE Id = {0}", id)
+    .FirstAsync(ct);
+```
+
+**Optimistic đúng cho gần như mọi ứng dụng web**, vì hai người sửa cùng một bản ghi trong cùng một khoảnh khắc là chuyện hiếm — và giữ khoá suốt thời gian người dùng điền form (có thể vài phút) là không khả thi.
+
+Pessimistic chỉ hợp lý cho thao tác **ngắn và tranh chấp cao**: trừ tồn kho lúc đặt hàng, cấp số thứ tự, xử lý hàng đợi.
+
+### 13.14.5 — Cái bẫy: ExecuteUpdate bỏ qua row version
+
+```csharp
+// KHONG kiem tra row version — bo qua ca co che concurrency
+await _db.Leads
+    .Where(l => l.Status == LeadStatus.New)
+    .ExecuteUpdateAsync(s => s.SetProperty(l => l.Status, LeadStatus.Contacted), ct);
+```
+
+`ExecuteUpdate` sinh `UPDATE` trực tiếp, **không đi qua** change tracker — nên nó bỏ qua row version, bỏ qua interceptor, và không sinh domain event.
+
+Điều đó **đúng với ý định** khi bạn cập nhật hàng loạt theo điều kiện: bạn muốn ghi đè, không quan tâm phiên bản.
+
+Nhưng nó **sai** khi dùng để cập nhật một bản ghi cụ thể mà người dùng đang sửa. Quy tắc: `ExecuteUpdate` cho thao tác hàng loạt của hệ thống, `SaveChanges` cho thao tác của người dùng ([bài 13.8](13.8-performance.mdx)).
+
+### 13.14.6 — Kiểm chứng bằng test
+
+```csharp
+[Fact]
+public async Task Update_NemConcurrencyException_KhiCoNguoiSuaTruoc()
+{
+    var lead = await SeedLeadAsync();
+
+    // Hai DbContext = hai nguoi dung
+    await using var ctx1 = CreateContext();
+    await using var ctx2 = CreateContext();
+
+    var lead1 = await ctx1.Leads.FindAsync(lead.Id);
+    var lead2 = await ctx2.Leads.FindAsync(lead.Id);
+
+    lead1!.UpdateNote("An sửa");
+    await ctx1.SaveChangesAsync();          // thanh cong
+
+    lead2!.UpdateValue(Money.Vnd(8_000_000));
+
+    await Assert.ThrowsAsync<DbUpdateConcurrencyException>(
+        () => ctx2.SaveChangesAsync());     // phai nem
+}
+```
+
+Test này chạy trên database thật vì `ROWVERSION` là tính năng của database — provider InMemory không có nó, nên test sẽ xanh một cách vô nghĩa ([bài 16.10](../../stage-05-senior-engineering/module-16-clean-architecture/16.10-testing-strategy-overview.mdx)).
+
+Viết test kiểu này cho mỗi entity mà nhiều người có thể cùng sửa.
+
+### 13.14.7 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát lost update"
+  items={[
+    { text: "Entity mà nhiều người có thể cùng sửa đều có row version." },
+    { text: "DbUpdateConcurrencyException được bắt và trả 409 cho client." },
+    { text: "Thông điệp xung đột nói rõ người dùng cần làm gì." },
+    { text: "Đã cân nhắc gộp tự động khi hai người sửa trường khác nhau." },
+    { text: "Không dùng ExecuteUpdate cho bản ghi người dùng đang sửa." },
+    { text: "Pessimistic locking chỉ dùng cho thao tác ngắn, tranh chấp cao." },
+    { text: "Có test hai DbContext cùng sửa một bản ghi." },
+    { text: "Test chạy trên database thật, không dùng provider InMemory." },
+  ]}
+/>
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **Tái hiện lost update.** Mở hai `DbContext`, đọc cùng bản ghi, sửa hai trường khác nhau và lưu lần lượt. Xác nhận thay đổi đầu bị mất.
+
+2. **Thêm row version.** Thêm `IsRowVersion()`, chạy lại bài 1 và xác nhận lần lưu thứ hai ném exception.
+
+3. **Cài gộp tự động.** Cài cách 2 và xác nhận cả hai thay đổi đều được giữ khi chúng ở trường khác nhau.
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "Lost update xảy ra thế nào?",
+      answer: "Hai người đọc cùng bản ghi, cùng sửa, và người lưu sau gửi toàn bộ bản ghi với giá trị họ thấy lúc mở form, nên ghi đè thay đổi của người trước. SaveChanges mặc định sinh UPDATE với điều kiện chỉ theo id nên ghi đè bất kể dữ liệu đã đổi."
+    },
+    {
+      question: "Vì sao lỗi này nguy hiểm?",
+      answer: "Vì không có exception, không có log, không có cảnh báo nào. Người bị mất dữ liệu chỉ phát hiện khi tình cờ mở lại và thấy thay đổi biến mất, và có thể nghĩ mình quên bấm lưu."
+    },
+    {
+      question: "Row version hoạt động thế nào?",
+      answer: "Database tự tăng giá trị cột đó mỗi khi hàng thay đổi. EF Core thêm điều kiện row version vào mệnh đề WHERE, nên nếu có ai sửa trước thì không hàng nào bị ảnh hưởng và EF Core ném DbUpdateConcurrencyException."
+    },
+    {
+      question: "Khi nào gộp tự động là cách xử lý đúng?",
+      answer: "Khi hai người sửa những trường khác nhau. Chỉ ghi đè những trường mà người dùng hiện tại thực sự đổi, còn lại giữ giá trị của người kia. Nó chỉ thất bại khi cả hai sửa cùng một trường, và khi đó báo xung đột là đúng."
+    },
+    {
+      question: "Vì sao optimistic phù hợp với hầu hết ứng dụng web?",
+      answer: "Vì hai người sửa cùng bản ghi trong cùng khoảnh khắc là chuyện hiếm, và giữ khoá suốt thời gian người dùng điền form có thể vài phút là không khả thi. Pessimistic chỉ hợp lý cho thao tác ngắn và tranh chấp cao."
+    },
+    {
+      question: "Vì sao ExecuteUpdate bỏ qua row version?",
+      answer: "Vì nó sinh câu UPDATE trực tiếp, không đi qua change tracker. Điều đó đúng với ý định khi cập nhật hàng loạt theo điều kiện, nhưng sai khi dùng cho bản ghi mà người dùng đang sửa."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **Lost update không gây lỗi nào** — nó chỉ âm thầm mất dữ liệu.
+2. **`IsRowVersion()` là một dòng** đổi việc ghi đè âm thầm thành một exception rõ ràng.
+3. **`ExecuteUpdate` bỏ qua row version** — chỉ dùng cho thao tác hàng loạt của hệ thống.
+
+## Tham khảo
+
+- [Concurrency trong EF Core](https://learn.microsoft.com/en-us/ef/core/saving/concurrency)
+- [Modeling trong EF Core](https://learn.microsoft.com/en-us/ef/core/modeling/)
+- [EF Core performance](https://learn.microsoft.com/en-us/ef/core/performance/)
+- [Transaction locking và row versioning](https://learn.microsoft.com/en-us/sql/relational-databases/sql-server-transaction-locking-and-row-versioning-guide)
 
 ## Điều hướng
 
