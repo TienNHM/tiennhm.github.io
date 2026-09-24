@@ -1,133 +1,356 @@
 ---
 title: "14.3 — 2. IMemoryCache"
-description: "IMemoryCache lưu dữ liệu trong RAM của process — phù hợp khi chạy single server hoặc cần tốc độ tối đa."
+description: "SizeLimit và vì sao thiếu nó là rò rỉ bộ nhớ, sliding expiration có thể sống mãi, GetOrCreateAsync không chống stampede, và bẫy lưu entity EF."
 sidebar_position: 3
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
 # 14.3 — 2. IMemoryCache
 
+<SummaryBox>
+`IMemoryCache` nhanh nhất có thể — dữ liệu nằm ngay trong heap của tiến trình, không serialize, không qua mạng. Ba cái bẫy đi kèm. **Không đặt `SizeLimit` là rò rỉ bộ nhớ**: cache lớn vô hạn cho tới khi GC áp lực hoặc tiến trình bị OOM kill; nhưng đặt `SizeLimit` thì **mọi** entry **bắt buộc** phải khai `Size`, nếu không `Set` ném exception. **`SlidingExpiration` một mình có thể khiến entry sống mãi** — mỗi lần đọc lại gia hạn, nên khoá được truy cập liên tục không bao giờ hết hạn. Và **`GetOrCreateAsync` không chống stampede**: nhiều request đồng thời cùng miss sẽ cùng chạy factory.
+</SummaryBox>
+
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Cấu hình `SizeLimit` và `Size` nhất quán.
+- Chọn đúng giữa absolute và sliding expiration.
+- Chống stampede cho `IMemoryCache`.
+- Tránh lưu entity EF Core vào cache.
+- Đo và giám sát cache trong bộ nhớ.
 
 ## Nội dung bài học
 
-`IMemoryCache` lưu dữ liệu trong RAM của process — phù hợp khi chạy single server hoặc cần tốc độ tối đa.
-
-### 14.3.1 — Setup
+### 14.3.1 — `SizeLimit` là bắt buộc
 
 ```csharp
-// Program.cs
+// SAI — cache lon vo han
+builder.Services.AddMemoryCache();
+```
+
+Không có giới hạn, cache chỉ bị dọn khi **GC báo áp lực bộ nhớ** — và trong container có giới hạn bộ nhớ cứng, tiến trình thường bị **OOM kill trước khi** điều đó xảy ra.
+
+```csharp
+// DUNG
 builder.Services.AddMemoryCache(options =>
 {
-    options.SizeLimit = 1024; // Giới hạn tổng size (tùy đơn vị bạn định nghĩa)
+    options.SizeLimit = 10_000;                         // don vi TU DINH NGHIA
+    options.CompactionPercentage = 0.25;                // don 25% khi day
+    options.ExpirationScanFrequency = TimeSpan.FromMinutes(1);
 });
 ```
 
-### 14.3.2 — GetOrCreate — pattern cơ bản
+**`SizeLimit` không có đơn vị** — nó là con số trừu tượng mà bạn tự định nghĩa ý nghĩa. Ba cách quy ước phổ biến:
+
+| Quy ước | `Size` mỗi entry | `SizeLimit` |
+|---|---|---|
+| Đếm số entry | `1` | Số entry tối đa |
+| Ước lượng byte | Số byte xấp xỉ | Tổng byte |
+| Theo độ nặng | `1` cho nhỏ, `10` cho lớn | Tổng trọng số |
+
+Cách đầu đơn giản nhất và đủ cho hầu hết trường hợp.
+
+**Cái bẫy:** khi đã đặt `SizeLimit`, **mọi** entry phải khai `Size`:
 
 ```csharp
-public class PermissionService(IMemoryCache cache, AppDbContext db)
+_cache.Set("key", value);      // InvalidOperationException neu co SizeLimit
+_cache.Set("key", value, new MemoryCacheEntryOptions { Size = 1 });   // OK
+```
+
+Lỗi này xuất hiện lúc chạy, ở một chỗ nào đó trong code mà ai đó quên. Cách phòng là bọc lại:
+
+```csharp
+public sealed class AppCache(IMemoryCache cache)
 {
-    private const string CacheKeyPrefix = "permissions_";
-
-    public async Task<List<string>> GetUserPermissionsAsync(int userId)
-    {
-        string cacheKey = $"{CacheKeyPrefix}{userId}";
-
-        return await cache.GetOrCreateAsync(cacheKey, async entry =>
+    public void Set<T>(string key, T value, TimeSpan ttl, int size = 1)
+        => cache.Set(key, value, new MemoryCacheEntryOptions
         {
-            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10);
-            entry.SlidingExpiration = TimeSpan.FromMinutes(2);
-            entry.Size = 1; // Mỗi entry tốn 1 đơn vị
-
-            // Priority: dữ liệu quan trọng không bị evict sớm
-            entry.Priority = CacheItemPriority.High;
-
-            return await db.UserPermissions
-                .Where(p => p.UserId == userId)
-                .Select(p => p.PermissionCode)
-                .ToListAsync();
-        }) ?? [];
-    }
-
-    // Chủ động invalidate khi permission thay đổi
-    public void InvalidateUserPermissions(int userId)
-    {
-        cache.Remove($"{CacheKeyPrefix}{userId}");
-    }
+            AbsoluteExpirationRelativeToNow = ttl,
+            Size = size,
+        });
 }
 ```
 
-### 14.3.3 — MemoryCacheEntryOptions chi tiết
+Rồi cấm dùng `IMemoryCache` trực tiếp trong code nghiệp vụ.
+
+### 14.3.2 — Hết hạn
 
 ```csharp
 var options = new MemoryCacheEntryOptions
 {
-    // Hết hạn tuyệt đối sau 30 phút kể từ khi tạo
-    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30),
-
-    // Hết hạn nếu không được truy cập trong 5 phút
-    SlidingExpiration = TimeSpan.FromMinutes(5),
-
-    // Kích thước entry (dùng với SizeLimit)
+    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30),   // TRAN cung
+    SlidingExpiration = TimeSpan.FromMinutes(5),                  // gia han khi doc
     Size = 1,
-
-    // Callback khi entry bị evict
-    PostEvictionCallbacks = {
-        new PostEvictionCallbackRegistration
-        {
-            EvictionCallback = (key, value, reason, state) =>
-                Console.WriteLine($"Cache evicted: {key}, reason: {reason}")
-        }
-    }
+    Priority = CacheItemPriority.Normal,
 };
 ```
 
-### 14.3.4 — Cache dependency — ví dụ CRM Settings
+| | Hành vi |
+|---|---|
+| `AbsoluteExpiration` | Hết hạn tại một thời điểm cụ thể |
+| `AbsoluteExpirationRelativeToNow` | Hết hạn sau N thời gian kể từ khi tạo |
+| `SlidingExpiration` | Hết hạn nếu **không được đọc** trong N thời gian |
+
+**`SlidingExpiration` một mình là nguy hiểm:**
 
 ```csharp
-public class CrmSettingsService(IMemoryCache cache, IConfiguration config)
-{
-    public CrmSettings GetSettings()
-    {
-        return cache.GetOrCreate("crm_settings", entry =>
-        {
-            // Reload khi IConfiguration thay đổi (linked token)
-            var changeToken = config.GetReloadToken();
-            entry.AddExpirationToken(changeToken);
+// Entry duoc doc moi phut -> KHONG BAO GIO het han
+new MemoryCacheEntryOptions { SlidingExpiration = TimeSpan.FromMinutes(5) };
+```
 
-            return new CrmSettings
+Khoá nóng được truy cập liên tục sẽ giữ **dữ liệu cũ mãi mãi**. Luôn kèm absolute expiration làm trần:
+
+```csharp
+new MemoryCacheEntryOptions
+{
+    SlidingExpiration = TimeSpan.FromMinutes(5),                 // don dep entry nguoi
+    AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1),     // TRAN cung
+    Size = 1,
+};
+```
+
+`Priority` quyết định thứ tự bị dọn khi cache đầy:
+
+```csharp
+Priority = CacheItemPriority.NeverRemove;    // chi bi xoa khi het han
+Priority = CacheItemPriority.High;
+Priority = CacheItemPriority.Normal;         // mac dinh
+Priority = CacheItemPriority.Low;            // don dau tien
+```
+
+`NeverRemove` dùng rất hạn chế — nhiều entry như vậy làm `SizeLimit` mất tác dụng.
+
+**Chi tiết về thời điểm hết hạn:** `IMemoryCache` **không** có bộ hẹn giờ chủ động cho từng entry. Entry hết hạn được dọn khi ai đó truy cập nó, hoặc trong lần quét định kỳ theo `ExpirationScanFrequency`. Nghĩa là bộ nhớ có thể được giữ lâu hơn TTL — điều cần biết khi tính dung lượng.
+
+Muốn biết entry bị dọn vì lý do gì:
+
+```csharp
+options.RegisterPostEvictionCallback((key, value, reason, state) =>
+    logger.LogDebug("Cache evicted {Key} vi {Reason}", key, reason));
+```
+
+`reason` là `Expired`, `Capacity`, `Removed`, `Replaced` hay `TokenExpired`. Thấy nhiều `Capacity` nghĩa là `SizeLimit` quá nhỏ.
+
+### 14.3.3 — `GetOrCreateAsync` không chống stampede
+
+```csharp
+public Task<List<string>> GetPermissionsAsync(int userId)
+    => _cache.GetOrCreateAsync($"perm:{userId}", async entry =>
+    {
+        entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10);
+        entry.Size = 1;
+
+        return await _db.UserPermissions
+            .Where(p => p.UserId == userId)
+            .Select(p => p.Code)
+            .ToListAsync();
+    })!;
+```
+
+Tiện, nhưng **factory có thể chạy nhiều lần đồng thời** — `GetOrCreateAsync` không khoá. Với 50 request cùng lúc sau khi hết hạn, đó là 50 truy vấn ([bài 14.2](14.2-caching-fundamentals.mdx)).
+
+```csharp
+// Chong stampede
+public sealed class SafeCache(IMemoryCache cache)
+{
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> _locks = new();
+
+    public async Task<T> GetOrCreateAsync<T>(
+        string key, Func<CancellationToken, Task<T>> factory, TimeSpan ttl, CancellationToken ct)
+    {
+        if (cache.TryGetValue(key, out T? cached)) return cached!;
+
+        var gate = _locks.GetOrAdd(key, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(ct);
+
+        try
+        {
+            if (cache.TryGetValue(key, out cached)) return cached!;     // kiem tra LAI
+
+            var value = await factory(ct);
+            cache.Set(key, value, new MemoryCacheEntryOptions
             {
-                MaxLeadsPerAgent = config.GetValue<int>("Crm:MaxLeadsPerAgent"),
-                EmailDigestEnabled = config.GetValue<bool>("Crm:EmailDigestEnabled")
-            };
-        })!;
+                AbsoluteExpirationRelativeToNow = ttl,
+                Size = 1,
+            });
+            return value;
+        }
+        finally
+        {
+            gate.Release();
+            if (gate.CurrentCount == 1) _locks.TryRemove(key, out _);   // don rac
+        }
     }
 }
 ```
 
----
+Dòng dọn rác cuối quan trọng: không có nó, `_locks` lớn dần theo số khoá đã từng dùng — một rò rỉ bộ nhớ chậm nhưng chắc chắn.
+
+**`HybridCache` của .NET 9 làm sẵn việc này** và nên là lựa chọn đầu tiên nếu bạn dùng .NET 9 ([bài 14.6](14.6-hybridcache-dotnet-9.mdx)).
+
+### 14.3.4 — Đừng cache entity EF Core
+
+```csharp
+// SAI — nhieu tang van de
+var customer = await _cache.GetOrCreateAsync($"customer:{id}", async entry =>
+{
+    entry.Size = 1;
+    return await _db.Customers.FirstOrDefaultAsync(c => c.Id == id);   // ENTITY
+});
+```
+
+Bốn vấn đề:
+
+1. **Entity còn tham chiếu tới `DbContext`** qua lazy loader và change tracker. `DbContext` bị `Dispose` cuối request, nhưng cache giữ tham chiếu — **rò rỉ toàn bộ context** và mọi entity nó theo dõi.
+2. **Cùng một instance được chia sẻ** giữa mọi request. Một request sửa `customer.Name`, mọi request khác thấy thay đổi đó.
+3. **Navigation property** có thể chưa nạp, và truy cập chúng sau khi context chết sẽ ném exception.
+4. **Entity nặng hơn DTO** — mọi cột, kể cả cột bạn không dùng.
+
+```csharp
+// DUNG — cache DTO bat bien
+public sealed record CustomerDto(int Id, string Name, string Email);
+
+var dto = await _cache.GetOrCreateAsync($"customer:{id}", async entry =>
+{
+    entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5);
+    entry.Size = 1;
+
+    return await _db.Customers
+        .Where(c => c.Id == id)
+        .Select(c => new CustomerDto(c.Id, c.Name, c.Email))     // projection
+        .FirstOrDefaultAsync();
+});
+```
+
+`record` bất biến đảm bảo không ai sửa được giá trị trong cache — vấn đề 2 biến mất về mặt thiết kế.
+
+Với kiểu **có thể thay đổi**, cân nhắc lưu bản sao thay vì tham chiếu; nếu không, một request sửa đối tượng sẽ ảnh hưởng mọi request khác.
+
+### 14.3.5 — Giới hạn của cache trong tiến trình
+
+```
+3 pod, moi pod cache RIENG
+=> Ty le trung giam 3 lan (moi pod phai tu nap)
+=> Xoa cache tren pod A KHONG anh huong pod B va C
+=> Deploy la mat sach cache -> dot tai dot bien vao database
+```
+
+Ba hệ quả này quyết định khi nào `IMemoryCache` đủ:
+
+| Dùng `IMemoryCache` khi | Dùng cache phân tán khi |
+|---|---|
+| Dữ liệu **giống nhau ở mọi instance** | Dữ liệu theo người dùng hoặc session |
+| Ít thay đổi (cấu hình, danh mục) | Cần xoá chính xác khi dữ liệu đổi |
+| Một instance | Nhiều instance |
+| Tốc độ là ưu tiên tuyệt đối | Tỷ lệ trúng là ưu tiên |
+
+Hàng đầu là tiêu chí thật: cache danh sách quốc gia trong bộ nhớ mỗi pod là **hoàn toàn đúng** — dữ liệu giống nhau, và mỗi pod tự nạp một lần không tốn gì.
+
+Cache quyền của người dùng thì khác: người dùng có thể vào pod bất kỳ, và thu hồi quyền phải có hiệu lực trên **mọi** pod ([bài 10.8](../../stage-03-aspnet-core-backend/module-10-authentication-authorization/10.8-permission-system.mdx)).
+
+**Đợt tải sau deploy** là vấn đề thật với cache lớn: mọi pod khởi động với cache rỗng và cùng nạp lại. Nếu đó là vấn đề, nạp trước những khoá quan trọng trong `IHostedService`.
+
+### 14.3.6 — Giám sát
+
+```csharp
+builder.Services.AddOpenTelemetry()
+    .WithMetrics(m => m.AddMeter("Microsoft.Extensions.Caching.Memory"));
+```
+
+.NET 9 phát metric sẵn cho `IMemoryCache`. Với bản cũ hơn, tự đếm:
+
+```csharp
+public async Task<T> GetOrCreateAsync<T>(string key, ...)
+{
+    if (cache.TryGetValue(key, out T? cached))
+    {
+        _hits.Add(1, new KeyValuePair<string, object?>("cache", name));
+        return cached!;
+    }
+
+    _misses.Add(1, new KeyValuePair<string, object?>("cache", name));
+    ...
+}
+```
+
+Ba chỉ số cần theo dõi: **tỷ lệ trúng**, **số entry hiện có**, và **lý do bị dọn** (nhiều `Capacity` nghĩa là `SizeLimit` quá nhỏ).
+
+Không có ba chỉ số này, bạn không biết cache đang giúp hay chỉ đang tốn bộ nhớ.
+
+### 14.3.7 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát IMemoryCache"
+  items={[
+    { text: "SizeLimit được đặt, không để cache lớn vô hạn." },
+    { text: "Mọi entry đều khai Size; việc set cache được bọc sau một lớp tiện ích." },
+    { text: "SlidingExpiration luôn kèm AbsoluteExpiration làm trần." },
+    { text: "Có cơ chế chống stampede cho khoá lưu lượng cao." },
+    { text: "SemaphoreSlim theo khoá được dọn sau khi dùng." },
+    { text: "Không cache entity EF Core; cache DTO bất biến." },
+    { text: "Kiểu lưu trong cache là bất biến, hoặc được sao chép khi trả ra." },
+    { text: "Dữ liệu theo người dùng không nằm trong cache tiến trình nếu chạy nhiều instance." },
+    { text: "Có nạp trước cache quan trọng nếu đợt tải sau deploy là vấn đề." },
+    { text: "Theo dõi tỷ lệ trúng, số entry và lý do bị dọn." },
+  ]}
+/>
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **Thiếu `Size`.** Đặt `SizeLimit` rồi gọi `Set` không khai `Size`. Ghi lại exception và thời điểm nó xảy ra.
+
+2. **Sliding sống mãi.** Cache một giá trị với `SlidingExpiration = 5s` và đọc nó mỗi 3 giây trong 5 phút. Xác nhận nó **không bao giờ** hết hạn. Thêm absolute expiration và kiểm chứng.
+
+3. **Rò rỉ `DbContext`.** Cache một entity EF Core, đo bộ nhớ sau 1.000 request, và dùng `dotnet-gcdump` để xác nhận các `DbContext` vẫn còn sống trong heap.
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "Vì sao phải đặt SizeLimit?",
+      answer: "Không có nó, cache chỉ bị dọn khi GC báo áp lực bộ nhớ, và trong container có giới hạn cứng thì tiến trình thường bị OOM kill trước khi điều đó xảy ra. Nhưng khi đã đặt SizeLimit thì mọi entry bắt buộc phải khai Size, nếu không Set ném exception lúc chạy."
+    },
+    {
+      question: "SlidingExpiration có vấn đề gì khi dùng một mình?",
+      answer: "Mỗi lần đọc lại gia hạn, nên khoá được truy cập liên tục sẽ không bao giờ hết hạn và giữ dữ liệu cũ mãi mãi. Luôn kèm absolute expiration làm trần cứng; sliding lo dọn entry nguội, absolute lo giới hạn độ cũ."
+    },
+    {
+      question: "GetOrCreateAsync có chống stampede không?",
+      answer: "Không. Nó không khoá, nên nhiều request đồng thời cùng thấy miss sẽ cùng chạy factory. Với 50 request sau khi hết hạn, đó là 50 truy vấn. Phải tự khoá theo khoá với kiểm tra lại bên trong, hoặc dùng HybridCache của .NET 9."
+    },
+    {
+      question: "Vì sao không cache entity EF Core?",
+      answer: "Bốn lý do. Entity còn tham chiếu tới DbContext nên cache giữ sống cả context đã bị dispose. Cùng một instance được chia sẻ giữa mọi request nên ai sửa cũng ảnh hưởng người khác. Navigation property chưa nạp sẽ ném exception. Và entity nặng hơn DTO. Cache DTO bất biến thay vì entity."
+    },
+    {
+      question: "Khi nào IMemoryCache là đủ?",
+      answer: "Khi dữ liệu giống nhau ở mọi instance và ít thay đổi, ví dụ danh mục hay cấu hình. Khi đó mỗi pod tự nạp một lần không tốn gì. Dữ liệu theo người dùng hoặc cần xoá chính xác khi thay đổi thì phải dùng cache phân tán."
+    },
+    {
+      question: "Entry hết hạn có được dọn ngay không?",
+      answer: "Không. IMemoryCache không có bộ hẹn giờ chủ động cho từng entry; nó dọn khi ai đó truy cập entry đó hoặc trong lần quét định kỳ theo ExpirationScanFrequency. Nghĩa là bộ nhớ có thể được giữ lâu hơn TTL."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **`SizeLimit` là bắt buộc** — và nó kéo theo mọi entry phải khai `Size`.
+2. **`SlidingExpiration` một mình khiến entry nóng sống mãi.** Luôn có trần absolute.
+3. **Cache DTO bất biến, không cache entity EF Core.**
+
+## Tham khảo
+
+- [Cache in-memory in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/performance/caching/memory)
+- [MemoryCacheEntryOptions class](https://learn.microsoft.com/en-us/dotnet/api/microsoft.extensions.caching.memory.memorycacheentryoptions)
+- [Overview of caching in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/performance/caching/overview)
+- [Caching guidance (Azure Architecture Center)](https://learn.microsoft.com/en-us/azure/architecture/best-practices/caching)
 
 ## Điều hướng
 

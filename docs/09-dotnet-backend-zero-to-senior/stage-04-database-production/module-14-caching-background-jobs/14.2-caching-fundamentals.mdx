@@ -1,64 +1,276 @@
 ---
 title: "14.2 — 1. Caching Fundamentals"
-description: "Cache là lớp lưu trữ tạm thời kết quả tính toán hoặc truy vấn tốn kém, giúp trả lời request sau nhanh hơn mà không cần tính lại."
+description: "Cache chỉ đáng khi đọc nhiều hơn ghi và dữ liệu chịu được cũ; tỷ lệ trúng, stampede, dữ liệu cũ, và những thứ không bao giờ nên cache."
 sidebar_position: 2
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
 # 14.2 — 1. Caching Fundamentals
 
+<SummaryBox>
+Cache **không miễn phí** — nó đổi **tính đúng đắn tức thời** lấy tốc độ. Trước khi thêm cache, phải trả lời được hai câu: **"dữ liệu này chịu được cũ bao lâu?"** và **"tỷ lệ trúng dự kiến là bao nhiêu?"**. Tỷ lệ trúng 20% gần như vô dụng: bạn trả chi phí quản lý cache, chiếm bộ nhớ, và thêm một nguồn bug — để tiết kiệm một phần năm số truy vấn. Cái bẫy kỹ thuật lớn nhất là **cache stampede**: cache hết hạn, 200 request đồng thời cùng thấy miss và cùng đi database, khiến **thêm cache làm hệ thống sập** vào đúng lúc tải cao. Và nhớ: **cache sai là bug im lặng** — không có exception, chỉ là người dùng thấy dữ liệu không đúng.
+</SummaryBox>
+
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Quyết định có nên cache một thứ hay không, dựa trên số liệu.
+- Tính và đo tỷ lệ trúng cache.
+- Nhận ra cache stampede và biết cách chống.
+- Chọn đúng loại cache cho từng nhu cầu.
+- Liệt kê những gì không bao giờ nên cache.
 
 ## Nội dung bài học
 
-### 14.2.1 — Cache là gì và tại sao quan trọng?
+### 14.2.1 — Khi nào cache đáng giá
 
-Cache là lớp lưu trữ tạm thời kết quả tính toán hoặc truy vấn tốn kém, giúp trả lời request sau nhanh hơn mà không cần tính lại.
+Bốn điều kiện, và cần **cả bốn**:
 
-**Các khái niệm cốt lõi:**
+| Điều kiện | Vì sao |
+|---|---|
+| **Đọc nhiều hơn ghi rõ rệt** | Ghi nhiều thì cache liên tục bị xoá, tỷ lệ trúng thấp |
+| **Dữ liệu chịu được cũ** | Nếu phải chính xác tuyệt đối thì không cache được |
+| **Tính toán hoặc truy vấn đắt** | Cache một truy vấn 2ms không đáng |
+| **Khoá lặp lại** | Tham số gần như không trùng thì mỗi request là một khoá mới |
 
-| Khái niệm | Giải thích |
-|-----------|------------|
-| **Cache Hit** | Request tìm thấy dữ liệu trong cache — trả về ngay |
-| **Cache Miss** | Không tìm thấy — phải truy vấn nguồn gốc (DB, API) |
-| **TTL (Time-To-Live)** | Thời gian cache còn hiệu lực trước khi bị xóa |
-| **Eviction** | Cache bị xóa do hết TTL, hết bộ nhớ, hoặc chủ động |
-| **Stale-While-Revalidate** | Trả về dữ liệu cũ trong khi làm mới ngầm ở background |
-| **Cache Invalidation** | Xóa hoặc cập nhật cache khi dữ liệu gốc thay đổi — **bài toán khó nhất** trong caching |
+Điều kiện cuối hay bị bỏ qua. Cache một endpoint tìm kiếm với từ khoá tự do: hầu như mọi từ khoá đều khác nhau, nên tỷ lệ trúng gần 0 trong khi bộ nhớ phình lên.
 
-> "There are only two hard things in Computer Science: cache invalidation and naming things." — Phil Karlton
+**Tỷ lệ trúng** là con số quyết định:
 
-**Các loại cache trong hệ thống .NET:**
+```
+Ty le trung = so lan hit / (so lan hit + so lan miss)
 
-| Loại | Ví dụ | Phạm vi | Tốc độ | Dùng khi |
-|------|-------|---------|--------|----------|
-| **In-Memory** | `IMemoryCache` | Process | Cực nhanh (~ns) | Dữ liệu tĩnh, single server |
-| **Distributed** | Redis, Memcached | Cluster | Nhanh (~ms) | Multi-instance, session, token |
-| **CDN** | Cloudflare, Azure CDN | Global | Nhanh theo vùng | Static assets, API response công khai |
-| **DB Query Cache** | EF Core 2nd-level cache | DB layer | Trung bình | Query phức tạp, đọc nhiều |
+< 50%   : gan nhu vo ich, can xem lai
+50-80%  : co gia tri
+> 80%   : rat tot
+> 95%   : xuat sac (du lieu tham chieu, cau hinh)
+```
 
----
+**Luôn đo trước khi giữ lại một cache.** Nhiều cache tồn tại trong code mà không ai biết nó có tác dụng hay không.
+
+### 14.2.2 — Cache aside
+
+Mẫu phổ biến nhất, và là mặc định:
+
+```csharp
+public async Task<CustomerDto?> GetAsync(int id, CancellationToken ct)
+{
+    var key = $"customer:{id}";
+
+    if (_cache.TryGetValue(key, out CustomerDto? cached))
+        return cached;                                   // HIT
+
+    var customer = await _db.Customers
+        .Where(c => c.Id == id)
+        .Select(c => new CustomerDto(c.Id, c.Name, c.Email))
+        .FirstOrDefaultAsync(ct);                        // MISS -> di nguon
+
+    if (customer is not null)
+        _cache.Set(key, customer, TimeSpan.FromMinutes(5));
+
+    return customer;
+}
+```
+
+Ứng dụng quản lý cache; cache không biết gì về database. Đơn giản và chịu lỗi tốt: cache chết thì hệ thống vẫn chạy, chỉ chậm hơn.
+
+Ba mẫu khác, và vì sao chúng hiếm dùng trong .NET:
+
+| Mẫu | Cách hoạt động | Thực tế |
+|---|---|---|
+| **Read-through** | Cache tự nạp khi miss | Cần thư viện hỗ trợ; `HybridCache` gần như vậy |
+| **Write-through** | Ghi cache và database cùng lúc | Ghi chậm hơn; ít khi đáng |
+| **Write-behind** | Ghi cache trước, database sau | **Mất dữ liệu** nếu cache chết |
+
+Write-behind nghe hấp dẫn về hiệu năng nhưng đánh đổi độ bền — chỉ hợp cho dữ liệu chấp nhận mất, như bộ đếm lượt xem.
+
+### 14.2.3 — Cache stampede
+
+Đây là cách mà **thêm cache làm hệ thống sập**:
+
+```
+t=0    Cache "top-products" het han
+t=0.01 200 request dong thoi cung thay MISS
+t=0.02 200 truy van GIONG HET NHAU cung chay
+t=0.5  Database qua tai, moi truy van cham lai
+t=2.0  Timeout hang loat
+```
+
+Nghịch lý: hệ thống **không có cache** sẽ chịu tải đều 200 truy vấn mỗi giây và sống sót; hệ thống **có cache** dồn tất cả vào một thời điểm và sập.
+
+Ba cách chống:
+
+```csharp
+// 1. Khoa theo khoa — chi MOT request di nguon
+private static readonly ConcurrentDictionary<string, SemaphoreSlim> _locks = new();
+
+public async Task<T?> GetOrCreateAsync<T>(string key, Func<Task<T>> factory, TimeSpan ttl)
+{
+    if (_cache.TryGetValue(key, out T? cached)) return cached;
+
+    var gate = _locks.GetOrAdd(key, _ => new SemaphoreSlim(1, 1));
+    await gate.WaitAsync();
+
+    try
+    {
+        if (_cache.TryGetValue(key, out cached)) return cached;   // kiem tra LAI
+
+        var value = await factory();
+        _cache.Set(key, value, ttl);
+        return value;
+    }
+    finally { gate.Release(); }
+}
+```
+
+Kiểm tra lần hai bên trong khoá là bắt buộc — 199 request còn lại chờ xong sẽ thấy giá trị đã có và không đi database.
+
+```csharp
+// 2. Cache Task<T> thay vi T — don gian hon
+private readonly ConcurrentDictionary<string, Task<T>> _inFlight = new();
+
+public Task<T> GetAsync(string key, Func<Task<T>> factory)
+    => _inFlight.GetOrAdd(key, async _ =>
+    {
+        try { return await factory(); }
+        finally { _inFlight.TryRemove(key, out _); }
+    });
+```
+
+Mẫu này đã nói ở [bài 6.7](../../stage-02-csharp-professional/module-06-async-programming/6.7-async-patterns.mdx): request đầu đặt `Task` đang chạy vào, các request sau cùng `await` nó.
+
+```csharp
+// 3. TTL ngau nhien — trai deu thoi diem het han
+var jitter = Random.Shared.Next(-30, 30);
+_cache.Set(key, value, TimeSpan.FromMinutes(5).Add(TimeSpan.FromSeconds(jitter)));
+```
+
+Cách 3 không chống được stampede cho **một** khoá, nhưng nó ngăn **hàng nghìn khoá** cùng hết hạn một lúc — điều xảy ra khi bạn nạp cache hàng loạt lúc khởi động.
+
+`HybridCache` của .NET 9 làm sẵn cách 1 ([bài 14.6](14.6-hybridcache-dotnet-9.mdx)).
+
+### 14.2.4 — Bốn tầng cache
+
+| Tầng | Ví dụ | Phạm vi | Độ trễ | Dùng cho |
+|---|---|---|---|---|
+| **Trong tiến trình** | `IMemoryCache` | Một instance | ~100ns | Dữ liệu tham chiếu, cấu hình |
+| **Phân tán** | Redis | Cả cluster | ~1ms | Session, quyền, dữ liệu dùng chung |
+| **HTTP** | `Cache-Control`, ETag | Client, CDN | 0 (không gọi) | Response công khai |
+| **CDN** | Cloudflare | Toàn cầu | ~10ms | File tĩnh, API công khai |
+
+Tầng HTTP đáng chú ý vì nó là tầng **rẻ nhất**: request **không bao giờ tới server**. Một `Cache-Control: max-age=3600` trên endpoint danh sách quốc gia tiết kiệm nhiều hơn bất kỳ cache phía server nào ([bài 9.8](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.8-response-caching-and-output-caching.mdx)).
+
+**Kết hợp nhiều tầng** là mẫu mạnh nhất: bộ nhớ trong tiến trình cho tốc độ, Redis cho chia sẻ giữa instance. Đó chính là `HybridCache`.
+
+### 14.2.5 — Vấn đề khó nhất: xoá cache
+
+> *"Trong khoa học máy tính chỉ có hai việc khó: xoá cache và đặt tên biến."* — Phil Karlton
+
+Khó vì **cache sai không báo lỗi**. Truy vấn sai thì ném exception; cache cũ thì chỉ là người dùng thấy dữ liệu không đúng, và có thể hàng tuần không ai phát hiện.
+
+Ba chiến lược, chi tiết ở [bài 14.5](14.5-cache-invalidation-strategies.mdx):
+
+1. **TTL** — để nó tự hết hạn. Đơn giản nhất, và **trần rủi ro** là chính TTL đó.
+2. **Xoá chủ động** — khi dữ liệu đổi. Chính xác nhưng dễ sót một đường ghi.
+3. **Xoá theo tag** — nhóm khoá liên quan và xoá cùng lúc.
+
+**TTL ngắn là lưới an toàn cho cả hai chiến lược kia.** Kể cả khi bạn quên xoá ở một chỗ, dữ liệu sai chỉ sống tối đa bằng TTL. Đây là lý do TTL 5 phút thường tốt hơn TTL 1 giờ, dù tỷ lệ trúng thấp hơn.
+
+### 14.2.6 — Không bao giờ cache
+
+| Không cache | Vì sao |
+|---|---|
+| Số dư tài khoản, tồn kho lúc đặt hàng | Phải đúng tuyệt đối |
+| Dữ liệu cá nhân trong cache **dùng chung** | Rò rỉ giữa người dùng |
+| Mật khẩu, token, khoá | Bề mặt tấn công mới |
+| Dữ liệu ghi nhiều hơn đọc | Tỷ lệ trúng thấp, chỉ tốn chi phí |
+| Kết quả truy vấn có tham số gần như không lặp | Mỗi request một khoá mới |
+
+Hàng thứ hai là lỗi bảo mật nghiêm trọng nhất: cache khoá `"customer-list"` mà không kèm tenant id hay user id, và người dùng B nhận dữ liệu của A.
+
+**Quy tắc: khoá cache phải chứa mọi thứ ảnh hưởng tới kết quả** — tenant, người dùng, ngôn ngữ, quyền, tham số phân trang.
+
+```csharp
+// SAI
+var key = "customer-list";
+
+// DUNG
+var key = $"customers:t{tenantId}:u{userId}:p{page}:s{pageSize}:q{search}";
+```
+
+### 14.2.7 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát caching"
+  items={[
+    { text: "Đã trả lời được dữ liệu này chịu được cũ bao lâu." },
+    { text: "Tỷ lệ trúng được đo, không phỏng đoán." },
+    { text: "Cache có tỷ lệ trúng dưới 50% đã được xem xét bỏ đi." },
+    { text: "Khoá cache chứa mọi thứ ảnh hưởng kết quả, gồm tenant và người dùng." },
+    { text: "Không cache dữ liệu cá nhân vào kho dùng chung mà không phân vùng." },
+    { text: "Có cơ chế chống stampede cho khoá có lưu lượng cao." },
+    { text: "TTL có jitter nếu nhiều khoá được nạp cùng lúc." },
+    { text: "TTL đủ ngắn để làm trần rủi ro khi quên xoá cache." },
+    { text: "Đã cân nhắc cache tầng HTTP trước khi cache phía server." },
+    { text: "Không cache dữ liệu phải đúng tuyệt đối." },
+  ]}
+/>
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **Đo tỷ lệ trúng.** Thêm bộ đếm hit và miss cho một cache đang có, chạy một tuần, và tính tỷ lệ. Quyết định giữ hay bỏ dựa trên số đo.
+
+2. **Tái hiện stampede.** Cache một truy vấn mất 500ms với TTL 10 giây, bắn 200 request đồng thời ngay sau khi hết hạn, và đếm số truy vấn database. Thêm khoá theo khoá và đếm lại.
+
+3. **Rò rỉ giữa người dùng.** Cache kết quả có lọc theo quyền với khoá **không** kèm user id. Đăng nhập hai tài khoản khác quyền và xác nhận tài khoản thứ hai thấy dữ liệu của tài khoản đầu.
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "Bốn điều kiện để cache đáng giá là gì?",
+      answer: "Đọc nhiều hơn ghi rõ rệt, dữ liệu chịu được cũ, tính toán hoặc truy vấn đắt, và khoá lặp lại. Cần cả bốn; điều kiện cuối hay bị bỏ qua, ví dụ cache endpoint tìm kiếm với từ khoá tự do thì hầu như mọi khoá đều khác nhau nên tỷ lệ trúng gần không."
+    },
+    {
+      question: "Tỷ lệ trúng bao nhiêu thì cache có ý nghĩa?",
+      answer: "Dưới 50 phần trăm thì gần như vô ích vì bạn trả chi phí quản lý, bộ nhớ và thêm một nguồn bug để tiết kiệm phần nhỏ số truy vấn. Từ 50 tới 80 là có giá trị, trên 80 là rất tốt, và trên 95 thường là dữ liệu tham chiếu hoặc cấu hình."
+    },
+    {
+      question: "Cache stampede là gì và vì sao nó nghịch lý?",
+      answer: "Khi cache hết hạn, nhiều request đồng thời cùng thấy miss và cùng đi nguồn, dồn toàn bộ tải vào một thời điểm. Nghịch lý là hệ thống không có cache sẽ chịu tải đều và sống sót, còn hệ thống có cache thì sập vào đúng lúc tải cao."
+    },
+    {
+      question: "Ba cách chống stampede là gì?",
+      answer: "Khoá theo từng khoá cache với kiểm tra lại bên trong khoá, cache Task thay vì cache giá trị để các request sau cùng await một Task, và thêm jitter vào TTL để nhiều khoá không cùng hết hạn một lúc. HybridCache của .NET 9 làm sẵn cách đầu."
+    },
+    {
+      question: "Vì sao xoá cache là vấn đề khó?",
+      answer: "Vì cache sai không báo lỗi. Truy vấn sai thì ném exception, còn cache cũ chỉ là người dùng thấy dữ liệu không đúng, và có thể hàng tuần không ai phát hiện. TTL ngắn là lưới an toàn vì nó giới hạn thời gian dữ liệu sai tồn tại."
+    },
+    {
+      question: "Khoá cache phải chứa những gì?",
+      answer: "Mọi thứ ảnh hưởng tới kết quả: tenant, người dùng, ngôn ngữ, quyền và tham số phân trang. Thiếu tenant hay user id trong khoá là lỗi bảo mật nghiêm trọng vì người dùng này sẽ nhận dữ liệu của người khác."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **Đo tỷ lệ trúng trước khi giữ lại một cache.** Dưới 50% thì nó chỉ là chi phí.
+2. **Stampede khiến cache làm hệ thống sập** đúng lúc tải cao.
+3. **Khoá cache phải chứa tenant và người dùng**, nếu không nó là lỗ hổng dữ liệu.
+
+## Tham khảo
+
+- [Overview of caching in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/performance/caching/overview)
+- [Caching guidance (Azure Architecture Center)](https://learn.microsoft.com/en-us/azure/architecture/best-practices/caching)
+- [Cache-Aside pattern](https://learn.microsoft.com/en-us/azure/architecture/patterns/cache-aside)
+- [RFC 9111 — HTTP Caching](https://www.rfc-editor.org/rfc/rfc9111.html)
 
 ## Điều hướng
 
