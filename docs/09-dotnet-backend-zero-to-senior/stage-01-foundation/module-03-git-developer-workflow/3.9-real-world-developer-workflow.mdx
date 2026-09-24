@@ -185,11 +185,202 @@ Mỗi dấu hiệu trên là một chi phí trả hằng ngày. Quy trình tồn
 
 ## Bài tập áp dụng
 
-1. **Đo tuổi nhánh.** Chạy `git for-each-ref --sort=committerdate --format='%(refname:short) %(committerdate:relative)' refs/remotes/origin` trên kho của đội. Đếm số nhánh sống quá hai tuần.
+#### Bài 1 — Đo tuổi nhánh của đội
 
-2. **Viết quy trình hotfix.** Soạn một tài liệu một trang cho đội bạn, theo năm bước ở mục 3.9.4, có tên người chịu trách nhiệm ở từng bước. Đặt nó ở nơi tìm được trong 30 giây.
+Chạy lệnh dưới đây trên kho của đội. Đếm số nhánh sống quá hai tuần.
 
-3. **Diễn tập.** Cố ý deploy một lỗi lên môi trường staging. Chạy đủ quy trình hotfix, tính giờ từ lúc phát hiện tới lúc bản vá lên staging. Ghi lại bước nào chậm nhất.
+```bash
+git for-each-ref --sort=committerdate \
+  --format='%(refname:short)  %(committerdate:relative)  %(authorname)' \
+  refs/remotes/origin
+```
+
+**Tiêu chí hoàn thành:** bạn có con số cụ thể, và với mỗi nhánh già bạn biết nó đang chờ gì.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Con số thô chưa đủ. Phân loại từng nhánh già theo **lý do** nó còn sống thì mới ra được hành động.
+
+**Lời giải — output điển hình:**
+
+```text
+origin/fix/hotfix-tong-tien       2 days ago     An
+origin/feat/bao-cao-doanh-thu     9 days ago     Bình
+origin/feat/tich-hop-thanh-toan   5 weeks ago    Cường
+origin/refactor/tach-service      3 months ago   Dũng
+origin/feat/dashboard-v2          7 months ago   (đã nghỉ việc)
+```
+
+**Phân loại và hành động:**
+
+| Lý do nhánh còn sống | Hành động |
+|---|---|
+| Đang làm dở, sẽ xong tuần này | Không sao |
+| Chờ review đã lâu | Vấn đề **quy trình**, không phải kỹ thuật — nhắc hoặc đổi người review |
+| Chờ một phụ thuộc bên ngoài | Tách phần độc lập ra merge trước, phần còn lại để sau feature flag |
+| Đã bị bỏ | **Xoá** — commit vẫn còn trong reflog nếu cần |
+| Người viết đã rời dự án | Xem còn giá trị không; có thì cử người tiếp quản, không thì xoá |
+
+**Vì sao nhánh già là vấn đề, cụ thể:**
+
+1. **Xung đột tăng theo bình phương thời gian.** Nhánh sống một ngày lệch với `main` vài commit; nhánh ba tháng lệch hàng trăm commit, và mỗi commit đó là một cơ hội xung đột.
+2. **Xung đột ngữ nghĩa tích tụ.** Loại xung đột mà Git không thấy ([bài 3.8](3.8-git-conflicts.mdx)) sinh ra càng nhiều khi khoảng cách càng lớn, và chúng chỉ lộ ra lúc build hoặc lúc chạy.
+3. **Công sức đã bỏ ra có nguy cơ mất trắng.** Một nhánh ba tháng không merge được nữa thường bị bỏ hẳn, kéo theo toàn bộ công việc trong đó.
+4. **Người viết quên mất ngữ cảnh.** Sau vài tuần, chính tác giả cũng không nhớ vì sao đã làm như vậy, nên việc giải xung đột trở nên rủi ro.
+
+**Xoá nhánh đã merge, hàng loạt:**
+
+```bash
+# Xem trước những nhánh đã merge vào main
+git branch -r --merged origin/main | grep -v 'main\|HEAD'
+
+# Xoá trên máy các nhánh đã merge
+git branch --merged main | grep -v '^\*\|main' | xargs -r git branch -d
+
+# Dọn các nhánh theo dõi trỏ tới nhánh đã bị xoá trên máy chủ
+git fetch --prune
+```
+
+**Cách phòng tốt hơn cách dọn.** Bật *Automatically delete head branches* trong cài đặt kho trên GitHub — nhánh tự biến mất ngay sau khi PR được merge, nên danh sách nhánh luôn chỉ chứa việc đang làm dở.
+
+**Chỉ số đáng theo dõi.** Tuổi trung vị của nhánh đang mở. Dưới 3 ngày là lành mạnh; trên 2 tuần là dấu hiệu quy trình đang có chỗ tắc, và chỗ tắc thường là **review** chứ không phải lập trình.
+
+</details>
+
+#### Bài 2 — Viết quy trình hotfix cho đội
+
+Soạn một tài liệu **một trang** cho đội bạn theo năm bước ở mục 3.9.4, có tên người chịu trách nhiệm ở từng bước. Đặt nó ở nơi tìm được trong 30 giây.
+
+**Tiêu chí hoàn thành:** một người chưa từng làm hotfix đọc xong là thực hiện được, không cần hỏi ai.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Viết cho **người đang hoảng lúc 2 giờ sáng**. Nghĩa là: câu ngắn, lệnh sao chép dán được, không có chữ "tuỳ tình huống", và ghi rõ ai quyết định cái gì.
+
+**Lời giải — mẫu dùng được ngay:**
+
+```markdown
+# Quy trình hotfix — CRM Backend
+
+> Vị trí: README của kho, mục "Vận hành". Cũng ghim ở kênh #crm-oncall.
+
+## Bước 0 — Trước khi sửa code (2 phút)
+
+- [ ] Báo vào kênh #crm-oncall: triệu chứng, thời điểm bắt đầu, phạm vi ảnh hưởng
+- [ ] Quyết định: **quay lui** hay **vá tới**?
+      -> Nếu lỗi đến từ lần triển khai gần nhất: QUAY LUI trước, điều tra sau
+      -> Người quyết định: trưởng nhóm, hoặc người trực nếu ngoài giờ
+
+## Bước 1 — Tách nhánh từ trạng thái ĐANG CHẠY
+
+    git checkout main && git pull
+    git checkout -b hotfix/<mo-ta-ngan>
+
+KHÔNG tách từ develop hay từ nhánh tính năng.
+
+## Bước 2 — Sửa nhỏ nhất có thể
+
+Chỉ chặn máu. Không tái cấu trúc, không dọn dẹp, không đổi tên.
+Việc dọn dẹp -> tạo issue riêng, làm sau.
+
+## Bước 3 — Vẫn mở PR, vẫn để CI chạy
+
+    git push -u origin hotfix/<mo-ta-ngan>
+
+- Người review: bất kỳ ai đang online. Không chờ đúng người.
+- CI hỏng -> KHÔNG bỏ qua. Đây là lúc lỗi thứ hai gây thiệt hại nhất.
+
+## Bước 4 — Merge và triển khai
+
+- Người bấm merge: người review
+- Người theo dõi triển khai: người viết bản vá
+- [ ] Xác nhận lỗi đã hết trên production (nêu rõ cách kiểm tra)
+
+## Bước 5 — Sau khi xong (trong 24 giờ)
+
+- [ ] Gộp ngược về nhánh phát triển, nếu mô hình có nhánh đó
+- [ ] Viết báo cáo sự cố: nguyên nhân gốc, dòng thời gian, cách phòng
+- [ ] Tạo issue cho phần dọn dẹp đã bỏ qua ở bước 2
+
+## Liên hệ
+
+| Vai trò | Người | Kênh |
+|---|---|---|
+| Trực chính | (tên) | (điện thoại) |
+| Quản trị database | (tên) | (điện thoại) |
+| Quyết định thông báo khách hàng | (tên) | (điện thoại) |
+```
+
+**Bốn điều làm nên một quy trình hotfix dùng được:**
+
+1. **Bước 0 tồn tại.** Câu hỏi "quay lui hay vá tới" phải được hỏi **trước** khi ai đó bắt đầu gõ code. Quay lui thường nhanh hơn và an toàn hơn, nhưng người ta hay bỏ qua nó vì bản năng là muốn sửa.
+2. **Có tên người, không chỉ có vai trò.** "Trưởng nhóm quyết định" là vô dụng lúc 2 giờ sáng nếu không ai biết số điện thoại.
+3. **Lệnh sao chép dán được.** Không viết "tách nhánh từ main" mà viết đúng dòng lệnh.
+4. **Bước 5 có thời hạn.** Không có thời hạn thì nó không bao giờ được làm, và bước gộp ngược bị quên chính là nguyên nhân lỗi quay trở lại ở lần phát hành sau.
+
+**Kiểm tra tài liệu có dùng được không.** Đưa cho một người chưa từng làm hotfix và hỏi: *"đọc xong bạn có biết việc đầu tiên phải làm là gì không?"* Nếu họ ngập ngừng, tài liệu chưa đạt.
+
+</details>
+
+#### Bài 3 — Diễn tập hotfix có tính giờ
+
+Cố ý triển khai một lỗi lên môi trường thử nghiệm. Chạy đủ quy trình hotfix, tính giờ từ lúc phát hiện tới lúc bản vá lên staging. Ghi lại bước nào chậm nhất.
+
+**Tiêu chí hoàn thành:** bạn có con số tổng và thời gian của từng bước, đủ để chỉ ra chỗ tắc.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Bấm giờ từng bước riêng, không chỉ tổng. Chỗ tắc thường **không** nằm ở bước viết code, và điều đó chỉ lộ ra khi bạn đo tách bạch.
+
+**Lời giải — bảng ghi mẫu:**
+
+| Bước | Thời gian | Nhận xét |
+|---|---|---|
+| Phát hiện → báo vào kênh chung | 4 phút | Cảnh báo tự động hoạt động tốt |
+| Quyết định quay lui hay vá tới | 11 phút | **Chậm** — không rõ ai được quyết |
+| Tách nhánh và viết bản vá | 6 phút | Lỗi đơn giản |
+| Chờ CI | **14 phút** | **Chậm nhất** |
+| Chờ review | 8 phút | May mắn có người online |
+| Merge và triển khai | 5 phút | Tự động |
+| **Tổng** | **48 phút** | |
+
+**Ba chỗ tắc thường gặp nhất, và cách xử lý:**
+
+**1. CI quá chậm.** Đây gần như luôn là bước dài nhất. 14 phút chờ trong lúc production đang hỏng là rất lâu. Cách rút ngắn:
+
+```yaml
+# Workflow riêng cho nhánh hotfix, chỉ chạy phần thiết yếu
+on:
+  pull_request:
+    branches: [main]
+jobs:
+  fast-check:
+    if: startsWith(github.head_ref, 'hotfix/')
+    steps:
+      - run: dotnet test --filter "Category=Critical"
+```
+
+Bộ test đầy đủ vẫn chạy, nhưng chạy **sau** khi merge thay vì chặn trước.
+
+**2. Không rõ ai được quyết.** 11 phút ở bước quyết định là thời gian thuần tuý để đi tìm người. Sửa bằng cách ghi thẳng tên và số điện thoại vào tài liệu như bài 2, và quy định rõ: ngoài giờ làm việc thì người trực có toàn quyền quyết định.
+
+**3. Chờ review.** Với hotfix, quy tắc "phải đúng người sở hữu module review" là một chỗ tắc nguy hiểm. Quy tắc thay thế: **bất kỳ ai đang online**, và người sở hữu module sẽ xem lại sau.
+
+**Hai chỉ số đáng theo dõi lâu dài:**
+
+| Chỉ số | Nghĩa | Mục tiêu tốt |
+|---|---|---|
+| Thời gian tới lúc khắc phục | Từ phát hiện tới lúc hết lỗi | Dưới 1 giờ |
+| Thời gian triển khai một dòng | Từ commit tới production, lúc bình thường | Dưới 30 phút |
+
+Chỉ số thứ hai quan trọng hơn vẻ ngoài của nó: nó đặt **giới hạn dưới** cho chỉ số thứ nhất. Nếu bình thường mất 2 giờ để đưa một dòng code lên production, thì lúc khẩn cấp bạn không thể nhanh hơn 2 giờ — trừ khi bỏ qua các bước an toàn, và đó chính là lúc sự cố thứ hai xảy ra.
+
+**Vì sao phải diễn tập thật.** Quy trình chưa bao giờ chạy thử là quy trình chưa biết có chạy được không. Diễn tập trên staging cho bạn phát hiện những thứ không ai lường trước: thiếu quyền triển khai, biến môi trường sai, cảnh báo không gửi tới đúng người. Phát hiện những thứ đó lúc diễn tập rẻ hơn nhiều so với lúc production đang hỏng.
+
+</details>
 
 ## Tự kiểm tra
 
