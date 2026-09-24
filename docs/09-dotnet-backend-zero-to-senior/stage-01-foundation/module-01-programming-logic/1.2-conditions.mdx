@@ -41,7 +41,7 @@ Vấn đề xuất hiện khi điều kiện chồng lên nhau:
 
 ```csharp
 // KHÓ ĐỌC — code hình mũi tên
-public decimal TinhGiam(Customer? customer, Order? order)
+public decimal CalculateDiscount(Customer? customer, Order? order)
 {
     if (customer != null)
     {
@@ -75,7 +75,7 @@ flowchart TD
 
 ```csharp
 // DỄ ĐỌC — chặn các trường hợp xấu trước, logic chính nằm phẳng ở cuối
-public decimal TinhGiam(Customer? customer, Order? order)
+public decimal CalculateDiscount(Customer? customer, Order? order)
 {
     if (customer is null)       return 0m;
     if (!customer.IsActive)     return 0m;
@@ -276,7 +276,7 @@ Với property pattern, để ý rằng bốn điều kiện đều là điều 
 **Lời giải — phiên bản guard clause:**
 
 ```csharp
-public decimal TinhGiam(Customer? customer, Order? order)
+public decimal CalculateDiscount(Customer? customer, Order? order)
 {
     if (customer is null)   return 0m;
     if (!customer.IsActive) return 0m;
@@ -290,7 +290,7 @@ public decimal TinhGiam(Customer? customer, Order? order)
 **Lời giải — phiên bản property pattern:**
 
 ```csharp
-public decimal TinhGiam(Customer? customer, Order? order)
+public decimal CalculateDiscount(Customer? customer, Order? order)
     => (customer, order) switch
     {
         ({ IsActive: true } c, { Total: > 0 } o) => o.Total * c.DiscountRate,
@@ -330,7 +330,7 @@ Tạo `enum LeadStatus` có bốn giá trị và một `switch expression` xử 
 ```csharp
 enum LeadStatus { New, Contacted, Qualified, Won }
 
-string MoTa(LeadStatus s) => s switch
+string Describe(LeadStatus s) => s switch
 {
     LeadStatus.New       => "Mới tạo",
     LeadStatus.Contacted => "Đã liên hệ",
@@ -381,12 +381,12 @@ Tìm trong một dự án thật một chuỗi `if-else` từ bốn nhánh trở
 **Lời giải — trước:**
 
 ```csharp
-public decimal TinhPhiVanChuyen(string khuVuc)
+public decimal CalculateShippingFee(string region)
 {
-    if (khuVuc == "HN")      return 25_000m;
-    else if (khuVuc == "HCM") return 30_000m;
-    else if (khuVuc == "DN")  return 28_000m;
-    else if (khuVuc == "CT")  return 35_000m;
+    if (region == "HN")      return 25_000m;
+    else if (region == "HCM") return 30_000m;
+    else if (region == "DN")  return 28_000m;
+    else if (region == "CT")  return 35_000m;
     else                      return 50_000m;
 }
 ```
@@ -394,7 +394,7 @@ public decimal TinhPhiVanChuyen(string khuVuc)
 **Sau:**
 
 ```csharp
-private static readonly IReadOnlyDictionary<string, decimal> PhiTheoKhuVuc =
+private static readonly IReadOnlyDictionary<string, decimal> FeeByRegion =
     new Dictionary<string, decimal>
     {
         ["HN"]  = 25_000m,
@@ -403,10 +403,10 @@ private static readonly IReadOnlyDictionary<string, decimal> PhiTheoKhuVuc =
         ["CT"]  = 35_000m,
     };
 
-private const decimal PhiMacDinh = 50_000m;
+private const decimal DefaultFee = 50_000m;
 
-public decimal TinhPhiVanChuyen(string khuVuc)
-    => PhiTheoKhuVuc.TryGetValue(khuVuc, out var phi) ? phi : PhiMacDinh;
+public decimal CalculateShippingFee(string region)
+    => FeeByRegion.TryGetValue(region, out var fee) ? fee : DefaultFee;
 ```
 
 **Trả lời câu hỏi của đề:** thêm một khu vực mới cần sửa **một dòng** thay vì hai dòng, và quan trọng hơn là sửa trong một **bảng dữ liệu** chứ không phải trong luồng điều khiển.

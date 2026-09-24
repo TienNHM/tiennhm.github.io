@@ -264,7 +264,7 @@ if (customer.Status == CustomerStatus.Active
     && customer.TotalRevenue >= 50_000_000m
     && !customer.HasOverduePayment)
 {
-    ApDungGiamGia(order);
+    ApplyDiscount(order);
 }
 ```
 
@@ -279,7 +279,7 @@ private static bool ĐủĐiềuKiệnKháchThânThiết(Customer c) =>
 
 // chỗ gọi
 if (ĐủĐiềuKiệnKháchThânThiết(customer))
-    ApDungGiamGia(order);
+    ApplyDiscount(order);
 ```
 
 **Ba lợi ích, xếp theo mức quan trọng:**
@@ -307,42 +307,42 @@ Viết một hàm trả về ba giá trị bằng `out`, rồi viết lại bằ
 
 ```csharp
 // Phiên bản 1 — out
-public void PhanTich(IEnumerable<Order> orders,
-                     out int soLuong, out decimal tong, out decimal trungBinh)
+public void Analyze(IEnumerable<Order> orders,
+                    out int count, out decimal total, out decimal average)
 {
-    soLuong = orders.Count();
-    tong = orders.Sum(o => o.Total);
-    trungBinh = soLuong == 0 ? 0 : tong / soLuong;
+    count = orders.Count();
+    total = orders.Sum(o => o.Total);
+    average = count == 0 ? 0 : total / count;
 }
 
 // Phiên bản 2 — tuple có tên
-public (int SoLuong, decimal Tong, decimal TrungBinh) PhanTich(IEnumerable<Order> orders)
+public (int Count, decimal Total, decimal Average) Analyze(IEnumerable<Order> orders)
 {
-    var soLuong = orders.Count();
-    var tong = orders.Sum(o => o.Total);
-    return (soLuong, tong, soLuong == 0 ? 0 : tong / soLuong);
+    var count = orders.Count();
+    var total = orders.Sum(o => o.Total);
+    return (count, total, count == 0 ? 0 : total / count);
 }
 
 // Phiên bản 3 — record
-public record ThongKeDonHang(int SoLuong, decimal Tong, decimal TrungBinh);
+public record OrderStats(int Count, decimal Total, decimal Average);
 
-public ThongKeDonHang PhanTich(IEnumerable<Order> orders) { /* ... */ }
+public OrderStats Analyze(IEnumerable<Order> orders) { /* ... */ }
 ```
 
 **So sánh chỗ gọi:**
 
 ```csharp
 // 1 — phải khai báo biến trước, dễ hoán đổi nhầm hai tham số cùng kiểu decimal
-PhanTich(orders, out int sl, out decimal tong, out decimal tb);
+Analyze(orders, out int c, out decimal total, out decimal avg);
 
 // 2 — một dòng, tên đi kèm
-var (soLuong, tong, trungBinh) = PhanTich(orders);
-var thongKe = PhanTich(orders);
-Console.WriteLine(thongKe.TrungBinh);
+var (count, total, average) = Analyze(orders);
+var stats = Analyze(orders);
+Console.WriteLine(stats.Average);
 
 // 3 — truyền tiếp được, so sánh được, in ra đọc được
-var thongKe = PhanTich(orders);
-LuuBaoCao(thongKe);
+var stats = Analyze(orders);
+SaveReport(stats);
 ```
 
 **Tiêu chí chọn:**
@@ -373,27 +373,27 @@ Tìm một hàm gọi `DateTime.Now` bên trong. Đổi thành tham số. Viết
 **Lời giải — trước:**
 
 ```csharp
-public bool HetHan(Subscription sub)
+public bool IsExpired(Subscription sub)
     => sub.ExpiresAt < DateTime.Now;      // đầu vào ẩn
 ```
 
 **Sau:**
 
 ```csharp
-public bool HetHan(Subscription sub, DateTime thoiDiem)
-    => sub.ExpiresAt < thoiDiem;          // mọi đầu vào đều tường minh
+public bool IsExpired(Subscription sub, DateTime asOf)
+    => sub.ExpiresAt < asOf;              // mọi đầu vào đều tường minh
 ```
 
 **Bài kiểm thử giờ viết được:**
 
 ```csharp
 [Fact]
-public void GoiHetHanDungNgay29Thang2()
+public void IsExpired_OnFeb29_UsesGivenInstant()
 {
     var sub = new Subscription { ExpiresAt = new DateTime(2024, 2, 29, 12, 0, 0) };
 
-    Assert.False(HetHan(sub, new DateTime(2024, 2, 29, 11, 59, 59)));
-    Assert.True (HetHan(sub, new DateTime(2024, 2, 29, 12, 0,  1)));
+    Assert.False(IsExpired(sub, new DateTime(2024, 2, 29, 11, 59, 59)));
+    Assert.True (IsExpired(sub, new DateTime(2024, 2, 29, 12, 0,  1)));
 }
 ```
 
