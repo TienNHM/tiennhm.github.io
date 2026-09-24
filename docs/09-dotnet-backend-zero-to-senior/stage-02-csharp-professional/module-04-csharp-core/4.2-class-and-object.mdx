@@ -219,11 +219,267 @@ Nếu cần trạng thái dùng chung, hãy đi qua dependency injection với v
 
 ## Bài tập áp dụng
 
-1. **Đếm phòng thủ thừa.** Chọn một class nghiệp vụ có constructor rỗng. Đếm số lần các hàm khác phải kiểm tra lại tính hợp lệ của nó. Viết lại constructor để chặn từ đầu, rồi đếm số `if` xoá được.
+#### Bài 1 — Đếm phòng thủ thừa
 
-2. **Chứng minh bản sao của struct.** Tạo một `struct` có field public, đưa vào `List`, rồi thử sửa qua chỉ số. Ghi lại lỗi biên dịch. Đổi sang `class` và làm lại.
+Chọn một class nghiệp vụ có constructor rỗng. Đếm số lần các hàm khác phải kiểm tra lại tính hợp lệ của nó. Viết lại constructor để chặn từ đầu, rồi đếm số `if` xoá được.
 
-3. **Đua trên trạng thái static.** Viết một endpoint ghi vào một `static List`, gọi song song 50 request. Ghi lại ngoại lệ hoặc dữ liệu sai nhận được.
+**Tiêu chí hoàn thành:** bạn có hai con số — trước và sau — và nêu được vì sao cách mới **không thể** bị bỏ sót.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Tìm các câu kiểm tra lặp lại nhiều nơi trên cùng một đối tượng:
+
+```bash
+grep -rn "string.IsNullOrEmpty(customer\|customer.Name == null\|customer.Email == null" --include=*.cs .
+```
+
+**Lời giải — trước:**
+
+```csharp
+public class Customer
+{
+    public string Name { get; set; }
+    public string Email { get; set; }
+    public decimal Revenue { get; set; }
+}
+```
+
+Vì constructor không đòi hỏi gì, mọi hàm dùng `Customer` phải tự phòng thủ:
+
+```csharp
+public void GuiEmailChaoMung(Customer c)
+{
+    if (string.IsNullOrWhiteSpace(c.Email)) return;      // kiểm tra 1
+    if (!c.Email.Contains('@')) return;                  // kiểm tra 2
+    _smtp.Send(c.Email, $"Chào {c.Name ?? "bạn"}");      // kiểm tra 3 (ngầm)
+}
+
+public string HienThi(Customer c)
+{
+    if (string.IsNullOrWhiteSpace(c.Name)) return "(chưa có tên)";   // kiểm tra 4
+    return c.Name;
+}
+
+public decimal TinhHoaHong(Customer c)
+{
+    if (c.Revenue < 0) return 0;                         // kiểm tra 5
+    return c.Revenue * 0.05m;
+}
+```
+
+**Sau — chặn tại constructor:**
+
+```csharp
+public class Customer
+{
+    public string Name { get; private set; }
+    public Email Email { get; private set; }
+    public decimal Revenue { get; private set; }
+
+    public Customer(string name, Email email)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("Tên khách hàng không được rỗng", nameof(name));
+
+        Name = name;
+        Email = email;      // Email tự xác thực trong constructor của nó
+        Revenue = 0m;
+    }
+
+    public void GhiNhanDoanhThu(decimal soTien)
+    {
+        if (soTien <= 0)
+            throw new ArgumentOutOfRangeException(nameof(soTien), "Doanh thu phải dương");
+        Revenue += soTien;
+    }
+}
+```
+
+Các hàm dùng nó rút gọn lại:
+
+```csharp
+public void GuiEmailChaoMung(Customer c) => _smtp.Send(c.Email.Value, $"Chào {c.Name}");
+public string HienThi(Customer c) => c.Name;
+public decimal TinhHoaHong(Customer c) => c.Revenue * 0.05m;
+```
+
+**Kết quả: 5 kiểm tra xuống 0.**
+
+**Vì sao cách mới không thể bị bỏ sót — và đây mới là điểm chính.** Chuyển kiểm tra vào constructor không chỉ giảm số dòng. Nó đổi **bản chất** của bảo đảm:
+
+| | Kiểm tra rải rác | Kiểm tra trong constructor |
+|---|---|---|
+| Ai chịu trách nhiệm | Mọi người dùng lớp | Chính lớp đó |
+| Quên một chỗ | Rất dễ, và không ai biết | **Không có chỗ nào để quên** |
+| Thêm hàm mới | Phải nhớ kiểm tra lại | Không cần nghĩ tới |
+| Bằng chứng | Không có | Tồn tại một `Customer` là bằng chứng nó hợp lệ |
+
+Dòng cuối là điều đáng giá nhất. Khi constructor là **lối vào duy nhất** và nó từ chối dữ liệu sai, thì **sự tồn tại của đối tượng chính là bằng chứng nó hợp lệ**. Người đọc code không cần tự hỏi "chỗ này `Name` có thể null không" nữa.
+
+**Ba điều cần có để bảo đảm này không bị thủng:**
+
+1. **Không có constructor rỗng công khai.** Có một cái là mọi bảo đảm mất hiệu lực.
+2. **Không có setter công khai.** Nếu không, người ta tạo hợp lệ rồi gán sai sau.
+3. **Thay đổi trạng thái qua phương thức có tên nghiệp vụ**, và mỗi phương thức tự kiểm tra phần của nó.
+
+**Một lưu ý về EF Core.** EF Core cần một constructor để dựng lại đối tượng từ database. Giải pháp là để nó `private`:
+
+```csharp
+private Customer() { }    // chỉ EF Core dùng, qua reflection
+```
+
+Trình biên dịch vẫn chặn code thường gọi nó, còn EF Core vẫn hoạt động. [Bài 13.3](../../stage-04-database-production/module-13-entity-framework-core/13.3-dbcontext-and-entity-configuration.mdx) trình bày chi tiết.
+
+</details>
+
+#### Bài 2 — Chứng minh bản sao của `struct`
+
+Tạo một `struct` có field công khai, đưa vào `List`, rồi thử sửa qua chỉ số. Ghi lại lỗi biên dịch. Đổi sang `class` và làm lại.
+
+**Tiêu chí hoàn thành:** bạn ghi lại được **mã lỗi** và giải thích vì sao mảng thì sửa được còn `List` thì không.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Bộ chỉ mục của `List<T>` là một **phương thức** trả về giá trị. Với kiểu giá trị, thứ trả về là một **bản sao**. Sửa một bản sao vừa được trả về thì có ý nghĩa gì?
+
+**Lời giải.**
+
+```csharp
+public struct Diem { public int X; public int Y; }
+
+var ds = new List<Diem> { new Diem { X = 1 } };
+ds[0].X = 99;        // LỖI BIÊN DỊCH
+```
+
+**Lỗi thật trên .NET 9:**
+
+```text
+error CS1612: Cannot modify the return value of 'List<Diem>.this[int]'
+              because it is not a variable
+```
+
+**Nhưng mảng thì được:**
+
+```csharp
+var mang = new Diem[] { new Diem { X = 1 } };
+mang[0].X = 99;
+Console.WriteLine(mang[0].X);   // 99
+```
+
+**Vì sao khác nhau.** Đây là chi tiết mà rất ít người biết:
+
+- `List<T>` có bộ chỉ mục là một **phương thức**. Với `struct`, nó trả về một **bản sao** trên ngăn xếp. Nếu C# cho phép sửa bản sao đó, thay đổi sẽ biến mất ngay lập tức mà không báo gì — nên trình biên dịch chặn thẳng.
+- Mảng thì khác: `mang[0]` được trình biên dịch dịch thành **truy cập trực tiếp vào ô nhớ** của phần tử, không qua bản sao. Vì vậy sửa được, và sửa có tác dụng thật.
+
+**Cách sửa phần tử `struct` trong `List`:**
+
+```csharp
+// Cách 1 — lấy ra, sửa, gán lại
+var tam = ds[0];
+tam.X = 99;
+ds[0] = tam;
+
+// Cách 2 — dùng CollectionsMarshal (nhanh, nhưng phải hiểu rủi ro)
+ref var r = ref CollectionsMarshal.AsSpan(ds)[0];
+r.X = 99;
+```
+
+Cách 2 lấy tham chiếu thẳng tới bộ nhớ nội bộ của `List`. Nó nhanh nhưng **tham chiếu đó trở nên không hợp lệ** nếu `List` thay đổi kích thước, nên chỉ dùng trong vòng lặp nóng và khi bạn chắc chắn không thêm bớt phần tử.
+
+**Bài học lớn hơn cả lỗi biên dịch này.** `struct` là kiểu giá trị, nên **mọi** phép gán, mọi lần truyền tham số, mọi lần trả về đều tạo bản sao. Điều đó dẫn tới một quy tắc:
+
+> **`struct` nên là bất biến.** Khai báo `readonly struct` và chỉ dùng thuộc tính `init`.
+
+`struct` có thể thay đổi là nguồn của một lớp lỗi rất khó tìm, vì bạn sửa một bản sao mà tưởng đang sửa bản gốc. Trình biên dịch bắt được trường hợp `List` ở trên, nhưng không bắt được mọi trường hợp — ví dụ truyền `struct` vào một hàm rồi hàm đó sửa nó.
+
+**Khi nào dùng `struct`.** Khi đối tượng nhỏ (dưới 16 byte), bất biến, và được tạo với số lượng rất lớn — ví dụ toạ độ, khoảng thời gian, số tiền. Ngoài ra thì `class` là mặc định đúng. [Bài 4.8](4.8-records-and-value-objects.mdx) bàn về `record struct`, kết hợp tính bất biến với so sánh theo giá trị.
+
+</details>
+
+#### Bài 3 — Đua trên trạng thái `static`
+
+Viết một endpoint ghi vào một `static List`, gọi song song 50 request. Ghi lại ngoại lệ hoặc dữ liệu sai nhận được.
+
+**Tiêu chí hoàn thành:** bạn tái hiện được lỗi, và nêu được vì sao nó **không xuất hiện** khi thử một mình.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** `List<T>` **không an toàn khi truy cập đồng thời**. Khi hai luồng cùng `Add` một lúc, chúng có thể cùng đọc một giá trị `_size`, cùng ghi vào một ô, hoặc gặp nhau giữa lúc mảng nội bộ đang được cấp phát lại.
+
+**Lời giải.**
+
+```csharp
+public static class KhoTam
+{
+    public static readonly List<string> DanhSach = new();
+}
+
+app.MapPost("/them", (string ten) =>
+{
+    KhoTam.DanhSach.Add(ten);
+    return Results.Ok(KhoTam.DanhSach.Count);
+});
+```
+
+Gọi song song:
+
+```bash
+for i in $(seq 1 50); do curl -s -X POST "localhost:5000/them?ten=$i" & done; wait
+curl -s localhost:5000/dem
+```
+
+**Ba kết quả có thể xảy ra, tất cả đều sai:**
+
+| Triệu chứng | Nguyên nhân |
+|---|---|
+| `Count` nhỏ hơn 50 | Hai luồng ghi đè cùng một ô |
+| `IndexOutOfRangeException` | Ghi trong lúc mảng nội bộ đang được cấp phát lại |
+| `NullReferenceException` khi duyệt | Đọc một ô chưa kịp được gán |
+
+Điều đáng sợ là **kết quả không ổn định**: chạy mười lần có thể được chín lần đúng.
+
+**Vì sao không xuất hiện khi thử một mình.** Thử thủ công nghĩa là gửi từng request một, nên không bao giờ có hai luồng cùng ở trong `Add` tại một thời điểm. Lỗi đua chỉ xuất hiện khi các thao tác **chồng lấn nhau về thời gian**, và xác suất đó tăng theo tải. Đây là lý do một lớp lỗi cả nhóm gọi là "lỗi chỉ có trên production".
+
+**Ba cách sửa, theo thứ tự nên cân nhắc:**
+
+```csharp
+// Cách 1 — ĐỪNG dùng trạng thái static. Gần như luôn là câu trả lời đúng.
+//   Dữ liệu cần chia sẻ -> database hoặc Redis.
+
+// Cách 2 — nếu buộc phải giữ trong bộ nhớ, dùng kiểu an toàn đồng thời
+public static readonly ConcurrentBag<string> DanhSach = new();
+
+// Cách 3 — khoá tường minh, khi cần thao tác phức hợp
+private static readonly Lock _khoa = new();
+public static void Them(string ten)
+{
+    lock (_khoa) { DanhSach.Add(ten); }
+}
+```
+
+**Vì sao cách 1 gần như luôn đúng.** Ngay cả khi bạn làm cho `static List` an toàn về mặt đồng thời, nó vẫn còn ba vấn đề chưa được giải quyết:
+
+1. **Mất khi khởi động lại.** Mỗi lần triển khai là dữ liệu bay hết.
+2. **Không dùng chung giữa các thể hiện.** Chạy hai bản ứng dụng là có hai danh sách khác nhau — đúng vấn đề đã chứng minh ở [bài 2.9](../../stage-01-foundation/module-02-computer-science-basics/2.9-hosting-and-cloud-co-ban.mdx).
+3. **Tăng vô hạn.** Không có gì dọn nó, nên bộ nhớ chỉ có tăng.
+
+**Trạng thái `static` chấp nhận được khi nào.** Khi nó **bất biến** và chỉ đọc: bảng tra hằng số, cấu hình nạp một lần lúc khởi động, biểu thức chính quy đã biên dịch. Đặc điểm chung là **không ai ghi vào nó sau khi khởi tạo**.
+
+```csharp
+// An toàn — bất biến, chỉ đọc
+private static readonly IReadOnlyDictionary<string, decimal> PhiTheoKhuVuc =
+    new Dictionary<string, decimal> { ["HN"] = 25_000m, ["HCM"] = 30_000m };
+
+private static readonly Regex EmailPattern =
+    new(@"^[^@\s]+@[^@\s]+$", RegexOptions.Compiled);
+```
+
+[Module 7](../module-07-dependency-injection/) trình bày cách thay trạng thái `static` bằng service có vòng đời rõ ràng, và vì sao `Singleton` giữ trạng thái người dùng lại là cùng một lỗi này dưới dạng khác.
+
+</details>
 
 ## Tự kiểm tra
 

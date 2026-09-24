@@ -237,11 +237,304 @@ Thiết kế cho kế thừa là việc tốn công: phải nghĩ xem lớp con 
 
 ## Bài tập áp dụng
 
-1. **Tự dựng vi phạm Liskov.** Cài đặt `Rectangle` và `Square` như mục 4.4.3, viết một hàm `Test` với `Debug.Assert`. Chạy với cả hai kiểu và ghi lại kết quả. Sau đó thiết kế lại để không vi phạm.
+#### Bài 1 — Tự dựng vi phạm Liskov
 
-2. **Chứng minh bẫy constructor.** Cài đặt ví dụ ở mục 4.4.4 và chạy. Ghi lại ngoại lệ đầy đủ kèm stack trace. Giải thích thứ tự khởi tạo đã gây ra nó.
+Cài đặt `HinhChuNhat` và `HinhVuong` như mục 4.4.3, viết một hàm kiểm tra dùng cả hai kiểu. Ghi lại kết quả. Sau đó thiết kế lại để không vi phạm.
 
-3. **Đổi kế thừa thành composition.** Tìm trong dự án một class kế thừa từ một class hạ tầng (`HttpClient`, `DbContext`, `BackgroundService`...). Viết lại bằng composition và so sánh độ khó khi viết unit test cho hai phiên bản.
+**Tiêu chí hoàn thành:** bạn chỉ ra được **dòng nào** trong hàm kiểm tra bộc lộ vi phạm, và vì sao trình biên dịch không bắt được.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Nguyên tắc Liskov nói: ở bất kỳ chỗ nào dùng lớp cha, thay bằng lớp con thì chương trình vẫn phải đúng. Hãy viết một hàm chỉ biết `HinhChuNhat` và đưa `HinhVuong` vào.
+
+**Lời giải — cài đặt:**
+
+```csharp
+public class HinhChuNhat
+{
+    public virtual int Rong { get; set; }
+    public virtual int Cao  { get; set; }
+    public int DienTich => Rong * Cao;
+}
+
+public class HinhVuong : HinhChuNhat
+{
+    public override int Rong
+    {
+        get => base.Rong;
+        set { base.Rong = value; base.Cao = value; }   // giữ bất biến "vuông"
+    }
+    public override int Cao
+    {
+        get => base.Cao;
+        set { base.Rong = value; base.Cao = value; }
+    }
+}
+```
+
+Hàm kiểm tra chỉ biết `HinhChuNhat`:
+
+```csharp
+void KiemTra(HinhChuNhat h)
+{
+    h.Rong = 5;
+    h.Cao  = 4;
+    Console.WriteLine($"{h.GetType().Name,-12} -> diện tích = {h.DienTich} (kỳ vọng 20)");
+}
+
+KiemTra(new HinhChuNhat());
+KiemTra(new HinhVuong());
+```
+
+**Kết quả chạy thật trên .NET 9:**
+
+```text
+HinhChuNhat  -> diện tích = 20 (kỳ vọng 20)
+HinhVuong    -> diện tích = 16 (kỳ vọng 20)
+```
+
+**Dòng bộc lộ vi phạm là `h.Cao = 4`.** Với `HinhChuNhat`, nó chỉ đặt chiều cao. Với `HinhVuong`, nó **âm thầm đặt lại cả chiều rộng** về 4, phá vỡ giả định mà hàm `KiemTra` đã ngầm dựa vào: *đặt chiều cao thì chiều rộng không đổi*.
+
+**Vì sao trình biên dịch không bắt được.** Liskov là ràng buộc về **hành vi**, không phải về **chữ ký**. `HinhVuong` cài đặt đúng mọi thành viên của `HinhChuNhat` với đúng kiểu, nên về mặt kiểu nó hoàn toàn hợp lệ. Thứ nó vi phạm là một **hợp đồng ngầm** không được viết ra ở đâu cả — và trình biên dịch không có cách nào biết về những hợp đồng ngầm.
+
+**Đây là lý do "hình vuông là hình chữ nhật" sai trong lập trình.** Trong toán học, mệnh đề đó đúng vì hình vuông là một **giá trị bất biến**. Trong lập trình, `HinhChuNhat` có **hành vi thay đổi được** — và chính hành vi ấy mới là thứ phải kế thừa được, không phải quan hệ tập hợp.
+
+**Ba cách thiết kế lại:**
+
+```csharp
+// Cách 1 — bất biến: không có setter thì không có mâu thuẫn
+public record HinhChuNhat(int Rong, int Cao) { public int DienTich => Rong * Cao; }
+public record HinhVuong(int Canh) { public int DienTich => Canh * Canh; }
+
+// Cách 2 — chung interface, không kế thừa lẫn nhau
+public interface ICoHinh { int DienTich { get; } }
+public class HinhChuNhat : ICoHinh { /* ... */ }
+public class HinhVuong  : ICoHinh { /* ... */ }
+
+// Cách 3 — bỏ hẳn quan hệ, hai kiểu riêng biệt
+```
+
+Cách 1 là cách sạch nhất và cũng là lý do `record` xuất hiện ở [bài 4.8](4.8-records-and-value-objects.mdx): **bất biến loại bỏ cả một lớp vấn đề về kế thừa.**
+
+**Phép thử Liskov thực dụng cho code của bạn.** Với mỗi lớp con, hỏi ba câu:
+
+1. Nó có **thắt chặt** điều kiện đầu vào không? Ví dụ lớp cha nhận mọi số, lớp con chỉ nhận số dương — **vi phạm**.
+2. Nó có **nới lỏng** bảo đảm đầu ra không? Lớp cha hứa trả về danh sách không rỗng, lớp con trả về rỗng — **vi phạm**.
+3. Nó có ném **ngoại lệ mới** mà lớp cha không ném không? Đặc biệt là `NotImplementedException` — **vi phạm rõ ràng nhất**.
+
+Câu thứ ba bắt được trường hợp phổ biến nhất trong code thật: lớp con kế thừa rồi ném `NotSupportedException` cho những phương thức nó không làm được. Đó là dấu hiệu quan hệ kế thừa sai ngay từ đầu.
+
+</details>
+
+#### Bài 2 — Chứng minh bẫy gọi `virtual` trong constructor
+
+Cài đặt ví dụ ở mục 4.4.4 và chạy. Ghi lại ngoại lệ đầy đủ kèm dấu vết ngăn xếp. Giải thích thứ tự khởi tạo đã gây ra nó.
+
+**Tiêu chí hoàn thành:** bạn giải thích được vì sao cùng một mẫu code mà **có trường hợp không lỗi** — phụ thuộc vào cách khai báo field.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Thứ tự khởi tạo trong C# có một chi tiết ít người nhớ: **field initializer của lớp con chạy TRƯỚC constructor của lớp cha**, còn **thân constructor của lớp con chạy SAU**. Hai cách khai báo field cho hai kết quả khác nhau.
+
+**Lời giải — hai biến thể:**
+
+```csharp
+public class Base
+{
+    public Base() { Console.WriteLine("  [Base ctor] gọi Khoi()"); Khoi(); }
+    protected virtual void Khoi() { }
+}
+
+// Biến thể A — field initializer
+public class ConA : Base
+{
+    private readonly List<string> _ds = new();
+    protected override void Khoi() { _ds.Add("x"); Console.WriteLine("  [ConA.Khoi] OK, _ds có " + _ds.Count); }
+}
+
+// Biến thể B — gán trong thân constructor
+public class ConB : Base
+{
+    private readonly List<string> _ds;
+    public ConB() { _ds = new List<string>(); Console.WriteLine("  [ConB ctor] đã gán _ds"); }
+    protected override void Khoi() { _ds.Add("x"); }
+}
+```
+
+**Kết quả chạy thật trên .NET 9:**
+
+```text
+ConA (field initializer):
+  [Base ctor] gọi Khoi()
+  [ConA.Khoi] OK, _ds có 1
+
+ConB (gán trong thân ctor):
+  [Base ctor] gọi Khoi()
+  NÉM NullReferenceException: Object reference not set to an instance of an object.
+  stack:
+    at ConB.Khoi() in Program.cs:line 12
+    at Base..ctor() in Program.cs:line 2
+    at ConB..ctor() in Program.cs:line 11
+    at P.Main() in Program.cs:line 18
+```
+
+**Đọc dấu vết ngăn xếp từ dưới lên** cho thấy chính xác thứ tự: `ConB..ctor()` gọi `Base..ctor()`, và `Base..ctor()` gọi `ConB.Khoi()` — **trước khi** thân `ConB..ctor()` kịp chạy dòng gán `_ds`.
+
+**Thứ tự khởi tạo đầy đủ trong C#:**
+
+```text
+1. Field initializer của LỚP CON        <- ConA an toàn nhờ bước này
+2. Constructor của LỚP CHA chạy
+   -> tại đây lời gọi virtual đã đi tới lớp con
+3. Thân constructor của LỚP CON         <- ConB gán _ds ở đây, quá muộn
+```
+
+**Vì sao ConA không lỗi.** Field initializer nằm ở bước 1, chạy trước cả constructor lớp cha, nên `_ds` đã sẵn sàng khi `Khoi()` được gọi. Đây chính là chi tiết khiến bẫy này **khó phát hiện**: cùng một mẫu thiết kế, đổi cách khai báo field là hành vi đổi hoàn toàn. Code chạy tốt suốt nhiều tháng, rồi ai đó chuyển một field từ initializer sang gán trong constructor vì cần tham số, và lỗi xuất hiện.
+
+**Quy tắc.** **Không bao giờ gọi phương thức `virtual` trong constructor.** Bộ phân tích mã của .NET có cảnh báo riêng cho việc này, mã `CA2214` — bật nó lên:
+
+```xml
+<PropertyGroup>
+  <EnableNETAnalyzers>true</EnableNETAnalyzers>
+  <AnalysisMode>Recommended</AnalysisMode>
+</PropertyGroup>
+```
+
+**Ba cách thay thế:**
+
+```csharp
+// Cách 1 — phương thức khởi tạo tách rời, gọi sau khi đã dựng xong
+var doiTuong = new ConB();
+doiTuong.KhoiTao();
+
+// Cách 2 — phương thức nhà máy tĩnh
+public static ConB Tao()
+{
+    var x = new ConB();
+    x.Khoi();
+    return x;
+}
+
+// Cách 3 — sealed, để không ai override được
+public sealed class ConB : Base { }
+```
+
+Cách 3 đáng chú ý: `sealed` làm cho lời gọi `virtual` trong constructor trở nên vô hại, vì không còn lớp con nào để gọi tới. Đây là một lý do thực tế để đánh dấu `sealed` cho các lớp không định cho kế thừa — và cũng giúp trình biên dịch tối ưu tốt hơn.
+
+</details>
+
+#### Bài 3 — Đổi kế thừa thành composition
+
+Tìm trong dự án một class kế thừa từ một class hạ tầng. Viết lại bằng composition và so sánh độ khó khi viết unit test cho hai phiên bản.
+
+**Tiêu chí hoàn thành:** bạn viết được một bài kiểm thử cho phiên bản composition mà **không cần** hạ tầng thật.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Tìm bằng:
+
+```bash
+grep -rn "class .* : \(HttpClient\|DbContext\|BackgroundService\|ControllerBase\)" --include=*.cs .
+```
+
+Với mỗi kết quả, hỏi: lớp này **là một** thứ đó, hay chỉ **dùng** thứ đó?
+
+**Lời giải — trước, kế thừa:**
+
+```csharp
+public class CrmApiClient : HttpClient
+{
+    public CrmApiClient()
+    {
+        BaseAddress = new Uri("https://api.company.com/");
+        DefaultRequestHeaders.Add("X-App", "CRM");
+    }
+
+    public async Task<Customer?> LayKhachHangAsync(int id, CancellationToken ct)
+    {
+        var res = await GetAsync($"customers/{id}", ct);
+        if (res.StatusCode == HttpStatusCode.NotFound) return null;
+        res.EnsureSuccessStatusCode();
+        return await res.Content.ReadFromJsonAsync<Customer>(ct);
+    }
+}
+```
+
+Ba vấn đề:
+
+1. Lộ ra **toàn bộ** bề mặt của `HttpClient` — hơn 20 thành viên công khai mà người dùng lớp này không cần và không nên chạm tới.
+2. Không kiểm thử được nếu không gọi mạng thật, hoặc không dựng một `HttpMessageHandler` giả.
+3. Không thay được cài đặt: muốn có bản giả cho môi trường phát triển thì phải kế thừa tiếp.
+
+**Sau — composition kèm interface:**
+
+```csharp
+public interface ICrmApiClient
+{
+    Task<Customer?> LayKhachHangAsync(int id, CancellationToken ct);
+}
+
+public class CrmApiClient : ICrmApiClient
+{
+    private readonly HttpClient _http;
+
+    public CrmApiClient(HttpClient http) => _http = http;
+
+    public async Task<Customer?> LayKhachHangAsync(int id, CancellationToken ct)
+    {
+        var res = await _http.GetAsync($"customers/{id}", ct);
+        if (res.StatusCode == HttpStatusCode.NotFound) return null;
+        res.EnsureSuccessStatusCode();
+        return await res.Content.ReadFromJsonAsync<Customer>(ct);
+    }
+}
+```
+
+Đăng ký bằng `IHttpClientFactory`, đúng như [bài 2.3](../../stage-01-foundation/module-02-computer-science-basics/2.3-how-the-internet-works.mdx) đã chứng minh là cần thiết:
+
+```csharp
+builder.Services.AddHttpClient<ICrmApiClient, CrmApiClient>(c =>
+{
+    c.BaseAddress = new Uri("https://api.company.com/");
+    c.DefaultRequestHeaders.Add("X-App", "CRM");
+});
+```
+
+**So sánh việc viết kiểm thử:**
+
+```csharp
+// Với bản kế thừa — phải dựng handler giả, và vẫn đi qua HttpClient thật
+var handler = new FakeHttpMessageHandler(/* ... khoảng 30 dòng ... */);
+var client = new CrmApiClient();   // không tiêm được handler vào, phải dùng reflection
+
+// Với bản composition — kiểm thử lớp GỌI nó không cần gì cả
+var apiGia = Substitute.For<ICrmApiClient>();
+apiGia.LayKhachHangAsync(42, Arg.Any<CancellationToken>())
+      .Returns(new Customer("An", "an@x.com"));
+
+var service = new CustomerService(apiGia);
+var kq = await service.HienThiAsync(42, default);
+
+Assert.Equal("An", kq.Name);
+```
+
+**Bảng so sánh:**
+
+| | Kế thừa | Composition |
+|---|---|---|
+| Bề mặt công khai | Toàn bộ `HttpClient` | Đúng một phương thức |
+| Kiểm thử lớp gọi nó | Cần handler giả | Một dòng bản giả |
+| Đổi cài đặt | Phải kế thừa tiếp | Đăng ký lớp khác |
+| Quản lý nhóm kết nối | Tự lo | `IHttpClientFactory` lo |
+
+**Nguyên tắc chọn.** Kế thừa diễn đạt quan hệ **"là một"**; composition diễn đạt quan hệ **"có một"** hoặc **"dùng một"**. `CrmApiClient` không **là một** `HttpClient` — nó **dùng** `HttpClient` để làm việc của nó. Nhầm hai quan hệ này là nguồn gốc của phần lớn cây kế thừa khó bảo trì.
+
+**Trường hợp kế thừa vẫn đúng.** Khi framework yêu cầu, ví dụ `class MyController : ControllerBase` hay `class MyJob : BackgroundService`. Lúc đó kế thừa là giao diện bắt buộc với framework — nhưng ngay cả vậy, hãy giữ lớp đó **mỏng** và đẩy logic nghiệp vụ sang một service được tiêm vào, để phần logic ấy vẫn kiểm thử được độc lập.
+
+</details>
 
 ## Tự kiểm tra
 

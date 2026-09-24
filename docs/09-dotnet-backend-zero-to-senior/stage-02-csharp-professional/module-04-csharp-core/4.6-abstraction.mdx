@@ -179,11 +179,248 @@ Quy ước .NET: interface bắt đầu bằng `I`. Điều này không phổ bi
 
 ## Bài tập áp dụng
 
-1. **Chạy phép thử rò rỉ.** Chọn một interface trong dự án. Giả định đổi cài đặt sang một công nghệ khác. Liệt kê mọi file phải sửa. Nếu có file nào ngoài lớp cài đặt, trừu tượng đó đang rò rỉ.
+#### Bài 1 — Chạy phép thử rò rỉ
 
-2. **Dịch ngoại lệ.** Tìm một chỗ `catch` một ngoại lệ đặc trưng của thư viện hạ tầng ở tầng nghiệp vụ. Thêm bước dịch sang ngoại lệ của miền, và xoá kiến thức về mã lỗi khỏi tầng nghiệp vụ.
+Chọn một interface trong dự án. Giả định đổi cài đặt sang một công nghệ khác. Liệt kê mọi file phải sửa. Nếu có file nào ngoài lớp cài đặt, trừu tượng đó đang rò rỉ.
 
-3. **Đếm trừu tượng một cài đặt.** Liệt kê mọi interface trong dự án chỉ có đúng một lớp cài đặt và không vượt ranh giới hạ tầng nào. Với mỗi cái, trả lời: xoá nó đi thì mất gì?
+**Tiêu chí hoàn thành:** bạn chỉ ra được **kiểu dữ liệu nào** trong chữ ký interface đang gây rò rỉ.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Rò rỉ hầu như luôn nằm ở **kiểu dữ liệu xuất hiện trong chữ ký**, không nằm ở tên phương thức. Hãy đọc từng chữ ký và hỏi: kiểu này đến từ thư viện nào?
+
+**Lời giải — interface rò rỉ:**
+
+```csharp
+public interface IOrderRepository
+{
+    IQueryable<Order> Query();                                    // rò rỉ 1
+    Task<Order> LayAsync(int id, CancellationToken ct);
+    Task LuuAsync(CancellationToken ct);                          // rò rỉ 2
+    Task<EntityEntry<Order>> ThemAsync(Order o, CancellationToken ct);   // rò rỉ 3
+}
+```
+
+**Ba chỗ rò rỉ và vì sao:**
+
+| Chỗ | Vấn đề |
+|---|---|
+| `IQueryable<Order>` | Người gọi viết truy vấn LINQ, và **những truy vấn đó chỉ EF Core dịch được**. Đổi sang Dapper là mọi nơi gọi đều hỏng. |
+| `LuuAsync()` | Phơi bày khái niệm `SaveChanges` của EF Core. Một kho dữ liệu dạng khác có thể không có khái niệm "lưu tất cả cùng lúc". |
+| `EntityEntry<Order>` | Kiểu này **thuộc về EF Core**. Tầng nghiệp vụ buộc phải tham chiếu EF Core chỉ để biên dịch. |
+
+**Chạy phép thử:** giả sử đổi sang Dapper.
+
+```bash
+grep -rn "\.Query()\|IQueryable<\|EntityEntry<" --include=*.cs src/Crm.Application/
+```
+
+Nếu kết quả trả về các file service, handler, controller — tức là **ngoài lớp cài đặt** — thì trừu tượng đang rò rỉ. Mỗi file đó là một chỗ phải sửa khi đổi công nghệ.
+
+**Sau khi sửa:**
+
+```csharp
+public interface IOrderRepository
+{
+    Task<Order?> LayTheoIdAsync(int id, CancellationToken ct);
+    Task<IReadOnlyList<Order>> LayTheoKhachHangAsync(int customerId, CancellationToken ct);
+    Task<IReadOnlyList<Order>> TimChuaThanhToanAsync(DateTime truocNgay, CancellationToken ct);
+    Task ThemAsync(Order order, CancellationToken ct);
+}
+```
+
+Mọi kiểu trong chữ ký đều thuộc về **miền nghiệp vụ** hoặc thư viện chuẩn: `Order`, `IReadOnlyList`, `DateTime`, `CancellationToken`. Không có gì của EF Core. Giờ đổi sang Dapper chỉ cần viết một lớp cài đặt mới.
+
+**Đánh đổi phải thừa nhận.** Bản không rò rỉ đòi hỏi **một phương thức cho mỗi kiểu truy vấn**. Với hệ thống nhiều loại truy vấn, interface sẽ phình to, và bạn mất khả năng ghép điều kiện linh hoạt mà `IQueryable` cho phép.
+
+Vì vậy hãy quyết định có ý thức, đừng theo giáo điều:
+
+| Tình huống | Nên chọn |
+|---|---|
+| Ứng dụng nhỏ, chắc chắn dùng EF Core lâu dài | Dùng thẳng `DbContext`, đừng bọc |
+| Cần kiểm thử tầng nghiệp vụ không cần database | Bọc bằng interface không rò rỉ |
+| Nhiều nguồn dữ liệu, hoặc dự định đổi công nghệ | Bọc, và bọc kỹ |
+| Truy vấn báo cáo phức tạp, nhiều tổ hợp điều kiện | Tách riêng, cho phép dùng `IQueryable` **chỉ ở phía đọc** |
+
+Dòng cuối là một mẫu thực dụng đáng biết: tách phía **ghi** (bọc kỹ, giữ bất biến nghiệp vụ) khỏi phía **đọc** (cho phép truy vấn linh hoạt, vì đọc không phá vỡ quy tắc nào). Đây là ý tưởng nền của CQRS mà [Module 16](../../stage-05-senior-engineering/module-16-clean-architecture/) trình bày.
+
+</details>
+
+#### Bài 2 — Dịch ngoại lệ ở ranh giới
+
+Tìm một chỗ `catch` một ngoại lệ đặc trưng của thư viện hạ tầng ở tầng nghiệp vụ. Thêm bước dịch sang ngoại lệ của miền, và xoá kiến thức về mã lỗi khỏi tầng nghiệp vụ.
+
+**Tiêu chí hoàn thành:** tầng nghiệp vụ không còn tham chiếu tới kiểu ngoại lệ nào của thư viện hạ tầng.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Tìm bằng:
+
+```bash
+grep -rn "catch (SqlException\|catch (PostgresException\|catch (DbUpdateException\|catch (HttpRequestException" --include=*.cs src/Crm.Application/
+```
+
+Mỗi kết quả là một chỗ mà tầng nghiệp vụ đang **biết quá nhiều** về cách dữ liệu được lưu.
+
+**Lời giải — trước:**
+
+```csharp
+// Crm.Application/CustomerService.cs
+public async Task<int> TaoAsync(string ten, string email, CancellationToken ct)
+{
+    try
+    {
+        var c = new Customer(ten, new Email(email));
+        await _repo.ThemAsync(c, ct);
+        return c.Id;
+    }
+    catch (PostgresException ex) when (ex.SqlState == "23505")   // mã lỗi của PostgreSQL
+    {
+        throw new InvalidOperationException("Email đã tồn tại");
+    }
+}
+```
+
+Hai vấn đề: tầng nghiệp vụ phải tham chiếu `Npgsql`, và nó chứa kiến thức về mã lỗi `23505` — thứ sẽ thành vô nghĩa nếu đổi sang SQL Server, nơi lỗi tương ứng mang số 2627.
+
+**Sau — dịch ở ranh giới hạ tầng:**
+
+```csharp
+// Crm.Application/Exceptions/DuplicateEmailException.cs
+public class DuplicateEmailException : DomainException
+{
+    public string Email { get; }
+    public DuplicateEmailException(string email)
+        : base($"Email {email} đã được sử dụng") => Email = email;
+}
+
+// Crm.Infrastructure/EfCustomerRepository.cs  <- NƠI DUY NHẤT biết về mã lỗi
+public async Task ThemAsync(Customer c, CancellationToken ct)
+{
+    try
+    {
+        _db.Customers.Add(c);
+        await _db.SaveChangesAsync(ct);
+    }
+    catch (DbUpdateException ex) when (LaLoiTrungKhoa(ex))
+    {
+        throw new DuplicateEmailException(c.Email.Value);
+    }
+}
+
+private static bool LaLoiTrungKhoa(DbUpdateException ex) =>
+    ex.InnerException switch
+    {
+        PostgresException { SqlState: "23505" } => true,
+        SqlException { Number: 2627 or 2601 }   => true,
+        _ => false
+    };
+```
+
+Tầng nghiệp vụ giờ chỉ còn:
+
+```csharp
+public async Task<int> TaoAsync(string ten, string email, CancellationToken ct)
+{
+    var c = new Customer(ten, new Email(email));
+    await _repo.ThemAsync(c, ct);      // ném DuplicateEmailException nếu trùng
+    return c.Id;
+}
+```
+
+**Ba lợi ích:**
+
+1. **Kiến thức hạ tầng nằm ở đúng một chỗ.** Thêm SQL Server chỉ cần thêm một nhánh trong `LaLoiTrungKhoa`.
+2. **Ngoại lệ mang ngữ nghĩa nghiệp vụ.** `DuplicateEmailException` nói rõ chuyện gì xảy ra; `PostgresException` với mã `23505` thì không.
+3. **Ánh xạ sang mã HTTP trở nên tự nhiên.** Tầng API bắt `DuplicateEmailException` và trả `409 Conflict`, không cần biết gì về database:
+
+   ```csharp
+   app.UseExceptionHandler(...);   // ánh xạ DomainException -> ProblemDetails
+   ```
+
+   [Bài 8.9](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.9-global-exception-handling.mdx) trình bày cách cài đặt ánh xạ này một lần cho toàn ứng dụng.
+
+**Nguyên tắc chung.** Mỗi ranh giới kiến trúc nên **dịch** ngoại lệ, không cho chúng đi xuyên qua. Ngoại lệ đi xuyên ranh giới mang theo chi tiết cài đặt, và chính điều đó biến một trừu tượng đẹp trên giấy thành một trừu tượng rò rỉ trong thực tế.
+
+**Một lưu ý về hiệu năng.** Đừng dùng ngoại lệ cho luồng bình thường. Nếu "email đã tồn tại" là tình huống xảy ra thường xuyên chứ không phải ngoại lệ, hãy trả về `Result<T>` như [Module 5](../module-05-advanced-csharp/) trình bày — ném và bắt ngoại lệ tốn kém hơn nhiều so với trả về một giá trị.
+
+</details>
+
+#### Bài 3 — Đếm trừu tượng chỉ có một cài đặt
+
+Liệt kê mọi interface trong dự án chỉ có đúng một lớp cài đặt và không vượt ranh giới hạ tầng nào. Với mỗi cái, trả lời: xoá nó đi thì mất gì?
+
+**Tiêu chí hoàn thành:** bạn phân loại được thành nhóm "giữ" và nhóm "xoá được", kèm lý do cho từng cái.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Tìm ứng viên:
+
+```bash
+for i in $(grep -rhoP 'interface \KI\w+' --include=*.cs src/ | sort -u); do
+  n=$(grep -rl ": .*\b$i\b" --include=*.cs src/ | wc -l)
+  [ "$n" -le 1 ] && echo "$i  (cài đặt: $n)"
+done
+```
+
+**Lời giải — ba nhóm:**
+
+**Nhóm 1 — giữ, vì vượt ranh giới hạ tầng.**
+
+```csharp
+public interface IEmailSender { }       // cài đặt: SmtpEmailSender
+public interface IFileStorage { }       // cài đặt: S3FileStorage
+public interface IOrderRepository { }   // cài đặt: EfOrderRepository
+```
+
+Dù chỉ có một cài đặt, chúng vẫn đáng giá vì:
+
+- Cho phép kiểm thử tầng nghiệp vụ mà không cần SMTP, S3, database.
+- Đảo chiều phụ thuộc như bài 1 ở [bài 4.5](4.5-interface.mdx) đã phân tích.
+- Đánh dấu một **ranh giới kiến trúc có chủ ý**.
+
+**Nhóm 2 — giữ, vì có cài đặt thứ hai dùng cho môi trường phát triển.**
+
+```csharp
+public interface IPaymentGateway { }
+// cài đặt thật:  VnPayGateway
+// cài đặt giả:   FakePaymentGateway  (dùng ở môi trường Development)
+```
+
+Đây thực ra là hai cài đặt, chỉ là script đếm ở trên không thấy vì bản giả nằm trong dự án khác.
+
+**Nhóm 3 — xoá được.**
+
+```csharp
+public interface ICustomerMapper { }    // cài đặt: CustomerMapper — chỉ ánh xạ DTO
+public interface IPriceCalculator { }   // cài đặt: PriceCalculator — logic thuần
+public interface IValidationHelper { }  // cài đặt: ValidationHelper — hàm tiện ích
+```
+
+Cả ba đều là **logic thuần tuý** không chạm tới thứ gì bên ngoài. Xoá interface đi thì:
+
+- Kiểm thử vẫn viết được bình thường — chúng vốn đã tất định, không cần bản giả.
+- Không có ranh giới kiến trúc nào bị phá vỡ.
+- **Lợi được**: bớt một file phải mở mỗi khi muốn xem code thật làm gì.
+
+**Ba lý do chính đáng để một interface tồn tại:**
+
+1. **Có nhiều cài đặt thật**, hoặc chắc chắn sẽ có trong tương lai gần và cụ thể.
+2. **Vượt ranh giới hạ tầng** — database, mạng, hệ thống file, đồng hồ, số ngẫu nhiên.
+3. **Đánh dấu ranh giới kiến trúc có chủ ý** giữa hai tầng hoặc hai module.
+
+Không thuộc ba lý do trên thì lớp cụ thể là đủ.
+
+**Về lập luận "để sau này dễ thay".** Đây là lý do được viện dẫn nhiều nhất và đúng ít nhất. Trong thực tế, khi cài đặt thứ hai thật sự xuất hiện, interface viết từ trước thường **không vừa** — vì nó được thiết kế quanh cài đặt duy nhất đang có. Bạn vẫn phải sửa nó. Trong khi đó, trình soạn thảo hiện đại trích xuất interface từ một lớp cụ thể chỉ bằng vài phím.
+
+Nói cách khác: chi phí **thêm** interface khi cần là rất thấp; chi phí **mang theo** hàng chục interface vô ích suốt vòng đời dự án thì không.
+
+**Một dấu hiệu nhận biết nhanh.** Interface đặt tên bằng cách thêm chữ `I` vào trước tên lớp — `ICustomerMapper` cho `CustomerMapper` — gần như luôn thuộc nhóm 3. Interface có giá trị thường được đặt tên theo **năng lực** chứ không theo lớp cài đặt: `IEmailSender`, `IFileStorage`, `IClock`.
+
+</details>
 
 ## Tự kiểm tra
 
