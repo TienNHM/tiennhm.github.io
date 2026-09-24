@@ -224,11 +224,303 @@ TaskScheduler.UnobservedTaskException += (_, e) =>
 
 ## Bài tập áp dụng
 
-1. **Thứ tự pipeline.** Đặt `UseExceptionHandler()` **sau** một middleware ném exception, xác nhận client nhận trang lỗi mặc định thay vì `ProblemDetails`. Chuyển lên đầu và kiểm chứng lại.
+#### Bài 1 — Thứ tự đường ống quyết định handler có chạy hay không
 
-2. **Rò rỉ thông tin.** Cấu hình handler trả `exception.ToString()`, gây một `SqlException` bằng sai mật khẩu, và ghi lại **chính xác** những thông tin lọt ra ngoài.
+Đặt `UseExceptionHandler()` **sau** một middleware ném ngoại lệ, xác nhận client nhận trang lỗi mặc định thay vì `ProblemDetails`. Chuyển lên đầu và kiểm chứng lại.
 
-3. **Chi phí exception.** Viết hai endpoint "không tìm thấy", một ném `NotFoundException` và một trả `NotFound()`. Bắn 10.000 request vào mỗi cái và so sánh p99 latency.
+**Tiêu chí hoàn thành:** bạn giải thích được bằng mô hình đường ống hai chiều ở [bài 8.3](8.3-request-pipeline-and-middleware.mdx).
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Ngoại lệ lan **ngược** ra ngoài theo ngăn xếp gọi. Chỉ middleware **bọc ngoài** chỗ ném mới có cơ hội bắt.
+
+**Lời giải — bản sai:**
+
+```csharp
+var app = builder.Build();
+
+app.Use(async (ctx, next) =>
+{
+    if (ctx.Request.Path == "/loi") throw new InvalidOperationException("nổ ở đây");
+    await next();
+});
+
+app.UseExceptionHandler();      // quá muộn — nằm BÊN TRONG middleware trên
+app.MapControllers();
+```
+
+```bash
+curl -i localhost:5000/loi
+```
+
+Ở Development, bạn nhận trang lỗi chi tiết của developer. Ở Production, một phản hồi `500` trống rỗng — không `ProblemDetails`, không mã tương quan.
+
+**Bản đúng:**
+
+```csharp
+app.UseExceptionHandler();      // ĐẦU TIÊN — bọc ngoài mọi thứ
+
+app.Use(async (ctx, next) => { /* ... */ });
+app.MapControllers();
+```
+
+```json
+{
+  "type": "https://tools.ietf.org/html/rfc9110#section-15.6.1",
+  "title": "Đã xảy ra lỗi khi xử lý yêu cầu",
+  "status": 500,
+  "traceId": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+}
+```
+
+**Giải thích bằng mô hình đường ống.** Nhớ lại cấu trúc lồng nhau:
+
+```text
+Sai:   [middleware ném] ( [UseExceptionHandler] ( [MapControllers] ) )
+       ngoại lệ ném ở LỚP NGOÀI -> không có ai bọc nó -> lọt ra ngoài
+
+Đúng:  [UseExceptionHandler] ( [middleware ném] ( [MapControllers] ) )
+       ngoại lệ ném ở lớp trong -> lan ra và bị lớp ngoài bắt
+```
+
+Cùng một nguyên tắc với khối `try/catch`: `catch` chỉ bắt được những gì ném **bên trong** khối `try` tương ứng.
+
+**Thứ tự chuẩn — `UseExceptionHandler` luôn là dòng đầu tiên:**
+
+```csharp
+var app = builder.Build();
+
+app.UseExceptionHandler();         // 1. bọc ngoài cùng
+app.UseHttpsRedirection();
+app.UseRouting();
+app.UseCors();
+app.UseAuthentication();
+app.UseAuthorization();
+app.MapControllers();
+```
+
+**Ba loại ngoại lệ mà `UseExceptionHandler` *không* bắt được:**
+
+| Loại | Vì sao | Xử lý bằng |
+|---|---|---|
+| Ném **trong chính** exception handler | Không có lớp nào bọc nó | Giữ handler cực đơn giản |
+| Ném **sau khi** phản hồi đã bắt đầu | Không sửa được phản hồi đang gửi | Kiểm tra `Response.HasStarted` |
+| Ném lúc **khởi động**, trước `app.Run()` | Đường ống chưa tồn tại | `try/catch` quanh `Program.Main` |
+
+Loại thứ hai đáng chú ý: nếu một endpoint đã ghi một phần body rồi mới ném, `ProblemDetails` không thể được gửi vì header đã đi — đúng vấn đề `HasStarted` ở [bài 8.3](8.3-request-pipeline-and-middleware.mdx). Client nhận một phản hồi **cụt**, và đây là một trong những lỗi khó chẩn đoán nhất.
+
+**Bắt lỗi khởi động:**
+
+```csharp
+try
+{
+    var app = builder.Build();
+    // ...
+    app.Run();
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "Ứng dụng không khởi động được");
+    throw;
+}
+finally
+{
+    Log.CloseAndFlush();      // quan trọng — đẩy hết log ra trước khi thoát
+}
+```
+
+Không có `try/catch` này, một lỗi khởi động chỉ để lại dấu vết trong output của tiến trình — thứ có thể đã biến mất khi container bị xoá.
+
+</details>
+
+#### Bài 2 — Rò rỉ thông tin qua thông báo lỗi
+
+Cấu hình handler trả `exception.ToString()`, gây một lỗi kết nối database bằng mật khẩu sai, và ghi lại **chính xác** những thông tin lọt ra ngoài.
+
+**Tiêu chí hoàn thành:** bạn liệt kê được ít nhất **năm** loại thông tin nội bộ bị lộ.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Đừng chỉ nhìn thông báo lỗi. Hãy đọc **toàn bộ** chuỗi mà `ToString()` trả về, gồm cả dấu vết ngăn xếp và ngoại lệ bên trong.
+
+**Lời giải — bản rò rỉ:**
+
+```csharp
+app.UseExceptionHandler(a => a.Run(async ctx =>
+{
+    var ex = ctx.Features.Get<IExceptionHandlerFeature>()?.Error;
+    ctx.Response.StatusCode = 500;
+    await ctx.Response.WriteAsync(ex?.ToString() ?? "");   // RÒ RỈ
+}));
+```
+
+**Phản hồi khi sai mật khẩu database:**
+
+```text
+Npgsql.PostgresException (0x80004005): 28P01: password authentication failed
+for user "crm_prod_user"
+   at Npgsql.Internal.NpgsqlConnector.<Authenticate>g__AuthenticateSASL|...
+   at Crm.Infrastructure.EfOrderRepository.LayTheoIdAsync(Int32 id, CancellationToken ct)
+      in /home/deploy/src/Crm.Infrastructure/EfOrderRepository.cs:line 47
+   at Crm.Application.OrderService.XuLyAsync(...)
+      in /home/deploy/src/Crm.Application/OrderService.cs:line 112
+   at Crm.Api.Controllers.OrdersController.Tao(...)
+      in /home/deploy/src/Crm.Api/Controllers/OrdersController.cs:line 38
+  Severity: FATAL, SqlState: 28P01, Routine: auth_failed, File: auth.c, Line: 326
+```
+
+**Bảy loại thông tin bị lộ:**
+
+| # | Thông tin | Kẻ tấn công dùng để |
+|---|---|---|
+| 1 | Loại database: PostgreSQL, và phiên bản driver | Chọn đúng bộ khai thác |
+| 2 | **Tên tài khoản database**: `crm_prod_user` | Nửa đầu của cặp thông tin đăng nhập |
+| 3 | **Đường dẫn máy chủ**: `/home/deploy/src/...` | Suy ra cấu trúc triển khai, người dùng hệ thống |
+| 4 | Cấu trúc namespace và tên lớp | Vẽ bản đồ kiến trúc nội bộ |
+| 5 | Số dòng mã nguồn | Xác nhận phiên bản, đối chiếu với mã nguồn công khai nếu có |
+| 6 | Mã lỗi nội bộ của PostgreSQL và tên file nguồn của nó | Xác định chính xác phiên bản database |
+| 7 | Toàn bộ chuỗi gọi từ controller xuống repository | Hiểu luồng xử lý để tìm điểm yếu |
+
+Không thông tin nào trong bảng trên có ích cho người dùng hợp lệ. Tất cả đều có ích cho người đang dò tìm.
+
+**Bản đúng — tách hai luồng thông tin:**
+
+```csharp
+public sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> log)
+    : IExceptionHandler
+{
+    public async ValueTask<bool> TryHandleAsync(
+        HttpContext ctx, Exception ex, CancellationToken ct)
+    {
+        var traceId = Activity.Current?.Id ?? ctx.TraceIdentifier;
+
+        // ĐẦY ĐỦ vào log phía server
+        log.LogError(ex, "Lỗi chưa xử lý. TraceId={TraceId}, Path={Path}",
+                     traceId, ctx.Request.Path);
+
+        // CHUNG CHUNG cho client
+        var pd = new ProblemDetails
+        {
+            Status = StatusCodes.Status500InternalServerError,
+            Title = "Đã xảy ra lỗi khi xử lý yêu cầu",
+            Detail = "Vui lòng thử lại. Nếu vẫn lỗi, liên hệ hỗ trợ kèm mã tra cứu.",
+            Extensions = { ["traceId"] = traceId }
+        };
+
+        ctx.Response.StatusCode = pd.Status.Value;
+        await ctx.Response.WriteAsJsonAsync(pd, ct);
+        return true;
+    }
+}
+
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddProblemDetails();
+```
+
+**Nguyên tắc: log đầy đủ, trả về tối thiểu, nối hai bên bằng mã tra cứu.** Người dùng báo lỗi kèm `traceId`, bộ phận hỗ trợ tra ra đúng chuỗi log trong vài giây — mà không tiết lộ gì ra ngoài.
+
+**Ngoại lệ nghiệp vụ thì khác.** Chúng được thiết kế để người dùng đọc, nên trả chi tiết là đúng:
+
+```csharp
+ex switch
+{
+    NotFoundException e     => (404, e.Message),
+    ValidationException e   => (400, e.Message),
+    DuplicateEmailException => (409, "Email đã được sử dụng"),
+    _                       => (500, "Đã xảy ra lỗi khi xử lý yêu cầu")   // mặc định: giấu
+}
+```
+
+Điểm mấu chốt: **danh sách cho phép**, không phải danh sách cấm. Ngoại lệ **chưa biết** rơi vào nhánh mặc định và bị giấu — nên thêm một loại ngoại lệ mới sau này cũng không vô tình rò rỉ gì.
+
+**Kiểm tra dự án của bạn:**
+
+```bash
+grep -rn "ex.ToString()\|ex.StackTrace\|exception.Message" --include=*.cs src/ \
+  | grep -iv "log\|logger"
+```
+
+Mỗi kết quả là một chỗ cần rà: thông tin đó đi tới client hay chỉ vào log?
+
+</details>
+
+#### Bài 3 — Chi phí của ngoại lệ trong luồng thường
+
+Viết hai endpoint "không tìm thấy", một ném `NotFoundException` và một trả `NotFound()`. Bắn 10.000 request vào mỗi cái và so sánh độ trễ phân vị 99.
+
+**Tiêu chí hoàn thành:** bạn có hai con số và một kết luận **cân bằng** về việc khi nào chi phí đó đáng quan tâm.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Bài này nối tiếp phép đo ở [bài 4.10](../../stage-02-csharp-professional/module-04-csharp-core/4.10-common-mistakes.mdx), nơi ngoại lệ chậm hơn `TryParse` 778 lần. Nhưng ở đây ngăn xếp **sâu hơn nhiều**, nên chi phí cũng khác.
+
+**Lời giải.**
+
+```csharp
+app.MapGet("/nem/{id:int}", (int id) =>
+{
+    var kh = _repo.Lay(id);
+    if (kh is null) throw new NotFoundException($"Không tìm thấy khách hàng {id}");
+    return Results.Ok(kh);
+});
+
+app.MapGet("/tra/{id:int}", (int id) =>
+{
+    var kh = _repo.Lay(id);
+    return kh is null ? Results.NotFound() : Results.Ok(kh);
+});
+```
+
+```bash
+bombardier -c 50 -n 10000 http://localhost:5000/nem/99999
+bombardier -c 50 -n 10000 http://localhost:5000/tra/99999
+```
+
+**Kết quả điển hình:**
+
+| | Ném ngoại lệ | Trả `NotFound()` |
+|---|---|---|
+| Thông lượng | thấp hơn rõ rệt | cao hơn |
+| Độ trễ trung vị | cao hơn vài trăm micro-giây | thấp |
+| **Độ trễ phân vị 99** | **cao hơn đáng kể** | ổn định |
+
+Chênh lệch ở phân vị 99 lớn hơn ở trung vị — vì ném ngoại lệ tạo thêm cấp phát bộ nhớ, và những lần thu gom rác kéo theo rơi vào phần đuôi của phân bố.
+
+**Vì sao ngăn xếp sâu làm chi phí tăng.** Khi ném trong một endpoint ASP.NET Core, runtime phải đi ngược qua toàn bộ chuỗi middleware để tìm khối `catch` — thường là hàng chục khung ngăn xếp, so với vài khung trong một vòng lặp đơn giản.
+
+**Kết luận cân bằng — đây là phần chính của bài.** Đừng kết luận "không bao giờ dùng ngoại lệ". Hãy hỏi: **tình huống này có thường xuyên không?**
+
+| Tình huống | Tần suất | Nên dùng |
+|---|---|---|
+| Tra một mã khách hàng người dùng gõ tay | Sai thường xuyên | **Trả `NotFound()`** |
+| Truy cập tài nguyên đã bị xoá | Thỉnh thoảng | Trả `NotFound()` |
+| Mất kết nối database | Hiếm | **Ngoại lệ** |
+| Lỗi lập trình, trạng thái không thể xảy ra | Không bao giờ nên xảy ra | **Ngoại lệ** |
+
+**Ngưỡng thực dụng.** Nếu một tình huống xảy ra ở **hơn 1% số request**, hãy biểu diễn nó bằng giá trị trả về chứ đừng ném ngoại lệ. Dưới ngưỡng đó, chi phí không đáng kể so với một truy vấn database, và tính rõ ràng của code quan trọng hơn.
+
+**Mẫu `Result<T>` giữ được cả hai:**
+
+```csharp
+var kq = await _service.LayAsync(id, ct);
+
+return kq.Loai switch
+{
+    LoaiKetQua.ThanhCong    => Results.Ok(kq.Value),
+    LoaiKetQua.KhongTimThay => Results.NotFound(),
+    LoaiKetQua.ViPhamQuyTac => Results.BadRequest(kq.Loi),
+    _ => Results.StatusCode(500)
+};
+```
+
+Không ném ngoại lệ cho luồng bình thường, nhưng vẫn có xử lý ngoại lệ toàn cục làm lưới an toàn cho những gì thật sự bất thường.
+
+**Một điều đáng đo hơn cả tốc độ: ảnh hưởng tới log và cảnh báo.** Mỗi ngoại lệ ném ra thường sinh một dòng log mức `Error`. Một endpoint trả "không tìm thấy" 10.000 lần mỗi ngày sẽ tạo 10.000 dòng lỗi giả, làm ngập log thật và khiến cảnh báo mất giá trị — đúng vấn đề đã bàn ở [bài 2.5](../../stage-01-foundation/module-02-computer-science-basics/2.5-http-https.mdx) về mã trạng thái.
+
+</details>
 
 ## Tự kiểm tra
 
