@@ -17977,7 +17977,7 @@ Note: Nội dung dưới đây đã được rút gọn để giữ dung lượn
 
 ### 1.12.2 — Thực Hành
 
-### Bài 1 — Máy tính đơn giản (Dễ)
+#### Bài 1 — Máy tính đơn giản (Dễ)
 
 Viết hàm `TinhToan` nhận vào 2 số và 1 toán tử (`+`, `-`, `*`, `/`), trả về kết quả.
 
@@ -17997,7 +17997,7 @@ Console.WriteLine(TinhToan(10, 0, '/'));  // Thông báo lỗi hoặc double.NaN
 
 Gợi ý: Dùng `switch expression` và trả về `double.NaN` (Not a Number) khi chia cho 0.
 
-### Bài 2 — Phân tích danh sách điểm (Trung bình)
+#### Bài 2 — Phân tích danh sách điểm (Trung bình)
 
 Cho danh sách điểm thi, tính điểm trung bình, tìm điểm cao nhất và thấp nhất, đếm số học viên đạt (>= 50 điểm).
 
@@ -18024,7 +18024,7 @@ PhanTichDiem(diem);
 // Số đạt: 5/8 (62.5%)
 [/code]
 
-### Bài 3 — Đếm tần suất (Trung bình - Khá)
+#### Bài 3 — Đếm tần suất (Trung bình - Khá)
 
 Đếm số lần xuất hiện của mỗi từ trong một câu. Dùng `Dictionary<string, int>`.
 
@@ -18047,7 +18047,7 @@ foreach (var cap in tanSuat)
     Console.WriteLine($"{cap.Key}: {cap.Value} lần");
 [/code]
 
-### Bài 4 — Hệ thống lead CRM mini (Nâng cao)
+#### Bài 4 — Hệ thống lead CRM mini (Nâng cao)
 
 Xây dựng chương trình quản lý lead đơn giản:
 
@@ -20166,7 +20166,7 @@ Note: Nội dung dưới đây đã được rút gọn để giữ dung lượn
 
 ### 2.14.1 — Thực hành
 
-### Bài 1 — Dùng Browser DevTools xem HTTP Request
+#### Bài 1 — Dùng Browser DevTools xem HTTP Request
 
 1. Mở Chrome/Edge, vào bất kỳ website nào (ví dụ `https://jsonplaceholder.typicode.com/users`)
 2. Nhấn `F12` → tab Network
@@ -20179,7 +20179,7 @@ Note: Nội dung dưới đây đã được rút gọn để giữ dung lượn
 
 Câu hỏi tự kiểm tra: Status code là bao nhiêu? Content-Type là gì? Mất bao nhiêu ms?
 
-### Bài 2 — Gọi Public API bằng curl hoặc Postman
+#### Bài 2 — Gọi Public API bằng curl hoặc Postman
 
 Dùng API miễn phí `https://jsonplaceholder.typicode.com` để thực hành:
 
@@ -20203,7 +20203,7 @@ Nếu dùng Postman: Tạo collection "CRM Practice", thêm các request tương
 
 Thách thức thêm: Gọi `DELETE /posts/1` và xem status code trả về là gì (204 hay 200?).
 
-### Bài 3 — Tạo Project .NET đầu tiên
+#### Bài 3 — Tạo Project .NET đầu tiên
 
 [code bash]
 # Kiểm tra .NET SDK đã cài
@@ -20628,23 +20628,24 @@ Không có bước này thì rất dễ bỏ cả ngày tối ưu câu SQL trong
 
 ## Bài tập áp dụng
 
-1. Bóc tách độ trễ. Chạy lệnh `curl -w` ở mục 2.3.6 với ba mục tiêu: một API nội bộ, một website trong nước, một website nước ngoài. Lập bảng năm chặng và chỉ ra chặng nào khác biệt nhất.
+#### Bài 1 — Bóc tách độ trễ thành năm chặng
 
-2. Quan sát DNS TTL. Dùng `dig crm.company.com` (hoặc `nslookup`) trên một tên miền bất kỳ, ghi lại TTL. Chạy lại sau 30 giây và xem TTL giảm đi. Giải thích con số đó nói gì về thời gian chờ khi đổi bản ghi.
+Chạy `curl -w` với ba mục tiêu: một API nội bộ, một website trong nước, một website nước ngoài. Lập bảng năm chặng và chỉ ra chặng nào khác biệt nhất.
 
-3. Đo cái giá của kết nối mới. Viết một chương trình nhỏ gọi cùng một API 20 lần: lần một tạo `HttpClient` mới mỗi lượt, lần hai dùng lại một instance. So sánh tổng thời gian.
+Tiêu chí hoàn thành: bạn nói được chặng nào do mạng quyết định và chặng nào do server quyết định.
 
-## Tự kiểm tra
+  Gợi ý và lời giải — Bài 1
 
-## Kết luận
+Gợi ý. `curl` cho phép in các mốc thời gian tích luỹ. Hiệu của hai mốc liền nhau chính là thời gian của một chặng. Chặng cuối — từ lúc kết nối xong tới lúc nhận byte đầu tiên — là chặng duy nhất phản ánh công sức xử lý của server.
 
-Ba điều đáng nhớ nhất:
+Lời giải.
 
-1. Bốn lượt đi về xảy ra trước request đầu tiên. Đó là lý do kết nối phải được dùng lại chứ không tạo mới.
-2. DNS TTL quyết định thời gian chờ khi chuyển máy chủ. Hạ TTL trước, đổi bản ghi sau.
-3. Tách TTFB ra khỏi phần còn lại trước khi tối ưu. Nếu không, rất dễ sửa nhầm chỗ.
+[code bash]
+FMT='%{time_namelookup} %{time_connect} %{time_appconnect} %{time_starttransfer} %{time_total}\n'
+curl -s -o /dev/null -w "$FMT" https://tiennhm.io.vn/
+[/code]
 
-## Tham khảo
+Kết quả đo thật (giây, mốc tích luỹ từ lúc bắt đầu):
 
 [… phần còn lại đã lược bớt]
 
@@ -20790,17 +20791,21 @@ Không có phương án đúng tuyệt đối. Nhưng chú ý dòng SEO: nội d
 
 ## Bài tập áp dụng
 
-1. Bỏ qua giao diện. Lấy một chức năng trong dự án chỉ dành cho admin. Đăng nhập bằng tài khoản thường, lấy token, rồi gọi thẳng endpoint đó bằng `curl`. Nếu nó chạy, bạn vừa tìm ra một lỗ hổng thật.
+#### Bài 1 — Bỏ qua giao diện
 
-2. Chứng minh tính stateless. Gọi một API cần đăng nhập hai lần: một lần có header `Authorization`, một lần không. Quan sát mã trạng thái. Giải thích vì sao máy chủ không "nhớ" bạn giữa hai lần gọi.
+Lấy một chức năng trong dự án chỉ dành cho quản trị viên. Đăng nhập bằng tài khoản thường, lấy token, rồi gọi thẳng endpoint đó bằng `curl`.
 
-3. Phân loại thay đổi API. Lấy năm thay đổi gần nhất trong API của bạn và xếp vào bảng ở mục 2.4.4. Với những thay đổi phá vỡ tương thích, trả lời: ứng dụng di động phiên bản cũ có còn chạy được không?
+Tiêu chí hoàn thành: endpoint trả về `403`. Nếu nó trả về `200`, bạn vừa tìm ra một lỗ hổng thật và cần báo ngay.
 
-## Tự kiểm tra
+Warning: Chỉ làm trên hệ thống bạn có quyền
+Bài này là kiểm thử bảo mật trên chính dự án của bạn hoặc môi trường thử nghiệm. Đừng chạy nó lên hệ thống của người khác khi chưa được cho phép bằng văn bản.
+G: ợi ý và lời giải — Bài 1
 
-## Kết luận
+Gợi ý. Giao diện ẩn một nút đi không làm endpoint biến mất. Trình duyệt chỉ là một client; `curl` là một client khác, và máy chủ không phân biệt được hai thứ đó.
 
-Ba điều đáng nhớ nhất:
+Lấy token bằng cách đăng nhập rồi mở DevTools, tab Network, tìm header `Authorization` trong một request bất kỳ.
+
+Lời giải.
 
 [… phần còn lại đã lược bớt]
 
@@ -21932,9 +21937,19 @@ jobs:
 
 ## Bài tập áp dụng
 
-1. Phân loại lịch sử cũ. Lấy 30 commit gần nhất của dự án. Gán cho mỗi cái một loại Conventional Commits. Đếm bao nhiêu cái bạn không phân loại nổi vì message quá mơ hồ.
+#### Bài 1 — Phân loại lịch sử cũ
 
-2. Dựng commitlint. Cài đặt theo mục 3.11.5 vào một kho thử. Thử commit với message `update code` và ghi lại thông báo từ chối.
+Lấy 30 commit gần nhất của dự án. Gán cho mỗi cái một loại Conventional Commits. Đếm bao nhiêu cái bạn không phân loại nổi vì message quá mơ hồ.
+
+Tiêu chí hoàn thành: bạn có tỉ lệ cụ thể, và nhận ra rằng con số đó chính là phần lịch sử đã mất giá trị.
+
+  Gợi ý và lời giải — Bài 1
+
+Gợi ý. Lấy danh sách rồi phân loại:
+
+[code bash]
+git log --oneline -30 --no-merges
+[/code]
 
 [… phần còn lại đã lược bớt]
 
@@ -22523,7 +22538,7 @@ Note: Nội dung dưới đây đã được rút gọn để giữ dung lượn
 
 ### 3.15.1 — Thực hành
 
-### Bài 1 — Khởi tạo repo CRM (Cơ bản)
+#### Bài 1 — Khởi tạo repo CRM (Cơ bản)
 
 [code bash]
 # Tạo thư mục và init git
@@ -22548,7 +22563,7 @@ git push -u origin main
 
 Mục tiêu: Có repo trên GitHub với ít nhất 1 commit.
 
-### Bài 2 — Feature branch workflow (Trung bình)
+#### Bài 2 — Feature branch workflow (Trung bình)
 
 [code bash]
 # Tạo branch cho tính năng customer search
@@ -22571,7 +22586,7 @@ git push origin feature/crm-customer-search
 
 Mục tiêu: Hoàn thành vòng lặp branch → commit → PR → merge.
 
-### Bài 3 — Resolve conflict (Khó)
+#### Bài 3 — Resolve conflict (Khó)
 
 Mô phỏng conflict để luyện tập:
 
@@ -22600,7 +22615,7 @@ git commit -m "fix(crm): resolve merge conflict in UpdateCustomer validation"
 
 Mục tiêu: Resolve conflict thành công và giữ nguyên cả hai tính năng validation.
 
-### Bài 4 — Submit PR vào CRM repo mẫu (Nâng cao)
+#### Bài 4 — Submit PR vào CRM repo mẫu (Nâng cao)
 
 1. Fork repo mẫu: `github.com/course/crm-backend-starter`
 2. Clone về máy
@@ -22823,23 +22838,32 @@ Biết ranh giới này giúp bạn không bối rối khi chuyển sang GitLab 
 
 ## Bài tập áp dụng
 
-1. Nhìn vào bên trong một commit. Chạy `git cat-file -p HEAD` trong một kho bất kỳ. Đọc năm phần của commit. Sau đó `git cat-file -p <mã tree>` để xem cây thư mục.
+#### Bài 1 — Nhìn vào bên trong một commit
 
-2. Chứng minh commit bất biến. Ghi lại `git rev-parse HEAD`. Chạy `git commit --amend -m "message khác"`. Ghi lại mã mới. So sánh hai mã và giải thích vì sao chúng khác nhau. Sau đó dùng `git reflog` tìm lại commit cũ.
+Chạy `git cat-file -p HEAD` trong một kho bất kỳ. Đọc các phần của commit. Sau đó chạy `git cat-file -p <mã tree>` để xem cây thư mục.
 
-3. Dùng staging area cho đúng. Sửa ba file thuộc hai việc khác nhau. Dùng `git add` để tạo hai commit riêng, mỗi commit chỉ chứa phần thuộc về một việc. Kiểm tra bằng `git show --stat`.
+Tiêu chí hoàn thành: bạn giải thích được vì sao commit đầu tiên của kho thiếu một dòng so với các commit sau.
 
-## Tự kiểm tra
+  Gợi ý và lời giải — Bài 1
 
-## Kết luận
+Gợi ý. `cat-file -p` in ra nội dung thô của một đối tượng trong kho Git, đúng như Git lưu nó. Hãy so sánh output của commit đầu tiên với một commit ở giữa lịch sử.
 
-Ba điều đáng nhớ nhất:
+Lời giải — commit thứ hai trở đi:
 
-1. Commit là ảnh chụp bất biến, không phải bản vá. Hiểu điều này là hiểu vì sao Git hành xử như nó hành xử.
-2. Không lệnh nào sửa được commit cũ. Chúng chỉ tạo commit mới — nên hầu hết sai lầm đều cứu được.
-3. Staging area là nơi bạn biên tập câu chuyện. Dùng nó để mỗi commit chỉ nói một việc.
+[code bash]
+git cat-file -p HEAD
+[/code]
 
-## Tham khảo
+[code text]
+tree e4916ac4507ef42a747100f9341dcb7589b1ffa4
+parent ec780ca705ddad72bfff8d01dc8517d4602866fd
+author Thu Nghiem <a@b.c> 1790257555 +0000
+committer Thu Nghiem <a@b.c> 1790257555 +0000
+
+commit 2
+[/code]
+
+Commit đầu tiên của kho:
 
 [… phần còn lại đã lược bớt]
 
@@ -23037,6 +23061,8 @@ git config --global core.editor "code --wait"
 
 ## Bài tập áp dụng
 
+#### Bài 1 — Tìm bí mật đang bị theo dõi
+
 [… phần còn lại đã lược bớt]
 
 ============================================================================
@@ -23219,7 +23245,9 @@ Quy tắc bao trùm: ba lệnh đầu là ba lệnh duy nhất phá được d�
 
 ## Bài tập áp dụng
 
-1. Tự làm mất rồi tự cứu. Trên một kho thử: tạo ba commit, chạy `git reset --hard HEAD~3`, rồi dùng `reflog` khôi phục đủ cả ba. Ghi lại từng lệnh đã dùng.
+#### Bài 1 — Tự làm mất rồi tự cứu
+
+Trên một kho thử: tạo ba commit, chạy `git reset --hard HEAD~3`, rồi dùng `reflog` khôi phục đủ cả ba. Ghi lại từng lệnh đã dùng.
 
 [… phần còn lại đã lược bớt]
 
@@ -23394,15 +23422,17 @@ git revert a1b2c3d     # an toàn trên nhánh chung
 
 ## Bài tập áp dụng
 
-1. Tách bằng `add -p`. Sửa hai việc không liên quan trong cùng một file. Dùng `git add -p` tách thành hai commit. Kiểm tra bằng `git show --stat` rằng mỗi commit chỉ chứa phần của nó.
+#### Bài 1 — Tách bằng `git add -p`
 
-2. Kiểm tra tiêu chí hoàn tác. Lấy năm commit gần nhất trong dự án của bạn. Với mỗi cái, trả lời: nếu `git revert` riêng nó, hệ thống còn chạy không? Đếm số commit không đạt.
+Sửa hai việc không liên quan trong cùng một file. Dùng `git add -p` tách thành hai commit. Kiểm tra bằng `git show --stat` rằng mỗi commit chỉ chứa phần của nó.
 
-3. Truy nguồn một dòng code. Chọn một dòng khó hiểu trong dự án. Dùng `git blame` tìm commit, đọc message. Message đó có giải thích được vì sao dòng ấy tồn tại không? Nếu không, bạn vừa thấy cái giá của message cẩu thả.
+Tiêu chí hoàn thành: hai commit tách bạch, và sau commit thứ nhất `git diff` vẫn còn hiện phần việc thứ hai.
 
-## Tự kiểm tra
+  Gợi ý và lời giải — Bài 1
 
-## Kết luận
+Gợi ý. `git add -p` đi qua từng đoạn thay đổi (hunk) và hỏi bạn có đưa nó vào staging không. Nếu hai việc nằm quá gần nhau và Git gộp thành một đoạn, hãy nhấn `s` để chia nhỏ, hoặc `e` để chọn tay từng dòng.
+
+Lời giải.
 
 [… phần còn lại đã lược bớt]
 
@@ -23579,9 +23609,17 @@ Khác biệt giữa `-d` và `-D` là một lưới an toàn thật sự: `-d` t
 
 ## Bài tập áp dụng
 
-1. Nhìn thấy con trỏ. Tạo một nhánh mới, rồi `cat .git/refs/heads/<tên>`. Commit một lần rồi xem lại file đó. Giải thích thứ vừa thay đổi.
+#### Bài 1 — Nhìn thấy con trỏ
 
-2. So sánh hai hình dạng. Tạo hai nhánh cùng tách từ `main`, mỗi nhánh một commit. Merge nhánh thứ nhất (fast-forward), rồi merge nhánh thứ hai (tạo merge commit). Xem `git log --oneline --graph --all` và mô tả khác biệt.
+Tạo một nhánh mới, rồi `cat .git/refs/heads/<tên>`. Commit một lần rồi xem lại file đó. Giải thích thứ vừa thay đổi.
+
+Tiêu chí hoàn thành: bạn nói được vì sao tạo một nhánh trong kho có hàng nghìn commit lại tức thời.
+
+  Gợi ý và lời giải — Bài 1
+
+Gợi ý. Mở file bằng `cat` và đếm xem nó có bao nhiêu ký tự. Con số đó nói lên tất cả.
+
+Lời giải — output thật:
 
 [… phần còn lại đã lược bớt]
 
@@ -24877,7 +24915,7 @@ Note: Nội dung dưới đây đã được rút gọn để giữ dung lượn
 
 ### 4.14.1 — Thực hành
 
-### Bài 1: Domain model sản phẩm
+#### Bài 1: Domain model sản phẩm
 
 Xây dựng các class `Category`, `Supplier`, `Product` với quan hệ liên kết.
 
@@ -24904,7 +24942,7 @@ public class Product : BaseEntity
 }
 [/code]
 
-### Bài 2: Interface `IPriceable` và `IDiscountable`
+#### Bài 2: Interface `IPriceable` và `IDiscountable`
 
 Định nghĩa và áp dụng hai interface cho `Product`.
 
@@ -24932,7 +24970,7 @@ public static void PrintPrice(IPriceable item)
     => Console.WriteLine($"Giá cuối: {item.GetFinalPrice()}");
 [/code]
 
-### Bài 3 (CRM): Domain model đầy đủ
+#### Bài 3 (CRM): Domain model đầy đủ
 
 Xây dựng domain model CRM tích hợp tất cả kiến thức trong module.
 
@@ -27040,7 +27078,7 @@ Note: Nội dung dưới đây đã được rút gọn để giữ dung lượn
 
 ### 5.13.1 — Thực hành
 
-### Bài 1 — Refactor `CustomerService` God Class
+#### Bài 1 — Refactor `CustomerService` God Class
 
 Yêu cầu: File `CustomerService.cs` hiện tại có 400 dòng gồm: CRUD, gửi email, tính loyalty point, export CSV, ghi audit log.
 
@@ -27056,7 +27094,7 @@ Checklist:
 - [ ] Không class nào `new()` dependency trực tiếp
 - [ ] Có unit test cho từng class (mock dependency qua interface)
 
-### Bài 2 — LINQ Thống Kê CRM
+#### Bài 2 — LINQ Thống Kê CRM
 
 Cho `AppDbContext` có: `Customers`, `Leads`, `Deals`. Viết các query sau:
 
@@ -27101,7 +27139,7 @@ var conversionRate = await context.Leads
     .ToListAsync();
 [/code]
 
-### Bài 3 — Generic `PagedResult ` và `Result ` Error Handling
+#### Bài 3 — Generic `PagedResult ` và `Result ` Error Handling
 
 [code csharp]
 // Mở rộng EfRepository để trả PagedResult
@@ -29193,7 +29231,7 @@ Note: Nội dung dưới đây đã được rút gọn để giữ dung lượn
 
 ### 6.13.1 — Thực hành
 
-### Bài 1: Convert sync service thành async với CancellationToken
+#### Bài 1: Convert sync service thành async với CancellationToken
 
 Cho sync service sau, hãy refactor thành async và pass `CancellationToken` xuyên suốt:
 
@@ -29225,7 +29263,7 @@ Yêu cầu:
 3. Thêm `CancellationToken ct = default` vào mỗi method
 4. Viết unit test mock `DbContext` để kiểm tra cancel behavior
 
-### Bài 2: Gọi song song 3 service với WhenAll + timeout
+#### Bài 2: Gọi song song 3 service với WhenAll + timeout
 
 [code csharp]
 // Implement method này
@@ -29255,7 +29293,7 @@ Yêu cầu:
 3. Bắt lỗi từng task riêng lẻ, log, không fail toàn bộ
 4. Trả về số lượng kênh gửi thành công
 
-### Bài 3: IAsyncEnumerable\<T\> stream danh sách khách hàng
+#### Bài 3: IAsyncEnumerable\<T\> stream danh sách khách hàng
 
 [code csharp]
 // Implement streaming export không load toàn bộ vào RAM
@@ -31401,7 +31439,7 @@ Note: Nội dung dưới đây đã được rút gọn để giữ dung lượn
 
 ### 7.14.1 — Thực hành
 
-### Bài 1: Refactor CustomerService — Hard-coded sang DI
+#### Bài 1: Refactor CustomerService — Hard-coded sang DI
 
 Cho `CustomerService` ban đầu (tightly coupled ở đầu module), hãy:
 
@@ -31434,7 +31472,7 @@ public class CustomerService
 }
 [/code]
 
-### Bài 2: Setup DI Container và viết Unit Test với Mock
+#### Bài 2: Setup DI Container và viết Unit Test với Mock
 
 1. Tạo DI container đầy đủ cho CRM:
    - `CustomerService` (Scoped), `LeadService` (Scoped), `SmtpEmailService` (Singleton)
@@ -31482,7 +31520,7 @@ public class CustomerServiceTests
 
 3. Quan sát sự khác biệt giữa Transient và Scoped bằng cách resolve cùng service hai lần và so sánh `ReferenceEquals`.
 
-### Bài 3: Options Pattern cho CrmSettings
+#### Bài 3: Options Pattern cho CrmSettings
 
 1. Tạo `CrmSettings` và `appsettings.json` như ví dụ trong phần 6
 2. Đăng ký với `ValidateDataAnnotations()` và `ValidateOnStart()`
@@ -33685,7 +33723,7 @@ Note: Nội dung dưới đây đã được rút gọn để giữ dung lượn
 
 ### 8.14.1 — Thực hành
 
-### Bài 1: Project mới + Middleware đo thời gian
+#### Bài 1: Project mới + Middleware đo thời gian
 
 Yêu cầu: Tạo project ASP.NET Core Web API, thêm middleware đo thời gian request/response.
 
@@ -33704,7 +33742,7 @@ app.UseMiddleware<RequestTimingMiddleware>();
 
 Kiểm tra: Gọi `GET /weatherforecast`, xem log xuất hiện thời gian xử lý.
 
-### Bài 2: Serilog + Correlation ID Middleware
+#### Bài 2: Serilog + Correlation ID Middleware
 
 Yêu cầu: Tích hợp Serilog structured logging, thêm correlation ID middleware để mỗi request log đều có `CorrelationId`.
 
@@ -33723,7 +33761,7 @@ app.UseSerilogRequestLogging();
 
 Kiểm tra: Header request không có `X-Correlation-ID` → server tự sinh GUID. Header có sẵn → server dùng lại. Mọi log của request đều có `CorrelationId` cùng giá trị.
 
-### Bài 3: CustomersController — API đầu tiên của CRM
+#### Bài 3: CustomersController — API đầu tiên của CRM
 
 Yêu cầu: Xây dựng `CustomersController` với GET list (có phân trang) và GET by id, xử lý `NotFoundException` qua `GlobalExceptionHandler`.
 
@@ -35888,7 +35926,7 @@ Note: Nội dung dưới đây đã được rút gọn để giữ dung lượn
 
 ### 9.14.1 — Thực hành
 
-### Bài 1: Customer REST API đầy đủ CRUD với Pagination + Filter + Sort
+#### Bài 1: Customer REST API đầy đủ CRUD với Pagination + Filter + Sort
 
 Implement `CustomersController` với các endpoints:
 
@@ -35905,7 +35943,7 @@ Yêu cầu:
 - Global exception handler trả về `ProblemDetails`.
 - Swagger với XML comments và `ProducesResponseType` đầy đủ.
 
-### Bài 2: File Upload API cho Avatar và Document Attachment
+#### Bài 2: File Upload API cho Avatar và Document Attachment
 
 Implement các endpoints:
 
@@ -35921,7 +35959,7 @@ Yêu cầu:
 - Trả về URL có thể truy cập công khai.
 - (Nâng cao) Tích hợp Azure Blob Storage với `Azure.Storage.Blobs`.
 
-### Bài 3: Integration Test với WebApplicationFactory cho Customer API
+#### Bài 3: Integration Test với WebApplicationFactory cho Customer API
 
 Viết test suite với `xUnit` và `WebApplicationFactory`:
 
@@ -38066,7 +38104,7 @@ Note: Nội dung dưới đây đã được rút gọn để giữ dung lượn
 
 ### 10.15.1 — Thực hành
 
-### Bài 1 — Implement JWT Auth cho CRM
+#### Bài 1 — Implement JWT Auth cho CRM
 
 Yêu cầu: Xây dựng 3 endpoint: `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/refresh`.
 
@@ -38081,7 +38119,7 @@ Hướng dẫn:
 
 Kiểm tra: Dùng Postman gọi login → lấy token → gọi `GET /api/customers` với Bearer token.
 
-### Bài 2 — Policy-based Authorization: SalesRep chỉ truy cập Customer của mình
+#### Bài 2 — Policy-based Authorization: SalesRep chỉ truy cập Customer của mình
 
 Yêu cầu: `PUT /api/customers/{id}` — SalesRep chỉ được update customer mà `OwnerId == userId`. Manager/Admin được update tất cả.
 
