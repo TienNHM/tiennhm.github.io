@@ -143,11 +143,168 @@ Không có bước này thì rất dễ bỏ cả ngày tối ưu câu SQL trong
 
 ## Bài tập áp dụng
 
-1. **Bóc tách độ trễ.** Chạy lệnh `curl -w` ở mục 2.3.6 với ba mục tiêu: một API nội bộ, một website trong nước, một website nước ngoài. Lập bảng năm chặng và chỉ ra chặng nào khác biệt nhất.
+#### Bài 1 — Bóc tách độ trễ thành năm chặng
 
-2. **Quan sát DNS TTL.** Dùng `dig crm.company.com` (hoặc `nslookup`) trên một tên miền bất kỳ, ghi lại TTL. Chạy lại sau 30 giây và xem TTL giảm đi. Giải thích con số đó nói gì về thời gian chờ khi đổi bản ghi.
+Chạy `curl -w` với ba mục tiêu: một API nội bộ, một website trong nước, một website nước ngoài. Lập bảng năm chặng và chỉ ra chặng nào khác biệt nhất.
 
-3. **Đo cái giá của kết nối mới.** Viết một chương trình nhỏ gọi cùng một API 20 lần: lần một tạo `HttpClient` mới mỗi lượt, lần hai dùng lại một instance. So sánh tổng thời gian.
+**Tiêu chí hoàn thành:** bạn nói được chặng nào do **mạng** quyết định và chặng nào do **server** quyết định.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** `curl` cho phép in các mốc thời gian tích luỹ. Hiệu của hai mốc liền nhau chính là thời gian của một chặng. Chặng cuối — từ lúc kết nối xong tới lúc nhận byte đầu tiên — là chặng duy nhất phản ánh công sức xử lý của server.
+
+**Lời giải.**
+
+```bash
+FMT='%{time_namelookup} %{time_connect} %{time_appconnect} %{time_starttransfer} %{time_total}\n'
+curl -s -o /dev/null -w "$FMT" https://tiennhm.io.vn/
+```
+
+**Kết quả đo thật (giây, mốc tích luỹ từ lúc bắt đầu):**
+
+```text
+mục tiêu            dns       tcp       tls       ttfb      tổng
+tiennhm.io.vn       0.080947  0.125172  0.232079  0.535858  0.565653
+vnexpress.net       0.019848  0.021087  0.084963  0.099342  0.104570
+www.bbc.com         0.048177  0.107146  0.227329  0.298442  0.538572
+```
+
+**Bóc thành từng chặng** (lấy hiệu của hai cột liền nhau), đơn vị mili-giây:
+
+| Chặng | tiennhm.io.vn | vnexpress.net | www.bbc.com | Do ai quyết định |
+|---|---|---|---|---|
+| Phân giải tên miền | 81 | 20 | 48 | Máy chủ DNS + bộ nhớ đệm |
+| Bắt tay TCP | 44 | 1 | 59 | **Khoảng cách địa lý** |
+| Bắt tay TLS | 107 | 64 | 120 | Khoảng cách + cấu hình mã hoá |
+| Chờ server xử lý | 304 | 14 | 71 | **Ứng dụng của bạn** |
+| Tải nội dung | 30 | 5 | 240 | Kích thước nội dung + băng thông |
+
+**Đọc bảng này thế nào.** `vnexpress.net` có TCP chỉ **1 ms** vì máy đo nằm cùng khu vực — gần như không có khoảng cách vật lý. `www.bbc.com` mất 59 ms cho cùng thao tác vì gói tin phải đi nửa vòng trái đất. Không dòng code nào sửa được chênh lệch này; chỉ có đặt máy chủ gần người dùng hơn, hoặc dùng CDN.
+
+Ngược lại, cột "chờ server xử lý" của `tiennhm.io.vn` là 304 ms — cao nhất bảng và **là chặng duy nhất bạn kiểm soát được**. Đây chính là nơi tối ưu truy vấn, thêm bộ nhớ đệm và sửa lỗi N+1 có tác dụng.
+
+**Vì sao phép bóc tách này quan trọng.** Khi ai đó báo "API chậm", câu hỏi đầu tiên phải là *chậm ở chặng nào*. Ba nguyên nhân thường bị nhầm lẫn:
+
+- **DNS chậm** — thường do TTL quá ngắn hoặc máy chủ DNS ở xa. Sửa bằng cấu hình, không phải bằng code.
+- **TLS chậm** — bắt tay TLS tốn một tới hai vòng khứ hồi. Sửa bằng cách bật dùng lại kết nối và HTTP/2, không phải bằng code nghiệp vụ.
+- **Chờ server chậm** — đây mới là phần thuộc về ứng dụng.
+
+Tối ưu truy vấn database khi vấn đề thật nằm ở TLS là việc rất hay xảy ra, và nó tốn nhiều ngày công mà không cải thiện gì. [Module 19](../../stage-05-senior-engineering/module-19-performance-engineering/) bắt đầu bằng đúng nguyên tắc này: đo trước, sửa sau.
+
+</details>
+
+#### Bài 2 — Quan sát DNS TTL
+
+Dùng `dig` hoặc `nslookup` trên một tên miền bất kỳ, ghi lại TTL. Chạy lại sau 30 giây và xem TTL giảm. Giải thích con số đó nói gì về thời gian chờ khi đổi bản ghi.
+
+**Tiêu chí hoàn thành:** bạn tính được thời gian tối đa mà một phần người dùng vẫn bị dẫn tới máy chủ cũ sau khi bạn đổi DNS.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** TTL là viết tắt của *time to live* — số **giây** mà một máy chủ DNS trung gian được phép giữ câu trả lời trong bộ nhớ đệm trước khi phải hỏi lại. Nếu nó giảm dần mỗi lần bạn hỏi lại, nghĩa là bạn đang nhận câu trả lời từ bộ đệm chứ không phải từ nguồn.
+
+**Lời giải.**
+
+```bash
+dig +noall +answer tiennhm.io.vn
+```
+
+**Kết quả thật:**
+
+```text
+tiennhm.io.vn.		300	IN	A	185.199.108.153
+tiennhm.io.vn.		300	IN	A	185.199.111.153
+tiennhm.io.vn.		300	IN	A	185.199.110.153
+```
+
+Số `300` là TTL, tính bằng giây — tức 5 phút. Chạy lại sau 30 giây, nếu câu trả lời đến từ bộ đệm thì con số sẽ còn khoảng `270`.
+
+Ba bản ghi `A` cho cùng một tên là cơ chế cân bằng tải đơn giản nhất: client chọn một trong ba địa chỉ, và nếu một máy chủ hỏng thì vẫn còn hai.
+
+**Trả lời câu hỏi của đề.** Sau khi bạn đổi bản ghi DNS, người dùng vẫn có thể bị dẫn tới máy chủ cũ trong **tối đa bằng TTL**, ở đây là 5 phút. Nhưng con số thực tế thường lớn hơn, vì ba lý do:
+
+1. Có **nhiều tầng đệm** nối tiếp: máy chủ DNS của nhà mạng, bộ đệm của hệ điều hành, và bộ đệm của chính trình duyệt — mỗi tầng có đồng hồ đếm riêng.
+2. Một số máy chủ DNS **không tôn trọng** TTL ngắn và tự áp một mức tối thiểu của riêng họ.
+3. Ứng dụng .NET mặc định giữ kết quả phân giải trong một khoảng thời gian riêng, nên tiến trình đang chạy có thể tiếp tục dùng địa chỉ cũ kể cả khi DNS đã đổi.
+
+**Hệ quả khi vận hành.** Quy trình chuyển máy chủ an toàn gồm ba bước:
+
+```text
+1. Vài giờ TRƯỚC khi chuyển: hạ TTL xuống 60 giây, đợi TTL cũ hết hạn
+2. Đổi bản ghi sang máy chủ mới
+3. Giữ máy chủ cũ chạy thêm ít nhất 2 lần TTL, rồi mới tắt
+```
+
+Bỏ bước 1 là nguyên nhân phổ biến của tình trạng "một số người dùng vẫn vào trang cũ" kéo dài nhiều giờ sau khi chuyển. Bỏ bước 3 khiến một phần người dùng nhận lỗi kết nối.
+
+**Liên hệ với .NET.** Trong ứng dụng dùng `HttpClient` lâu dài, hành vi giữ địa chỉ cũ có thể gây lỗi sau khi dịch vụ đích đổi IP. Cách xử lý là đặt `PooledConnectionLifetime` để kết nối được làm mới định kỳ — chi tiết ở [Module 9](../../stage-03-aspnet-core-backend/module-09-web-api-professional/) khi bàn về gọi dịch vụ ngoài.
+
+</details>
+
+#### Bài 3 — Đo cái giá của kết nối mới
+
+Viết một chương trình gọi cùng một API 20 lần: lần một tạo `HttpClient` mới mỗi lượt, lần hai dùng lại một thể hiện. So sánh tổng thời gian.
+
+**Tiêu chí hoàn thành:** bạn giải thích được khoản thời gian tiết kiệm được **đến từ chặng nào** trong năm chặng ở Bài 1.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Nhìn lại bảng năm chặng ở Bài 1 và hỏi: chặng nào phải làm lại từ đầu khi mở một kết nối mới, và chặng nào thì không?
+
+**Lời giải.**
+
+```csharp
+const string url = "https://tiennhm.io.vn/";
+const int N = 20;
+
+var sw = Stopwatch.StartNew();
+for (int i = 0; i < N; i++)
+{
+    using var c = new HttpClient();        // kết nối mới mỗi lượt
+    await c.GetAsync(url);
+}
+sw.Stop();
+Console.WriteLine($"HttpClient mới : {sw.Elapsed.TotalMilliseconds:F0} ms");
+
+using var shared = new HttpClient();
+sw.Restart();
+for (int i = 0; i < N; i++) await shared.GetAsync(url);   // dùng lại kết nối
+sw.Stop();
+Console.WriteLine($"Dùng lại       : {sw.Elapsed.TotalMilliseconds:F0} ms");
+```
+
+**Kết quả đo thật trên .NET 9:**
+
+```text
+HttpClient mới mỗi lần :     5085 ms  (254 ms/lần)
+Dùng lại một thể hiện  :     1281 ms  ( 64 ms/lần)
+nhanh gấp              :      4.0 lần
+```
+
+**Khoản tiết kiệm đến từ đâu.** Mỗi lần mở kết nối mới phải làm lại **ba chặng đầu** trong bảng ở Bài 1: phân giải tên miền, bắt tay TCP, bắt tay TLS. Cộng lại khoảng 190 ms cho máy chủ này — khớp với chênh lệch 190 ms mỗi lần đo được. Chặng "chờ server xử lý" thì không đổi, vì server vẫn phải làm đúng chừng đó việc.
+
+Khi dùng lại một `HttpClient`, kết nối TCP và phiên TLS được giữ trong nhóm kết nối và tái sử dụng, nên lần gọi thứ hai trở đi chỉ còn chặng thứ tư và thứ năm.
+
+**Vấn đề nghiêm trọng hơn cả tốc độ.** Tạo `HttpClient` mới liên tục gây cạn kiệt cổng mạng. Mỗi kết nối đã đóng vẫn ở trạng thái chờ khoảng 4 phút theo quy định của TCP, trong lúc đó cổng chưa được giải phóng. Một dịch vụ gọi API vài trăm lần mỗi giây sẽ dùng hết dải cổng khả dụng và bắt đầu ném `SocketException`, thường sau vài giờ chạy — đủ lâu để không ai liên hệ nó với đoạn code mới triển khai.
+
+**Cách làm đúng trong ASP.NET Core.** Đừng tự quản lý `HttpClient`, dùng `IHttpClientFactory`:
+
+```csharp
+builder.Services.AddHttpClient<ICrmApiClient, CrmApiClient>(c =>
+{
+    c.BaseAddress = new Uri("https://api.company.com/");
+    c.Timeout = TimeSpan.FromSeconds(10);
+});
+```
+
+Factory quản lý nhóm kết nối, làm mới chúng định kỳ để nhận được thay đổi DNS như Bài 2 đã nêu, và cho phép gắn thêm chính sách thử lại. [Module 7](../../stage-02-csharp-professional/module-07-dependency-injection/) trình bày cách đăng ký, còn [Module 17](../../stage-05-senior-engineering/module-17-distributed-systems/) bổ sung cầu dao ngắt mạch cho các lời gọi ra ngoài.
+
+**Lưu ý khi đo lại.** Con số của bạn sẽ khác vì phụ thuộc vào khoảng cách tới máy chủ. Điều cần giống nhau là **tỉ lệ**: nếu bạn không thấy chênh lệch rõ, nhiều khả năng máy chủ đích ở rất gần hoặc bạn đang đo với HTTP chứ không phải HTTPS, nên không có chặng bắt tay TLS để tiết kiệm.
+
+</details>
 
 ## Tự kiểm tra
 

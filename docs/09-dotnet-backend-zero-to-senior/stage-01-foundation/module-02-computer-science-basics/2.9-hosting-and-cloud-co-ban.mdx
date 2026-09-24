@@ -164,11 +164,215 @@ Nhầm hai cái này gây ra vòng lặp khởi động lại liên tục: datab
 
 ## Bài tập áp dụng
 
-1. **Phá vỡ tính stateless.** Chạy hai instance ứng dụng sau một reverse proxy. Thêm một endpoint ghi file vào `/tmp` và một endpoint đọc lại. Gọi luân phiên vài lần và quan sát lỗi. Sau đó chuyển sang lưu vào một nơi dùng chung.
+#### Bài 1 — Phá vỡ tính phi trạng thái
 
-2. **So sánh base image.** Build cùng một ứng dụng với `aspnet:9.0` và `aspnet:9.0-alpine`. So sánh kích thước image, thời gian khởi động, và xác nhận mọi thư viện native vẫn chạy trên cả hai.
+Chạy hai thể hiện ứng dụng sau một reverse proxy. Thêm một endpoint ghi file vào `/tmp` và một endpoint đọc lại. Gọi luân phiên vài lần và quan sát lỗi. Sau đó chuyển sang lưu vào nơi dùng chung.
 
-3. **Tách liveness và readiness.** Cài health check cho database. Tắt database đi và quan sát: endpoint nào chuyển sang unhealthy, và orchestrator phản ứng ra sao với mỗi loại.
+**Tiêu chí hoàn thành:** bạn giải thích được vì sao lỗi xuất hiện **ngẫu nhiên** chứ không phải lần nào cũng lỗi.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Mỗi thể hiện có hệ thống file riêng. Reverse proxy phân phối request theo vòng, nên request ghi và request đọc có thể rơi vào hai máy khác nhau.
+
+**Lời giải — dựng bằng Docker Compose:**
+
+```yaml
+services:
+  api1:
+    image: crm-api
+  api2:
+    image: crm-api
+  nginx:
+    image: nginx
+    ports: ["8080:80"]
+    volumes: ["./nginx.conf:/etc/nginx/nginx.conf:ro"]
+```
+
+```csharp
+app.MapPost("/luu", async (HttpContext ctx) =>
+{
+    await File.WriteAllTextAsync("/tmp/ghi-chu.txt", "xin chào");
+    return Results.Ok(Environment.MachineName);
+});
+
+app.MapGet("/doc", (HttpContext ctx) =>
+    File.Exists("/tmp/ghi-chu.txt")
+        ? Results.Ok(new { may = Environment.MachineName, noi_dung = File.ReadAllText("/tmp/ghi-chu.txt") })
+        : Results.NotFound(new { may = Environment.MachineName }));
+```
+
+Gọi:
+
+```bash
+curl -X POST localhost:8080/luu     # -> api1
+for i in $(seq 1 6); do curl -s localhost:8080/doc; echo; done
+```
+
+Kết quả xen kẽ:
+
+```text
+{"may":"api2"}                                 <- 404
+{"may":"api1","noi_dung":"xin chào"}           <- 200
+{"may":"api2"}                                 <- 404
+{"may":"api1","noi_dung":"xin chào"}           <- 200
+```
+
+**Vì sao lỗi ngẫu nhiên.** Reverse proxy phân phối luân phiên, nên khoảng một nửa số request rơi vào máy không có file. Đây là dấu hiệu đặc trưng của **trạng thái cục bộ** trong hệ thống nhiều thể hiện: lỗi xuất hiện với tỉ lệ xấp xỉ `(n−1)/n` với `n` là số thể hiện, và **không bao giờ** tái hiện được khi chạy một thể hiện trên máy phát triển.
+
+**Bốn loại trạng thái cục bộ hay gặp:**
+
+| Trạng thái | Triệu chứng | Nơi nên chuyển sang |
+|---|---|---|
+| File tải lên lưu trên đĩa | Tải lên xong không xem lại được | Kho đối tượng như S3, Azure Blob |
+| Bộ nhớ đệm trong tiến trình | Dữ liệu cũ mới lẫn lộn tuỳ máy | Redis |
+| Phiên đăng nhập trong bộ nhớ | Đang dùng thì bị đăng xuất | Token tự chứa, hoặc kho phiên chung |
+| Bộ đếm hoặc hạn mức trong biến tĩnh | Hạn mức bị nhân lên theo số máy | Redis với phép tăng nguyên tử |
+
+**Cách sửa cho bài này:**
+
+```csharp
+// Lưu vào volume dùng chung, hoặc tốt hơn là kho đối tượng
+app.MapPost("/luu", async (IBlobStorage blob, CancellationToken ct) =>
+{
+    await blob.LuuAsync("ghi-chu.txt", "xin chào", ct);
+    return Results.Ok();
+});
+```
+
+**Vì sao "dính phiên" không phải giải pháp tốt.** Nhiều người sửa bằng cách cấu hình proxy luôn gửi cùng một người dùng về cùng một máy. Cách này che triệu chứng nhưng giữ nguyên bệnh: máy đó khởi động lại là mất dữ liệu, tải phân bố không đều, và không thể thu nhỏ số máy khi lượng truy cập giảm.
+
+**Quy tắc.** Một ứng dụng sẵn sàng mở rộng ngang phải thoả điều kiện: **tắt bất kỳ thể hiện nào bất kỳ lúc nào cũng không mất dữ liệu gì**. Đây là nguyên tắc số sáu trong [Twelve-Factor App](https://12factor.net/processes), và [Module 15](../../stage-04-database-production/module-15-docker-deployment/) xây dựng toàn bộ phần triển khai dựa trên nó.
+
+</details>
+
+#### Bài 2 — So sánh hai base image
+
+Build cùng một ứng dụng với `aspnet:9.0` và `aspnet:9.0-alpine`. So sánh kích thước image, thời gian khởi động, và xác nhận thư viện native vẫn chạy trên cả hai.
+
+**Tiêu chí hoàn thành:** bạn nêu được một trường hợp cụ thể mà Alpine **không** phải lựa chọn đúng.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Alpine dùng thư viện C tên là musl thay vì glibc như các bản Linux phổ biến. Hầu hết code .NET thuần không quan tâm, nhưng thư viện nào gọi xuống mã máy native thì có thể quan tâm rất nhiều.
+
+**Lời giải — Dockerfile nhiều tầng:**
+
+```dockerfile
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /src
+COPY . .
+RUN dotnet publish -c Release -o /app
+
+# Đổi dòng dưới giữa hai biến thể để so sánh
+FROM mcr.microsoft.com/dotnet/aspnet:9.0
+# FROM mcr.microsoft.com/dotnet/aspnet:9.0-alpine
+WORKDIR /app
+COPY --from=build /app .
+ENTRYPOINT ["dotnet", "Crm.Api.dll"]
+```
+
+```bash
+docker build -t crm:debian . && docker images crm:debian --format "{{.Size}}"
+docker build -t crm:alpine . && docker images crm:alpine --format "{{.Size}}"
+```
+
+**Kết quả điển hình:**
+
+| Biến thể | Kích thước image | Ghi chú |
+|---|---|---|
+| `aspnet:9.0` (Debian) | ~220 MB | Mặc định, tương thích rộng nhất |
+| `aspnet:9.0-alpine` | ~110 MB | Nhỏ hơn khoảng một nửa |
+| `aspnet:9.0-noble-chiseled` | ~120 MB | Bỏ shell và trình quản lý gói |
+
+**Vì sao kích thước image quan trọng, và không quan trọng như người ta tưởng.** Nó rút ngắn thời gian kéo image khi triển khai và khi tự động mở rộng, đồng thời giảm bề mặt tấn công vì có ít gói hệ thống hơn. Nhưng nó **không** làm ứng dụng chạy nhanh hơn: sau khi khởi động, thời gian xử lý mỗi request gần như y hệt.
+
+**Khi nào Alpine *không* phải lựa chọn đúng** — đây là phần chính của bài:
+
+1. **Thư viện native biên dịch cho glibc.** Một số gói xử lý ảnh, mã hoá, hoặc trình điều khiển database bản cũ chỉ có bản dựng cho glibc. Trên Alpine chúng ném `DllNotFoundException` — và thường chỉ ném lúc chạy tới đoạn code đó, chứ không phải lúc khởi động.
+2. **Quốc tế hoá.** Alpine mặc định không cài dữ liệu ICU, nên so sánh chuỗi, sắp xếp theo ngôn ngữ và định dạng ngày giờ theo vùng đều sai lệch. Phải cài thêm gói `icu-libs`, và lúc đó phần dung lượng tiết kiệm được co lại đáng kể. Với ứng dụng xử lý tiếng Việt, đây là điểm phải kiểm tra kỹ.
+3. **Cần công cụ chẩn đoán.** Alpine tối giản nên thiếu nhiều tiện ích quen thuộc khi cần vào container xem xét sự cố.
+
+**Kiểm chứng phần quốc tế hoá:**
+
+```csharp
+var vi = new CultureInfo("vi-VN");
+Console.WriteLine(new DateTime(2026, 9, 24).ToString("D", vi));
+Console.WriteLine(string.Compare("Đà Nẵng", "Hà Nội", vi, CompareOptions.None));
+Console.WriteLine(12345.678m.ToString("C", vi));
+```
+
+Chạy đoạn này trên cả hai image. Nếu Alpine cho kết quả khác, ICU đang thiếu.
+
+**Khuyến nghị thực dụng.** Mặc định dùng bản Debian. Chỉ chuyển sang Alpine khi kích thước image thật sự là vấn đề đo được — ví dụ khi tự động mở rộng thường xuyên và thời gian kéo image chiếm phần đáng kể — và sau khi đã kiểm tra đủ ba điểm trên. Nếu mục tiêu chính là giảm bề mặt tấn công thì bản `chiseled` thường là lựa chọn tốt hơn Alpine, vì nó vẫn dựa trên glibc.
+
+</details>
+
+#### Bài 3 — Tách liveness và readiness
+
+Cài health check cho database. Tắt database và quan sát: endpoint nào chuyển sang không khoẻ, và hệ thống điều phối phản ứng ra sao với mỗi loại.
+
+**Tiêu chí hoàn thành:** bạn nêu được hậu quả cụ thể nếu gộp hai loại làm một.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Hai loại kiểm tra trả lời hai câu hỏi khác nhau, và hệ thống điều phối phản ứng khác nhau với mỗi câu:
+
+- *Tiến trình này còn sống không?* → nếu không thì **khởi động lại**.
+- *Tiến trình này sẵn sàng nhận request chưa?* → nếu chưa thì **ngừng gửi request tới**, nhưng vẫn để nó chạy.
+
+**Lời giải.**
+
+```csharp
+builder.Services.AddHealthChecks()
+    .AddCheck("self", () => HealthCheckResult.Healthy(), tags: ["live"])
+    .AddNpgSql(connectionString, name: "postgres", tags: ["ready"])
+    .AddRedis(redisConnection, name: "redis", tags: ["ready"]);
+
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = c => c.Tags.Contains("live")
+});
+
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = c => c.Tags.Contains("ready")
+});
+```
+
+**Tắt database rồi gọi hai endpoint:**
+
+```bash
+docker stop postgres
+curl -s -o /dev/null -w "live : %{http_code}\n" localhost:5000/health/live    # 200
+curl -s -o /dev/null -w "ready: %{http_code}\n" localhost:5000/health/ready   # 503
+```
+
+`live` vẫn `200` vì tiến trình hoàn toàn khoẻ mạnh — nó chỉ không có database để làm việc. `ready` trả `503` nên bộ cân bằng tải ngừng gửi request tới.
+
+**Hậu quả nếu gộp hai loại làm một.** Đây là phần quan trọng nhất. Giả sử chỉ có một endpoint kiểm tra cả database và dùng nó cho cả hai mục đích. Database gặp sự cố tạm thời 30 giây:
+
+```text
+1. Mọi thể hiện báo không khoẻ
+2. Hệ thống điều phối hiểu là tiến trình hỏng -> khởi động lại TOÀN BỘ
+3. Khởi động lại đồng loạt tạo ra một đợt kết nối mới đổ vào database
+4. Database vốn đang yếu nay bị quá tải thật
+5. Kiểm tra lại thất bại -> khởi động lại lần nữa -> vòng lặp
+```
+
+Một sự cố 30 giây biến thành gián đoạn kéo dài, và nguyên nhân là chính cơ chế lẽ ra để bảo vệ. Hiện tượng này gọi là *crash loop*, và nó xảy ra đủ thường xuyên để trở thành một lỗi cấu hình kinh điển.
+
+**Ba nguyên tắc khi viết health check:**
+
+1. **Liveness phải rất đơn giản.** Chỉ trả lời tiến trình có phản hồi được không. Không kiểm tra phụ thuộc bên ngoài, vì phụ thuộc hỏng không phải lý do để khởi động lại.
+2. **Readiness kiểm tra phụ thuộc bắt buộc.** Nhưng chỉ những thứ mà thiếu nó thì ứng dụng **không làm được gì**. Một dịch vụ gửi email hỏng không nên khiến toàn bộ API ngừng nhận request.
+3. **Đặt thời gian chờ ngắn.** Health check gọi database mà không đặt thời gian chờ sẽ tự nó bị treo, và hệ thống điều phối hiểu nhầm là tiến trình chết.
+
+**Loại thứ ba.** Kubernetes còn có startup probe, dành cho ứng dụng khởi động chậm. Nó hoãn liveness cho tới khi ứng dụng khởi động xong, tránh việc bị giết ngay trong lúc còn đang nạp. [Module 15](../../stage-04-database-production/module-15-docker-deployment/) trình bày cấu hình đầy đủ cả ba loại.
+
+</details>
 
 ## Tự kiểm tra
 
