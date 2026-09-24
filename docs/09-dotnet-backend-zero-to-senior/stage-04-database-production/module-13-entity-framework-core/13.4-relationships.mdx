@@ -1,88 +1,331 @@
 ---
 title: "13.4 — 3. Relationships"
-description: "Relationships: One-to-Many: Customer → Contacts; One-to-One: Customer → CustomerAddress (Owned Entity)."
+description: "Khoá ngoại tường minh, required và optional, DeleteBehavior và cái bẫy lớn nhất của nó, many-to-many với bảng nối có dữ liệu, và self-reference."
 sidebar_position: 4
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
 # 13.4 — 3. Relationships
 
+<SummaryBox>
+Cái bẫy nguy hiểm nhất trong bài này là **`DeleteBehavior` không chỉ nói về database**. `Cascade` khiến EF Core **tự xoá các entity con đã được nạp vào change tracker**, kể cả khi database không có `ON DELETE CASCADE` — nghĩa là xoá một `Customer` có thể sinh ra hàng trăm lệnh `DELETE` mà bạn không hề viết. Điểm thứ hai: **có khoá ngoại tường minh trong entity** (`public int CustomerId`) thay đổi hẳn cách làm việc — bạn gán quan hệ mà không cần nạp entity cha, và biết được khoá ngoại mà không cần `Include`. Thứ ba: **required hay optional được suy ra từ tính nullable của khoá ngoại**, nên `int` và `int?` cho hai hành vi xoá mặc định khác nhau.
+</SummaryBox>
+
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Khai báo quan hệ với khoá ngoại tường minh và hiểu lợi ích.
+- Chọn đúng `DeleteBehavior` và biết nó ảnh hưởng gì ở cả hai tầng.
+- Cấu hình many-to-many có và không có bảng nối chứa dữ liệu.
+- Xử lý self-reference và quan hệ tuỳ chọn.
+- Tránh chu trình cascade mà SQL Server từ chối.
 
 ## Nội dung bài học
 
-### 13.4.1 — One-to-Many: Customer → Contacts
+### 13.4.1 — Khoá ngoại tường minh
 
 ```csharp
-// Trong CustomerConfiguration
-builder.HasMany(c => c.Contacts)
-    .WithOne(ct => ct.Customer)
-    .HasForeignKey(ct => ct.CustomerId)
-    .OnDelete(DeleteBehavior.Cascade);
-```
-
-### 13.4.2 — Many-to-Many: Lead → Tags (ví dụ mở rộng)
-
-```csharp
-public class Tag
+// KHONG co khoa ngoai tuong minh — EF dung shadow property
+public class Contact
 {
     public int Id { get; set; }
-    public string Name { get; set; } = string.Empty;
-    public ICollection<Lead> Leads { get; set; } = new List<Lead>();
+    public Customer Customer { get; set; } = null!;
 }
 
-// Trong LeadConfiguration
-builder.HasMany(l => l.Tags)
-    .WithMany(t => t.Leads)
-    .UsingEntity(j => j.ToTable("LeadTags"));
+// CO khoa ngoai tuong minh — khuyen nghi
+public class Contact
+{
+    public int Id { get; set; }
+    public int CustomerId { get; set; }                  // tuong minh
+    public Customer Customer { get; set; } = null!;
+}
 ```
 
-### 13.4.3 — One-to-One: Customer → CustomerAddress (Owned Entity)
+Bốn lợi ích của cách thứ hai:
 
 ```csharp
-public class CustomerAddress
-{
-    public string Street { get; set; } = string.Empty;
-    public string City { get; set; } = string.Empty;
-    public string Country { get; set; } = string.Empty;
-}
+// 1. Gan quan he ma KHONG can nap entity cha
+var contact = new Contact { CustomerId = 42, FullName = "Nguyen Van A" };
+db.Contacts.Add(contact);                 // khong can SELECT Customer
 
-// Trong Customer entity
-public CustomerAddress? Address { get; set; }
+// 2. Biet khoa ngoai ma khong can Include
+var customerId = contact.CustomerId;      // khong sinh truy van
 
-// Trong CustomerConfiguration
-builder.OwnsOne(c => c.Address, addr =>
-{
-    addr.Property(a => a.Street).HasColumnName("AddressStreet").HasMaxLength(200);
-    addr.Property(a => a.City).HasColumnName("AddressCity").HasMaxLength(100);
-    addr.Property(a => a.Country).HasColumnName("AddressCountry").HasMaxLength(100);
-});
+// 3. Loc theo khoa ngoai truc tiep
+await db.Contacts.Where(c => c.CustomerId == 42).ToListAsync(ct);
+
+// 4. DTO map thang duoc
 ```
 
-> **Owned Entity** lưu chung bảng với owner — phù hợp Value Object trong DDD. Không cần bảng riêng, không cần FK.
+Không có nó, EF Core dùng **shadow property** — cột tồn tại trong database nhưng không có trong lớp C#. Truy cập phải qua `db.Entry(contact).Property("CustomerId")`, và mọi thao tác gán quan hệ đều cần nạp entity cha.
 
----
+**Quy ước đặt tên** để EF tự nhận: `{TênNavigation}Id` (`CustomerId` cho navigation `Customer`) hoặc `{TênKiểu}Id`. Khác quy ước thì khai rõ:
+
+```csharp
+builder.HasOne(c => c.Customer)
+       .WithMany(cu => cu.Contacts)
+       .HasForeignKey(c => c.OwnerCustomerId);
+```
+
+### 13.4.2 — Required so với optional
+
+```csharp
+public int CustomerId { get; set; }       // REQUIRED — contact phai thuoc customer
+public int? AssignedUserId { get; set; }  // OPTIONAL — lead co the chua gan ai
+```
+
+EF Core suy ra từ **tính nullable của khoá ngoại**, và điều đó quyết định hành vi xoá mặc định:
+
+| Khoá ngoại | Quan hệ | `DeleteBehavior` mặc định |
+|---|---|---|
+| `int` | Required | **`Cascade`** |
+| `int?` | Optional | **`ClientSetNull`** |
+
+Đây là chi tiết rất đáng biết: đổi `int` thành `int?` **âm thầm đổi hành vi xoá** từ xoá con sang gán `NULL`.
+
+Khai rõ ràng để không phụ thuộc vào suy luận:
+
+```csharp
+builder.HasOne(c => c.Customer)
+       .WithMany(cu => cu.Contacts)
+       .HasForeignKey(c => c.CustomerId)
+       .IsRequired()
+       .OnDelete(DeleteBehavior.Cascade);
+```
+
+### 13.4.3 — `DeleteBehavior` ảnh hưởng hai tầng
+
+| `DeleteBehavior` | EF Core làm gì (entity đã nạp) | Database |
+|---|---|---|
+| `Cascade` | **Xoá entity con** | `ON DELETE CASCADE` |
+| `ClientCascade` | **Xoá entity con** | `NO ACTION` |
+| `SetNull` | Gán `NULL` cho khoá ngoại | `ON DELETE SET NULL` |
+| `ClientSetNull` | Gán `NULL` (chỉ entity đã nạp) | `NO ACTION` |
+| `Restrict` | Không làm gì | `NO ACTION` |
+| `NoAction` | Không làm gì | `NO ACTION` |
+
+**Cột giữa là phần bị bỏ qua nhiều nhất.** Ví dụ cụ thể:
+
+```csharp
+var customer = await db.Customers
+    .Include(c => c.Contacts)          // nap 200 contact vao change tracker
+    .FirstAsync(c => c.Id == 42, ct);
+
+db.Customers.Remove(customer);
+await db.SaveChangesAsync(ct);
+```
+
+Với `Cascade`, EF Core sinh:
+
+```sql
+DELETE FROM Contacts WHERE Id = 1;     -- 200 lenh rieng biet
+DELETE FROM Contacts WHERE Id = 2;
+...
+DELETE FROM Customers WHERE Id = 42;
+```
+
+EF Core **không** dựa vào cascade của database cho những entity nó đã theo dõi — nó tự sinh lệnh xoá cho từng cái. Với 200 contact, đó là 201 lệnh trong một transaction.
+
+Không `Include` thì EF chỉ xoá `Customer` và để database lo phần còn lại — nhanh hơn nhiều. Nghịch lý: **`Include` trước khi xoá làm mọi thứ chậm hơn**.
+
+Với xoá hàng loạt, dùng `ExecuteDeleteAsync` để bỏ qua change tracker hoàn toàn:
+
+```csharp
+await db.Customers.Where(c => c.Status == CustomerStatus.Inactive)
+                  .ExecuteDeleteAsync(ct);     // mot lenh DELETE
+```
+
+**`Restrict` khác `NoAction`** ở chỗ `Restrict` khiến EF Core **không** tự động sửa gì cả và ném lỗi nếu bạn cố xoá cha còn con — hữu ích khi bạn muốn lỗi rõ ràng thay vì xoá ngầm.
+
+### 13.4.4 — Chu trình cascade
+
+```
+Customers --cascade--> Leads
+Users     --cascade--> Leads
+```
+
+SQL Server **từ chối tạo** cấu hình này: nhiều đường cascade cùng tới một bảng. Lỗi xuất hiện lúc `dotnet ef database update`, không phải lúc biên dịch.
+
+Cách xử lý: chọn **một** đường cascade, những đường còn lại dùng `NoAction` hoặc `SetNull`:
+
+```csharp
+// Contacts theo Customer — cascade
+builder.HasMany(c => c.Contacts).WithOne(ct => ct.Customer)
+       .OnDelete(DeleteBehavior.Cascade);
+
+// Leads khong bien mat khi nhan vien nghi — SetNull
+builder.HasMany(u => u.AssignedLeads).WithOne(l => l.AssignedUser)
+       .HasForeignKey(l => l.AssignedUserId)
+       .OnDelete(DeleteBehavior.SetNull);
+```
+
+Lựa chọn này thường **phản ánh đúng nghiệp vụ**: lead vẫn tồn tại khi nhân viên nghỉ việc, chỉ mất người phụ trách.
+
+Tắt cascade cho toàn bộ mô hình khi bạn muốn kiểm soát thủ công:
+
+```csharp
+foreach (var fk in modelBuilder.Model.GetEntityTypes()
+                               .SelectMany(e => e.GetForeignKeys())
+                               .Where(fk => !fk.IsOwnership && fk.DeleteBehavior == DeleteBehavior.Cascade))
+{
+    fk.DeleteBehavior = DeleteBehavior.Restrict;
+}
+```
+
+Nhiều team làm vậy với lý do: xoá dây chuyền ngoài ý muốn nguy hiểm hơn một lỗi rõ ràng bắt bạn xử lý tường minh.
+
+### 13.4.5 — Many-to-many
+
+```csharp
+// EF Core 5+: khong can lop bang noi
+public class Lead  { public ICollection<Tag> Tags { get; set; } = []; }
+public class Tag   { public ICollection<Lead> Leads { get; set; } = []; }
+
+builder.HasMany(l => l.Tags)
+       .WithMany(t => t.Leads)
+       .UsingEntity(j => j.ToTable("LeadTags"));
+```
+
+EF Core tự tạo bảng nối. Đơn giản, nhưng **chỉ đúng khi quan hệ không mang dữ liệu**.
+
+Ngay khi bạn cần biết "ai gắn tag này, lúc nào", quan hệ trở thành một **thực thể**:
+
+```csharp
+public class LeadTag
+{
+    public int LeadId { get; set; }
+    public Lead Lead { get; set; } = null!;
+
+    public int TagId { get; set; }
+    public Tag Tag { get; set; } = null!;
+
+    public DateTime TaggedAt { get; set; }
+    public string TaggedBy { get; set; } = string.Empty;   // du lieu rieng
+}
+
+builder.HasMany(l => l.Tags)
+       .WithMany(t => t.Leads)
+       .UsingEntity<LeadTag>(
+           r => r.HasOne(lt => lt.Tag).WithMany().HasForeignKey(lt => lt.TagId),
+           l => l.HasOne(lt => lt.Lead).WithMany().HasForeignKey(lt => lt.LeadId),
+           j =>
+           {
+               j.HasKey(lt => new { lt.LeadId, lt.TagId });
+               j.Property(lt => lt.TaggedAt).HasDefaultValueSql("SYSUTCDATETIME()");
+           });
+```
+
+Bạn giữ được cả hai: navigation trực tiếp `lead.Tags`, **và** truy cập bảng nối khi cần `TaggedAt`.
+
+Lời khuyên thực dụng: nếu **có khả năng** quan hệ sẽ mang dữ liệu, khai bảng nối tường minh ngay từ đầu — chuyển đổi về sau cần migration và sửa code ở nhiều nơi.
+
+### 13.4.6 — Self-reference
+
+```csharp
+public class User
+{
+    public int Id { get; set; }
+    public int? ManagerId { get; set; }                    // NULL cho cap cao nhat
+    public User? Manager { get; set; }
+    public ICollection<User> DirectReports { get; set; } = [];
+}
+
+builder.HasOne(u => u.Manager)
+       .WithMany(u => u.DirectReports)
+       .HasForeignKey(u => u.ManagerId)
+       .OnDelete(DeleteBehavior.Restrict);     // KHONG cascade
+```
+
+`Restrict` ở đây gần như bắt buộc: `Cascade` trên self-reference có thể xoá **cả cây tổ chức** khi bạn xoá một người quản lý.
+
+Truy vấn cây có độ sâu tuỳ ý là giới hạn thật của EF Core — LINQ không diễn đạt được đệ quy. Dùng recursive CTE ([bài 12.4](../module-12-sql-deep-dive/12.4-advanced-queries.mdx)):
+
+```csharp
+var subordinates = await db.Users.FromSql($"""
+    WITH OrgChart AS (
+        SELECT Id, DisplayName, ManagerId, 0 AS Level
+        FROM   Users WHERE Id = {managerId}
+        UNION ALL
+        SELECT u.Id, u.DisplayName, u.ManagerId, oc.Level + 1
+        FROM   Users u JOIN OrgChart oc ON u.ManagerId = oc.Id
+    )
+    SELECT * FROM OrgChart
+    """).ToListAsync(ct);
+```
+
+### 13.4.7 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát quan hệ"
+  items={[
+    { text: "Mọi quan hệ đều có khoá ngoại tường minh trong entity." },
+    { text: "DeleteBehavior được khai rõ, không dựa vào suy luận từ nullable." },
+    { text: "Hiểu rằng Cascade khiến EF tự sinh lệnh xoá cho entity đã nạp." },
+    { text: "Không Include các collection lớn ngay trước khi xoá entity cha." },
+    { text: "Xoá hàng loạt dùng ExecuteDeleteAsync." },
+    { text: "Không có chu trình cascade nhiều đường tới cùng một bảng." },
+    { text: "Self-reference dùng Restrict, không dùng Cascade." },
+    { text: "Many-to-many có khả năng mang dữ liệu thì khai bảng nối tường minh." },
+    { text: "Truy vấn cây độ sâu tuỳ ý dùng recursive CTE, không dùng Include lồng nhau." },
+    { text: "Hành vi xoá phản ánh đúng nghiệp vụ, không chỉ chọn cho tiện." },
+  ]}
+/>
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **`Include` làm chậm xoá.** Xoá một `Customer` có 200 contact, một lần có `Include(c => c.Contacts)` và một lần không. Bật log SQL, đếm số lệnh sinh ra và so sánh thời gian.
+
+2. **Chu trình cascade.** Tạo hai đường cascade cùng tới bảng `Leads`, chạy `dotnet ef database update`, và ghi lại lỗi. Sửa bằng `SetNull` cho một đường.
+
+3. **Bảng nối có dữ liệu.** Bắt đầu với many-to-many không bảng nối tường minh, rồi chuyển sang có `TaggedAt` và `TaggedBy`. Ghi lại migration sinh ra và số chỗ phải sửa trong code.
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "Vì sao nên khai khoá ngoại tường minh trong entity?",
+      answer: "Nó cho phép gán quan hệ mà không cần nạp entity cha, đọc được khoá ngoại mà không cần Include, lọc trực tiếp theo khoá ngoại, và map thẳng sang DTO. Không có nó thì EF dùng shadow property, chỉ truy cập được qua API của change tracker."
+    },
+    {
+      question: "EF Core suy ra quan hệ required hay optional từ đâu?",
+      answer: "Từ tính nullable của khoá ngoại: kiểu không nullable là required với DeleteBehavior mặc định Cascade, kiểu nullable là optional với mặc định ClientSetNull. Nghĩa là đổi int thành int nullable sẽ âm thầm đổi hành vi xoá."
+    },
+    {
+      question: "DeleteBehavior ảnh hưởng ở những tầng nào?",
+      answer: "Cả EF Core lẫn database. Phần hay bị bỏ qua là EF Core tự sinh lệnh xoá cho các entity con đã nạp vào change tracker, kể cả khi database không có cascade. Nên xoá một cha có 200 con đã Include sẽ sinh 201 lệnh thay vì một."
+    },
+    {
+      question: "Vì sao Include trước khi xoá lại làm chậm?",
+      answer: "Vì nó nạp các entity con vào change tracker, và EF Core sẽ sinh một lệnh DELETE riêng cho từng cái thay vì để database xử lý cascade. Không Include thì EF chỉ xoá entity cha và database lo phần còn lại; với xoá hàng loạt thì dùng ExecuteDeleteAsync."
+    },
+    {
+      question: "Chu trình cascade gây vấn đề gì?",
+      answer: "SQL Server từ chối tạo cấu hình có nhiều đường cascade cùng tới một bảng, và lỗi chỉ xuất hiện lúc chạy migration chứ không phải lúc biên dịch. Cách xử lý là chọn một đường cascade, những đường còn lại dùng NoAction hoặc SetNull, và lựa chọn đó thường phản ánh đúng nghiệp vụ."
+    },
+    {
+      question: "Khi nào cần bảng nối tường minh cho many-to-many?",
+      answer: "Ngay khi quan hệ mang dữ liệu riêng, ví dụ ai gắn tag và lúc nào. Dùng UsingEntity với kiểu bảng nối thì bạn giữ được cả navigation trực tiếp lẫn truy cập dữ liệu của bảng nối. Nếu có khả năng quan hệ sẽ mang dữ liệu thì nên khai tường minh ngay từ đầu."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **`Cascade` khiến EF tự xoá entity đã nạp** — `Include` trước khi xoá là phản tác dụng.
+2. **Nullable của khoá ngoại quyết định hành vi xoá mặc định.** Khai rõ để không bất ngờ.
+3. **Self-reference phải dùng `Restrict`**, nếu không một lệnh xoá có thể quét cả cây.
+
+## Tham khảo
+
+- [Relationships — EF Core](https://learn.microsoft.com/en-us/ef/core/modeling/relationships)
+- [Cascade delete — EF Core](https://learn.microsoft.com/en-us/ef/core/saving/cascade-delete)
+- [Many-to-many relationships](https://learn.microsoft.com/en-us/ef/core/modeling/relationships/many-to-many)
+- [Foreign and principal keys in relationships](https://learn.microsoft.com/en-us/ef/core/modeling/relationships/foreign-and-principal-keys)
 
 ## Điều hướng
 
