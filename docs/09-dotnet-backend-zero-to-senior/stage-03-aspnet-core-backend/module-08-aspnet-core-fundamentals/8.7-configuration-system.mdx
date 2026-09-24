@@ -1,102 +1,254 @@
 ---
 title: "8.7 — 6. Configuration System"
-description: "User Secrets lưu ngoài source tree — không bao giờ commit secret vào git."
+description: "Configuration provider, thứ tự ưu tiên, cách biến môi trường ánh xạ sang khoá phân cấp, mảng trong config, reload và nơi để secret."
 sidebar_position: 7
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
 # 8.7 — 6. Configuration System
 
+<SummaryBox>
+Hệ thống cấu hình của .NET là **một từ điển phẳng `string → string?`** được nhiều provider xếp chồng lên nhau, provider sau đè provider trước. Mọi thứ khác chỉ là lớp tiện ích trên đó — kể cả cấu trúc phân cấp trong JSON, thứ thực ra được làm phẳng thành khoá `"Email:Smtp:Port"`. Hiểu điều này giải thích ngay hai thứ hay gây bối rối: vì sao biến môi trường viết **hai dấu gạch dưới** (`Email__Smtp__Port`) — vì nhiều shell không cho dấu hai chấm trong tên biến — và vì sao **mảng trong JSON không hợp nhất được**, mà bị thay theo **từng chỉ số**.
+</SummaryBox>
+
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Liệt kê các provider mặc định và thứ tự ưu tiên của chúng.
+- Ánh xạ đúng một khoá phân cấp sang tên biến môi trường.
+- Dự đoán kết quả khi hai nguồn cùng khai báo một mảng.
+- Đặt secret đúng chỗ cho từng môi trường.
+- Chẩn đoán "vì sao giá trị này không phải cái tôi đặt".
 
 ## Nội dung bài học
 
-### 8.7.1 — Thứ tự ưu tiên (cao nhất ghi đè thấp hơn)
-
-```
-Command-line args > Environment Variables > User Secrets (Dev) >
-appsettings.{Environment}.json > appsettings.json
-```
-
-### 8.7.2 — appsettings.json
+### 8.7.1 — Từ điển phẳng và thứ tự ưu tiên
 
 ```json
-{
-  "ConnectionStrings": {
-    "CrmDb": "Server=localhost;Database=CrmDb;Trusted_Connection=true"
-  },
-  "Logging": {
-    "LogLevel": {
-      "Default": "Information",
-      "Microsoft.AspNetCore": "Warning"
-    }
-  },
-  "CrmSettings": {
-    "MaxPageSize": 100,
-    "DefaultPageSize": 20,
-    "AllowGuestAccess": false
-  }
-}
+{ "Email": { "Smtp": { "Port": 587 } } }
 ```
 
-### 8.7.3 — Options Pattern
+trở thành đúng một mục:
 
-```csharp
-// Models/Config/CrmSettings.cs
-public class CrmSettings
-{
-    public const string SectionName = "CrmSettings";
-
-    public int MaxPageSize { get; init; } = 100;
-    public int DefaultPageSize { get; init; } = 20;
-    public bool AllowGuestAccess { get; init; }
-}
-
-// Program.cs
-builder.Services.Configure<CrmSettings>(
-    builder.Configuration.GetSection(CrmSettings.SectionName));
-
-// Sử dụng trong service
-public class CustomerService
-{
-    private readonly CrmSettings _settings;
-
-    public CustomerService(IOptions<CrmSettings> options)
-        => _settings = options.Value;
-}
+```
+"Email:Smtp:Port" = "587"
 ```
 
-### 8.7.4 — User Secrets (Development)
+Mọi giá trị đều là `string`. Việc ép về `int` hay `bool` xảy ra lúc bind.
+
+Thứ tự provider mà `CreateBuilder` đăng ký, **sau đè trước**:
+
+| # | Provider | Ghi chú |
+|---|---|---|
+| 1 | `appsettings.json` | Cơ sở, commit vào Git |
+| 2 | `appsettings.{Environment}.json` | Theo môi trường |
+| 3 | User Secrets | **Chỉ Development** |
+| 4 | Biến môi trường | Cách container cấu hình |
+| 5 | Tham số dòng lệnh | Cao nhất, tiện để thử |
 
 ```bash
-dotnet user-secrets init
-dotnet user-secrets set "ConnectionStrings:CrmDb" "Server=...;Password=secret"
+dotnet run --CrmSettings:MaxPageSize=500
 ```
 
-User Secrets lưu ngoài source tree — không bao giờ commit secret vào git.
+Thêm nguồn riêng thì `builder.Configuration.AddXxx(...)`, và vị trí gọi quyết định độ ưu tiên — thêm sau nghĩa là đè lên.
 
----
+### 8.7.2 — Biến môi trường và hai dấu gạch dưới
+
+```bash
+# Khoa:  ConnectionStrings:CrmDb
+ConnectionStrings__CrmDb="Server=db;Database=Crm;..."
+
+# Khoa:  Email:Smtp:Port
+Email__Smtp__Port=587
+```
+
+Dấu hai chấm không dùng được trong tên biến môi trường trên nhiều shell và trên Linux, nên .NET quy ước **hai dấu gạch dưới** thay cho nó. Một dấu gạch dưới **không** có tác dụng — `Email_Smtp_Port` tạo ra một khoá hoàn toàn khác và bị bỏ qua trong im lặng.
+
+Đây là cách Docker và Kubernetes cấu hình ứng dụng:
+
+```yaml
+env:
+  - name: ConnectionStrings__CrmDb
+    valueFrom:
+      secretKeyRef: { name: crm-secrets, key: connection-string }
+  - name: ASPNETCORE_ENVIRONMENT
+    value: Production
+```
+
+Chi tiết ở [Module 15 — Docker và Deployment](../../stage-04-database-production/module-15-docker-deployment/).
+
+### 8.7.3 — Mảng: cái bẫy thật sự
+
+```json
+// appsettings.json
+{ "AllowedOrigins": ["https://app.com", "https://admin.app.com"] }
+```
+
+Mảng cũng bị làm phẳng theo **chỉ số**:
+
+```
+"AllowedOrigins:0" = "https://app.com"
+"AllowedOrigins:1" = "https://admin.app.com"
+```
+
+Hệ quả: nguồn sau **không thay cả mảng** mà chỉ đè **từng chỉ số**.
+
+```json
+// appsettings.Production.json
+{ "AllowedOrigins": ["https://prod.com"] }
+```
+
+Kết quả **không phải** `["https://prod.com"]` mà là:
+
+```
+["https://prod.com", "https://admin.app.com"]
+```
+
+Vì chỉ khoá `:0` bị đè, còn `:1` vẫn còn nguyên từ file gốc. Đây là nguồn của những lỗi CORS và whitelist rất khó hiểu: một domain lẽ ra đã bị xoá vẫn được chấp nhận trên production.
+
+Ba cách tránh:
+
+1. Đừng khai báo mảng ở `appsettings.json` gốc — chỉ khai ở file theo môi trường.
+2. Đặt lại **từng chỉ số** cho đủ, kể cả bằng chuỗi rỗng.
+3. Dùng **chuỗi ngăn cách** rồi tự tách: `"AllowedOrigins": "https://prod.com;https://x.com"`.
+
+### 8.7.4 — Đọc cấu hình
+
+```csharp
+// Khong khuyen khich — stringly-typed
+var port = builder.Configuration.GetValue<int>("Email:Smtp:Port");
+var conn = builder.Configuration.GetConnectionString("CrmDb");
+
+// Khuyen khich — options pattern
+builder.Services.AddOptions<CrmSettings>()
+    .Bind(builder.Configuration.GetSection(CrmSettings.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+```
+
+`GetConnectionString("CrmDb")` là lối tắt cho `["ConnectionStrings:CrmDb"]`.
+
+Toàn bộ options pattern — ba interface, validation, named options — đã nói kỹ ở [bài 7.8](../../stage-02-csharp-professional/module-07-dependency-injection/7.8-options-pattern.mdx). Điểm cần nhớ lại: **`ValidateOnStart()` trên mọi `AddOptions`**, để cấu hình thiếu chặn khởi động thay vì chặn người dùng.
+
+Tiêm `IConfiguration` vào service là dấu hiệu chưa dùng options pattern. Nó chỉ thuộc về `Program.cs` và các extension method đăng ký.
+
+### 8.7.5 — Reload
+
+```json
+// appsettings.json cua ban duoc theo doi mac dinh
+```
+
+`CreateBuilder` bật `reloadOnChange: true` cho file JSON — sửa file là cấu hình đổi, không cần restart. Nhưng:
+
+- **`IOptions<T>` không thấy** thay đổi đó; chỉ `IOptionsSnapshot<T>` và `IOptionsMonitor<T>` thấy.
+- **Biến môi trường không reload.** Chúng được đọc một lần lúc khởi động — đổi biến là phải restart tiến trình.
+- Trong container, file cấu hình thường nằm trong image nên cũng không đổi được khi đang chạy.
+
+Nghĩa là: trong triển khai container điển hình, **reload gần như không có tác dụng**. Muốn đổi cấu hình khi đang chạy thì cần một provider hỗ trợ thật, như Azure App Configuration hoặc một feature flag service.
+
+### 8.7.6 — Secret
+
+```bash
+# Development — luu ngoai repo, theo UserSecretsId trong .csproj
+dotnet user-secrets init
+dotnet user-secrets set "ConnectionStrings:CrmDb" "Server=...;Password=..."
+dotnet user-secrets list
+```
+
+User Secrets lưu ở `~/.microsoft/usersecrets/<id>/secrets.json` — **ngoài** cây mã nguồn, nên không thể commit nhầm. Nhưng nó **không mã hoá**; nó chỉ giải quyết vấn đề "lỡ tay `git add`".
+
+| Môi trường | Nơi để secret |
+|---|---|
+| Development | User Secrets |
+| CI/CD | Secret của pipeline (GitHub Actions secrets, biến bảo vệ) |
+| Container | Biến môi trường từ secret của orchestrator |
+| Cloud | Azure Key Vault, AWS Secrets Manager |
+
+Quy tắc không thương lượng: **`appsettings.json` nằm trong Git**, nên không có mật khẩu, API key hay connection string có thông tin đăng nhập ở đó. Giá trị mẫu thì để rỗng, không để giá trị thật của môi trường dev chung.
+
+### 8.7.7 — Chẩn đoán "giá trị này ở đâu ra"
+
+```csharp
+// Chi dung khi debug — in ra nguon cua tung khoa
+var root = (IConfigurationRoot)builder.Configuration;
+Console.WriteLine(root.GetDebugView());
+```
+
+`GetDebugView()` in mọi khoá kèm **provider nào đã cho giá trị cuối cùng**. Nó giải quyết trong 5 giây câu hỏi "vì sao connection string trên staging không phải cái tôi đặt".
+
+Đừng để nó chạy ở Production: nó in cả secret ra output.
+
+### 8.7.8 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát cấu hình"
+  items={[
+    { text: "Không có mật khẩu hay API key nào trong appsettings.json đã commit." },
+    { text: "Biến môi trường dùng đúng hai dấu gạch dưới cho khoá phân cấp." },
+    { text: "Mảng cấu hình chỉ khai báo ở một nơi, không ở cả file gốc lẫn file môi trường." },
+    { text: "Không có service nào tiêm IConfiguration để đọc giá trị lẻ." },
+    { text: "Mọi AddOptions đều có ValidateOnStart()." },
+    { text: "Biết rõ cấu hình nào cần reload và đã dùng IOptionsMonitor cho chúng." },
+    { text: "GetDebugView() không chạy ở Production." },
+    { text: "Mỗi môi trường triển khai có nơi để secret rõ ràng, không dùng file." },
+  ]}
+/>
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **Bẫy mảng.** Khai `AllowedOrigins` với 2 phần tử ở `appsettings.json` và 1 phần tử ở `appsettings.Production.json`. Chạy với `ASPNETCORE_ENVIRONMENT=Production`, in ra mảng cuối cùng và ghi lại kết quả.
+
+2. **Một dấu gạch dưới.** Đặt `Email_Smtp_Port=587` rồi `Email__Smtp__Port=587`. In giá trị `Configuration["Email:Smtp:Port"]` trong mỗi trường hợp.
+
+3. **Truy nguồn.** Đặt cùng một khoá ở cả bốn nguồn với bốn giá trị khác nhau, chạy `GetDebugView()` và xác nhận provider thắng cuộc đúng như bảng thứ tự ưu tiên.
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "Hệ thống cấu hình .NET lưu dữ liệu như thế nào?",
+      answer: "Là một từ điển phẳng ánh xạ chuỗi sang chuỗi, được nhiều provider xếp chồng và provider sau đè provider trước. Cấu trúc phân cấp trong JSON bị làm phẳng thành khoá nối bằng dấu hai chấm, và mọi giá trị đều là chuỗi cho tới lúc bind."
+    },
+    {
+      question: "Vì sao biến môi trường dùng hai dấu gạch dưới?",
+      answer: "Vì dấu hai chấm không dùng được trong tên biến môi trường trên nhiều shell và trên Linux, nên .NET quy ước hai dấu gạch dưới thay cho nó. Một dấu gạch dưới không có tác dụng, nó tạo ra một khoá hoàn toàn khác và bị bỏ qua trong im lặng."
+    },
+    {
+      question: "Mảng trong cấu hình có bẫy gì?",
+      answer: "Mảng bị làm phẳng theo chỉ số, nên nguồn sau không thay cả mảng mà chỉ đè từng chỉ số. Khai 2 phần tử ở file gốc và 1 phần tử ở file môi trường thì kết quả là phần tử đầu bị thay còn phần tử thứ hai vẫn còn nguyên. Đây là nguồn của những lỗi CORS khó hiểu khi một domain lẽ ra đã bị xoá vẫn được chấp nhận."
+    },
+    {
+      question: "Thứ tự ưu tiên của các provider mặc định là gì?",
+      answer: "Từ thấp đến cao: appsettings.json, appsettings theo môi trường, User Secrets chỉ ở Development, biến môi trường, rồi tham số dòng lệnh. Provider thêm sau đè provider thêm trước, nên vị trí gọi AddXxx quyết định độ ưu tiên."
+    },
+    {
+      question: "Reload cấu hình hoạt động tới đâu?",
+      answer: "File JSON được theo dõi mặc định nên sửa file là cấu hình đổi, nhưng IOptions không thấy thay đổi, chỉ IOptionsSnapshot và IOptionsMonitor thấy. Biến môi trường thì không reload, chúng chỉ đọc một lần lúc khởi động. Trong container thì file nằm trong image nên reload gần như không có tác dụng."
+    },
+    {
+      question: "User Secrets có mã hoá không?",
+      answer: "Không. Nó chỉ lưu file ra ngoài cây mã nguồn, ở thư mục usersecrets trong home, nên bạn không thể commit nhầm. Nó giải quyết vấn đề lỡ tay git add chứ không phải vấn đề bảo mật; production thì dùng biến môi trường từ secret của orchestrator hoặc Key Vault."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **Cấu hình là một từ điển phẳng** — cấu trúc phân cấp chỉ là quy ước đặt tên khoá.
+2. **Mảng không hợp nhất, chúng bị đè theo chỉ số.** Khai mảng ở một nơi duy nhất.
+3. **`appsettings.json` nằm trong Git.** Secret đi đường khác, tuỳ môi trường.
+
+## Tham khảo
+
+- [Configuration in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/configuration/)
+- [Configuration in .NET](https://learn.microsoft.com/en-us/dotnet/core/extensions/configuration)
+- [Safe storage of app secrets in development](https://learn.microsoft.com/en-us/aspnet/core/security/app-secrets)
+- [Options pattern in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/configuration/options)
 
 ## Điều hướng
 
