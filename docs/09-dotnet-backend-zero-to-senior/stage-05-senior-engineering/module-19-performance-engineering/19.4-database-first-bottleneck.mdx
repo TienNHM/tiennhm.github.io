@@ -50,7 +50,7 @@ var orders = await _db.Orders
 N+1 thường **ẩn** sau lazy loading hoặc sau một phương thức trông vô hại:
 
 ```csharp
-// Nhin thi khong thay gi — nhung GetDisplayName() truy cap navigation property
+// Nhìn thì không thấy gì — nhưng GetDisplayName() truy cập navigation property
 foreach (var order in orders)
     result.Add(order.GetDisplayName());     // ben trong: Customer.Name -> lazy load
 ```
@@ -75,7 +75,7 @@ Test này chạy trong CI và bắt N+1 **ngay khi nó được thêm vào**, th
 ### 19.5.2 — Thiếu index
 
 ```sql
--- Bat xem ke hoach va thong ke I/O
+-- Bật xem kế hoạch và thống kê I/O
 SET STATISTICS IO ON;
 SET STATISTICS TIME ON;
 
@@ -120,7 +120,7 @@ FROM sys.dm_db_index_usage_stats s
 JOIN sys.indexes i ON i.object_id = s.object_id AND i.index_id = s.index_id
 WHERE s.database_id = DB_ID()
   AND s.user_seeks = 0 AND s.user_scans = 0
-  AND s.user_updates > 1000                    -- duoc ghi nhieu, doc khong lan nao
+  AND s.user_updates > 1000                    -- được ghi nhiều, đọc không lần nào
 ORDER BY s.user_updates DESC;
 ```
 
@@ -143,11 +143,11 @@ Kế hoạch được cache theo **lần chạy đầu tiên** sau khi plan cach
 Ba cách xử lý:
 
 ```sql
--- 1. OPTIMIZE FOR UNKNOWN — dung thong ke trung binh, khong dung gia tri cu the
+-- 1. OPTIMIZE FOR UNKNOWN — dùng thống kê trung bình, không dùng giá trị cụ thể
 SELECT * FROM Leads WHERE TenantId = @TenantId
 OPTION (OPTIMIZE FOR UNKNOWN);
 
--- 2. RECOMPILE — bien dich lai moi lan, ton CPU nhung luon dung ke hoach
+-- 2. RECOMPILE — biên dịch lại mỗi lần, tốn CPU nhưng luôn đúng kế hoạch
 SELECT * FROM Leads WHERE TenantId = @TenantId
 OPTION (RECOMPILE);
 
@@ -176,7 +176,7 @@ return leads.Select(l => new LeadDto(l.Id, l.Name, l.Customer.Name));
 ```
 
 ```csharp
-// DUNG — chi lay dung 3 cot, SQL sinh ra cung chi SELECT 3 cot
+// ĐÚNG — chỉ lấy đúng 3 cột, SQL sinh ra cũng chỉ SELECT 3 cột
 var leads = await _db.Leads
     .AsNoTracking()
     .Select(l => new LeadDto(l.Id, l.Name, l.Customer.Name))
@@ -190,8 +190,8 @@ Ba lợi ích cộng dồn: ít dữ liệu qua mạng, ít bộ nhớ cấp ph�
 **Split query** cho trường hợp có nhiều collection:
 
 ```csharp
-// Mot truy van JOIN nhieu collection -> "cartesian explosion":
-// 100 lead x 50 activity x 20 note = 100.000 hang tra ve
+// Một truy vấn JOIN nhiều collection -> "cartesian explosion":
+// 100 lead x 50 activity x 20 note = 100.000 hàng trả về
 var leads = await _db.Leads
     .Include(l => l.Activities)
     .Include(l => l.Notes)
@@ -206,7 +206,7 @@ var leads = await _db.Leads
 Chỉ cân nhắc sau khi đã làm hết những việc rẻ ở trên. Read replica giải quyết một vấn đề cụ thể: **truy vấn báo cáo nặng làm chậm nghiệp vụ**.
 
 ```csharp
-// Dinh tuyen theo muc dich su dung
+// Định tuyến theo mục đích sử dụng
 builder.Services.AddDbContext<AppDbContext>(o =>
     o.UseSqlServer(config.GetConnectionString("Primary")));
 

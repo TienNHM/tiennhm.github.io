@@ -75,30 +75,30 @@ Hàng thứ hai là loại vấn đề gây nhầm lẫn nhất: CPU nhàn rỗi
 ### 19.4.3 — Thread pool starvation
 
 ```csharp
-// NGUYEN NHAN SO MOT — sync-over-async
+// NGUYÊN NHÂN SỐ MỘT — sync-over-async
 public IActionResult GetLeads()
 {
     var leads = _service.GetLeadsAsync().Result;      // CHIEM mot thread pool thread
-    return Ok(leads);                                  // trong suot thoi gian cho I/O
+    return Ok(leads);                                  // trong suốt thời gian chờ I/O
 }
 ```
 
 Cơ chế của sự sụp đổ, theo từng bước:
 
 ```
-1. Thread pool co N thread (mac dinh ~ so core)
-2. Moi request .Result CHIEM mot thread va KHONG tra lai khi cho I/O
+1. Thread pool có N thread (mặc định ~ số core)
+2. Mỗi request .Result CHIẾM một thread và KHÔNG trả lại khi chờ I/O
 3. Request thu N+1 phai CHO thread ranh
-4. Thread pool tang thread — nhung cham, khoang 1-2 thread moi giay
+4. Thread pool tăng thread — nhưng chậm, khoảng 1-2 thread mỗi giây
 5. Request don ve nhanh hon toc do tang thread
-6. Queue length tang khong gioi han, do tre vot len hang giay
-7. CPU van THAP, vi moi thread deu dang cho I/O chu khong tinh toan
+6. Queue length tăng không giới hạn, độ trễ vọt lên hàng giây
+7. CPU vẫn THẤP, vì mọi thread đều đang chờ I/O chứ không tính toán
 ```
 
 Bước 4 là chìa khoá: thread pool **có** tự tăng, nhưng với tốc độ cố ý chậm để tránh tạo quá nhiều thread. Dưới đợt tải đột ngột, tốc độ đó không theo kịp.
 
 ```csharp
-// SUA — async suot chuoi, thread duoc tra lai khi cho I/O
+// SỬA — async suốt chuỗi, thread được trả lại khi chờ I/O
 public async Task<IActionResult> GetLeads(CancellationToken ct)
 {
     var leads = await _service.GetLeadsAsync(ct);
@@ -119,14 +119,14 @@ Tìm chúng bằng phân tích tĩnh thay vì đọc thủ công:
 
 ```xml
 <!-- .editorconfig -->
-<!-- CA2007, VSTHRD002: canh bao sync-over-async -->
+<!-- CA2007, VSTHRD002: cảnh báo sync-over-async -->
 dotnet_diagnostic.VSTHRD002.severity = error
 ```
 
 **Giảm nhẹ tạm thời** khi chưa sửa kịp:
 
 ```csharp
-// KHONG phai cach sua — chi mua them thoi gian
+// KHÔNG phải cách sửa — chỉ mua thêm thời gian
 ThreadPool.SetMinThreads(workerThreads: 200, completionPortThreads: 200);
 ```
 
@@ -166,22 +166,22 @@ Trace cũng ghi **GC event** và **exception**, nên nó trả lời được "v
 ```bash
 dotnet tool install -g dotnet-gcdump
 
-# Chup hai lan cach nhau, so sanh
+# Chụp hai lần cách nhau, so sánh
 dotnet-gcdump collect -p 1 -o before.gcdump
-# ... de he thong chay them 30 phut ...
+# ... để hệ thống chạy thêm 30 phút ...
 dotnet-gcdump collect -p 1 -o after.gcdump
 ```
 
 So sánh hai ảnh chụp trong Visual Studio để xem loại object nào **tăng liên tục**. Ba nguyên nhân phổ biến trong .NET backend:
 
 ```csharp
-// 1. Static collection khong bao gio don
+// 1. Static collection không bao giờ dọn
 private static readonly List<AuditEntry> _auditLog = [];    // tang mai mai
 
-// 2. Event handler khong huy dang ky — giu song ca object chu
+// 2. Event handler không huỷ đăng ký — giữ sống cả object chủ
 _someService.DataChanged += OnDataChanged;                   // thieu -= khi dispose
 
-// 3. IMemoryCache khong co gioi han kich thuoc
+// 3. IMemoryCache không có giới hạn kích thước
 _cache.Set(key, value);                                      // thieu SizeLimit
 ```
 
