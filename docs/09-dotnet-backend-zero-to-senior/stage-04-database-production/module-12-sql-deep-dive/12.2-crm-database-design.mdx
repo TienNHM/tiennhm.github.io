@@ -1,167 +1,336 @@
 ---
 title: "12.2 — 1. Database Design cho CRM"
-description: "Thực tế: Denormalize có chủ đích ở bảng report/analytics để tránh JOIN quá nhiều là hợp lý — quan trọng là có lý do rõ ràng."
+description: "Chuẩn hoá tới 3NF rồi phi chuẩn hoá có đo đạc, chọn khoá chính, ràng buộc là hợp đồng dữ liệu, soft delete và audit — thiết kế schema cho CRM."
 sidebar_position: 2
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
 # 12.2 — 1. Database Design cho CRM
 
+<SummaryBox>
+Thiết kế schema là quyết định **khó sửa nhất** trong một hệ thống: code viết lại được trong một chiều, còn di chuyển 50 triệu dòng sang cấu trúc mới thì mất hàng tuần và có rủi ro. Ba nguyên tắc chi phối toàn bộ bài này. **Chuẩn hoá tới 3NF trước, phi chuẩn hoá sau khi đo** — phi chuẩn hoá sớm là tối ưu mù. **Ràng buộc trong database là hợp đồng cuối cùng**: tầng ứng dụng có thể bị bỏ qua bởi một script sửa dữ liệu, ràng buộc thì không. Và **`GUID` ngẫu nhiên làm khoá chính gây phân mảnh nghiêm trọng** trên index gom cụm — một quyết định trông vô hại nhưng làm chậm mọi thao tác ghi.
+</SummaryBox>
+
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Chuẩn hoá một schema tới 3NF và biết khi nào đi ngược lại.
+- Chọn khoá chính có cân nhắc tới index gom cụm.
+- Dùng ràng buộc để bảo vệ dữ liệu ở tầng cuối cùng.
+- Thiết kế soft delete mà không phá index.
+- Thiết kế audit trail dùng được khi điều tra.
 
 ## Nội dung bài học
 
-### 12.2.1 — 1.1 Schema tổng thể
-
-CRM cơ bản cần ít nhất 5 bảng cốt lõi. Thiết kế từ đầu theo hướng "viết entity → liệt kê thuộc tính → chuẩn hóa → thêm constraint":
+### 12.2.1 — Schema cốt lõi
 
 ```sql
--- =============================================
--- USERS (nhân viên sales, admin)
--- =============================================
 CREATE TABLE Users (
     UserId      INT IDENTITY(1,1) PRIMARY KEY,
-    Email       NVARCHAR(256)   NOT NULL UNIQUE,
-    FullName    NVARCHAR(200)   NOT NULL,
-    Role        NVARCHAR(50)    NOT NULL DEFAULT 'SalesRep',  -- Admin, Manager, SalesRep
-    IsActive    BIT             NOT NULL DEFAULT 1,
-    CreatedAt   DATETIME2       NOT NULL DEFAULT GETUTCDATE(),
-    UpdatedAt   DATETIME2       NOT NULL DEFAULT GETUTCDATE()
+    Email       NVARCHAR(256) NOT NULL,
+    FullName    NVARCHAR(200) NOT NULL,
+    Role        NVARCHAR(50)  NOT NULL DEFAULT 'SalesRep',
+    IsActive    BIT           NOT NULL DEFAULT 1,
+    CreatedAt   DATETIME2(3)  NOT NULL DEFAULT SYSUTCDATETIME(),
+    UpdatedAt   DATETIME2(3)  NOT NULL DEFAULT SYSUTCDATETIME(),
+    RowVersion  ROWVERSION,
+
+    CONSTRAINT UQ_Users_Email UNIQUE (Email)
 );
 
--- =============================================
--- CUSTOMERS (khách hàng đã ký hợp đồng)
--- =============================================
 CREATE TABLE Customers (
-    CustomerId      INT IDENTITY(1,1) PRIMARY KEY,
-    CompanyName     NVARCHAR(300)   NOT NULL,
-    Industry        NVARCHAR(100)   NULL,
-    AnnualRevenue   DECIMAL(18,2)   NULL,
-    Country         NVARCHAR(100)   NOT NULL DEFAULT 'Vietnam',
-    AssignedToUserId INT            NULL,
-    Status          NVARCHAR(50)    NOT NULL DEFAULT 'Active',  -- Active, Inactive, Churned
-    CreatedAt       DATETIME2       NOT NULL DEFAULT GETUTCDATE(),
-    UpdatedAt       DATETIME2       NOT NULL DEFAULT GETUTCDATE(),
+    CustomerId       INT IDENTITY(1,1) PRIMARY KEY,
+    CompanyName      NVARCHAR(300) NOT NULL,
+    Industry         NVARCHAR(100) NULL,
+    AnnualRevenue    DECIMAL(18,2) NULL,
+    CountryCode      CHAR(2)       NOT NULL DEFAULT 'VN',
+    AssignedToUserId INT           NULL,
+    Status           NVARCHAR(50)  NOT NULL DEFAULT 'Active',
+    CreatedAt        DATETIME2(3)  NOT NULL DEFAULT SYSUTCDATETIME(),
+    UpdatedAt        DATETIME2(3)  NOT NULL DEFAULT SYSUTCDATETIME(),
+    DeletedAt        DATETIME2(3)  NULL,
+    RowVersion       ROWVERSION,
+
     CONSTRAINT FK_Customers_Users FOREIGN KEY (AssignedToUserId)
-        REFERENCES Users(UserId) ON DELETE SET NULL
-);
-
--- =============================================
--- CONTACTS (người liên hệ thuộc customer)
--- =============================================
-CREATE TABLE Contacts (
-    ContactId   INT IDENTITY(1,1) PRIMARY KEY,
-    CustomerId  INT             NOT NULL,
-    FirstName   NVARCHAR(100)   NOT NULL,
-    LastName    NVARCHAR(100)   NOT NULL,
-    Email       NVARCHAR(256)   NULL,
-    Phone       NVARCHAR(50)    NULL,
-    Title       NVARCHAR(100)   NULL,   -- CEO, CTO, Procurement Manager...
-    IsPrimary   BIT             NOT NULL DEFAULT 0,
-    CreatedAt   DATETIME2       NOT NULL DEFAULT GETUTCDATE(),
-    CONSTRAINT FK_Contacts_Customers FOREIGN KEY (CustomerId)
-        REFERENCES Customers(CustomerId) ON DELETE CASCADE
-);
-
--- =============================================
--- LEADS (tiềm năng chưa thành customer)
--- =============================================
-CREATE TABLE Leads (
-    LeadId          INT IDENTITY(1,1) PRIMARY KEY,
-    CompanyName     NVARCHAR(300)   NOT NULL,
-    ContactName     NVARCHAR(200)   NULL,
-    Email           NVARCHAR(256)   NULL,
-    Phone           NVARCHAR(50)    NULL,
-    Source          NVARCHAR(100)   NULL,   -- Website, Referral, LinkedIn, Cold Call
-    Status          NVARCHAR(50)    NOT NULL DEFAULT 'New',
-                                            -- New, Contacted, Qualified, Proposal, Won, Lost
-    EstimatedValue  DECIMAL(18,2)   NULL,
-    AssignedToUserId INT            NULL,
-    ConvertedAt     DATETIME2       NULL,   -- NULL = chưa convert
-    ConvertedToCustomerId INT       NULL,
-    CreatedAt       DATETIME2       NOT NULL DEFAULT GETUTCDATE(),
-    UpdatedAt       DATETIME2       NOT NULL DEFAULT GETUTCDATE(),
-    CONSTRAINT FK_Leads_Users FOREIGN KEY (AssignedToUserId)
         REFERENCES Users(UserId) ON DELETE SET NULL,
-    CONSTRAINT FK_Leads_Customers FOREIGN KEY (ConvertedToCustomerId)
-        REFERENCES Customers(CustomerId) ON DELETE SET NULL,
-    CONSTRAINT CK_Leads_Status CHECK (
-        Status IN ('New','Contacted','Qualified','Proposal','Won','Lost')
-    )
-);
-
--- =============================================
--- NOTIFICATIONS
--- =============================================
-CREATE TABLE Notifications (
-    NotificationId  INT IDENTITY(1,1) PRIMARY KEY,
-    UserId          INT             NOT NULL,
-    Title           NVARCHAR(300)   NOT NULL,
-    Body            NVARCHAR(MAX)   NULL,
-    Type            NVARCHAR(50)    NOT NULL DEFAULT 'Info',  -- Info, Warning, Alert
-    IsRead          BIT             NOT NULL DEFAULT 0,
-    RelatedEntityType NVARCHAR(50)  NULL,   -- 'Lead', 'Customer', 'Contact'
-    RelatedEntityId INT             NULL,
-    CreatedAt       DATETIME2       NOT NULL DEFAULT GETUTCDATE(),
-    CONSTRAINT FK_Notifications_Users FOREIGN KEY (UserId)
-        REFERENCES Users(UserId) ON DELETE CASCADE
+    CONSTRAINT CK_Customers_Status CHECK (Status IN ('Active','Inactive','Churned')),
+    CONSTRAINT CK_Customers_Revenue CHECK (AnnualRevenue IS NULL OR AnnualRevenue >= 0)
 );
 ```
 
-### 12.2.2 — 1.2 Chuẩn hóa (Normalization) thực tế
+Bốn quyết định trong đoạn trên đáng giải thích:
 
-Chuẩn hóa không phải học thuật — mục tiêu là **tránh dị thường dữ liệu** khi insert/update/delete:
+**`DATETIME2(3)` thay vì `DATETIME2`.** Mặc định là độ chính xác 7 chữ số và chiếm 8 byte; 3 chữ số (mili giây) chiếm 7 byte và đủ cho mọi nhu cầu nghiệp vụ. Một byte nhân với 50 triệu dòng là 50MB — và quan trọng hơn là nhiều dòng hơn trên mỗi trang dữ liệu.
 
-| Dạng chuẩn | Quy tắc đơn giản | Ví dụ vi phạm trong CRM |
-|------------|-----------------|------------------------|
-| **1NF** | Mỗi ô chứa một giá trị nguyên tử, không có cột lặp | Lưu `Phone1, Phone2, Phone3` thay vì bảng `ContactPhones` |
-| **2NF** | Mọi cột non-key phụ thuộc vào toàn bộ PK (quan trọng với composite PK) | Bảng `LeadContacts(LeadId, ContactId, ContactEmail)` — email phụ thuộc ContactId thôi |
-| **3NF** | Không có phụ thuộc bắc cầu (A → B → C mà C không phụ thuộc trực tiếp A) | `Customers(CustomerId, CountryCode, CountryName)` — CountryName phụ thuộc CountryCode, không phụ thuộc CustomerId |
+**`SYSUTCDATETIME()` thay vì `GETUTCDATE()`.** Cái sau chỉ chính xác tới khoảng 3,33 mili giây do kiểu `DATETIME` cũ.
 
-**Thực tế:** Denormalize có chủ đích ở bảng report/analytics để tránh JOIN quá nhiều là hợp lý — quan trọng là có lý do rõ ràng.
+**`ROWVERSION`** cho optimistic concurrency — mỗi lần sửa dòng, giá trị này tự đổi. EF Core dùng nó để phát hiện xung đột ([Module 13](../module-13-entity-framework-core/)).
 
-### 12.2.3 — 1.3 Primary Key Strategy
+**`CountryCode CHAR(2)` thay vì `CountryName`.** Lưu tên quốc gia là vi phạm 3NF — mục sau.
 
-| Chiến lược | Ưu điểm | Nhược điểm | Khi nào dùng |
-|-----------|---------|-----------|-------------|
-| `INT IDENTITY` | Nhỏ gọn, clustered index hiệu quả, dễ đọc | Lộ sequence, khó merge data từ nhiều nguồn | API nội bộ, bảng lớn write-heavy |
-| `UNIQUEIDENTIFIER` (GUID v4) | Globally unique, không đoán được | 16 bytes, gây page fragmentation nghiêm trọng | Tránh nếu có thể |
-| `NEWSEQUENTIALID()` / `uuid_generate_v7()` | GUID nhưng monotonically increasing | Phụ thuộc SQL Server default / PostgreSQL extension | Cần GUID nhưng muốn clustered index tốt |
+### 12.2.2 — Chuẩn hoá tới 3NF
 
-**Khuyến nghị cho CRM:** Dùng `INT IDENTITY` cho tất cả bảng chính. Nếu cần expose ra API public thì map sang GUID ở tầng application (không để GUID làm clustered PK).
+Ba dạng chuẩn đầu, diễn giải thực dụng:
 
-### 12.2.4 — 1.4 Foreign Key Cascade
+| | Quy tắc | Vi phạm điển hình trong CRM |
+|---|---|---|
+| **1NF** | Mỗi ô một giá trị nguyên tử | `Phone1, Phone2, Phone3` thay vì bảng `ContactPhones` |
+| **2NF** | Cột non-key phụ thuộc **toàn bộ** khoá chính | `LeadContacts(LeadId, ContactId, ContactEmail)` — email chỉ phụ thuộc `ContactId` |
+| **3NF** | Không có phụ thuộc bắc cầu | `Customers(CustomerId, CountryCode, CountryName)` — `CountryName` phụ thuộc `CountryCode` |
+
+Vi phạm 1NF phổ biến nhất là **nhồi danh sách vào một cột**: `Tags NVARCHAR(500)` chứa `"vip,enterprise,hanoi"`. Nó trông tiện cho tới khi bạn cần tìm mọi khách hàng có tag `vip` — `LIKE '%vip%'` cũng khớp `vip-cancelled`, và không index nào dùng được.
+
+Vi phạm 3NF ở ví dụ trên gây ra vấn đề rất cụ thể: Việt Nam đổi tên tiếng Anh, và bạn phải `UPDATE` 2 triệu dòng. Với bảng `Countries` riêng, đó là một dòng.
+
+**Khi nào phi chuẩn hoá:**
+
+| Tình huống | Có nên |
+|---|---|
+| "Bảng này chắc sẽ chậm" | **Không** — đo trước |
+| Đã đo, JOIN 5 bảng mất 800ms, chạy 10.000 lần/phút | Có |
+| Bảng báo cáo, dữ liệu làm mới theo lô | Có |
+| Ảnh chụp lịch sử (giá lúc đặt hàng) | **Có — và đây không phải phi chuẩn hoá** |
+
+Hàng cuối hay bị nhầm. `OrderLines.UnitPrice` **phải** lưu giá tại thời điểm đặt, không JOIN sang `Products.Price` — vì giá sản phẩm đổi và hoá đơn cũ phải giữ nguyên. Đó là **dữ liệu khác nhau về ngữ nghĩa**, không phải bản sao thừa.
+
+Khi phi chuẩn hoá thật, **ghi lại lý do**:
 
 ```sql
--- ON DELETE CASCADE  → xóa Customer thì xóa luôn Contacts
--- ON DELETE SET NULL → xóa User thì Lead không mất, chỉ unassign
--- ON DELETE RESTRICT (mặc định) → báo lỗi nếu còn con
+-- PHI CHUAN HOA CO CHU DICH:
+-- ContactCount duoc cap nhat boi trigger tren Contacts.
+-- Ly do: man hinh danh sach khach hang goi COUNT(*) 40.000 lan/phut, mat 1,2 giay.
+-- Do luc: 2026-03-15. Xem ticket CRM-1842.
+ALTER TABLE Customers ADD ContactCount INT NOT NULL DEFAULT 0;
 ```
 
-Trong CRM: `Contacts` dùng CASCADE (contact không có nghĩa nếu không có customer). `Leads.AssignedToUserId` dùng SET NULL (lead vẫn tồn tại dù nhân viên nghỉ).
+Không có comment này, người sau sẽ thấy một cột trùng lặp và hoặc xoá nó, hoặc để nó lệch dần với sự thật.
 
----
+### 12.2.3 — Khoá chính và index gom cụm
+
+Trong SQL Server, khoá chính mặc định là **index gom cụm** — nghĩa là **dữ liệu thật được sắp xếp vật lý theo nó**.
+
+```sql
+-- TOT: gia tri tang dan -> ghi luon o cuoi, khong tach trang
+CustomerId INT IDENTITY(1,1) PRIMARY KEY
+
+-- TE: gia tri ngau nhien -> chen vao GIUA, tach trang lien tuc
+CustomerId UNIQUEIDENTIFIER DEFAULT NEWID() PRIMARY KEY
+```
+
+Với GUID ngẫu nhiên, mỗi lần chèn rơi vào một vị trí **ngẫu nhiên** trong index. Trang đầy thì SQL Server **tách trang**: nửa dữ liệu chuyển sang trang mới. Hệ quả là phân mảnh cao, trang chỉ đầy khoảng một nửa, và mọi thao tác đọc phải nạp nhiều trang hơn.
+
+Thêm nữa: mỗi index không gom cụm đều chứa khoá gom cụm để trỏ về dòng. GUID 16 byte thay vì `INT` 4 byte làm **mọi** index phụ phình lên.
+
+| Chiến lược | Khi dùng |
+|---|---|
+| `INT IDENTITY` | Mặc định. Dưới 2,1 tỷ dòng |
+| `BIGINT IDENTITY` | Bảng log, bảng sự kiện |
+| `NEWSEQUENTIALID()` / UUIDv7 | Cần GUID và vẫn muốn ghi tuần tự |
+| GUID ngẫu nhiên | **Tránh làm khoá gom cụm** |
+
+Cần GUID cho API công khai nhưng vẫn muốn ghi tốt? Dùng cả hai:
+
+```sql
+CustomerId INT IDENTITY(1,1) PRIMARY KEY,                 -- gom cum, noi bo
+PublicId   UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),     -- lo ra API
+
+CONSTRAINT UQ_Customers_PublicId UNIQUE NONCLUSTERED (PublicId)
+```
+
+Khoá ngoại và JOIN dùng `INT`; API dùng `PublicId` nên không ai đoán được bạn có bao nhiêu khách hàng.
+
+### 12.2.4 — Ràng buộc là hợp đồng cuối cùng
+
+Validation ở tầng ứng dụng **bị bỏ qua** bởi: script sửa dữ liệu thủ công, job import, một service khác nối vào cùng database, và chính bạn lúc 2 giờ sáng đang chữa cháy.
+
+```sql
+-- NOT NULL: cot nay luon phai co gia tri
+Email NVARCHAR(256) NOT NULL
+
+-- UNIQUE: khong trung — va tu tao index
+CONSTRAINT UQ_Users_Email UNIQUE (Email)
+
+-- CHECK: gia tri hop le
+CONSTRAINT CK_Leads_Status CHECK (Status IN ('New','Contacted','Qualified','Won','Lost'))
+CONSTRAINT CK_Leads_Value  CHECK (EstimatedValue IS NULL OR EstimatedValue >= 0)
+
+-- CHECK nhieu cot
+CONSTRAINT CK_Leads_Converted CHECK (
+    (ConvertedAt IS NULL AND ConvertedToCustomerId IS NULL) OR
+    (ConvertedAt IS NOT NULL AND ConvertedToCustomerId IS NOT NULL)
+)
+```
+
+Ràng buộc cuối cùng đáng chú ý: nó biến một **bất biến nghiệp vụ** — "đã convert thì phải có customer id" — thành thứ database **không cho phép** vi phạm. Không script nào, không bug nào tạo được trạng thái nửa vời đó.
+
+**Khoá ngoại** với hành vi xoá đúng ngữ nghĩa:
+
+```sql
+-- CASCADE: contact khong co nghia neu khong co customer
+FOREIGN KEY (CustomerId) REFERENCES Customers(CustomerId) ON DELETE CASCADE
+
+-- SET NULL: lead van ton tai du nhan vien nghi viec
+FOREIGN KEY (AssignedToUserId) REFERENCES Users(UserId) ON DELETE SET NULL
+
+-- NO ACTION (mac dinh): khong cho xoa neu con tham chieu
+FOREIGN KEY (ProductId) REFERENCES Products(ProductId)
+```
+
+Cẩn thận với `CASCADE` nhiều tầng: xoá một `Customer` kéo theo `Contacts`, rồi `ContactNotes`, rồi… Một lệnh `DELETE` tưởng nhỏ có thể xoá hàng chục nghìn dòng và giữ khoá rất lâu. SQL Server còn **từ chối** tạo nhiều đường cascade cùng tới một bảng.
+
+### 12.2.5 — Soft delete
+
+```sql
+DeletedAt DATETIME2(3) NULL     -- NULL = chua xoa
+```
+
+`DateTime?` thay vì `bool IsDeleted` cho bạn **cả hai** thông tin: đã xoá chưa, và xoá lúc nào.
+
+Nhưng soft delete phá vỡ ràng buộc `UNIQUE`: xoá mềm `a@example.com` rồi tạo lại cùng email sẽ **vi phạm** unique, vì dòng cũ vẫn còn.
+
+```sql
+-- SQL Server: filtered index
+CREATE UNIQUE INDEX UQ_Users_Email_Active
+    ON Users(Email) WHERE DeletedAt IS NULL;
+
+-- PostgreSQL: partial index
+CREATE UNIQUE INDEX uq_users_email_active
+    ON users(email) WHERE deleted_at IS NULL;
+```
+
+Chỉ những dòng **chưa xoá** mới phải duy nhất. Filtered index còn nhỏ hơn và nhanh hơn index đầy đủ.
+
+Soft delete còn ba hệ quả nữa:
+
+1. **Mọi truy vấn phải lọc `DeletedAt IS NULL`** — quên một chỗ là dữ liệu đã xoá hiện lại. Dùng global query filter của EF Core ([bài 10.7](../../stage-03-aspnet-core-backend/module-10-authentication-authorization/10.7-resource-based-authorization.mdx)).
+2. **Khoá ngoại vẫn giữ** dòng đã xoá mềm, nên bạn có thể tham chiếu tới thứ "đã xoá".
+3. **Bảng không bao giờ nhỏ lại.** Cần một job chuyển dữ liệu đã xoá quá lâu sang bảng lưu trữ.
+
+Nếu không có yêu cầu khôi phục hay tuân thủ, **xoá cứng đơn giản hơn nhiều**. Đừng mặc định soft delete cho mọi bảng.
+
+### 12.2.6 — Audit trail
+
+```sql
+CREATE TABLE AuditLog (
+    AuditId     BIGINT IDENTITY(1,1) PRIMARY KEY,
+    TableName   NVARCHAR(128) NOT NULL,
+    RecordId    NVARCHAR(50)  NOT NULL,
+    Action      CHAR(1)       NOT NULL,        -- I, U, D
+    ChangedBy   INT           NULL,
+    ChangedAt   DATETIME2(3)  NOT NULL DEFAULT SYSUTCDATETIME(),
+    OldValues   NVARCHAR(MAX) NULL,            -- JSON
+    NewValues   NVARCHAR(MAX) NULL,
+
+    CONSTRAINT CK_AuditLog_Action CHECK (Action IN ('I','U','D')),
+    INDEX IX_AuditLog_Record (TableName, RecordId, ChangedAt DESC)
+);
+```
+
+Ba cách cài, mỗi cách một đánh đổi:
+
+| Cách | Ưu | Nhược |
+|---|---|---|
+| **Trigger** | Bắt **mọi** thay đổi, kể cả từ script thủ công | Khó debug, không biết ai sửa (không có ngữ cảnh ứng dụng) |
+| **Tầng ứng dụng** (EF interceptor) | Biết người dùng nào, dễ test | **Bỏ sót** thay đổi không đi qua ứng dụng |
+| **Temporal table** (SQL Server 2016+) | Database tự quản, truy vấn theo thời điểm | Không ghi được "ai sửa" |
+
+Kết hợp thường là câu trả lời: **temporal table** cho lịch sử đầy đủ, cộng một cột `ModifiedBy` để biết ai.
+
+```sql
+ALTER TABLE Customers ADD
+    ValidFrom DATETIME2 GENERATED ALWAYS AS ROW START HIDDEN NOT NULL DEFAULT SYSUTCDATETIME(),
+    ValidTo   DATETIME2 GENERATED ALWAYS AS ROW END   HIDDEN NOT NULL DEFAULT '9999-12-31 23:59:59.9999999',
+    PERIOD FOR SYSTEM_TIME (ValidFrom, ValidTo);
+
+ALTER TABLE Customers
+    SET (SYSTEM_VERSIONING = ON (HISTORY_TABLE = dbo.CustomersHistory));
+```
+
+Sau đó truy vấn trạng thái bảng tại **bất kỳ thời điểm nào**:
+
+```sql
+SELECT * FROM Customers
+FOR SYSTEM_TIME AS OF '2026-03-15 10:00:00'
+WHERE CustomerId = 42;
+```
+
+Đây là câu trả lời trực tiếp cho "dữ liệu này hôm qua là gì" — không cần tự dựng gì.
+
+### 12.2.7 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát thiết kế schema"
+  items={[
+    { text: "Không có cột nào chứa danh sách phân tách bằng dấu phẩy." },
+    { text: "Không lưu cả mã và tên của cùng một thực thể tham chiếu." },
+    { text: "Mọi phi chuẩn hoá đều có comment ghi lý do và số đo." },
+    { text: "Khoá chính không phải GUID ngẫu nhiên trên index gom cụm." },
+    { text: "Cần GUID cho API thì dùng cột riêng, không làm khoá chính." },
+    { text: "Mọi bất biến nghiệp vụ quan trọng có CHECK constraint tương ứng." },
+    { text: "Khoá ngoại có hành vi xoá đúng ngữ nghĩa, không mặc định CASCADE." },
+    { text: "Không có chuỗi cascade nhiều tầng có thể xoá hàng loạt ngoài ý muốn." },
+    { text: "Soft delete đi kèm filtered index cho ràng buộc UNIQUE." },
+    { text: "Mọi truy vấn trên bảng có soft delete đều lọc bản ghi đã xoá." },
+    { text: "Bảng tiền tệ dùng DECIMAL, không dùng FLOAT." },
+    { text: "Có audit trail cho bảng nhạy cảm, biết cả ai sửa và sửa gì." },
+  ]}
+/>
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **Đo phân mảnh GUID.** Tạo hai bảng giống hệt nhau, một khoá chính `INT IDENTITY`, một `UNIQUEIDENTIFIER DEFAULT NEWID()`. Chèn 500.000 dòng vào mỗi bảng, đo thời gian chèn và chạy `sys.dm_db_index_physical_stats` để so sánh phân mảnh.
+
+2. **Soft delete phá UNIQUE.** Tạo `UNIQUE(Email)` thường, xoá mềm một người dùng rồi tạo lại cùng email. Ghi lại lỗi. Chuyển sang filtered index và kiểm chứng.
+
+3. **Temporal table.** Bật system versioning cho một bảng, sửa dữ liệu vài lần, rồi truy vấn `FOR SYSTEM_TIME AS OF` để lấy lại trạng thái cũ.
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "Vì sao không nên phi chuẩn hoá sớm?",
+      answer: "Vì đó là tối ưu mù: bạn thêm dữ liệu trùng lặp và nguy cơ lệch nhau để giải quyết một vấn đề chưa chắc tồn tại. Nguyên tắc là chuẩn hoá tới 3NF trước, đo, rồi mới phi chuẩn hoá đúng chỗ thắt nút, và luôn ghi lại lý do cùng số đo trong comment."
+    },
+    {
+      question: "Lưu giá sản phẩm trong dòng đơn hàng có phải phi chuẩn hoá không?",
+      answer: "Không. Giá tại thời điểm đặt hàng và giá hiện tại của sản phẩm là hai dữ liệu khác nhau về ngữ nghĩa, vì giá sản phẩm đổi mà hoá đơn cũ phải giữ nguyên. Đó là ảnh chụp lịch sử chứ không phải bản sao thừa."
+    },
+    {
+      question: "Vì sao GUID ngẫu nhiên làm khoá chính lại tệ?",
+      answer: "Vì khoá chính mặc định là index gom cụm, tức dữ liệu được sắp xếp vật lý theo nó. Giá trị ngẫu nhiên khiến mỗi lần chèn rơi vào vị trí ngẫu nhiên, gây tách trang liên tục, phân mảnh cao và trang chỉ đầy khoảng một nửa. Thêm nữa, 16 byte thay vì 4 byte làm mọi index phụ phình lên vì chúng đều chứa khoá gom cụm."
+    },
+    {
+      question: "Vì sao ràng buộc trong database quan trọng khi ứng dụng đã validate?",
+      answer: "Vì validation ở tầng ứng dụng bị bỏ qua bởi script sửa dữ liệu thủ công, job import, một service khác nối vào cùng database, và chính bạn lúc đang chữa cháy. Ràng buộc là hợp đồng cuối cùng mà không đường nào đi vòng được."
+    },
+    {
+      question: "Soft delete phá vỡ ràng buộc UNIQUE như thế nào?",
+      answer: "Xoá mềm một bản ghi rồi tạo lại cùng giá trị sẽ vi phạm unique vì dòng cũ vẫn còn trong bảng. Cách sửa là filtered index trên SQL Server hoặc partial index trên PostgreSQL, chỉ áp ràng buộc cho những dòng chưa xoá."
+    },
+    {
+      question: "Ba cách cài audit trail khác nhau ra sao?",
+      answer: "Trigger bắt mọi thay đổi kể cả từ script thủ công nhưng khó debug và không biết ai sửa. Tầng ứng dụng biết người dùng nào nhưng bỏ sót thay đổi không đi qua ứng dụng. Temporal table để database tự quản và truy vấn được theo thời điểm nhưng không ghi được ai sửa. Kết hợp temporal table với một cột ModifiedBy thường là câu trả lời."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **Chuẩn hoá trước, đo, rồi mới phi chuẩn hoá** — và ghi lại lý do.
+2. **GUID ngẫu nhiên làm khoá gom cụm là quyết định đắt** và rất khó sửa về sau.
+3. **Ràng buộc database là hợp đồng cuối cùng.** Validation ứng dụng luôn có đường đi vòng.
+
+## Tham khảo
+
+- [Primary and foreign key constraints (SQL Server)](https://learn.microsoft.com/en-us/sql/relational-databases/tables/primary-and-foreign-key-constraints)
+- [Temporal tables (SQL Server)](https://learn.microsoft.com/en-us/sql/relational-databases/tables/temporal-tables)
+- [Create filtered indexes](https://learn.microsoft.com/en-us/sql/relational-databases/indexes/create-filtered-indexes)
+- [Database normalization description](https://learn.microsoft.com/en-us/office/troubleshoot/access/database-normalization-description)
 
 ## Điều hướng
 
