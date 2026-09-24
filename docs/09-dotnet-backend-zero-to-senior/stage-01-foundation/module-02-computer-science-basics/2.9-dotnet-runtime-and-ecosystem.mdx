@@ -230,12 +230,12 @@ Gọi cùng một tác vụ 10 lần liên tiếp ngay sau khi khởi động, g
 **Lời giải.**
 
 ```csharp
-static string XuLy(List<Lead> leads)
+static string Process(List<Lead> leads)
 {
     var top = leads.Where(l => l.Value > 1000)
                    .OrderByDescending(l => l.Value)
                    .GroupBy(l => l.CreatedAt.Month)
-                   .Select(g => new { Thang = g.Key, Tong = g.Sum(x => x.Value), So = g.Count() })
+                   .Select(g => new { Month = g.Key, Total = g.Sum(x => x.Value), Count = g.Count() })
                    .ToList();
     return JsonSerializer.Serialize(top);
 }
@@ -243,7 +243,7 @@ static string XuLy(List<Lead> leads)
 for (int i = 1; i <= 10; i++)
 {
     var sw = Stopwatch.StartNew();
-    XuLy(leads);
+    Process(leads);
     sw.Stop();
     Console.WriteLine($"{i,3}   {sw.Elapsed.TotalMilliseconds,8:F2}");
 }
