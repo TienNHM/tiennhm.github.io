@@ -37,7 +37,7 @@ Không có exception, không có stack trace, không có timeout. Thread đứng
 
 ## `await` bắt lại cái gì khi nó tạm dừng
 
-Compiler biến mỗi method `async` thành một state machine: mỗi `await` là một checkpoint, code phía sau checkpoint được đóng gói thành một **continuation** để chạy lại sau khi Task hoàn thành ([chi tiết state machine ở đây](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-06-async-programming/6.3-task-and-async-await)).
+Compiler biến mỗi method `async` thành một state machine: mỗi `await` là một checkpoint, code phía sau checkpoint được đóng gói thành một **continuation** để chạy lại sau khi Task hoàn thành ([chi tiết state machine ở đây](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-06-async-programming/6.2-task-and-async-await)).
 
 Câu hỏi quan trọng là: continuation đó sẽ chạy **trên thread nào**?
 
@@ -68,11 +68,11 @@ Chú ý là nó **không phụ thuộc vào việc I/O có nhanh hay không**. N
 
 Đây là đoạn hay bị nói sai nhất, nên cần tách bạch hai chuyện khác nhau.
 
-**Chuyện thứ nhất — vì sao không deadlock.** Trong một console app, `SynchronizationContext.Current` trên thread `Main` là `null`. ASP.NET Core thì cố ý **không cài** `SynchronizationContext` nào cả; toàn bộ pipeline request được thiết kế async từ đầu tới cuối ([kiến trúc pipeline](/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.3-request-pipeline-and-middleware)). Không có context để bắt, nên continuation rơi thẳng xuống thread pool, không cần xin phép thread nào đang bị block. Vòng chờ bị phá, `.Result` trả về bình thường.
+**Chuyện thứ nhất — vì sao không deadlock.** Trong một console app, `SynchronizationContext.Current` trên thread `Main` là `null`. ASP.NET Core thì cố ý **không cài** `SynchronizationContext` nào cả; toàn bộ pipeline request được thiết kế async từ đầu tới cuối ([kiến trúc pipeline](/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.2-request-pipeline-and-middleware)). Không có context để bắt, nên continuation rơi thẳng xuống thread pool, không cần xin phép thread nào đang bị block. Vòng chờ bị phá, `.Result` trả về bình thường.
 
 **Chuyện thứ hai — vì sao vẫn không nên block.** Việc không deadlock **không** có nghĩa là `.Result` an toàn trong ASP.NET Core. Mỗi lần bạn block, bạn giữ một thread pool thread đứng im để chờ I/O. Thread pool phát triển rất dè dặt sau khi chạm mức tối thiểu — thứ tự vài trăm mili-giây cho mỗi thread được thêm vào. Dưới tải, số request đến nhanh hơn tốc độ thread pool nở ra, và bạn rơi vào **thread pool starvation**: latency tăng vọt, request xếp hàng, health check trượt, hệ thống trông như "treo".
 
-Triệu chứng giống deadlock nên rất hay bị gọi nhầm là deadlock. Nhưng nguyên nhân khác hẳn, và cách sửa cũng khác: deadlock cần phá vòng chờ context, còn starvation cần ngừng block để thread quay lại phục vụ request khác ([vì sao async nâng throughput](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-06-async-programming/6.2-why-async-matters)).
+Triệu chứng giống deadlock nên rất hay bị gọi nhầm là deadlock. Nhưng nguyên nhân khác hẳn, và cách sửa cũng khác: deadlock cần phá vòng chờ context, còn starvation cần ngừng block để thread quay lại phục vụ request khác ([vì sao async nâng throughput](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-06-async-programming/6.1-why-async-matters)).
 
 Tóm lại:
 
@@ -102,16 +102,16 @@ public async Task<string> GetCustomerNameAsync(int id, CancellationToken ct)
 }
 ```
 
-Truyền luôn [`CancellationToken`](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-06-async-programming/6.5-cancellationtoken) khi bạn đã sửa chữ ký — sau này thêm vào từng tầng một sẽ tốn công hơn nhiều.
+Truyền luôn [`CancellationToken`](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-06-async-programming/6.4-cancellationtoken) khi bạn đã sửa chữ ký — sau này thêm vào từng tầng một sẽ tốn công hơn nhiều.
 
 Khi đụng một biên giới thật sự không cho phép `async Task`, có đường thoát riêng cho từng loại, chứ không phải `.Result`:
 
 - **Entry point**: `async Task Main` được hỗ trợ từ C# 7.1.
 - **Constructor**: constructor không thể `async`. Dùng factory method `static async Task<T> CreateAsync(...)`.
-- **Việc chạy nền**: đừng gọi `.Result` trong `Main` hay trong startup. Dùng `BackgroundService` / `IHostedService` ([hosted service](/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-09-web-api-professional/9.10-hosted-service-background-jobs)).
+- **Việc chạy nền**: đừng gọi `.Result` trong `Main` hay trong startup. Dùng `BackgroundService` / `IHostedService` ([hosted service](/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-09-web-api-professional/9.9-hosted-service-background-jobs)).
 - **Interface bạn không sửa được**: bọc lại bằng adapter async, hoặc chấp nhận block ở đúng một chỗ duy nhất và ghi rõ lý do.
 
-Nếu nhiều việc độc lập nhau, `Task.WhenAll` cho bạn song song thật sự mà vẫn không block thread nào ([Task.WhenAll và WhenAny](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-06-async-programming/6.6-task-parallel-library)).
+Nếu nhiều việc độc lập nhau, `Task.WhenAll` cho bạn song song thật sự mà vẫn không block thread nào ([Task.WhenAll và WhenAny](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-06-async-programming/6.5-task-parallel-library)).
 
 ## `ConfigureAwait(false)` giải quyết được gì, và không giải quyết được gì
 
@@ -133,7 +133,7 @@ Nhưng hãy chính xác về phạm vi của nó:
 - Trong ASP.NET Core nó không có tác dụng gì về mặt đúng/sai, vì không có context để bỏ qua. Cái còn lại chỉ là một khoản tiết kiệm rất nhỏ.
 - Trong code UI, đặt nó ở chỗ cần chạm control là **sai**: bạn sẽ mất UI thread và nhận `InvalidOperationException` khi gán giá trị.
 
-Nên nhìn `ConfigureAwait(false)` là lời khuyên cho **người viết thư viện**: bạn không biết ai gọi mình, không nên áp đặt chi phí quay về context của họ, và không nên tham gia vào vòng chờ của họ. Người viết ứng dụng trên ASP.NET Core gần như không cần nó ([bảng so sánh theo loại code](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-06-async-programming/6.4-configureawait)).
+Nên nhìn `ConfigureAwait(false)` là lời khuyên cho **người viết thư viện**: bạn không biết ai gọi mình, không nên áp đặt chi phí quay về context của họ, và không nên tham gia vào vòng chờ của họ. Người viết ứng dụng trên ASP.NET Core gần như không cần nó ([bảng so sánh theo loại code](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-06-async-programming/6.3-configureawait)).
 
 Từ .NET 8 còn có overload nhận `ConfigureAwaitOptions` cho `Task`, với các lựa chọn như `SuppressThrowing` hay `ForceYielding` — hữu ích, nhưng vẫn thuộc cùng một câu chuyện: điều khiển chỗ và cách continuation tiếp tục.
 
@@ -161,7 +161,7 @@ public async void SendWelcomeEmail(Customer c) => await _email.SendAsync(c.Email
 public Task SendWelcomeEmailAsync(Customer c) => _email.SendAsync(c.Email);
 ```
 
-Fire-and-forget cũng vậy: `_ = DoAsync();` không an toàn hơn `async void` là mấy nếu bên trong không có `try/catch`. Muốn chạy nền đúng cách thì dùng hạ tầng chạy nền, đừng thả Task ra rồi quên ([các pattern async khác](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-06-async-programming/6.7-async-patterns)).
+Fire-and-forget cũng vậy: `_ = DoAsync();` không an toàn hơn `async void` là mấy nếu bên trong không có `try/catch`. Muốn chạy nền đúng cách thì dùng hạ tầng chạy nền, đừng thả Task ra rồi quên ([các pattern async khác](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-06-async-programming/6.6-async-patterns)).
 
 ## Mấy cách sửa nghe hợp lý nhưng không phải cách sửa
 
@@ -169,7 +169,7 @@ Fire-and-forget cũng vậy: `_ = DoAsync();` không an toàn hơn `async void` 
 - **`Task.Run(() => FooAsync()).Result`.** Cái này *có* phá được deadlock, vì lambda khởi chạy trên thread pool thread nơi không có context để bắt. Nhưng bạn tiêu hai thread cho một việc, vẫn block một thread, và phải nhớ áp dụng ở mọi call site. Nó là thuốc giảm đau cho code cũ, không phải thiết kế.
 - **Rắc `ConfigureAwait(false)` khắp code của mình.** Không đủ, vì chỉ cần một `await` trong dependency thiếu nó là vòng chờ đóng lại.
 - **Tăng số thread tối thiểu của thread pool.** Chữa được triệu chứng starvation trong ASP.NET Core, không chữa được deadlock do context, và cũng không làm code bớt block.
-- **Bọc sync I/O bằng `Task.Run` rồi gọi là "async".** Không tiết kiệm được thread nào, chỉ chuyển chỗ block. Hãy dùng API async thật, ví dụ `File.ReadAllTextAsync` thay vì `Task.Run(() => File.ReadAllText(...))` ([các pitfall thường gặp](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-06-async-programming/6.8-common-pitfalls)).
+- **Bọc sync I/O bằng `Task.Run` rồi gọi là "async".** Không tiết kiệm được thread nào, chỉ chuyển chỗ block. Hãy dùng API async thật, ví dụ `File.ReadAllTextAsync` thay vì `Task.Run(() => File.ReadAllText(...))` ([các pitfall thường gặp](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-06-async-programming/6.7-common-pitfalls)).
 
 Quy tắc rút gọn để nhớ: `await` bắt context, block giữ thread. Deadlock cần cả hai. Bỏ chữ block đi thì cả hai vấn đề cùng biến mất, còn bỏ chữ context đi thì bạn chỉ vá được một nửa.
 
@@ -202,5 +202,5 @@ Quy tắc rút gọn để nhớ: `await` bắt context, block giữ thread. Dea
 ## Bài liên quan
 
 - [Module 6 — Async Programming](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-06-async-programming) — Lập trình bất đồng bộ .NET: Task, async/await, cancellation, ConfigureAwait — mô hình I/O-bound cho ASP.NET Core và tích hợp HTTP.
-- [6.4 — 2. ConfigureAwait](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-06-async-programming/6.4-configureawait) — ConfigureAwait(false) nói với CLR rằng continuation không cần quay về SynchronizationContext gốc.
-- [6.3 — 1. Task và async/await](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-06-async-programming/6.3-task-and-async-await) — Task là lời hứa về một kết quả tương lai, không phải một thread.
+- [6.4 — 2. ConfigureAwait](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-06-async-programming/6.3-configureawait) — ConfigureAwait(false) nói với CLR rằng continuation không cần quay về SynchronizationContext gốc.
+- [6.3 — 1. Task và async/await](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-06-async-programming/6.2-task-and-async-await) — Task là lời hứa về một kết quả tương lai, không phải một thread.

@@ -1,0 +1,289 @@
+---
+title: "7.10 — Mở rộng và đào sâu"
+description: "Decorator qua DI, factory pattern, module đăng ký, Scrutor và container bên thứ ba — những kỹ thuật DI nâng cao."
+sidebar_position: 10
+---
+
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
+
+# 7.11 — Mở rộng và đào sâu
+
+<SummaryBox>
+Những kỹ thuật DI nối tiếp Module 7, kèm mức độ ưu tiên. Kỹ thuật có tỷ lệ lợi ích trên công sức cao nhất là **decorator**: thêm caching, logging hoặc retry vào một service **mà không sửa một dòng nào** của service đó — và nó đúng nguyên tắc mở/đóng theo cách cụ thể nhất. Kỹ thuật bị đánh giá thấp nhất là **module đăng ký**: gom `AddScoped` theo tính năng thay vì để 200 dòng trong `Program.cs`, rẻ để làm và cải thiện rõ khả năng đọc. Và một lời khuyên đi ngược xu hướng: **container bên thứ ba như Autofac gần như không còn cần thiết** — container tích hợp của .NET đã đủ cho hầu hết nhu cầu, và Scrutor bù nốt phần còn thiếu.
+</SummaryBox>
+
+## Mục tiêu bài học
+
+Sau bài này bạn có thể:
+
+- Thêm hành vi vào service bằng decorator qua DI.
+- Dùng factory khi cần chọn cài đặt lúc chạy.
+- Tổ chức đăng ký service theo module.
+- Quyết định có cần container bên thứ ba không.
+
+## Nội dung bài học
+
+### 7.11.1 — Decorator: ưu tiên cao
+
+**Điều kiện kích hoạt:** cần thêm caching, logging, retry hoặc đo lường vào một service có sẵn.
+
+```csharp
+// Service goc — KHONG sua gi
+public sealed class LeadRepository(AppDbContext db) : ILeadRepository
+{
+    public async Task<Lead?> GetByIdAsync(LeadId id, CancellationToken ct)
+        => await db.Leads.FindAsync([id], ct);
+}
+
+// Decorator — bao ben ngoai, CUNG interface
+public sealed class CachedLeadRepository(
+    ILeadRepository inner,
+    IMemoryCache cache) : ILeadRepository
+{
+    public async Task<Lead?> GetByIdAsync(LeadId id, CancellationToken ct)
+    {
+        if (cache.TryGetValue(id, out Lead? cached))
+            return cached;
+
+        var lead = await inner.GetByIdAsync(id, ct);
+
+        if (lead is not null)
+            cache.Set(id, lead, TimeSpan.FromMinutes(5));
+
+        return lead;
+    }
+}
+```
+
+Đăng ký bằng [Scrutor](https://github.com/khellang/Scrutor):
+
+```csharp
+builder.Services.AddScoped<ILeadRepository, LeadRepository>();
+builder.Services.Decorate<ILeadRepository, CachedLeadRepository>();
+builder.Services.Decorate<ILeadRepository, LoggedLeadRepository>();
+
+// Chuoi thuc te: Logged -> Cached -> Repository
+```
+
+Mọi nơi tiêm `ILeadRepository` tự động nhận chuỗi decorator mà **không biết** và **không cần biết**.
+
+Ba lợi ích cụ thể:
+
+- `LeadRepository` **không hề đổi** — nó vẫn là lớp đơn giản chỉ làm một việc.
+- Bỏ caching là xoá **một dòng** đăng ký.
+- Test `LeadRepository` không phải quan tâm tới cache, và test `CachedLeadRepository` dùng một fake đơn giản cho `inner`.
+
+**Thứ tự đăng ký quan trọng:** `Decorate` gọi sau sẽ bọc **ngoài cùng**. Trong ví dụ trên, log ghi lại cả những lần cache hit — thường là điều bạn muốn.
+
+Không có Scrutor thì đăng ký thủ công được, chỉ dài hơn:
+
+```csharp
+builder.Services.AddScoped<LeadRepository>();
+builder.Services.AddScoped<ILeadRepository>(sp =>
+    new CachedLeadRepository(
+        sp.GetRequiredService<LeadRepository>(),
+        sp.GetRequiredService<IMemoryCache>()));
+```
+
+### 7.11.2 — Factory: khi chọn lúc chạy
+
+**Điều kiện kích hoạt:** cài đặt được chọn dựa trên dữ liệu chỉ biết lúc chạy.
+
+```csharp
+// Keyed services (.NET 8+) — cach don gian nhat
+builder.Services.AddKeyedScoped<IPaymentGateway, VnPayGateway>("vnpay");
+builder.Services.AddKeyedScoped<IPaymentGateway, MomoGateway>("momo");
+
+public class PaymentService([FromKeyedServices("vnpay")] IPaymentGateway gateway)
+```
+
+Khi khoá chỉ biết lúc chạy, dùng factory:
+
+```csharp
+public interface IPaymentGatewayFactory
+{
+    IPaymentGateway Create(string providerCode);
+}
+
+public sealed class PaymentGatewayFactory(IServiceProvider provider) : IPaymentGatewayFactory
+{
+    public IPaymentGateway Create(string providerCode)
+        => provider.GetRequiredKeyedService<IPaymentGateway>(providerCode);
+}
+
+// Su dung
+var gateway = _factory.Create(donHang.NhaCungCapThanhToan);
+await gateway.ChargeAsync(donHang, ct);
+```
+
+**Cảnh báo:** tiêm `IServiceProvider` trực tiếp vào service nghiệp vụ là anti-pattern service locator — nó giấu dependency thật và làm test khó ([bài 7.10](7.9-anti-patterns.mdx)). Bọc nó trong một factory có interface rõ ràng như trên thì chấp nhận được, vì dependency vẫn tường minh ở chỗ dùng.
+
+### 7.11.3 — Module đăng ký: ưu tiên cao
+
+**Điều kiện kích hoạt:** `Program.cs` vượt quá khoảng 50 dòng đăng ký.
+
+```csharp
+// Program.cs — kho doc khi co 200 dong nhu nay
+builder.Services.AddScoped<ILeadRepository, LeadRepository>();
+builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
+// ... 198 dong nua
+```
+
+```csharp
+// Gom theo tinh nang
+namespace Crm.Sales;
+
+public static class SalesModule
+{
+    public static IServiceCollection AddSales(this IServiceCollection services, IConfiguration config)
+    {
+        services.AddScoped<ILeadRepository, LeadRepository>();
+        services.AddScoped<ICustomerRepository, CustomerRepository>();
+        services.AddScoped<ILeadConversionService, LeadConversionService>();
+
+        services.AddOptions<SalesOptions>()
+                .Bind(config.GetSection("Sales"))
+                .ValidateOnStart();
+
+        return services;
+    }
+}
+```
+
+```csharp
+// Program.cs — doc duoc
+builder.Services
+    .AddSales(builder.Configuration)
+    .AddBilling(builder.Configuration)
+    .AddNotifications(builder.Configuration);
+```
+
+Lợi ích ngoài khả năng đọc: mỗi module **tự chứa** mọi thứ nó cần, nên tách module thành service riêng sau này dễ hơn nhiều ([bài 18.2](../../stage-05-senior-engineering/module-18-microservices/18.1-khi-nao-khong-nen-microservices.mdx)).
+
+### 7.11.4 — Đăng ký theo quy ước với Scrutor
+
+**Điều kiện kích hoạt:** có hàng chục lớp theo cùng một mẫu đặt tên.
+
+```csharp
+builder.Services.Scan(scan => scan
+    .FromAssemblyOf<LeadRepository>()
+    .AddClasses(c => c.AssignableTo(typeof(IRepository<>)))
+        .AsImplementedInterfaces()
+        .WithScopedLifetime());
+```
+
+Thay 40 dòng `AddScoped` bằng một khối.
+
+**Đánh đổi thật:** bạn không còn **thấy** service nào được đăng ký khi đọc `Program.cs`. Khi có lỗi "không tìm thấy service", việc chẩn đoán khó hơn vì không có dòng nào để đặt breakpoint.
+
+Cách cân bằng: dùng quét cho nhóm lớp **đồng nhất và nhiều** (repository, handler, validator), đăng ký **tường minh** cho service có cấu hình đặc biệt hoặc vòng đời khác thường.
+
+### 7.11.5 — Container bên thứ ba: thường không cần
+
+Autofac, Lamar và các container khác từng cần thiết vì container tích hợp của .NET thiếu nhiều tính năng. Điều đó **không còn đúng**:
+
+| Tính năng | Container .NET | Cần bên thứ ba? |
+|---|---|---|
+| Vòng đời cơ bản | Có | Không |
+| Keyed services | Có (.NET 8+) | **Không** |
+| Nhiều cài đặt cho một interface | Có (`IEnumerable<T>`) | Không |
+| Generic không ràng buộc | Có | Không |
+| Decorator | Scrutor | Không |
+| Quét assembly | Scrutor | Không |
+| Property injection | **Không** | Có — nhưng đó là anti-pattern |
+| Interception động | **Không** | Có — nhưng thường có cách khác |
+
+Hai hàng cuối là lý do duy nhất còn lại, và cả hai đều đáng cân nhắc lại:
+
+- **Property injection** giấu dependency, làm đối tượng có thể tồn tại ở trạng thái chưa đủ điều kiện hoạt động. Constructor injection tốt hơn về mọi mặt.
+- **Interception động** (chèn hành vi vào mọi lời gọi qua proxy) mạnh nhưng làm luồng thực thi khó theo dõi. Decorator tường minh thường rõ ràng hơn, và pipeline behavior của MediatR giải quyết phần lớn nhu cầu ([bài 16.7](../../stage-05-senior-engineering/module-16-clean-architecture/16.6-mediatr-use-case-pipeline.mdx)).
+
+**Khuyến nghị:** container tích hợp + Scrutor đủ cho hầu hết dự án .NET hiện nay. Thêm một container khác là thêm một thứ cả đội phải học.
+
+### 7.11.6 — Thứ tự nên học
+
+| Ưu tiên | Kỹ thuật | Vì sao |
+|---|---|---|
+| **Cao** | Decorator | Thêm hành vi không sửa code gốc |
+| **Cao** | Module đăng ký | Rẻ, cải thiện rõ khả năng đọc |
+| **Cao** | Keyed services | Thay factory trong trường hợp đơn giản |
+| Trung bình | Factory có interface | Khi chọn cài đặt lúc chạy |
+| Trung bình | Quét theo quy ước | Khi có nhiều lớp đồng nhất |
+| Thấp | Container bên thứ ba | Hiếm khi còn cần |
+
+Sau Module 7, bước tiếp theo là [Module 8 — ASP.NET Core Fundamentals](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/).
+
+### 7.11.7 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát DI nâng cao"
+  items={[
+    { text: "Caching và logging thêm bằng decorator, không sửa service gốc." },
+    { text: "Không tiêm IServiceProvider trực tiếp vào service nghiệp vụ." },
+    { text: "Factory có interface rõ ràng thay vì service locator." },
+    { text: "Đăng ký service gom theo module, Program.cs ngắn gọn." },
+    { text: "Mỗi module tự chứa cả đăng ký service lẫn cấu hình Options." },
+    { text: "Quét theo quy ước chỉ dùng cho nhóm lớp đồng nhất." },
+    { text: "Đã cân nhắc kỹ trước khi thêm container bên thứ ba." },
+  ]}
+/>
+
+## Bài tập áp dụng
+
+1. **Thêm decorator.** Cài Scrutor và thêm một decorator ghi log thời gian cho một repository. Xác nhận service gốc không đổi.
+
+2. **Gom module.** Tách đăng ký service trong `Program.cs` thành hai module theo tính năng và đo số dòng còn lại.
+
+3. **So sánh factory.** Cài cùng một nhu cầu bằng keyed services và bằng factory, so sánh code ở chỗ dùng.
+
+## Tự kiểm tra
+
+<FAQSection
+  items={[
+    {
+      question: "Decorator giải quyết vấn đề gì?",
+      answer: "Nó cho phép thêm caching, logging hay retry vào một service mà không sửa dòng nào của service đó. Service gốc vẫn đơn giản, bỏ hành vi thêm vào chỉ là xoá một dòng đăng ký, và test của cả hai đều đơn giản."
+    },
+    {
+      question: "Thứ tự đăng ký decorator ảnh hưởng thế nào?",
+      answer: "Lệnh Decorate gọi sau sẽ bọc ngoài cùng. Nếu đăng ký cache trước rồi log sau, log sẽ ghi lại cả những lần cache hit, thường là điều bạn muốn."
+    },
+    {
+      question: "Vì sao tiêm IServiceProvider vào service nghiệp vụ là anti-pattern?",
+      answer: "Vì nó giấu dependency thật, khiến đọc constructor không biết lớp cần gì, và làm test khó vì phải dựng cả container. Bọc nó trong một factory có interface rõ ràng thì chấp nhận được."
+    },
+    {
+      question: "Lợi ích ngoài khả năng đọc của module đăng ký là gì?",
+      answer: "Mỗi module tự chứa mọi thứ nó cần gồm cả đăng ký service lẫn cấu hình Options, nên việc tách module thành service riêng sau này dễ hơn nhiều."
+    },
+    {
+      question: "Đánh đổi của việc quét assembly theo quy ước là gì?",
+      answer: "Bạn không còn thấy service nào được đăng ký khi đọc Program.cs, nên khi có lỗi không tìm thấy service thì khó chẩn đoán hơn vì không có dòng nào để đặt breakpoint."
+    },
+    {
+      question: "Còn lý do nào để dùng container bên thứ ba không?",
+      answer: "Chỉ còn property injection và interception động. Nhưng property injection giấu dependency và làm đối tượng có thể tồn tại ở trạng thái chưa đủ điều kiện, còn interception động làm luồng thực thi khó theo dõi hơn decorator tường minh."
+    }
+  ]}
+/>
+
+## Kết luận
+
+Ba điều đáng nhớ nhất:
+
+1. **Decorator thêm hành vi mà không sửa code gốc** — kỹ thuật đáng dùng nhất trong bài.
+2. **Module đăng ký rẻ và cải thiện rõ**, đồng thời chuẩn bị cho việc tách service.
+3. **Container tích hợp cộng Scrutor đủ cho hầu hết dự án .NET hiện nay.**
+
+## Tham khảo
+
+- [Dependency injection trong .NET](https://learn.microsoft.com/en-us/dotnet/core/extensions/dependency-injection)
+- [Hướng dẫn dependency injection](https://learn.microsoft.com/en-us/dotnet/core/extensions/dependency-injection-guidelines)
+- [Options pattern](https://learn.microsoft.com/en-us/dotnet/core/extensions/options)
+- [ASP.NET Core fundamentals](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/)
+
+## Điều hướng
+
+- **Bài trước:** [7.9 — 8. Anti-patterns](7.9-anti-patterns.mdx)
+- **Bài tiếp theo:** [7.11 — Mini case study](7.11-mini-case-study.mdx)
+- **Về module:** [Trang mục lục](./)

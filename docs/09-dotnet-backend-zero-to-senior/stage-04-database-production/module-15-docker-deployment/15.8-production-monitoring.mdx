@@ -1,0 +1,307 @@
+---
+title: "15.8 — 8. Production Monitoring"
+description: "Ba trụ cột log, metric và trace; OpenTelemetry làm chuẩn chung; chọn chỉ số đáng cảnh báo; và vì sao cảnh báo quá nhiều tệ hơn không có."
+sidebar_position: 8
+---
+
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
+
+# 15.9 — 8. Production Monitoring
+
+<SummaryBox>
+Giám sát có ba trụ cột trả lời ba câu hỏi khác nhau: **metric** trả lời *"có gì sai không"* (rẻ, tổng hợp, cảnh báo được), **log** trả lời *"sai cái gì"* (chi tiết, đắt khi nhiều), **trace** trả lời *"sai ở đâu trong chuỗi gọi"*. Thiếu trụ cột nào cũng khiến điều tra sự cố chậm hơn nhiều lần. **OpenTelemetry** là lý do để bắt đầu ngay hôm nay: nó là chuẩn chung, nên bạn gắn thiết bị đo **một lần** rồi đổi backend (Application Insights, Grafana, Datadog) mà không sửa code. Và một nguyên tắc quan trọng hơn mọi công cụ: **cảnh báo quá nhiều tệ hơn không có cảnh báo** — khi 50 cảnh báo mỗi ngày đều là báo động giả, không ai còn đọc cái thứ 51 là cái thật.
+</SummaryBox>
+
+## Mục tiêu bài học
+
+Sau bài này bạn có thể:
+
+- Phân biệt ba trụ cột và dùng đúng cho từng mục đích.
+- Cấu hình OpenTelemetry cho ứng dụng .NET.
+- Chọn chỉ số đáng cảnh báo.
+- Thiết kế cảnh báo không gây mệt mỏi.
+- Chuẩn bị những gì cần có **trước** khi sự cố xảy ra.
+
+## Nội dung bài học
+
+### 15.9.1 — Ba trụ cột
+
+| | Trả lời | Chi phí | Dùng để |
+|---|---|---|---|
+| **Metric** | "Có gì sai không?" | Thấp | **Cảnh báo**, bảng điều khiển |
+| **Log** | "Sai cái gì?" | **Cao** khi nhiều | Điều tra chi tiết |
+| **Trace** | "Sai ở đâu?" | Trung bình | Tìm nút thắt trong chuỗi gọi |
+
+Sai lầm phổ biến là **chỉ có log**. Log rất chi tiết nhưng đắt để lưu, chậm để truy vấn, và **không cảnh báo được** hiệu quả — bạn không thể đặt cảnh báo "p99 latency tăng" từ log text.
+
+Sai lầm ngược lại là **chỉ có metric**: bạn biết có gì đó sai nhưng không biết là gì.
+
+Trace là trụ cột hay bị bỏ qua nhất, và nó **tiết kiệm nhiều thời gian nhất** khi có nhiều service: thay vì đọc log của bốn hệ thống rồi ghép thủ công theo thời gian, bạn thấy **một** biểu đồ cho biết 2 giây nằm ở đâu.
+
+### 15.9.2 — OpenTelemetry
+
+```bash
+dotnet add package OpenTelemetry.Extensions.Hosting
+dotnet add package OpenTelemetry.Instrumentation.AspNetCore
+dotnet add package OpenTelemetry.Instrumentation.Http
+dotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol
+```
+
+```csharp
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(r => r
+        .AddService("crm-api", serviceVersion: Assembly.GetExecutingAssembly()
+            .GetName().Version?.ToString())
+        .AddAttributes(new Dictionary<string, object>
+        {
+            ["deployment.environment"] = builder.Environment.EnvironmentName,
+            ["host.name"] = Environment.MachineName,
+        }))
+
+    .WithTracing(t => t
+        .AddAspNetCoreInstrumentation(o =>
+        {
+            o.RecordException = true;
+            o.Filter = ctx => !ctx.Request.Path.StartsWithSegments("/health");
+        })
+        .AddHttpClientInstrumentation()
+        .AddEntityFrameworkCoreInstrumentation(o => o.SetDbStatementForText = true)
+        .AddOtlpExporter())
+
+    .WithMetrics(m => m
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddRuntimeInstrumentation()
+        .AddMeter("Microsoft.EntityFrameworkCore")
+        .AddOtlpExporter());
+```
+
+Bốn chi tiết:
+
+**`o.Filter` loại health check** khỏi trace. Probe mỗi 10 giây là 8.640 trace mỗi ngày cho mỗi instance — toàn nhiễu, và bạn trả tiền cho chúng.
+
+**`SetDbStatementForText = true`** đưa câu SQL vào trace. Rất hữu ích để tìm truy vấn chậm, nhưng **cẩn thận**: tham số có thể chứa dữ liệu cá nhân. Với dữ liệu nhạy cảm, để `false`.
+
+**`AddRuntimeInstrumentation`** cho metric của GC, thread pool, exception — những thứ giải thích "vì sao chậm" khi truy vấn và mạng đều bình thường.
+
+**`AddOtlpExporter`** dùng giao thức chuẩn, nên đổi backend chỉ là đổi endpoint:
+
+```bash
+OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+```
+
+Giá trị lớn nhất của OpenTelemetry là **không khoá vào nhà cung cấp**: gắn thiết bị đo một lần, đổi từ Application Insights sang Grafana mà không sửa code.
+
+**Metric nghiệp vụ** là thứ chỉ bạn biết cần đo:
+
+```csharp
+public sealed class OrderMetrics
+{
+    private readonly Counter<long> _created;
+    private readonly Histogram<double> _value;
+
+    public OrderMetrics(IMeterFactory factory)
+    {
+        var meter = factory.Create("Crm.Orders");
+        _created = meter.CreateCounter<long>("orders.created");
+        _value = meter.CreateHistogram<double>("orders.value", unit: "VND");
+    }
+
+    public void RecordCreated(decimal value, string channel)
+    {
+        _created.Add(1, new KeyValuePair<string, object?>("channel", channel));
+        _value.Record((double)value);
+    }
+}
+```
+
+**Cẩn thận với cardinality**: nhãn có giá trị không giới hạn (user id, order id) làm số chuỗi metric bùng nổ và có thể làm sập hệ thống giám sát. Nhãn phải có **tập giá trị hữu hạn và nhỏ**.
+
+### 15.9.3 — Correlation ID
+
+```csharp
+app.Use(async (context, next) =>
+{
+    var correlationId = context.Request.Headers["X-Correlation-ID"].FirstOrDefault()
+                        ?? Activity.Current?.TraceId.ToString()
+                        ?? Guid.NewGuid().ToString();
+
+    context.TraceIdentifier = correlationId;
+
+    using (LogContext.PushProperty("CorrelationId", correlationId))
+    {
+        context.Response.OnStarting(() =>
+        {
+            context.Response.Headers["X-Correlation-ID"] = correlationId;
+            return Task.CompletedTask;
+        });
+
+        await next(context);
+    }
+});
+```
+
+Với OpenTelemetry, **`TraceId` đã là correlation id** — nó tự lan truyền qua `HttpClient` và message bus. Nhưng vẫn nên trả nó về client: người dùng báo lỗi kèm `X-Correlation-ID` là bạn tìm ra toàn bộ dấu vết trong vài giây.
+
+Nhớ dùng `OnStarting` vì header không ghi được sau khi response đã bắt đầu ([bài 8.3](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.2-request-pipeline-and-middleware.mdx)).
+
+Và đưa `TraceId` vào phản hồi lỗi ([bài 8.9](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.8-global-exception-handling.mdx)).
+
+### 15.9.4 — Cảnh báo cái gì
+
+**Nguyên tắc: chỉ cảnh báo thứ cần người xử lý ngay.** Mọi thứ khác là bảng điều khiển.
+
+Bốn chỉ số vàng (Google SRE):
+
+| Chỉ số | Ngưỡng mẫu |
+|---|---|
+| **Latency** | p99 > 2s trong 5 phút |
+| **Traffic** | Giảm > 50% so với cùng giờ tuần trước |
+| **Errors** | Tỷ lệ 5xx > 1% trong 5 phút |
+| **Saturation** | CPU > 85% hoặc bộ nhớ > 90% trong 10 phút |
+
+Thêm những cái riêng của .NET và của nghiệp vụ:
+
+```
+- Job Hangfire that bai > 10                    (bai 14.7)
+- Dead-letter queue co message                  (bai 14.9)
+- Ty le retry tang gap doi                      (bai 14.10)
+- Chung chi TLS het han trong 14 ngay           (bai 15.6)
+- Dia > 80%                                     (bai 15.6)
+- Ty le trung cache giam dot ngot               (bai 14.2)
+```
+
+**Ba quy tắc về cảnh báo:**
+
+**1. Dùng p99, không dùng trung bình.** Trung bình che giấu vấn đề: 95% request 50ms và 5% request 10 giây cho trung bình 550ms — trông ổn, nhưng 5% người dùng đang chịu 10 giây.
+
+**2. Cảnh báo trên xu hướng, không trên một điểm.** "p99 > 2s" một lần có thể là GC pause. "p99 > 2s trong 5 phút liên tục" là vấn đề thật.
+
+**3. Mỗi cảnh báo phải có hành động.** Nếu người nhận không biết làm gì, đó không phải cảnh báo — đó là thông tin, và nó thuộc về bảng điều khiển.
+
+**Mệt mỏi vì cảnh báo là rủi ro thật:** khi 50 cảnh báo mỗi ngày đều là báo động giả, không ai đọc cái thứ 51 — và đó là cái thật. Ít cảnh báo nhưng mỗi cái đáng tin tốt hơn nhiều so với cảnh báo mọi thứ.
+
+### 15.9.5 — Chuẩn bị trước sự cố
+
+Những thứ này phải có **trước** khi bạn cần, vì lúc đang có sự cố thì quá muộn:
+
+**Bảng điều khiển đọc được trong 30 giây:** tỷ lệ lỗi, p50/p95/p99, số request, tài nguyên. Không phải 40 biểu đồ — **bốn** biểu đồ trả lời "hệ thống có khoẻ không".
+
+**Runbook cho mỗi cảnh báo:**
+
+```markdown
+## Canh bao: ty le 5xx cao
+
+1. Kiem tra bang dieu khien: loi tap trung o endpoint nao?
+2. Kiem tra trace gan nhat co loi: exception gi?
+3. Kiem tra phu thuoc: database, Redis, dich vu ngoai con khoe?
+4. Kiem tra lan deploy gan nhat: co trung thoi diem khong?
+5. Neu do deploy: rollback bang ./deploy.sh <tag-cu>
+```
+
+Runbook biến một sự cố lúc 3 giờ sáng từ "tìm hiểu từ đầu" thành "làm theo danh sách".
+
+**Chẩn đoán .NET trong container:**
+
+```bash
+# Cai cong cu vao container dang chay
+docker exec crm-api dotnet-counters monitor --process-id 1 \
+    --counters System.Runtime,Microsoft.AspNetCore.Hosting
+
+# Dump khi nghi ro ri bo nho
+docker exec crm-api dotnet-gcdump collect -p 1 -o /tmp/dump.gcdump
+docker cp crm-api:/tmp/dump.gcdump ./
+```
+
+Nhưng **image chiseled không có shell** ([bài 15.3](15.2-dockerfile-for-aspnet-core.mdx)), nên chuẩn bị sẵn một cách: hoặc một biến thể image có công cụ chẩn đoán, hoặc dựa hoàn toàn vào metric và trace.
+
+**Ba chỉ số .NET đáng theo dõi thường xuyên:**
+
+| Chỉ số | Cảnh báo khi |
+|---|---|
+| `dotnet.thread_pool.queue.length` | Tăng liên tục — thread pool starvation ([bài 6.2](../../stage-02-csharp-professional/module-06-async-programming/6.1-why-async-matters.mdx)) |
+| `dotnet.gc.pause.time` | Chiếm > 5% thời gian — áp lực bộ nhớ |
+| `dotnet.gc.heap.total_allocated` | Tăng đều không giảm — rò rỉ |
+
+Hàng đầu đáng chú ý: hàng đợi thread pool dài gần như luôn nghĩa là có **`.Result` hoặc `.Wait()`** ở đâu đó trong đường chạy request.
+
+### 15.9.6 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát giám sát"
+  items={[
+    { text: "Có đủ ba trụ cột: metric, log, trace." },
+    { text: "Dùng OpenTelemetry để không khoá vào một nhà cung cấp." },
+    { text: "Health check bị lọc khỏi trace và log." },
+    { text: "SetDbStatementForText tắt nếu tham số truy vấn chứa dữ liệu nhạy cảm." },
+    { text: "Có metric nghiệp vụ, không chỉ metric kỹ thuật." },
+    { text: "Nhãn metric có tập giá trị hữu hạn; không dùng id làm nhãn." },
+    { text: "Correlation id được trả về client và có trong mọi phản hồi lỗi." },
+    { text: "Cảnh báo dựa trên p99, không dựa trên trung bình." },
+    { text: "Cảnh báo dựa trên xu hướng nhiều phút, không trên một điểm." },
+    { text: "Mỗi cảnh báo có hành động rõ ràng; phần còn lại nằm ở bảng điều khiển." },
+    { text: "Có bảng điều khiển đọc được trong 30 giây." },
+    { text: "Có runbook cho mỗi cảnh báo." },
+    { text: "Đã chuẩn bị cách chẩn đoán .NET trong container trước khi cần." },
+  ]}
+/>
+
+## Bài tập áp dụng
+
+1. **Trung bình che giấu.** Tạo tải với 95% request nhanh và 5% request 10 giây. So sánh cảnh báo dựa trên trung bình và dựa trên p99.
+
+2. **Cardinality bùng nổ.** Thêm `user_id` làm nhãn cho một metric, tạo tải với 10.000 người dùng khác nhau, và quan sát số chuỗi metric cùng mức tiêu thụ bộ nhớ của hệ thống giám sát.
+
+3. **Trace tìm nút thắt.** Bật trace cho một endpoint gọi database và một API ngoài. Thêm độ trễ giả 2 giây vào API ngoài và xác nhận trace chỉ ra ngay chỗ đó.
+
+## Tự kiểm tra
+
+<FAQSection
+  items={[
+    {
+      question: "Ba trụ cột giám sát trả lời những câu hỏi nào?",
+      answer: "Metric trả lời có gì sai không, rẻ và cảnh báo được. Log trả lời sai cái gì, chi tiết nhưng đắt khi nhiều. Trace trả lời sai ở đâu trong chuỗi gọi. Chỉ có log là sai lầm phổ biến vì log không cảnh báo hiệu quả được; chỉ có metric thì biết có vấn đề mà không biết là gì."
+    },
+    {
+      question: "Vì sao nên dùng OpenTelemetry?",
+      answer: "Nó là chuẩn chung nên bạn gắn thiết bị đo một lần rồi đổi backend giữa Application Insights, Grafana hay Datadog mà không sửa code, chỉ đổi endpoint. Đó là lý do không bị khoá vào một nhà cung cấp."
+    },
+    {
+      question: "Vì sao phải lọc health check khỏi trace?",
+      answer: "Probe mỗi 10 giây là khoảng 8.640 trace mỗi ngày cho mỗi instance, toàn nhiễu và bạn trả tiền cho chúng. Cùng lý do với việc hạ mức log cho health check."
+    },
+    {
+      question: "Cardinality trong metric là gì và vì sao nguy hiểm?",
+      answer: "Là số chuỗi metric khác nhau sinh ra từ tổ hợp nhãn. Nhãn có giá trị không giới hạn như user id hay order id làm số chuỗi bùng nổ và có thể làm sập hệ thống giám sát. Nhãn phải có tập giá trị hữu hạn và nhỏ."
+    },
+    {
+      question: "Vì sao cảnh báo theo p99 thay vì trung bình?",
+      answer: "Trung bình che giấu vấn đề: 95 phần trăm request nhanh và 5 phần trăm mất 10 giây cho trung bình trông ổn, trong khi 5 phần trăm người dùng đang chịu trải nghiệm rất tệ. p99 phản ánh đúng phần đuôi."
+    },
+    {
+      question: "Vì sao cảnh báo quá nhiều tệ hơn không có cảnh báo?",
+      answer: "Khi phần lớn cảnh báo là báo động giả, không ai còn đọc chúng, kể cả cái thật. Nguyên tắc là chỉ cảnh báo thứ cần người xử lý ngay và mỗi cảnh báo phải có hành động rõ ràng; phần còn lại thuộc về bảng điều khiển."
+    }
+  ]}
+/>
+
+## Kết luận
+
+Ba điều đáng nhớ nhất:
+
+1. **Ba trụ cột trả lời ba câu khác nhau.** Chỉ có log là không đủ để cảnh báo.
+2. **OpenTelemetry để không khoá vào nhà cung cấp** — đo một lần, đổi backend tự do.
+3. **Cảnh báo phải có hành động.** Quá nhiều cảnh báo là không có cảnh báo nào.
+
+## Tham khảo
+
+- [OpenTelemetry for .NET](https://opentelemetry.io/docs/languages/net/)
+- [.NET observability with OpenTelemetry](https://learn.microsoft.com/en-us/dotnet/core/diagnostics/observability-with-otel)
+- [Google SRE — Monitoring distributed systems](https://sre.google/sre-book/monitoring-distributed-systems/)
+- [.NET diagnostic tools](https://learn.microsoft.com/en-us/dotnet/core/diagnostics/tools-overview)
+
+## Điều hướng
+
+- **Bài trước:** [15.7 — 7. Azure Deployment](15.7-azure-deployment.mdx)
+- **Bài tiếp theo:** [15.9 — 9. Kubernetes Intro (Awareness Level)](15.9-awareness-level.mdx)
+- **Về module:** [Trang mục lục](./)

@@ -1,0 +1,321 @@
+---
+title: "14.7 — 7. Quartz.NET (Alternative Overview)"
+description: "Quartz mạnh về lịch và clustering, misfire là khái niệm không có ở Hangfire, DisallowConcurrentExecution, và so sánh với Hangfire."
+sidebar_position: 7
+---
+
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
+
+# 14.8 — 7. Quartz.NET (Alternative Overview)
+
+<SummaryBox>
+Quartz.NET và Hangfire giải hai bài toán khác nhau dù trông giống nhau. **Hangfire mạnh về hàng đợi job**: đưa việc vào, nó chạy, có retry và dashboard. **Quartz mạnh về lập lịch**: trigger phức tạp, lịch loại trừ ngày lễ, và **clustering** với cơ chế chuyển giao khi một node chết. Khái niệm quan trọng nhất của Quartz mà Hangfire **không có** là **misfire** — chuyện gì xảy ra khi một trigger **đáng lẽ đã chạy** nhưng không chạy được (server tắt, không còn thread). Bốn chính sách misfire cho bốn hành vi khác nhau, và chọn sai gây ra hoặc **bỏ sót lần chạy**, hoặc **chạy dồn 50 lần** ngay khi server lên.
+</SummaryBox>
+
+## Mục tiêu bài học
+
+Sau bài này bạn có thể:
+
+- Chọn giữa Quartz và Hangfire có lý do.
+- Cấu hình trigger cho lịch phức tạp.
+- Chọn đúng chính sách misfire.
+- Ngăn job chạy chồng lên chính nó.
+- Cấu hình clustering.
+
+## Nội dung bài học
+
+### 14.8.1 — Hai bài toán khác nhau
+
+| | Hangfire | Quartz.NET |
+|---|---|---|
+| Ý tưởng cốt lõi | **Hàng đợi job** | **Lập lịch** |
+| Fire-and-forget | **Có sẵn** | Phải tự dựng |
+| Trigger phức tạp | Cron cơ bản | **Rất mạnh** |
+| Lịch loại trừ (ngày lễ) | Không | **Có** |
+| Dashboard | **Có sẵn** | Không |
+| Retry | **Có sẵn** | Tự cài |
+| Clustering | Qua database | **Thiết kế sẵn** |
+| Misfire | Không có khái niệm | **Bốn chính sách** |
+| Giấy phép | LGPL | Apache 2.0 |
+
+Hai hàng đầu và hai hàng cuối quyết định lựa chọn.
+
+**Chọn Hangfire khi:** phần lớn việc là "đưa vào hàng đợi rồi chạy", cần dashboard, cần retry mà không muốn viết.
+
+**Chọn Quartz khi:** lịch là trung tâm bài toán, cần loại trừ ngày lễ hoặc múi giờ phức tạp, cần clustering mạnh, hoặc giấy phép LGPL là vấn đề.
+
+Với một CRM điển hình, **Hangfire thường đúng hơn** — phần lớn việc là gửi email, đồng bộ dữ liệu, dọn dẹp. Quartz đáng khi bạn đang xây thứ mà lập lịch **là** nghiệp vụ.
+
+### 14.8.2 — Cấu hình
+
+```bash
+dotnet add package Quartz.Extensions.Hosting
+```
+
+```csharp
+builder.Services.AddQuartz(q =>
+{
+    q.SchedulerId = "AUTO";
+
+    var jobKey = new JobKey("lead-reminder", "crm");
+
+    q.AddJob<LeadReminderJob>(opts => opts
+        .WithIdentity(jobKey)
+        .StoreDurably());
+
+    q.AddTrigger(t => t
+        .ForJob(jobKey)
+        .WithIdentity("lead-reminder-trigger")
+        .WithCronSchedule("0 0 9 * * ?", x => x
+            .InTimeZone(TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time"))
+            .WithMisfireHandlingInstructionFireAndProceed()));
+});
+
+builder.Services.AddQuartzHostedService(options =>
+{
+    options.WaitForJobsToComplete = true;      // shutdown gon gang
+    options.AwaitApplicationStarted = true;    // doi app san sang
+});
+```
+
+```csharp
+[DisallowConcurrentExecution]
+public sealed class LeadReminderJob(
+    IServiceScopeFactory scopeFactory, ILogger<LeadReminderJob> logger) : IJob
+{
+    public async Task Execute(IJobExecutionContext context)
+    {
+        try
+        {
+            await using var scope = scopeFactory.CreateAsyncScope();
+            var service = scope.ServiceProvider.GetRequiredService<ILeadService>();
+
+            await service.SendRemindersAsync(context.CancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Job nhac nho lead that bai");
+
+            throw new JobExecutionException(ex, refireImmediately: false);
+        }
+    }
+}
+```
+
+Bốn chi tiết:
+
+- **`JobExecutionException`** là cách đúng để báo lỗi cho Quartz; `refireImmediately: false` tránh vòng lặp chạy lại ngay.
+- **`context.CancellationToken`** được kích hoạt khi scheduler dừng — truyền nó xuống.
+- **`IServiceScopeFactory`** vì job không có scope riêng, đúng như `BackgroundService` ([bài 9.10](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.9-hosted-service-background-jobs.mdx)).
+- **`WaitForJobsToComplete = true`** cho job đang chạy hoàn tất khi shutdown.
+
+### 14.8.3 — Misfire
+
+Đây là khái niệm quan trọng nhất của Quartz.
+
+**Misfire** xảy ra khi một trigger **đáng lẽ đã chạy** nhưng không chạy được: server đang tắt, không còn thread rảnh, hoặc job trước còn chạy với `DisallowConcurrentExecution`.
+
+```
+Job chay 9h moi ngay.
+Server tat tu 8h toi 11h.
+=> Lan chay 9h bi MISFIRE. Lam gi bay gio?
+```
+
+Bốn chính sách:
+
+| Chính sách | Hành vi |
+|---|---|
+| `WithMisfireHandlingInstructionFireAndProceed` | **Chạy một lần ngay**, rồi tiếp tục lịch |
+| `WithMisfireHandlingInstructionDoNothing` | **Bỏ qua**, chờ lần kế tiếp |
+| `WithMisfireHandlingInstructionIgnoreMisfires` | **Chạy bù tất cả** các lần đã lỡ |
+| Mặc định (smart policy) | Tuỳ loại trigger |
+
+Chọn theo bản chất job:
+
+```csharp
+// Bao cao hang ngay — chay bu MOT lan la du
+.WithMisfireHandlingInstructionFireAndProceed()
+
+// Don dep moi 5 phut — bo qua, lan sau chay
+.WithMisfireHandlingInstructionDoNothing()
+
+// Khong bao gio dung cho job chay day — chay bu HANG TRAM lan
+.WithMisfireHandlingInstructionIgnoreMisfires()
+```
+
+Chính sách thứ ba là cái bẫy: job chạy mỗi 5 phút, server tắt 3 tiếng, và khi lên nó chạy **36 lần liên tiếp** — thường làm quá tải ngay lúc hệ thống vừa khởi động.
+
+Hangfire không có khái niệm này: recurring job bị lỡ thì **chạy ngay khi server lên**, tương đương `FireAndProceed`. Đơn giản hơn, nhưng không chọn được hành vi khác.
+
+### 14.8.4 — Trigger phức tạp
+
+```csharp
+// Lich lap don gian
+.WithSimpleSchedule(s => s.WithIntervalInHours(1).RepeatForever())
+
+// Cron day du
+.WithCronSchedule("0 0/15 9-17 ? * MON-FRI")     // moi 15 phut, 9h-17h, T2-T6
+
+// Lich theo lich (xu ly dung gio mua he)
+.WithCalendarIntervalSchedule(s => s
+    .WithIntervalInMonths(1)
+    .PreserveHourOfDayAcrossDaylightSavings(true))
+
+// Lich hang ngay trong khoang gio
+.WithDailyTimeIntervalSchedule(s => s
+    .StartingDailyAt(TimeOfDay.HourAndMinuteOfDay(9, 0))
+    .EndingDailyAt(TimeOfDay.HourAndMinuteOfDay(17, 0))
+    .OnMondayThroughFriday()
+    .WithIntervalInMinutes(30))
+```
+
+`PreserveHourOfDayAcrossDaylightSavings` là ví dụ cho thấy Quartz nghĩ kỹ về lịch: với `WithIntervalInMonths`, chuyển giờ mùa hè sẽ làm job chạy lệch một tiếng nếu không xử lý.
+
+**Lịch loại trừ** là thứ Hangfire hoàn toàn không có:
+
+```csharp
+var holidays = new HolidayCalendar();
+holidays.AddExcludedDate(new DateTime(2026, 1, 1));
+holidays.AddExcludedDate(new DateTime(2026, 4, 30));
+
+await scheduler.AddCalendar("vn-holidays", holidays, replace: true, updateTriggers: true);
+
+// Trigger bo qua nhung ngay do
+.ModifiedByCalendar("vn-holidays")
+```
+
+Với job nghiệp vụ như "gửi báo cáo mỗi ngày làm việc", đây là lý do chính đáng để chọn Quartz.
+
+### 14.8.5 — `DisallowConcurrentExecution`
+
+```csharp
+[DisallowConcurrentExecution]
+public sealed class DataSyncJob : IJob { ... }
+```
+
+Không có nó, job chạy 10 phút với lịch mỗi 5 phút sẽ **chồng lên chính nó**: hai instance cùng xử lý cùng dữ liệu.
+
+Attribute này áp cho **cùng một `JobKey`**, và trong cluster nó áp **trên toàn cluster** — chỉ một node chạy tại một thời điểm.
+
+Đây là điểm mạnh so với `BackgroundService`, nơi bạn phải tự viết khoá phân tán ([bài 9.10](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.9-hosted-service-background-jobs.mdx)).
+
+Kết hợp với `[PersistJobDataAfterExecution]` khi job cần nhớ trạng thái giữa các lần chạy:
+
+```csharp
+[DisallowConcurrentExecution]
+[PersistJobDataAfterExecution]
+public sealed class IncrementalSyncJob : IJob
+{
+    public async Task Execute(IJobExecutionContext context)
+    {
+        var map = context.JobDetail.JobDataMap;
+        var lastSync = map.GetDateTimeValue("lastSync");
+
+        await SyncSinceAsync(lastSync, context.CancellationToken);
+
+        map.Put("lastSync", DateTime.UtcNow);      // luu lai cho lan sau
+    }
+}
+```
+
+Hai attribute này **phải đi cùng nhau** — `PersistJobDataAfterExecution` một mình với job chạy song song sẽ ghi đè dữ liệu lẫn nhau.
+
+### 14.8.6 — Clustering
+
+```csharp
+q.UsePersistentStore(s =>
+{
+    s.UseSqlServer(connectionString);
+    s.UseClustering(c =>
+    {
+        c.CheckinMisfireThreshold = TimeSpan.FromSeconds(20);
+        c.CheckinInterval = TimeSpan.FromSeconds(10);
+    });
+    s.UseSystemTextJsonSerializer();
+});
+```
+
+Trong cluster, mọi node dùng **chung database** và tự điều phối: mỗi trigger chỉ chạy trên **một** node, và node chết thì node khác **nhận lại** job đang chạy dở của nó.
+
+Cơ chế nhận lại đó là khác biệt lớn nhất so với Hangfire. Nhưng nó cũng nghĩa là **job có thể chạy hai lần** — node A chưa chết hẳn nhưng ngừng báo danh, node B nhận job. Nên job vẫn phải **idempotent** ([bài 14.7](14.6-hangfire-background-jobs.mdx)).
+
+Ba yêu cầu: đồng hồ các node phải **đồng bộ** (NTP), `SchedulerInstanceId` phải là `AUTO`, và **không** dùng `RAMJobStore`.
+
+### 14.8.7 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát Quartz"
+  items={[
+    { text: "Đã chọn giữa Quartz và Hangfire dựa trên lịch có phải trung tâm bài toán không." },
+    { text: "Mọi trigger khai rõ múi giờ." },
+    { text: "Chính sách misfire được chọn có chủ đích cho từng trigger." },
+    { text: "Không dùng IgnoreMisfires cho job chạy dày." },
+    { text: "Job chạy lâu có [DisallowConcurrentExecution]." },
+    { text: "PersistJobDataAfterExecution luôn đi cùng DisallowConcurrentExecution." },
+    { text: "Job dùng IServiceScopeFactory để lấy service scoped." },
+    { text: "context.CancellationToken được truyền xuống mọi lời gọi async." },
+    { text: "Lỗi được bọc trong JobExecutionException với refireImmediately false." },
+    { text: "WaitForJobsToComplete được bật để shutdown gọn gàng." },
+    { text: "Cluster có đồng hồ đồng bộ và job vẫn idempotent." },
+  ]}
+/>
+
+## Bài tập áp dụng
+
+1. **So sánh misfire.** Đăng ký job chạy mỗi 5 phút với ba chính sách misfire khác nhau, tắt scheduler 30 phút, bật lại và đếm số lần chạy ở mỗi trường hợp.
+
+2. **Job chồng nhau.** Viết job mất 10 phút với lịch mỗi 5 phút, **không** có `DisallowConcurrentExecution`, và log thời điểm bắt đầu và kết thúc. Xác nhận chồng lấn, rồi thêm attribute và kiểm chứng.
+
+3. **Lịch ngày lễ.** Cấu hình `HolidayCalendar` với các ngày lễ Việt Nam và xác nhận job không chạy vào những ngày đó.
+
+## Tự kiểm tra
+
+<FAQSection
+  items={[
+    {
+      question: "Quartz và Hangfire giải bài toán gì khác nhau?",
+      answer: "Hangfire là hàng đợi job: đưa việc vào rồi nó chạy, có retry và dashboard sẵn. Quartz là bộ lập lịch: trigger phức tạp, lịch loại trừ ngày lễ, và clustering có cơ chế nhận lại job khi node chết. Với CRM điển hình thì Hangfire thường đúng hơn; Quartz đáng khi lập lịch chính là nghiệp vụ."
+    },
+    {
+      question: "Misfire là gì?",
+      answer: "Là khi một trigger đáng lẽ đã chạy nhưng không chạy được, vì server đang tắt, không còn thread rảnh, hoặc job trước còn chạy. Quartz có bốn chính sách xử lý; Hangfire không có khái niệm này mà luôn chạy ngay khi server lên."
+    },
+    {
+      question: "Chính sách misfire nào nguy hiểm?",
+      answer: "IgnoreMisfires với job chạy dày. Job mỗi 5 phút mà server tắt 3 tiếng sẽ chạy bù 36 lần liên tiếp ngay khi lên, thường làm quá tải đúng lúc hệ thống vừa khởi động. Với job dày thì DoNothing hợp lý hơn."
+    },
+    {
+      question: "DisallowConcurrentExecution làm gì?",
+      answer: "Ngăn job chồng lên chính nó khi lần chạy trước chưa xong. Trong cluster nó áp trên toàn cluster, chỉ một node chạy tại một thời điểm, nên bạn không phải tự viết khoá phân tán như với BackgroundService."
+    },
+    {
+      question: "Vì sao PersistJobDataAfterExecution phải đi cùng DisallowConcurrentExecution?",
+      answer: "Vì nếu job chạy song song mà cùng lưu dữ liệu sau khi chạy, chúng sẽ ghi đè lẫn nhau và trạng thái lưu lại là không xác định."
+    },
+    {
+      question: "Clustering của Quartz có đảm bảo job chạy đúng một lần không?",
+      answer: "Không. Node chưa chết hẳn nhưng ngừng báo danh sẽ khiến node khác nhận lại job đang chạy dở, nên job có thể chạy hai lần. Vì vậy job vẫn phải idempotent, và các node phải có đồng hồ đồng bộ qua NTP."
+    }
+  ]}
+/>
+
+## Kết luận
+
+Ba điều đáng nhớ nhất:
+
+1. **Hangfire là hàng đợi, Quartz là lịch.** Chọn theo bài toán, không theo thói quen.
+2. **Misfire là khái niệm Hangfire không có** — và `IgnoreMisfires` với job dày là bẫy.
+3. **Clustering không đảm bảo chạy đúng một lần.** Job vẫn phải idempotent.
+
+## Tham khảo
+
+- [Quartz.NET documentation](https://www.quartz-scheduler.net/documentation/)
+- [Quartz.NET — Misfire instructions](https://www.quartz-scheduler.net/documentation/quartz-3.x/tutorial/more-about-triggers.html)
+- [Quartz.NET — Hosted services integration](https://www.quartz-scheduler.net/documentation/quartz-3.x/packages/hosted-services-integration.html)
+- [Hangfire documentation](https://docs.hangfire.io/en/latest/)
+
+## Điều hướng
+
+- **Bài trước:** [14.6 — 6. Background Jobs với Hangfire](14.6-hangfire-background-jobs.mdx)
+- **Bài tiếp theo:** [14.8 — 8. Message Bus Intro](14.8-message-bus-intro.mdx)
+- **Về module:** [Trang mục lục](./)

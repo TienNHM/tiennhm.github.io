@@ -1,0 +1,546 @@
+---
+title: "4.2 — 2. Encapsulation"
+description: "Đóng gói không phải là bọc field bằng getter/setter. Nó là giữ bất biến nghiệp vụ ở một chỗ duy nhất — và cái bẫy lớn nhất là trả về collection mà người ngoài sửa được."
+sidebar_position: 2
+---
+
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
+
+# 4.3 — 2. Encapsulation
+
+<SummaryBox>
+Đóng gói thường bị dạy thành "đừng để field `public`, hãy bọc bằng getter và setter". Cách hiểu đó bỏ sót toàn bộ giá trị: một property `{ get; set; }` bọc quanh field **không đóng gói được gì cả** — nó chỉ thêm hai dòng code cho cùng mức độ tự do. Đóng gói thật sự là **giữ bất biến nghiệp vụ ở một chỗ duy nhất**: thay vì cho bên ngoài đặt giá trị tuỳ ý, class phơi ra những **hành vi** hợp lệ và tự bảo vệ quy tắc của mình. Bài này cũng chỉ ra cái bẫy bị bỏ qua nhiều nhất: **trả về một `List` là trao cho người gọi quyền sửa trạng thái nội bộ của bạn**.
+</SummaryBox>
+
+## Mục tiêu bài học
+
+Sau bài này bạn có thể:
+
+- Phân biệt "bọc field" với đóng gói thật sự.
+- Thiết kế API của class theo hành vi thay vì theo dữ liệu.
+- Chỉ ra vì sao trả về `List` phá vỡ đóng gói, và trả gì thay thế.
+- Đặt bất biến nghiệp vụ ở một chỗ duy nhất.
+- Chọn đúng giữa `private set`, `init` và chỉ có getter.
+
+## Nội dung bài học
+
+### 4.3.1 — Bọc field không phải đóng gói
+
+```csharp
+// KHÔNG đóng gói gì cả — chỉ dài hơn
+public class Order
+{
+    private decimal _total;
+    public decimal Total { get => _total; set => _total = value; }
+}
+
+order.Total = -500_000m;      // vẫn đặt được giá trị vô lý
+```
+
+Property trên cho bên ngoài **đúng mức tự do** như một field công khai. Nó chỉ tốn thêm chỗ.
+
+```csharp
+// ĐÓNG GÓI — class tự giữ quy tắc của mình
+public class Order
+{
+    private readonly List<OrderLine> _lines = new();
+
+    public decimal Total => _lines.Sum(l => l.Amount);   // TÍNH ra, không lưu
+    public OrderStatus Status { get; private set; } = OrderStatus.Draft;
+
+    public void AddLine(Product product, int quantity)
+    {
+        if (Status != OrderStatus.Draft)
+            throw new InvalidOperationException("Đơn đã chốt, không thêm dòng được.");
+        if (quantity <= 0)
+            throw new ArgumentOutOfRangeException(nameof(quantity));
+
+        _lines.Add(new OrderLine(product, quantity));
+    }
+
+    public void Confirm()
+    {
+        if (_lines.Count == 0)
+            throw new InvalidOperationException("Đơn rỗng không chốt được.");
+        Status = OrderStatus.Confirmed;
+    }
+}
+```
+
+Khác biệt cốt lõi: **không ai đặt được `Total`**, vì `Total` không phải thứ để đặt — nó là **hệ quả** của các dòng hàng. Và không ai chốt được một đơn rỗng, vì quy tắc đó nằm trong `Confirm()`.
+
+### 4.3.2 — Thiết kế theo hành vi, không theo dữ liệu
+
+```csharp
+// Theo DỮ LIỆU — class chỉ là cái túi, quy tắc nằm rải rác bên ngoài
+public class BankAccount
+{
+    public decimal Balance { get; set; }
+}
+
+// ... ở đâu đó trong service
+if (account.Balance >= amount)          // quy tắc ở đây
+    account.Balance -= amount;
+
+// ... ở một service khác, ai đó quên kiểm tra
+account.Balance -= amount;              // số dư âm
+```
+
+```csharp
+// Theo HÀNH VI — quy tắc nằm cùng chỗ với dữ liệu
+public class BankAccount
+{
+    public decimal Balance { get; private set; }
+
+    public void Withdraw(decimal amount)
+    {
+        if (amount <= 0)
+            throw new ArgumentOutOfRangeException(nameof(amount));
+        if (amount > Balance)
+            throw new InvalidOperationException("Số dư không đủ.");
+
+        Balance -= amount;
+    }
+
+    public void Deposit(decimal amount) { /* ... */ }
+}
+```
+
+Câu hỏi để tự kiểm tra thiết kế:
+
+> Nếu tôi thêm một quy tắc nghiệp vụ mới, tôi phải sửa **bao nhiêu chỗ**?
+
+Với phiên bản đầu: mọi nơi có `account.Balance -=`. Với phiên bản sau: đúng một chỗ.
+
+Một class chỉ toàn `{ get; set; }` và không có phương thức nào thường được gọi là **anemic model** — mô hình thiếu máu. Nó không sai tuyệt đối (DTO thì đúng là nên như vậy), nhưng với thực thể nghiệp vụ thì nó đẩy toàn bộ quy tắc ra ngoài, nơi chúng dễ bị bỏ sót.
+
+### 4.3.3 — Cái bẫy collection
+
+Đây là chỗ bị bỏ qua nhiều nhất, kể cả trong code của người có kinh nghiệm.
+
+```csharp
+public class Order
+{
+    private readonly List<OrderLine> _lines = new();
+    public List<OrderLine> Lines => _lines;      // TRAO QUYỀN SỬA
+}
+
+order.Lines.Clear();                 // xoá sạch, không qua kiểm tra nào
+order.Lines.Add(new OrderLine(...)); // thêm thẳng, bỏ qua AddLine
+```
+
+Mọi quy tắc trong `AddLine` vừa bị vô hiệu hoá. `private readonly` trên field **không** bảo vệ được nội dung của list — nó chỉ ngăn việc gán một list khác vào.
+
+Ba cách sửa, theo thứ tự nên dùng:
+
+```csharp
+// 1. Trả về giao diện chỉ đọc — không sao chép, phản ánh thay đổi
+public IReadOnlyList<OrderLine> Lines => _lines;
+
+// 2. Trả về bản sao — an toàn tuyệt đối nhưng tốn bộ nhớ
+public IReadOnlyList<OrderLine> Lines => _lines.ToList();
+
+// 3. Không phơi ra collection, chỉ phơi ra thứ người gọi thật sự cần
+public int LineCount => _lines.Count;
+public bool HasLine(int productId) => _lines.Any(l => l.ProductId == productId);
+```
+
+Lưu ý về cách 1: `IReadOnlyList<T>` ngăn gọi `Add` và `Clear`, nhưng người gọi vẫn **ép kiểu ngược** về `List<T>` được. Nó là hàng rào cho người trung thực, không phải cho kẻ cố tình. Cần bảo đảm tuyệt đối thì dùng cách 2 hoặc `_lines.AsReadOnly()`.
+
+Và nếu các phần tử bên trong là kiểu có thể thay đổi, người gọi vẫn sửa được từng phần tử — nên `OrderLine` cũng nên bất biến.
+
+### 4.3.4 — Bất biến nghiệp vụ ở một chỗ
+
+**Bất biến** (invariant) là quy tắc luôn phải đúng với mọi object của class, ở mọi thời điểm.
+
+Ví dụ cho `Order`:
+
+- Tổng tiền luôn bằng tổng các dòng.
+- Đơn đã chốt không sửa được dòng.
+- Đơn rỗng không chốt được.
+- Số lượng mỗi dòng luôn dương.
+
+Mỗi bất biến phải được bảo vệ ở **đúng một chỗ** — bên trong class. Nếu một bất biến được kiểm tra ở ba service khác nhau, thì chắc chắn có ngày ai đó viết service thứ tư mà quên.
+
+```csharp
+public void AddLine(Product product, int quantity)
+{
+    // Bất biến 2 và 4 được bảo vệ ngay tại đây
+    if (Status != OrderStatus.Draft) throw new InvalidOperationException();
+    if (quantity <= 0) throw new ArgumentOutOfRangeException(nameof(quantity));
+
+    _lines.Add(new OrderLine(product, quantity));
+    // Bất biến 1 tự động đúng vì Total được TÍNH chứ không LƯU
+}
+```
+
+Chú ý dòng cuối: khi `Total` là thuộc tính tính toán, bất biến "tổng tiền luôn bằng tổng các dòng" **không thể sai được** — bạn đã làm cho trạng thái sai không biểu diễn được, thay vì phải nhớ đồng bộ hai thứ.
+
+### 4.3.5 — Chọn mức độ mở
+
+| Cách khai báo | Ai đặt được | Dùng khi |
+|---|---|---|
+| `{ get; }` + gán trong constructor | Chỉ constructor | Giá trị cố định suốt đời object |
+| `{ get; init; }` | Constructor và object initializer | Bất biến, nhiều trường |
+| `{ get; private set; }` | Chỉ phương thức trong class | Thay đổi được, nhưng theo quy tắc |
+| `{ get; protected set; }` | Class con | Hiếm dùng, cân nhắc kỹ |
+| `{ get; set; }` | Bất kỳ ai | **DTO, view model** |
+
+Dòng cuối không phải lỗi. DTO là túi dữ liệu để chuyển qua ranh giới, nó **nên** có `{ get; set; }`. Vấn đề chỉ xảy ra khi thực thể nghiệp vụ cũng được viết như DTO.
+
+Nguyên tắc: **bắt đầu ở mức đóng nhất, chỉ mở ra khi có nhu cầu thật**. Mở thì dễ, đóng lại thì phá vỡ code đang gọi.
+
+### 4.3.6 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát đóng gói"
+  items={[
+    { text: "Không có property nào chỉ là { get; set; } bọc quanh field trong class nghiệp vụ." },
+    { text: "Không trả về List hay ICollection ra khỏi class; dùng IReadOnlyList hoặc bản sao." },
+    { text: "Giá trị suy ra được thì TÍNH chứ không LƯU rồi đồng bộ thủ công." },
+    { text: "Mỗi bất biến nghiệp vụ được bảo vệ ở đúng một chỗ, bên trong class." },
+    { text: "Class nghiệp vụ có phương thức mang nghĩa nghiệp vụ, không chỉ toàn property." },
+    { text: "Phần tử bên trong collection được phơi ra cũng bất biến." },
+    { text: "Mức truy cập bắt đầu ở mức đóng nhất và chỉ mở khi có nhu cầu thật." },
+  ]}
+/>
+
+## Bài tập áp dụng
+
+#### Bài 1 — Phá vỡ đóng gói của chính mình
+
+Tìm một class trong dự án có property trả về `List`. Viết một dòng code từ bên ngoài phá vỡ một quy tắc nghiệp vụ của class đó. Sau đó sửa bằng `IReadOnlyList` và thử lại.
+
+**Tiêu chí hoàn thành:** dòng code phá hoại đó **không còn biên dịch được** sau khi sửa.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Tìm bằng:
+
+```bash
+grep -rn "public List<\|public IList<\|public ICollection<" --include=*.cs .
+```
+
+Mỗi kết quả là một lỗ hổng tiềm tàng: người gọi nhận được **chính** danh sách bên trong đối tượng, chứ không phải bản sao.
+
+**Lời giải — trước:**
+
+```csharp
+public class Order
+{
+    public List<OrderLine> Lines { get; } = new();
+    public decimal Total => Lines.Sum(l => l.Amount);
+
+    public void ThemDong(OrderLine dong)
+    {
+        if (Lines.Count >= 100)
+            throw new InvalidOperationException("Đơn hàng tối đa 100 dòng");
+        if (dong.Amount <= 0)
+            throw new ArgumentException("Số tiền phải dương");
+        Lines.Add(dong);
+    }
+}
+```
+
+Lớp này **trông như** được bảo vệ: `Lines` chỉ có `get`, và `ThemDong` kiểm tra hai quy tắc. Nhưng:
+
+```csharp
+var order = new Order();
+
+order.Lines.Add(new OrderLine(-5000));   // bỏ qua kiểm tra số tiền dương
+for (int i = 0; i < 500; i++)
+    order.Lines.Add(new OrderLine(1));   // bỏ qua giới hạn 100 dòng
+order.Lines.Clear();                     // xoá sạch, không ai biết
+```
+
+Cả ba dòng **biên dịch sạch và chạy được**. `get` chỉ ngăn việc gán một danh sách *khác* vào thuộc tính; nó không ngăn việc sửa danh sách *hiện tại*.
+
+**Sau:**
+
+```csharp
+public class Order
+{
+    private readonly List<OrderLine> _lines = new();
+
+    public IReadOnlyList<OrderLine> Lines => _lines;
+    public decimal Total => _lines.Sum(l => l.Amount);
+
+    public void ThemDong(OrderLine dong)
+    {
+        if (_lines.Count >= 100)
+            throw new InvalidOperationException("Đơn hàng tối đa 100 dòng");
+        if (dong.Amount <= 0)
+            throw new ArgumentException("Số tiền phải dương");
+        _lines.Add(dong);
+    }
+
+    public void XoaDong(int index) { /* kèm quy tắc riêng */ }
+}
+```
+
+Giờ ba dòng phá hoại ở trên **không biên dịch được**:
+
+```text
+error CS1061: 'IReadOnlyList<OrderLine>' does not contain a definition for 'Add'
+error CS1061: 'IReadOnlyList<OrderLine>' does not contain a definition for 'Clear'
+```
+
+**Một cảnh báo quan trọng.** `IReadOnlyList<T>` là một **góc nhìn**, không phải một bản sao. Người gọi vẫn ép kiểu ngược lại được:
+
+```csharp
+((List<OrderLine>)order.Lines).Add(new OrderLine(-5000));   // biên dịch được!
+```
+
+Với code trong cùng một đội, `IReadOnlyList` là đủ — nó biến việc phá vỡ quy tắc từ "vô tình" thành "cố ý", và thế là đủ. Khi cần bảo đảm tuyệt đối, ví dụ khi phát hành một thư viện:
+
+```csharp
+public IReadOnlyList<OrderLine> Lines => _lines.AsReadOnly();   // bọc thật, không ép kiểu ngược được
+```
+
+Đổi lại `AsReadOnly()` tạo một đối tượng bọc mỗi lần gọi, nên đừng đặt nó trong vòng lặp nóng.
+
+**Bảng chọn kiểu trả về:**
+
+| Kiểu | Người gọi làm được gì | Dùng khi |
+|---|---|---|
+| `List<T>` | Mọi thứ, kể cả phá vỡ quy tắc | Gần như không bao giờ |
+| `IReadOnlyList<T>` | Đọc, đếm, truy cập theo chỉ số | **Mặc định** |
+| `IEnumerable<T>` | Chỉ duyệt một lần | Khi không muốn hứa về số lượng |
+| `ImmutableArray<T>` | Chỉ đọc, bảo đảm tuyệt đối | Thư viện công khai, dữ liệu chia sẻ đa luồng |
+
+</details>
+
+#### Bài 2 — Đếm chỗ phải sửa khi quy tắc thay đổi
+
+Chọn một quy tắc nghiệp vụ trong hệ thống. Đếm số file phải sửa nếu quy tắc đó thay đổi. Nếu nhiều hơn một, thử gom về trong entity và đếm lại.
+
+**Tiêu chí hoàn thành:** bạn có hai con số, và nêu được vì sao con số thứ hai nên bằng **một**.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Chọn một quy tắc có thể diễn đạt bằng một câu tiếng Việt, ví dụ *"khách hàng có đơn chưa thanh toán thì không được xoá"*. Rồi tìm mọi nơi quy tắc đó được cài đặt:
+
+```bash
+grep -rn "HasUnpaidOrders\|ChuaThanhToan\|Any(o => !o.IsPaid)" --include=*.cs .
+```
+
+**Lời giải — trước:**
+
+```csharp
+// CustomerController.cs
+[HttpDelete("{id}")]
+public async Task<IActionResult> Xoa(int id)
+{
+    var c = await _db.Customers.Include(x => x.Orders).FirstAsync(x => x.Id == id);
+    if (c.Orders.Any(o => !o.IsPaid))                  // chỗ 1
+        return BadRequest("Còn đơn chưa thanh toán");
+    ...
+}
+
+// CustomerBulkService.cs
+foreach (var c in danhSach)
+{
+    if (c.Orders.Any(o => !o.IsPaid)) continue;        // chỗ 2
+    ...
+}
+
+// CleanupJob.cs
+var xoaDuoc = khachCu.Where(c => !c.Orders.Any(o => !o.IsPaid));   // chỗ 3
+
+// ExportService.cs — quên kiểm tra hoàn toàn                      // chỗ 4: BUG
+```
+
+**Bốn chỗ, và chỗ thứ tư là lỗi** — người viết nó không biết quy tắc tồn tại. Đây là hậu quả điển hình khi quy tắc nằm rải rác: không có gì nhắc người viết code mới rằng quy tắc đó có mặt.
+
+**Sau — gom vào entity:**
+
+```csharp
+public class Customer
+{
+    private readonly List<Order> _orders = new();
+    public IReadOnlyList<Order> Orders => _orders;
+
+    public bool CoTheXoa => !_orders.Any(o => !o.IsPaid);
+
+    public void ChuanBiXoa()
+    {
+        if (!CoTheXoa)
+            throw new DomainException("Không thể xoá khách hàng còn đơn chưa thanh toán");
+        // ... đánh dấu xoá
+    }
+}
+```
+
+Mọi nơi gọi:
+
+```csharp
+if (!customer.CoTheXoa) return BadRequest("Còn đơn chưa thanh toán");
+// hoặc mạnh hơn: customer.ChuanBiXoa();  -> tự ném nếu vi phạm
+```
+
+**Bốn chỗ xuống một.**
+
+**Vì sao con số thứ hai nên bằng một.** Đây không phải chuyện gọn code. Nó là chuyện **ai sở hữu quy tắc**:
+
+| | Quy tắc rải rác | Quy tắc trong entity |
+|---|---|---|
+| Đổi quy tắc | Phải tìm hết mọi chỗ | Sửa một chỗ |
+| Người viết code mới | Không biết quy tắc tồn tại | Thấy ngay trên entity |
+| Kiểm thử | Phải test ở từng nơi gọi | Test một lần trên entity |
+| Bỏ sót một chỗ | Rất dễ, và im lặng | Không có chỗ nào để sót |
+
+Dòng thứ hai quan trọng nhất. Khi quy tắc nằm trên entity, người viết chức năng mới **nhìn thấy nó** ngay khi gõ `customer.` và xem danh sách gợi ý. Khi nó nằm rải rác trong các controller, không gì dẫn họ tới đó.
+
+**Đặt tên cho phương thức, không cho điều kiện.** So sánh hai cách:
+
+```csharp
+if (!customer.Orders.Any(o => !o.IsPaid))   // đọc xong phải tự dịch ra ý nghĩa
+if (customer.CoTheXoa)                      // ý nghĩa nằm ngay trong tên
+```
+
+Cách thứ hai còn cho phép đổi cách cài đặt mà không đụng tới bất kỳ nơi gọi nào — ví dụ sau này quy tắc thêm điều kiện "và không có hợp đồng đang hiệu lực".
+
+**Đây là bước đầu tiên ra khỏi anemic domain model.** [Module 16](../../stage-05-senior-engineering/module-16-clean-architecture/) sẽ xây tiếp ý này thành ranh giới kiến trúc rõ ràng.
+
+</details>
+
+#### Bài 3 — Biến LƯU thành TÍNH
+
+Tìm một trường được lưu và phải đồng bộ thủ công. Đổi thành thuộc tính tính toán và xoá mọi chỗ đồng bộ.
+
+**Tiêu chí hoàn thành:** bạn nêu được trường hợp mà **vẫn nên lưu** thay vì tính.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Dấu hiệu nhận ra: một trường mà mỗi khi sửa thứ khác, bạn phải nhớ cập nhật nó. Nếu quên một chỗ, dữ liệu mâu thuẫn với chính nó.
+
+**Lời giải — trước:**
+
+```csharp
+public class Order
+{
+    public List<OrderLine> Lines { get; } = new();
+    public decimal Total { get; set; }        // phải đồng bộ thủ công
+    public int LineCount { get; set; }        // cũng vậy
+
+    public void ThemDong(OrderLine d)
+    {
+        Lines.Add(d);
+        Total += d.Amount;      // nhớ cập nhật
+        LineCount++;            // nhớ cập nhật
+    }
+
+    public void XoaDong(OrderLine d)
+    {
+        Lines.Remove(d);
+        Total -= d.Amount;      // nhớ cập nhật
+        // LineCount--;         <- QUÊN. Giờ dữ liệu mâu thuẫn.
+    }
+}
+```
+
+**Sau:**
+
+```csharp
+public class Order
+{
+    private readonly List<OrderLine> _lines = new();
+    public IReadOnlyList<OrderLine> Lines => _lines;
+
+    public decimal Total => _lines.Sum(l => l.Amount);   // luôn đúng
+    public int LineCount => _lines.Count;                // luôn đúng
+
+    public void ThemDong(OrderLine d) => _lines.Add(d);
+    public void XoaDong(OrderLine d) => _lines.Remove(d);
+}
+```
+
+**Lỗi ở `XoaDong` biến mất — không phải vì được sửa, mà vì không còn chỗ để nó tồn tại.** Đây là dạng cải thiện tốt nhất: loại bỏ khả năng mắc lỗi thay vì loại bỏ một lỗi cụ thể.
+
+**Nguyên tắc:** *dữ liệu suy ra được thì đừng lưu*. Mỗi giá trị lưu độc lập mà lẽ ra phải suy ra được là một **nguồn sự thật thứ hai**, và hai nguồn sự thật thì sớm muộn sẽ lệch nhau.
+
+**Khi nào vẫn nên lưu — ba trường hợp chính đáng:**
+
+1. **Tính toán quá tốn kém và được đọc rất nhiều.** Tổng doanh thu cả năm của một khách hàng có hàng chục nghìn đơn, hiển thị trên mọi màn hình. Lúc đó lưu lại là hợp lý — nhưng phải có **một cơ chế duy nhất** cập nhật nó, không rải rác.
+
+2. **Giá trị là ảnh chụp tại một thời điểm và không được đổi theo dữ liệu hiện tại.** Đây là trường hợp quan trọng nhất và hay bị làm sai:
+
+   ```csharp
+   public class OrderLine
+   {
+       public int ProductId { get; private set; }
+       public decimal UnitPrice { get; private set; }   // PHẢI lưu, không được tính
+   }
+   ```
+
+   `UnitPrice` phải là giá **tại lúc đặt hàng**, không phải giá hiện tại của sản phẩm. Tính nó từ `Product.Price` là sai hoàn toàn: hoá đơn cũ sẽ đổi số tiền mỗi khi sản phẩm đổi giá. Đây là lỗi nghiêm trọng về nghiệp vụ, và nó xuất hiện thường xuyên.
+
+3. **Cần truy vấn hoặc sắp xếp theo giá trị đó trong database.** Thuộc tính tính toán trong C# không dịch được thành SQL, nên `WHERE Total > 1000000` không chạy được nếu `Total` chỉ tồn tại trong bộ nhớ. Hai cách xử lý: cột tính toán trong database, hoặc cột thường được cập nhật trong cùng giao dịch.
+
+**Phép thử nhanh để quyết định:**
+
+> *Nếu tôi tính lại giá trị này từ dữ liệu hiện tại, kết quả có phải luôn bằng giá trị đang lưu không?*
+>
+> - **Có** → nên tính, đừng lưu.
+> - **Không** → phải lưu, vì nó mang thông tin mà dữ liệu hiện tại không còn chứa.
+
+Câu hỏi này phân biệt chính xác `Total` của đơn hàng (nên tính) với `UnitPrice` của dòng đơn hàng (phải lưu).
+
+**Với EF Core.** Thuộc tính chỉ có `get` được EF Core bỏ qua khi ánh xạ, nên nó không tạo cột — đúng như mong muốn. Khi cần truy vấn theo nó, khai báo cột tính toán trong cấu hình entity, chi tiết ở [bài 13.3](../../stage-04-database-production/module-13-entity-framework-core/13.2-dbcontext-and-entity-configuration.mdx).
+
+</details>
+
+## Tự kiểm tra
+
+<FAQSection
+  items={[
+    {
+      question: "Vì sao property { get; set; } bọc quanh field không phải là đóng gói?",
+      answer: "Vì nó cho bên ngoài đúng mức tự do như một field công khai — ai cũng đặt được giá trị bất kỳ, kể cả giá trị vô lý. Đóng gói thật sự là class tự giữ quy tắc của mình: phơi ra hành vi hợp lệ thay vì phơi ra chỗ để ghi giá trị tuỳ ý."
+    },
+    {
+      question: "Vì sao trả về List phá vỡ đóng gói?",
+      answer: "Vì người gọi gọi được Add và Clear thẳng lên danh sách nội bộ, bỏ qua mọi kiểm tra trong phương thức của class. Khai báo field là private readonly không giúp gì, vì nó chỉ ngăn gán một list khác chứ không ngăn sửa nội dung list hiện tại."
+    },
+    {
+      question: "IReadOnlyList có bảo vệ tuyệt đối không?",
+      answer: "Không. Người gọi vẫn ép kiểu ngược về List được. Nó là hàng rào cho người trung thực chứ không phải cho kẻ cố tình. Cần bảo đảm tuyệt đối thì trả về bản sao bằng ToList hoặc dùng AsReadOnly. Ngoài ra nếu phần tử bên trong có thể thay đổi thì người gọi vẫn sửa được từng phần tử."
+    },
+    {
+      question: "Anemic model là gì và khi nào nó chấp nhận được?",
+      answer: "Là class chỉ toàn property get set mà không có phương thức nào mang nghĩa nghiệp vụ, khiến quy tắc bị đẩy ra ngoài và rải rác khắp nơi. Với DTO và view model thì đó là đúng, vì chúng chỉ là túi dữ liệu chuyển qua ranh giới. Vấn đề chỉ xảy ra khi thực thể nghiệp vụ cũng được viết như DTO."
+    },
+    {
+      question: "Vì sao nên TÍNH thay vì LƯU giá trị suy ra được?",
+      answer: "Vì khi Total là thuộc tính tính từ các dòng, bất biến tổng tiền luôn bằng tổng các dòng không thể sai được. Nếu lưu thành một trường riêng thì phải nhớ đồng bộ ở mọi chỗ thay đổi dòng hàng, và chỉ cần quên một chỗ là dữ liệu lệch."
+    },
+    {
+      question: "Nên bắt đầu ở mức truy cập nào?",
+      answer: "Mức đóng nhất có thể, rồi chỉ mở ra khi có nhu cầu thật. Lý do thực dụng: mở rộng quyền truy cập là thay đổi tương thích ngược, còn siết lại thì phá vỡ mọi code đang gọi. Đi từ chặt sang lỏng dễ hơn nhiều so với chiều ngược lại."
+    }
+  ]}
+/>
+
+## Kết luận
+
+Ba điều đáng nhớ nhất:
+
+1. **Đóng gói là giữ quy tắc, không phải bọc field.** Câu hỏi đúng là "thêm một quy tắc thì phải sửa mấy chỗ".
+2. **Trả về `List` là trao chìa khoá nhà.** Dùng `IReadOnlyList` hoặc đừng phơi collection ra.
+3. **Tính thay vì lưu.** Giá trị suy ra được mà lưu riêng là một bất biến chờ bị phá vỡ.
+
+## Tham khảo
+
+- [Object-oriented programming in C#](https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/object-oriented/)
+- [Properties](https://learn.microsoft.com/en-us/dotnet/csharp/properties) — các mức truy cập của accessor
+- [Access modifiers](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/access-modifiers)
+- [Framework design guidelines](https://learn.microsoft.com/en-us/dotnet/standard/design-guidelines/) — phần thiết kế property và collection
+
+## Điều hướng
+
+- **Bài trước:** [4.1 — 1. Class và Object](4.1-class-and-object.mdx)
+- **Bài tiếp theo:** [4.3 — 3. Inheritance và Polymorphism](4.3-inheritance-and-polymorphism.mdx)
+- **Về module:** [Trang mục lục](./)

@@ -1,0 +1,296 @@
+---
+title: "10.6 — 6. Resource-based Authorization"
+description: "Khi quyền phụ thuộc vào dữ liệu: IAuthorizationService, vì sao phải nạp bản ghi trước khi kiểm tra, IDOR, và lọc ở tầng truy vấn cho danh sách."
+sidebar_position: 6
+---
+
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
+
+# 10.7 — 6. Resource-based Authorization
+
+<SummaryBox>
+Attribute không trả lời được câu hỏi *"người này có sở hữu **bản ghi số 42** không?"* — vì lúc attribute chạy, bản ghi **chưa được nạp**. Phân quyền theo tài nguyên đảo thứ tự: nạp dữ liệu trước, rồi mới kiểm tra quyền bằng `IAuthorizationService`. Lỗ hổng mà nó ngăn chặn có tên riêng — **IDOR** (Insecure Direct Object Reference) — và nó nằm trong OWASP Top 10 vì cực kỳ phổ biến: đổi `/customers/42` thành `/customers/43` và bạn đọc được dữ liệu của người khác. Với **danh sách**, kiểm tra từng bản ghi là sai cách; quyền phải nằm **trong truy vấn**.
+</SummaryBox>
+
+## Mục tiêu bài học
+
+Sau bài này bạn có thể:
+
+- Giải thích vì sao attribute không đủ cho quyền theo dữ liệu.
+- Dùng `IAuthorizationService` trong action.
+- Nhận ra và ngăn lỗ hổng IDOR.
+- Lọc quyền ở tầng truy vấn cho danh sách.
+- Chọn đúng giữa 403 và 404 khi từ chối.
+
+## Nội dung bài học
+
+### 10.7.1 — Vì sao attribute không đủ
+
+```csharp
+[Authorize(Roles = "SalesRep")]     // chay TRUOC khi action bat dau
+[HttpPut("{id:guid}")]
+public async Task<IActionResult> Update(Guid id, UpdateRequest req, CancellationToken ct)
+{
+    var customer = await _db.Customers.FindAsync([id], ct);   // ban ghi nap O DAY
+    ...
+}
+```
+
+Attribute chạy ở tầng phân quyền, **trước** action — lúc đó chưa ai truy vấn database. Nó biết bạn là `SalesRep`, nhưng không biết khách hàng 42 thuộc về ai.
+
+Thứ tự bắt buộc phải là: **nạp bản ghi → kiểm tra quyền trên bản ghi đó → thực hiện thao tác.**
+
+### 10.7.2 — Lỗ hổng IDOR
+
+```csharp
+// SAI — chi kiem tra "da dang nhap chua"
+[Authorize]
+[HttpGet("{id:guid}")]
+public async Task<ActionResult<CustomerDto>> GetById(Guid id, CancellationToken ct)
+{
+    var customer = await _db.Customers.FindAsync([id], ct);
+    return customer is null ? NotFound() : Ok(customer.ToDto());
+}
+```
+
+Bất kỳ ai đăng nhập cũng đọc được **mọi** khách hàng. Kẻ tấn công chỉ cần đổi id trong URL — không cần công cụ, không cần kỹ năng.
+
+Đây là **Broken Access Control**, hạng mục **số 1** trong OWASP Top 10. Nó phổ biến vì code trông hoàn toàn bình thường: có `[Authorize]`, có kiểm tra `null`, có trả DTO. Không có gì trông sai cả.
+
+Dùng GUID thay số tự tăng làm việc dò id khó hơn, nhưng **không phải** giải pháp: id vẫn xuất hiện trong URL, trong log, trong response của các endpoint khác. Đó là che giấu, không phải kiểm soát.
+
+### 10.7.3 — `IAuthorizationService`
+
+```csharp
+public sealed class SameOwnerRequirement : IAuthorizationRequirement;
+
+public sealed class CustomerOwnerHandler
+    : AuthorizationHandler<SameOwnerRequirement, Customer>
+{
+    protected override Task HandleRequirementAsync(
+        AuthorizationHandlerContext context,
+        SameOwnerRequirement requirement,
+        Customer resource)
+    {
+        var userId = context.User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (userId is not null && resource.OwnerId == userId)
+            context.Succeed(requirement);
+
+        return Task.CompletedTask;
+    }
+}
+
+// Con duong thu hai: quan ly cung khu vuc
+public sealed class CustomerTerritoryHandler
+    : AuthorizationHandler<SameOwnerRequirement, Customer>
+{
+    protected override Task HandleRequirementAsync(
+        AuthorizationHandlerContext context,
+        SameOwnerRequirement requirement,
+        Customer resource)
+    {
+        if (context.User.IsInRole(CrmRoles.Manager)
+            && context.User.FindFirstValue("territory") == resource.Territory)
+            context.Succeed(requirement);
+
+        return Task.CompletedTask;
+    }
+}
+```
+
+Hai handler độc lập cho cùng một requirement, và vì nhiều handler là **OR** ([bài 10.6](10.5-policy-based-authorization.mdx)), chỉ cần một cái `Succeed` là qua. Thêm một con đường mới — ví dụ "người được uỷ quyền tạm thời" — là thêm một handler, không sửa hai handler cũ.
+
+```csharp
+[Authorize]
+[HttpPut("{id:guid}")]
+public async Task<IActionResult> Update(
+    Guid id, UpdateCustomerRequest request,
+    [FromServices] IAuthorizationService authorization,
+    CancellationToken ct)
+{
+    var customer = await _db.Customers.FindAsync([id], ct);
+    if (customer is null) return NotFound();
+
+    var result = await authorization.AuthorizeAsync(
+        User, customer, new SameOwnerRequirement());
+
+    if (!result.Succeeded) return Forbid();
+
+    customer.Apply(request);
+    await _db.SaveChangesAsync(ct);
+    return NoContent();
+}
+```
+
+`AuthorizeAsync` nhận **ba** tham số: người dùng, **tài nguyên**, và requirement. Tham số giữa là điểm khác biệt với mọi thứ ở các bài trước.
+
+### 10.7.4 — 403 hay 404
+
+```csharp
+if (!result.Succeeded) return Forbid();       // 403: "co ton tai, ban khong duoc xem"
+if (!result.Succeeded) return NotFound();     // 404: "coi nhu khong ton tai"
+```
+
+Khác biệt nằm ở **thông tin bạn tiết lộ**. 403 xác nhận bản ghi đó **tồn tại** — kẻ tấn công dò id lần lượt sẽ phân biệt được "id hợp lệ nhưng không thuộc về tôi" với "id không tồn tại", và từ đó suy ra quy mô dữ liệu, tốc độ tăng trưởng, hoặc tồn tại của một khách hàng cụ thể.
+
+| Dùng | Khi |
+|---|---|
+| **403** | Người dùng biết tài nguyên tồn tại là bình thường — bản ghi dùng chung trong tổ chức |
+| **404** | Tồn tại của bản ghi là thông tin nhạy cảm — dữ liệu giữa các khách hàng, hồ sơ y tế, tài chính |
+
+Với hệ thống đa khách hàng (multi-tenant), **404 gần như luôn đúng**: khách hàng A không được biết khách hàng B tồn tại.
+
+Nhất quán trong toàn API, và ghi rõ lựa chọn trong tài liệu để người tích hợp không nhầm.
+
+### 10.7.5 — Danh sách: lọc trong truy vấn
+
+Sai lầm hay gặp là áp cách làm của một bản ghi lên cả danh sách:
+
+```csharp
+// SAI — nap TAT CA roi loc trong bo nho
+var all = await _db.Customers.ToListAsync(ct);
+
+var visible = new List<Customer>();
+foreach (var c in all)
+{
+    var r = await authorization.AuthorizeAsync(User, c, new SameOwnerRequirement());
+    if (r.Succeeded) visible.Add(c);
+}
+```
+
+Ba vấn đề: nạp toàn bộ bảng về bộ nhớ, chạy phân quyền N lần, và **phân trang sai hoàn toàn** — bạn lấy 20 bản ghi rồi lọc còn 3, trang sau lại lấy 20 bản ghi khác. Người dùng thấy các trang có số lượng khác nhau và tổng số đếm sai.
+
+Quyền phải nằm **trong truy vấn**:
+
+```csharp
+public static IQueryable<Customer> VisibleTo(
+    this IQueryable<Customer> query, ICurrentUser user)
+{
+    if (user.IsInRole(CrmRoles.Admin))
+        return query;                                  // thay tat ca
+
+    if (user.IsInRole(CrmRoles.Manager))
+        return query.Where(c => c.Territory == user.Territory);
+
+    return query.Where(c => c.OwnerId == user.Id);     // chi cua minh
+}
+```
+
+```csharp
+var query = _db.Customers.AsNoTracking().VisibleTo(_currentUser);
+
+var total = await query.CountAsync(ct);
+var items = await query.Skip(skip).Take(pageSize).ToListAsync(ct);
+```
+
+Database chỉ trả về những gì người dùng được xem, nên phân trang đúng, `Count` đúng, và không có dữ liệu thừa nào rời khỏi database.
+
+Đánh đổi: **quy tắc giờ tồn tại ở hai nơi** — trong handler (cho một bản ghi) và trong `VisibleTo` (cho danh sách). Chúng có thể lệch nhau theo thời gian.
+
+Hai cách giảm rủi ro:
+
+**1. Global query filter** của EF Core, áp tự động cho mọi truy vấn:
+
+```csharp
+modelBuilder.Entity<Customer>().HasQueryFilter(
+    c => c.TenantId == _tenantContext.TenantId);
+```
+
+Rất mạnh cho **multi-tenant**: không thể quên, vì nó áp cho mọi truy vấn tới entity đó. Nhưng nhớ `IgnoreQueryFilters()` tồn tại — mọi lời gọi tới nó phải được review.
+
+**2. Một bộ test chạy trên cả hai đường.** Với mỗi vai trò, kiểm tra rằng "bản ghi X hiện trong danh sách" **khi và chỉ khi** "truy cập trực tiếp bản ghi X được cho phép". Đó là bất biến bạn cần bảo vệ.
+
+### 10.7.6 — Đừng quên các đường khác
+
+Phân quyền theo tài nguyên hay bị bỏ sót ở những nơi không phải `GET` và `PUT` chính:
+
+- **Endpoint lồng nhau**: `/customers/{id}/orders` — kiểm tra quyền trên `customer`, không chỉ trên `order`.
+- **Xuất dữ liệu**: `/customers/export` thường được viết riêng và quên lọc.
+- **Tìm kiếm**: kết quả tìm kiếm phải đi qua cùng một bộ lọc.
+- **Tham chiếu trong body**: `PUT /orders/{id}` với `customerId` trỏ tới khách hàng của người khác.
+- **Background job và webhook**: chạy ngoài ngữ cảnh người dùng, dễ bỏ qua mọi kiểm tra.
+
+Trường hợp thứ tư đáng chú ý: bạn kiểm tra quyền trên `order` nhưng không kiểm tra rằng `customerId` trong body thuộc về người dùng — và họ gán đơn hàng của mình cho khách hàng của người khác.
+
+### 10.7.7 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát phân quyền theo tài nguyên"
+  items={[
+    { text: "Mọi endpoint nhận id đều kiểm tra quyền trên bản ghi, không chỉ [Authorize]." },
+    { text: "Kiểm tra quyền xảy ra SAU khi nạp bản ghi." },
+    { text: "Lựa chọn giữa 403 và 404 là có chủ đích và nhất quán." },
+    { text: "Hệ thống multi-tenant trả 404, không trả 403." },
+    { text: "Danh sách lọc quyền trong truy vấn, không lọc sau khi nạp." },
+    { text: "Phân trang và Count chạy trên truy vấn đã lọc quyền." },
+    { text: "Endpoint lồng nhau kiểm tra quyền trên tài nguyên cha." },
+    { text: "Endpoint export và tìm kiếm dùng cùng bộ lọc quyền." },
+    { text: "Id tham chiếu trong body được kiểm tra thuộc về người dùng." },
+    { text: "Mọi lời gọi IgnoreQueryFilters đều được review." },
+  ]}
+/>
+
+## Bài tập áp dụng
+
+1. **Khai thác IDOR.** Tạo hai người dùng, mỗi người một khách hàng. Đăng nhập bằng người thứ nhất và gọi endpoint bằng id của khách hàng người thứ hai. Ghi lại kết quả trước và sau khi thêm kiểm tra quyền.
+
+2. **Phân trang sai.** Cài lọc quyền **sau** khi nạp, tạo 100 bản ghi trong đó 10 thuộc về bạn, và gọi `?page=1&pageSize=20`. Ghi lại số bản ghi trả về và giá trị `total`. Chuyển sang lọc trong truy vấn và so sánh.
+
+3. **Bỏ sót đường xuất dữ liệu.** Cài kiểm tra quyền đầy đủ cho `GET /customers/{id}` nhưng quên `GET /customers/export`. Xác nhận export trả dữ liệu của mọi người.
+
+## Tự kiểm tra
+
+<FAQSection
+  items={[
+    {
+      question: "Vì sao attribute không kiểm tra được quyền trên một bản ghi cụ thể?",
+      answer: "Vì attribute chạy ở tầng phân quyền, trước khi action bắt đầu, nên bản ghi chưa được nạp từ database. Thứ tự bắt buộc phải là nạp bản ghi, kiểm tra quyền trên bản ghi đó, rồi mới thực hiện thao tác."
+    },
+    {
+      question: "IDOR là gì?",
+      answer: "Insecure Direct Object Reference, tức endpoint chỉ kiểm tra đã đăng nhập chưa mà không kiểm tra bản ghi có thuộc về người dùng không, nên đổi id trong URL là đọc được dữ liệu của người khác. Nó thuộc Broken Access Control, hạng mục số một trong OWASP Top 10, và phổ biến vì code trông hoàn toàn bình thường."
+    },
+    {
+      question: "Dùng GUID thay số tự tăng có ngăn được IDOR không?",
+      answer: "Không. Nó làm việc dò id khó hơn nhưng id vẫn xuất hiện trong URL, trong log và trong response của các endpoint khác. Đó là che giấu chứ không phải kiểm soát truy cập."
+    },
+    {
+      question: "Nên trả 403 hay 404 khi từ chối?",
+      answer: "403 xác nhận bản ghi tồn tại, nên kẻ tấn công dò id sẽ phân biệt được id hợp lệ với id không tồn tại và suy ra thông tin về dữ liệu. Dùng 403 khi việc biết tài nguyên tồn tại là bình thường, và 404 khi chính sự tồn tại là nhạy cảm. Với hệ thống đa khách hàng thì 404 gần như luôn đúng."
+    },
+    {
+      question: "Vì sao không lọc quyền sau khi nạp danh sách?",
+      answer: "Ba vấn đề: nạp toàn bộ bảng về bộ nhớ, chạy phân quyền N lần, và phân trang sai hoàn toàn vì bạn lấy 20 bản ghi rồi lọc còn 3. Người dùng thấy các trang có số lượng khác nhau và tổng số đếm sai. Quyền phải nằm trong truy vấn."
+    },
+    {
+      question: "Lọc quyền ở hai nơi có rủi ro gì?",
+      answer: "Quy tắc tồn tại trong handler cho một bản ghi và trong bộ lọc truy vấn cho danh sách, nên chúng có thể lệch nhau theo thời gian. Giảm rủi ro bằng global query filter của EF Core cho multi-tenant, và bằng một bộ test kiểm tra bất biến rằng bản ghi hiện trong danh sách khi và chỉ khi truy cập trực tiếp được cho phép."
+    }
+  ]}
+/>
+
+## Kết luận
+
+Ba điều đáng nhớ nhất:
+
+1. **Nạp bản ghi trước, kiểm tra quyền sau.** Attribute không làm được việc này.
+2. **IDOR là lỗ hổng phổ biến nhất** vì code trông hoàn toàn bình thường.
+3. **Danh sách lọc trong truy vấn.** Lọc sau khi nạp làm hỏng phân trang và tổng số đếm.
+
+## Tham khảo
+
+- [Resource-based authorization in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/security/authorization/resourcebased)
+- [OWASP Top 10 — Broken Access Control](https://owasp.org/Top10/A01_2021-Broken_Access_Control/)
+- [Global query filters — EF Core](https://learn.microsoft.com/en-us/ef/core/querying/filters)
+- [Policy-based authorization in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/security/authorization/policies)
+
+## Điều hướng
+
+- **Bài trước:** [10.5 — 5. Policy-based Authorization](10.5-policy-based-authorization.mdx)
+- **Bài tiếp theo:** [10.7 — 7. Permission System](10.7-permission-system.mdx)
+- **Về module:** [Trang mục lục](./)
+
+## Bài liên quan
+
+- [Đổi id trên URL ra dữ liệu người khác? Chặn IDOR ở một tầng duy nhất](/blog/idor-broken-access-control-aspnet-core) — IDOR xảy ra khi API nhận id từ request rồi đọc thẳng bản ghi mà không hỏi xem người gọi có sở hữu bản ghi đó không.

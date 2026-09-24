@@ -1,0 +1,263 @@
+---
+title: "10.11 — Mở rộng và đào sâu"
+description: "OAuth 2.1, PKCE, mTLS, passkey, Data Protection và OWASP — những chủ đề bảo mật nâng cao sau xác thực cơ bản."
+sidebar_position: 11
+---
+
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
+
+# 10.12 — Mở rộng và đào sâu
+
+<SummaryBox>
+Những chủ đề bảo mật nối tiếp Module 10, kèm mức độ ưu tiên. Điểm quan trọng nhất cần biết trước: **đừng tự viết hệ thống xác thực**. Không phải vì bạn không đủ khả năng, mà vì các chi tiết dễ sai lại là những chi tiết quan trọng nhất — thuật toán băm mật khẩu và số vòng lặp, chống tấn công thời gian, sinh số ngẫu nhiên an toàn, luồng đặt lại mật khẩu. Dùng ASP.NET Core Identity hoặc một identity provider. Trong các mục dưới đây, thứ đáng làm ngay nhất và bị bỏ qua nhiều nhất là **cấu hình Data Protection**: quên nó thì hệ nhiều instance sẽ **đăng xuất người dùng ngẫu nhiên**, và triệu chứng đó rất khó lần ra nguyên nhân.
+</SummaryBox>
+
+## Mục tiêu bài học
+
+Sau bài này bạn có thể:
+
+- Cấu hình Data Protection cho hệ nhiều instance.
+- Hiểu PKCE giải quyết vấn đề gì.
+- Biết khi nào cần mTLS và passkey.
+- Dùng OWASP làm danh sách kiểm tra.
+
+## Nội dung bài học
+
+### 10.12.1 — Data Protection: làm ngay
+
+**Điều kiện kích hoạt:** chạy nhiều hơn một instance.
+
+ASP.NET Core dùng Data Protection API để mã hoá cookie xác thực, token chống CSRF và dữ liệu tạm. Mặc định, **mỗi instance sinh khoá riêng**:
+
+```
+Instance A ma hoa cookie bang khoa A
+Nguoi dung request tiep theo -> load balancer chuyen sang Instance B
+Instance B khong giai ma duoc cookie do -> coi nhu chua dang nhap
+-> Nguoi dung bi DANG XUAT ngau nhien
+```
+
+Triệu chứng rất dễ nhận ra khi đã biết, và rất khó lần ra khi chưa biết: người dùng bị đăng xuất **ngẫu nhiên**, và tần suất **tăng theo số instance**.
+
+```csharp
+// Luu khoa dung chung
+builder.Services.AddDataProtection()
+    .PersistKeysToStackExchangeRedis(redis, "DataProtection-Keys")
+    .SetApplicationName("CrmApi");        // PHAI giong nhau moi instance
+```
+
+`SetApplicationName` quan trọng không kém: mặc định nó lấy tên thư mục ứng dụng, nên hai instance triển khai ở đường dẫn khác nhau sẽ **không** chia sẻ được khoá dù cùng lưu vào Redis.
+
+Các cách lưu khác: `PersistKeysToFileSystem` với volume dùng chung, hoặc `PersistKeysToAzureBlobStorage` kèm `ProtectKeysWithAzureKeyVault` ([bài 19.7](../../stage-05-senior-engineering/module-19-performance-engineering/19.6-scaling-strategy.mdx)).
+
+### 10.12.2 — OAuth 2.1 và PKCE
+
+**Điều kiện kích hoạt:** có SPA hoặc ứng dụng mobile đăng nhập qua identity provider.
+
+PKCE giải quyết một lỗ hổng cụ thể của authorization code flow:
+
+```
+1. App mo trinh duyet toi identity provider
+2. Nguoi dung dang nhap
+3. Provider chuyen huong ve app kem MOT MA (authorization code)
+4. App doi ma do lay token
+
+Lo hong: buoc 3 di qua he dieu hanh. Mot app doc hai dang ky
+cung URL scheme co the CHAN duoc ma do va doi lay token.
+```
+
+PKCE vá lỗ hổng đó:
+
+```
+1. App sinh mot chuoi ngau nhien (code_verifier), giu BI MAT
+2. Gui ban bam cua no (code_challenge) kem yeu cau dang nhap
+3. Khi doi ma lay token, app gui kem code_verifier goc
+4. Provider bam lai va so sanh
+
+App doc hai chan duoc ma nhung KHONG co code_verifier -> khong doi duoc token.
+```
+
+```csharp
+builder.Services.AddAuthentication()
+    .AddOpenIdConnect(options =>
+    {
+        options.ResponseType = "code";
+        options.UsePkce = true;              // BAT BUOC cho SPA va mobile
+        options.SaveTokens = true;
+    });
+```
+
+OAuth 2.1 gộp các thực hành tốt đã tích luỹ và **loại bỏ** hai luồng không còn an toàn: implicit flow (trả token thẳng trên URL, nên nó nằm trong lịch sử trình duyệt và log) và resource owner password credentials (app thu thập mật khẩu trực tiếp — đánh mất toàn bộ lợi ích của việc uỷ quyền).
+
+**Nếu đang dùng implicit flow, hãy chuyển sang authorization code với PKCE.**
+
+### 10.12.3 — Passkey và WebAuthn
+
+**Điều kiện kích hoạt:** muốn loại bỏ mật khẩu.
+
+Passkey dùng cặp khoá công khai lưu trong thiết bị (Face ID, Windows Hello, khoá phần cứng). Khoá riêng **không bao giờ rời thiết bị**.
+
+| | Mật khẩu | Passkey |
+|---|---|---|
+| Lộ khi server bị xâm nhập | **Có** (nếu băm yếu) | **Không** — server chỉ giữ khoá công khai |
+| Lừa đảo (phishing) | **Có** | **Không** — khoá gắn với tên miền |
+| Dùng lại giữa các trang | Thường có | Không thể |
+| Trải nghiệm | Gõ mật khẩu | Chạm vân tay |
+
+Hàng thứ hai là lợi ích lớn nhất: passkey gắn với tên miền nên một trang giả mạo **không thể** dùng nó, kể cả khi người dùng bị lừa hoàn toàn. Đây là điều mà mọi biện pháp chống phishing khác chỉ làm được một phần.
+
+Thư viện phổ biến trên .NET: `Fido2.NET`. Thực tế triển khai: dùng passkey làm **lựa chọn thêm** bên cạnh mật khẩu, không thay thế hoàn toàn — vì không phải thiết bị nào cũng hỗ trợ, và người dùng cần đường khôi phục khi mất thiết bị.
+
+### 10.12.4 — mTLS
+
+**Điều kiện kích hoạt:** giao tiếp giữa các service nội bộ, hoặc đối tác B2B.
+
+Thay vì chỉ server chứng minh danh tính (HTTPS thông thường), **cả hai bên** đều xuất trình chứng chỉ:
+
+```csharp
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.ConfigureHttpsDefaults(https =>
+    {
+        https.ClientCertificateMode = ClientCertificateMode.RequireCertificate;
+        https.ClientCertificateValidation = (cert, chain, errors) =>
+            _trustedThumbprints.Contains(cert.Thumbprint);
+    });
+});
+```
+
+Ưu điểm: không có token để đánh cắp hay hết hạn. Nhược điểm: **quản lý chứng chỉ** — phát hành, phân phối, gia hạn, thu hồi. Chứng chỉ hết hạn mà không ai để ý là nguyên nhân sự cố khá phổ biến.
+
+Thực tế: service mesh làm việc này tự động và trong suốt, nên nếu bạn đã có mesh thì đã có mTLS mà không phải viết gì ([bài 18.11](../../stage-05-senior-engineering/module-18-microservices/18.10-advanced-notes.mdx)).
+
+### 10.12.5 — OWASP làm danh sách kiểm tra
+
+Ba lỗ hổng đứng đầu danh sách rủi ro API, và cách chặn từng cái:
+
+| Rủi ro | Cách chặn |
+|---|---|
+| **Phân quyền cấp đối tượng bị phá** | Kiểm tra quyền trên từng bản ghi ([bài 10.14](10.13-quick-real-world-example.mdx)) |
+| **Xác thực bị phá** | Không tự viết; dùng Identity hoặc provider |
+| **Lộ dữ liệu quá mức** | Trả DTO, không trả entity |
+
+Lỗ hổng thứ ba dễ mắc và dễ sửa:
+
+```csharp
+// SAI — tra ca entity, lo PasswordHash, SecurityStamp, InternalNotes
+return Ok(user);
+
+// DUNG — chi tra truong can
+return Ok(new UserDto(user.Id, user.DisplayName, user.Email));
+```
+
+Trả thẳng entity còn một tác hại nữa: mọi lần thêm cột vào bảng đều **tự động** lộ ra API, kể cả cột nội bộ mà không ai nghĩ tới việc che.
+
+Bốn biện pháp khác nên có mặc định:
+
+```csharp
+// 1. Header bao mat
+app.UseHsts();
+app.Use(async (ctx, next) =>
+{
+    ctx.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    ctx.Response.Headers["X-Frame-Options"] = "DENY";
+    ctx.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    await next();
+});
+
+// 2. Rate limit tren endpoint dang nhap — chong do mat khau
+// 3. Log moi lan dang nhap that bai kem IP
+// 4. Khoa tam tai khoan sau N lan sai
+```
+
+Biện pháp 2 đặc biệt quan trọng: không có nó, kẻ tấn công thử được hàng nghìn mật khẩu mỗi phút ([bài 9.7](../module-09-web-api-professional/9.6-rate-limiting.mdx)).
+
+### 10.12.6 — Thứ tự nên học
+
+| Ưu tiên | Chủ đề | Vì sao |
+|---|---|---|
+| **Cao** | Data Protection dùng chung | Thiếu là đăng xuất ngẫu nhiên |
+| **Cao** | Phân quyền theo tài nguyên | Lỗ hổng phổ biến nhất |
+| **Cao** | Rate limit endpoint đăng nhập | Chống dò mật khẩu |
+| **Cao** | Trả DTO thay vì entity | Chống lộ dữ liệu quá mức |
+| Trung bình | PKCE | Bắt buộc nếu có SPA hoặc mobile |
+| Trung bình | Header bảo mật | Rẻ, thêm một lớp phòng thủ |
+| Thấp | Passkey | Tốt nhưng cần đường khôi phục |
+| Thấp | mTLS | Mesh thường lo giúp |
+
+Sau Module 10, bước tiếp theo là [Module 11 — SignalR](../module-11-signalr/).
+
+### 10.12.7 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát bảo mật nâng cao"
+  items={[
+    { text: "Data Protection lưu khoá dùng chung và có SetApplicationName." },
+    { text: "Không tự viết băm mật khẩu hay luồng đặt lại mật khẩu." },
+    { text: "Nếu có SPA hoặc mobile, đã bật PKCE và không dùng implicit flow." },
+    { text: "Endpoint đăng nhập có rate limit." },
+    { text: "Có log và cảnh báo cho đăng nhập thất bại liên tục." },
+    { text: "API trả DTO, không trả entity." },
+    { text: "Có các header bảo mật cơ bản." },
+    { text: "Chứng chỉ có giám sát hạn và cảnh báo trước khi hết hạn." },
+  ]}
+/>
+
+## Bài tập áp dụng
+
+1. **Tái hiện đăng xuất ngẫu nhiên.** Chạy hai instance không dùng khoá chung, đăng nhập rồi gọi API nhiều lần và đếm số lần bị đăng xuất.
+
+2. **Rà lộ dữ liệu.** Tìm mọi endpoint trả thẳng entity và liệt kê các trường nội bộ đang bị lộ.
+
+3. **Thử dò mật khẩu.** Gửi 1.000 request đăng nhập sai liên tiếp và xem hệ thống có chặn không.
+
+## Tự kiểm tra
+
+<FAQSection
+  items={[
+    {
+      question: "Vì sao không nên tự viết hệ thống xác thực?",
+      answer: "Vì các chi tiết dễ sai lại là những chi tiết quan trọng nhất: thuật toán băm mật khẩu và số vòng lặp, chống tấn công thời gian, sinh số ngẫu nhiên an toàn, và luồng đặt lại mật khẩu. Dùng ASP.NET Core Identity hoặc một identity provider."
+    },
+    {
+      question: "Thiếu cấu hình Data Protection gây triệu chứng gì?",
+      answer: "Người dùng bị đăng xuất ngẫu nhiên, và tần suất tăng theo số instance. Nguyên nhân là mỗi instance sinh khoá riêng nên không giải mã được cookie do instance khác tạo."
+    },
+    {
+      question: "Vì sao SetApplicationName quan trọng?",
+      answer: "Vì mặc định nó lấy tên thư mục ứng dụng, nên hai instance triển khai ở đường dẫn khác nhau sẽ không chia sẻ được khoá dù cùng lưu vào một nơi."
+    },
+    {
+      question: "PKCE giải quyết lỗ hổng gì?",
+      answer: "Trong authorization code flow, bước chuyển hướng trả mã về app đi qua hệ điều hành, nên một app độc hại đăng ký cùng URL scheme có thể chặn mã đó. PKCE thêm một bí mật mà chỉ app thật có, nên app độc hại chặn được mã cũng không đổi được token."
+    },
+    {
+      question: "Lợi ích lớn nhất của passkey là gì?",
+      answer: "Nó gắn với tên miền nên một trang giả mạo không thể dùng được, kể cả khi người dùng bị lừa hoàn toàn. Đây là điều mà mọi biện pháp chống phishing khác chỉ làm được một phần."
+    },
+    {
+      question: "Vì sao trả thẳng entity từ API là nguy hiểm?",
+      answer: "Vì nó lộ những trường nội bộ như PasswordHash hay SecurityStamp, và mọi lần thêm cột vào bảng sau này đều tự động lộ ra API mà không ai nghĩ tới việc che."
+    }
+  ]}
+/>
+
+## Kết luận
+
+Ba điều đáng nhớ nhất:
+
+1. **Đừng tự viết xác thực** — những chi tiết dễ sai là những chi tiết quan trọng nhất.
+2. **Data Protection dùng chung là bắt buộc** với hệ nhiều instance.
+3. **Trả DTO, không trả entity** — nếu không, mỗi cột mới là một lần lộ dữ liệu.
+
+## Tham khảo
+
+- [Xác thực trong ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/security/authentication/)
+- [Phân quyền trong ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/security/authorization/introduction)
+- [Cấu hình JWT bearer authentication](https://learn.microsoft.com/en-us/aspnet/core/security/authentication/configure-jwt-bearer-authentication)
+- [RFC 8693 — OAuth 2.0 Token Exchange](https://datatracker.ietf.org/doc/html/rfc8693)
+
+## Điều hướng
+
+- **Bài trước:** [10.10 — Security Best Practices](10.10-security-best-practices.mdx)
+- **Bài tiếp theo:** [10.12 — Mini case study](10.12-mini-case-study.mdx)
+- **Về module:** [Trang mục lục](./)

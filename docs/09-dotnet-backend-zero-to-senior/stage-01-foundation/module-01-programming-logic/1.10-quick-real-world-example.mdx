@@ -1,0 +1,247 @@
+---
+title: "1.10 — Ví dụ thực tế nhanh"
+description: "Vòng lặp lồng nhau làm màn hình báo cáo treo 40 giây: từ O(n²) xuống O(n) bằng Dictionary, và cách tự nhận ra lỗi này."
+sidebar_position: 10
+---
+
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
+
+# 1.11 — Ví dụ thực tế nhanh
+
+<SummaryBox>
+Một đoạn code **6 dòng, hoàn toàn đúng về logic**, làm màn hình báo cáo treo **40 giây**. Nó chạy tốt suốt một năm với 500 khách hàng, rồi hệ thống lên 5.000 khách và thời gian chạy tăng **100 lần** chứ không phải 10 lần. Nguyên nhân là **vòng lặp lồng nhau** — mỗi khách hàng lại duyệt toàn bộ danh sách đơn hàng. Cách sửa chỉ là đổi cách tra cứu sang `Dictionary`, và thời gian xuống **0,4 giây**. Điều đáng nhớ nhất: bug này **không bao giờ lộ ra ở môi trường phát triển**, vì với vài chục bản ghi thì cả hai cách đều chạy tức thì.
+</SummaryBox>
+
+## Mục tiêu bài học
+
+Sau bài này bạn có thể:
+
+- Nhận ra vòng lặp lồng nhau trên hai tập dữ liệu lớn.
+- Chuyển tra cứu tuyến tính sang `Dictionary`.
+- Giải thích vì sao O(n²) không lộ ra khi dữ liệu nhỏ.
+- Tự rà dự án tìm lỗi tương tự.
+
+## Nội dung bài học
+
+### 1.11.1 — Code gây ra sự cố
+
+```csharp
+// Tinh tong gia tri don hang cho moi khach — LOGIC DUNG, hieu nang tham hoa
+var ketQua = new List<BaoCaoKhachHang>();
+
+foreach (var khach in danhSachKhach)              // 5.000 khach
+{
+    decimal tong = 0;
+    foreach (var don in danhSachDon)              // 200.000 don
+    {
+        if (don.MaKhach == khach.Ma)
+            tong += don.GiaTri;
+    }
+    ketQua.Add(new BaoCaoKhachHang(khach.Ten, tong));
+}
+```
+
+Đếm số phép so sánh:
+
+```
+5.000 khach x 200.000 don = 1.000.000.000 phep so sanh
+```
+
+Một tỷ phép so sánh — đó là 40 giây.
+
+Điều nguy hiểm: ở môi trường phát triển với 50 khách và 200 đơn, con số là **10.000** phép so sánh, chạy trong vài mili giây. Không ai thấy vấn đề gì.
+
+### 1.11.2 — Vì sao tăng 10 lần dữ liệu lại chậm 100 lần
+
+```
+500 khach   x  20.000 don  =      10.000.000  ->  0,4 giay
+5.000 khach x 200.000 don  =   1.000.000.000  -> 40 giay
+```
+
+Dữ liệu tăng **10 lần** ở cả hai chiều, nhưng số phép so sánh tăng **100 lần** — vì 10 × 10 = 100. Đây là đặc trưng của độ phức tạp **O(n²)** ([bài 1.8](1.7-data-structures-and-big-o.mdx)).
+
+Hệ quả thực tế: hệ thống trông ổn cho tới một ngưỡng nào đó rồi **đổ sập rất nhanh**. Không có giai đoạn "hơi chậm" để bạn kịp nhận ra và xử lý.
+
+### 1.11.3 — Sửa bằng Dictionary
+
+```csharp
+// Buoc 1: gom don hang theo ma khach — duyet danh sach don DUNG MOT LAN
+var tongTheoKhach = new Dictionary<int, decimal>();
+
+foreach (var don in danhSachDon)                  // 200.000 lan
+{
+    if (tongTheoKhach.ContainsKey(don.MaKhach))
+        tongTheoKhach[don.MaKhach] += don.GiaTri;
+    else
+        tongTheoKhach[don.MaKhach] = don.GiaTri;
+}
+
+// Buoc 2: duyet khach, tra cuu TUC THI
+var ketQua = new List<BaoCaoKhachHang>();
+
+foreach (var khach in danhSachKhach)              // 5.000 lan
+{
+    decimal tong = tongTheoKhach.GetValueOrDefault(khach.Ma, 0m);
+    ketQua.Add(new BaoCaoKhachHang(khach.Ten, tong));
+}
+```
+
+```
+200.000 + 5.000 = 205.000 thao tac    ->  0,4 giay
+(truoc: 1.000.000.000                 -> 40 giay)
+```
+
+Nhanh hơn **gần 5.000 lần**, và code cũng không dài hơn bao nhiêu.
+
+Lý do `Dictionary` nhanh: nó dùng bảng băm, nên tra cứu theo khoá mất thời gian **không đổi** bất kể có 10 hay 10 triệu phần tử. Duyệt `List` để tìm thì phải xem từng phần tử ([bài 1.8](1.7-data-structures-and-big-o.mdx)).
+
+**Viết gọn hơn với LINQ:**
+
+```csharp
+var tongTheoKhach = danhSachDon
+    .GroupBy(d => d.MaKhach)
+    .ToDictionary(g => g.Key, g => g.Sum(d => d.GiaTri));
+
+var ketQua = danhSachKhach
+    .Select(k => new BaoCaoKhachHang(k.Ten, tongTheoKhach.GetValueOrDefault(k.Ma, 0m)))
+    .ToList();
+```
+
+Hai cách cho hiệu năng tương đương. Chọn cách nào là tuỳ đội — nhưng cả hai đều **nhanh hơn hẳn** vòng lặp lồng nhau, và đó mới là điều quan trọng.
+
+### 1.11.4 — Cái bẫy tinh vi hơn
+
+```csharp
+// Nhin KHONG thay vong lap long — nhung van la O(n^2)
+foreach (var khach in danhSachKhach)
+{
+    var donCuaKhach = danhSachDon.Where(d => d.MaKhach == khach.Ma);   // duyet HET
+    ketQua.Add(new BaoCaoKhachHang(khach.Ten, donCuaKhach.Sum(d => d.GiaTri)));
+}
+```
+
+`Where` **là** một vòng lặp, chỉ là nó không được viết ra. Mỗi lần gọi nó duyệt toàn bộ `danhSachDon`.
+
+**Dấu hiệu nhận biết:** một lời gọi `Where`, `First`, `Any`, `Contains` hoặc `Sum` trên một tập lớn nằm **bên trong** vòng lặp chạy trên một tập lớn khác. Nhìn thì ngắn gọn, nhưng chi phí giống hệt vòng lặp lồng nhau.
+
+Cùng một lỗi xuất hiện với `List.Contains`:
+
+```csharp
+// Cham — Contains tren List duyet tuyen tinh
+var maDaXuLy = new List<int>();
+foreach (var don in danhSachDon)
+{
+    if (maDaXuLy.Contains(don.Ma)) continue;      // O(n) moi lan goi
+    maDaXuLy.Add(don.Ma);
+}
+
+// Nhanh — HashSet tra cuu tuc thi
+var maDaXuLy = new HashSet<int>();
+foreach (var don in danhSachDon)
+{
+    if (!maDaXuLy.Add(don.Ma)) continue;          // Add tra ve false neu da co
+}
+```
+
+`HashSet.Add` vừa thêm vừa cho biết phần tử đã tồn tại chưa — gọn hơn và nhanh hơn cặp `Contains` + `Add`.
+
+### 1.11.5 — Tự rà dự án
+
+**1. Tìm vòng lặp lồng nhau:**
+
+```bash
+grep -rn -A 5 "foreach" --include=*.cs src/ | grep -B 2 "foreach"
+```
+
+Với mỗi kết quả, hỏi: **hai tập này có thể lớn tới mức nào?** Vòng lặp lồng trên 10 phần tử không sao; trên 10.000 thì có.
+
+**2. Tìm truy vấn LINQ trong vòng lặp:**
+
+```bash
+grep -rn -A 3 "foreach" --include=*.cs src/ | grep -E "\.Where\(|\.First|\.Any\(|\.Contains\("
+```
+
+**3. Tìm `Contains` trên `List`:**
+
+```bash
+grep -rn "List<.*>.*\.Contains(" --include=*.cs src/
+```
+
+Mỗi kết quả là một ứng viên chuyển sang `HashSet`.
+
+**Cách kiểm chứng nhanh nhất:** đo với dữ liệu gấp 10 lần. Nếu thời gian tăng khoảng 10 lần thì code là O(n) — bình thường. Nếu tăng khoảng 100 lần thì là O(n²) — cần sửa.
+
+### 1.11.6 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát vòng lặp lồng nhau"
+  items={[
+    { text: "Không có vòng lặp lồng nhau trên hai tập dữ liệu có thể lớn." },
+    { text: "Không gọi Where, First hay Any trên tập lớn bên trong vòng lặp." },
+    { text: "Tra cứu theo khoá dùng Dictionary, không duyệt List." },
+    { text: "Kiểm tra tồn tại dùng HashSet, không dùng List.Contains." },
+    { text: "Đã đo với lượng dữ liệu tương đương production, không chỉ dữ liệu mẫu." },
+    { text: "Đã kiểm chứng bằng cách tăng dữ liệu 10 lần và xem thời gian tăng bao nhiêu." },
+    { text: "Biết ước lượng tập dữ liệu lớn nhất có thể gặp." },
+  ]}
+/>
+
+## Bài tập áp dụng
+
+1. **Đo hai cách.** Tạo 5.000 khách và 200.000 đơn, chạy cả hai phiên bản và so sánh thời gian.
+
+2. **Kiểm chứng O(n²).** Chạy phiên bản vòng lặp lồng với 500 rồi 5.000 khách, xác nhận thời gian tăng khoảng 100 lần.
+
+3. **Rà dự án.** Chạy ba lệnh ở mục 1.11.5 trên dự án thật và đếm số vị trí cần xem lại.
+
+## Tự kiểm tra
+
+<FAQSection
+  items={[
+    {
+      question: "Vì sao tăng dữ liệu 10 lần lại chậm 100 lần?",
+      answer: "Vì vòng lặp lồng nhau có độ phức tạp O bình phương. Khi cả hai tập cùng tăng 10 lần, số phép so sánh tăng 10 nhân 10 tức 100 lần."
+    },
+    {
+      question: "Vì sao lỗi này không lộ ra ở môi trường phát triển?",
+      answer: "Vì với vài chục bản ghi, số phép so sánh chỉ vài nghìn và chạy trong vài mili giây. Vấn đề chỉ xuất hiện khi dữ liệu thật đủ lớn, và khi đó nó đổ sập rất nhanh chứ không có giai đoạn hơi chậm."
+    },
+    {
+      question: "Vì sao Dictionary nhanh hơn duyệt List?",
+      answer: "Vì Dictionary dùng bảng băm nên tra cứu theo khoá mất thời gian không đổi bất kể có mười hay mười triệu phần tử. Duyệt List để tìm thì phải xem từng phần tử."
+    },
+    {
+      question: "Dấu hiệu nhận biết cái bẫy LINQ trong vòng lặp là gì?",
+      answer: "Một lời gọi Where, First, Any, Contains hay Sum trên tập lớn nằm bên trong vòng lặp chạy trên tập lớn khác. Nhìn ngắn gọn nhưng chi phí giống hệt vòng lặp lồng nhau, vì bản thân Where cũng là một vòng lặp."
+    },
+    {
+      question: "Vì sao nên dùng HashSet.Add thay cho cặp Contains và Add?",
+      answer: "Vì Add trên HashSet vừa thêm vừa trả về false nếu phần tử đã tồn tại, nên gọn hơn. Và tra cứu trên HashSet mất thời gian không đổi, còn Contains trên List phải duyệt tuyến tính."
+    },
+    {
+      question: "Cách kiểm chứng nhanh nhất một đoạn code có phải O bình phương không?",
+      answer: "Đo với dữ liệu gấp mười lần. Nếu thời gian tăng khoảng mười lần thì là O tuyến tính, bình thường. Nếu tăng khoảng một trăm lần thì là O bình phương và cần sửa."
+    }
+  ]}
+/>
+
+## Kết luận
+
+Ba điều đáng nhớ nhất:
+
+1. **Code đúng logic vẫn có thể không dùng được** khi dữ liệu đủ lớn.
+2. **`Where` bên trong `foreach` là vòng lặp lồng nhau**, chỉ là không nhìn thấy.
+3. **Đo với dữ liệu gấp 10 lần** là cách rẻ nhất để phát hiện O(n²).
+
+## Tham khảo
+
+- [Collections trong .NET](https://learn.microsoft.com/en-us/dotnet/standard/collections/)
+- [Dictionary&lt;TKey,TValue&gt;](https://learn.microsoft.com/en-us/dotnet/api/system.collections.generic.dictionary-2)
+- [Các kiểu collection thường dùng](https://learn.microsoft.com/en-us/dotnet/standard/collections/commonly-used-collection-types)
+- [LINQ trong C#](https://learn.microsoft.com/en-us/dotnet/csharp/linq/)
+
+## Điều hướng
+
+- **Bài trước:** [1.9 — Mini case study](1.9-mini-case-study.mdx)
+- **Bài tiếp theo:** [1.11 — Review and Assessment](1.11-review-and-assessment.mdx)
+- **Về module:** [Trang mục lục](./)

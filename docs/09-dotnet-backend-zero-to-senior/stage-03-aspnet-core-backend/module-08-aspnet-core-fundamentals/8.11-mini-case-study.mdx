@@ -1,0 +1,299 @@
+---
+title: "8.11 — Mini case study"
+description: "Middleware xác thực chạy sau routing nên mọi endpoint public đều đòi token: thứ tự pipeline và cách kiểm chứng."
+sidebar_position: 11
+---
+
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
+
+# 8.12 — Mini case study
+
+<SummaryBox>
+Một sự cố mà nguyên nhân là **thứ tự hai dòng code**: sau một lần dọn dẹp `Program.cs`, mọi endpoint công khai — đăng nhập, quên mật khẩu, health check — bắt đầu trả `401`. Không ai đổi logic xác thực; chỉ có thứ tự middleware bị xáo. Đây là lớp sự cố đặc trưng của ASP.NET Core vì pipeline **chạy đúng theo thứ tự bạn đăng ký**, và phần lớn middleware **không báo lỗi** khi đặt sai chỗ — chúng chỉ hành xử khác đi. Bài này đi qua chẩn đoán, thứ tự đúng kèm lý do cho từng vị trí, và một test chạy trong CI để thứ tự không bị xáo lần nữa.
+</SummaryBox>
+
+## Mục tiêu bài học
+
+Sau bài này bạn có thể:
+
+- Chẩn đoán sự cố do thứ tự middleware.
+- Sắp xếp pipeline đúng và giải thích được từng vị trí.
+- Viết middleware tuỳ chỉnh đặt đúng chỗ.
+- Bảo vệ thứ tự bằng test tự động.
+
+## Nội dung bài học
+
+### 8.12.1 — Sự cố
+
+```
+14:20  Deploy ban dan don dep Program.cs
+14:23  Nguoi dung khong dang nhap duoc: POST /api/auth/login -> 401
+14:24  Health check cua Kubernetes that bai -> pod bi khoi dong lai lien tuc
+14:26  Rollback
+```
+
+```csharp
+// Program.cs SAU khi "don dep"
+var app = builder.Build();
+
+app.UseAuthentication();       // <- bi day len TREN
+app.UseAuthorization();
+app.UseHttpsRedirection();
+app.UseRouting();              // <- gio nam DUOI
+app.UseCors("Default");
+app.MapControllers();
+app.MapHealthChecks("/health/live");
+```
+
+Không có exception nào, không có cảnh báo nào. Ứng dụng khởi động bình thường và trả 401 cho mọi thứ.
+
+### 8.12.2 — Vì sao
+
+Pipeline ASP.NET Core là một **chuỗi** middleware, chạy đúng theo thứ tự đăng ký:
+
+```
+Request -> [Auth] -> [Authorization] -> [HTTPS] -> [Routing] -> [CORS] -> [Endpoint]
+```
+
+`UseAuthorization` cần biết endpoint nào đang được gọi để đọc thuộc tính `[AllowAnonymous]` hay `[Authorize]` trên nó. Thông tin đó do **`UseRouting`** xác định.
+
+```
+Thu tu SAI:
+  UseAuthorization chay TRUOC UseRouting
+  -> Chua biet endpoint nao -> khong doc duoc [AllowAnonymous]
+  -> Ap dung chinh sach mac dinh cho MOI request -> 401
+```
+
+Hai hệ quả phụ cũng đến từ cùng nguyên nhân:
+
+- **Health check trả 401** vì nó cũng là một endpoint, và `[AllowAnonymous]` của nó không được đọc.
+- **CORS không hoạt động** vì `UseCors` nằm sau `UseAuthorization`, nên request preflight `OPTIONS` (không mang token) bị chặn trước khi tới CORS ([bài 2.13](../../stage-01-foundation/module-02-computer-science-basics/2.12-quick-real-world-example.mdx)).
+
+### 8.12.3 — Thứ tự đúng
+
+```csharp
+var app = builder.Build();
+
+// 1. Xu ly exception — NGOAI CUNG de bat duoc loi cua moi thu ben trong
+app.UseExceptionHandler("/error");
+
+// 2. HSTS va chuyen huong HTTPS — truoc moi xu ly noi dung
+app.UseHsts();
+app.UseHttpsRedirection();
+
+// 3. File tinh — truoc routing, de khong ton chi phi dinh tuyen
+app.UseStaticFiles();
+
+// 4. Routing — XAC DINH endpoint, moi thu sau day biet endpoint la gi
+app.UseRouting();
+
+// 5. CORS — SAU routing, TRUOC auth (preflight khong mang token)
+app.UseCors("Default");
+
+// 6. Rate limiting — truoc auth de chan lam dung som
+app.UseRateLimiter();
+
+// 7. Xac thuc roi phan quyen — thu tu nay bat buoc
+app.UseAuthentication();
+app.UseAuthorization();
+
+// 8. Middleware tuy chinh — sau auth de biet nguoi dung la ai
+app.UseMiddleware<TenantResolutionMiddleware>();
+
+// 9. Endpoint — trong cung
+app.MapControllers();
+app.MapHealthChecks("/health/live");
+```
+
+Lý do cho từng vị trí quan trọng:
+
+| Vị trí | Vì sao ở đó |
+|---|---|
+| Exception handler **ngoài cùng** | Chỉ bắt được lỗi của những gì nằm **bên trong** nó |
+| `UseRouting` **trước** auth | Auth cần biết endpoint để đọc `[Authorize]` và `[AllowAnonymous]` |
+| `UseCors` **trước** auth | Preflight `OPTIONS` không mang token, sẽ bị auth từ chối |
+| Rate limiter **trước** auth | Chặn lạm dụng trước khi tốn công xác thực |
+| `UseAuthentication` **trước** `UseAuthorization` | Phải biết bạn **là ai** rồi mới xét bạn **được làm gì** |
+| Middleware tenant **sau** auth | Cần claim đã xác thực để lấy `tenant_id` |
+
+Hàng đầu tiên đáng nhấn mạnh: đặt `UseExceptionHandler` ở giữa pipeline nghĩa là lỗi trong middleware phía trước nó **không được bắt** và trả về trang lỗi mặc định của server ([bài 8.9](8.8-global-exception-handling.mdx)).
+
+### 8.12.4 — Middleware tuỳ chỉnh
+
+```csharp
+public sealed class TenantResolutionMiddleware(RequestDelegate next)
+{
+    public async Task InvokeAsync(HttpContext context, ITenantContext tenantContext)
+    {
+        var tenantId = context.User.FindFirst("tenant_id")?.Value;
+
+        if (tenantId is not null)
+            tenantContext.SetTenant(tenantId);
+
+        await next(context);        // PHAI goi, neu khong pipeline dung o day
+    }
+}
+```
+
+Ba lỗi hay gặp khi viết middleware:
+
+**1. Quên gọi `next`.** Request dừng ở middleware này và client nhận phản hồi rỗng, không có lỗi nào.
+
+**2. Ghi vào body sau khi đã gọi `next`.**
+
+```csharp
+// SAI — response da duoc gui di
+await next(context);
+await context.Response.WriteAsync("them gi do");
+// InvalidOperationException: Headers are read-only, response has already started
+```
+
+**3. Tiêm service scoped vào constructor.** Middleware được tạo **một lần** lúc khởi động — nó là singleton. Tiêm scoped vào constructor là captive dependency ([bài 7.12](../../stage-02-csharp-professional/module-07-dependency-injection/7.11-mini-case-study.mdx)).
+
+```csharp
+// SAI — ITenantContext la scoped
+public TenantResolutionMiddleware(RequestDelegate next, ITenantContext tenantContext)
+
+// DUNG — nhan qua tham so cua InvokeAsync
+public async Task InvokeAsync(HttpContext context, ITenantContext tenantContext)
+```
+
+ASP.NET Core tiêm tham số của `InvokeAsync` từ **scope của request hiện tại** — đúng thứ bạn cần.
+
+### 8.12.5 — Bảo vệ bằng test
+
+```csharp
+[Fact]
+public async Task EndpointCongKhai_KhongDoiXacThuc()
+{
+    var client = _factory.CreateClient();
+
+    var response = await client.PostAsJsonAsync("/api/auth/login",
+        new { Email = "a@b.com", Password = "sai" });
+
+    // Co the 400 hoac 401 vi sai mat khau — nhung KHONG duoc la 401 vi thieu token
+    Assert.NotEqual(HttpStatusCode.Unauthorized, response.StatusCode);
+}
+
+[Fact]
+public async Task HealthCheck_LuonTraVe200()
+{
+    var client = _factory.CreateClient();
+    var response = await client.GetAsync("/health/live");
+
+    Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+}
+
+[Fact]
+public async Task PreflightCors_TraVeHeaderDung()
+{
+    var client = _factory.CreateClient();
+    var request = new HttpRequestMessage(HttpMethod.Options, "/api/leads");
+    request.Headers.Add("Origin", "https://crm.company.com");
+    request.Headers.Add("Access-Control-Request-Method", "POST");
+
+    var response = await client.SendAsync(request);
+
+    Assert.True(response.Headers.Contains("Access-Control-Allow-Origin"));
+}
+```
+
+Ba test này chạy trong vài trăm mili giây và bắt được **chính xác** sự cố ở trên. Chúng kiểm tra **hành vi quan sát được** của pipeline, nên không gãy khi bạn refactor ([bài 9.9](../module-09-web-api-professional/9.8-api-testing.mdx)).
+
+### 8.12.6 — Kiểm tra thứ tự trong lúc chạy
+
+Khi nghi ngờ, in ra pipeline:
+
+```csharp
+app.Use(async (context, next) =>
+{
+    _logger.LogDebug("Truoc: {Path}, Endpoint = {Endpoint}",
+        context.Request.Path,
+        context.GetEndpoint()?.DisplayName ?? "(chua xac dinh)");
+
+    await next();
+
+    _logger.LogDebug("Sau: {Path} -> {Status}",
+        context.Request.Path, context.Response.StatusCode);
+});
+```
+
+Đặt middleware này ở các vị trí khác nhau và xem `GetEndpoint()` trả về gì. Nếu nó trả `(chua xac dinh)`, bạn đang ở **trước** `UseRouting` — và mọi middleware phụ thuộc endpoint đặt ở đây sẽ không hoạt động.
+
+Đây là cách chẩn đoán nhanh nhất cho mọi sự cố liên quan tới thứ tự pipeline.
+
+### 8.12.7 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát pipeline"
+  items={[
+    { text: "UseExceptionHandler nằm ngoài cùng." },
+    { text: "UseRouting đứng trước UseAuthentication và UseAuthorization." },
+    { text: "UseCors đứng sau UseRouting và trước UseAuthentication." },
+    { text: "UseAuthentication đứng trước UseAuthorization." },
+    { text: "Middleware cần thông tin người dùng đặt sau UseAuthentication." },
+    { text: "Middleware tuỳ chỉnh luôn gọi next trừ khi cố ý dừng." },
+    { text: "Service scoped nhận qua tham số InvokeAsync, không qua constructor." },
+    { text: "Có test kiểm tra endpoint công khai, health check và CORS preflight." },
+  ]}
+/>
+
+## Bài tập áp dụng
+
+1. **Tái hiện sự cố.** Đổi `UseAuthorization` lên trước `UseRouting` và gọi một endpoint có `[AllowAnonymous]`.
+
+2. **Quan sát endpoint.** Thêm middleware ghi log `GetEndpoint()` ở ba vị trí khác nhau và so sánh kết quả.
+
+3. **Viết test bảo vệ.** Thêm ba test ở mục 8.12.5 vào dự án và xác nhận chúng thất bại khi bạn xáo thứ tự.
+
+## Tự kiểm tra
+
+<FAQSection
+  items={[
+    {
+      question: "Vì sao UseAuthorization phải đứng sau UseRouting?",
+      answer: "Vì nó cần biết endpoint nào đang được gọi để đọc thuộc tính Authorize hoặc AllowAnonymous trên endpoint đó, và thông tin này do UseRouting xác định. Đặt trước thì nó áp dụng chính sách mặc định cho mọi request."
+    },
+    {
+      question: "Vì sao UseCors phải đứng trước UseAuthentication?",
+      answer: "Vì request preflight OPTIONS không mang token. Nếu xác thực chạy trước, nó từ chối request đó và phản hồi 401 không có header CORS, nên trình duyệt báo lỗi CORS."
+    },
+    {
+      question: "Vì sao UseExceptionHandler phải ở ngoài cùng?",
+      answer: "Vì nó chỉ bắt được lỗi của những middleware nằm bên trong nó. Đặt ở giữa pipeline thì lỗi trong các middleware phía trước không được bắt và client nhận trang lỗi mặc định của server."
+    },
+    {
+      question: "Vì sao không tiêm service scoped vào constructor của middleware?",
+      answer: "Vì middleware được tạo một lần lúc khởi động, tức nó là singleton. Tiêm scoped vào constructor là captive dependency. Phải nhận nó qua tham số của InvokeAsync, nơi ASP.NET Core tiêm từ scope của request hiện tại."
+    },
+    {
+      question: "Ba lỗi hay gặp khi viết middleware tuỳ chỉnh là gì?",
+      answer: "Quên gọi next khiến pipeline dừng và client nhận phản hồi rỗng, ghi vào body sau khi đã gọi next gây lỗi headers read-only, và tiêm service scoped vào constructor."
+    },
+    {
+      question: "Cách chẩn đoán nhanh nhất cho sự cố thứ tự pipeline là gì?",
+      answer: "Thêm một middleware ghi log GetEndpoint tại vị trí nghi ngờ. Nếu nó trả về chưa xác định thì bạn đang ở trước UseRouting, và mọi middleware phụ thuộc endpoint đặt ở đó sẽ không hoạt động."
+    }
+  ]}
+/>
+
+## Kết luận
+
+Ba điều đáng nhớ nhất:
+
+1. **Pipeline chạy đúng theo thứ tự đăng ký**, và đặt sai chỗ thường **không báo lỗi**.
+2. **`UseRouting` trước, rồi CORS, rồi xác thực, rồi phân quyền.** Thứ tự này có lý do cụ thể.
+3. **Ba test đơn giản bảo vệ được cả pipeline** khỏi việc bị xáo trong lần dọn dẹp tiếp theo.
+
+## Tham khảo
+
+- [Middleware trong ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/middleware/)
+- [Routing trong ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/routing)
+- [Xác thực trong ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/security/authentication/)
+- [Xử lý lỗi trong ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/error-handling)
+
+## Điều hướng
+
+- **Bài trước:** [8.10 — Mở rộng và đào sâu](8.10-advanced-notes.mdx)
+- **Bài tiếp theo:** [8.12 — Ví dụ thực tế nhanh](8.12-quick-real-world-example.mdx)
+- **Về module:** [Trang mục lục](./)

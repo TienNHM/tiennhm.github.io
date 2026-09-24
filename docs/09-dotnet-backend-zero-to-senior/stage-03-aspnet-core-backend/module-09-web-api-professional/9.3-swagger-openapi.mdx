@@ -1,0 +1,328 @@
+---
+title: "9.3 — 3. Swagger / OpenAPI"
+description: "OpenAPI là hợp đồng máy đọc được: XML comments, ProducesResponseType, nhiều version trong một UI, bảo mật Swagger UI ở production và sinh client tự động."
+sidebar_position: 3
+---
+
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
+
+# 9.4 — 3. Swagger / OpenAPI
+
+<SummaryBox>
+OpenAPI là **hợp đồng API ở dạng máy đọc được**, và Swagger UI chỉ là một cách trình bày nó. Giá trị thật không nằm ở trang web đẹp mà ở chỗ tài liệu **sinh ra từ code**, nên nó không bao giờ lỗi thời — miễn là bạn cho nó đủ thông tin. Mặc định, ASP.NET Core chỉ biết đường dẫn và kiểu tham số; nó **không biết** endpoint trả 404 khi nào, trường nào bắt buộc, hay tham số này nghĩa là gì. Đó là việc của **XML comments** và **`[ProducesResponseType]`**. Và một điều hay bị quên: Swagger UI mở ở production là **liệt kê toàn bộ bề mặt tấn công** cho bất kỳ ai.
+</SummaryBox>
+
+## Mục tiêu bài học
+
+Sau bài này bạn có thể:
+
+- Cấu hình Swashbuckle với XML comments và ví dụ.
+- Khai báo đầy đủ các mã phản hồi để tài liệu không nói dối.
+- Hiển thị nhiều version API trong một Swagger UI.
+- Quyết định có mở Swagger UI ở production hay không, và bảo vệ nó.
+- Sinh client tự động từ file OpenAPI.
+
+## Nội dung bài học
+
+### 9.4.1 — Swashbuckle, NSwag hay `Microsoft.AspNetCore.OpenApi`
+
+| | Swashbuckle | NSwag | `Microsoft.AspNetCore.OpenApi` |
+|---|---|---|---|
+| Sinh file OpenAPI | Có | Có | Có (.NET 9+) |
+| Swagger UI sẵn | Có | Có | **Không** — tự thêm |
+| Sinh client C#/TS | Không | **Có** | Không |
+| Mức tuỳ biến | Rất cao (filter) | Cao | Đang phát triển |
+| Phổ biến | Cao nhất | Trung bình | Mới |
+
+Từ .NET 9, template mặc định dùng `Microsoft.AspNetCore.OpenApi` và **không kèm Swagger UI** — nhiều người bất ngờ vì `/swagger` trả 404 sau khi nâng cấp. Bạn tự thêm UI bằng Scalar hoặc Swagger UI.
+
+Với dự án đang chạy, **Swashbuckle vẫn là lựa chọn an toàn nhất**: hệ sinh thái filter lớn và mọi vấn đề đều đã có người gặp trước.
+
+### 9.4.2 — Cấu hình
+
+```xml
+<PropertyGroup>
+  <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  <NoWarn>$(NoWarn);1591</NoWarn>   <!-- tat canh bao thieu XML comment -->
+</PropertyGroup>
+```
+
+```csharp
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "CRM API",
+        Version = "v1",
+        Description = "API quan ly khach hang va lien he",
+        Contact = new OpenApiContact { Name = "Team Backend", Email = "backend@example.com" }
+    });
+
+    var xmlPath = Path.Combine(AppContext.BaseDirectory,
+        $"{Assembly.GetExecutingAssembly().GetName().Name}.xml");
+    options.IncludeXmlComments(xmlPath, includeControllerXmlComments: true);
+
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        Description = "Nhap JWT token (khong can tien to 'Bearer')"
+    });
+
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                    { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
+```
+
+`GenerateDocumentationFile` là bước hay bị quên: không có nó, `IncludeXmlComments` chỉ ném `FileNotFoundException` lúc khởi động, hoặc tệ hơn là im lặng không có tài liệu nào.
+
+`includeControllerXmlComments: true` đưa cả mô tả cấp controller vào — nó trở thành mô tả của nhóm endpoint.
+
+### 9.4.3 — Cho Swagger biết những gì nó không tự đoán được
+
+```csharp
+/// <summary>
+/// Lấy danh sách khách hàng có phân trang.
+/// </summary>
+/// <remarks>
+/// Ví dụ:
+///
+///     GET /api/v1/customers?page=1&amp;pageSize=20&amp;status=active
+///
+/// Kết quả sắp xếp theo ngày tạo giảm dần nếu không chỉ định `sortBy`.
+/// </remarks>
+/// <param name="request">Tham số lọc và phân trang.</param>
+/// <param name="ct">Token huỷ của request.</param>
+/// <response code="200">Trả về danh sách khách hàng.</response>
+/// <response code="400">Tham số phân trang không hợp lệ.</response>
+/// <response code="401">Chưa xác thực.</response>
+[HttpGet]
+[ProducesResponseType<PagedResponse<CustomerDto>>(StatusCodes.Status200OK)]
+[ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+[ProducesResponseType(StatusCodes.Status401Unauthorized)]
+public async Task<ActionResult<PagedResponse<CustomerDto>>> GetAll(
+    [FromQuery] CustomerFilterRequest request, CancellationToken ct);
+```
+
+Những gì ASP.NET Core **không** tự biết và bạn phải khai:
+
+- **Các mã lỗi.** Không khai thì tài liệu chỉ có 200, và client sinh tự động không có kiểu cho lỗi.
+- **Kiểu của body lỗi.** `ValidationProblemDetails` khác `ProblemDetails`.
+- **Ý nghĩa của tham số.** `status` nhận những giá trị nào?
+- **Ví dụ.** Một request mẫu tiết kiệm hàng giờ cho người tích hợp.
+
+Khai một lần cho toàn bộ API những mã lỗi dùng chung:
+
+```csharp
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add(new ProducesResponseTypeAttribute(
+        typeof(ProblemDetails), StatusCodes.Status500InternalServerError));
+    options.Filters.Add(new ProducesResponseTypeAttribute(
+        StatusCodes.Status401Unauthorized));
+});
+```
+
+Ràng buộc trên DTO cũng chảy vào schema:
+
+```csharp
+public sealed record CreateCustomerRequest
+{
+    /// <summary>Tên đầy đủ của khách hàng.</summary>
+    /// <example>Nguyễn Văn A</example>
+    [Required, StringLength(200, MinimumLength = 2)]
+    public required string Name { get; init; }
+}
+```
+
+`<example>` hiện trong "Try it out" — người tích hợp bấm là chạy được ngay, thay vì phải tự đoán dữ liệu hợp lệ.
+
+### 9.4.4 — Nhiều version trong một UI
+
+```csharp
+builder.Services.AddApiVersioning(...)
+    .AddApiExplorer(options =>
+    {
+        options.GroupNameFormat = "'v'VVV";
+        options.SubstituteApiVersionInUrl = true;
+    });
+
+builder.Services.ConfigureOptions<ConfigureSwaggerOptions>();
+```
+
+```csharp
+public sealed class ConfigureSwaggerOptions(IApiVersionDescriptionProvider provider)
+    : IConfigureOptions<SwaggerGenOptions>
+{
+    public void Configure(SwaggerGenOptions options)
+    {
+        foreach (var description in provider.ApiVersionDescriptions)
+        {
+            options.SwaggerDoc(description.GroupName, new OpenApiInfo
+            {
+                Title = "CRM API",
+                Version = description.ApiVersion.ToString(),
+                Description = description.IsDeprecated
+                    ? "Phien ban nay da ngung ho tro."
+                    : null
+            });
+        }
+    }
+}
+```
+
+```csharp
+app.UseSwaggerUI(options =>
+{
+    foreach (var d in app.DescribeApiVersions())
+        options.SwaggerEndpoint($"/swagger/{d.GroupName}/swagger.json", d.GroupName.ToUpperInvariant());
+});
+```
+
+`IConfigureOptions<SwaggerGenOptions>` là cách đúng để cấu hình bằng một service khác — đúng mẫu ở [bài 7.8](../../stage-02-csharp-professional/module-07-dependency-injection/7.7-options-pattern.mdx), thay vì gọi `BuildServiceProvider()`.
+
+### 9.4.5 — Swagger UI ở production
+
+```csharp
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+```
+
+Mặc định của template chỉ bật ở Development, và đó là mặc định **đúng**. Swagger UI công khai:
+
+- Liệt kê **mọi** endpoint, kể cả endpoint nội bộ và admin.
+- Cho biết trường nào bắt buộc, kiểu gì, ràng buộc ra sao.
+- Cho phép **gọi thử trực tiếp** từ trình duyệt.
+
+Nói cách khác, nó là bản đồ bề mặt tấn công, được cập nhật tự động.
+
+Ba lựa chọn hợp lý:
+
+```csharp
+// 1. Chi trong mang noi bo
+app.MapSwagger().RequireHost("localhost", "*.internal.example.com");
+
+// 2. Yeu cau dang nhap
+app.UseSwaggerUI().RequireAuthorization("ApiDocsPolicy");
+
+// 3. Sinh file OpenAPI luc build, publish sang cong cu tai lieu rieng
+```
+
+Cách 3 là sạch nhất cho API công khai: file `swagger.json` sinh trong CI, đẩy lên một portal tài liệu, còn ứng dụng chạy không hề có endpoint Swagger nào.
+
+```bash
+dotnet tool install --global Swashbuckle.AspNetCore.Cli
+swagger tofile --output swagger.json bin/Release/net9.0/CrmApi.dll v1
+```
+
+### 9.4.6 — Sinh client từ OpenAPI
+
+Giá trị lớn nhất của OpenAPI không phải trang UI mà là **client sinh tự động**:
+
+```bash
+# C#
+nswag openapi2csclient /input:swagger.json /output:CrmApiClient.cs /namespace:Crm.Client
+
+# TypeScript
+npx openapi-typescript swagger.json -o src/api/types.ts
+```
+
+Khi API đổi, client sinh lại và **trình biên dịch chỉ ra ngay** chỗ nào gãy — thay vì phát hiện lúc chạy trên production.
+
+Thêm vào CI một bước so sánh file OpenAPI với bản trước để phát hiện breaking change tự động:
+
+```bash
+npx @redocly/cli diff previous-swagger.json swagger.json --severity error
+```
+
+Đây là cách biến bảng "thay đổi nào là breaking" ở [bài 9.3](9.2-api-versioning.mdx) thành một bước kiểm tra tự động, thay vì trông vào trí nhớ của người review.
+
+### 9.4.7 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát OpenAPI"
+  items={[
+    { text: "GenerateDocumentationFile được bật trong .csproj." },
+    { text: "Mọi endpoint công khai có XML summary mô tả bằng tiếng người." },
+    { text: "Mọi mã phản hồi có thể xảy ra đều được khai bằng ProducesResponseType." },
+    { text: "Kiểu body lỗi được khai đúng: ProblemDetails hay ValidationProblemDetails." },
+    { text: "DTO có ràng buộc validation để schema phản ánh đúng." },
+    { text: "Trường quan trọng có <example> để Try it out chạy được ngay." },
+    { text: "Swagger UI không mở công khai ở production." },
+    { text: "Nhiều version hiển thị trong cùng một UI qua IApiVersionDescriptionProvider." },
+    { text: "CI so sánh file OpenAPI để phát hiện breaking change." },
+  ]}
+/>
+
+## Bài tập áp dụng
+
+1. **Tài liệu nói dối.** Viết một endpoint trả 404 trong một số trường hợp nhưng **không** khai `[ProducesResponseType(404)]`. Sinh client bằng NSwag và xem client xử lý 404 ra sao.
+
+2. **Bề mặt tấn công.** Mở Swagger UI của một API có endpoint admin, và liệt kê những thông tin một người lạ thu được trong 2 phút: số endpoint, tên trường, ràng buộc, cơ chế xác thực.
+
+3. **Phát hiện breaking change tự động.** Lưu `swagger.json` hiện tại, xoá một trường khỏi một DTO, sinh lại, và chạy `redocly diff`. Xác nhận nó báo lỗi.
+
+## Tự kiểm tra
+
+<FAQSection
+  items={[
+    {
+      question: "Giá trị thật của OpenAPI nằm ở đâu?",
+      answer: "Ở chỗ nó là hợp đồng API dạng máy đọc được, sinh ra từ code nên không lỗi thời, và từ đó sinh được client tự động cho nhiều ngôn ngữ. Swagger UI chỉ là một cách trình bày nó. Khi API đổi, client sinh lại và trình biên dịch chỉ ra ngay chỗ gãy thay vì phát hiện lúc chạy."
+    },
+    {
+      question: "ASP.NET Core không tự biết những gì?",
+      answer: "Các mã lỗi mà endpoint có thể trả, kiểu của body lỗi, ý nghĩa và giá trị hợp lệ của tham số, và ví dụ dữ liệu. Không khai thì tài liệu chỉ có 200 và client sinh tự động không có kiểu cho lỗi. Đó là việc của XML comments và ProducesResponseType."
+    },
+    {
+      question: "GenerateDocumentationFile quan trọng thế nào?",
+      answer: "Không bật nó thì IncludeXmlComments sẽ ném FileNotFoundException lúc khởi động, hoặc tệ hơn là im lặng không có tài liệu nào. Nó là bước hay bị quên nhất khi cấu hình Swagger."
+    },
+    {
+      question: "Có nên mở Swagger UI ở production không?",
+      answer: "Mặc định chỉ bật ở Development và đó là mặc định đúng. Swagger UI công khai liệt kê mọi endpoint kể cả nội bộ và admin, cho biết trường nào bắt buộc và ràng buộc ra sao, và cho phép gọi thử trực tiếp. Nó là bản đồ bề mặt tấn công được cập nhật tự động."
+    },
+    {
+      question: "Muốn có tài liệu công khai mà không mở Swagger UI thì làm sao?",
+      answer: "Sinh file OpenAPI lúc build bằng Swashbuckle CLI, đẩy lên một portal tài liệu riêng, còn ứng dụng chạy không có endpoint Swagger nào. Hai cách khác là giới hạn theo host nội bộ hoặc yêu cầu đăng nhập."
+    },
+    {
+      question: "Làm sao phát hiện breaking change tự động?",
+      answer: "Thêm vào CI một bước so sánh file OpenAPI với bản trước, ví dụ bằng redocly diff với mức severity error. Nó biến danh sách thay đổi breaking thành một bước kiểm tra tự động thay vì trông vào trí nhớ của người review."
+    }
+  ]}
+/>
+
+## Kết luận
+
+Ba điều đáng nhớ nhất:
+
+1. **Tài liệu sinh từ code không tự đầy đủ.** Khai mã lỗi và kiểu body lỗi, nếu không nó nói dối.
+2. **Swagger UI ở production là bản đồ bề mặt tấn công.** Sinh file ra portal riêng.
+3. **Dùng OpenAPI để sinh client và để bắt breaking change trong CI.**
+
+## Tham khảo
+
+- [Generate OpenAPI documents in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/openapi/overview)
+- [ASP.NET Core web API documentation with Swagger / OpenAPI](https://learn.microsoft.com/en-us/aspnet/core/tutorials/web-api-help-pages-using-swagger)
+- [Swashbuckle.AspNetCore (GitHub)](https://github.com/domaindrivendev/Swashbuckle.AspNetCore)
+- [OpenAPI Specification](https://spec.openapis.org/oas/latest.html)
+
+## Điều hướng
+
+- **Bài trước:** [9.2 — 2. API Versioning](9.2-api-versioning.mdx)
+- **Bài tiếp theo:** [9.4 — 4. Pagination, Filtering, Sorting](9.4-pagination-filtering-sorting.mdx)
+- **Về module:** [Trang mục lục](./)

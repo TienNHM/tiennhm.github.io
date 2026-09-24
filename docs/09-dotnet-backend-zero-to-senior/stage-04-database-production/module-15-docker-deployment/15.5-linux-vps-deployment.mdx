@@ -1,0 +1,362 @@
+---
+title: "15.5 — 5. Linux VPS Deployment"
+description: "Làm cứng SSH và tường lửa, Nginx với forwarded headers, TLS tự động, deploy có rollback, và giám sát dung lượng đĩa."
+sidebar_position: 5
+---
+
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
+
+# 15.6 — 5. Linux VPS Deployment
+
+<SummaryBox>
+Một VPS 4GB chạy được ứng dụng .NET phục vụ hàng nghìn người dùng — và nó **rẻ hơn nhiều** so với PaaS. Cái giá là bạn tự lo bảo mật, cập nhật và giám sát. Ba việc bắt buộc trước khi đưa bất cứ thứ gì lên: **tắt đăng nhập bằng mật khẩu qua SSH** (server có IP công khai bị dò mật khẩu trong vài phút sau khi bật), **bật tường lửa với danh sách trắng**, và **bật cập nhật bảo mật tự động**. Về ứng dụng, sai lầm phổ biến nhất là quên **`UseForwardedHeaders`** — thiếu nó, ASP.NET Core thấy mọi request là HTTP từ IP của Nginx, làm `UseHttpsRedirection` **chuyển hướng vô tận** và rate limit theo IP chặn nhầm tất cả như một.
+</SummaryBox>
+
+## Mục tiêu bài học
+
+Sau bài này bạn có thể:
+
+- Làm cứng một VPS mới trước khi triển khai.
+- Cấu hình Nginx làm reverse proxy cho ASP.NET Core.
+- Bật TLS tự động gia hạn.
+- Deploy có thể rollback.
+- Giám sát những thứ thường làm chết VPS.
+
+## Nội dung bài học
+
+### 15.6.1 — Làm cứng server
+
+```bash
+# 1. Cap nhat va tao user khong phai root
+sudo apt update && sudo apt upgrade -y
+sudo adduser deploy && sudo usermod -aG sudo,docker deploy
+
+# 2. Copy khoa SSH tu may cua ban
+ssh-copy-id deploy@<ip>
+```
+
+```bash
+# 3. Tat dang nhap bang mat khau — /etc/ssh/sshd_config
+PermitRootLogin no
+PasswordAuthentication no
+PubkeyAuthentication yes
+
+sudo systemctl restart ssh
+```
+
+:::danger Kiểm tra trước khi đóng phiên
+Mở một phiên SSH **mới** và xác nhận đăng nhập được **trước khi** đóng phiên hiện tại. Cấu hình sai cộng đóng phiên là mất quyền truy cập server.
+:::
+
+Vì sao bắt buộc: một server có IP công khai bắt đầu nhận **hàng nghìn lượt dò mật khẩu SSH mỗi ngày** trong vòng vài phút sau khi bật. Khoá SSH loại bỏ hoàn toàn nhóm tấn công đó.
+
+```bash
+# 4. Tuong lua — MAC DINH chan, chi mo cai can
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow OpenSSH
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw enable
+
+# 5. Fail2ban — chan IP do mat khau
+sudo apt install -y fail2ban
+sudo systemctl enable --now fail2ban
+
+# 6. Cap nhat bao mat tu dong
+sudo apt install -y unattended-upgrades
+sudo dpkg-reconfigure -plow unattended-upgrades
+```
+
+**Đừng mở cổng 1433, 5432 hay 6379.** Database và cache chỉ cần truy cập được **từ trong mạng Docker** ([bài 15.4](15.3-docker-compose.mdx)). Cần kết nối từ máy dev thì dùng SSH tunnel:
+
+```bash
+ssh -L 1433:localhost:1433 deploy@<ip>
+```
+
+### 15.6.2 — Nginx làm reverse proxy
+
+```nginx
+# /etc/nginx/sites-available/crm-api
+server {
+    listen 80;
+    server_name api.example.com;
+
+    client_max_body_size 20M;          # khop voi gioi han upload cua ung dung
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+
+        # BAT BUOC cho WebSocket va SignalR
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        # BAT BUOC cho UseForwardedHeaders
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_read_timeout 3600s;      # khong cat ket noi dai
+        proxy_buffering off;           # cho streaming response
+    }
+}
+```
+
+Bốn dòng đáng giải thích:
+
+**`client_max_body_size`** mặc định **1MB**. Ứng dụng cấu hình 20MB nhưng Nginx chặn ở 1MB, và client nhận **413 từ Nginx** — không có gì trong log ứng dụng ([bài 9.6](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.5-file-upload-and-download.mdx)).
+
+**`Upgrade` và `Connection`** bắt buộc cho WebSocket; thiếu chúng thì SignalR **luôn rơi về long polling** mà không có lỗi nào ([bài 11.11](../../stage-03-aspnet-core-backend/module-11-signalr/11.10-scale-out-and-production.mdx)).
+
+**`proxy_read_timeout`** mặc định 60 giây — cắt kết nối SignalR mỗi phút.
+
+**`proxy_buffering off`** cần khi bạn stream response (export CSV lớn); có buffering thì Nginx giữ cả response rồi mới gửi.
+
+Phía ASP.NET Core:
+
+```csharp
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownProxies.Clear();
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Add(IPAddress.Parse("127.0.0.1"));   // CHI tin Nginx cuc bo
+});
+
+var app = builder.Build();
+app.UseForwardedHeaders();        // TRUOC moi middleware khac
+```
+
+`KnownProxies` là phần bảo mật: không giới hạn, bất kỳ ai cũng gửi `X-Forwarded-For` giả để vượt rate limit theo IP hoặc giả mạo địa chỉ trong log ([bài viết về forward header](/blog/forward-http-header-an-toan-aspnet-core)).
+
+### 15.6.3 — TLS
+
+```bash
+sudo apt install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d api.example.com
+
+# Kiem tra gia han tu dong
+sudo systemctl status certbot.timer
+sudo certbot renew --dry-run
+```
+
+Certbot tự sửa cấu hình Nginx, thêm chuyển hướng HTTP sang HTTPS, và cài một timer gia hạn.
+
+**Kiểm tra `certbot renew --dry-run` ngay sau khi cài.** Chứng chỉ Let's Encrypt hết hạn sau 90 ngày, và gia hạn thất bại **im lặng** là nguyên nhân phổ biến của "trang web báo không an toàn" vào một buổi sáng.
+
+Thêm hai dòng vào Nginx sau khi có chứng chỉ:
+
+```nginx
+add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+add_header X-Content-Type-Options "nosniff" always;
+```
+
+HSTS nên đặt ở **một chỗ** — hoặc Nginx hoặc ứng dụng, không cả hai ([bài 10.11](../../stage-03-aspnet-core-backend/module-10-authentication-authorization/10.10-security-best-practices.mdx)).
+
+Và khi đã có Nginx lo TLS, **tắt `UseHttpsRedirection`** trong ứng dụng — Nginx đã chuyển hướng, và ứng dụng chỉ nghe HTTP nội bộ.
+
+### 15.6.4 — Deploy có rollback
+
+```bash
+#!/usr/bin/env bash
+# /opt/crm/deploy.sh
+set -euo pipefail
+
+TAG="${1:?Usage: deploy.sh <tag>}"
+cd /opt/crm
+
+# 1. Luu lai tag hien tai de rollback
+CURRENT=$(grep '^TAG=' .env | cut -d= -f2)
+echo "Dang chay: $CURRENT -> trien khai: $TAG"
+
+# 2. Keo image TRUOC khi dung gi
+docker compose pull
+
+# 3. Doi tag va khoi dong
+sed -i "s/^TAG=.*/TAG=$TAG/" .env
+docker compose -f compose.yaml -f compose.prod.yaml up -d
+
+# 4. Cho healthy
+for i in {1..30}; do
+    if curl -fsS http://127.0.0.1:8080/health/ready > /dev/null; then
+        echo "Trien khai thanh cong: $TAG"
+        docker image prune -f
+        exit 0
+    fi
+    sleep 2
+done
+
+# 5. That bai -> ROLLBACK
+echo "Health check that bai, rollback ve $CURRENT"
+sed -i "s/^TAG=.*/TAG=$CURRENT/" .env
+docker compose -f compose.yaml -f compose.prod.yaml up -d
+exit 1
+```
+
+Bốn điều làm nó an toàn: `set -euo pipefail` dừng ngay khi có lỗi; **pull trước** khi dừng gì (lỗi mạng không làm chết dịch vụ); **chờ healthy** thay vì giả định thành công; và **rollback tự động** khi health check thất bại.
+
+**Chạy migration trước deploy**, như một bước riêng ([bài 12.9](../module-12-sql-deep-dive/12.8-database-migration-strategy.mdx)):
+
+```bash
+docker compose run --rm api dotnet CrmApi.dll --migrate
+./deploy.sh "$TAG"
+```
+
+Thứ tự này chỉ đúng vì migration tương thích ngược — schema mới chạy được với code cũ đang phục vụ.
+
+### 15.6.5 — Giám sát những thứ làm chết VPS
+
+Ba thứ phổ biến nhất, theo thứ tự:
+
+**1. Đầy đĩa.** Nguyên nhân gần như luôn là log Docker hoặc image cũ.
+
+```bash
+df -h
+docker system df
+du -sh /var/lib/docker/containers/*/*.log | sort -h | tail
+```
+
+```yaml
+# Gioi han log — BAT BUOC
+logging:
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+```
+
+```bash
+# Don image cu hang tuan
+0 3 * * 0 docker image prune -af --filter "until=168h"
+```
+
+**2. Hết bộ nhớ.** Container bị OOM kill ([bài 15.2](15.1-docker-fundamentals.mdx)).
+
+```bash
+# Kiem tra da tung bi OOM chua
+dmesg | grep -i "killed process"
+docker inspect crm-api | grep -i oomkilled
+```
+
+Thêm swap là lưới an toàn (không thay thế được việc đặt giới hạn đúng):
+
+```bash
+sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile
+sudo mkswap /swapfile && sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+```
+
+**3. Chứng chỉ hết hạn.** Xem mục 15.6.3.
+
+Giám sát tối thiểu với một script cron:
+
+```bash
+#!/usr/bin/env bash
+DISK=$(df / | awk 'NR==2 {print $5}' | tr -d '%')
+[ "$DISK" -gt 80 ] && curl -s "$WEBHOOK" -d "Canh bao: dia $DISK%"
+
+docker compose ps --format json | jq -r 'select(.State != "running") | .Name' | while read -r name; do
+    curl -s "$WEBHOOK" -d "Canh bao: container $name khong chay"
+done
+```
+
+Không cần hệ thống giám sát phức tạp — một cảnh báo khi đĩa vượt 80% và khi container chết đã xử lý phần lớn sự cố.
+
+**Sao lưu** là thứ không có lựa chọn:
+
+```bash
+# Sao luu database hang ngay, giu 7 ban
+0 2 * * * docker compose exec -T sqlserver /opt/mssql-tools18/bin/sqlcmd \
+    -S localhost -U sa -P "$SA_PASSWORD" -C \
+    -Q "BACKUP DATABASE CrmDb TO DISK='/var/opt/mssql/backup/crm.bak' WITH INIT, COMPRESSION"
+```
+
+Và **sao lưu phải được kiểm tra khôi phục** — một bản backup chưa từng khôi phục thử là một bản backup không tồn tại.
+
+### 15.6.6 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát VPS"
+  items={[
+    { text: "SSH tắt đăng nhập bằng mật khẩu và tắt đăng nhập root." },
+    { text: "Đã xác nhận đăng nhập bằng khoá trước khi đóng phiên cũ." },
+    { text: "Tường lửa mặc định chặn, chỉ mở 22, 80, 443." },
+    { text: "Không mở cổng database hay cache ra ngoài." },
+    { text: "fail2ban và unattended-upgrades đã bật." },
+    { text: "Nginx có Upgrade, Connection, X-Forwarded-* và proxy_read_timeout dài." },
+    { text: "client_max_body_size khớp giới hạn upload của ứng dụng." },
+    { text: "UseForwardedHeaders được gọi trước mọi middleware khác." },
+    { text: "KnownProxies giới hạn, không tin header từ mọi nguồn." },
+    { text: "certbot renew --dry-run đã chạy thành công." },
+    { text: "Script deploy chờ health check và tự rollback khi thất bại." },
+    { text: "Log Docker có max-size; có cron dọn image cũ." },
+    { text: "Có cảnh báo khi đĩa vượt ngưỡng và khi container chết." },
+    { text: "Có sao lưu database tự động, và đã thử khôi phục ít nhất một lần." },
+  ]}
+/>
+
+## Bài tập áp dụng
+
+1. **Dò mật khẩu SSH.** Trên một VPS mới bật, chạy `sudo journalctl -u ssh | grep -c "Failed password"` sau 24 giờ. Tắt đăng nhập mật khẩu và so sánh sau 24 giờ nữa.
+
+2. **Quên forwarded headers.** Bỏ `UseForwardedHeaders` nhưng bật `UseHttpsRedirection`, và quan sát vòng lặp chuyển hướng. Log `RemoteIpAddress` để xác nhận nó là IP của Nginx.
+
+3. **Rollback.** Deploy một image cố tình fail health check và xác nhận script tự quay về phiên bản cũ, dịch vụ không gián đoạn.
+
+## Tự kiểm tra
+
+<FAQSection
+  items={[
+    {
+      question: "Vì sao phải tắt đăng nhập SSH bằng mật khẩu?",
+      answer: "Một server có IP công khai bắt đầu nhận hàng nghìn lượt dò mật khẩu mỗi ngày trong vòng vài phút sau khi bật. Khoá SSH loại bỏ hoàn toàn nhóm tấn công đó. Nhưng phải xác nhận đăng nhập bằng khoá được trước khi đóng phiên hiện tại."
+    },
+    {
+      question: "Những header nào Nginx bắt buộc phải chuyển tiếp?",
+      answer: "Upgrade và Connection cho WebSocket, nếu thiếu thì SignalR luôn rơi về long polling mà không có lỗi nào. Host, X-Real-IP, X-Forwarded-For và X-Forwarded-Proto cho UseForwardedHeaders. Và proxy_read_timeout phải đủ dài, mặc định 60 giây sẽ cắt kết nối SignalR mỗi phút."
+    },
+    {
+      question: "Quên UseForwardedHeaders gây ra gì?",
+      answer: "ASP.NET Core thấy mọi request là HTTP đến từ IP của Nginx. UseHttpsRedirection sẽ chuyển hướng vô tận vì nó luôn thấy HTTP, và rate limit theo IP chặn nhầm mọi người dùng như một vì tất cả có cùng IP."
+    },
+    {
+      question: "Vì sao KnownProxies quan trọng?",
+      answer: "Không giới hạn, bất kỳ ai cũng gửi header X-Forwarded-For giả để vượt rate limit theo IP hoặc giả mạo địa chỉ trong log. Phải xoá danh sách mặc định và chỉ thêm IP của proxy thật."
+    },
+    {
+      question: "client_max_body_size mặc định là bao nhiêu?",
+      answer: "1 MB. Ứng dụng cấu hình 20 MB nhưng Nginx chặn ở 1 MB, và client nhận lỗi 413 từ Nginx mà không có gì trong log ứng dụng. Hai giới hạn phải khớp nhau."
+    },
+    {
+      question: "Ba thứ phổ biến nhất làm chết một VPS là gì?",
+      answer: "Đầy đĩa do log Docker không giới hạn và image cũ tích tụ, hết bộ nhớ khiến container bị OOM kill, và chứng chỉ TLS hết hạn vì gia hạn thất bại im lặng. Một cảnh báo khi đĩa vượt 80 phần trăm và khi container chết đã xử lý phần lớn."
+    }
+  ]}
+/>
+
+## Kết luận
+
+Ba điều đáng nhớ nhất:
+
+1. **Tắt SSH bằng mật khẩu trước khi làm bất cứ gì khác.**
+2. **`UseForwardedHeaders` với `KnownProxies` giới hạn** — thiếu nó là vòng lặp chuyển hướng và rate limit sai.
+3. **Đầy đĩa vì log Docker là nguyên nhân số một** làm chết VPS. Đặt `max-size`.
+
+## Tham khảo
+
+- [Host ASP.NET Core on Linux with Nginx](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/linux-nginx)
+- [Configure ASP.NET Core to work with proxy servers](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/proxy-load-balancer)
+- [Certbot documentation](https://eff-certbot.readthedocs.io/en/stable/)
+- [Docker logging drivers](https://docs.docker.com/engine/logging/configure/)
+
+## Điều hướng
+
+- **Bài trước:** [15.4 — 4. Environment và Secrets](15.4-environment-and-secrets.mdx)
+- **Bài tiếp theo:** [15.6 — 6. GitHub Actions CI/CD](15.6-github-actions-ci-cd.mdx)
+- **Về module:** [Trang mục lục](./)
+
+## Bài liên quan
+
+- [Forward header trong ASP.NET Core: vì sao 'forward hết' là một lỗi kiến trúc](/blog/forward-http-header-an-toan-aspnet-core) — Vòng lặp copy mọi header từ request đi vào sang lời gọi HttpClient đi ra là đoạn code trông vô hại nhất mà tôi từng thấy gây sự cố production.

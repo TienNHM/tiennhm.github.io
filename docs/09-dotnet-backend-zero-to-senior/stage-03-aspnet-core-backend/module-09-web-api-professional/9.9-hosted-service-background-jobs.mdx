@@ -1,0 +1,339 @@
+---
+title: "9.9 — 9. Background Processing với Hosted Service"
+description: "BackgroundService, PeriodicTimer thay Task.Delay, khoá phân tán khi chạy nhiều instance, xử lý lỗi không làm chết worker, và khi nào cần Hangfire."
+sidebar_position: 9
+---
+
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
+
+# 9.10 — 9. Background Processing với Hosted Service
+
+<SummaryBox>
+`BackgroundService` là cách chạy việc nền **trong cùng tiến trình** với API — dùng chung DI container, cấu hình và logger. Nó đúng cho việc định kỳ nhẹ và việc tiêu thụ hàng đợi trong bộ nhớ. Ba cái bẫy quyết định nó chạy được trên production hay không. **Một:** worker là **singleton**, nên mọi service scoped phải lấy qua `IServiceScopeFactory`. **Hai:** exception thoát khỏi `ExecuteAsync` **giết worker vĩnh viễn** mà ứng dụng vẫn chạy bình thường — không ai phát hiện. **Ba:** chạy 3 instance nghĩa là job định kỳ chạy **3 lần**, nên mọi job có tác dụng phụ đều cần khoá phân tán.
+</SummaryBox>
+
+## Mục tiêu bài học
+
+Sau bài này bạn có thể:
+
+- Viết `BackgroundService` đúng cách với scope DI và xử lý lỗi.
+- Dùng `PeriodicTimer` thay cho `Task.Delay` trong vòng lặp.
+- Ngăn job chạy trùng khi có nhiều instance.
+- Shutdown gọn gàng mà không cắt việc đang chạy.
+- Quyết định khi nào phải chuyển sang Hangfire hoặc Quartz.
+
+## Nội dung bài học
+
+### 9.10.1 — Ba loại việc nền
+
+| Loại | Công cụ |
+|---|---|
+| **Định kỳ** (dọn dẹp, gửi báo cáo hằng ngày) | `BackgroundService` + `PeriodicTimer` |
+| **Theo sự kiện** (gửi email sau khi tạo đơn) | `Channel` + `BackgroundService` — [bài 6.9](../../stage-02-csharp-professional/module-06-async-programming/6.8-channels-and-producer-consumer.mdx) |
+| **Việc dài, cần theo dõi và retry** | Hangfire, Quartz, hoặc message broker |
+
+Bài này tập trung loại thứ nhất; loại thứ hai đã nói ở Module 6; loại thứ ba ở mục 9.10.6.
+
+### 9.10.2 — `PeriodicTimer` thay cho `Task.Delay`
+
+```csharp
+// CACH CU — troi dan theo thoi gian
+while (!stoppingToken.IsCancellationRequested)
+{
+    await DoWorkAsync(stoppingToken);              // mat 8 giay
+    await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
+    // Chu ky thuc te: 5 phut 8 giay, roi 5 phut 16 giay...
+}
+```
+
+```csharp
+// .NET 6+ — chu ky on dinh
+using var timer = new PeriodicTimer(TimeSpan.FromMinutes(5));
+
+while (await timer.WaitForNextTickAsync(stoppingToken))
+{
+    await DoWorkAsync(stoppingToken);
+}
+```
+
+`PeriodicTimer` đếm từ **lần tick trước**, không phải từ lúc công việc xong, nên chu kỳ không trôi. Nó cũng không cấp phát một `Task` mới mỗi vòng, và `WaitForNextTickAsync` trả `false` khi token bị huỷ — nên vòng lặp tự kết thúc gọn gàng, không cần `try/catch` `OperationCanceledException` chỉ để thoát.
+
+**Với lịch cụ thể** (7 giờ sáng mỗi ngày), `PeriodicTimer` không đủ — bạn phải tính khoảng chờ tới lần chạy kế tiếp:
+
+```csharp
+protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+{
+    while (!stoppingToken.IsCancellationRequested)
+    {
+        var now = _timeProvider.GetUtcNow();
+        var next = now.Date.AddHours(7);
+        if (now >= next) next = next.AddDays(1);
+
+        try
+        {
+            await Task.Delay(next - now, stoppingToken);
+        }
+        catch (OperationCanceledException) { break; }
+
+        await RunSafelyAsync(stoppingToken);
+    }
+}
+```
+
+Cách này có hai vấn đề mà bạn phải biết: **múi giờ** (dùng UTC thì "7 giờ sáng" ở Việt Nam là 0 giờ UTC, và giờ mùa hè ở nơi khác sẽ lệch), và **`Task.Delay` không sống qua restart** — deploy lúc 6 giờ 59 nghĩa là bỏ lỡ lần chạy hôm đó. Nếu lịch quan trọng, dùng Quartz với trigger cron và kho lưu trữ bền vững.
+
+Tiêm `TimeProvider` thay vì gọi `DateTime.UtcNow` để test được — xem [bài 7.2](../../stage-02-csharp-professional/module-07-dependency-injection/7.1-di-problem-scope.mdx).
+
+### 9.10.3 — Scope và xử lý lỗi
+
+```csharp
+public sealed class DailyDigestWorker(
+    IServiceScopeFactory scopeFactory,
+    ILogger<DailyDigestWorker> logger) : BackgroundService
+{
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromHours(24));
+
+        while (await timer.WaitForNextTickAsync(stoppingToken))
+        {
+            try
+            {
+                await RunAsync(stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;                                  // shutdown binh thuong
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Digest that bai, se thu lai o chu ky sau");
+                // KHONG throw — mot lan loi khong duoc giet worker
+            }
+        }
+    }
+
+    private async Task RunAsync(CancellationToken ct)
+    {
+        await using var scope = scopeFactory.CreateAsyncScope();
+
+        var db = scope.ServiceProvider.GetRequiredService<CrmDbContext>();
+        var email = scope.ServiceProvider.GetRequiredService<IEmailService>();
+
+        var since = DateTime.UtcNow.AddDays(-1);
+        var newLeads = await db.Customers.CountAsync(
+            c => c.Status == "lead" && c.CreatedAt >= since, ct);
+
+        var recipients = await db.Users
+            .Where(u => u.Role == "sales" && u.DigestEnabled)
+            .Select(u => new { u.Email, u.Name })
+            .ToListAsync(ct);
+
+        foreach (var user in recipients)
+        {
+            ct.ThrowIfCancellationRequested();
+            await email.SendAsync(user.Email, $"CRM Digest — {newLeads} lead moi", ..., ct);
+        }
+
+        logger.LogInformation("Da gui digest cho {Count} nguoi", recipients.Count);
+    }
+}
+```
+
+**Hai điểm sống còn:**
+
+**1. `IServiceScopeFactory`, không tiêm thẳng `DbContext`.** `BackgroundService` được đăng ký **singleton**; tiêm một service scoped vào constructor là captive dependency ([bài 7.5](../../stage-02-csharp-professional/module-07-dependency-injection/7.4-service-lifetimes.mdx)). Quan trọng không kém: scope mới cho **mỗi lần chạy** nghĩa là `DbContext` mới, change tracker sạch — không thì nó tích luỹ entity qua hàng tháng.
+
+**2. `try/catch` bao quanh, và không `throw` lại.** Exception thoát khỏi `ExecuteAsync` khiến worker **dừng vĩnh viễn**. Ứng dụng web vẫn chạy, health check vẫn xanh, và không ai biết job đã chết — cho tới khi có người hỏi vì sao một tháng nay không nhận được báo cáo.
+
+Từ .NET 6, `BackgroundServiceExceptionBehavior.StopHost` là mặc định — exception chưa xử lý sẽ **dừng cả ứng dụng**. Đó thực ra là hành vi **tốt hơn**: sập ồn ào còn hơn chết im lặng. Nhưng đừng dựa vào nó; hãy tự bắt lỗi.
+
+### 9.10.4 — Nhiều instance: job chạy trùng
+
+```
+3 pod, moi pod chay DailyDigestWorker
+=> 3 email digest gui toi cung mot nguoi
+=> Hoac 3 job don dep cung xoa mot tap du lieu
+```
+
+Đây là vấn đề **luôn xảy ra** khi scale ngang và hay bị phát hiện muộn. Ba cách xử lý:
+
+**1. Khoá phân tán bằng chính database** — đơn giản nhất, không thêm hạ tầng:
+
+```csharp
+private async Task<bool> TryAcquireLockAsync(string jobName, CancellationToken ct)
+{
+    // Chi mot instance INSERT thanh cong nho rang buoc unique
+    try
+    {
+        _db.JobLocks.Add(new JobLock
+        {
+            JobName = jobName,
+            AcquiredAt = DateTime.UtcNow,
+            ExpiresAt = DateTime.UtcNow.AddMinutes(30),
+            Owner = Environment.MachineName
+        });
+        await _db.SaveChangesAsync(ct);
+        return true;
+    }
+    catch (DbUpdateException)     // vi pham unique -> instance khac dang chay
+    {
+        return false;
+    }
+}
+```
+
+`ExpiresAt` là phần bắt buộc: nếu instance giữ khoá bị kill, khoá phải tự hết hạn, nếu không job không bao giờ chạy lại.
+
+**2. Tách thành Worker Service riêng** chạy **một replica**. Sạch nhất về mặt vận hành: không có khoá, không có tranh chấp, và job được scale độc lập với API.
+
+**3. Dùng Hangfire hoặc Quartz** với kho lưu trữ dùng chung — chúng đã giải quyết bài toán này.
+
+Cách 2 đáng cân nhắc hơn nhiều người nghĩ. Chạy job nền trong tiến trình API còn có những vấn đề khác: một job ngốn CPU làm chậm mọi request, và bạn không thể scale API lên 10 pod mà không scale job lên 10 lần.
+
+### 9.10.5 — Shutdown
+
+```csharp
+public override async Task StopAsync(CancellationToken ct)
+{
+    logger.LogInformation("Worker dang dung, cho viec hien tai hoan tat");
+    await base.StopAsync(ct);
+}
+```
+
+```csharp
+builder.Services.Configure<HostOptions>(o =>
+{
+    o.ShutdownTimeout = TimeSpan.FromSeconds(60);
+    o.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.StopHost;
+});
+```
+
+Mặc định host chỉ chờ **5 giây**. Job dài hơn thế sẽ bị **cắt giữa chừng** ở mỗi lần deploy — và với job ghi dữ liệu theo lô, đó là dữ liệu ghi dở.
+
+Hai việc cần làm:
+
+- **Tăng `ShutdownTimeout`** cho đủ job dài nhất.
+- **Kiểm tra token thường xuyên** trong vòng lặp dài, và dừng ở một điểm an toàn:
+
+```csharp
+foreach (var batch in batches)
+{
+    if (ct.IsCancellationRequested)
+    {
+        logger.LogInformation("Dung sau lo {Index}, se tiep tuc o lan chay sau", index);
+        break;                       // dung o RANH GIOI lo, khong giua lo
+    }
+    await ProcessBatchAsync(batch, ct);
+}
+```
+
+Điều này đòi hỏi job phải **tiếp tục được từ giữa chừng** — tức lưu tiến độ, không giả định luôn chạy từ đầu tới cuối.
+
+### 9.10.6 — Khi nào `BackgroundService` không đủ
+
+| Bạn cần | `BackgroundService` | Hangfire / Quartz |
+|---|---|---|
+| Việc định kỳ đơn giản | **Đủ** | Thừa |
+| Retry tự động khi lỗi | Tự viết | **Có sẵn** |
+| Job sống sót qua restart | **Không** | **Có** |
+| Lịch cron phức tạp | Tự tính | **Có sẵn** |
+| Giao diện xem job đã chạy | Không | **Có** |
+| Chạy một job thủ công | Không | **Có** |
+| Không chạy trùng khi nhiều instance | Tự làm | **Có sẵn** |
+
+Câu hỏi quyết định: **"nếu job này không chạy một lần, có ai biết không?"**
+
+Nếu câu trả lời là "không" thì bạn cần Hangfire — nó ghi lại mọi lần chạy, mọi lần thất bại, và cho bạn chạy lại. Với `BackgroundService`, một job im lặng thất bại là một job không ai phát hiện.
+
+```csharp
+// Hangfire — dang ky mot dong
+RecurringJob.AddOrUpdate<IDigestService>(
+    "daily-digest", s => s.SendAsync(CancellationToken.None), "0 7 * * *");
+```
+
+Chi tiết ở [Module 14 — Caching và Background Jobs](../../stage-04-database-production/module-14-caching-background-jobs/).
+
+### 9.10.7 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát background service"
+  items={[
+    { text: "Mọi service scoped được lấy qua IServiceScopeFactory, không tiêm vào constructor." },
+    { text: "Mỗi lần chạy tạo scope mới để DbContext không tích luỹ entity." },
+    { text: "try/catch bao quanh mỗi lần chạy và không throw lại." },
+    { text: "Vòng lặp định kỳ dùng PeriodicTimer, không dùng Task.Delay." },
+    { text: "Job có tác dụng phụ được bảo vệ khỏi chạy trùng khi nhiều instance." },
+    { text: "Khoá phân tán có thời hạn hết hiệu lực." },
+    { text: "ShutdownTimeout đủ dài cho job dài nhất." },
+    { text: "Vòng lặp dài kiểm tra CancellationToken và dừng ở ranh giới an toàn." },
+    { text: "Job dùng TimeProvider thay vì DateTime.UtcNow để test được." },
+    { text: "Đã trả lời được: nếu job này không chạy một lần, có ai biết không?" },
+  ]}
+/>
+
+## Bài tập áp dụng
+
+1. **Worker chết im lặng.** Bỏ `try/catch` trong `ExecuteAsync`, cho job ném exception, và xác nhận ứng dụng vẫn phục vụ request bình thường trong khi job không bao giờ chạy lại. Đo xem bạn phát hiện bằng cách nào.
+
+2. **Chu kỳ trôi.** So sánh `Task.Delay` và `PeriodicTimer` với công việc mất 8 giây và chu kỳ 10 giây. Log thời điểm mỗi lần chạy trong 10 vòng và so sánh độ lệch.
+
+3. **Chạy trùng.** Chạy 3 instance cùng một job gửi email, đếm số email nhận được. Thêm khoá phân tán qua database và kiểm chứng lại.
+
+## Tự kiểm tra
+
+<FAQSection
+  items={[
+    {
+      question: "Vì sao BackgroundService phải dùng IServiceScopeFactory?",
+      answer: "Vì nó được đăng ký singleton, nên tiêm một service scoped như DbContext vào constructor là captive dependency. Ngoài ra, tạo scope mới cho mỗi lần chạy nghĩa là DbContext mới với change tracker sạch; dùng chung một instance sẽ tích luỹ entity qua hàng tháng."
+    },
+    {
+      question: "Điều gì xảy ra khi exception thoát khỏi ExecuteAsync?",
+      answer: "Worker dừng vĩnh viễn. Ứng dụng web vẫn chạy, health check vẫn xanh, và không ai biết job đã chết cho tới khi có người hỏi vì sao lâu nay không nhận được báo cáo. Từ .NET 6 mặc định là dừng cả host, điều này thật ra tốt hơn vì sập ồn ào còn hơn chết im lặng, nhưng vẫn nên tự bắt lỗi."
+    },
+    {
+      question: "PeriodicTimer hơn Task.Delay ở điểm nào?",
+      answer: "Nó đếm từ lần tick trước chứ không phải từ lúc công việc xong, nên chu kỳ không trôi dần theo thời gian xử lý. Nó cũng không cấp phát Task mới mỗi vòng, và WaitForNextTickAsync trả false khi token bị huỷ nên vòng lặp tự kết thúc gọn gàng."
+    },
+    {
+      question: "Chạy nhiều instance thì job định kỳ bị gì?",
+      answer: "Nó chạy trùng, ví dụ 3 pod là 3 email digest gửi tới cùng một người, hoặc 3 job dọn dẹp cùng xoá một tập dữ liệu. Cách xử lý là khoá phân tán có thời hạn hết hiệu lực, tách thành Worker Service riêng chạy một replica, hoặc dùng Hangfire với kho lưu trữ dùng chung."
+    },
+    {
+      question: "Shutdown mặc định có vấn đề gì?",
+      answer: "Host chỉ chờ 5 giây, nên job dài hơn thế bị cắt giữa chừng ở mỗi lần deploy, và với job ghi dữ liệu theo lô thì đó là dữ liệu ghi dở. Phải tăng ShutdownTimeout và kiểm tra CancellationToken thường xuyên để dừng ở ranh giới an toàn, tức job phải tiếp tục được từ giữa chừng."
+    },
+    {
+      question: "Khi nào cần chuyển sang Hangfire hoặc Quartz?",
+      answer: "Khi cần retry tự động, job sống sót qua restart, lịch cron phức tạp, giao diện xem lịch sử chạy, hoặc chạy lại thủ công. Câu hỏi quyết định là nếu job này không chạy một lần thì có ai biết không; nếu không thì bạn cần công cụ ghi lại mọi lần chạy và mọi lần thất bại."
+    }
+  ]}
+/>
+
+## Kết luận
+
+Ba điều đáng nhớ nhất:
+
+1. **Worker là singleton** — scope DI lấy qua `IServiceScopeFactory`, mỗi lần chạy một scope.
+2. **Exception thoát khỏi `ExecuteAsync` giết worker.** Bắt, log, và đừng ném lại.
+3. **Nhiều instance là job chạy trùng.** Khoá phân tán, Worker Service riêng, hoặc Hangfire.
+
+## Tham khảo
+
+- [Background tasks with hosted services in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/host/hosted-services)
+- [Worker Services in .NET](https://learn.microsoft.com/en-us/dotnet/core/extensions/workers)
+- [PeriodicTimer class](https://learn.microsoft.com/en-us/dotnet/api/system.threading.periodictimer)
+- [Implement background tasks in microservices](https://learn.microsoft.com/en-us/dotnet/architecture/microservices/multi-container-microservice-net-applications/background-tasks-with-ihostedservice)
+
+## Điều hướng
+
+- **Bài trước:** [9.8 — 8. API Testing](9.8-api-testing.mdx)
+- **Bài tiếp theo:** [9.10 — Mở rộng và đào sâu](9.10-advanced-notes.mdx)
+- **Về module:** [Trang mục lục](./)
+
+## Bài liên quan
+
+- [Singleton, Scoped hay Transient? Chọn sai là DbContext sống mãi](/blog/singleton-scoped-transient-captive-dependency) — Ba lifetime trong DI container của ASP.NET Core khác nhau ở thời điểm tạo và thời điểm dispose instance.
+- [Gọi .Result khi nào thì deadlock, khi nào thì không?](/blog/deadlock-result-wait-csharp) — Gọi .Result hay .Wait() trên một Task treo cứng ứng dụng WPF và ASP.NET Framework, nhưng chạy bình thường trong console và ASP.NET Core.
+- [Unit of Work trong .NET và ABP: SaveChangesAsync không phải commit](/blog/unit-of-work-dotnet-abp) — DbContext của EF Core bản thân nó đã là một Unit of Work, nên bọc thêm một interface IUnitOfWork gọi SaveChanges thường chỉ thêm lớp trung gian vô…

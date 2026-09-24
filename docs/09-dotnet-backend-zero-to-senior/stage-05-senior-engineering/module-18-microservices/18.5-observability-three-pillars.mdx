@@ -1,0 +1,263 @@
+---
+title: "18.5 — 5. Observability — bộ ba"
+description: "Logs, metrics, traces và việc nối chúng bằng trace id, cấu hình OpenTelemetry đầy đủ, sampling, và vì sao p99 quan trọng hơn trung bình."
+sidebar_position: 5
+---
+
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
+
+# 18.6 — 5. Observability — bộ ba
+
+<SummaryBox>
+Ba trụ cột — **logs** (chuyện gì đã xảy ra), **metrics** (xu hướng ra sao), **traces** (request đi qua đâu và tốn thời gian ở chặng nào) — chỉ có giá trị thật khi chúng **nối được với nhau**. Thấy p99 tăng trên biểu đồ metric mà không nhảy thẳng sang trace của một request chậm, rồi từ trace sang log của đúng span đó, thì bạn vẫn đang đoán. Sợi dây nối cả ba là **trace id**, và nó phải có mặt trong **mọi** dòng log. Hai điều quan trọng nữa: **đừng bao giờ dùng giá trị trung bình** — nó che lấp hoàn toàn trải nghiệm của nhóm người dùng khổ nhất, hãy dùng p95/p99; và với microservices, observability **phải có trước** khi tách service, không phải làm sau ([bài 18.2](18.1-khi-nao-khong-nen-microservices.mdx)).
+</SummaryBox>
+
+## Mục tiêu bài học
+
+Sau bài này bạn có thể:
+
+- Giải thích vai trò từng trụ cột và cách chúng bổ sung nhau.
+- Cấu hình OpenTelemetry đầy đủ cho một service .NET.
+- Nối log với trace bằng trace id.
+- Chọn chiến lược sampling phù hợp với chi phí.
+- Đọc p95/p99 thay vì trung bình.
+
+## Nội dung bài học
+
+### 18.6.1 — Ba trụ cột và vai trò
+
+| | Trả lời câu hỏi | Dạng dữ liệu | Chi phí lưu |
+|---|---|---|---|
+| **Logs** | Chuyện gì đã xảy ra với request này? | Sự kiện rời rạc | Cao |
+| **Metrics** | Xu hướng và sức khoẻ hệ thống ra sao? | Số tổng hợp theo thời gian | Thấp |
+| **Traces** | Request đi qua đâu, chậm ở chặng nào? | Cây span | Trung bình |
+
+Cách dùng thực tế khi có sự cố, theo đúng thứ tự:
+
+1. **Metric** báo động: p99 của `/api/orders` tăng từ 200ms lên 3s.
+2. **Trace** cho thấy chặng nào chậm: 2,8s nằm ở lời gọi Inventory Service.
+3. **Log** của span đó cho biết vì sao: "Connection pool exhausted".
+
+Thiếu một trụ cột là mất một bước. Chỉ có log thì bạn không biết có sự cố cho tới khi người dùng phàn nàn. Chỉ có metric thì biết có sự cố nhưng không biết ở đâu.
+
+### 18.6.2 — Cấu hình OpenTelemetry
+
+```csharp
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(r => r
+        .AddService(
+            serviceName: "crm-sales",
+            serviceVersion: typeof(Program).Assembly.GetName().Version?.ToString())
+        .AddAttributes([
+            new("deployment.environment", builder.Environment.EnvironmentName)
+        ]))
+    .WithTracing(t => t
+        .AddAspNetCoreInstrumentation(o =>
+        {
+            // Bo qua health check — chung chiem phan lon trace ma khong co gia tri
+            o.Filter = ctx => !ctx.Request.Path.StartsWithSegments("/health");
+            o.RecordException = true;
+        })
+        .AddHttpClientInstrumentation()
+        .AddEntityFrameworkCoreInstrumentation(o => o.SetDbStatementForText = true)
+        .AddSource("MassTransit")
+        .AddOtlpExporter())
+    .WithMetrics(m => m
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddRuntimeInstrumentation()
+        .AddMeter("Crm.Sales")
+        .AddOtlpExporter());
+```
+
+Bốn chi tiết đáng chú ý:
+
+- **Lọc health check.** Kubernetes gọi `/health` vài giây một lần trên mỗi pod; không lọc thì chúng chiếm phần lớn dữ liệu trace mà không mang thông tin gì.
+- **`SetDbStatementForText = true`** ghi câu SQL vào span. Rất hữu ích để tìm truy vấn chậm, nhưng **cân nhắc dữ liệu nhạy cảm** trước khi bật trên production.
+- **`AddRuntimeInstrumentation`** cung cấp số liệu GC, thread pool và exception — thường là nơi tìm thấy nguyên nhân gốc của độ trễ bất thường.
+- **`deployment.environment`** cho phép lọc staging khỏi production trên cùng một backend.
+
+### 18.6.3 — Nối log với trace
+
+Đây là mắt xích quan trọng nhất, và cũng là thứ hay thiếu nhất.
+
+```csharp
+builder.Host.UseSerilog((context, services, config) => config
+    .ReadFrom.Configuration(context.Configuration)
+    .Enrich.FromLogContext()
+    .Enrich.WithSpan()                    // them TraceId va SpanId vao MOI dong log
+    .WriteTo.Console(new CompactJsonFormatter()));
+```
+
+`Enrich.WithSpan()` (gói `Serilog.Enrichers.Span`) tự động thêm `TraceId` và `SpanId`. Kết quả:
+
+```json
+{
+  "@t": "2026-09-24T10:15:32.123Z",
+  "@l": "Error",
+  "@m": "Không tạo được đơn hàng cho khách 8f3a...",
+  "TraceId": "4bf92f3577b34da6a3ce929d0e0e4736",
+  "SpanId": "00f067aa0ba902b7",
+  "CustomerId": "8f3a...",
+  "service.name": "crm-sales"
+}
+```
+
+Từ một trace trong Jaeger, bạn truy vấn `TraceId = "4bf92f..."` và lấy **toàn bộ** log của request đó **xuyên mọi service**. Không có trường này, bạn phải dò theo thời gian và tên người dùng — chậm và hay sai.
+
+Ghi log **có cấu trúc**, không phải chuỗi nối:
+
+```csharp
+// SAI — khong truy van duoc theo CustomerId
+_logger.LogError($"Không tạo được đơn cho khách {customerId}, tổng {total}");
+
+// DUNG — CustomerId va Total thanh truong co the loc
+_logger.LogError("Không tạo được đơn cho khách {CustomerId}, tổng {Total}", customerId, total);
+```
+
+Dạng đúng cho phép truy vấn "mọi lỗi của khách hàng X trong 7 ngày" bằng một câu lọc. Dạng sai chỉ cho phép tìm chuỗi văn bản.
+
+### 18.6.4 — Metric: p99, không phải trung bình
+
+```csharp
+var meter = new Meter("Crm.Sales");
+
+// Histogram — ghi PHAN PHOI, tinh duoc phan vi
+var orderDuration = meter.CreateHistogram<double>(
+    "crm.order.creation.duration",
+    unit: "ms",
+    description: "Thời gian tạo đơn hàng");
+
+using var _ = new DurationRecorder(orderDuration, tags: [
+    new("order.type", order.Type.ToString())
+]);
+```
+
+Vì sao trung bình vô dụng:
+
+```
+1000 request: 990 cai 50ms, 10 cai 5000ms
+Trung binh = 99,5ms   -> bieu do trong "binh thuong"
+p99        = 5000ms   -> 1% nguoi dung doi 5 GIAY
+```
+
+10 người dùng đó gặp trải nghiệm tệ và **họ là những người sẽ gọi điện phàn nàn**. Biểu đồ trung bình không hề cho thấy điều đó.
+
+Chỉ số nên có cho mỗi service:
+
+| Loại | Ví dụ |
+|---|---|
+| RED | Rate (request/giây), Errors (%), Duration (p50/p95/p99) |
+| Tài nguyên | CPU, bộ nhớ, connection pool đang dùng |
+| Nghiệp vụ | Số đơn tạo/phút, giá trị đơn trung bình |
+| Hàng đợi | Độ sâu queue, tuổi message cũ nhất |
+
+Nhóm **nghiệp vụ** hay bị bỏ qua nhưng phát hiện sự cố nhanh nhất: "số đơn tạo mỗi phút giảm về 0" là tín hiệu rõ ràng hơn mọi chỉ số kỹ thuật, và nó bắt được cả những lỗi mà hệ thống vẫn trả HTTP 200.
+
+**Cardinality là cái bẫy tốn tiền:**
+
+```csharp
+// SAI — moi customer mot chuoi metric rieng -> hang trieu chuoi
+tags: [new("customer.id", customerId.ToString())]
+
+// DUNG — so luong gia tri huu han
+tags: [new("customer.tier", customer.Tier.ToString())]
+```
+
+Cardinality cao làm backend metric phình dung lượng và chậm truy vấn — đây là nguyên nhân phổ biến của hoá đơn quan sát tăng vọt ngoài dự kiến.
+
+### 18.6.5 — Sampling
+
+Lưu 100% trace trên hệ thống lớn rất tốn. Ba chiến lược:
+
+| Chiến lược | Cách hoạt động | Đánh đổi |
+|---|---|---|
+| **Head-based** | Quyết định ngay ở request đầu tiên | Rẻ, nhưng có thể bỏ sót trace lỗi |
+| **Tail-based** | Quyết định sau khi trace hoàn tất | Giữ được mọi trace lỗi và chậm, tốn tài nguyên hơn |
+| **Luôn lấy lỗi** | Lấy mẫu thấp cho request thành công, 100% cho lỗi | Cân bằng thực dụng |
+
+```csharp
+.WithTracing(t => t
+    .SetSampler(new TraceIdRatioBasedSampler(0.1))    // 10% request thanh cong
+    .AddAspNetCoreInstrumentation());
+```
+
+Với hệ thống vừa phải, **cứ lưu 100%** — đơn giản hơn và chi phí chưa đáng kể. Chỉ tối ưu khi hoá đơn thật sự thành vấn đề. Tối ưu sớm ở đây làm bạn mất đúng những trace cần nhất vào lúc cần nhất.
+
+### 18.6.6 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát observability"
+  items={[
+    { text: "Mọi dòng log đều có TraceId và SpanId." },
+    { text: "Log ghi có cấu trúc, không nối chuỗi vào thông điệp." },
+    { text: "Trace bỏ qua health check để không nhiễu dữ liệu." },
+    { text: "Có runtime instrumentation cho GC và thread pool." },
+    { text: "Dashboard dùng p95 và p99, không dùng trung bình." },
+    { text: "Có ít nhất một chỉ số nghiệp vụ, không chỉ chỉ số kỹ thuật." },
+    { text: "Tag của metric có cardinality thấp, không gắn id người dùng." },
+    { text: "Trace của request lỗi luôn được giữ, không bị sampling bỏ qua." },
+    { text: "Có thuộc tính môi trường để tách staging khỏi production." },
+    { text: "Observability đã sẵn sàng trước khi tách service." },
+  ]}
+/>
+
+## Bài tập áp dụng
+
+1. **Nối ba trụ cột.** Dựng OpenTelemetry với Jaeger, tạo một lỗi có chủ đích, rồi đi từ metric sang trace sang log chỉ bằng trace id.
+
+2. **So sánh trung bình và p99.** Ghi histogram cho một endpoint, tạo tải có 1% request chậm, và so sánh hai biểu đồ.
+
+3. **Tìm lỗi cardinality.** Rà mọi tag metric trong dự án và đánh dấu tag nào có thể nhận giá trị không giới hạn.
+
+## Tự kiểm tra
+
+<FAQSection
+  items={[
+    {
+      question: "Ba trụ cột bổ sung nhau thế nào khi xử lý sự cố?",
+      answer: "Metric báo có sự cố, ví dụ p99 tăng đột biến. Trace chỉ ra chặng nào chậm trong chuỗi gọi. Log của span đó cho biết nguyên nhân cụ thể. Thiếu một trụ cột là mất một bước trong chuỗi chẩn đoán."
+    },
+    {
+      question: "Vì sao trace id phải có trong mọi dòng log?",
+      answer: "Vì đó là sợi dây nối ba trụ cột. Có nó, từ một trace bạn lấy được toàn bộ log của request đó xuyên mọi service bằng một truy vấn. Không có nó, bạn phải dò theo thời gian và tên người dùng, vừa chậm vừa hay sai."
+    },
+    {
+      question: "Vì sao không nên dùng giá trị trung bình?",
+      answer: "Vì nó che lấp nhóm người dùng khổ nhất. Một nghìn request với chín trăm chín mươi cái 50ms và mười cái 5 giây cho trung bình 99,5ms, trông hoàn toàn bình thường, trong khi 1% người dùng đang đợi 5 giây và chính họ sẽ phàn nàn."
+    },
+    {
+      question: "Vì sao chỉ số nghiệp vụ lại phát hiện sự cố nhanh?",
+      answer: "Vì nó đo thứ thật sự quan trọng. Số đơn tạo mỗi phút giảm về 0 là tín hiệu rõ ràng hơn mọi chỉ số kỹ thuật, và nó bắt được cả những lỗi mà hệ thống vẫn trả về HTTP 200."
+    },
+    {
+      question: "Cardinality cao trong metric gây vấn đề gì?",
+      answer: "Mỗi tổ hợp giá trị tag tạo một chuỗi metric riêng, nên gắn id khách hàng vào tag sẽ sinh hàng triệu chuỗi. Backend phình dung lượng, truy vấn chậm, và hoá đơn tăng vọt. Tag nên có số lượng giá trị hữu hạn như hạng khách hàng."
+    },
+    {
+      question: "Nên chọn chiến lược sampling nào?",
+      answer: "Với hệ thống vừa phải thì lưu 100% vì đơn giản và chi phí chưa đáng kể. Khi cần tối ưu thì dùng tail-based hoặc lấy mẫu thấp cho request thành công nhưng luôn giữ 100% trace lỗi, vì đó chính là những trace cần nhất."
+    }
+  ]}
+/>
+
+## Kết luận
+
+Ba điều đáng nhớ nhất:
+
+1. **Trace id trong mọi dòng log** là thứ biến ba trụ cột rời rạc thành một công cụ.
+2. **p99, không phải trung bình.** Trung bình che giấu đúng nhóm người dùng đang khổ.
+3. **Observability phải có trước khi tách service**, không phải làm sau.
+
+## Tham khảo
+
+- [OpenTelemetry cho .NET](https://opentelemetry.io/docs/languages/dotnet/)
+- [Observability với OpenTelemetry trong .NET](https://learn.microsoft.com/en-us/dotnet/core/diagnostics/observability-with-otel)
+- [Distributed tracing concepts](https://learn.microsoft.com/en-us/dotnet/core/diagnostics/distributed-tracing-concepts)
+- [Observability patterns (cloud-native .NET)](https://learn.microsoft.com/en-us/dotnet/architecture/cloud-native/observability-patterns)
+
+## Điều hướng
+
+- **Bài trước:** [18.4 — 4. Giao tiếp giữa các service](18.4-inter-service-communication.mdx)
+- **Bài tiếp theo:** [18.6 — 6. Identity trong hệ phân tán](18.6-distributed-identity-overview.mdx)
+- **Về module:** [Trang mục lục](./)
