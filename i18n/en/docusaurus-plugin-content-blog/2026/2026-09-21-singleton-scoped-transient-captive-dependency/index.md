@@ -38,13 +38,13 @@ The container does not manage service "kinds" — it manages **instances** and *
 | `Scoped` | First resolve within each scope | When the scope ends | `DbContext`, unit of work, repositories, user context |
 | `Singleton` | First resolve in the whole app | At host shutdown | In-memory caches, parsed configuration, factories |
 
-One detail gets overlooked: the container **is responsible for disposing** the instances it creates that implement `IDisposable`. Each scope keeps a list of the disposables created within it. That means a `Transient` service implementing `IDisposable` that you resolve from the root provider lands on the root scope's list and is only released when the app shuts down — `Transient` is by no means a synonym for "reclaimed immediately". A more detailed comparison table lives in [7.5 — Service Lifetimes](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-07-dependency-injection/7.5-service-lifetimes).
+One detail gets overlooked: the container **is responsible for disposing** the instances it creates that implement `IDisposable`. Each scope keeps a list of the disposables created within it. That means a `Transient` service implementing `IDisposable` that you resolve from the root provider lands on the root scope's list and is only released when the app shuts down — `Transient` is by no means a synonym for "reclaimed immediately". A more detailed comparison table lives in [7.5 — Service Lifetimes](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-07-dependency-injection/7.4-service-lifetimes).
 
 ## What a "scope" is during an HTTP request
 
-In ASP.NET Core a scope is not an abstract notion but a real object. For every incoming request, the infrastructure creates an `IServiceScope`, attaches that scope's `ServiceProvider` to `HttpContext.RequestServices`, runs the entire [middleware pipeline](/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.3-request-pipeline-and-middleware), and disposes the scope once the response is complete.
+In ASP.NET Core a scope is not an abstract notion but a real object. For every incoming request, the infrastructure creates an `IServiceScope`, attaches that scope's `ServiceProvider` to `HttpContext.RequestServices`, runs the entire [middleware pipeline](/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.2-request-pipeline-and-middleware), and disposes the scope once the response is complete.
 
-The immediate consequence: within one request, the controller, the business service and two different repositories all receive **the same** `CrmDbContext`. That is exactly what makes unit of work work — you modify an entity in repository A, add one in repository B, then call `SaveChangesAsync` once and both land in the same transaction. That, rather than any notion of `DbContext` being "heavy", is why it is registered `Scoped` by default ([13.3 — DbContext and entity configuration](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.3-dbcontext-and-entity-configuration)).
+The immediate consequence: within one request, the controller, the business service and two different repositories all receive **the same** `CrmDbContext`. That is exactly what makes unit of work work — you modify an entity in repository A, add one in repository B, then call `SaveChangesAsync` once and both land in the same transaction. That, rather than any notion of `DbContext` being "heavy", is why it is registered `Scoped` by default ([13.3 — DbContext and entity configuration](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.2-dbcontext-and-entity-configuration)).
 
 The second consequence matters more: **outside a request, no scope appears on its own**. Background jobs, hosted services, message queue consumers, startup code — all of them live in the root scope. If you need a `Scoped` service there, you have to create the scope yourself.
 
@@ -78,7 +78,7 @@ Four consequences follow, in this order:
 - **Race conditions.** `DbContext` is not thread-safe and was never designed for concurrent operations. A singleton is called by many requests at once by definition, so `A second operation was started on this context instance` is only a matter of time.
 - **Data leaking between tenants or users**, if the `DbContext` carries a tenant filter or user context bound at construction time.
 
-The same mechanism has a harder-to-spot variant: injecting `IServiceProvider` into the constructor and calling `GetRequiredService` inside a method. That is both a captive dependency and a [Service Locator](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-07-dependency-injection/7.10-anti-patterns), because the real dependency is hidden from the constructor and can no longer be inspected from outside.
+The same mechanism has a harder-to-spot variant: injecting `IServiceProvider` into the constructor and calling `GetRequiredService` inside a method. That is both a captive dependency and a [Service Locator](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-07-dependency-injection/7.9-anti-patterns), because the real dependency is hidden from the constructor and can no longer be inspected from outside.
 
 ## Why Development catches the bug and Production may not
 
@@ -106,7 +106,7 @@ builder.Host.UseDefaultServiceProvider((context, options) =>
 });
 ```
 
-`ValidateOnBuild` walks every registration at `builder.Build()` and makes the app die at startup if the dependency graph is wrong. For an automatically deployed service, an app that refuses to start is a far better signal than a random failure at 2am. The cost is extra startup time proportional to the number of registrations — nearly always worth it. This configuration belongs in `Program.cs`, alongside the per-layer registration extension methods ([7.7 — Program.cs and WebApplicationBuilder](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-07-dependency-injection/7.7-program-cs-and-webapplicationbuilder)).
+`ValidateOnBuild` walks every registration at `builder.Build()` and makes the app die at startup if the dependency graph is wrong. For an automatically deployed service, an app that refuses to start is a far better signal than a random failure at 2am. The cost is extra startup time proportional to the number of registrations — nearly always worth it. This configuration belongs in `Program.cs`, alongside the per-layer registration extension methods ([7.7 — Program.cs and WebApplicationBuilder](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-07-dependency-injection/7.6-program-cs-and-webapplicationbuilder)).
 
 ## The fix: open a scope yourself with IServiceScopeFactory
 
@@ -163,16 +163,16 @@ public sealed class CacheWarmupWorker : BackgroundService
 }
 ```
 
-The host registers `BackgroundService` as a singleton, so this is not an option but the only way to reach a `Scoped` service from inside one ([9.10 — Hosted services and background jobs](/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-09-web-api-professional/9.10-hosted-service-background-jobs)). Putting `CreateScope` outside the loop recreates the very captive dependency you just fixed — the only difference being that this time you wrote it yourself.
+The host registers `BackgroundService` as a singleton, so this is not an option but the only way to reach a `Scoped` service from inside one ([9.10 — Hosted services and background jobs](/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-09-web-api-professional/9.9-hosted-service-background-jobs)). Putting `CreateScope` outside the loop recreates the very captive dependency you just fixed — the only difference being that this time you wrote it yourself.
 
 ## A Singleton must be thread-safe, no exceptions
 
 Registering something as `Singleton` is an implicit claim that the class tolerates concurrent calls from many threads, because in a web app it will almost certainly get them. A few concrete consequences:
 
 - A `Dictionary<K,V>` written from several requests can corrupt its internal structure and hang a read loop. Use `ConcurrentDictionary`, or explicit locking, or hold the state immutably and swap the whole thing.
-- For a shared in-memory cache, rely on `IMemoryCache` — it is registered as a singleton and is thread-safe — rather than rolling your own cache out of static fields ([14.3 — IMemoryCache](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-14-caching-background-jobs/14.3-imemorycache)).
-- Configuration should arrive through the [Options pattern](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-07-dependency-injection/7.8-options-pattern), not a mutable singleton that anything can modify.
-- When you need several implementations of one interface and want to pick by name rather than by lifetime, [Keyed Services](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-07-dependency-injection/7.9-keyed-services) is the right tool — do not turn a singleton into a dispatcher that resolves things itself.
+- For a shared in-memory cache, rely on `IMemoryCache` — it is registered as a singleton and is thread-safe — rather than rolling your own cache out of static fields ([14.3 — IMemoryCache](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-14-caching-background-jobs/14.2-imemorycache)).
+- Configuration should arrive through the [Options pattern](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-07-dependency-injection/7.7-options-pattern), not a mutable singleton that anything can modify.
+- When you need several implementations of one interface and want to pick by name rather than by lifetime, [Keyed Services](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-07-dependency-injection/7.8-keyed-services) is the right tool — do not turn a singleton into a dispatcher that resolves things itself.
 
 ## The rules, condensed
 
@@ -180,7 +180,7 @@ Registering something as `Singleton` is an implicit claim that the class tolerat
 2. A stateless, cheap service that holds no resources → `Transient`. If it is `IDisposable`, check which scope resolves it.
 3. Reserve `Singleton` for classes that are genuinely thread-safe **and** depend on nothing shorter-lived than themselves. If you need something shorter, take `IServiceScopeFactory`.
 4. Enable `ValidateScopes` and `ValidateOnBuild` in every environment, not just Development.
-5. Once a constructor grows past 4–5 dependencies, the problem is no longer the lifetime but the class's responsibilities — split it first, choose lifetimes afterwards. The remaining registration styles, including factories and open generics, are in [7.6 — Registering Services](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-07-dependency-injection/7.6-registering-services).
+5. Once a constructor grows past 4–5 dependencies, the problem is no longer the lifetime but the class's responsibilities — split it first, choose lifetimes afterwards. The remaining registration styles, including factories and open generics, are in [7.6 — Registering Services](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-07-dependency-injection/7.5-registering-services).
 
 <FAQSection
   title="Frequently asked questions"

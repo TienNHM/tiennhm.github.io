@@ -1,0 +1,339 @@
+---
+title: "2.3 — 2. Client - Server Model"
+description: "Ai gọi, ai trả lời, và vì sao HTTP không nhớ gì giữa hai request. Kèm nguyên tắc quan trọng nhất của backend: mọi thứ đến từ client đều là dữ liệu do người lạ gửi."
+sidebar_position: 3
+---
+
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
+
+# 2.4 — 2. Client - Server Model
+
+<SummaryBox>
+Mô hình client–server có hai luật chi phối gần như mọi quyết định thiết kế backend. Thứ nhất: **client luôn là bên bắt chuyện** — máy chủ không tự gọi tới trình duyệt được, và đó là lý do tồn tại của polling, WebSocket và SignalR. Thứ hai, và quan trọng hơn: **HTTP không nhớ gì giữa hai request**, nên máy chủ không mặc nhiên biết request này đến từ ai — đó là lý do sinh ra cookie, session và JWT. Cộng thêm một nguyên tắc an toàn không có ngoại lệ: mọi byte đến từ client đều là **dữ liệu do người lạ gửi**, kể cả khi chính bạn viết ra cái client đó.
+</SummaryBox>
+
+## Mục tiêu bài học
+
+Sau bài này bạn có thể:
+
+- Giải thích vì sao máy chủ không chủ động gửi dữ liệu tới client được, và ba cách vượt qua giới hạn đó.
+- Nêu ý nghĩa của "HTTP là stateless" và hệ quả của nó lên thiết kế đăng nhập.
+- Chỉ ra vì sao kiểm tra ở phía client không bao giờ là bảo mật.
+- Thiết kế API phục vụ nhiều loại client mà không phá vỡ client cũ.
+
+## Nội dung bài học
+
+### 2.4.1 — Ai bắt chuyện trước
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant S as Server
+    C->>S: Toi can danh sach khach hang
+    S-->>C: 200 OK + JSON
+    Note over S: Server KHONG the tu gui gi<br/>khi chua duoc hoi
+    C->>S: Co gi moi khong?
+    S-->>C: 204 No Content
+```
+
+Trong HTTP thuần, **máy chủ không bao giờ nói trước**. Nó chỉ trả lời. Muốn đẩy dữ liệu xuống client theo thời gian thực thì phải dùng một trong ba cách:
+
+| Cách | Nguyên lý | Dùng khi |
+|---|---|---|
+| **Polling** | Client hỏi lại theo chu kỳ | Đơn giản, dữ liệu đổi chậm |
+| **Server-Sent Events** | Một kết nối mở, server đẩy một chiều | Thông báo, luồng sự kiện |
+| **WebSocket** | Kết nối hai chiều, giữ mở | Chat, cộng tác thời gian thực |
+
+Trong .NET, cả ba đều gói lại trong SignalR, và nó tự chọn cách tốt nhất mà môi trường cho phép — chủ đề của Module 11.
+
+### 2.4.2 — HTTP không nhớ gì
+
+Đây là đặc tính bị bỏ qua nhiều nhất, và nó giải thích rất nhiều thứ.
+
+> Mỗi request HTTP là một tờ giấy trắng. Máy chủ không biết request này đến từ ai, trừ khi chính request đó mang theo bằng chứng.
+
+Vì thế mới có:
+
+```http
+# Request 1 — đăng nhập
+POST /api/auth/login
+{ "email": "a@company.com", "password": "..." }
+
+→ 200 OK
+  { "token": "eyJhbGciOi..." }
+
+# Request 2 — hoàn toàn độc lập với request 1
+GET /api/customers
+Authorization: Bearer eyJhbGciOi...
+   ↑ phải tự mang theo bằng chứng, server không tự nhớ
+```
+
+Không có dòng `Authorization` đó, máy chủ coi bạn là người lạ — kể cả khi bạn vừa đăng nhập một giây trước.
+
+Đánh đổi của tính stateless: máy chủ không cần nhớ gì, nên **đặt bao nhiêu máy chủ cũng được** và request đi vào máy nào cũng xử lý được như nhau. Đó là nền tảng của việc mở rộng ngang. Cái giá là mỗi request nặng hơn vì phải mang theo thông tin xác thực.
+
+### 2.4.3 — Client không đáng tin. Không có ngoại lệ.
+
+Đây là điều quan trọng nhất trong cả bài.
+
+```javascript
+// Phía client — JavaScript trong trình duyệt
+if (user.role === 'admin') {
+    showDeleteButton();       // chỉ là TRẢI NGHIỆM NGƯỜI DÙNG
+}
+```
+
+Đoạn trên **không phải bảo mật**. Nó chỉ là ẩn một cái nút. Người dùng có thể mở DevTools, sửa biến, hoặc bỏ qua giao diện hoàn toàn:
+
+```bash
+curl -X DELETE https://api.company.com/customers/42 \
+     -H "Authorization: Bearer <token của tài khoản thường>"
+```
+
+Nếu máy chủ không tự kiểm tra quyền, bản ghi đó bị xoá.
+
+Danh sách những thứ **không bao giờ** được tin, dù client là do chính bạn viết:
+
+- Giá tiền gửi lên từ giỏ hàng — luôn tính lại từ database.
+- `userId` trong body request — luôn lấy từ token đã xác thực.
+- Kết quả kiểm tra form phía client — luôn kiểm tra lại ở máy chủ.
+- Việc một nút bị ẩn — luôn kiểm tra quyền ở endpoint.
+
+Lỗ hổng sinh ra từ việc tin `id` mà client gửi lên có tên riêng: **IDOR**. Bài [Đổi id trên URL ra dữ liệu người khác](/blog/idor-broken-access-control-aspnet-core) mổ xẻ nó và chỉ cách chặn ở một tầng duy nhất. Đây cũng là hạng mục đứng đầu [OWASP Top 10](https://owasp.org/Top10/).
+
+### 2.4.4 — Một máy chủ, nhiều loại client
+
+```mermaid
+flowchart TD
+    W[Web SPA] --> A[API]
+    M[Mobile app] --> A
+    P[Cong thanh toan] --> A
+    I[Job noi bo] --> A
+    A --> DB[(Database)]
+```
+
+Hệ quả thiết kế: **không được đổi API theo kiểu phá vỡ tương thích**, vì bạn không ép được người dùng cập nhật ứng dụng di động ngay hôm nay.
+
+Đổi an toàn và đổi phá vỡ:
+
+| An toàn | Phá vỡ |
+|---|---|
+| Thêm trường mới vào response | Xoá hoặc đổi tên trường đang có |
+| Thêm endpoint mới | Đổi kiểu dữ liệu của trường |
+| Thêm tham số **tuỳ chọn** | Thêm tham số **bắt buộc** |
+| Nới lỏng kiểm tra đầu vào | Siết chặt kiểm tra đầu vào |
+
+Khi buộc phải phá vỡ, cách làm là đánh phiên bản (`/api/v2/customers`) và giữ bản cũ sống tới khi không còn ai dùng.
+
+### 2.4.5 — Client dày hay client mỏng
+
+| | Client mỏng (SSR) | Client dày (SPA) |
+|---|---|---|
+| Nơi render | Máy chủ | Trình duyệt |
+| Lần tải đầu | Nhanh | Chậm hơn (phải tải bundle JS) |
+| Thao tác sau đó | Mỗi lần tải lại trang | Nhanh, chỉ gọi API |
+| SEO | Sẵn sàng | Cần xử lý thêm |
+| Tải trên máy chủ | Cao hơn | Thấp hơn |
+
+Không có phương án đúng tuyệt đối. Nhưng chú ý dòng SEO: nội dung chỉ render ở client thì crawler phải chạy JavaScript mới thấy — cùng cơ chế khiến sơ đồ Mermaid trong chính trang tài liệu này không xuất hiện trong HTML tĩnh.
+
+### 2.4.6 — Rà lại hệ thống của bạn
+
+<Checklist
+  title="Danh sách rà soát client - server"
+  items={[
+    { text: "Mọi endpoint đều tự kiểm tra quyền, không dựa vào việc giao diện đã ẩn nút." },
+    { text: "userId lấy từ token đã xác thực, không lấy từ body hay query string." },
+    { text: "Giá tiền và số tiền luôn tính lại ở máy chủ, không nhận từ client." },
+    { text: "Mọi kiểm tra ở form phía client đều có bản kiểm tra tương ứng ở máy chủ." },
+    { text: "API chưa từng xoá hay đổi tên trường mà không đánh phiên bản mới." },
+    { text: "Tính năng thời gian thực dùng SignalR hoặc SSE thay vì polling dày đặc." },
+  ]}
+/>
+
+## Bài tập áp dụng
+
+#### Bài 1 — Bỏ qua giao diện
+
+Lấy một chức năng trong dự án chỉ dành cho quản trị viên. Đăng nhập bằng tài khoản **thường**, lấy token, rồi gọi thẳng endpoint đó bằng `curl`.
+
+**Tiêu chí hoàn thành:** endpoint trả về `403`. Nếu nó trả về `200`, bạn vừa tìm ra một lỗ hổng thật và cần báo ngay.
+
+:::warning Chỉ làm trên hệ thống bạn có quyền
+Bài này là kiểm thử bảo mật trên chính dự án của bạn hoặc môi trường thử nghiệm. Đừng chạy nó lên hệ thống của người khác khi chưa được cho phép bằng văn bản.
+:::
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Giao diện ẩn một nút đi **không** làm endpoint biến mất. Trình duyệt chỉ là một client; `curl` là một client khác, và máy chủ không phân biệt được hai thứ đó.
+
+Lấy token bằng cách đăng nhập rồi mở DevTools, tab Network, tìm header `Authorization` trong một request bất kỳ.
+
+**Lời giải.**
+
+```bash
+# 1. Đăng nhập bằng tài khoản thường
+TOKEN=$(curl -s -X POST https://localhost:5001/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"nhanvien@company.com","password":"..."}' | jq -r .accessToken)
+
+# 2. Gọi endpoint chỉ dành cho quản trị viên
+curl -i -X DELETE https://localhost:5001/api/v1/users/42 \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**Ba kết quả có thể xảy ra:**
+
+| Mã trả về | Nghĩa là | Cần làm gì |
+|---|---|---|
+| `403 Forbidden` | Đúng — server kiểm tra quyền ở tầng API | Không làm gì |
+| `401 Unauthorized` | Token bị từ chối, nhưng kiểm tra chưa chắc đúng chỗ | Xác nhận lại bằng token hợp lệ |
+| `200 OK` | **Lỗ hổng** — kiểm tra quyền chỉ nằm ở giao diện | Sửa ngay, và rà toàn bộ endpoint khác |
+
+**Vì sao lỗi này phổ biến hơn người ta tưởng.** Lập trình viên frontend ẩn nút "Xoá" với người không phải quản trị viên, thấy chức năng hoạt động đúng, và coi như xong. Không ai nghĩ rằng phần kiểm tra ở backend là **bắt buộc riêng**, vì trong quá trình thử nghiệm không có cách nào gọi tới endpoint đó mà không qua nút.
+
+Lỗ hổng dạng này nằm trong nhóm **Broken Access Control**, đứng đầu bảng [OWASP Top 10](https://owasp.org/Top10/) năm 2021.
+
+**Hai biến thể cần kiểm tra thêm:**
+
+1. **Truy cập tài nguyên của người khác.** Đăng nhập bằng tài khoản A rồi gọi `GET /api/v1/orders/{id}` với `id` của đơn hàng thuộc về tài khoản B. Nếu trả về dữ liệu, đó là lỗi phân quyền theo tài nguyên — [bài 10.7](../../stage-03-aspnet-core-backend/module-10-authentication-authorization/10.6-resource-based-authorization.mdx) xử lý đúng vấn đề này.
+2. **Gửi trường không được phép sửa.** Gọi `PATCH /api/v1/users/me` kèm `{"role":"Admin"}`. Nếu server nhận cả trường `role`, người dùng tự nâng quyền cho mình. Cách phòng là dùng DTO chỉ chứa các trường được phép, thay vì gắn thẳng vào thực thể.
+
+**Quy tắc rút ra.** Giao diện là **trải nghiệm người dùng**, không phải **cơ chế bảo mật**. Mọi kiểm tra quyền phải có ở phía máy chủ, kể cả khi giao diện đã kiểm rồi.
+
+</details>
+
+#### Bài 2 — Chứng minh tính phi trạng thái
+
+Gọi một API cần đăng nhập hai lần: một lần có header `Authorization`, một lần không. Quan sát mã trạng thái. Giải thích vì sao máy chủ không "nhớ" bạn giữa hai lần gọi.
+
+**Tiêu chí hoàn thành:** bạn nêu được nơi trạng thái đăng nhập thật sự được lưu, và vì sao thiết kế như vậy lại cần thiết để mở rộng hệ thống.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Nếu máy chủ thật sự "nhớ" bạn, thì thông tin đó nằm ở đâu? Và nếu hệ thống có ba máy chủ đứng sau một bộ cân bằng tải, điều gì xảy ra khi lần gọi thứ hai rơi vào máy khác?
+
+**Lời giải.**
+
+```bash
+# Lần 1 — có token
+curl -s -o /dev/null -w "%{http_code}\n" https://localhost:5001/api/v1/customers \
+  -H "Authorization: Bearer $TOKEN"
+# 200
+
+# Lần 2 — cùng endpoint, bỏ token
+curl -s -o /dev/null -w "%{http_code}\n" https://localhost:5001/api/v1/customers
+# 401
+```
+
+**Vì sao.** HTTP là giao thức **phi trạng thái**: mỗi request được xử lý độc lập, và máy chủ không giữ thông tin gì về các request trước đó. Danh tính người gọi **không** nằm trên máy chủ mà nằm trong chính request — cụ thể là trong header `Authorization`. Bỏ header đi thì request trở thành ẩn danh, bất kể một giây trước bạn vừa gọi thành công.
+
+**Vì sao thiết kế này cần thiết.** Giả sử máy chủ ghi nhớ phiên đăng nhập trong bộ nhớ của nó. Ba hệ quả:
+
+1. **Không mở rộng theo chiều ngang được.** Thêm máy chủ thứ hai thì người dùng đăng nhập ở máy A sẽ bị coi là ẩn danh khi request rơi vào máy B. Phải thêm cơ chế dính phiên hoặc kho phiên dùng chung — cả hai đều là phức tạp thêm.
+2. **Khởi động lại là mất hết.** Mỗi lần triển khai phiên bản mới, toàn bộ người dùng bị đăng xuất.
+3. **Bộ nhớ tăng theo số người dùng đồng thời**, tạo ra một giới hạn khó dự đoán.
+
+Token tự chứa thông tin giải quyết cả ba: mọi máy chủ đều xác minh được token bằng khoá chung mà không cần tra cứu ở đâu, nên thêm máy chủ chỉ là thêm máy chủ.
+
+**Cái giá của phi trạng thái.** Không có gì miễn phí. Vì máy chủ không lưu phiên, nó cũng **không thu hồi được token đã cấp**. Một token bị lộ vẫn dùng được tới khi hết hạn. Đó là lý do token truy cập nên có thời gian sống ngắn, thường 5 tới 15 phút, và đi kèm cơ chế làm mới — chủ đề của [bài 10.4](../../stage-03-aspnet-core-backend/module-10-authentication-authorization/10.3-refresh-token.mdx).
+
+**Phân biệt với cookie.** Cookie cũng được gửi kèm mỗi request, nên về bản chất vẫn là phi trạng thái ở tầng HTTP. Khác biệt nằm ở chỗ **trình duyệt tự động gửi** cookie, còn header `Authorization` thì code phải chủ động thêm. Chính tính tự động đó sinh ra lớp tấn công giả mạo yêu cầu liên trang, và là lý do API dùng token thường ít bị ảnh hưởng hơn.
+
+</details>
+
+#### Bài 3 — Phân loại thay đổi API
+
+Lấy năm thay đổi gần nhất trong API của bạn và xếp vào bảng ở mục 2.4.4. Với những thay đổi phá vỡ tương thích, trả lời: ứng dụng di động phiên bản cũ có còn chạy được không?
+
+**Tiêu chí hoàn thành:** bạn phân loại đúng, và nhận ra ít nhất một thay đổi tưởng vô hại nhưng thực ra phá vỡ tương thích.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Tiêu chí phân loại chỉ có một câu: *một client viết theo phiên bản cũ, không sửa gì, có còn chạy đúng không?* Nếu câu trả lời là không thì đó là thay đổi phá vỡ, bất kể nó nhỏ tới đâu.
+
+Điểm mấu chốt cần nhớ: ứng dụng web thì bạn triển khai phiên bản mới là mọi người dùng nhận ngay. **Ứng dụng di động thì không** — người dùng phải tự cập nhật, và một phần đáng kể sẽ không cập nhật trong nhiều tháng.
+
+**Lời giải — bảng phân loại:**
+
+| Thay đổi | Phá vỡ? | Vì sao |
+|---|---|---|
+| Thêm một trường vào phản hồi | Không | Client cũ bỏ qua trường nó không biết |
+| Thêm một tham số truy vấn **tuỳ chọn** | Không | Không gửi thì dùng giá trị mặc định |
+| Thêm một endpoint mới | Không | Client cũ không gọi tới |
+| **Đổi tên một trường** | **Có** | Client cũ đọc tên cũ và nhận `null` |
+| **Đổi kiểu dữ liệu của một trường** | **Có** | Chuỗi thành số làm hỏng phần giải mã |
+| **Thêm một trường bắt buộc vào request** | **Có** | Client cũ không gửi, nhận `400` |
+| **Thắt chặt quy tắc xác thực** | **Có** | Dữ liệu trước đây hợp lệ nay bị từ chối |
+| **Đổi mã trạng thái trả về** | **Có** | Client cũ xử lý nhánh lỗi khác đi |
+
+**Ba thay đổi hay bị đánh giá nhầm là vô hại:**
+
+1. **Thắt chặt xác thực.** Thêm giới hạn "số điện thoại tối đa 15 ký tự" nghe như một cải thiện chất lượng dữ liệu. Nhưng mọi client đang gửi số dài hơn bỗng nhận `400`, và họ không hề biết trước.
+2. **Đổi `200` thành `204` cho phản hồi rỗng.** Đúng hơn về mặt ngữ nghĩa, nhưng client nào đang cố đọc thân phản hồi sẽ hỏng.
+3. **Bỏ một trường không ai dùng.** Vấn đề là bạn không có cách nào chắc chắn không ai dùng. Với ứng dụng di động, "không ai dùng" chỉ có nghĩa là *không ai bạn biết*.
+
+**Trả lời câu hỏi của đề.** Với ứng dụng di động, một thay đổi phá vỡ khiến các phiên bản cũ ngừng hoạt động cho tới khi người dùng cập nhật. Dữ liệu thực tế cho thấy quá trình này kéo dài nhiều tháng, và một phần người dùng không bao giờ cập nhật. Vì vậy quy tắc là **không bao giờ thay đổi phá vỡ trên một phiên bản API đang phục vụ**; thay vào đó phát hành `v2` và giữ `v1` chạy song song.
+
+[Bài 9.3 — API Versioning](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.2-api-versioning.mdx) trình bày cách chạy song song hai phiên bản, và cách báo hiệu ngừng hỗ trợ bằng header `Sunset` để client biết trước thay vì bị cắt đột ngột.
+
+</details>
+
+## Tự kiểm tra
+
+<FAQSection
+  items={[
+    {
+      question: "Vì sao máy chủ không tự gửi dữ liệu xuống client được?",
+      answer: "Vì trong HTTP, client luôn là bên mở kết nối và đặt câu hỏi; máy chủ chỉ trả lời. Muốn đẩy dữ liệu theo thời gian thực thì phải dùng polling, Server-Sent Events hoặc WebSocket. Trong .NET, SignalR gói cả ba lại và tự chọn cách tốt nhất mà môi trường cho phép."
+    },
+    {
+      question: "HTTP là stateless nghĩa là gì?",
+      answer: "Nghĩa là mỗi request độc lập hoàn toàn với request trước, máy chủ không tự nhớ bạn là ai. Vì thế request nào cần xác thực đều phải tự mang theo bằng chứng, thường là cookie hoặc JWT trong header Authorization. Đổi lại, máy chủ không giữ trạng thái nên thêm bao nhiêu máy chủ cũng được — đó là nền tảng của mở rộng ngang."
+    },
+    {
+      question: "Kiểm tra ở phía client có phải là bảo mật không?",
+      answer: "Không. Nó chỉ là trải nghiệm người dùng. Người dùng có thể mở DevTools sửa biến, hoặc bỏ qua giao diện hoàn toàn và gọi thẳng API bằng curl. Mọi kiểm tra quyền và kiểm tra dữ liệu phải được làm lại ở máy chủ, kể cả khi client là do chính bạn viết."
+    },
+    {
+      question: "Những dữ liệu nào từ client không bao giờ được tin?",
+      answer: "Giá tiền gửi lên từ giỏ hàng, userId trong body request, kết quả kiểm tra form phía client, và việc một nút đã bị ẩn trên giao diện. Giá phải tính lại từ database, userId phải lấy từ token đã xác thực, kiểm tra phải làm lại ở máy chủ, và mọi endpoint phải tự kiểm tra quyền."
+    },
+    {
+      question: "Thay đổi API nào là phá vỡ tương thích?",
+      answer: "Xoá hoặc đổi tên trường đang có, đổi kiểu dữ liệu của trường, thêm tham số bắt buộc, và siết chặt kiểm tra đầu vào. Ngược lại, thêm trường mới vào response, thêm endpoint mới, thêm tham số tuỳ chọn và nới lỏng kiểm tra đều an toàn. Khi buộc phải phá vỡ thì đánh phiên bản mới và giữ bản cũ sống tới khi không còn ai dùng."
+    },
+    {
+      question: "IDOR là gì?",
+      answer: "Là lỗ hổng xảy ra khi máy chủ nhận một id từ request rồi đọc hoặc sửa bản ghi đó mà không kiểm tra người gọi có quyền với bản ghi hay không. Đổi số trên URL là xem được dữ liệu người khác. Nó thuộc nhóm Broken Access Control, hạng mục đứng đầu OWASP Top 10."
+    }
+  ]}
+/>
+
+## Kết luận
+
+Ba điều đáng nhớ nhất:
+
+1. **Client luôn hỏi trước.** Mọi tính năng thời gian thực đều là cách đi vòng quanh giới hạn này.
+2. **HTTP không nhớ gì, và đó là tính năng.** Nhờ vậy mới mở rộng ngang được; cái giá là mỗi request phải tự mang theo danh tính.
+3. **Kiểm tra ở client là giao diện, kiểm tra ở server mới là bảo mật.** Cái nút bị ẩn không chặn được `curl`.
+
+## Tham khảo
+
+- [HTTP — MDN](https://developer.mozilla.org/en-US/docs/Web/HTTP) — mô hình request/response
+- [OWASP Top 10](https://owasp.org/Top10/) — Broken Access Control đứng đầu danh sách
+- [Authorization in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/security/authorization/introduction) — kiểm tra quyền ở đúng chỗ
+- [ASP.NET Core Web API](https://learn.microsoft.com/en-us/aspnet/core/web-api/) — thiết kế API cho nhiều loại client
+
+## Điều hướng
+
+- **Bài trước:** [2.2 — 1. Internet hoạt động như thế nào](2.2-how-the-internet-works.mdx)
+- **Bài tiếp theo:** [2.4 — 3. HTTP/HTTPS](2.4-http-https.mdx)
+- **Về module:** [Trang mục lục](./)
+
+## Bài liên quan
+
+- [Đổi id trên URL ra dữ liệu người khác? Chặn IDOR ở một tầng duy nhất](/blog/idor-broken-access-control-aspnet-core) — IDOR xảy ra khi API nhận id từ request rồi đọc thẳng bản ghi mà không hỏi xem người gọi có sở hữu bản ghi đó không.

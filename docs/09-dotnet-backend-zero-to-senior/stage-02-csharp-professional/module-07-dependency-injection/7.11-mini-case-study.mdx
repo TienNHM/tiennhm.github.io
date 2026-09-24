@@ -1,0 +1,301 @@
+---
+title: "7.11 — Mini case study"
+description: "Dữ liệu tenant A hiện ra ở tenant B: captive dependency làm một service scoped bị giữ trong singleton, và cách phát hiện tự động."
+sidebar_position: 11
+---
+
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
+
+# 7.12 — Mini case study
+
+<SummaryBox>
+Sự cố nghiêm trọng nhất có thể xảy ra trong hệ multi-tenant: **người dùng của tenant A nhìn thấy dữ liệu của tenant B**. Không có bug logic nào, không ai viết sai truy vấn — nguyên nhân là một lỗi cấu hình DI gọi là **captive dependency**: một service `Singleton` nhận vào một service `Scoped`, khiến service scoped đó bị "giam" và **sống mãi** với dữ liệu của **request đầu tiên** từng tạo ra nó. Điều khiến sự cố này đặc biệt nguy hiểm: nó **không xuất hiện** ở môi trường phát triển (chỉ một người dùng, một tenant) và **không ném lỗi** — hệ thống chạy hoàn toàn bình thường, chỉ trả sai dữ liệu.
+</SummaryBox>
+
+## Mục tiêu bài học
+
+Sau bài này bạn có thể:
+
+- Nhận ra captive dependency trong cấu hình DI.
+- Giải thích vì sao nó gây rò rỉ dữ liệu giữa tenant.
+- Sửa bằng `IServiceScopeFactory`.
+- Bật kiểm tra tự động để không tái diễn.
+
+## Nội dung bài học
+
+### 7.12.1 — Sự cố
+
+```
+09:14  Khach hang tenant "acme" bao: thay 3 lead cua cong ty khac
+       trong danh sach cua minh
+09:20  Kiem tra database: du lieu DUNG, moi lead deu co TenantId dung
+09:35  Chay lai truy van bang tay: tra ve DUNG
+09:50  Reproduce tren staging: KHONG tai hien duoc
+10:30  Tai hien duoc khi co HAI nguoi dung khac tenant cung truy cap
+```
+
+Bốn đặc điểm khiến nó khó chẩn đoán:
+
+- Dữ liệu trong database **đúng**.
+- Truy vấn chạy tay **đúng**.
+- Môi trường phát triển **không tái hiện** (chỉ một người dùng).
+- **Không có lỗi** nào trong log.
+
+### 7.12.2 — Nguyên nhân
+
+```csharp
+// Scoped — mot instance MOI cho moi request HTTP
+public class TenantContext : ITenantContext
+{
+    public TenantContext(IHttpContextAccessor accessor)
+    {
+        TenantId = accessor.HttpContext?.User.FindFirst("tenant_id")?.Value;
+    }
+
+    public string? TenantId { get; }
+}
+
+// SINGLETON — mot instance duy nhat cho CA UNG DUNG
+public class CacheService : ICacheService
+{
+    private readonly ITenantContext _tenantContext;     // <- SCOPED trong SINGLETON
+
+    public CacheService(ITenantContext tenantContext)   // BUG o day
+    {
+        _tenantContext = tenantContext;
+    }
+
+    public string BuildKey(string key) => $"{_tenantContext.TenantId}:{key}";
+}
+```
+
+```csharp
+builder.Services.AddScoped<ITenantContext, TenantContext>();
+builder.Services.AddSingleton<ICacheService, CacheService>();     // <- SAI
+```
+
+```
+Request #1 (tenant "acme"):
+  -> DI tao CacheService (singleton, tao MOT LAN)
+  -> De tao no, DI tao TenantContext voi TenantId = "acme"
+  -> CacheService GIU tham chieu toi TenantContext do MAI MAI
+
+Request #2 (tenant "globex"):
+  -> CacheService da ton tai, KHONG tao lai
+  -> Van dung TenantContext cu -> TenantId = "acme"
+  -> BuildKey tra ve "acme:leads" cho nguoi dung cua globex
+  -> Doc trung cache cua tenant khac -> RO RI DU LIEU
+```
+
+Service scoped bị **giam** trong singleton — đó là tên gọi **captive dependency**.
+
+**Vì sao môi trường phát triển không phát hiện:** chỉ có một người dùng, một tenant, nên `TenantId` bị giam **tình cờ đúng** với mọi request. Sự cố chỉ xuất hiện khi có tenant thứ hai.
+
+### 7.12.3 — Vì sao DI container không báo lỗi
+
+Mặc định, .NET DI **không kiểm tra** vòng đời khi khởi động. Nó chỉ phát hiện lúc chạy và chỉ trong một số trường hợp:
+
+```
+Singleton  <- Singleton   : OK
+Singleton  <- Scoped      : KHONG bao loi mac dinh — day la BUG
+Singleton  <- Transient   : KHONG bao loi, nhung transient bi giam
+Scoped     <- Singleton   : OK
+Scoped     <- Transient   : OK, transient song bang scope
+Transient  <- Scoped      : OK trong scope
+```
+
+Hàng thứ hai là ca này. Hàng thứ ba cũng đáng lưu ý: `Transient` trong `Singleton` **không** được tạo mới mỗi lần như tên gọi gợi ý — nó cũng bị giam ([bài 7.5](7.4-service-lifetimes.mdx)).
+
+### 7.12.4 — Sửa
+
+**Cách 1 — dùng `IServiceScopeFactory`** (đúng cho hầu hết trường hợp):
+
+```csharp
+public class CacheService(IServiceScopeFactory scopeFactory) : ICacheService
+{
+    public string BuildKey(string key)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+
+        return $"{tenantContext.TenantId}:{key}";
+    }
+}
+```
+
+Mỗi lần gọi tạo một scope mới, lấy `TenantContext` **của đúng request hiện tại**, rồi huỷ scope. Không giữ gì cả.
+
+**Cách 2 — truyền tham số thay vì tiêm:**
+
+```csharp
+public class CacheService : ICacheService
+{
+    // Khong tiem gi ca — nguoi goi truyen vao
+    public string BuildKey(string tenantId, string key) => $"{tenantId}:{key}";
+}
+```
+
+Đơn giản nhất và thường đúng nhất: nếu một giá trị **thay đổi theo request**, nó là **tham số**, không phải dependency. Đây là cách sửa ít gây bất ngờ nhất.
+
+**Cách 3 — đổi vòng đời của service:**
+
+```csharp
+builder.Services.AddScoped<ICacheService, CacheService>();     // thay vi Singleton
+```
+
+Chỉ đúng nếu service **thật sự** không cần là singleton. Nếu nó giữ trạng thái dùng chung (một `ConcurrentDictionary` làm cache trong bộ nhớ chẳng hạn), đổi sang scoped sẽ tạo cache mới mỗi request và mất hết tác dụng.
+
+### 7.12.5 — Bật kiểm tra tự động
+
+```csharp
+// Program.cs
+builder.Host.UseDefaultServiceProvider((context, options) =>
+{
+    options.ValidateScopes = true;       // phat hien captive dependency
+    options.ValidateOnBuild = true;      // kiem tra NGAY khi khoi dong
+});
+```
+
+```
+System.AggregateException: Some services are not able to be constructed
+ ---> InvalidOperationException: Cannot consume scoped service
+      'ITenantContext' from singleton 'ICacheService'.
+```
+
+Ứng dụng **không khởi động được** thay vì chạy sai. Đây là kết quả bạn muốn.
+
+Hai tuỳ chọn khác nhau:
+
+| Tuỳ chọn | Khi nào phát hiện |
+|---|---|
+| `ValidateScopes` | Lúc **giải** service — tức lúc chạy |
+| `ValidateOnBuild` | Lúc **khởi động** — sớm nhất có thể |
+
+Bật cả hai. Trong môi trường phát triển, .NET bật `ValidateScopes` mặc định — nên sự cố này thường chỉ xuất hiện trên production, nơi nó bị tắt vì lý do hiệu năng. **Hãy bật cả trên production**: chi phí chỉ có ở lúc khởi động, và nó ngăn được đúng lớp sự cố như ca này.
+
+Thêm một test chạy trong CI:
+
+```csharp
+[Fact]
+public void MoiService_DeuGiaiDuoc()
+{
+    var factory = new WebApplicationFactory<Program>();
+    var provider = factory.Services;
+
+    using var scope = provider.CreateScope();
+
+    foreach (var descriptor in GetAllServiceDescriptors())
+    {
+        var service = scope.ServiceProvider.GetService(descriptor.ServiceType);
+        Assert.NotNull(service);
+    }
+}
+```
+
+### 7.12.6 — Rà dự án
+
+```bash
+# Tim moi dang ky singleton
+grep -rn "AddSingleton" --include=*.cs src/
+```
+
+Với mỗi kết quả, kiểm tra constructor của lớp đó: **mọi dependency của nó phải là singleton**, hoặc phải là `IServiceScopeFactory`.
+
+Ba dependency **thường xuyên** bị tiêm nhầm vào singleton:
+
+| Dependency | Vòng đời | Hậu quả khi bị giam |
+|---|---|---|
+| `DbContext` | Scoped | Change tracker phình vô hạn, dữ liệu cũ |
+| `IHttpContextAccessor` dùng để lấy dữ liệu | Singleton nhưng **nội dung** theo request | Lấy sai người dùng |
+| Bất kỳ `ITenantContext`, `ICurrentUser` nào | Scoped | **Rò rỉ dữ liệu giữa tenant** |
+
+`IHttpContextAccessor` là ca tinh vi: bản thân nó **là** singleton nên DI không báo lỗi, nhưng nếu bạn đọc `HttpContext` trong **constructor** của một singleton, bạn chụp lại context của request đầu tiên. Đọc nó trong **phương thức** thì đúng.
+
+```csharp
+// SAI — chup context trong constructor cua singleton
+public class MyService(IHttpContextAccessor accessor)
+{
+    private readonly string? _userId = accessor.HttpContext?.User...;   // chup MOT LAN
+}
+
+// DUNG — doc trong phuong thuc
+public class MyService(IHttpContextAccessor accessor)
+{
+    public string? GetUserId() => accessor.HttpContext?.User...;        // doc MOI LAN
+}
+```
+
+### 7.12.7 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát captive dependency"
+  items={[
+    { text: "ValidateScopes và ValidateOnBuild được bật ở mọi môi trường." },
+    { text: "Mọi singleton chỉ nhận dependency singleton hoặc IServiceScopeFactory." },
+    { text: "Không tiêm DbContext vào singleton." },
+    { text: "Không đọc HttpContext trong constructor của singleton." },
+    { text: "Giá trị thay đổi theo request được truyền làm tham số, không tiêm." },
+    { text: "Có test trong CI giải mọi service đã đăng ký." },
+    { text: "Đã rà toàn bộ AddSingleton và kiểm tra dependency của chúng." },
+  ]}
+/>
+
+## Bài tập áp dụng
+
+1. **Tái hiện sự cố.** Tạo một singleton nhận một scoped, gọi endpoint với hai giá trị header khác nhau, và xác nhận giá trị thứ hai vẫn trả về của lần đầu.
+
+2. **Bật kiểm tra.** Thêm `ValidateOnBuild` và xác nhận ứng dụng không khởi động được.
+
+3. **Rà dự án.** Liệt kê mọi `AddSingleton` và kiểm tra constructor của từng lớp.
+
+## Tự kiểm tra
+
+<FAQSection
+  items={[
+    {
+      question: "Captive dependency là gì?",
+      answer: "Là khi một service singleton nhận vào một service scoped hoặc transient. Service đó bị giam và sống mãi cùng singleton, giữ nguyên trạng thái của lần đầu tiên nó được tạo."
+    },
+    {
+      question: "Vì sao nó gây rò rỉ dữ liệu giữa tenant?",
+      answer: "Vì service scoped chứa thông tin tenant của request đầu tiên bị giữ mãi. Mọi request sau, kể cả của tenant khác, đều dùng lại giá trị đó, nên khoá cache và bộ lọc dữ liệu đều trỏ nhầm tenant."
+    },
+    {
+      question: "Vì sao môi trường phát triển không phát hiện được?",
+      answer: "Vì chỉ có một người dùng và một tenant, nên giá trị bị giam tình cờ đúng với mọi request. Sự cố chỉ xuất hiện khi có tenant thứ hai truy cập đồng thời."
+    },
+    {
+      question: "Vì sao Transient trong Singleton cũng là vấn đề?",
+      answer: "Vì nó không được tạo mới mỗi lần như tên gọi gợi ý. Nó được tạo một lần lúc dựng singleton rồi bị giữ mãi, nên mọi giả định về việc nó luôn mới đều sai."
+    },
+    {
+      question: "Cách sửa nào ít gây bất ngờ nhất?",
+      answer: "Truyền giá trị làm tham số thay vì tiêm. Nếu một giá trị thay đổi theo request thì nó là tham số chứ không phải dependency. Cách này không cần tạo scope và không có cạm bẫy nào."
+    },
+    {
+      question: "IHttpContextAccessor trong singleton có an toàn không?",
+      answer: "Bản thân nó là singleton nên DI không báo lỗi, nhưng đọc HttpContext trong constructor của singleton sẽ chụp lại context của request đầu tiên. Phải đọc nó trong phương thức, không phải trong constructor."
+    }
+  ]}
+/>
+
+## Kết luận
+
+Ba điều đáng nhớ nhất:
+
+1. **Singleton chỉ được nhận singleton** hoặc `IServiceScopeFactory`.
+2. **Bật `ValidateOnBuild` ở mọi môi trường** — ứng dụng không chạy còn hơn chạy sai.
+3. **Giá trị thay đổi theo request là tham số, không phải dependency.**
+
+## Tham khảo
+
+- [Dependency injection trong .NET](https://learn.microsoft.com/en-us/dotnet/core/extensions/dependency-injection)
+- [Hướng dẫn dependency injection](https://learn.microsoft.com/en-us/dotnet/core/extensions/dependency-injection-guidelines)
+- [Options pattern](https://learn.microsoft.com/en-us/dotnet/core/extensions/options)
+- [ASP.NET Core fundamentals](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/)
+
+## Điều hướng
+
+- **Bài trước:** [7.10 — Mở rộng và đào sâu](7.10-advanced-notes.mdx)
+- **Bài tiếp theo:** [7.12 — Ví dụ thực tế nhanh](7.12-quick-real-world-example.mdx)
+- **Về module:** [Trang mục lục](./)

@@ -1,0 +1,348 @@
+---
+title: "16.7 — 7. FluentValidation"
+description: "Ranh giới giữa validation đầu vào và bất biến domain, validator không được gọi database, When và Unless, và cách test validator."
+sidebar_position: 7
+---
+
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
+
+# 16.8 — 7. FluentValidation
+
+<SummaryBox>
+Câu hỏi khó nhất về validation không phải "dùng thư viện nào" mà là **"quy tắc này thuộc về đâu"**. Ranh giới rất rõ khi nhìn đúng góc: **validator kiểm tra dữ liệu đầu vào có đúng hình dạng không** — trường bắt buộc, định dạng email, khoảng giá trị; **domain bảo vệ bất biến nghiệp vụ** — trạng thái nào chuyển sang trạng thái nào được, hạn mức, tồn kho. Đặt bất biến vào validator là sai vì **validator chỉ chạy ở một đường vào**: job import, script sửa dữ liệu và một service khác đều bỏ qua nó. Và một quy tắc thực dụng: **validator không được gọi database** — nó chạy trước mọi thứ, không có transaction, và biến mỗi request thành một truy vấn thừa.
+</SummaryBox>
+
+## Mục tiêu bài học
+
+Sau bài này bạn có thể:
+
+- Đặt mỗi quy tắc vào đúng tầng.
+- Viết validator cho quy tắc có điều kiện.
+- Tránh gọi database trong validator.
+- Chuyển lỗi validation thành phản hồi HTTP đúng.
+- Test validator.
+
+## Nội dung bài học
+
+### 16.8.1 — Ba tầng, ba loại quy tắc
+
+| Tầng | Kiểm tra | Ví dụ |
+|---|---|---|
+| **Validator** | Hình dạng dữ liệu | Email không rỗng, đúng định dạng, dài ≤ 320 |
+| **Application** | Quy tắc cần dữ liệu | Email đã tồn tại chưa, khách còn hạn mức không |
+| **Domain** | **Bất biến** | Lead đã mất thì không convert được |
+
+Phân biệt bằng một câu hỏi: **"quy tắc này cần gì để kiểm tra?"**
+
+```
+Chi can chinh request        -> Validator
+Can truy van database        -> Application
+Can trang thai cua entity    -> Domain
+```
+
+Và một câu hỏi thứ hai để phát hiện đặt sai chỗ: **"nếu dữ liệu vào từ job import thay vì từ API, quy tắc này còn áp dụng không?"**
+
+Nếu **có**, nó không thuộc về validator — vì validator chỉ chạy ở đường API.
+
+```csharp
+// SAI — bat bien nghiep vu trong validator
+RuleFor(x => x.Value)
+    .LessThanOrEqualTo(500_000_000)
+    .When(x => x.CustomerTier == "Bronze");
+```
+
+Quy tắc này **chỉ tồn tại ở endpoint đó**. Job import tạo deal 2 tỷ cho khách Bronze mà không ai chặn.
+
+```csharp
+// DUNG — bat bien nam trong domain
+public sealed class Deal
+{
+    public static Deal Create(CustomerTier tier, Money value)
+    {
+        if (tier == CustomerTier.Bronze && value.Amount > 500_000_000)
+            throw new DomainException("Khách hàng Bronze không được tạo deal trên 500 triệu");
+
+        return new Deal { ... };
+    }
+}
+```
+
+Giờ **mọi** đường vào đều đi qua nó.
+
+### 16.8.2 — Validator
+
+```csharp
+public sealed class CreateLeadValidator : AbstractValidator<CreateLeadCommand>
+{
+    public CreateLeadValidator()
+    {
+        RuleFor(x => x.Name)
+            .NotEmpty().WithMessage("Tên khách hàng là bắt buộc")
+            .Length(2, 200);
+
+        RuleFor(x => x.Email)
+            .NotEmpty()
+            .EmailAddress()
+            .MaximumLength(320);
+
+        RuleFor(x => x.Value)
+            .GreaterThan(0).WithMessage("Giá trị phải lớn hơn 0");
+
+        RuleFor(x => x.Phone)
+            .Matches(@"^(0|\+84)[0-9]{9}$")
+            .When(x => !string.IsNullOrEmpty(x.Phone));      // chi khi CO gia tri
+    }
+}
+```
+
+Ba điều FluentValidation làm tốt hơn DataAnnotations ([bài 8.6](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.5-model-validation.mdx)):
+
+**1. Quy tắc có điều kiện rõ ràng:**
+
+```csharp
+When(x => x.Type == CustomerType.Business, () =>
+{
+    RuleFor(x => x.TaxCode).NotEmpty().Length(10, 13);
+    RuleFor(x => x.CompanyName).NotEmpty();
+});
+
+Unless(x => x.IsDraft, () =>
+{
+    RuleFor(x => x.Items).NotEmpty();
+});
+```
+
+Với DataAnnotations, việc này cần `IValidatableObject` và một chuỗi `if`.
+
+**2. Quy tắc liên quan nhiều trường:**
+
+```csharp
+RuleFor(x => x.EndDate)
+    .GreaterThan(x => x.StartDate)
+    .WithMessage("Ngày kết thúc phải sau ngày bắt đầu");
+```
+
+**3. Test được như một lớp bình thường** — mục 16.8.5.
+
+`RuleLevelCascadeMode` tránh thông báo lỗi trùng lặp:
+
+```csharp
+public CreateLeadValidator()
+{
+    RuleLevelCascadeMode = CascadeMode.Stop;      // dung o loi DAU TIEN moi truong
+
+    RuleFor(x => x.Email).NotEmpty().EmailAddress();
+    // Email rong -> chi bao "bat buoc", khong bao them "khong dung dinh dang"
+}
+```
+
+### 16.8.3 — Validator không gọi database
+
+```csharp
+// SAI — truy van trong validator
+RuleFor(x => x.Email)
+    .MustAsync(async (email, ct) => !await _db.Leads.AnyAsync(l => l.Email == email, ct))
+    .WithMessage("Email đã tồn tại");
+```
+
+Bốn vấn đề:
+
+1. **Chạy cho mọi request**, kể cả request sẽ bị từ chối vì trường khác.
+2. **Không có transaction** — giữa lúc kiểm tra và lúc lưu, ai đó có thể tạo trùng.
+3. **Vẫn cần ràng buộc `UNIQUE`** ở database, nên kiểm tra này chỉ để có thông báo đẹp hơn.
+4. **Validator giờ phụ thuộc hạ tầng** — không test được nếu không mock database.
+
+```csharp
+// DUNG — trong handler, gan noi co transaction
+public async Task<Result<Guid>> Handle(CreateLeadCommand command, CancellationToken ct)
+{
+    if (await _leads.EmailExistsAsync(command.Email, ct))
+        return Result.Conflict<Guid>("Email đã tồn tại");
+
+    ...
+}
+```
+
+Và **ràng buộc `UNIQUE` vẫn là hàng rào cuối** ([bài 12.2](../../stage-04-database-production/module-12-sql-deep-dive/12.1-crm-database-design.mdx)):
+
+```csharp
+try
+{
+    await _uow.SaveChangesAsync(ct);
+}
+catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+{
+    return Result.Conflict<Guid>("Email đã tồn tại");    // thua race condition
+}
+```
+
+Kiểm tra trước cho **thông báo tốt**; ràng buộc database cho **tính đúng đắn**. Cần cả hai.
+
+### 16.8.4 — Chuyển lỗi thành phản hồi HTTP
+
+```csharp
+public sealed class ValidationExceptionHandler(IProblemDetailsService pds) : IExceptionHandler
+{
+    public async ValueTask<bool> TryHandleAsync(
+        HttpContext context, Exception exception, CancellationToken ct)
+    {
+        if (exception is not ValidationException ve) return false;
+
+        var errors = ve.Errors
+            .GroupBy(e => e.PropertyName)
+            .ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).ToArray());
+
+        context.Response.StatusCode = StatusCodes.Status400BadRequest;
+
+        return await pds.TryWriteAsync(new ProblemDetailsContext
+        {
+            HttpContext = context,
+            ProblemDetails = new ValidationProblemDetails(errors)
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "Dữ liệu không hợp lệ",
+            }
+        });
+    }
+}
+```
+
+Giữ nguyên `ValidationProblemDetails` để client sinh tự động parse được ([bài 8.6](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.5-model-validation.mdx)).
+
+**Phân biệt ba mã trạng thái:**
+
+| Loại | Mã |
+|---|---|
+| Validator: hình dạng sai | **400** |
+| Application: email đã tồn tại | **409** |
+| Domain: vi phạm bất biến | **422** |
+
+Ba mã khác nhau cho ba loại lỗi khác nhau giúp client xử lý đúng: 400 là "sửa form", 409 là "dữ liệu xung đột", 422 là "thao tác không hợp lệ ở trạng thái hiện tại".
+
+### 16.8.5 — Test validator
+
+```csharp
+public sealed class CreateLeadValidatorTests
+{
+    private readonly CreateLeadValidator _validator = new();
+
+    [Fact]
+    public void Should_HaveError_When_EmailIsEmpty()
+    {
+        var command = new CreateLeadCommand("Nguyen Van A", "", 1000);
+
+        _validator.TestValidate(command)
+                  .ShouldHaveValidationErrorFor(x => x.Email);
+    }
+
+    [Theory]
+    [InlineData("khong-phai-email")]
+    [InlineData("@example.com")]
+    public void Should_HaveError_When_EmailInvalid(string email)
+    {
+        _validator.TestValidate(new CreateLeadCommand("A", email, 1000))
+                  .ShouldHaveValidationErrorFor(x => x.Email);
+    }
+
+    [Fact]
+    public void Should_RequireTaxCode_ForBusinessCustomer()
+    {
+        var command = new CreateLeadCommand("A", "a@b.com", 1000)
+        {
+            Type = CustomerType.Business, TaxCode = null
+        };
+
+        _validator.TestValidate(command)
+                  .ShouldHaveValidationErrorFor(x => x.TaxCode);
+    }
+}
+```
+
+`TestValidate` từ `FluentValidation.TestHelper` cho API đọc được. Và validator **không có phụ thuộc nào**, nên test chạy trong mili giây — đó là lợi ích trực tiếp của việc không gọi database trong đó.
+
+Đăng ký:
+
+```csharp
+builder.Services.AddValidatorsFromAssemblyContaining<CreateLeadValidator>();
+```
+
+Và **một validator mỗi command**. Validator dùng chung cho nhiều command tạo ghép chặt giống như DTO dùng chung ở [bài 16.5](16.4-vertical-slice-architecture.mdx).
+
+### 16.8.6 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát validation"
+  items={[
+    { text: "Mỗi quy tắc đã trả lời được câu hỏi nó cần gì để kiểm tra." },
+    { text: "Quy tắc vẫn áp dụng khi dữ liệu vào từ job import thì nằm ở domain." },
+    { text: "Validator không gọi database." },
+    { text: "Kiểm tra trùng lặp nằm ở handler, và vẫn có ràng buộc UNIQUE ở database." },
+    { text: "Có xử lý DbUpdateException cho race condition sau kiểm tra." },
+    { text: "Quy tắc có điều kiện dùng When hoặc Unless, không dùng chuỗi if." },
+    { text: "CascadeMode được đặt để tránh thông báo lỗi trùng lặp." },
+    { text: "Lỗi validator trả 400, xung đột dữ liệu trả 409, vi phạm bất biến trả 422." },
+    { text: "Định dạng lỗi giữ nguyên ValidationProblemDetails." },
+    { text: "Mỗi command có validator riêng, không dùng chung." },
+    { text: "Validator có unit test và chạy không cần hạ tầng." },
+  ]}
+/>
+
+## Bài tập áp dụng
+
+1. **Bất biến đặt sai chỗ.** Đặt một quy tắc nghiệp vụ vào validator, rồi tạo dữ liệu qua một job import bỏ qua tầng API. Xác nhận quy tắc bị bỏ qua hoàn toàn.
+
+2. **Race condition.** Bỏ ràng buộc `UNIQUE` và chỉ kiểm tra trùng bằng truy vấn. Bắn 20 request đồng thời cùng email và đếm số bản ghi được tạo.
+
+3. **Đo chi phí validator gọi database.** Thêm một `MustAsync` truy vấn database, gửi request **thiếu trường bắt buộc khác**, và xác nhận truy vấn vẫn chạy.
+
+## Tự kiểm tra
+
+<FAQSection
+  items={[
+    {
+      question: "Làm sao biết một quy tắc thuộc tầng nào?",
+      answer: "Hỏi nó cần gì để kiểm tra. Chỉ cần chính request thì thuộc validator; cần truy vấn database thì thuộc Application; cần trạng thái của entity thì thuộc Domain. Câu hỏi thứ hai để phát hiện đặt sai là nếu dữ liệu vào từ job import thì quy tắc còn áp dụng không."
+    },
+    {
+      question: "Vì sao bất biến nghiệp vụ không được đặt vào validator?",
+      answer: "Vì validator chỉ chạy ở một đường vào là API. Job import, script sửa dữ liệu và một service khác cùng database đều bỏ qua nó, nên quy tắc có thể bị vi phạm mà không ai biết. Bất biến phải nằm trong entity để mọi đường vào đều đi qua."
+    },
+    {
+      question: "Vì sao validator không nên gọi database?",
+      answer: "Bốn lý do: nó chạy cho mọi request kể cả request sẽ bị từ chối vì trường khác, nó không có transaction nên vẫn có race condition, bạn vẫn cần ràng buộc UNIQUE ở database, và validator trở thành phụ thuộc hạ tầng nên không test được nhanh."
+    },
+    {
+      question: "Kiểm tra trùng lặp nên làm ở đâu?",
+      answer: "Trong handler để có thông báo lỗi tốt, và vẫn giữ ràng buộc UNIQUE ở database làm hàng rào cuối. Kiểm tra trước cho thông báo đẹp, ràng buộc database cho tính đúng đắn; và nên bắt DbUpdateException để xử lý race condition."
+    },
+    {
+      question: "Ba loại lỗi tương ứng ba mã trạng thái nào?",
+      answer: "Lỗi hình dạng từ validator là 400, xung đột dữ liệu như email đã tồn tại là 409, và vi phạm bất biến domain là 422. Ba mã khác nhau giúp client biết nên sửa form, báo xung đột, hay báo thao tác không hợp lệ ở trạng thái hiện tại."
+    },
+    {
+      question: "Vì sao mỗi command nên có validator riêng?",
+      answer: "Validator dùng chung cho nhiều command tạo ghép chặt giống như DTO dùng chung: đổi quy tắc cho một use case sẽ ảnh hưởng use case khác, dù chúng thay đổi vì lý do khác nhau."
+    }
+  ]}
+/>
+
+## Kết luận
+
+Ba điều đáng nhớ nhất:
+
+1. **Nếu quy tắc vẫn áp dụng khi dữ liệu vào từ job import, nó thuộc về domain.**
+2. **Validator không gọi database.** Kiểm tra trùng thuộc về handler, cộng `UNIQUE` ở database.
+3. **400, 409, 422 là ba loại lỗi khác nhau** — client cần phân biệt được.
+
+## Tham khảo
+
+- [FluentValidation documentation](https://docs.fluentvalidation.net/en/latest/)
+- [Model validation in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/mvc/models/validation)
+- [Handle errors in ASP.NET Core web APIs](https://learn.microsoft.com/en-us/aspnet/core/web-api/handle-errors)
+- [Design validations in the domain model layer](https://learn.microsoft.com/en-us/dotnet/architecture/microservices/microservice-ddd-cqrs-patterns/domain-model-layer-validations)
+
+## Điều hướng
+
+- **Bài trước:** [16.6 — 6. MediatR — pipeline cho use case](16.6-mediatr-use-case-pipeline.mdx)
+- **Bài tiếp theo:** [16.8 — 8. Domain Events (in-process)](16.8-in-process.mdx)
+- **Về module:** [Trang mục lục](./)

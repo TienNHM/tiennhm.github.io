@@ -37,7 +37,7 @@ Có hai trục phân quyền cần phân biệt, và [bài về secure object re
 
 Vì authentication và authorization là hai việc khác nhau, mà framework chỉ tự động lo giúp bạn việc thứ nhất.
 
-`[Authorize]` trả lời câu hỏi "anh là ai". Nó xác minh chữ ký token, dựng `ClaimsPrincipal`, và đến đó là hết. Nó không biết gì về đơn hàng số 1044, cũng không có cách nào biết đơn đó thuộc về ai. Câu hỏi "anh có được phép động vào bản ghi này không" phải do code nghiệp vụ trả lời, và vì không có cái gì bắt buộc, nên khi deadline gấp thì đó đúng là dòng code bị bỏ quên. Ranh giới giữa hai khái niệm được tách bạch trong [bài authentication vs authorization](/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-10-authentication-authorization/10.2-authentication-vs-authorization).
+`[Authorize]` trả lời câu hỏi "anh là ai". Nó xác minh chữ ký token, dựng `ClaimsPrincipal`, và đến đó là hết. Nó không biết gì về đơn hàng số 1044, cũng không có cách nào biết đơn đó thuộc về ai. Câu hỏi "anh có được phép động vào bản ghi này không" phải do code nghiệp vụ trả lời, và vì không có cái gì bắt buộc, nên khi deadline gấp thì đó đúng là dòng code bị bỏ quên. Ranh giới giữa hai khái niệm được tách bạch trong [bài authentication vs authorization](/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-10-authentication-authorization/10.1-authentication-vs-authorization).
 
 Một nguồn gây lỗi nữa là niềm tin vào giao diện. Màn hình chỉ hiển thị đơn của người dùng hiện tại, nên developer ngầm cho rằng id gửi lên luôn hợp lệ. Nhưng HTTP client nào cũng gửi được request tuỳ ý, còn giao diện thì không phải là một lớp bảo vệ, nó chỉ là một gợi ý.
 
@@ -101,7 +101,7 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
 }
 ```
 
-Cơ chế và các bẫy đi kèm — bắt buộc phải có index trên cột lọc, và `IgnoreQueryFilters()` sẽ vô hiệu hoá toàn bộ — được nói rõ trong [bài về global query filters](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.11-global-query-filters). Query filter rất hợp cho ranh giới rộng như tenant hay soft delete. Với quyền sở hữu ở mức từng bản ghi, nơi admin và manager có luật riêng, thì đặt tất cả vào filter sẽ khiến điều kiện phình ra khó kiểm soát.
+Cơ chế và các bẫy đi kèm — bắt buộc phải có index trên cột lọc, và `IgnoreQueryFilters()` sẽ vô hiệu hoá toàn bộ — được nói rõ trong [bài về global query filters](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.10-global-query-filters). Query filter rất hợp cho ranh giới rộng như tenant hay soft delete. Với quyền sở hữu ở mức từng bản ghi, nơi admin và manager có luật riêng, thì đặt tất cả vào filter sẽ khiến điều kiện phình ra khó kiểm soát.
 
 Cho những luật phụ thuộc vào chính dữ liệu của bản ghi, ASP.NET Core có sẵn resource-based authorization. Bạn tải resource lên trước, rồi hỏi hệ thống phân quyền:
 
@@ -136,7 +136,7 @@ if (!result.Succeeded)
     return Forbid();
 ```
 
-Cái được ở đây là luật "ai được động vào Order" nằm gọn trong một handler, sửa một lần là mọi nơi gọi nó đổi theo, thay vì phải đi tìm từng câu `if` rải rác. Cách khai báo requirement và handler được trình bày chi tiết ở [bài resource-based authorization](/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-10-authentication-authorization/10.7-resource-based-authorization), còn phần khai báo policy để gắn vào endpoint thì ở [bài policy-based authorization](/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-10-authentication-authorization/10.6-policy-based-authorization).
+Cái được ở đây là luật "ai được động vào Order" nằm gọn trong một handler, sửa một lần là mọi nơi gọi nó đổi theo, thay vì phải đi tìm từng câu `if` rải rác. Cách khai báo requirement và handler được trình bày chi tiết ở [bài resource-based authorization](/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-10-authentication-authorization/10.6-resource-based-authorization), còn phần khai báo policy để gắn vào endpoint thì ở [bài policy-based authorization](/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-10-authentication-authorization/10.5-policy-based-authorization).
 
 Ba tầng này không loại trừ nhau: query filter chặn ranh giới rộng, ràng buộc trong `WHERE` lo đường đọc thường ngày, resource-based authorization lo những luật phức tạp cần đọc dữ liệu mới quyết định được.
 

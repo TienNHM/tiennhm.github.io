@@ -1,0 +1,345 @@
+---
+title: "16.6 — 6. MediatR — pipeline cho use case"
+description: "Pipeline behavior là giá trị thật, thứ tự behavior quan trọng, chi phí mất khả năng lần theo luồng, giấy phép từ v12, và khi nào không cần MediatR."
+sidebar_position: 6
+---
+
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
+
+# 16.7 — 6. MediatR — pipeline cho use case
+
+<SummaryBox>
+Giá trị thật của MediatR **không phải** "tách controller khỏi service" — bạn làm được điều đó bằng một interface thường. Giá trị nằm ở **pipeline behavior**: viết validation, logging, transaction, retry **một lần** rồi áp cho **mọi** use case, và **thứ tự** chúng chạy là thứ bạn kiểm soát. Cái giá cũng thật: bạn **mất khả năng "Go to Definition"** — từ `sender.Send(command)` không nhảy tới handler được, và với người mới đó là rào cản đáng kể. Thêm một yếu tố thực tế: **MediatR từ phiên bản 12 chuyển sang giấy phép thương mại cho dùng trong doanh nghiệp**, nên nhiều đội đang cân nhắc thay thế — và với một dự án nhỏ, một interface thường cộng vài decorator cho 80% lợi ích mà không có phụ thuộc nào.
+</SummaryBox>
+
+## Mục tiêu bài học
+
+Sau bài này bạn có thể:
+
+- Viết command, query và handler.
+- Thiết kế pipeline behavior và sắp đúng thứ tự.
+- Nêu chi phí thật của MediatR.
+- Biết các phương án thay thế.
+
+## Nội dung bài học
+
+### 16.7.1 — Command, query, handler
+
+```csharp
+public sealed record CreateLeadCommand(string Name, string Email, decimal Value)
+    : IRequest<Result<Guid>>;
+
+public sealed class CreateLeadHandler(
+    ILeadRepository leads, IUnitOfWork uow, TimeProvider clock)
+    : IRequestHandler<CreateLeadCommand, Result<Guid>>
+{
+    public async Task<Result<Guid>> Handle(CreateLeadCommand command, CancellationToken ct)
+    {
+        if (await leads.EmailExistsAsync(command.Email, ct))
+            return Result.Conflict<Guid>("Email đã tồn tại");
+
+        var lead = Lead.Create(command.Name, new EmailAddress(command.Email),
+                               Money.Vnd(command.Value));
+
+        leads.Add(lead);
+        await uow.SaveChangesAsync(ct);
+
+        return Result.Success(lead.Id.Value);
+    }
+}
+```
+
+```csharp
+[HttpPost]
+public async Task<IActionResult> Create(CreateLeadCommand command, CancellationToken ct)
+{
+    var result = await _sender.Send(command, ct);
+
+    return result.IsSuccess
+        ? CreatedAtRoute("GetLead", new { id = result.Value }, result.Value)
+        : Conflict(result.Error);
+}
+```
+
+Controller trở nên mỏng — nhưng **một interface thường cũng làm được điều đó**:
+
+```csharp
+public interface ICreateLeadHandler
+{
+    Task<Result<Guid>> HandleAsync(CreateLeadCommand command, CancellationToken ct);
+}
+```
+
+Nên nếu lý do duy nhất bạn dùng MediatR là "controller mỏng", bạn đang trả phí cho thứ không cần.
+
+**Tách command và query** là quy ước đáng giữ: command **thay đổi** trạng thái, query **chỉ đọc**. Nhờ đó bạn áp behavior khác nhau — transaction chỉ cho command, cache chỉ cho query.
+
+### 16.7.2 — Pipeline behavior là giá trị thật
+
+```csharp
+public sealed class ValidationBehavior<TRequest, TResponse>(
+    IEnumerable<IValidator<TRequest>> validators)
+    : IPipelineBehavior<TRequest, TResponse>
+    where TRequest : notnull
+{
+    public async Task<TResponse> Handle(
+        TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken ct)
+    {
+        if (!validators.Any()) return await next();
+
+        var context = new ValidationContext<TRequest>(request);
+        var results = await Task.WhenAll(validators.Select(v => v.ValidateAsync(context, ct)));
+        var failures = results.SelectMany(r => r.Errors).Where(f => f is not null).ToList();
+
+        if (failures.Count > 0) throw new ValidationException(failures);
+
+        return await next();
+    }
+}
+```
+
+```csharp
+public sealed class TransactionBehavior<TRequest, TResponse>(CrmDbContext db)
+    : IPipelineBehavior<TRequest, TResponse>
+    where TRequest : ICommand                      // CHI command
+{
+    public async Task<TResponse> Handle(
+        TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken ct)
+    {
+        if (db.Database.CurrentTransaction is not null) return await next();   // long nhau
+
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+
+        var response = await next();
+
+        await tx.CommitAsync(ct);
+        return response;
+    }
+}
+```
+
+```csharp
+public sealed class LoggingBehavior<TRequest, TResponse>(
+    ILogger<LoggingBehavior<TRequest, TResponse>> logger)
+    : IPipelineBehavior<TRequest, TResponse>
+{
+    public async Task<TResponse> Handle(
+        TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken ct)
+    {
+        var name = typeof(TRequest).Name;
+        var start = Stopwatch.GetTimestamp();
+
+        try
+        {
+            return await next();
+        }
+        finally
+        {
+            logger.LogInformation("{Request} mat {Ms}ms",
+                name, Stopwatch.GetElapsedTime(start).TotalMilliseconds);
+        }
+    }
+}
+```
+
+**Đây là thứ interface thường không làm được gọn.** Không có behavior, bạn viết `try/catch`, validation và `BeginTransaction` **trong từng handler** — 50 handler là 50 bản sao.
+
+`where TRequest : ICommand` khiến transaction behavior **chỉ áp cho command**, không cho query — một transaction cho truy vấn chỉ đọc là chi phí thừa.
+
+Kiểm tra `CurrentTransaction is not null` xử lý trường hợp handler gọi `sender.Send` lồng nhau — không có nó, bạn mở transaction lồng và nhận exception.
+
+### 16.7.3 — Thứ tự behavior quyết định hành vi
+
+```csharp
+builder.Services.AddMediatR(cfg =>
+{
+    cfg.RegisterServicesFromAssembly(typeof(CreateLeadCommand).Assembly);
+
+    cfg.AddOpenBehavior(typeof(LoggingBehavior<,>));         // 1 — NGOAI cung
+    cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));      // 2
+    cfg.AddOpenBehavior(typeof(TransactionBehavior<,>));     // 3
+    cfg.AddOpenBehavior(typeof(PerformanceBehavior<,>));     // 4 — TRONG cung
+});
+```
+
+Behavior chạy theo thứ tự **đăng ký**, và bọc nhau như middleware ([bài 8.3](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.2-request-pipeline-and-middleware.mdx)):
+
+```
+Logging   ─► Validation ─► Transaction ─► Performance ─► Handler
+Logging   ◄─ Validation ◄─ Transaction ◄─ Performance ◄─ Handler
+```
+
+Thứ tự này có chủ đích, và đảo lại gây hậu quả cụ thể:
+
+| Thứ tự sai | Hậu quả |
+|---|---|
+| Validation **sau** Transaction | Mở transaction cho request **chắc chắn** thất bại |
+| Logging **sau** Validation | **Không log** request bị validation từ chối |
+| Transaction **ngoài** Logging | Log ghi trước khi commit; log có nhưng dữ liệu không có |
+
+Hàng cuối là loại lỗi rất khó chẩn đoán: log nói "đã tạo lead thành công" nhưng database không có gì, vì transaction rollback **sau** khi log đã ghi.
+
+**Quy tắc:** thứ **không cần transaction** đặt ngoài; thứ **cần biết transaction đã commit** đặt ngoài cùng.
+
+### 16.7.4 — Chi phí thật
+
+**1. Mất khả năng lần theo luồng.**
+
+```csharp
+await _sender.Send(command, ct);          // Go to Definition -> ISender.Send
+```
+
+Bạn không nhảy tới handler được. Phải tìm kiếm toàn giải pháp theo tên kiểu command. Với người mới, đó là rào cản đáng kể — và với codebase 200 handler, nó là chi phí hằng ngày.
+
+Giảm bằng quy ước đặt tên nghiêm ngặt: `CreateLeadCommand` → `CreateLeadCommandHandler`, cùng thư mục hoặc cùng file (đúng mẫu VSA ở [bài 16.5](16.4-vertical-slice-architecture.mdx)).
+
+**2. Lỗi runtime thay vì lỗi biên dịch.**
+
+Quên đăng ký handler, hoặc handler trong assembly không được quét, cho:
+
+```
+InvalidOperationException: No service for type
+'IRequestHandler`2[CreateLeadCommand, Result`1[Guid]]' has been registered.
+```
+
+Chỉ xuất hiện **lúc chạy**, khi ai đó gọi endpoint đó. Chặn bằng kiến trúc test:
+
+```csharp
+[Fact]
+public void EveryRequest_ShouldHave_Handler()
+{
+    var requests = ApplicationAssembly.GetTypes()
+        .Where(t => t.GetInterfaces().Any(i => i.IsGenericType
+                 && i.GetGenericTypeDefinition() == typeof(IRequest<>)));
+
+    foreach (var request in requests)
+        Assert.NotNull(FindHandlerFor(request));
+}
+```
+
+**3. Ba file cho một endpoint.** Command, handler, validator — thay vì một action. Với endpoint CRUD đơn giản, đó là chi phí thuần.
+
+**4. Giấy phép.** Từ MediatR v12, dùng trong doanh nghiệp cần giấy phép thương mại. Đây là yếu tố thực tế mà nhiều đội phải cân nhắc, và nó đã thúc đẩy các thư viện thay thế.
+
+### 16.7.5 — Phương án thay thế
+
+```csharp
+// 1. Interface thuong + decorator — khong phu thuoc gi
+public interface IHandler<TRequest, TResponse>
+{
+    Task<TResponse> HandleAsync(TRequest request, CancellationToken ct);
+}
+
+public sealed class ValidationDecorator<TRequest, TResponse>(
+    IHandler<TRequest, TResponse> inner, IEnumerable<IValidator<TRequest>> validators)
+    : IHandler<TRequest, TResponse>
+{
+    public async Task<TResponse> HandleAsync(TRequest request, CancellationToken ct)
+    {
+        // ... validate ...
+        return await inner.HandleAsync(request, ct);
+    }
+}
+
+// Dang ky bang Scrutor
+services.Scan(s => s.FromAssemblyOf<CreateLeadHandler>()
+    .AddClasses(c => c.AssignableTo(typeof(IHandler<,>)))
+    .AsImplementedInterfaces().WithScopedLifetime());
+
+services.Decorate(typeof(IHandler<,>), typeof(ValidationDecorator<,>));
+```
+
+Cách này cho **cùng lợi ích behavior** mà: giữ được "Go to Definition" (bạn tiêm `IHandler<CreateLeadCommand, Result<Guid>>` cụ thể), không thêm phụ thuộc, và không có vấn đề giấy phép.
+
+Cái giá: tự viết khoảng 50 dòng hạ tầng, và mỗi decorator phải khai kiểu tường minh hơn.
+
+Các thư viện thay thế cũng tồn tại với API gần giống MediatR và giấy phép mở — kiểm tra hiện trạng trước khi chọn, vì lĩnh vực này đang thay đổi.
+
+**Khi nào không cần gì cả:**
+
+| Tình huống | Nên |
+|---|---|
+| CRUD đơn giản, ít quy tắc | **Gọi thẳng service** |
+| Dưới 20 endpoint | **Service thường** |
+| Nhiều use case, cần behavior chung | MediatR hoặc decorator |
+| Cần transaction và validation nhất quán | MediatR hoặc decorator |
+
+Với một API 15 endpoint, controller gọi thẳng service là **đúng nhất** — ít file, dễ đọc, và bạn không mất gì.
+
+### 16.7.6 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát MediatR"
+  items={[
+    { text: "Đã trả lời được MediatR giải quyết vấn đề gì trong dự án này." },
+    { text: "Command và query được phân biệt rõ, có marker interface riêng." },
+    { text: "Transaction behavior chỉ áp cho command." },
+    { text: "Thứ tự behavior được chọn có chủ đích, không theo thứ tự ngẫu nhiên." },
+    { text: "Không có thứ gì cần biết transaction đã commit nằm bên trong transaction behavior." },
+    { text: "Transaction behavior xử lý được trường hợp gọi lồng nhau." },
+    { text: "Quy ước đặt tên nghiêm ngặt giữa request và handler." },
+    { text: "Có kiến trúc test kiểm tra mọi request đều có handler." },
+    { text: "Đã cân nhắc vấn đề giấy phép của MediatR." },
+    { text: "Dự án nhỏ không bị ép dùng MediatR khi service thường là đủ." },
+  ]}
+/>
+
+## Bài tập áp dụng
+
+1. **Thứ tự sai.** Đăng ký `TransactionBehavior` **trước** `ValidationBehavior`, gửi một command không hợp lệ, và quan sát transaction được mở rồi rollback vô ích.
+
+2. **Handler thiếu.** Tạo một command **không** có handler và gọi endpoint tương ứng. Ghi lại exception và thời điểm nó xảy ra. Thêm kiến trúc test và xác nhận nó bắt được.
+
+3. **So sánh hai cách.** Cài cùng một use case bằng MediatR và bằng interface cộng decorator. So sánh số dòng, số phụ thuộc, và khả năng "Go to Definition".
+
+## Tự kiểm tra
+
+<FAQSection
+  items={[
+    {
+      question: "Giá trị thật của MediatR là gì?",
+      answer: "Pipeline behavior: viết validation, logging, transaction một lần rồi áp cho mọi use case. Việc tách controller khỏi service thì một interface thường cũng làm được, nên nếu đó là lý do duy nhất thì bạn đang trả phí cho thứ không cần."
+    },
+    {
+      question: "Vì sao thứ tự behavior quan trọng?",
+      answer: "Behavior bọc nhau như middleware. Validation sau Transaction nghĩa là mở transaction cho request chắc chắn thất bại. Logging sau Validation nghĩa là không log request bị từ chối. Và thứ cần biết transaction đã commit mà nằm trong transaction sẽ ghi log trước khi commit, cho tình huống log nói thành công nhưng database không có gì."
+    },
+    {
+      question: "Vì sao transaction behavior chỉ nên áp cho command?",
+      answer: "Vì query chỉ đọc nên mở transaction cho nó là chi phí thừa. Dùng marker interface riêng cho command và ràng buộc generic để behavior chỉ áp đúng nhóm đó."
+    },
+    {
+      question: "Chi phí lớn nhất của MediatR là gì?",
+      answer: "Mất khả năng lần theo luồng: từ lời gọi Send không nhảy tới handler được, phải tìm kiếm toàn giải pháp theo tên kiểu. Với người mới đó là rào cản đáng kể, và với codebase hàng trăm handler thì đó là chi phí hằng ngày."
+    },
+    {
+      question: "Lỗi thiếu handler xuất hiện khi nào?",
+      answer: "Lúc chạy, khi ai đó gọi đúng endpoint đó, chứ không phải lúc biên dịch. Chặn bằng một kiến trúc test duyệt mọi kiểu implement IRequest và khẳng định có handler tương ứng."
+    },
+    {
+      question: "Phương án thay thế MediatR là gì?",
+      answer: "Interface thường cộng decorator đăng ký bằng Scrutor. Nó cho cùng lợi ích behavior, giữ được khả năng đi tới định nghĩa vì bạn tiêm handler cụ thể, không thêm phụ thuộc và không có vấn đề giấy phép. Cái giá là tự viết khoảng năm mươi dòng hạ tầng."
+    }
+  ]}
+/>
+
+## Kết luận
+
+Ba điều đáng nhớ nhất:
+
+1. **Behavior là giá trị; controller mỏng thì interface thường cũng làm được.**
+2. **Thứ tự behavior quyết định hành vi** — validation trước transaction, và log sau commit.
+3. **Dự án nhỏ không cần MediatR.** Service thường là đủ và dễ đọc hơn.
+
+## Tham khảo
+
+- [MediatR (GitHub)](https://github.com/jbogard/MediatR)
+- [CQRS pattern (Azure Architecture Center)](https://learn.microsoft.com/en-us/azure/architecture/patterns/cqrs)
+- [Apply CQRS and CQS approaches](https://learn.microsoft.com/en-us/dotnet/architecture/microservices/microservice-ddd-cqrs-patterns/apply-simplified-microservice-cqrs-ddd-patterns)
+- [Scrutor — decorator registration](https://github.com/khellang/Scrutor)
+
+## Điều hướng
+
+- **Bài trước:** [16.5 — 5. DDD chiến thuật (vừa đủ cho backend)](16.5-ddd-tactics-backend-pragmatic.mdx)
+- **Bài tiếp theo:** [16.7 — 7. FluentValidation](16.7-fluentvalidation.mdx)
+- **Về module:** [Trang mục lục](./)

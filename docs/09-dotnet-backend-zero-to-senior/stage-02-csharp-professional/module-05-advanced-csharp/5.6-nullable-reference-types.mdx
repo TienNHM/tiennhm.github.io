@@ -1,0 +1,532 @@
+---
+title: "5.6 — 6. Nullable Reference Types (C# 8+)"
+description: "Tính năng chuyển NullReferenceException từ lỗi lúc chạy thành cảnh báo lúc biên dịch. Kèm giới hạn quan trọng: nó chỉ là phân tích tĩnh, không có kiểm tra nào lúc chạy."
+sidebar_position: 6
+---
+
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
+
+# 5.7 — 6. Nullable Reference Types (C# 8+)
+
+<SummaryBox>
+Nullable reference types chuyển phần lớn `NullReferenceException` **từ lỗi lúc chạy thành cảnh báo lúc biên dịch**. Nhưng có một giới hạn phải nắm ngay: nó **hoàn toàn là phân tích tĩnh** — trình biên dịch không sinh ra bất kỳ kiểm tra nào lúc chạy, và `string` không-null vẫn nhận được `null` từ JSON, từ reflection, hoặc từ một thư viện chưa bật tính năng này. Vì vậy vẫn phải kiểm tra dữ liệu đến từ bên ngoài. Bài này cũng nói về toán tử `!` — thứ trông như cách làm im cảnh báo, nhưng thực chất là **một lời hứa với trình biên dịch**, và hứa sai thì vẫn nổ đúng như cũ.
+</SummaryBox>
+
+## Mục tiêu bài học
+
+Sau bài này bạn có thể:
+
+- Bật tính năng cho dự án mới và cho dự án đang chạy mà không ngập cảnh báo.
+- Đọc đúng ý nghĩa `string` so với `string?`.
+- Nêu giới hạn của phân tích tĩnh và chỗ nó không bảo vệ được.
+- Dùng toán tử `!` có trách nhiệm, và biết khi nào không nên dùng.
+- Dùng thuộc tính như `NotNullWhen` để trình biên dịch hiểu hàm của bạn.
+
+## Nội dung bài học
+
+### 5.7.1 — Bật lên
+
+```xml
+<PropertyGroup>
+  <Nullable>enable</Nullable>
+  <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+</PropertyGroup>
+```
+
+Sau khi bật, mỗi kiểu tham chiếu mang một trong hai ý nghĩa:
+
+```csharp
+string  name  = null;   // Cảnh báo CS8600 — kiểu này KHÔNG nhận null
+string? email = null;   // Hợp lệ — dấu ? nói rõ "có thể null"
+
+Console.WriteLine(email.Length);    // Cảnh báo CS8602 — có thể NRE
+Console.WriteLine(email?.Length);   // An toàn
+```
+
+Giá trị lớn nhất không phải là ít lỗi hơn, mà là **kiểu trở thành tài liệu**. Nhìn chữ ký hàm là biết cái gì có thể vắng mặt:
+
+```csharp
+public Customer? FindByEmail(string email);   // tìm không thấy -> null
+public Customer  GetById(int id);             // không thấy -> ném, không trả null
+```
+
+Hai dòng trên nói nhiều hơn bất kỳ đoạn tài liệu XML nào.
+
+### 5.7.2 — Phân tích luồng: trình biên dịch theo dõi được
+
+```csharp
+public void Process(string? input)
+{
+    // Console.WriteLine(input.Length);    // Cảnh báo
+
+    if (input is null) return;
+
+    Console.WriteLine(input.Length);       // KHÔNG cảnh báo — đã loại null ở trên
+    Console.WriteLine(input.ToUpper());    // vẫn hiểu là khác null
+}
+```
+
+Trình biên dịch theo dõi trạng thái null theo từng nhánh, và nó hiểu khá nhiều dạng kiểm tra:
+
+```csharp
+if (input is not null) { /* input khác null ở đây */ }
+if (!string.IsNullOrEmpty(input)) { /* hiểu nhờ thuộc tính NotNullWhen */ }
+var safe = input ?? "mặc định";           // safe là string, không phải string?
+input ??= "mặc định";                     // sau dòng này input khác null
+```
+
+### 5.7.3 — Giới hạn: chỉ là phân tích tĩnh
+
+Đây là phần quan trọng nhất, và là chỗ hay gây hiểu lầm.
+
+```csharp
+public class CustomerDto
+{
+    public string Name { get; set; } = null!;    // hứa là sẽ khác null
+}
+
+// JSON không có trường "name"
+var dto = JsonSerializer.Deserialize<CustomerDto>("{}")!;
+Console.WriteLine(dto.Name.Length);    // NullReferenceException lúc CHẠY
+```
+
+Trình biên dịch tin bạn. Nó **không sinh ra kiểm tra nào lúc chạy**, và bộ deserializer thì không quan tâm tới chú thích null.
+
+Bốn nguồn `null` lọt qua được:
+
+1. **Deserialize JSON, XML** — dữ liệu từ bên ngoài không tuân theo chú thích của bạn.
+2. **Reflection** — gán giá trị mà không qua trình biên dịch.
+3. **Thư viện chưa bật tính năng** — mọi kiểu của chúng là "không rõ", và không sinh cảnh báo.
+4. **Entity của EF Core** — thuộc tính điều hướng có thể chưa được nạp.
+
+Quy tắc: **vẫn phải kiểm tra dữ liệu đến từ ranh giới hệ thống**. Nullable reference types bảo vệ phần bên trong, không bảo vệ cửa ra vào.
+
+```csharp
+public async Task<IActionResult> Create(CreateCustomerRequest request)
+{
+    // Kiểm tra thật, không dựa vào chú thích kiểu
+    if (string.IsNullOrWhiteSpace(request.Name))
+        return ValidationProblem("Tên không được để trống.");
+    // ...
+}
+```
+
+### 5.7.4 — Toán tử `!` là một lời hứa
+
+```csharp
+string? maybe = GetValue();
+string definitely = maybe!;          // "tôi bảo đảm nó khác null"
+```
+
+`!` không kiểm tra gì cả. Nó chỉ tắt cảnh báo. Hứa sai thì vẫn `NullReferenceException` như trước, chỉ khác là bạn đã mất luôn lời nhắc.
+
+Ba chỗ dùng `!` chấp nhận được:
+
+```csharp
+// 1. Bạn vừa kiểm tra bằng cách mà trình biên dịch không hiểu
+if (dict.ContainsKey(key))
+    Use(dict[key]!);                 // tốt hơn: dùng TryGetValue
+
+// 2. Trường được gán bởi framework (EF Core, DI, deserializer)
+public string Name { get; set; } = null!;
+
+// 3. Trong test, nơi bạn biết chắc bối cảnh
+var result = service.Find(id)!;
+```
+
+Mọi chỗ khác: `!` là dấu hiệu cần dừng lại và hỏi *"vì sao trình biên dịch nghĩ nó có thể null, còn tôi thì không?"* — thường một trong hai bên đang sai, và không phải lúc nào cũng là trình biên dịch.
+
+### 5.7.5 — Dạy trình biên dịch hiểu hàm của bạn
+
+```csharp
+using System.Diagnostics.CodeAnalysis;
+
+// Nói rõ: trả về true thì customer chắc chắn khác null
+public bool TryFind(int id, [NotNullWhen(true)] out Customer? customer)
+{
+    customer = _db.Customers.Find(id);
+    return customer is not null;
+}
+
+if (TryFind(42, out var c))
+    Console.WriteLine(c.Name);       // KHÔNG cảnh báo, nhờ NotNullWhen
+```
+
+Vài thuộc tính hữu dụng khác:
+
+| Thuộc tính | Nghĩa |
+|---|---|
+| `[NotNullWhen(true)]` | Tham số `out` khác null khi hàm trả `true` |
+| `[MaybeNullWhen(false)]` | Có thể null khi trả `false` |
+| `[NotNullIfNotNull(nameof(input))]` | Trả về khác null nếu đối số khác null |
+| `[MemberNotNull(nameof(_field))]` | Sau khi gọi hàm này, field đó chắc chắn khác null |
+
+`MemberNotNull` giải quyết một trường hợp hay gặp: constructor gọi một phương thức `Initialize()` để gán field, và trình biên dịch không biết điều đó.
+
+### 5.7.6 — Bật cho dự án đang chạy
+
+Bật thẳng `<Nullable>enable</Nullable>` trên một codebase cũ có thể cho ra hàng nghìn cảnh báo cùng lúc, và kết cục quen thuộc là cả đội tắt nó đi.
+
+Cách đi dần:
+
+```xml
+<!-- Bước 1: chỉ cảnh báo, chưa chú thích -->
+<Nullable>warnings</Nullable>
+```
+
+```csharp
+// Bước 2: bật theo từng file, làm dần
+#nullable enable
+// ... nội dung file ...
+#nullable restore
+```
+
+```xml
+<!-- Bước 3: khi đã sạch, bật toàn bộ và nâng lên lỗi -->
+<Nullable>enable</Nullable>
+<WarningsAsErrors>CS8600;CS8602;CS8603;CS8618</WarningsAsErrors>
+```
+
+Thứ tự ưu tiên khi xử lý cảnh báo: bắt đầu từ **tầng domain và application**, nơi logic nghiệp vụ sống. Tầng hạ tầng và DTO để sau — chúng nhiều cảnh báo nhất nhưng ít rủi ro nhất.
+
+### 5.7.7 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát nullable"
+  items={[
+    { text: "Mọi project đã bật <Nullable>enable</Nullable>." },
+    { text: "Không có cảnh báo nullable nào bị tắt bằng ! mà không có lý do ghi kèm." },
+    { text: "Dữ liệu từ ranh giới hệ thống (request, JSON, cấu hình) vẫn được kiểm tra thật." },
+    { text: "Chữ ký hàm phản ánh đúng ý định: trả null hay ném ngoại lệ." },
+    { text: "Hàm dạng TryXxx có gắn NotNullWhen để chỗ gọi không phải dùng !." },
+    { text: "Thuộc tính gán bởi framework dùng null! kèm comment giải thích." },
+    { text: "Đã cân nhắc nâng CS8602 và CS8618 thành lỗi biên dịch." },
+  ]}
+/>
+
+## Bài tập áp dụng
+
+#### Bài 1 — Chứng minh giới hạn của phân tích tĩnh
+
+Tạo một DTO có `public string Name { get; set; } = null!;`, giải mã từ chuỗi JSON rỗng `{}`, rồi truy cập `Name.Length`. Ghi lại ngoại lệ và giải thích vì sao trình biên dịch không cảnh báo gì.
+
+**Tiêu chí hoàn thành:** bạn nêu được Nullable Reference Types bảo đảm gì và **không** bảo đảm gì.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Toán tử `!` là một **lời hứa của bạn** với trình biên dịch, không phải một phép kiểm tra. Trình biên dịch tin bạn và thôi không cảnh báo nữa. Vậy ai kiểm chứng lời hứa đó?
+
+**Lời giải.**
+
+```csharp
+public class CustomerDto
+{
+    public string Name { get; set; } = null!;     // "tin tôi đi, nó không null"
+    public string Email { get; set; } = null!;
+}
+
+var dto = JsonSerializer.Deserialize<CustomerDto>("{}")!;
+Console.WriteLine(dto.Name.Length);
+```
+
+**Kết quả:**
+
+```text
+System.NullReferenceException: Object reference not set to an instance of an object.
+```
+
+Trình biên dịch **không cảnh báo một dòng nào**, vì bạn đã dùng `= null!` để nói với nó rằng thuộc tính này không bao giờ null.
+
+**Vì sao.** Nullable Reference Types là **phân tích tĩnh thuần tuý**. Nó không sinh ra bất kỳ phép kiểm tra nào lúc chạy. Cụ thể:
+
+| NRT bảo đảm | NRT **không** bảo đảm |
+|---|---|
+| Cảnh báo khi bạn dùng giá trị mà **luồng code** cho thấy có thể null | Bất cứ điều gì về dữ liệu đến từ bên ngoài |
+| Theo dõi được luồng qua `if`, `??`, pattern matching | Không kiểm tra JSON, database, reflection |
+| Ép bạn suy nghĩ về null tại mỗi điểm | Không chặn được `null!` — bạn tự tắt nó |
+
+**Ba nguồn null lọt qua NRT:**
+
+1. **Giải mã JSON.** Thuộc tính thiếu trong JSON thành `null`, bất kể khai báo.
+2. **Reflection và ORM.** EF Core dựng đối tượng qua reflection, bỏ qua hàm khởi tạo.
+3. **Assembly biên dịch trước khi có NRT.** Thư viện cũ không có chú thích, nên trình biên dịch coi mọi thứ là "không rõ" và không cảnh báo.
+
+**Cách sửa đúng — dùng `required` thay vì `null!`:**
+
+```csharp
+public class CustomerDto
+{
+    public required string Name { get; set; }     // C# 11
+    public required string Email { get; set; }
+}
+```
+
+`required` buộc người tạo đối tượng phải gán giá trị:
+
+```csharp
+var dto = new CustomerDto();                      // LỖI BIÊN DỊCH
+var dto = new CustomerDto { Name = "An", Email = "an@x.com" };   // OK
+```
+
+Nhưng `required` **vẫn không** chặn được giải mã JSON — từ .NET 8, `System.Text.Json` tôn trọng `required` và **ném ngoại lệ** khi thiếu trường:
+
+```text
+System.Text.Json.JsonException: JSON deserialization for type 'CustomerDto'
+was missing required properties including: 'name', 'email'.
+```
+
+Ngoại lệ này tốt hơn hẳn `NullReferenceException`: nó nói rõ **thiếu trường nào**, và nó xảy ra ở **ranh giới tiếp nhận dữ liệu** chứ không phải sâu trong logic nghiệp vụ.
+
+**Lớp phòng vệ thật sự: xác thực ở biên.**
+
+```csharp
+public class CreateCustomerValidator : AbstractValidator<CustomerDto>
+{
+    public CreateCustomerValidator()
+    {
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.Email).NotEmpty().EmailAddress();
+    }
+}
+```
+
+**Nguyên tắc.** NRT là công cụ tốt cho **code nội bộ**, nơi trình biên dịch nhìn thấy toàn bộ luồng. Ở **ranh giới hệ thống** — JSON, database, cấu hình, lời gọi API bên ngoài — phải có xác thực lúc chạy. Hai lớp này bổ sung cho nhau, không thay thế nhau. [Bài 8.6](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.5-model-validation.mdx) trình bày lớp thứ hai.
+
+</details>
+
+#### Bài 2 — Dạy trình biên dịch hiểu hàm của bạn
+
+Viết một hàm `TryTim` không có thuộc tính chú thích nào, quan sát cảnh báo ở chỗ gọi. Thêm `[NotNullWhen(true)]` và xác nhận cảnh báo biến mất.
+
+**Tiêu chí hoàn thành:** cảnh báo biến mất **mà không** dùng toán tử `!`.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Trình biên dịch phân tích luồng trong **một** phương thức. Khi gọi sang phương thức khác, nó chỉ biết những gì chữ ký nói. Các thuộc tính chú thích chính là cách bổ sung thông tin vào chữ ký.
+
+**Lời giải — trước:**
+
+```csharp
+public bool TryTim(int id, out Customer? kh)
+{
+    kh = _cache.GetValueOrDefault(id);
+    return kh is not null;
+}
+
+// Chỗ gọi
+if (TryTim(42, out var kh))
+{
+    Console.WriteLine(kh.Name);     // cảnh báo CS8602
+}
+```
+
+```text
+warning CS8602: Dereference of a possibly null reference.
+```
+
+Cảnh báo này **đúng về mặt hình thức**: nhìn chữ ký, trình biên dịch chỉ biết `kh` có kiểu `Customer?`. Nó không có cách nào biết rằng khi hàm trả `true` thì `kh` chắc chắn khác `null`.
+
+**Sau:**
+
+```csharp
+public bool TryTim(int id, [NotNullWhen(true)] out Customer? kh)
+{
+    kh = _cache.GetValueOrDefault(id);
+    return kh is not null;
+}
+```
+
+Cảnh báo biến mất, và **không cần** toán tử `!`. Trình biên dịch giờ hiểu mối liên hệ giữa giá trị trả về và trạng thái null của tham số.
+
+**Bảy thuộc tính hữu ích nhất:**
+
+| Thuộc tính | Nghĩa |
+|---|---|
+| `[NotNullWhen(true)]` | Tham số `out` khác null khi hàm trả `true` |
+| `[NotNullWhen(false)]` | Khác null khi trả `false` — dùng cho `IsNullOrEmpty` |
+| `[MaybeNullWhen(false)]` | Có thể null khi trả `false` |
+| `[NotNullIfNotNull(nameof(x))]` | Kết quả khác null nếu tham số `x` khác null |
+| `[MemberNotNull(nameof(_f))]` | Sau khi hàm này chạy, trường `_f` chắc chắn khác null |
+| `[DoesNotReturn]` | Hàm này không bao giờ trả về — luôn ném |
+| `[DoesNotReturnIf(true)]` | Không trả về nếu tham số bằng `true` |
+
+**Hai ví dụ thực tế đáng biết:**
+
+```csharp
+// MemberNotNull — cho mẫu khởi tạo lười
+public class Repo
+{
+    private CrmDbContext? _db;
+
+    [MemberNotNull(nameof(_db))]
+    private void DamBaoKhoiTao()
+    {
+        _db ??= new CrmDbContext();
+    }
+
+    public async Task<Customer?> LayAsync(int id, CancellationToken ct)
+    {
+        DamBaoKhoiTao();
+        return await _db.Customers.FindAsync([id], ct);   // không cảnh báo
+    }
+}
+
+// DoesNotReturn — cho hàm ném ngoại lệ tập trung
+[DoesNotReturn]
+private static void NemKhongTimThay(int id) =>
+    throw new NotFoundException($"Không tìm thấy khách hàng {id}");
+
+public Customer Lay(int id)
+{
+    var kh = _cache.GetValueOrDefault(id);
+    if (kh is null) NemKhongTimThay(id);
+    return kh;        // không cảnh báo — trình biên dịch biết dòng trên không trả về
+}
+```
+
+**Vì sao nên dùng thuộc tính thay vì `!`.** Cả hai đều làm cảnh báo biến mất, nhưng khác nhau về bản chất:
+
+| | Toán tử `!` | Thuộc tính chú thích |
+|---|---|---|
+| Phạm vi | Một điểm gọi | **Mọi** điểm gọi hàm đó |
+| Ai kiểm chứng | Không ai | Trình biên dịch kiểm tra thân hàm có nhất quán không |
+| Khi logic hàm đổi | `!` vẫn im lặng, dù giờ đã sai | Cảnh báo xuất hiện lại ở chỗ gọi |
+| Tài liệu | Không | Chữ ký tự mô tả hành vi |
+
+Dòng thứ ba là lý do quan trọng nhất. `!` là một lời hứa đóng băng tại một thời điểm; thuộc tính là một khẳng định được kiểm tra lại mỗi lần biên dịch.
+
+</details>
+
+#### Bài 3 — Đo khối lượng khi bật NRT cho dự án cũ
+
+Bật `<Nullable>enable</Nullable>` trên một project cũ, đếm số cảnh báo theo từng mã lỗi. Lập kế hoạch xử lý theo thứ tự ưu tiên.
+
+**Tiêu chí hoàn thành:** bạn có bảng thống kê và một kế hoạch **không** dùng `!` để dập cảnh báo hàng loạt.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Đếm cảnh báo theo mã:
+
+```bash
+dotnet build 2>&1 | grep -oP 'warning \KCS8[0-9]+' | sort | uniq -c | sort -rn
+```
+
+**Lời giải — kết quả điển hình trên một project trung bình:**
+
+```text
+    312 CS8618   Non-nullable field must contain a non-null value when exiting constructor
+    187 CS8602   Dereference of a possibly null reference
+     94 CS8604   Possible null reference argument
+     41 CS8603   Possible null reference return
+     22 CS8625   Cannot convert null literal to non-nullable reference type
+```
+
+Hơn 650 cảnh báo. Đây chính là lý do nhiều đội bật NRT rồi tắt ngay.
+
+**Kế hoạch xử lý theo thứ tự ưu tiên:**
+
+**Bước 1 — Bật theo từng file, không bật toàn dự án.**
+
+```xml
+<!-- .csproj — chỉ bật chú thích, chưa bật cảnh báo -->
+<Nullable>annotations</Nullable>
+```
+
+Rồi trong từng file, bật đầy đủ:
+
+```csharp
+#nullable enable
+```
+
+Cách này cho phép xử lý dứt điểm từng file, và số cảnh báo luôn ở mức quản lý được.
+
+**Bước 2 — Thứ tự xử lý file.** Đi từ trong ra ngoài:
+
+```text
+1. Value object và entity      -> nền của mọi thứ khác
+2. Interface và DTO            -> chữ ký lan toả ra nhiều nơi
+3. Service tầng nghiệp vụ
+4. Controller và tầng hạ tầng  -> làm sau cùng
+```
+
+Làm đúng thứ tự này thì mỗi bước sau tự động bớt cảnh báo, vì các kiểu nó dùng đã được chú thích đúng.
+
+**Bước 3 — Cách xử lý từng mã cảnh báo:**
+
+| Mã | Cách xử lý đúng | Cách xử lý **sai** |
+|---|---|---|
+| `CS8618` | Dùng `required`, hoặc gán trong constructor | `= null!` |
+| `CS8602` | Thêm kiểm tra null, hoặc sửa nguồn để không thể null | `x!.Y` |
+| `CS8604` | Kiểm tra trước khi truyền, hoặc đổi tham số thành nullable | `truyền x!` |
+| `CS8603` | Đổi kiểu trả về thành nullable — thường là **đúng sự thật** | `return x!` |
+| `CS8625` | Đổi tham số hoặc trường thành nullable | `default!` |
+
+**Bước 4 — Ngăn thoái lui.** Sau khi xử lý xong một khu vực, biến cảnh báo thành lỗi để nó không quay lại:
+
+```xml
+<PropertyGroup>
+  <Nullable>enable</Nullable>
+  <WarningsAsErrors>$(WarningsAsErrors);CS8600;CS8602;CS8603;CS8604;CS8618;CS8625</WarningsAsErrors>
+</PropertyGroup>
+```
+
+**Vì sao tuyệt đối không dập bằng `!`.** Rắc `!` khắp nơi làm số cảnh báo về 0 trong một buổi chiều, và **xoá sạch toàn bộ giá trị** của tính năng. Mỗi `!` là một lời hứa không ai kiểm chứng; một dự án đầy `!` có đúng mức an toàn như dự án chưa bật NRT, chỉ khác là giờ bạn **tưởng** nó an toàn.
+
+**Một điều đáng an ủi.** Phần lớn cảnh báo `CS8618` — chiếm gần một nửa trong bảng trên — được giải quyết hàng loạt bằng `required`, và nhiều trình soạn thảo có thao tác sửa nhanh cho việc này. Sau khi xử lý xong nhóm đó, con số còn lại thường nhỏ hơn nhiều so với vẻ ban đầu.
+
+</details>
+
+## Tự kiểm tra
+
+<FAQSection
+  items={[
+    {
+      question: "Nullable reference types mang lại gì ngoài việc ít lỗi hơn?",
+      answer: "Kiểu trở thành tài liệu. Nhìn chữ ký hàm là biết cái gì có thể vắng mặt: Customer? FindByEmail nghĩa là tìm không thấy sẽ trả null, còn Customer GetById nghĩa là không thấy thì ném ngoại lệ chứ không trả null. Hai dòng đó nói nhiều hơn bất kỳ đoạn tài liệu XML nào."
+    },
+    {
+      question: "Giới hạn lớn nhất của tính năng này là gì?",
+      answer: "Nó hoàn toàn là phân tích tĩnh lúc biên dịch, không sinh ra kiểm tra nào lúc chạy. Nên một thuộc tính khai là string vẫn nhận được null từ deserializer JSON, từ reflection, từ thư viện chưa bật tính năng, hoặc từ thuộc tính điều hướng chưa nạp của EF Core."
+    },
+    {
+      question: "Vậy có còn phải kiểm tra null không?",
+      answer: "Có, ở ranh giới hệ thống. Nullable reference types bảo vệ phần bên trong codebase của bạn, không bảo vệ cửa ra vào. Dữ liệu từ request, từ JSON, từ file cấu hình vẫn phải được kiểm tra thật sự chứ không dựa vào chú thích kiểu."
+    },
+    {
+      question: "Toán tử ! làm gì?",
+      answer: "Nó không kiểm tra gì cả, chỉ tắt cảnh báo — thực chất là một lời hứa với trình biên dịch rằng giá trị này khác null. Hứa sai thì vẫn NullReferenceException như trước, chỉ khác là bạn đã mất luôn lời nhắc. Gặp dấu chấm than nên dừng lại hỏi vì sao trình biên dịch nghĩ nó có thể null còn mình thì không."
+    },
+    {
+      question: "NotNullWhen dùng để làm gì?",
+      answer: "Để dạy trình biên dịch hiểu hợp đồng của hàm bạn viết. Với TryFind có tham số out, gắn NotNullWhen(true) nghĩa là khi hàm trả về true thì tham số đó chắc chắn khác null, nên chỗ gọi không cần dùng dấu chấm than nữa. Tương tự có MaybeNullWhen, NotNullIfNotNull và MemberNotNull."
+    },
+    {
+      question: "Bật tính năng này cho dự án cũ thế nào?",
+      answer: "Đừng bật thẳng enable vì sẽ ra hàng nghìn cảnh báo và cả đội tắt nó đi. Đi ba bước: đặt Nullable là warnings để chỉ cảnh báo, rồi bật theo từng file bằng chỉ thị nullable enable, cuối cùng mới bật toàn bộ và nâng một số mã lên thành lỗi. Ưu tiên xử lý tầng domain trước, DTO và hạ tầng sau."
+    }
+  ]}
+/>
+
+## Kết luận
+
+Ba điều đáng nhớ nhất:
+
+1. **Đây là phân tích tĩnh, không phải kiểm tra lúc chạy.** Ranh giới hệ thống vẫn cần kiểm tra thật.
+2. **`!` là lời hứa, không phải giải pháp.** Mỗi dấu `!` nên kèm một lý do.
+3. **Kiểu trở thành tài liệu.** `Customer?` và `Customer` nói rõ ý định hơn mọi comment.
+
+## Tham khảo
+
+- [Nullable reference types](https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references)
+- [Nullable attributes](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/attributes/nullable-analysis) — `NotNullWhen`, `MemberNotNull`
+- [Null-coalescing operators](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/null-coalescing-operator)
+- [Patterns](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/patterns) — `is null`, `is not null`
+
+## Điều hướng
+
+- **Bài trước:** [5.5 — 5. Extension Methods](5.5-extension-methods.mdx)
+- **Bài tiếp theo:** [5.7 — 7. Expression Trees và Reflection (Overview)](5.7-overview.mdx)
+- **Về module:** [Trang mục lục](./)

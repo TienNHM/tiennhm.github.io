@@ -71,7 +71,7 @@ services.AddDbContext<CrmDbContext>(opt => opt
     .UseSqlServer(connectionString));
 ```
 
-From that point on, `c.Contacts.Count` inside a `foreach` silently fires one query per row. Worse, lazy loading is synchronous: it blocks the thread in the middle of an `async` action. Declaring relationships and navigation properties is covered in more depth in [the relationships article](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.4-relationships).
+From that point on, `c.Contacts.Count` inside a `foreach` silently fires one query per row. Worse, lazy loading is synchronous: it blocks the thread in the middle of an `async` action. Declaring relationships and navigation properties is covered in more depth in [the relationships article](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.3-relationships).
 
 **Mapping after materialisation** is the third form. When you `ToListAsync()` first and only then map entities to DTOs with AutoMapper, every navigation property the mapper touches is a separate load. Using `ProjectTo` instead of `Map` pushes the projection down into SQL rather than running it over objects already in memory.
 
@@ -107,7 +107,7 @@ var query = _db.Customers
 Console.WriteLine(query.ToQueryString());
 ```
 
-Reading the log is simple: call the API once, count the statements, then call it again against a larger data set. If that count grows with the number of rows returned, you have N+1 and there is nothing more to measure. For structured logging you can count in a real environment, see [logging with Serilog](/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.8-logging-with-serilog); EF Core's other debugging tools are covered in [the performance article](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.8-performance).
+Reading the log is simple: call the API once, count the statements, then call it again against a larger data set. If that count grows with the number of rows returned, you have N+1 and there is nothing more to measure. For structured logging you can count in a real environment, see [logging with Serilog](/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.7-logging-with-serilog); EF Core's other debugging tools are covered in [the performance article](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.7-performance).
 
 ## Four fixes, and when to use each
 
@@ -128,7 +128,7 @@ var rows = await _db.Customers
     .ToListAsync();
 ```
 
-EF Core translates the whole block into a single statement, with the counts and sums as subqueries. You get three things at once: one round trip, only the columns you actually need instead of whole rows, and nothing to put into the change tracker. Other projection shapes are listed in [the query patterns article](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.6-query-patterns).
+EF Core translates the whole block into a single statement, with the counts and sums as subqueries. You get three things at once: one round trip, only the columns you actually need instead of whole rows, and nothing to put into the change tracker. Other projection shapes are listed in [the query patterns article](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.5-query-patterns).
 
 ### 2. Include and ThenInclude — when you need real entities
 
@@ -186,7 +186,7 @@ The price of split queries is worth spelling out:
 - With pagination, the ordering must be deterministic or the split parts will be stitched together wrongly; EF Core also warns when a split query lacks a stable `OrderBy`.
 - Three round trips are not always cheaper than one. When you Include exactly one collection, leave it as a single query.
 
-A rule you can apply immediately: Include one collection, keep the single query; Include two or more, add `AsSplitQuery`. Reading execution plans to verify this is covered in [the query optimization article](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-12-sql-deep-dive/12.6-query-optimization).
+A rule you can apply immediately: Include one collection, keep the single query; Include two or more, add `AsSplitQuery`. Reading execution plans to verify this is covered in [the query optimization article](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-12-sql-deep-dive/12.5-query-optimization).
 
 ## Quick decision table
 
@@ -204,15 +204,15 @@ A rule you can apply immediately: Include one collection, keep the single query;
 
 **Calling `ToListAsync()` too early.** After `ToListAsync()`, every subsequent `Where` or `Select` runs as LINQ to Objects over the data already fetched, and is no longer translated into SQL.
 
-**Include plus pagination over a collection.** `Include` on a collection combined with `Skip` and `Take` always makes the database return more rows than you display. Paginated screens should go the projection route — see [pagination, filtering and sorting](/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-09-web-api-professional/9.5-pagination-filtering-sorting).
+**Include plus pagination over a collection.** `Include` on a collection combined with `Skip` and `Take` always makes the database return more rows than you display. Paginated screens should go the projection route — see [pagination, filtering and sorting](/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-09-web-api-professional/9.4-pagination-filtering-sorting).
 
-**A repository returning `IEnumerable` instead of `IQueryable`.** The calling layer then has no way to Include or Select, and N+1 grows back a level higher. The trade-offs of that design are discussed in [repository and unit of work](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.10-unit-of-work-and-repository-pattern).
+**A repository returning `IEnumerable` instead of `IQueryable`.** The calling layer then has no way to Include or Select, and N+1 grows back a level higher. The trade-offs of that design are discussed in [repository and unit of work](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.9-unit-of-work-and-repository-pattern).
 
-**Forgetting global query filters.** Global filters such as soft delete or multi-tenancy also apply inside Include, so the row count you actually receive may differ from the one in your head; details in [global query filters](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.11-global-query-filters).
+**Forgetting global query filters.** Global filters such as soft delete or multi-tenancy also apply inside Include, so the row count you actually receive may differ from the one in your head; details in [global query filters](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.10-global-query-filters).
 
-**Missing indexes on foreign keys.** Collapsing 201 queries into 1 when the `CustomerId` column has no index only trades many small scans for one large one. That belongs to [the indexing article](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-12-sql-deep-dive/12.5-indexing).
+**Missing indexes on foreign keys.** Collapsing 201 queries into 1 when the `CustomerId` column has no index only trades many small scans for one large one. That belongs to [the indexing article](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-12-sql-deep-dive/12.4-indexing).
 
-The original version of this problem with full CRM context lives in [the N+1 problem article](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.7-n-plus-1-problem).
+The original version of this problem with full CRM context lives in [the N+1 problem article](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.6-n-plus-1-problem).
 
 <FAQSection
   title="Frequently asked questions"

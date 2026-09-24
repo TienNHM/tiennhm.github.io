@@ -383,6 +383,18 @@ const config = {
         // cho AI". Đọc permalink thật qua allContentLoaded thay vì tự suy route
         // từ đường dẫn file — xem plugins/page-markdown/index.js.
         require.resolve('./plugins/page-markdown'),
+        // Chuyển hướng URL cũ sang URL mới khi đổi đường dẫn bài viết.
+        // Hiện chưa dùng: đợt đánh số lại khoá .NET backend (X.2 -> X.1)
+        // chấp nhận bỏ URL cũ vì site còn mới. Khi cần, thêm vào mảng dưới:
+        //   { from: '/duong-dan-cu', to: '/duong-dan-moi' }
+        // Hỗ trợ cả `createRedirects` để sinh hàng loạt theo hàm.
+        [
+            '@docusaurus/plugin-client-redirects',
+            /** @type {import('@docusaurus/plugin-client-redirects').Options} */
+            ({
+                redirects: [],
+            }),
+        ],
         [
             'ideal-image',
             /** @type {import('@docusaurus/plugin-ideal-image').PluginOptions} */

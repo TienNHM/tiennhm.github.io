@@ -1,0 +1,306 @@
+---
+title: "13.5 — 5. Query Patterns"
+description: "Projection thay vì Include, split query và cartesian explosion, explicit loading, FindAsync, và compiled query cho đường chạy nóng."
+sidebar_position: 5
+---
+
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
+
+# 13.6 — 5. Query Patterns
+
+<SummaryBox>
+Mẫu truy vấn quan trọng nhất trong EF Core là **projection**: `Select` vào một DTO thay vì nạp entity đầy đủ rồi map. Nó cho ba lợi ích cùng lúc — SQL chỉ lấy **đúng cột cần**, không có change tracking, và không cần `Include`. Cái bẫy đi kèm là **cartesian explosion**: `Include` hai collection cùng lúc sinh ra `JOIN` chéo, nên một khách hàng có 10 contact và 20 lead trả về **200 dòng** cho một bản ghi — và với ba collection thì con số nhân tiếp. `AsSplitQuery()` giải quyết bằng cách tách thành nhiều truy vấn, nhưng nó có cái giá riêng: không còn **nhất quán** giữa các truy vấn nếu không có transaction.
+</SummaryBox>
+
+## Mục tiêu bài học
+
+Sau bài này bạn có thể:
+
+- Dùng projection và biết khi nào cần entity đầy đủ.
+- Nhận ra cartesian explosion và chọn giữa single và split query.
+- Dùng explicit loading và filtered include.
+- Biết `FindAsync` khác `FirstOrDefaultAsync` ở đâu.
+- Dùng compiled query cho đường chạy nóng.
+
+## Nội dung bài học
+
+### 13.6.1 — Projection là mặc định
+
+```csharp
+// KEM — nap toan bo entity roi map
+var customers = await db.Customers
+    .Include(c => c.Contacts)
+    .ToListAsync(ct);
+
+var dtos = customers.Select(c => new CustomerDto(c.Id, c.Name, c.Contacts.Count));
+```
+
+```csharp
+// TOT — SQL chi lay dung nhung gi can
+var dtos = await db.Customers
+    .Select(c => new CustomerDto(c.Id, c.Name, c.Contacts.Count()))
+    .ToListAsync(ct);
+```
+
+Phiên bản đầu nạp **mọi cột** của `Customers` và **mọi cột** của tất cả `Contacts` — kể cả một cột `Notes` dài 10KB mà DTO không dùng. Phiên bản sau sinh:
+
+```sql
+SELECT c.Id, c.Name, (SELECT COUNT(*) FROM Contacts WHERE CustomerId = c.Id)
+FROM Customers c;
+```
+
+Ba lợi ích của projection:
+
+1. **Ít dữ liệu hơn** qua mạng và trong bộ nhớ.
+2. **Không có tracking** — EF không theo dõi kiểu ẩn danh hay DTO, nên `AsNoTracking` là thừa.
+3. **Không cần `Include`** — projection tự sinh JOIN hoặc subquery.
+
+Điểm 3 hay bị bỏ qua: `Include` **vô tác dụng** khi có `Select`. EF Core bỏ qua nó, và điều này gây bối rối vì code trông như đang eager load.
+
+```csharp
+// Include bi BO QUA hoan toan
+var dtos = await db.Customers
+    .Include(c => c.Contacts)          // vo nghia
+    .Select(c => new CustomerDto(c.Id, c.Name))
+    .ToListAsync(ct);
+```
+
+**Khi nào vẫn cần entity đầy đủ:** khi bạn sẽ **sửa** nó. Projection cho đối tượng không được tracking, nên `SaveChanges` không làm gì.
+
+Lồng collection trong projection cũng được:
+
+```csharp
+var dto = await db.Customers
+    .Where(c => c.Id == id)
+    .Select(c => new CustomerDetailDto(
+        c.Id, c.Name,
+        c.Contacts.Select(ct2 => new ContactDto(ct2.Id, ct2.FullName)).ToList()))
+    .FirstOrDefaultAsync(ct);
+```
+
+### 13.6.2 — Cartesian explosion
+
+```csharp
+var customer = await db.Customers
+    .Include(c => c.Contacts)          // 10 contact
+    .Include(c => c.Leads)             // 20 lead
+    .FirstOrDefaultAsync(c => c.Id == 42, ct);
+```
+
+EF Core sinh **một** truy vấn với hai `LEFT JOIN`:
+
+```
+10 contact x 20 lead = 200 DONG cho MOT khach hang
+Moi dong lap lai toan bo cot cua Customers
+```
+
+EF Core khử trùng lặp khi vật chất hoá, nên **kết quả đúng** — nhưng 200 dòng đã đi qua mạng, và cột `Customer.Notes` được lặp lại 200 lần.
+
+Với ba collection (10 × 20 × 15), đó là **3.000 dòng**.
+
+```csharp
+// Split query — MOI collection mot truy van
+var customer = await db.Customers
+    .Include(c => c.Contacts)
+    .Include(c => c.Leads)
+    .AsSplitQuery()
+    .FirstOrDefaultAsync(c => c.Id == 42, ct);
+```
+
+```sql
+SELECT * FROM Customers WHERE Id = 42;                    -- 1 dong
+SELECT * FROM Contacts WHERE CustomerId = 42;             -- 10 dong
+SELECT * FROM Leads WHERE CustomerId = 42;                -- 20 dong
+-- Tong: 31 dong thay vi 200
+```
+
+| | Single query | Split query |
+|---|---|---|
+| Số lần đi về database | 1 | **N + 1** |
+| Dữ liệu truyền | **Nhân lên** | Tuyến tính |
+| Nhất quán | **Đảm bảo** | Không, trừ khi có transaction |
+| Tốt khi | Một collection, hoặc collection nhỏ | **Nhiều collection, dữ liệu lớn** |
+
+Hàng "nhất quán" là cái giá thật của split query: giữa truy vấn 1 và truy vấn 2, ai đó có thể thêm một contact — và bạn nhận một ảnh chụp không nhất quán. Với báo cáo thì không sao; với dữ liệu tài chính thì cần transaction.
+
+Bật mặc định khi phần lớn truy vấn có nhiều collection:
+
+```csharp
+options.UseSqlServer(conn, sql => sql.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery));
+```
+
+**Nhưng cách tốt nhất thường là projection** — nó tránh được cả hai vấn đề vì chỉ lấy đúng cột cần.
+
+### 13.6.3 — Filtered include
+
+```csharp
+// EF Core 5+: loc ngay trong Include
+var customers = await db.Customers
+    .Include(c => c.Contacts.Where(ct2 => ct2.IsPrimary))
+    .Include(c => c.Leads.Where(l => l.Status != LeadStatus.Lost)
+                          .OrderByDescending(l => l.CreatedAt)
+                          .Take(5))
+    .ToListAsync(ct);
+```
+
+Trước EF Core 5, việc này phải làm bằng projection hoặc lọc trong bộ nhớ sau khi nạp hết.
+
+Ba ràng buộc: chỉ dùng được `Where`, `OrderBy`, `Skip`, `Take`; **cùng một navigation phải lọc giống nhau** ở mọi nơi trong truy vấn; và nó **không** áp dụng khi entity đã nằm trong change tracker — khi đó bạn thấy cả những bản đã nạp trước đó.
+
+Ràng buộc cuối gây ra hành vi khó hiểu: cùng một đoạn code cho kết quả khác nhau tuỳ vào context đã nạp gì. Với `AsNoTracking` thì không có vấn đề này.
+
+### 13.6.4 — Explicit loading
+
+```csharp
+var customer = await db.Customers.FindAsync([id], ct);
+
+// Chi nap contact khi thuc su can
+if (needContacts)
+    await db.Entry(customer!).Collection(c => c.Contacts).LoadAsync(ct);
+
+// Nap co dieu kien
+await db.Entry(customer!).Collection(c => c.Leads)
+        .Query().Where(l => l.Status == LeadStatus.New)
+        .LoadAsync(ct);
+
+// Chi DEM, khong nap
+var leadCount = await db.Entry(customer!).Collection(c => c.Leads)
+                        .Query().CountAsync(ct);
+```
+
+Hữu ích khi bạn **không biết trước** có cần dữ liệu liên quan hay không. Nhưng cẩn thận: gọi nó trong vòng lặp là tạo ra N+1 ([bài 13.7](13.6-n-plus-1-problem.mdx)).
+
+`.Query()` đặc biệt hữu ích cho việc đếm — nó sinh `COUNT(*)` thay vì nạp toàn bộ collection để gọi `.Count`.
+
+**Lazy loading** thì ngược lại — đừng bật:
+
+```csharp
+// TRANH
+options.UseLazyLoadingProxies();
+```
+
+Nó khiến mọi truy cập navigation property **âm thầm** sinh truy vấn. Một `foreach` vô hại trong tầng trình bày biến thành 500 lần đi về database, và không có gì trong code báo hiệu điều đó.
+
+### 13.6.5 — `FindAsync` so với `FirstOrDefaultAsync`
+
+```csharp
+var a = await db.Customers.FindAsync([id], ct);
+var b = await db.Customers.FirstOrDefaultAsync(c => c.Id == id, ct);
+```
+
+| | `FindAsync` | `FirstOrDefaultAsync` |
+|---|---|---|
+| Kiểm tra change tracker trước | **Có** | Không |
+| Luôn đi database | Không | **Có** |
+| Chỉ tìm theo khoá chính | **Có** | Bất kỳ điều kiện |
+| Dùng được `Include` | **Không** | Có |
+| Áp global query filter | **Không** | **Có** |
+
+Hai hàng cuối quan trọng. `FindAsync` **bỏ qua global query filter** — nghĩa là nó **tìm thấy cả bản ghi đã xoá mềm** ([bài 13.11](13.10-global-query-filters.mdx)). Đây là nguồn của lỗi "tại sao tôi lấy được khách hàng đã xoá".
+
+`FindAsync` nhanh hơn khi entity đã nằm trong change tracker (không sinh truy vấn nào), nên nó tốt cho luồng cập nhật. Với truy vấn đọc có filter, dùng `FirstOrDefaultAsync`.
+
+### 13.6.6 — Compiled query
+
+```csharp
+private static readonly Func<CrmDbContext, int, CancellationToken, Task<CustomerDto?>>
+    GetCustomerDto = EF.CompileAsyncQuery(
+        (CrmDbContext db, int id, CancellationToken ct) =>
+            db.Customers
+              .Where(c => c.Id == id)
+              .Select(c => new CustomerDto(c.Id, c.Name, c.Email))
+              .FirstOrDefault());
+
+// Goi
+var dto = await GetCustomerDto(db, id, ct);
+```
+
+EF Core cache plan biên dịch LINQ, nhưng vẫn phải **băm cây biểu thức** mỗi lần để tra cache. Compiled query bỏ qua bước đó.
+
+Lợi ích thật: khoảng **10–30%** cho truy vấn đơn giản chạy **rất nhiều lần**. Với truy vấn phức tạp hoặc chạy ít, chênh lệch không đáng kể.
+
+Ba ràng buộc: phải là `static readonly`; **không** thay đổi cấu trúc truy vấn theo điều kiện (mất hết ý nghĩa); và `CancellationToken` phải là tham số của lambda, không bắt từ bên ngoài.
+
+Chỉ dùng sau khi **đã đo** và thấy chi phí biên dịch truy vấn là đáng kể — với hầu hết ứng dụng, nó không phải nút thắt.
+
+### 13.6.7 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát mẫu truy vấn"
+  items={[
+    { text: "Truy vấn đọc dùng projection vào DTO, không nạp entity đầy đủ." },
+    { text: "Không có Include nào đi kèm Select — nó bị bỏ qua." },
+    { text: "Truy vấn có nhiều Include collection dùng AsSplitQuery hoặc projection." },
+    { text: "Hiểu rằng split query không đảm bảo nhất quán nếu không có transaction." },
+    { text: "Filtered include không dùng trên truy vấn có tracking nếu kết quả phải chính xác." },
+    { text: "Không bật lazy loading proxies." },
+    { text: "Explicit loading không nằm trong vòng lặp." },
+    { text: "Đếm collection dùng .Query().CountAsync(), không nạp rồi .Count." },
+    { text: "Biết FindAsync bỏ qua global query filter." },
+    { text: "Compiled query chỉ dùng sau khi đã đo, cho truy vấn chạy rất nhiều lần." },
+  ]}
+/>
+
+## Bài tập áp dụng
+
+1. **Cartesian explosion.** Với một khách hàng có 20 contact và 30 lead, chạy truy vấn hai `Include`. Bật log SQL, đếm số dòng trả về. Thêm `AsSplitQuery()` và so sánh cả số dòng lẫn số lần đi về database.
+
+2. **`Include` bị bỏ qua.** Viết truy vấn có cả `Include` và `Select`, in SQL bằng `ToQueryString()`, và xác nhận không có JOIN nào cho navigation đó.
+
+3. **`FindAsync` và soft delete.** Bật global query filter loại bản ghi đã xoá mềm. Dùng `FindAsync` với id của một bản ghi đã xoá và xác nhận nó **vẫn trả về**. So sánh với `FirstOrDefaultAsync`.
+
+## Tự kiểm tra
+
+<FAQSection
+  items={[
+    {
+      question: "Vì sao projection nên là mặc định cho truy vấn đọc?",
+      answer: "Nó cho ba lợi ích cùng lúc: SQL chỉ lấy đúng cột cần nên ít dữ liệu hơn, kết quả không được tracking nên không tốn bộ nhớ change tracker, và không cần Include vì projection tự sinh JOIN hoặc subquery. Chỉ cần entity đầy đủ khi bạn sẽ sửa nó."
+    },
+    {
+      question: "Include đi kèm Select thì sao?",
+      answer: "Nó bị bỏ qua hoàn toàn. Điều này gây bối rối vì code trông như đang eager load, nhưng EF Core chỉ nhìn vào projection để quyết định lấy gì. Kiểm tra bằng ToQueryString sẽ thấy không có JOIN nào cho navigation đó."
+    },
+    {
+      question: "Cartesian explosion xảy ra thế nào?",
+      answer: "Include hai collection cùng lúc sinh ra JOIN chéo, nên một bản ghi cha có 10 con loại A và 20 con loại B sẽ trả về 200 dòng, mỗi dòng lặp lại toàn bộ cột của bản ghi cha. Kết quả vẫn đúng vì EF khử trùng lặp, nhưng dữ liệu đã đi qua mạng, và với ba collection thì con số nhân tiếp."
+    },
+    {
+      question: "Split query có nhược điểm gì?",
+      answer: "Nó tách thành nhiều lần đi về database, và quan trọng hơn là không đảm bảo nhất quán: giữa truy vấn thứ nhất và thứ hai, dữ liệu có thể thay đổi, nên bạn nhận một ảnh chụp không nhất quán trừ khi bọc trong transaction."
+    },
+    {
+      question: "FindAsync khác FirstOrDefaultAsync ở đâu?",
+      answer: "FindAsync kiểm tra change tracker trước nên có thể không sinh truy vấn nào, nhưng nó chỉ tìm theo khoá chính, không dùng được Include, và quan trọng nhất là nó bỏ qua global query filter nên vẫn trả về bản ghi đã xoá mềm."
+    },
+    {
+      question: "Vì sao không nên bật lazy loading?",
+      answer: "Vì mọi truy cập navigation property âm thầm sinh truy vấn, nên một vòng lặp vô hại trong tầng trình bày có thể biến thành hàng trăm lần đi về database mà không có gì trong code báo hiệu."
+    }
+  ]}
+/>
+
+## Kết luận
+
+Ba điều đáng nhớ nhất:
+
+1. **Projection là mặc định cho đọc.** `Include` kèm `Select` bị bỏ qua.
+2. **Nhiều `Include` collection gây nhân dòng.** Dùng `AsSplitQuery` hoặc projection.
+3. **`FindAsync` bỏ qua global query filter** — nó thấy cả bản ghi đã xoá mềm.
+
+## Tham khảo
+
+- [Eager loading of related data — EF Core](https://learn.microsoft.com/en-us/ef/core/querying/related-data/eager)
+- [Single vs. split queries — EF Core](https://learn.microsoft.com/en-us/ef/core/querying/single-split-queries)
+- [Explicit loading of related data](https://learn.microsoft.com/en-us/ef/core/querying/related-data/explicit)
+- [Compiled queries — EF Core](https://learn.microsoft.com/en-us/ef/core/performance/advanced-performance-topics#compiled-queries)
+
+## Điều hướng
+
+- **Bài trước:** [13.4 — 4. Migrations](13.4-migrations.mdx)
+- **Bài tiếp theo:** [13.6 — 6. N+1 Problem](13.6-n-plus-1-problem.mdx)
+- **Về module:** [Trang mục lục](./)
+
+## Bài liên quan
+
+- [Vì sao EF Core bắn 201 query cho 1 màn hình danh sách? Cách sửa N+1](/blog/ef-core-n-plus-1-query) — Một màn hình 200 dòng mà log SQL ghi 201 câu lệnh là dấu hiệu của N+1 query.
