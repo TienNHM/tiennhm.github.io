@@ -1,42 +1,245 @@
 ---
 title: "18.10 — Liên hệ CRM"
-description: "Liên hệ CRM — bài học thuộc Module 18 — Microservices trong lộ trình .NET backend từ zero đến senior."
+description: "Bốn service tách được trong CRM/ERP và lý do, định tuyến theo tenant ở gateway, và ba ranh giới nên giữ nguyên trong monolith."
 sidebar_position: 10
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
 # 18.10 — Liên hệ CRM
 
+<SummaryBox>
+Không phải phần nào của CRM cũng đáng tách. Bài này chỉ ra **bốn ứng viên tốt** — Notification, Identity, Reporting, Integration — và quan trọng không kém là **ba phần nên giữ nguyên** trong lõi: Lead, Deal và Customer. Lý do cho cả hai danh sách đều giống nhau: ứng viên tốt là phần có **ranh giới nghiệp vụ rõ, ít giao dịch chung với lõi, và nhu cầu scale khác biệt**. Lead, Deal và Customer thì ngược lại — chúng thay đổi **cùng nhau trong cùng một transaction**, nên tách chúng biến một `SaveChanges` thành một saga phân tán, đổi lấy không lợi ích nào.
+</SummaryBox>
+
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Chọn đúng phần của CRM để tách và phần nên giữ.
+- Định tuyến theo tenant và phiên bản API ở gateway.
+- Xử lý dữ liệu người dùng dùng chung giữa các service.
+- Cấu hình health check phản ánh đúng phụ thuộc.
 
 ## Nội dung bài học
 
-- Tách **`Identity`** (auth, consent), **`Notification`** (email/SMS adapter), **`Billing`** (payment, invoice).
-- Gateway route theo **tenant** (header/subdomain) và **API version** (`/v1/`, header `Api-Version`).
-- Health: `/health/ready` kiểm tra DB + broker; `/health/live` chỉ process sống.
+### 18.10.1 — Bốn ứng viên tốt
 
----
+| Service | Vì sao tách được | Nhu cầu scale |
+|---|---|---|
+| **Notification** | Chỉ cần biết gửi cho ai, nội dung gì | Đỉnh tải theo giờ, rất khác lõi |
+| **Identity** | Ranh giới rõ, chuẩn công nghiệp | Đọc rất nhiều, ghi ít |
+| **Reporting** | Chỉ đọc, chịu được dữ liệu trễ | Truy vấn nặng, chạy theo đợt |
+| **Integration** | Đóng gói mọi thứ liên quan bên thứ ba | Phụ thuộc vào nhịp của đối tác |
+
+**Notification** là ứng viên số một trong hầu hết dự án: ít phụ thuộc, scale khác hẳn, và hỏng thì hậu quả nhẹ ([bài 18.12](18.12-mini-case-study.mdx)).
+
+**Integration Service** đáng nói riêng. Nó gom mọi tích hợp bên thứ ba — cổng thanh toán, hoá đơn điện tử, chữ ký số, API đối tác — vào một chỗ. Lợi ích cụ thể: khi một đối tác đổi API hoặc down, **chỉ một service** bị ảnh hưởng, và mọi logic retry/mapping đặc thù của đối tác không lan vào lõi ([anti-corruption layer](https://learn.microsoft.com/en-us/azure/architecture/patterns/anti-corruption-layer)).
+
+**Reporting** tách được vì nó **chỉ đọc**. Không có transaction chung với lõi, nên không có saga nào cần thiết kế — đây là kiểu tách rẻ nhất.
+
+### 18.10.2 — Ba phần nên giữ nguyên
+
+```csharp
+// Mot use case CRM dien hinh: chuyen doi lead
+public async Task<Result> ConvertLeadAsync(LeadId id, CancellationToken ct)
+{
+    var lead = await _db.Leads.FindAsync(id, ct);
+    var customer = lead.Convert(DateTime.UtcNow);   // tao Customer
+    _db.Customers.Add(customer);
+
+    var deal = Deal.CreateFrom(lead, customer);      // tao Deal
+    _db.Deals.Add(deal);
+
+    await _db.SaveChangesAsync(ct);                  // MOT transaction
+    return Result.Success();
+}
+```
+
+Lead, Customer và Deal thay đổi **cùng nhau**. Nếu tách thành ba service:
+
+```
+Sales Service:     cap nhat Lead
+Customer Service:  tao Customer     <- co the that bai
+Deal Service:      tao Deal          <- co the that bai
+
+=> Can saga voi buoc bu tru cho moi buoc
+=> Trang thai trung gian: Lead "Won" nhung chua co Customer
+=> Nguoi dung thay du lieu mau thuan trong vai giay
+```
+
+Đổi một `SaveChangesAsync` lấy một saga ba bước có bù trừ, để nhận lại **không lợi ích nào** — ba phần này không có nhu cầu scale khác nhau và cùng một đội sở hữu.
+
+**Quy tắc kiểm tra:** nếu hai thực thể thường xuyên thay đổi trong cùng một transaction, chúng thuộc **cùng một** service ([bài 18.3](18.3-service-decomposition.mdx)).
+
+### 18.10.3 — Định tuyến ở gateway
+
+CRM multi-tenant cần hai chiều định tuyến, và cả hai đều thuộc về gateway.
+
+**Theo tenant** — nhận diện từ subdomain hoặc header:
+
+```csharp
+app.Use(async (context, next) =>
+{
+    // acme.crm.example.com -> tenant "acme"
+    var host = context.Request.Host.Host;
+    var tenant = host.Split('.')[0];
+
+    context.Request.Headers["X-Tenant-Id"] = tenant;
+    await next();
+});
+```
+
+**Cảnh báo bảo mật:** header này chỉ dùng để **định tuyến**, không bao giờ để **phân quyền**. Quyền truy cập tenant phải lấy từ claim đã ký trong token, vì header có thể bị giả mạo nếu ai đó gọi thẳng service ([bài 18.7](18.7-distributed-identity-overview.mdx)).
+
+**Theo phiên bản API:**
+
+```json
+{
+  "Routes": {
+    "sales-v1": {
+      "ClusterId": "sales-v1",
+      "Match": { "Path": "/api/v1/sales/{**catch-all}" }
+    },
+    "sales-v2": {
+      "ClusterId": "sales-v2",
+      "Match": { "Path": "/api/v2/sales/{**catch-all}" }
+    }
+  }
+}
+```
+
+Hai phiên bản chạy song song cho phép client cũ tiếp tục hoạt động trong lúc client mới chuyển dần ([bài 9.3](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.3-api-versioning.mdx)).
+
+### 18.10.4 — Dữ liệu người dùng dùng chung
+
+Mọi service đều cần biết tên và email người dùng để hiển thị. Ba cách, và cách thứ hai thường đúng nhất:
+
+| Cách | Ưu | Nhược |
+|---|---|---|
+| Gọi Identity mỗi lần | Luôn mới | Thêm một chặng vào **mọi** request |
+| **Nhân bản tối thiểu qua event** | Nhanh, không coupling thời gian | Trễ vài giây |
+| Nhồi vào JWT | Không gọi gì cả | Token phình, chỉ đúng với người **đang** đăng nhập |
+
+Cách thứ ba có một hạn chế hay bị bỏ sót: token chỉ chứa thông tin của **người đang gọi API**, nhưng màn hình thường cần hiển thị tên của **người khác** — chủ sở hữu lead, người tạo ghi chú. Token không giúp gì ở đó.
+
+```csharp
+// Ban sao toi thieu trong moi service — chi nhung truong CAN de hien thi
+public sealed class UserSnapshot
+{
+    public Guid UserId { get; set; }
+    public string DisplayName { get; set; } = null!;
+    public string Email { get; set; } = null!;
+    public DateTime UpdatedAtUtc { get; set; }
+}
+
+public sealed class UserUpdatedConsumer(SalesDbContext db) : IConsumer<UserUpdatedEvent>
+{
+    public async Task Consume(ConsumeContext<UserUpdatedEvent> context)
+    {
+        var snapshot = await db.UserSnapshots.FindAsync(context.Message.UserId)
+            ?? db.UserSnapshots.Add(new UserSnapshot { UserId = context.Message.UserId }).Entity;
+
+        snapshot.DisplayName = context.Message.DisplayName;
+        snapshot.Email = context.Message.Email;
+        snapshot.UpdatedAtUtc = DateTime.UtcNow;
+
+        await db.SaveChangesAsync();
+    }
+}
+```
+
+Chỉ giữ những trường **cần để hiển thị**. Không sao chép vai trò, quyền hay trạng thái tài khoản — những thứ đó phải hỏi Identity vì chúng ảnh hưởng tới bảo mật và không được phép cũ.
+
+### 18.10.5 — Health check phản ánh đúng phụ thuộc
+
+```csharp
+builder.Services.AddHealthChecks()
+    .AddSqlServer(connectionString, tags: ["ready"])
+    .AddRabbitMQ(rabbitConnection, tags: ["ready"])
+    .AddRedis(redisConnection, tags: ["ready"])
+    // Identity la phu thuoc BAT BUOC cua Sales -> tinh vao readiness
+    .AddUrlGroup(new Uri("http://identity:8080/health/live"), tags: ["ready"]);
+```
+
+Câu hỏi quyết định cho mỗi phụ thuộc: **"thiếu nó thì service này còn phục vụ được không?"**
+
+- Database chết → không phục vụ được → **tính vào readiness**.
+- Broker chết → không publish được event → tuỳ nghiệp vụ, thường **có**.
+- Notification Service chết → Sales vẫn tạo lead được → **không** tính vào readiness.
+
+Tính nhầm một phụ thuộc không bắt buộc vào readiness sẽ khiến service của bạn bị gỡ khỏi load balancer vì một lý do không liên quan — lỗi lan ngược, đúng thứ việc tách service muốn tránh ([bài 18.13](18.13-quick-real-world-example.mdx)).
+
+### 18.10.6 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát microservices trong CRM"
+  items={[
+    { text: "Lead, Customer và Deal nằm cùng một service." },
+    { text: "Không có thực thể nào thay đổi cùng transaction lại bị tách service." },
+    { text: "Notification và Reporting là ứng viên tách trước lõi nghiệp vụ." },
+    { text: "Mọi tích hợp bên thứ ba gom vào một chỗ, không rải vào lõi." },
+    { text: "Header tenant chỉ dùng để định tuyến, phân quyền lấy từ claim đã ký." },
+    { text: "Mỗi service tự áp lọc theo tenant, không tin gateway đã lọc." },
+    { text: "Dữ liệu người dùng nhân bản chỉ gồm trường cần hiển thị." },
+    { text: "Vai trò và quyền không được nhân bản, luôn hỏi Identity." },
+    { text: "readiness chỉ gồm phụ thuộc bắt buộc, không gồm phụ thuộc tuỳ chọn." },
+  ]}
+/>
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **Chấm điểm ứng viên.** Liệt kê các module trong CRM của bạn và chấm theo ba tiêu chí: ranh giới rõ, ít giao dịch chung, nhu cầu scale khác biệt.
+
+2. **Tìm transaction xuyên ranh giới.** Tìm mọi use case ghi vào nhiều thực thể trong một `SaveChanges` và kiểm tra chúng có bị tách service không.
+
+3. **Rà health check.** Với mỗi phụ thuộc trong readiness, trả lời "thiếu nó thì service còn phục vụ được không" và bỏ những cái trả lời là có.
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "Vì sao Notification là ứng viên tách tốt nhất?",
+      answer: "Vì nó ít phụ thuộc, chỉ cần biết gửi cho ai và nội dung gì, có nhu cầu scale khác hẳn phần còn lại do đỉnh tải theo giờ, và nếu hỏng thì email trễ vài phút chứ không hỏng dữ liệu."
+    },
+    {
+      question: "Vì sao Lead, Customer và Deal nên nằm cùng một service?",
+      answer: "Vì chúng thay đổi cùng nhau trong cùng một transaction. Tách ra thì một SaveChanges thành một saga ba bước có bù trừ, sinh trạng thái trung gian mâu thuẫn, mà không nhận lại lợi ích nào về scale hay quyền sở hữu."
+    },
+    {
+      question: "Quy tắc kiểm tra ranh giới service là gì?",
+      answer: "Nếu hai thực thể thường xuyên thay đổi trong cùng một transaction thì chúng thuộc cùng một service. Tách chúng là biến một cam kết nguyên tử thành một quy trình phân tán."
+    },
+    {
+      question: "Vì sao header tenant không được dùng để phân quyền?",
+      answer: "Vì header có thể bị giả mạo nếu ai đó gọi thẳng service mà không qua gateway. Nó chỉ dùng để định tuyến, còn quyền truy cập tenant phải lấy từ claim đã ký trong token."
+    },
+    {
+      question: "Hạn chế của việc nhồi thông tin người dùng vào JWT là gì?",
+      answer: "Token chỉ chứa thông tin của người đang gọi API, nhưng màn hình thường cần hiển thị tên của người khác như chủ sở hữu lead hay người tạo ghi chú. Token không giúp gì trong những trường hợp đó."
+    },
+    {
+      question: "Vì sao không nên nhân bản vai trò và quyền?",
+      answer: "Vì chúng ảnh hưởng tới bảo mật và không được phép cũ. Một người bị thu hồi quyền mà bản sao vẫn còn quyền cũ là lỗ hổng thật. Chỉ nhân bản những trường dùng để hiển thị."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **Tách Notification, Identity, Reporting và Integration** — giữ Lead, Deal, Customer ở lõi.
+2. **Thực thể thay đổi cùng transaction thuộc cùng service.** Đây là quy tắc kiểm tra nhanh nhất.
+3. **readiness chỉ gồm phụ thuộc bắt buộc**, nếu không bạn tự tạo đường lan lỗi.
+
+## Tham khảo
+
+- [Identify microservice domain model boundaries](https://learn.microsoft.com/en-us/dotnet/architecture/microservices/architect-microservice-container-applications/identify-microservice-domain-model-boundaries)
+- [Health checks trong ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/health-checks)
+- [Anti-corruption Layer pattern](https://learn.microsoft.com/en-us/azure/architecture/patterns/anti-corruption-layer)
+- [Database per service](https://microservices.io/patterns/data/database-per-service.html)
 
 ## Điều hướng
 
