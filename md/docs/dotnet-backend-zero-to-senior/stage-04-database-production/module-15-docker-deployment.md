@@ -5,20 +5,20 @@
 
 ## Nội dung module
 
-- [15.2 — 1. Docker Fundamentals](15.2-docker-fundamentals.mdx)
-- [15.3 — 2. Dockerfile cho ASP.NET Core](15.3-dockerfile-for-aspnet-core.mdx)
-- [15.4 — 3. Docker Compose](15.4-docker-compose.mdx)
-- [15.5 — 4. Environment và Secrets](15.5-environment-and-secrets.mdx)
-- [15.6 — 5. Linux VPS Deployment](15.6-linux-vps-deployment.mdx)
-- [15.7 — 6. GitHub Actions CI/CD](15.7-github-actions-ci-cd.mdx)
-- [15.8 — 7. Azure Deployment](15.8-azure-deployment.mdx)
-- [15.9 — 8. Production Monitoring](15.9-production-monitoring.mdx)
-- [15.10 — 9. Kubernetes Intro (Awareness Level)](15.10-awareness-level.mdx)
-- [15.11 — 10. .NET Aspire (.NET 8+)](15.11-dotnet-aspire-dotnet-8-plus.mdx)
-- [15.12 — Mở rộng và đào sâu](15.12-advanced-notes.mdx)
-- [15.13 — Mini case study](15.13-mini-case-study.mdx)
-- [15.14 — Ví dụ thực tế nhanh](15.14-quick-real-world-example.mdx)
-- [15.15 — Review and Assessment](15.15-review-and-assessment.mdx)
+- [15.1 — 1. Docker Fundamentals](15.1-docker-fundamentals.mdx)
+- [15.2 — 2. Dockerfile cho ASP.NET Core](15.2-dockerfile-for-aspnet-core.mdx)
+- [15.3 — 3. Docker Compose](15.3-docker-compose.mdx)
+- [15.4 — 4. Environment và Secrets](15.4-environment-and-secrets.mdx)
+- [15.5 — 5. Linux VPS Deployment](15.5-linux-vps-deployment.mdx)
+- [15.6 — 6. GitHub Actions CI/CD](15.6-github-actions-ci-cd.mdx)
+- [15.7 — 7. Azure Deployment](15.7-azure-deployment.mdx)
+- [15.8 — 8. Production Monitoring](15.8-production-monitoring.mdx)
+- [15.9 — 9. Kubernetes Intro (Awareness Level)](15.9-awareness-level.mdx)
+- [15.10 — 10. .NET Aspire (.NET 8+)](15.10-dotnet-aspire-dotnet-8-plus.mdx)
+- [15.11 — Mở rộng và đào sâu](15.11-advanced-notes.mdx)
+- [15.12 — Mini case study](15.12-mini-case-study.mdx)
+- [15.13 — Ví dụ thực tế nhanh](15.13-quick-real-world-example.mdx)
+- [15.14 — Review and Assessment](15.14-review-and-assessment.mdx)
 
 ## Bài liên quan
 

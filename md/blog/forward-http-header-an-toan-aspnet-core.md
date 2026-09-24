@@ -268,5 +268,5 @@ Cái sai của nó không nằm ở kỹ thuật mà ở **hướng mặc địn
 ## Bài liên quan
 
 - [Module 7 — Dependency Injection](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-07-dependency-injection) — Dependency injection trong .NET: service lifetime, composition root, options pattern — khớp với container ASP.NET Core và kiểm thử đơn vị.
-- [8.3 — 2. Request Pipeline và Middleware](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.3-request-pipeline-and-middleware) — Pipeline là các lớp bọc nhau chứ không phải hàng đợi: Use/Run/Map, short-circuit, vì sao không ghi được header sau khi response đã bắt đầu, và…
+- [8.3 — 2. Request Pipeline và Middleware](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.2-request-pipeline-and-middleware) — Pipeline là các lớp bọc nhau chứ không phải hàng đợi: Use/Run/Map, short-circuit, vì sao không ghi được header sau khi response đã bắt đầu, và…
 - [Module 18 — Microservices](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-05-senior-engineering/module-18-microservices) — Microservices .NET: service boundaries, API gateway, resilience, observability — đánh đổi vận hành và tốc độ phát triển.

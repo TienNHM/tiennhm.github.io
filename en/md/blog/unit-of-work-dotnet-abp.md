@@ -34,7 +34,7 @@ public class UnitOfWork : IUnitOfWork
 }
 ```
 
-is nothing but a wrapper around something that already does that job. It adds no capability, but it does add an interface to maintain and a layer of indirection that forces every reader of the code to take one more hop. The trade-off between using Repository/UoW and using `DbContext` directly is discussed in more depth in [13.10 — Unit of Work and the Repository pattern](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.10-unit-of-work-and-repository-pattern).
+is nothing but a wrapper around something that already does that job. It adds no capability, but it does add an interface to maintain and a layer of indirection that forces every reader of the code to take one more hop. The trade-off between using Repository/UoW and using `DbContext` directly is discussed in more depth in [13.10 — Unit of Work and the Repository pattern](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.9-unit-of-work-and-repository-pattern).
 
 ### When you genuinely need more than `SaveChanges`
 
@@ -42,7 +42,7 @@ There are three situations `DbContext` alone cannot handle:
 
 1. **Several `DbContext` instances in one operation.** Each `SaveChanges` is its own transaction. To make them succeed or fail together you need a transaction wrapped around both.
 2. **Mixing the database with another resource.** Write to the database, then publish a message to a broker. `SaveChanges` knows nothing about the broker, so if the message goes out before the transaction commits, you have just produced an event describing something that never happened.
-3. **Needing control over the isolation level.** The default behaviour is not always right for reports or for read-then-write operations. Details in [12.7 — Transactions and locking](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-12-sql-deep-dive/12.7-transactions-and-locking).
+3. **Needing control over the isolation level.** The default behaviour is not always right for reports or for read-then-write operations. Details in [12.7 — Transactions and locking](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-12-sql-deep-dive/12.6-transactions-and-locking).
 
 That is exactly the gap ABP's Unit of Work fills.
 
@@ -156,11 +156,11 @@ public async Task AssignAsync(Guid leadId, Guid userId)
 }
 ```
 
-On the same principle, `AddOrReplaceDistributedEvent` attaches a distributed event to the UoW so it moves in step with the transaction instead of flying off early. That is exactly the problem [17.4 — The outbox pattern](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-05-senior-engineering/module-17-distributed-systems/17.4-outbox-pattern-applied) solves at the architectural level, and [17.3 — Messaging fears](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-05-senior-engineering/module-17-distributed-systems/17.3-messaging-fears-lost-duplicates) describes what happens when you get it wrong.
+On the same principle, `AddOrReplaceDistributedEvent` attaches a distributed event to the UoW so it moves in step with the transaction instead of flying off early. That is exactly the problem [17.4 — The outbox pattern](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-05-senior-engineering/module-17-distributed-systems/17.3-outbox-pattern-applied) solves at the architectural level, and [17.3 — Messaging fears](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-05-senior-engineering/module-17-distributed-systems/17.2-messaging-fears-lost-duplicates) describes what happens when you get it wrong.
 
 ## Part 3 — Where this tends to break
 
-**Background jobs have no ambient UoW.** The interceptor attaches to application services, not to a `BackgroundService` or a Hangfire job handler. Inside a worker you have to open a DI scope and call `Begin` yourself. This is precisely the captive dependency problem covered in [the service lifetime post](https://tiennhm.io.vn/blog/singleton-scoped-transient-captive-dependency): `BackgroundService` is a singleton, so each loop iteration needs its own scope. See also [9.10 — Hosted services and background jobs](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-09-web-api-professional/9.10-hosted-service-background-jobs) and [14.7 — Hangfire](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-14-caching-background-jobs/14.7-hangfire-background-jobs).
+**Background jobs have no ambient UoW.** The interceptor attaches to application services, not to a `BackgroundService` or a Hangfire job handler. Inside a worker you have to open a DI scope and call `Begin` yourself. This is precisely the captive dependency problem covered in [the service lifetime post](https://tiennhm.io.vn/blog/singleton-scoped-transient-captive-dependency): `BackgroundService` is a singleton, so each loop iteration needs its own scope. See also [9.10 — Hosted services and background jobs](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-09-web-api-professional/9.9-hosted-service-background-jobs) and [14.7 — Hangfire](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-14-caching-background-jobs/14.6-hangfire-background-jobs).
 
 **Forgetting that a `using` without `CompleteAsync` means a rollback.** Any UoW disposed without completing is treated as failed. One early `return` in the middle of a method is enough to lose all your changes without a single exception.
 

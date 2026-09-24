@@ -58,7 +58,7 @@ services.AddDbContext<CrmDbContext>(opt => opt
     .UseSqlServer(connectionString));
 ```
 
-Từ lúc đó, `c.Contacts.Count` nằm trong một vòng `foreach` sẽ âm thầm bắn một truy vấn cho mỗi dòng. Tệ hơn, lazy loading là đồng bộ: nó chặn thread ngay giữa một action `async`. Cách khai báo quan hệ và navigation property được nói kỹ hơn ở [bài relationships](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.4-relationships).
+Từ lúc đó, `c.Contacts.Count` nằm trong một vòng `foreach` sẽ âm thầm bắn một truy vấn cho mỗi dòng. Tệ hơn, lazy loading là đồng bộ: nó chặn thread ngay giữa một action `async`. Cách khai báo quan hệ và navigation property được nói kỹ hơn ở [bài relationships](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.3-relationships).
 
 **Mapping sau khi đã materialize** là dạng thứ ba. Khi bạn `ToListAsync()` trước rồi mới map entity sang DTO bằng AutoMapper, mọi navigation property mà mapper chạm vào đều là một lần nạp rời. Dùng `ProjectTo` thay cho `Map` sẽ đẩy phép chiếu xuống thành SQL, thay vì chạy trên đối tượng đã nằm trong bộ nhớ.
 
@@ -94,7 +94,7 @@ var query = _db.Customers
 Console.WriteLine(query.ToQueryString());
 ```
 
-Cách đọc log thì đơn giản: gọi API một lần, đếm số câu lệnh, rồi gọi lại với tập dữ liệu lớn hơn. Nếu con số đó tăng theo số dòng trả về thì bạn đang có N+1, không cần đo thêm gì nữa. Cấu hình log có cấu trúc để đếm được trên môi trường thật thì xem [bài logging với Serilog](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.8-logging-with-serilog), còn các công cụ debug khác của EF Core nằm ở [bài performance](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.8-performance).
+Cách đọc log thì đơn giản: gọi API một lần, đếm số câu lệnh, rồi gọi lại với tập dữ liệu lớn hơn. Nếu con số đó tăng theo số dòng trả về thì bạn đang có N+1, không cần đo thêm gì nữa. Cấu hình log có cấu trúc để đếm được trên môi trường thật thì xem [bài logging với Serilog](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.7-logging-with-serilog), còn các công cụ debug khác của EF Core nằm ở [bài performance](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.7-performance).
 
 ## Bốn cách sửa, và khi nào dùng cái nào
 
@@ -115,7 +115,7 @@ var rows = await _db.Customers
     .ToListAsync();
 ```
 
-EF Core dịch cả khối này thành một câu lệnh duy nhất, với các phép đếm và tổng nằm ở dạng subquery. Bạn được ba thứ cùng lúc: một round trip, chỉ những cột thật sự cần thay vì đọc cả hàng, và không có gì phải đưa vào change tracker. Các dạng projection khác được liệt kê trong [bài query patterns](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.6-query-patterns).
+EF Core dịch cả khối này thành một câu lệnh duy nhất, với các phép đếm và tổng nằm ở dạng subquery. Bạn được ba thứ cùng lúc: một round trip, chỉ những cột thật sự cần thay vì đọc cả hàng, và không có gì phải đưa vào change tracker. Các dạng projection khác được liệt kê trong [bài query patterns](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.5-query-patterns).
 
 ### 2. Include và ThenInclude, khi bạn cần entity thật
 
@@ -173,7 +173,7 @@ Cái giá của split query thì cần nói rõ:
 - Khi có phân trang, thứ tự phải xác định, nếu không các phần tách ra sẽ ghép sai; EF Core cũng cảnh báo khi truy vấn tách không có `OrderBy` ổn định.
 - Ba round trip không phải lúc nào cũng rẻ hơn một. Include đúng một collection thì cứ để nguyên single query.
 
-Quy tắc dùng được ngay: Include một collection thì giữ single query, từ hai collection trở lên thì thêm `AsSplitQuery`. Cách đọc execution plan để kiểm chứng phần này nằm ở [bài query optimization](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-12-sql-deep-dive/12.6-query-optimization).
+Quy tắc dùng được ngay: Include một collection thì giữ single query, từ hai collection trở lên thì thêm `AsSplitQuery`. Cách đọc execution plan để kiểm chứng phần này nằm ở [bài query optimization](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-12-sql-deep-dive/12.5-query-optimization).
 
 ## Chọn nhanh
 
@@ -191,15 +191,15 @@ Quy tắc dùng được ngay: Include một collection thì giữ single query,
 
 **Gọi `ToListAsync()` quá sớm.** Sau `ToListAsync()`, mọi `Where` hay `Select` phía sau chạy bằng LINQ to Objects trên dữ liệu đã tải về, chứ không còn dịch thành SQL nữa.
 
-**Include rồi phân trang cả collection.** `Include` một collection kèm `Skip` và `Take` luôn khiến database trả về nhiều dòng hơn số dòng bạn hiển thị. Màn hình có phân trang thì nên đi đường projection, xem thêm [bài pagination, filtering và sorting](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-09-web-api-professional/9.5-pagination-filtering-sorting).
+**Include rồi phân trang cả collection.** `Include` một collection kèm `Skip` và `Take` luôn khiến database trả về nhiều dòng hơn số dòng bạn hiển thị. Màn hình có phân trang thì nên đi đường projection, xem thêm [bài pagination, filtering và sorting](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-09-web-api-professional/9.4-pagination-filtering-sorting).
 
-**Repository trả về `IEnumerable` thay vì `IQueryable`.** Khi đó tầng gọi không còn cách nào Include hay Select, và N+1 mọc lại ở tầng trên. Đánh đổi của kiểu thiết kế này được bàn ở [bài repository và unit of work](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.10-unit-of-work-and-repository-pattern).
+**Repository trả về `IEnumerable` thay vì `IQueryable`.** Khi đó tầng gọi không còn cách nào Include hay Select, và N+1 mọc lại ở tầng trên. Đánh đổi của kiểu thiết kế này được bàn ở [bài repository và unit of work](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.9-unit-of-work-and-repository-pattern).
 
-**Quên global query filter.** Bộ lọc toàn cục kiểu soft delete hay multi-tenant cũng được áp vào cả phần Include, nên số dòng thực nhận có thể khác với những gì bạn nhẩm trong đầu; chi tiết ở [bài global query filters](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.11-global-query-filters).
+**Quên global query filter.** Bộ lọc toàn cục kiểu soft delete hay multi-tenant cũng được áp vào cả phần Include, nên số dòng thực nhận có thể khác với những gì bạn nhẩm trong đầu; chi tiết ở [bài global query filters](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.10-global-query-filters).
 
-**Thiếu index trên khoá ngoại.** Gộp 201 truy vấn thành 1 mà cột `CustomerId` không có index thì bạn chỉ đổi từ nhiều lần quét nhỏ sang một lần quét lớn. Phần này thuộc về [bài indexing](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-12-sql-deep-dive/12.5-indexing).
+**Thiếu index trên khoá ngoại.** Gộp 201 truy vấn thành 1 mà cột `CustomerId` không có index thì bạn chỉ đổi từ nhiều lần quét nhỏ sang một lần quét lớn. Phần này thuộc về [bài indexing](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-12-sql-deep-dive/12.4-indexing).
 
-Ví dụ gốc của vấn đề này kèm ngữ cảnh CRM thì nằm ở [bài N+1 problem](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.7-n-plus-1-problem).
+Ví dụ gốc của vấn đề này kèm ngữ cảnh CRM thì nằm ở [bài N+1 problem](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.6-n-plus-1-problem).
 
 ## Câu hỏi thường gặp
 
@@ -226,5 +226,5 @@ Không. AsNoTracking chỉ bỏ bước chụp snapshot entity vào change track
 ## Bài liên quan
 
 - [Module 13 — Entity Framework Core](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core) — EF Core: change tracking, migrations, raw SQL, performance patterns — ORM mapping an toàn cho domain CRM.
-- [13.6 — 5. Query Patterns](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.6-query-patterns) — Projection thay vì Include, split query và cartesian explosion, explicit loading, FindAsync, và compiled query cho đường chạy nóng.
+- [13.6 — 5. Query Patterns](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.5-query-patterns) — Projection thay vì Include, split query và cartesian explosion, explicit loading, FindAsync, và compiled query cho đường chạy nóng.
 - [Lộ trình .NET Backend: From Zero → Senior (Backend-first)](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/dotnet-backend-zero-to-senior-roadmap) — Curriculum hub: lộ trình .NET backend-first (C#, ASP.NET Core, SQL, EF Core, distributed systems, microservices) với trục nghiệp vụ CRM/ERP — tối ưu…

@@ -25,13 +25,13 @@ Container không quản lý "kiểu" service, nó quản lý **instance** và **
 | `Scoped` | Lần đầu resolve trong mỗi scope | Khi scope kết thúc | `DbContext`, Unit of Work, repository, ngữ cảnh người dùng |
 | `Singleton` | Lần đầu resolve trong cả app | Khi host shutdown | Cache in-memory, cấu hình đã parse, factory |
 
-Có một chi tiết hay bị bỏ qua: container **chịu trách nhiệm dispose** những instance nó tạo ra mà implement `IDisposable`. Mỗi scope giữ một danh sách các disposable đã tạo trong scope đó. Nghĩa là một service `Transient` implement `IDisposable` mà bạn resolve từ root provider sẽ nằm trong danh sách của root scope và chỉ được giải phóng lúc app tắt — `Transient` không hề đồng nghĩa với "được thu hồi ngay". Bảng so sánh chi tiết hơn nằm ở [7.5 — Service Lifetimes](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-07-dependency-injection/7.5-service-lifetimes).
+Có một chi tiết hay bị bỏ qua: container **chịu trách nhiệm dispose** những instance nó tạo ra mà implement `IDisposable`. Mỗi scope giữ một danh sách các disposable đã tạo trong scope đó. Nghĩa là một service `Transient` implement `IDisposable` mà bạn resolve từ root provider sẽ nằm trong danh sách của root scope và chỉ được giải phóng lúc app tắt — `Transient` không hề đồng nghĩa với "được thu hồi ngay". Bảng so sánh chi tiết hơn nằm ở [7.5 — Service Lifetimes](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-07-dependency-injection/7.4-service-lifetimes).
 
 ## "Scope" trong một HTTP request là cái gì
 
-Trong ASP.NET Core, scope không phải khái niệm trừu tượng mà là một object có thật. Với mỗi request đi vào, hạ tầng tạo một `IServiceScope`, gắn `ServiceProvider` của scope đó vào `HttpContext.RequestServices`, chạy toàn bộ [pipeline middleware](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.3-request-pipeline-and-middleware), rồi dispose scope khi response đã hoàn tất.
+Trong ASP.NET Core, scope không phải khái niệm trừu tượng mà là một object có thật. Với mỗi request đi vào, hạ tầng tạo một `IServiceScope`, gắn `ServiceProvider` của scope đó vào `HttpContext.RequestServices`, chạy toàn bộ [pipeline middleware](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.2-request-pipeline-and-middleware), rồi dispose scope khi response đã hoàn tất.
 
-Hệ quả trực tiếp: trong cùng một request, controller, service nghiệp vụ và hai repository khác nhau đều nhận **cùng một** `CrmDbContext`. Đó chính là thứ làm cho unit of work hoạt động — bạn sửa entity ở repository A, thêm entity ở repository B, rồi gọi `SaveChangesAsync` một lần và cả hai nằm chung một transaction. Lý do `DbContext` được đăng ký `Scoped` mặc định nằm ở đây, chứ không phải vì nó "nặng" ([13.3 — DbContext và entity configuration](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.3-dbcontext-and-entity-configuration)).
+Hệ quả trực tiếp: trong cùng một request, controller, service nghiệp vụ và hai repository khác nhau đều nhận **cùng một** `CrmDbContext`. Đó chính là thứ làm cho unit of work hoạt động — bạn sửa entity ở repository A, thêm entity ở repository B, rồi gọi `SaveChangesAsync` một lần và cả hai nằm chung một transaction. Lý do `DbContext` được đăng ký `Scoped` mặc định nằm ở đây, chứ không phải vì nó "nặng" ([13.3 — DbContext và entity configuration](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.2-dbcontext-and-entity-configuration)).
 
 Hệ quả thứ hai quan trọng hơn: **ngoài request thì không có scope nào tự sinh ra**. Background job, hosted service, consumer message queue, code chạy lúc startup — tất cả đều sống ở root scope. Nếu ở đó bạn cần một service `Scoped`, bạn phải tự tạo scope.
 
@@ -65,7 +65,7 @@ Bốn hậu quả xảy ra theo thứ tự này:
 - **Race condition.** `DbContext` không thread-safe và không được thiết kế cho nhiều thao tác song song. Singleton thì mặc định bị nhiều request gọi cùng lúc, nên `A second operation was started on this context instance` là chuyện sớm muộn.
 - **Rò rỉ dữ liệu giữa tenant hoặc giữa user**, nếu `DbContext` mang theo filter theo tenant hay ngữ cảnh người dùng được gắn lúc khởi tạo.
 
-Cùng một cơ chế, một biến thể khó thấy hơn là inject `IServiceProvider` vào constructor rồi `GetRequiredService` bên trong method. Nó vừa là captive dependency vừa là [Service Locator](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-07-dependency-injection/7.10-anti-patterns), vì dependency thật bị giấu khỏi constructor và không còn kiểm tra được từ bên ngoài.
+Cùng một cơ chế, một biến thể khó thấy hơn là inject `IServiceProvider` vào constructor rồi `GetRequiredService` bên trong method. Nó vừa là captive dependency vừa là [Service Locator](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-07-dependency-injection/7.9-anti-patterns), vì dependency thật bị giấu khỏi constructor và không còn kiểm tra được từ bên ngoài.
 
 ## Vì sao Development bắt được lỗi mà Production thì không chắc
 
@@ -93,7 +93,7 @@ builder.Host.UseDefaultServiceProvider((context, options) =>
 });
 ```
 
-`ValidateOnBuild` duyệt toàn bộ đăng ký lúc `builder.Build()` và làm app chết ngay lúc khởi động nếu đồ thị phụ thuộc sai. Với một service được deploy tự động, app không khởi động nổi là tín hiệu tốt hơn nhiều so với một lỗi ngẫu nhiên lúc 2 giờ sáng. Cái giá là thêm một khoảng thời gian khởi động tỉ lệ với số lượng đăng ký — gần như luôn đáng đổi. Chỗ đặt đoạn cấu hình này là `Program.cs`, cùng nơi bạn gom các extension method đăng ký theo layer ([7.7 — Program.cs và WebApplicationBuilder](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-07-dependency-injection/7.7-program-cs-and-webapplicationbuilder)).
+`ValidateOnBuild` duyệt toàn bộ đăng ký lúc `builder.Build()` và làm app chết ngay lúc khởi động nếu đồ thị phụ thuộc sai. Với một service được deploy tự động, app không khởi động nổi là tín hiệu tốt hơn nhiều so với một lỗi ngẫu nhiên lúc 2 giờ sáng. Cái giá là thêm một khoảng thời gian khởi động tỉ lệ với số lượng đăng ký — gần như luôn đáng đổi. Chỗ đặt đoạn cấu hình này là `Program.cs`, cùng nơi bạn gom các extension method đăng ký theo layer ([7.7 — Program.cs và WebApplicationBuilder](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-07-dependency-injection/7.6-program-cs-and-webapplicationbuilder)).
 
 ## Bản sửa: tự mở scope bằng IServiceScopeFactory
 
@@ -150,16 +150,16 @@ public sealed class CacheWarmupWorker : BackgroundService
 }
 ```
 
-`BackgroundService` được host đăng ký như singleton, nên đây không phải tuỳ chọn mà là cách duy nhất để chạm tới service `Scoped` từ trong đó ([9.10 — Hosted service và background job](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-09-web-api-professional/9.10-hosted-service-background-jobs)). Đặt `CreateScope` ngoài vòng lặp là tái tạo lại đúng captive dependency vừa sửa, chỉ khác là lần này do chính bạn viết ra.
+`BackgroundService` được host đăng ký như singleton, nên đây không phải tuỳ chọn mà là cách duy nhất để chạm tới service `Scoped` từ trong đó ([9.10 — Hosted service và background job](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-09-web-api-professional/9.9-hosted-service-background-jobs)). Đặt `CreateScope` ngoài vòng lặp là tái tạo lại đúng captive dependency vừa sửa, chỉ khác là lần này do chính bạn viết ra.
 
 ## Singleton thì phải thread-safe, không có ngoại lệ
 
 Đăng ký `Singleton` là ngầm tuyên bố class đó chịu được nhiều thread gọi song song, vì trong một web app nó gần như chắc chắn sẽ bị như vậy. Vài hệ quả cụ thể:
 
 - `Dictionary<K,V>` bị ghi từ nhiều request có thể hỏng cấu trúc nội bộ và treo vòng lặp đọc. Dùng `ConcurrentDictionary`, hoặc khoá tường minh, hoặc giữ state ở dạng bất biến và thay nguyên cụm.
-- Cache in-memory dùng chung nên dựa vào `IMemoryCache` — nó vốn được đăng ký singleton và thread-safe, thay vì tự dựng cache bằng field tĩnh ([14.3 — IMemoryCache](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-14-caching-background-jobs/14.3-imemorycache)).
-- Cấu hình nên vào qua [Options pattern](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-07-dependency-injection/7.8-options-pattern) chứ không phải một singleton mutable mà chỗ nào cũng sửa được.
-- Khi cần nhiều implementation cùng interface và muốn chọn theo tên thay vì theo lifetime, [Keyed Services](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-07-dependency-injection/7.9-keyed-services) là công cụ đúng — đừng biến một singleton thành bộ điều phối tự đi resolve.
+- Cache in-memory dùng chung nên dựa vào `IMemoryCache` — nó vốn được đăng ký singleton và thread-safe, thay vì tự dựng cache bằng field tĩnh ([14.3 — IMemoryCache](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-14-caching-background-jobs/14.2-imemorycache)).
+- Cấu hình nên vào qua [Options pattern](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-07-dependency-injection/7.7-options-pattern) chứ không phải một singleton mutable mà chỗ nào cũng sửa được.
+- Khi cần nhiều implementation cùng interface và muốn chọn theo tên thay vì theo lifetime, [Keyed Services](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-07-dependency-injection/7.8-keyed-services) là công cụ đúng — đừng biến một singleton thành bộ điều phối tự đi resolve.
 
 ## Chốt lại thành quy tắc chọn
 
@@ -167,7 +167,7 @@ public sealed class CacheWarmupWorker : BackgroundService
 2. Service stateless, rẻ, không giữ tài nguyên → `Transient`. Nếu nó `IDisposable`, kiểm tra xem nó được resolve từ scope nào.
 3. Chỉ để `Singleton` khi class thực sự thread-safe **và** không phụ thuộc thứ gì ngắn hơn nó. Nếu cần, nhận `IServiceScopeFactory`.
 4. Bật `ValidateScopes` và `ValidateOnBuild` cho mọi môi trường, không chỉ Development.
-5. Constructor phình quá 4–5 dependency thì vấn đề không còn là lifetime mà là trách nhiệm của class — tách nhỏ trước, chọn lifetime sau. Danh sách các cách đăng ký còn lại, gồm factory và open generic, nằm ở [7.6 — Registering Services](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-07-dependency-injection/7.6-registering-services).
+5. Constructor phình quá 4–5 dependency thì vấn đề không còn là lifetime mà là trách nhiệm của class — tách nhỏ trước, chọn lifetime sau. Danh sách các cách đăng ký còn lại, gồm factory và open generic, nằm ở [7.6 — Registering Services](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-07-dependency-injection/7.5-registering-services).
 
 ## Câu hỏi thường gặp
 
@@ -194,5 +194,5 @@ Không. Transient chỉ quy định mỗi lần resolve tạo một instance m�
 ## Bài liên quan
 
 - [Module 7 — Dependency Injection](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-07-dependency-injection) — Dependency injection trong .NET: service lifetime, composition root, options pattern — khớp với container ASP.NET Core và kiểm thử đơn vị.
-- [7.5 — 3. Service Lifetimes](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-07-dependency-injection/7.5-service-lifetimes) — Transient, Scoped, Singleton: khi nào tạo mới, khi nào Dispose, và vì sao captive dependency khiến DbContext sống mãi tới lúc ứng dụng tắt.
+- [7.5 — 3. Service Lifetimes](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-07-dependency-injection/7.4-service-lifetimes) — Transient, Scoped, Singleton: khi nào tạo mới, khi nào Dispose, và vì sao captive dependency khiến DbContext sống mãi tới lúc ứng dụng tắt.
 - [Module 16 — Clean Architecture](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-05-senior-engineering/module-16-clean-architecture) — Clean Architecture & DDD tactical: layers, aggregates, application services — giảm coupling và tăng khả năng kiểm chứng cho CRM lớn.

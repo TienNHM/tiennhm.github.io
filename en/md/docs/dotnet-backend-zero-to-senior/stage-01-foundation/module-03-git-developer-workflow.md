@@ -5,20 +5,20 @@
 
 ## Nội dung module
 
-- [3.2 — 1. Git là gì và tại sao cần](3.2-git-intro-and-motivation.mdx)
-- [3.3 — 2. Cài đặt và cấu hình Git](3.3-git-install-config.mdx)
-- [3.4 — Checklist an toàn khi làm Git](3.4-git-safety-checklist.mdx)
-- [3.5 — 3. Workflow cơ bản](3.5-workflow-co-ban.mdx)
-- [3.6 — 4. Branching và Merging](3.6-branching-and-merging.mdx)
-- [3.7 — 5. GitHub và Pull Request](3.7-github-and-pull-request.mdx)
-- [3.8 — 6. Git Conflicts](3.8-git-conflicts.mdx)
-- [3.9 — 7. Developer Workflow thực tế](3.9-real-world-developer-workflow.mdx)
-- [3.10 — 8. Debugging Workflow](3.10-debugging-workflow.mdx)
-- [3.11 — 9. Conventional Commits](3.11-conventional-commits.mdx)
-- [3.12 — Mở rộng và đào sâu](3.12-advanced-notes.mdx)
-- [3.13 — Mini case study](3.13-mini-case-study.mdx)
-- [3.14 — Ví dụ thực tế nhanh](3.14-quick-real-world-example.mdx)
-- [3.15 — Review and Assessment](3.15-review-and-assessment.mdx)
+- [3.1 — 1. Git là gì và tại sao cần](3.1-git-intro-and-motivation.mdx)
+- [3.2 — 2. Cài đặt và cấu hình Git](3.2-git-install-config.mdx)
+- [3.3 — Checklist an toàn khi làm Git](3.3-git-safety-checklist.mdx)
+- [3.4 — 3. Workflow cơ bản](3.4-workflow-co-ban.mdx)
+- [3.5 — 4. Branching và Merging](3.5-branching-and-merging.mdx)
+- [3.6 — 5. GitHub và Pull Request](3.6-github-and-pull-request.mdx)
+- [3.7 — 6. Git Conflicts](3.7-git-conflicts.mdx)
+- [3.8 — 7. Developer Workflow thực tế](3.8-real-world-developer-workflow.mdx)
+- [3.9 — 8. Debugging Workflow](3.9-debugging-workflow.mdx)
+- [3.10 — 9. Conventional Commits](3.10-conventional-commits.mdx)
+- [3.11 — Mở rộng và đào sâu](3.11-advanced-notes.mdx)
+- [3.12 — Mini case study](3.12-mini-case-study.mdx)
+- [3.13 — Ví dụ thực tế nhanh](3.13-quick-real-world-example.mdx)
+- [3.14 — Review and Assessment](3.14-review-and-assessment.mdx)
 
 ## Bài liên quan
 

@@ -5,19 +5,19 @@
 
 ## Nội dung module
 
-- [19.2 — 1. Nguyên tắc: đo trước, đo sau](19.2-measure-before-and-after.mdx)
-- [19.3 — 2. BenchmarkDotNet](19.3-benchmarkdotnet.mdx)
-- [19.4 — 3. Profiling trên .NET server](19.4-dotnet-server-profiling.mdx)
-- [19.5 — 4. Database thường là nghẽn đầu tiên](19.5-database-first-bottleneck.mdx)
-- [19.6 — 5. Caching — ôn tập có hệ thống](19.6-systematic-caching-overview.mdx)
-- [19.7 — 6. Scaling strategy](19.7-scaling-strategy.mdx)
-- [19.8 — 7. Distributed lock](19.8-distributed-lock.mdx)
-- [19.9 — Bổ sung (đối chiếu roadmap.sh)](19.9-roadmap-sh-supplement.mdx)
-- [19.10 — Liên hệ CRM](19.10-crm-context.mdx)
-- [19.11 — Mở rộng và đào sâu](19.11-advanced-notes.mdx)
-- [19.12 — Mini case study](19.12-mini-case-study.mdx)
-- [19.13 — Ví dụ thực tế nhanh](19.13-quick-real-world-example.mdx)
-- [19.14 — Review and Assessment](19.14-review-and-assessment.mdx)
+- [19.1 — 1. Nguyên tắc: đo trước, đo sau](19.1-measure-before-and-after.mdx)
+- [19.2 — 2. BenchmarkDotNet](19.2-benchmarkdotnet.mdx)
+- [19.3 — 3. Profiling trên .NET server](19.3-dotnet-server-profiling.mdx)
+- [19.4 — 4. Database thường là nghẽn đầu tiên](19.4-database-first-bottleneck.mdx)
+- [19.5 — 5. Caching — ôn tập có hệ thống](19.5-systematic-caching-overview.mdx)
+- [19.6 — 6. Scaling strategy](19.6-scaling-strategy.mdx)
+- [19.7 — 7. Distributed lock](19.7-distributed-lock.mdx)
+- [19.8 — Bổ sung (đối chiếu roadmap.sh)](19.8-roadmap-sh-supplement.mdx)
+- [19.9 — Liên hệ CRM](19.9-crm-context.mdx)
+- [19.10 — Mở rộng và đào sâu](19.10-advanced-notes.mdx)
+- [19.11 — Mini case study](19.11-mini-case-study.mdx)
+- [19.12 — Ví dụ thực tế nhanh](19.12-quick-real-world-example.mdx)
+- [19.13 — Review and Assessment](19.13-review-and-assessment.mdx)
 
 ## Bài liên quan
 

@@ -24,7 +24,7 @@ There are two axes of authorization worth keeping apart, and [the secure object 
 
 Because authentication and authorization are two different jobs, and the framework only handles the first one for you automatically.
 
-`[Authorize]` answers "who are you". It verifies the token signature, builds a `ClaimsPrincipal`, and stops there. It knows nothing about order 1044 and has no way of knowing who it belongs to. The question "are you allowed to touch this record" has to be answered by business code, and since nothing forces you to write it, it is exactly the line that gets forgotten under deadline pressure. The boundary between the two concepts is drawn in [authentication vs authorization](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-10-authentication-authorization/10.2-authentication-vs-authorization).
+`[Authorize]` answers "who are you". It verifies the token signature, builds a `ClaimsPrincipal`, and stops there. It knows nothing about order 1044 and has no way of knowing who it belongs to. The question "are you allowed to touch this record" has to be answered by business code, and since nothing forces you to write it, it is exactly the line that gets forgotten under deadline pressure. The boundary between the two concepts is drawn in [authentication vs authorization](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-10-authentication-authorization/10.1-authentication-vs-authorization).
 
 Another source of the bug is trusting the UI. The screen only shows the current user's orders, so a developer implicitly assumes the id that arrives is always valid. But any HTTP client can send any request it likes, and the UI is not a protection layer — it is only a suggestion.
 
@@ -88,7 +88,7 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
 }
 ```
 
-The mechanism and its traps — you must have an index on the filtered column, and `IgnoreQueryFilters()` disables the lot — are spelled out in [the global query filters article](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.11-global-query-filters). Query filters are a great fit for broad boundaries like tenancy or soft delete. For per-record ownership, where admins and managers have their own rules, cramming everything into the filter makes the condition sprawl out of control.
+The mechanism and its traps — you must have an index on the filtered column, and `IgnoreQueryFilters()` disables the lot — are spelled out in [the global query filters article](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.10-global-query-filters). Query filters are a great fit for broad boundaries like tenancy or soft delete. For per-record ownership, where admins and managers have their own rules, cramming everything into the filter makes the condition sprawl out of control.
 
 For rules that depend on the record's own data, ASP.NET Core ships resource-based authorization. You load the resource first, then ask the authorization system:
 
@@ -123,7 +123,7 @@ if (!result.Succeeded)
     return Forbid();
 ```
 
-What you gain is that the rule "who may touch an Order" lives in a single handler; change it once and every caller follows, instead of hunting down scattered `if` statements. Declaring requirements and handlers is covered in detail in [resource-based authorization](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-10-authentication-authorization/10.7-resource-based-authorization), and declaring the policy that attaches to an endpoint in [policy-based authorization](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-10-authentication-authorization/10.6-policy-based-authorization).
+What you gain is that the rule "who may touch an Order" lives in a single handler; change it once and every caller follows, instead of hunting down scattered `if` statements. Declaring requirements and handlers is covered in detail in [resource-based authorization](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-10-authentication-authorization/10.6-resource-based-authorization), and declaring the policy that attaches to an endpoint in [policy-based authorization](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-10-authentication-authorization/10.5-policy-based-authorization).
 
 These three layers are not mutually exclusive: query filters guard broad boundaries, the `WHERE` constraint handles everyday reads, and resource-based authorization handles the complex rules that need the data itself before they can decide.
 

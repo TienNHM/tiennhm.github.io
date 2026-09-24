@@ -5,18 +5,18 @@
 
 ## Nội dung module
 
-- [12.2 — 1. Database Design cho CRM](12.2-crm-database-design.mdx)
-- [12.3 — 2. SQL Server so với PostgreSQL](12.3-sql-server-vs-postgresql.mdx)
-- [12.4 — 3. Queries Nâng Cao](12.4-advanced-queries.mdx)
-- [12.5 — 4. Indexing](12.5-indexing.mdx)
-- [12.6 — 5. Query Optimization](12.6-query-optimization.mdx)
-- [12.7 — 6. Transactions và Locking](12.7-transactions-and-locking.mdx)
-- [12.8 — 7. Stored Procedures và Views](12.8-stored-procedures-and-views.mdx)
-- [12.9 — 8. Database Migration Strategy](12.9-database-migration-strategy.mdx)
-- [12.10 — Mở rộng và đào sâu](12.10-advanced-notes.mdx)
-- [12.11 — Mini case study](12.11-mini-case-study.mdx)
-- [12.12 — Ví dụ thực tế nhanh](12.12-quick-real-world-example.mdx)
-- [12.13 — Review and Assessment](12.13-review-and-assessment.mdx)
+- [12.1 — 1. Database Design cho CRM](12.1-crm-database-design.mdx)
+- [12.2 — 2. SQL Server so với PostgreSQL](12.2-sql-server-vs-postgresql.mdx)
+- [12.3 — 3. Queries Nâng Cao](12.3-advanced-queries.mdx)
+- [12.4 — 4. Indexing](12.4-indexing.mdx)
+- [12.5 — 5. Query Optimization](12.5-query-optimization.mdx)
+- [12.6 — 6. Transactions và Locking](12.6-transactions-and-locking.mdx)
+- [12.7 — 7. Stored Procedures và Views](12.7-stored-procedures-and-views.mdx)
+- [12.8 — 8. Database Migration Strategy](12.8-database-migration-strategy.mdx)
+- [12.9 — Mở rộng và đào sâu](12.9-advanced-notes.mdx)
+- [12.10 — Mini case study](12.10-mini-case-study.mdx)
+- [12.11 — Ví dụ thực tế nhanh](12.11-quick-real-world-example.mdx)
+- [12.12 — Review and Assessment](12.12-review-and-assessment.mdx)
 
 ## Bài liên quan
 

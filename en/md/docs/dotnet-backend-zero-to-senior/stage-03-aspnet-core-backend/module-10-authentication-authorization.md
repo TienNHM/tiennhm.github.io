@@ -5,20 +5,20 @@
 
 ## Nội dung module
 
-- [10.2 — 1. Authentication so với Authorization](10.2-authentication-vs-authorization.mdx)
-- [10.3 — 2. JWT Authentication](10.3-jwt-authentication.mdx)
-- [10.4 — 3. Refresh Token](10.4-refresh-token.mdx)
-- [10.5 — 4. Role-based Authorization](10.5-role-based-authorization.mdx)
-- [10.6 — 5. Policy-based Authorization](10.6-policy-based-authorization.mdx)
-- [10.7 — 6. Resource-based Authorization](10.7-resource-based-authorization.mdx)
-- [10.8 — 7. Permission System](10.8-permission-system.mdx)
-- [10.9 — 8. ASP.NET Core Identity (Overview)](10.9-overview.mdx)
-- [10.10 — 9. External Login và OAuth2 (Overview)](10.10-overview.mdx)
-- [10.11 — 10. Security Best Practices](10.11-security-best-practices.mdx)
-- [10.12 — Mở rộng và đào sâu](10.12-advanced-notes.mdx)
-- [10.13 — Mini case study](10.13-mini-case-study.mdx)
-- [10.14 — Ví dụ thực tế nhanh](10.14-quick-real-world-example.mdx)
-- [10.15 — Review and Assessment](10.15-review-and-assessment.mdx)
+- [10.1 — 1. Authentication so với Authorization](10.1-authentication-vs-authorization.mdx)
+- [10.2 — 2. JWT Authentication](10.2-jwt-authentication.mdx)
+- [10.3 — 3. Refresh Token](10.3-refresh-token.mdx)
+- [10.4 — 4. Role-based Authorization](10.4-role-based-authorization.mdx)
+- [10.5 — 5. Policy-based Authorization](10.5-policy-based-authorization.mdx)
+- [10.6 — 6. Resource-based Authorization](10.6-resource-based-authorization.mdx)
+- [10.7 — 7. Permission System](10.7-permission-system.mdx)
+- [10.8 — 8. ASP.NET Core Identity (Overview)](10.8-overview.mdx)
+- [10.9 — 9. External Login và OAuth2 (Overview)](10.9-overview.mdx)
+- [10.10 — 10. Security Best Practices](10.10-security-best-practices.mdx)
+- [10.11 — Mở rộng và đào sâu](10.11-advanced-notes.mdx)
+- [10.12 — Mini case study](10.12-mini-case-study.mdx)
+- [10.13 — Ví dụ thực tế nhanh](10.13-quick-real-world-example.mdx)
+- [10.14 — Review and Assessment](10.14-review-and-assessment.mdx)
 
 ## Bài liên quan
 

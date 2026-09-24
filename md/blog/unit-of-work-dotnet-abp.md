@@ -34,7 +34,7 @@ public class UnitOfWork : IUnitOfWork
 }
 ```
 
-chỉ là một lớp bọc quanh thứ vốn đã làm đúng việc đó. Nó không thêm khả năng nào, nhưng thêm một interface phải maintain và một lớp gián tiếp khiến người đọc code phải nhảy thêm một bước. Phần đánh đổi giữa dùng Repository/UoW và dùng thẳng `DbContext` được bàn kỹ hơn ở [13.10 — Unit of Work và Repository pattern](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.10-unit-of-work-and-repository-pattern).
+chỉ là một lớp bọc quanh thứ vốn đã làm đúng việc đó. Nó không thêm khả năng nào, nhưng thêm một interface phải maintain và một lớp gián tiếp khiến người đọc code phải nhảy thêm một bước. Phần đánh đổi giữa dùng Repository/UoW và dùng thẳng `DbContext` được bàn kỹ hơn ở [13.10 — Unit of Work và Repository pattern](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.9-unit-of-work-and-repository-pattern).
 
 ### Khi nào thì thật sự cần nhiều hơn `SaveChanges`
 
@@ -42,7 +42,7 @@ Có ba tình huống `DbContext` một mình không giải quyết được:
 
 1. **Nhiều `DbContext` trong cùng một thao tác.** Mỗi `SaveChanges` là một transaction riêng. Muốn chúng cùng thành công hoặc cùng hỏng thì cần một transaction bao ngoài.
 2. **Trộn database với resource khác.** Ghi database rồi bắn message lên broker. `SaveChanges` không biết gì về broker, nên nếu message bay đi trước khi transaction commit, bạn vừa tạo ra một sự kiện mô tả chuyện chưa từng xảy ra.
-3. **Cần kiểm soát isolation level.** Hành vi mặc định không phải lúc nào cũng đúng cho báo cáo hay cho thao tác đọc rồi ghi. Chi tiết ở [12.7 — Transactions và locking](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-12-sql-deep-dive/12.7-transactions-and-locking).
+3. **Cần kiểm soát isolation level.** Hành vi mặc định không phải lúc nào cũng đúng cho báo cáo hay cho thao tác đọc rồi ghi. Chi tiết ở [12.7 — Transactions và locking](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-12-sql-deep-dive/12.6-transactions-and-locking).
 
 Đây chính là khoảng trống mà Unit of Work của ABP lấp vào.
 
@@ -156,11 +156,11 @@ public async Task AssignAsync(Guid leadId, Guid userId)
 }
 ```
 
-Cùng nguyên tắc đó, `AddOrReplaceDistributedEvent` gắn distributed event vào UoW để nó đi cùng nhịp với transaction thay vì bay đi sớm. Đây chính là bài toán mà [17.4 — Outbox pattern](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-05-senior-engineering/module-17-distributed-systems/17.4-outbox-pattern-applied) giải quyết ở mức kiến trúc, và [17.3 — Lo lắng khi làm messaging](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-05-senior-engineering/module-17-distributed-systems/17.3-messaging-fears-lost-duplicates) mô tả hậu quả khi làm sai.
+Cùng nguyên tắc đó, `AddOrReplaceDistributedEvent` gắn distributed event vào UoW để nó đi cùng nhịp với transaction thay vì bay đi sớm. Đây chính là bài toán mà [17.4 — Outbox pattern](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-05-senior-engineering/module-17-distributed-systems/17.3-outbox-pattern-applied) giải quyết ở mức kiến trúc, và [17.3 — Lo lắng khi làm messaging](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-05-senior-engineering/module-17-distributed-systems/17.2-messaging-fears-lost-duplicates) mô tả hậu quả khi làm sai.
 
 ## Phần 3 — Những chỗ hay sập
 
-**Background job không có UoW ambient.** Interceptor gắn vào application service, không gắn vào `BackgroundService` hay job handler của Hangfire. Trong worker bạn phải tự mở scope DI rồi tự `Begin`. Đây đúng là vấn đề captive dependency đã nói ở [bài về service lifetime](https://tiennhm.io.vn/blog/singleton-scoped-transient-captive-dependency): `BackgroundService` là singleton, nên mỗi vòng lặp phải tạo scope riêng. Xem thêm [9.10 — Hosted service và background job](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-09-web-api-professional/9.10-hosted-service-background-jobs) và [14.7 — Hangfire](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-14-caching-background-jobs/14.7-hangfire-background-jobs).
+**Background job không có UoW ambient.** Interceptor gắn vào application service, không gắn vào `BackgroundService` hay job handler của Hangfire. Trong worker bạn phải tự mở scope DI rồi tự `Begin`. Đây đúng là vấn đề captive dependency đã nói ở [bài về service lifetime](https://tiennhm.io.vn/blog/singleton-scoped-transient-captive-dependency): `BackgroundService` là singleton, nên mỗi vòng lặp phải tạo scope riêng. Xem thêm [9.10 — Hosted service và background job](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-09-web-api-professional/9.9-hosted-service-background-jobs) và [14.7 — Hangfire](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-14-caching-background-jobs/14.6-hangfire-background-jobs).
 
 **Quên rằng `using` mà không `CompleteAsync` nghĩa là rollback.** UoW nào bị dispose mà chưa complete thì coi như hỏng. Một nhánh `return` sớm giữa method là đủ để mất trắng thay đổi mà không có exception nào.
 
@@ -197,5 +197,5 @@ Không tự động. Interceptor của ABP gắn vào các type implement IUnitO
 ## Bài liên quan
 
 - [Module 14 — Caching + Background Jobs](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-14-caching-background-jobs) — Caching phân tầng và background jobs: IMemoryCache, distributed cache, Hangfire/Quartz — độ trễ và độ tin cậy xử lý nền cho CRM.
-- [13.10 — 9. Unit of Work và Repository Pattern](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.10-unit-of-work-and-repository-pattern) — DbContext đã là Unit of Work và DbSet đã là Repository — khi nào lớp bọc thêm giá trị, khi nào chỉ là lớp trung gian, và các phương án thay thế.
-- [12.7 — 6. Transactions và Locking](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-12-sql-deep-dive/12.7-transactions-and-locking) — ACID, bốn isolation level và hiện tượng mỗi mức cho phép, RCSI, deadlock và thứ tự khoá, optimistic vs pessimistic concurrency, và retry.
+- [13.10 — 9. Unit of Work và Repository Pattern](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.9-unit-of-work-and-repository-pattern) — DbContext đã là Unit of Work và DbSet đã là Repository — khi nào lớp bọc thêm giá trị, khi nào chỉ là lớp trung gian, và các phương án thay thế.
+- [12.7 — 6. Transactions và Locking](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-12-sql-deep-dive/12.6-transactions-and-locking) — ACID, bốn isolation level và hiện tượng mỗi mức cho phép, RCSI, deadlock và thứ tự khoá, optimistic vs pessimistic concurrency, và retry.
