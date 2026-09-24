@@ -1,104 +1,301 @@
 ---
 title: "11.6 — 5. Authentication trong SignalR"
-description: "WebSocket không cho phép gửi custom header (hạn chế của browser WebSocket API). SignalR giải quyết bằng cách truyền token qua query string trong lần."
+description: "Vì sao token đi qua query string, rủi ro token lọt vào log, token hết hạn giữa kết nối dài, và phân quyền trong Hub method."
 sidebar_position: 6
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
 # 11.6 — 5. Authentication trong SignalR
 
+<SummaryBox>
+Xác thực SignalR có một đặc điểm gây hệ quả bảo mật thật: **WebSocket API của trình duyệt không cho đặt header tuỳ ý**, nên token phải đi qua **query string** — và query string **lọt vào log truy cập, log proxy và header `Referer`**. Đặc điểm thứ hai còn nguy hiểm hơn vì nó âm thầm: **token chỉ được kiểm tra một lần, lúc kết nối**. Một kết nối mở 8 tiếng với token 15 phút vẫn hoạt động bình thường suốt 8 tiếng đó — nghĩa là thu hồi quyền **không có hiệu lực** cho tới khi kết nối đứt. Đó là lý do phân quyền phải được kiểm tra **trong từng Hub method**, không chỉ ở `[Authorize]` trên lớp.
+</SummaryBox>
+
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Cấu hình JWT đọc token từ query string đúng cách.
+- Giảm rủi ro token lọt vào log.
+- Xử lý token hết hạn trong kết nối dài.
+- Kiểm tra quyền trong Hub method.
+- Tự động gán nhóm dựa trên claim.
 
 ## Nội dung bài học
 
-### 11.6.1 — Vấn đề với WebSocket và JWT
-
-WebSocket không cho phép gửi custom header (hạn chế của browser WebSocket API). SignalR giải quyết bằng cách truyền token qua **query string** trong lần negotiate đầu tiên.
+### 11.6.1 — Token qua query string
 
 ```csharp
-// Program.cs — cấu hình JWT để đọc từ query string
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+options.Events = new JwtBearerEvents
+{
+    OnMessageReceived = context =>
     {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!)),
-            ValidateIssuer = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidateAudience = false,
-            ClockSkew = TimeSpan.Zero
-        };
+        var accessToken = context.Request.Query["access_token"];
 
-        // Quan trọng: đọc token từ query string cho SignalR
-        options.Events = new JwtBearerEvents
+        // CHI cho duong dan hub — khong ap dung cho API thuong
+        if (!string.IsNullOrEmpty(accessToken)
+            && context.HttpContext.Request.Path.StartsWithSegments("/hubs"))
         {
-            OnMessageReceived = context =>
-            {
-                var accessToken = context.Request.Query["access_token"];
-                var path = context.HttpContext.Request.Path;
+            context.Token = accessToken;
+        }
 
-                if (!string.IsNullOrEmpty(accessToken) &&
-                    path.StartsWithSegments("/hubs"))
-                {
-                    context.Token = accessToken;
-                }
-                return Task.CompletedTask;
-            }
-        };
-    });
+        return Task.CompletedTask;
+    }
+};
 ```
 
-### 11.6.2 — Bảo vệ Hub bằng [Authorize]
+Điều kiện `StartsWithSegments("/hubs")` **không phải** tuỳ chọn. Bỏ nó đi là cho phép **mọi** endpoint nhận token qua query string — và khi đó mọi token đều nằm trong log truy cập, lịch sử trình duyệt và header `Referer` khi người dùng bấm link ra ngoài.
+
+**Vì sao phải qua query string:** WebSocket API của trình duyệt chỉ cho phép đặt URL và subprotocol, **không** cho header tuỳ ý. SignalR đành chuyển token sang query string.
+
+Ba cách giảm rủi ro:
+
+**1. Loại đường dẫn hub khỏi log truy cập:**
 
 ```csharp
-[Authorize]  // Toàn bộ Hub yêu cầu xác thực
-public class CrmNotificationHub : Hub<ICrmNotificationClient>
+app.UseSerilogRequestLogging(options =>
 {
-    // Lấy thông tin user từ JWT claims
-    private string GetCurrentUserId() =>
-        Context.UserIdentifier!;  // Lấy từ claim NameIdentifier
+    options.GetLevel = (ctx, _, _) =>
+        ctx.Request.Path.StartsWithSegments("/hubs")
+            ? LogEventLevel.Verbose        // khong ghi o muc thong thuong
+            : LogEventLevel.Information;
+});
+```
 
-    private string GetCurrentTenantId() =>
-        Context.User!.FindFirstValue("tenantId")!;
+Và cấu hình tương tự ở reverse proxy — Nginx ghi query string vào `access.log` theo mặc định.
 
+**2. Token riêng, sống rất ngắn cho SignalR.** Client gọi `/api/auth/hub-token` lấy một token 60 giây chỉ dùng để kết nối. Lọt vào log thì nó cũng đã hết hạn.
+
+**3. Bỏ qua `negotiate` và dùng subprotocol** — phức tạp hơn, hiếm khi đáng.
+
+Trong thực tế, cách 1 cộng access token TTL ngắn ([bài 10.3](../module-10-authentication-authorization/10.3-jwt-authentication.mdx)) là cân bằng hợp lý.
+
+### 11.6.2 — Bảo vệ Hub
+
+```csharp
+[Authorize]
+public sealed class NotificationHub(IPresenceTracker presence) : Hub<INotificationClient>
+{
     public override async Task OnConnectedAsync()
     {
-        var userId = GetCurrentUserId();
-        var tenantId = GetCurrentTenantId();
+        var userId = Context.UserIdentifier;
+        var tenantId = Context.User?.FindFirstValue("tenant_id");
 
-        // Tự động join vào group của tenant khi connect
+        if (userId is null || tenantId is null)
+        {
+            Context.Abort();                 // khong du thong tin -> dong ngay
+            return;
+        }
+
+        // SERVER tu gan nhom — client khong tu chon duoc
         await Groups.AddToGroupAsync(Context.ConnectionId, $"tenant-{tenantId}");
-        await Groups.AddToGroupAsync(Context.ConnectionId, $"user-{userId}");
 
+        if (Context.User!.IsInRole(CrmRoles.Manager))
+            await Groups.AddToGroupAsync(Context.ConnectionId, $"managers-{tenantId}");
+
+        await presence.ConnectAsync(userId, Context.ConnectionId);
         await base.OnConnectedAsync();
     }
 }
 ```
 
----
+```csharp
+app.MapHub<NotificationHub>("/hubs/notifications").RequireAuthorization();
+```
+
+**Server tự gán nhóm** là điểm quan trọng nhất trong đoạn này. So sánh với cách để client tự gọi:
+
+```csharp
+// NGUY HIEM — client tu chon nhom
+public async Task JoinTenantGroup(string tenantId)
+{
+    await Groups.AddToGroupAsync(Context.ConnectionId, $"tenant-{tenantId}");
+}
+```
+
+Client gọi `JoinTenantGroup("tenant-cua-nguoi-khac")` và nhận **mọi** thông báo của tenant đó. Đây là IDOR ([bài 10.7](../module-10-authentication-authorization/10.7-resource-based-authorization.mdx)) dưới dạng SignalR, và nó dễ bị bỏ sót hơn vì Hub method không trông giống một endpoint.
+
+Nếu vẫn cần client tự tham gia nhóm, **phải kiểm tra quyền**:
+
+```csharp
+public async Task JoinDealRoom(Guid dealId)
+{
+    await using var scope = _scopeFactory.CreateAsyncScope();
+    var deals = scope.ServiceProvider.GetRequiredService<IDealRepository>();
+
+    var canAccess = await deals.CanUserAccessAsync(
+        dealId, Context.UserIdentifier!, Context.ConnectionAborted);
+
+    if (!canAccess)
+        throw new HubException("Không có quyền truy cập");
+
+    await Groups.AddToGroupAsync(Context.ConnectionId, $"deal-{dealId}");
+}
+```
+
+Kèm theo đó là lợi ích phụ: server tự gán nhóm thì client **không cần join lại** sau reconnect ([bài 11.5](11.5-client-side-integration.mdx)) — `OnConnectedAsync` chạy lại và tự lo.
+
+### 11.6.3 — Token hết hạn giữa kết nối
+
+Đây là đặc điểm ít người biết và hậu quả thì nghiêm trọng:
+
+> **SignalR kiểm tra token một lần, lúc thiết lập kết nối. Sau đó không kiểm tra lại.**
+
+Kết nối mở 8 tiếng với access token 15 phút vẫn hoạt động **suốt 8 tiếng**. Nghĩa là:
+
+- Thu hồi quyền **không có hiệu lực** trên kết nối đang mở.
+- Khoá tài khoản **không** ngắt kết nối của người đó.
+- Đăng xuất ở thiết bị khác **không** ảnh hưởng gì.
+
+Ba cách xử lý:
+
+**1. Đóng kết nối khi token hết hạn** — client tự làm:
+
+```typescript
+setTimeout(async () => {
+  await this.connection.stop();
+  await this.connection.start();       // ket noi lai voi token moi
+}, tokenLifetimeMs - 60_000);
+```
+
+**2. Kiểm tra `SecurityStamp` định kỳ ở server** — dùng lại cơ chế ở [bài 10.9](../module-10-authentication-authorization/10.9-overview.mdx):
+
+```csharp
+public sealed class SecurityStampCheckFilter(IUserService users) : IHubFilter
+{
+    public async ValueTask<object?> InvokeMethodAsync(
+        HubInvocationContext context, Func<HubInvocationContext, ValueTask<object?>> next)
+    {
+        var userId = context.Context.UserIdentifier;
+        var tokenStamp = context.Context.User?.FindFirstValue("sstamp");
+
+        if (userId is null || !await users.IsStampValidAsync(userId, tokenStamp))
+        {
+            context.Context.Abort();
+            throw new HubException("Phiên không còn hiệu lực");
+        }
+
+        return await next(context);
+    }
+}
+```
+
+Nó chỉ chạy khi client **gọi** một method, nên không bắt được kết nối chỉ nghe.
+
+**3. Chủ động ngắt khi thu hồi quyền** — chắc chắn nhất:
+
+```csharp
+public async Task RevokeAccessAsync(string userId, CancellationToken ct)
+{
+    await _users.RevokeAsync(userId, ct);
+    await _refreshTokens.RevokeAllForUserAsync(userId, "access-revoked", ct);
+
+    // Ngat moi ket noi SignalR cua nguoi do
+    foreach (var connectionId in await _presence.GetConnectionsAsync(userId, ct))
+        await _hubContext.Clients.Client(connectionId).ForceDisconnect();
+}
+```
+
+Với hệ thống có yêu cầu bảo mật cao, cách 3 là bắt buộc. Với hệ thống thông thường, cách 1 là đủ và đơn giản nhất.
+
+### 11.6.4 — Phân quyền chi tiết
+
+```csharp
+[Authorize]
+public sealed class AdminHub : Hub<IAdminClient>
+{
+    [Authorize(Roles = CrmRoles.Admin)]         // tren TUNG method
+    public async Task BroadcastSystemMessage(string message)
+    {
+        await Clients.All.ReceiveSystemMessage(message);
+    }
+
+    [Authorize(Policy = "CanViewMetrics")]
+    public async Task<MetricsDto> GetLiveMetrics() => await _metrics.GetAsync();
+}
+```
+
+`[Authorize]` **áp dụng được trên từng Hub method** — không nhiều người biết. Nó hữu ích khi một Hub có cả method thường và method quản trị.
+
+Nhưng nhớ hai giới hạn:
+
+- Nó chỉ kiểm tra **claim trong token**, nên bị ảnh hưởng bởi vấn đề token cũ ở mục trên.
+- Nó **không** kiểm tra được quyền trên dữ liệu — việc đó vẫn phải làm thủ công trong thân method.
+
+`[AllowAnonymous]` cũng dùng được, cho method như "lấy số người đang online" mà ai cũng xem được.
+
+### 11.6.5 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát xác thực SignalR"
+  items={[
+    { text: "OnMessageReceived chỉ đọc token từ query string cho đường dẫn hub." },
+    { text: "Đường dẫn hub bị loại khỏi log truy cập ở cả ứng dụng và reverse proxy." },
+    { text: "Access token có TTL ngắn, hoặc có token riêng cho SignalR." },
+    { text: "Hub có [Authorize] và MapHub có RequireAuthorization." },
+    { text: "Server tự gán nhóm dựa trên claim, client không tự chọn tên nhóm." },
+    { text: "Mọi Hub method cho phép client tham gia nhóm đều kiểm tra quyền." },
+    { text: "Có cơ chế xử lý token hết hạn trên kết nối dài." },
+    { text: "Thu hồi quyền kéo theo ngắt kết nối SignalR của người dùng đó." },
+    { text: "Hub method nhạy cảm có [Authorize] riêng với vai trò hoặc policy." },
+    { text: "Quyền trên dữ liệu được kiểm tra trong thân method, không chỉ ở attribute." },
+  ]}
+/>
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **Token trong log.** Kết nối SignalR với token qua query string và tìm token đó trong `access.log` của Nginx. Loại đường dẫn hub khỏi log và kiểm chứng lại.
+
+2. **Client tự chọn nhóm.** Cài `JoinTenantGroup(string tenantId)` **không** kiểm tra quyền, gọi nó với tenant id của người khác, và xác nhận bạn nhận được thông báo của tenant đó.
+
+3. **Token hết hạn.** Đặt access token 60 giây, giữ kết nối SignalR mở 5 phút, và xác nhận nó **vẫn hoạt động**. Thu hồi quyền của người dùng đó và xác nhận kết nối vẫn nhận tin.
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "Vì sao token SignalR phải đi qua query string?",
+      answer: "Vì WebSocket API của trình duyệt chỉ cho phép đặt URL và subprotocol, không cho header tuỳ ý, nên không gửi được Authorization header. Hệ quả là token nằm trong query string và lọt vào log truy cập, log proxy và header Referer."
+    },
+    {
+      question: "Vì sao điều kiện StartsWithSegments trong OnMessageReceived là bắt buộc?",
+      answer: "Bỏ nó đi là cho phép mọi endpoint nhận token qua query string, và khi đó mọi token đều nằm trong log truy cập, lịch sử trình duyệt và header Referer khi người dùng bấm link ra ngoài. Chỉ đường dẫn hub mới cần cơ chế này."
+    },
+    {
+      question: "Vì sao server nên tự gán nhóm thay vì để client gọi?",
+      answer: "Vì client gọi được với tên nhóm của người khác và nhận mọi thông báo của nhóm đó; đó là IDOR dưới dạng SignalR, dễ bị bỏ sót hơn vì Hub method không trông giống endpoint. Lợi ích phụ là client không cần join lại sau reconnect vì OnConnectedAsync tự lo."
+    },
+    {
+      question: "SignalR kiểm tra token bao nhiêu lần?",
+      answer: "Một lần duy nhất, lúc thiết lập kết nối. Sau đó không kiểm tra lại, nên kết nối mở 8 tiếng với token 15 phút vẫn hoạt động suốt 8 tiếng. Thu hồi quyền và khoá tài khoản đều không có hiệu lực trên kết nối đang mở."
+    },
+    {
+      question: "Có những cách nào xử lý token hết hạn trên kết nối dài?",
+      answer: "Client tự đóng và mở lại kết nối trước khi token hết hạn. Hoặc dùng HubFilter kiểm tra SecurityStamp mỗi lần client gọi method, nhưng nó không bắt được kết nối chỉ nghe. Hoặc chắc chắn nhất là chủ động ngắt mọi kết nối của người dùng khi thu hồi quyền."
+    },
+    {
+      question: "[Authorize] dùng được ở đâu trong SignalR?",
+      answer: "Trên cả lớp Hub lẫn từng Hub method, và AllowAnonymous cũng dùng được cho method công khai. Nhưng nó chỉ kiểm tra claim trong token nên chịu ảnh hưởng của vấn đề token cũ, và không kiểm tra được quyền trên dữ liệu; việc đó vẫn phải làm trong thân method."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **Token nằm trong query string** — loại đường dẫn hub khỏi log và giữ TTL ngắn.
+2. **Token chỉ được kiểm tra một lần.** Thu hồi quyền không ngắt kết nối đang mở.
+3. **Server tự gán nhóm theo claim.** Client tự chọn tên nhóm là IDOR.
+
+## Tham khảo
+
+- [Authentication and authorization in ASP.NET Core SignalR](https://learn.microsoft.com/en-us/aspnet/core/signalr/authn-and-authz)
+- [Security considerations in ASP.NET Core SignalR](https://learn.microsoft.com/en-us/aspnet/core/signalr/security)
+- [Manage users and groups in SignalR](https://learn.microsoft.com/en-us/aspnet/core/signalr/groups)
+- [Configure JWT bearer authentication in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/security/authentication/configure-jwt-bearer-authentication)
 
 ## Điều hướng
 
