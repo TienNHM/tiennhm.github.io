@@ -1,49 +1,304 @@
 ---
 title: "11.12 — Mở rộng và đào sâu"
-description: "Ghi chú nâng cao cho Module 11 — Signalr: những điểm cần đào sâu nằm ngoài phạm vi các bài học chính."
+description: "Streaming, MessagePack, Server-Sent Events, giới hạn kết nối và Azure SignalR — mở rộng sau khi đã vững SignalR cơ bản."
 sidebar_position: 12
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
 # 11.12 — Mở rộng và đào sâu
 
+<SummaryBox>
+Những chủ đề nối tiếp Module 11, kèm điều kiện. Điều đáng cân nhắc trước tiên: với phần lớn nhu cầu backend — thông báo, cập nhật trạng thái, tiến độ job — **Server-Sent Events đơn giản hơn SignalR đáng kể** và có thể đủ. SSE chạy trên HTTP thường, tự kết nối lại, không cần backplane, và mọi proxy đều hỗ trợ sẵn. SignalR đáng dùng khi bạn cần **giao tiếp hai chiều** hoặc muốn framework lo phần lùi cơ chế và quản lý nhóm. Trong các mục dưới, thứ đáng bật ngay nếu đã dùng SignalR là **giới hạn kết nối và kích thước message** — thiếu nó, một client có thể chiếm hết bộ nhớ server.
+</SummaryBox>
+
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Chọn giữa SignalR và Server-Sent Events.
+- Dùng streaming cho dữ liệu dài.
+- Giới hạn kết nối và kích thước message.
+- Biết khi nào MessagePack đáng dùng.
 
 ## Nội dung bài học
 
-### 11.12.1 — Góc nhìn sư phạm
+### 11.12.1 — Server-Sent Events: cân nhắc trước
 
-Phần này trả lời ba câu hỏi cốt lõi: **học cái gì, để làm gì, và dùng ở đâu** trong một hệ thống backend thực.
+**Điều kiện kích hoạt:** chỉ cần đẩy dữ liệu **một chiều** từ server.
 
-### 11.12.2 — Khung học thuật cốt lõi
+```csharp
+[HttpGet("stream")]
+public async Task Stream(CancellationToken ct)
+{
+    Response.Headers.ContentType = "text/event-stream";
+    Response.Headers.CacheControl = "no-cache";
 
-- **Khái niệm**: định nghĩa ngắn, chính xác.
-- **Ngữ cảnh**: vị trí của khái niệm trong kiến trúc hệ thống.
-- **Giới hạn**: khi nào khái niệm này không còn phù hợp.
+    await foreach (var notification in _service.SubscribeAsync(ct))
+    {
+        await Response.WriteAsync($"data: {JsonSerializer.Serialize(notification)}\n\n", ct);
+        await Response.Body.FlushAsync(ct);
+    }
+}
+```
+
+```javascript
+const source = new EventSource('/api/notifications/stream');
+source.onmessage = (e) => render(JSON.parse(e.data));
+// Tu dong ket noi lai khi dut — khong can cau hinh gi
+```
+
+| | SignalR | Server-Sent Events |
+|---|---|---|
+| Hướng | **Hai chiều** | Một chiều (server → client) |
+| Giao thức | WebSocket, SSE, long polling | **HTTP thường** |
+| Cần backplane khi scale | **Có** | Không (nếu chỉ đọc từ nguồn chung) |
+| Cấu hình proxy | Cần header `Upgrade` | **Không cần gì** |
+| Tự kết nối lại | Có (cấu hình) | **Có sẵn** |
+| Quản lý nhóm | **Có sẵn** | Tự làm |
+
+Với thông báo, tiến độ job, hoặc bảng số liệu cập nhật — những thứ chỉ đi **một chiều** — SSE loại bỏ được toàn bộ nhóm vấn đề về proxy và backplane ở [bài 11.13](11.13-mini-case-study.mdx).
+
+**Hạn chế của SSE:** trên HTTP/1.1, trình duyệt giới hạn 6 kết nối mỗi tên miền, và một SSE chiếm một kết nối. Trên HTTP/2 giới hạn đó biến mất.
+
+### 11.12.2 — Streaming trong SignalR
+
+**Điều kiện kích hoạt:** gửi một chuỗi dữ liệu dài mà client muốn xử lý dần.
+
+```csharp
+public async IAsyncEnumerable<LeadDto> StreamLeads(
+    [EnumeratorCancellation] CancellationToken ct)
+{
+    await foreach (var lead in _service.GetAllAsync(ct))
+        yield return lead;
+}
+```
+
+```javascript
+connection.stream('StreamLeads').subscribe({
+    next: (lead) => appendRow(lead),          // hien thi ngay tung dong
+    complete: () => console.log('Xong'),
+    error: (err) => console.error(err)
+});
+```
+
+Khác biệt so với gửi một mảng lớn: client thấy dữ liệu **ngay từ bản ghi đầu tiên** thay vì chờ toàn bộ. Với 50.000 bản ghi, đó là khác biệt giữa "màn hình trắng 8 giây" và "dữ liệu hiện dần ngay lập tức".
+
+Server cũng không phải giữ toàn bộ tập dữ liệu trong bộ nhớ ([bài 5.10](../../stage-02-csharp-professional/module-05-advanced-csharp/5.10-advanced-notes.mdx)).
+
+**Client cũng stream lên server được** — hữu ích cho upload theo khối hoặc dữ liệu cảm biến:
+
+```csharp
+public async Task UploadStream(IAsyncEnumerable<ChunkDto> stream)
+{
+    await foreach (var chunk in stream)
+        await _storage.AppendAsync(chunk);
+}
+```
+
+### 11.12.3 — Giới hạn kết nối và message: bật ngay
+
+**Điều kiện kích hoạt:** ngay khi đưa SignalR lên production.
+
+```csharp
+builder.Services.AddSignalR(options =>
+{
+    options.MaximumReceiveMessageSize = 32 * 1024;          // 32 KB
+    options.StreamBufferCapacity = 10;
+    options.ClientTimeoutInterval = TimeSpan.FromSeconds(60);
+    options.KeepAliveInterval = TimeSpan.FromSeconds(15);
+    options.EnableDetailedErrors = false;                   // KHONG bat tren production
+});
+```
+
+| Tuỳ chọn | Vì sao |
+|---|---|
+| `MaximumReceiveMessageSize` | Chặn client gửi payload khổng lồ làm cạn bộ nhớ |
+| `StreamBufferCapacity` | Giới hạn số item đệm cho mỗi stream |
+| `ClientTimeoutInterval` | Đóng kết nối chết để giải phóng tài nguyên |
+| `KeepAliveInterval` | Phải **nhỏ hơn** timeout của proxy |
+| `EnableDetailedErrors` | Bật trên production sẽ lộ stack trace cho client |
+
+Hai hàng cuối đáng chú ý. `KeepAliveInterval` lớn hơn `proxy_read_timeout` khiến proxy cắt kết nối trước khi SignalR kịp gửi ping — biểu hiện là client liên tục kết nối lại. Quy tắc: `ClientTimeoutInterval` nên gấp khoảng **hai lần** `KeepAliveInterval`.
+
+Và `EnableDetailedErrors` lộ thông tin nội bộ giống hệt vấn đề ở [bài 8.13](../module-08-aspnet-core-fundamentals/8.13-quick-real-world-example.mdx).
+
+**Giới hạn số kết nối mỗi người dùng** cũng đáng có, vì một script mở 1.000 kết nối là cách tấn công rất rẻ:
+
+```csharp
+public override async Task OnConnectedAsync()
+{
+    var userId = Context.UserIdentifier!;
+    var count = _tracker.GetConnectionCount(userId);
+
+    if (count >= 5)          // toi da 5 thiet bi hoac tab
+    {
+        Context.Abort();
+        return;
+    }
+
+    _tracker.Add(userId, Context.ConnectionId);
+    await base.OnConnectedAsync();
+}
+```
+
+### 11.12.4 — MessagePack
+
+**Điều kiện kích hoạt:** message rất nhiều hoặc rất lớn, và đã đo được băng thông là vấn đề.
+
+```csharp
+builder.Services.AddSignalR().AddMessagePackProtocol();
+```
+
+```javascript
+const connection = new signalR.HubConnectionBuilder()
+    .withUrl('/hubs/notifications')
+    .withHubProtocol(new signalR.protocols.msgpack.MessagePackHubProtocol())
+    .build();
+```
+
+Nhỏ hơn JSON khoảng 30–50% và nhanh hơn khi serialize.
+
+**Đánh đổi thật:** message nhị phân **không đọc được** trong DevTools. Khi cần gỡ lỗi "vì sao client không nhận được gì", bạn mất công cụ hữu ích nhất.
+
+Với phần lớn ứng dụng CRM, lượng message không đủ lớn để bù cho việc mất khả năng debug. Bật nó khi có số liệu chứng minh, không bật mặc định.
+
+### 11.12.5 — Azure SignalR Service
+
+**Điều kiện kích hoạt:** hàng chục nghìn kết nối, hoặc muốn triển khai không làm đứt kết nối.
+
+```csharp
+builder.Services.AddSignalR().AddAzureSignalR(connectionString);
+```
+
+Kết nối WebSocket giữ ở dịch vụ, không ở server ứng dụng. Ba hệ quả:
+
+- **Bộ nhớ và socket của server được giải phóng** — mỗi kết nối tốn vài chục KB, nên với 10.000 kết nối đó là vài trăm MB.
+- **Triển khai không làm đứt kết nối**, vì client nối vào dịch vụ chứ không nối vào pod.
+- **Không cần backplane**, dịch vụ tự lo việc phân phối.
+
+Chi phí tính theo số kết nối và số tin nhắn, nên cần tính trước với quy mô dự kiến ([bài 11.11](11.11-scale-out-and-production.mdx)).
+
+### 11.12.6 — Những chủ đề khác
+
+| Chủ đề | Nội dung | Ưu tiên |
+|---|---|---|
+| **Giới hạn kết nối và message** | Chống lạm dụng tài nguyên | **Cao** |
+| **Server-Sent Events** | Đẩy một chiều, đơn giản hơn | **Cao** |
+| `IHubFilter` | Middleware cho lời gọi hub | Trung bình |
+| Streaming | Dữ liệu dài, hiển thị dần | Trung bình |
+| Presence (ai đang online) | Cần lưu trạng thái chung | Trung bình |
+| MessagePack | Giảm băng thông | Thấp |
+
+`IHubFilter` là cơ chế hữu ích cho việc áp dụng chung — log, đo thời gian, xử lý exception — cho mọi phương thức hub:
+
+```csharp
+public sealed class LoggingHubFilter(ILogger<LoggingHubFilter> logger) : IHubFilter
+{
+    public async ValueTask<object?> InvokeMethodAsync(
+        HubInvocationContext context, Func<HubInvocationContext, ValueTask<object?>> next)
+    {
+        var sw = Stopwatch.StartNew();
+        try
+        {
+            return await next(context);
+        }
+        finally
+        {
+            logger.LogDebug("Hub {Method} mất {Ms}ms",
+                context.HubMethodName, sw.ElapsedMilliseconds);
+        }
+    }
+}
+```
+
+**Presence** đáng lưu ý vì nó dễ làm sai: trạng thái online **không** lưu được trong bộ nhớ instance, vì mỗi instance chỉ biết kết nối của mình. Phải lưu vào Redis với TTL, và làm mới TTL theo nhịp keep-alive ([bài 11.10](11.10-presence-online-offline-status.mdx)).
+
+### 11.12.7 — Thứ tự nên học
+
+| Ưu tiên | Chủ đề | Vì sao |
+|---|---|---|
+| **Cao** | Giới hạn kết nối và message | Chống lạm dụng, bật ngay |
+| **Cao** | Cân nhắc SSE trước | Đơn giản hơn nhiều nếu một chiều |
+| Trung bình | `IHubFilter` | Áp dụng chung cho mọi phương thức |
+| Trung bình | Streaming | Khi có dữ liệu dài |
+| Thấp | MessagePack | Chỉ khi đo được băng thông là vấn đề |
+| Thấp | Azure SignalR | Khi kết nối lên hàng chục nghìn |
+
+Sau Module 11, bước tiếp theo là [Module 12 — SQL Deep Dive](../../stage-04-database-production/module-12-sql-deep-dive/).
+
+### 11.12.8 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát SignalR nâng cao"
+  items={[
+    { text: "Đã cân nhắc Server-Sent Events nếu chỉ cần đẩy một chiều." },
+    { text: "MaximumReceiveMessageSize được đặt, không để mặc định." },
+    { text: "KeepAliveInterval nhỏ hơn timeout của proxy." },
+    { text: "ClientTimeoutInterval khoảng gấp đôi KeepAliveInterval." },
+    { text: "EnableDetailedErrors tắt trên production." },
+    { text: "Có giới hạn số kết nối mỗi người dùng." },
+    { text: "Trạng thái online lưu ở Redis, không lưu trong bộ nhớ instance." },
+    { text: "Chỉ bật MessagePack khi có số liệu chứng minh." },
+  ]}
+/>
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **So sánh SSE và SignalR.** Cài cùng một tính năng thông báo bằng cả hai và so sánh số dòng cấu hình cần thiết.
+
+2. **Thử streaming.** Cài `IAsyncEnumerable` trả 10.000 bản ghi và quan sát client hiển thị dần.
+
+3. **Kiểm tra giới hạn.** Gửi một message 1 MB từ client và xác nhận server từ chối.
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "Khi nào Server-Sent Events đủ thay cho SignalR?",
+      answer: "Khi chỉ cần đẩy dữ liệu một chiều từ server, như thông báo, tiến độ job hay bảng số liệu. SSE chạy trên HTTP thường, tự kết nối lại, không cần backplane và mọi proxy đều hỗ trợ sẵn."
+    },
+    {
+      question: "Hạn chế của SSE là gì?",
+      answer: "Nó chỉ một chiều, và trên HTTP/1.1 trình duyệt giới hạn sáu kết nối mỗi tên miền mà một SSE chiếm một kết nối. Trên HTTP/2 giới hạn đó biến mất."
+    },
+    {
+      question: "Streaming khác gửi một mảng lớn thế nào?",
+      answer: "Client thấy dữ liệu ngay từ bản ghi đầu tiên thay vì chờ toàn bộ, và server không phải giữ cả tập dữ liệu trong bộ nhớ. Với năm mươi nghìn bản ghi đó là khác biệt giữa màn hình trắng vài giây và dữ liệu hiện dần ngay."
+    },
+    {
+      question: "Vì sao KeepAliveInterval phải nhỏ hơn timeout của proxy?",
+      answer: "Vì nếu lớn hơn, proxy cắt kết nối trước khi SignalR kịp gửi ping giữ kết nối. Biểu hiện là client liên tục kết nối lại. Quy tắc là ClientTimeoutInterval gấp khoảng hai lần KeepAliveInterval."
+    },
+    {
+      question: "Đánh đổi thật của MessagePack là gì?",
+      answer: "Message nhị phân không đọc được trong DevTools, nên khi cần gỡ lỗi vì sao client không nhận được gì thì bạn mất công cụ hữu ích nhất. Với phần lớn ứng dụng CRM, lợi ích băng thông không bù được điều đó."
+    },
+    {
+      question: "Vì sao trạng thái online không lưu được trong bộ nhớ instance?",
+      answer: "Vì mỗi instance chỉ biết kết nối của chính nó, nên nó không biết người dùng có đang online ở instance khác hay không. Phải lưu vào Redis với TTL và làm mới TTL theo nhịp keep-alive."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **Cân nhắc SSE trước** — nếu chỉ một chiều, nó loại bỏ cả nhóm vấn đề về proxy và backplane.
+2. **Giới hạn kích thước message và số kết nối** là thứ phải bật ngay trên production.
+3. **MessagePack đánh đổi khả năng debug** lấy băng thông — chỉ bật khi đo được.
+
+## Tham khảo
+
+- [Giới thiệu SignalR](https://learn.microsoft.com/en-us/aspnet/core/signalr/introduction)
+- [Scale SignalR](https://learn.microsoft.com/en-us/aspnet/core/signalr/scale)
+- [ASP.NET Core fundamentals](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/)
+- [Lập trình bất đồng bộ trong C#](https://learn.microsoft.com/en-us/dotnet/csharp/asynchronous-programming/)
 
 ## Điều hướng
 
-- **Bài trước:** [11.11 — 10. Scale-out và Production](11.11-scale-out-and-production.mdx)
+- **Bài trước:** [11.11 — Scale-out và Production](11.11-scale-out-and-production.mdx)
 - **Bài tiếp theo:** [11.13 — Mini case study](11.13-mini-case-study.mdx)
 - **Về module:** [Trang mục lục](./)
