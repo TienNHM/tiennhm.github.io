@@ -291,11 +291,293 @@ Và nhớ [bài về N+1](/blog/ef-core-n-plus-1-query): nếu `CustomerDto` có
 
 ## Bài tập áp dụng
 
-1. **Đo `OFFSET`.** Tạo bảng 1 triệu bản ghi, đo thời gian trang 1, trang 100, trang 10.000. Vẽ biểu đồ và so sánh với cursor pagination trên cùng dữ liệu.
+#### Bài 1 — Đo chi phí của `OFFSET`
 
-2. **Mất bản ghi.** Viết script duyệt hết mọi trang bằng offset trong khi một script khác chèn bản ghi mới liên tục. Đếm số bản ghi thu được so với thực tế. Lặp lại với cursor.
+Tạo bảng 1 triệu bản ghi, đo thời gian lấy trang 1, trang 100, trang 10.000. So sánh với phân trang theo con trỏ trên cùng dữ liệu.
 
-3. **Sắp xếp không ổn định.** Sắp xếp theo một cột có nhiều giá trị trùng, **không** có tie-breaker, gọi cùng một trang 10 lần và so sánh kết quả.
+**Tiêu chí hoàn thành:** bạn giải thích được vì sao thời gian tăng theo **số trang**, dù mỗi trang vẫn trả về đúng 20 dòng.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** `OFFSET 200000` không nói với database "nhảy tới dòng 200.000". Nó nói "đọc và **bỏ đi** 200.000 dòng đầu". Hãy nghĩ xem việc bỏ đi đó tốn gì.
+
+**Lời giải — đo bằng SQL:**
+
+```sql
+-- Trang 1
+EXPLAIN ANALYZE
+SELECT * FROM "Orders" ORDER BY "CreatedAt" DESC LIMIT 20 OFFSET 0;
+
+-- Trang 100
+EXPLAIN ANALYZE
+SELECT * FROM "Orders" ORDER BY "CreatedAt" DESC LIMIT 20 OFFSET 2000;
+
+-- Trang 10.000
+EXPLAIN ANALYZE
+SELECT * FROM "Orders" ORDER BY "CreatedAt" DESC LIMIT 20 OFFSET 200000;
+```
+
+**Kết quả điển hình trên bảng 1 triệu dòng có chỉ mục trên `CreatedAt`:**
+
+| Trang | `OFFSET` | Thời gian | Số dòng database phải đọc |
+|---|---|---|---|
+| 1 | 0 | ~0,5 ms | 20 |
+| 100 | 2.000 | ~3 ms | 2.020 |
+| 10.000 | 200.000 | **~250 ms** | **200.020** |
+
+**Vì sao tăng theo số trang.** Database phải **đọc và sắp xếp** toàn bộ 200.000 dòng đầu tiên rồi mới vứt chúng đi. Công việc đó tỉ lệ thuận với `OFFSET`, chứ không phải với số dòng trả về.
+
+Đây là O(n) với n là **vị trí trang**, không phải O(1) như trực giác gợi ý.
+
+**Phân trang theo con trỏ:**
+
+```sql
+-- Trang bất kỳ — dùng giá trị của dòng cuối trang trước làm mốc
+SELECT * FROM "Orders"
+WHERE ("CreatedAt", "Id") < (@lastCreatedAt, @lastId)
+ORDER BY "CreatedAt" DESC, "Id" DESC
+LIMIT 20;
+```
+
+| Trang | Thời gian |
+|---|---|
+| 1 | ~0,5 ms |
+| 100 | ~0,5 ms |
+| 10.000 | **~0,5 ms** |
+
+**Không đổi**, vì chỉ mục cho phép nhảy thẳng tới vị trí bắt đầu. Đây là O(log n) của B-tree, đúng như [bài 1.8](../../stage-01-foundation/module-01-programming-logic/1.8-data-structures-and-big-o.mdx) mô tả.
+
+**Cài đặt trong EF Core:**
+
+```csharp
+public record Cursor(DateTime CreatedAt, int Id);
+
+var q = db.Orders.AsNoTracking();
+
+if (cursor is not null)
+    q = q.Where(o => o.CreatedAt < cursor.CreatedAt
+                  || (o.CreatedAt == cursor.CreatedAt && o.Id < cursor.Id));
+
+var items = await q.OrderByDescending(o => o.CreatedAt)
+                   .ThenByDescending(o => o.Id)
+                   .Take(size + 1)                    // lấy dư 1 để biết còn trang sau
+                   .ToListAsync(ct);
+
+var coTrangSau = items.Count > size;
+if (coTrangSau) items.RemoveAt(size);
+```
+
+**Ba lưu ý khi cài đặt:**
+
+1. **Phải có tie-breaker.** Cột `Id` trong điều kiện là bắt buộc — không có nó, các bản ghi trùng `CreatedAt` sẽ bị lặp hoặc bị sót. Bài 3 chứng minh điều này.
+2. **Lấy dư một dòng** để biết có trang sau không, thay vì chạy thêm một truy vấn `COUNT`.
+3. **Mã hoá con trỏ** trước khi trả cho client, để họ không phụ thuộc vào cấu trúc bên trong:
+
+   ```csharp
+   var token = Convert.ToBase64String(JsonSerializer.SerializeToUtf8Bytes(cursor));
+   ```
+
+**Chọn cách nào:**
+
+| | Offset | Cursor |
+|---|---|---|
+| Nhảy tới trang bất kỳ | **Có** | Không |
+| Hiển thị tổng số trang | **Có** | Không |
+| Hiệu năng ở trang xa | **Kém** | Không đổi |
+| Ổn định khi dữ liệu thay đổi | **Không** | Có |
+
+Dùng offset cho giao diện quản trị có phân trang số trang và dữ liệu vừa phải. Dùng cursor cho danh sách cuộn vô hạn, cho API công khai, và cho mọi thứ vượt vài nghìn bản ghi.
+
+</details>
+
+#### Bài 2 — Mất bản ghi khi phân trang bằng offset
+
+Viết script duyệt hết mọi trang bằng offset trong khi một script khác chèn bản ghi mới liên tục. Đếm số bản ghi thu được so với thực tế. Lặp lại với cursor.
+
+**Tiêu chí hoàn thành:** bạn giải thích được **cả hai** hiện tượng — bỏ sót và lặp lại — và điều kiện gây ra từng cái.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** `OFFSET` đếm theo **vị trí** trong kết quả sắp xếp. Khi dữ liệu thay đổi giữa hai lần gọi, vị trí của mọi bản ghi dịch chuyển.
+
+**Lời giải — minh hoạ bằng số:**
+
+```text
+Trạng thái ban đầu, sắp xếp CreatedAt giảm dần:
+  [A, B, C, D, E, F]        (A mới nhất)
+
+Client lấy trang 1: LIMIT 2 OFFSET 0  ->  [A, B]
+
+Trong lúc đó, bản ghi mới Z được chèn vào (mới nhất):
+  [Z, A, B, C, D, E, F]
+
+Client lấy trang 2: LIMIT 2 OFFSET 2  ->  [B, C]
+                                            ^ B ĐÃ LẤY RỒI — LẶP LẠI
+```
+
+**Chiều ngược lại — bản ghi bị xoá:**
+
+```text
+Ban đầu: [A, B, C, D, E, F]
+Trang 1: OFFSET 0 -> [A, B]
+
+A bị xoá:  [B, C, D, E, F]
+
+Trang 2: OFFSET 2 -> [D, E]
+                      ^ C BỊ BỎ SÓT
+```
+
+**Hai hiện tượng, hai điều kiện:**
+
+| Hiện tượng | Xảy ra khi | Hậu quả |
+|---|---|---|
+| **Lặp lại** | Bản ghi mới được chèn vào **trước** vị trí hiện tại | Xử lý trùng — gửi email hai lần, tính tiền hai lần |
+| **Bỏ sót** | Bản ghi bị xoá **trước** vị trí hiện tại | Mất dữ liệu — không xuất hiện trong báo cáo |
+
+Với danh sách sắp xếp mới nhất lên đầu, **lặp lại phổ biến hơn nhiều**, vì bản ghi mới luôn được chèn vào đầu.
+
+**Đo thật:**
+
+```bash
+# Script A — duyệt hết mọi trang
+page=1; total=0
+while true; do
+  n=$(curl -s "localhost:5000/api/v1/orders?page=$page&size=100" | jq '.items | length')
+  [ "$n" -eq 0 ] && break
+  total=$((total + n)); page=$((page + 1))
+done
+echo "thu được $total bản ghi"
+
+# Script B — chạy song song, chèn liên tục
+while true; do curl -s -X POST localhost:5000/api/v1/orders -d '{...}' > /dev/null; sleep 0.1; done
+```
+
+Kết quả điển hình: số bản ghi thu được **nhiều hơn** tổng thật, và trong đó có bản ghi trùng.
+
+**Với cursor thì không xảy ra:**
+
+```sql
+WHERE ("CreatedAt", "Id") < (@last, @lastId)
+```
+
+Điều kiện dựa trên **giá trị**, không dựa trên vị trí. Chèn thêm bản ghi mới ở đầu danh sách không ảnh hưởng gì tới việc "lấy những bản ghi cũ hơn mốc này".
+
+**Bản ghi mới chèn vào vẫn không xuất hiện** trong lượt duyệt đang chạy — nhưng đó là hành vi **đúng và mong muốn**: bạn đang duyệt một ảnh chụp logic của dữ liệu tại thời điểm bắt đầu.
+
+**Hệ quả thực tế.** Với các tác vụ duyệt toàn bộ dữ liệu — đồng bộ sang hệ thống khác, xuất báo cáo, gửi email hàng loạt — dùng offset nghĩa là **chấp nhận sai số**. Ba lựa chọn đúng:
+
+1. **Dùng cursor**, như trên.
+2. **Chốt một mốc thời gian** và chỉ lấy dữ liệu trước mốc đó:
+
+   ```csharp
+   var moc = DateTime.UtcNow;
+   var q = db.Orders.Where(o => o.CreatedAt <= moc);   // dữ liệu mới không lọt vào
+   ```
+3. **Dùng giao dịch có mức cô lập ảnh chụp**, nếu database hỗ trợ và tập dữ liệu không quá lớn.
+
+Cách 2 đơn giản nhất và giải quyết được phần lớn trường hợp.
+
+</details>
+
+#### Bài 3 — Sắp xếp không ổn định
+
+Sắp xếp theo một cột có nhiều giá trị trùng, **không** có tie-breaker, gọi cùng một trang 10 lần và so sánh kết quả.
+
+**Tiêu chí hoàn thành:** bạn quan sát được kết quả **khác nhau giữa các lần gọi** và nêu được vì sao database được phép làm vậy.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** SQL **không bảo đảm** thứ tự của các dòng có cùng giá trị sắp xếp. Database tự do trả về chúng theo bất kỳ thứ tự nào thuận tiện cho kế hoạch thực thi.
+
+**Lời giải.**
+
+```sql
+-- Bảng có 10.000 đơn hàng, tất cả cùng Status = 'Pending'
+SELECT "Id" FROM "Orders" WHERE "Status" = 'Pending'
+ORDER BY "Status"
+LIMIT 5 OFFSET 100;
+```
+
+Chạy 10 lần:
+
+```text
+lần 1: 4821, 4822, 4823, 4824, 4825
+lần 2: 4821, 4822, 4823, 4824, 4825
+lần 3: 7412, 7413, 7414, 7415, 7416      <- KHÁC
+lần 4: 4821, 4822, 4823, 4824, 4825
+...
+```
+
+Kết quả thay đổi, thường sau khi database đổi kế hoạch thực thi — do thống kê được cập nhật, do dữ liệu thay đổi, hoặc do có truy vấn song song.
+
+**Vì sao database được phép.** Chuẩn SQL chỉ bảo đảm thứ tự theo **các cột được nêu trong `ORDER BY`**. Với các dòng có cùng giá trị ở mọi cột đó, thứ tự là **không xác định** — và database tận dụng quyền tự do này để chọn kế hoạch nhanh nhất, ví dụ đọc song song nhiều phân vùng.
+
+**Hậu quả khi phân trang:**
+
+```text
+Trang 1 (OFFSET 0):  lấy 20 dòng theo thứ tự X
+Trang 2 (OFFSET 20): database đổi kế hoạch, thứ tự thành Y
+                     -> một số dòng xuất hiện hai lần
+                     -> một số dòng không bao giờ xuất hiện
+```
+
+Điều này xảy ra **ngay cả khi dữ liệu hoàn toàn không thay đổi** — khác với bài 2, nơi nguyên nhân là dữ liệu bị sửa.
+
+**Sửa bằng tie-breaker — một cột duy nhất ở cuối:**
+
+```sql
+ORDER BY "Status", "Id"
+```
+
+```csharp
+q.OrderBy(o => o.Status).ThenBy(o => o.Id);
+```
+
+`Id` là khoá chính nên duy nhất, và thứ tự trở thành **hoàn toàn xác định**.
+
+**Quy tắc: mọi `ORDER BY` dùng cho phân trang đều phải kết thúc bằng một cột duy nhất.**
+
+```csharp
+// SAI — không ổn định
+q.OrderByDescending(o => o.CreatedAt);              // CreatedAt có thể trùng
+
+// ĐÚNG
+q.OrderByDescending(o => o.CreatedAt).ThenByDescending(o => o.Id);
+```
+
+Ngay cả `CreatedAt` với độ chính xác mili-giây cũng trùng được — khi nhiều bản ghi được tạo trong cùng một giao dịch, chúng thường có **cùng một giá trị thời gian**.
+
+**Cách kiểm tra trong dự án:**
+
+```bash
+grep -rn "OrderBy\|OrderByDescending" --include=*.cs src/ | grep -v "ThenBy"
+```
+
+Mỗi kết quả là một chỗ cần rà: nếu truy vấn đó được phân trang, nó cần tie-breaker.
+
+**Áp dụng chung cho cả sắp xếp do người dùng chọn:**
+
+```csharp
+private static readonly Dictionary<string, Expression<Func<Order, object>>> ChoPhep = new()
+{
+    ["createdAt"] = o => o.CreatedAt,
+    ["total"]     = o => o.Total,
+    ["status"]    = o => o.Status
+};
+
+var sx = ChoPhep.TryGetValue(sortBy ?? "createdAt", out var e) ? e : ChoPhep["createdAt"];
+
+var q = desc ? db.Orders.OrderByDescending(sx) : db.Orders.OrderBy(sx);
+q = desc ? ((IOrderedQueryable<Order>)q).ThenByDescending(o => o.Id)
+         : ((IOrderedQueryable<Order>)q).ThenBy(o => o.Id);      // LUÔN có tie-breaker
+```
+
+Chú ý cả **danh sách cho phép** cho tên cột — không có nó, người dùng sắp xếp được theo bất kỳ cột nào kể cả cột nhạy cảm, và theo cột không có chỉ mục để gây quá tải. Đây là cùng vấn đề với bộ lọc động ở [bài 5.8](../../stage-02-csharp-professional/module-05-advanced-csharp/5.8-overview.mdx).
+
+</details>
 
 ## Tự kiểm tra
 
