@@ -33,7 +33,7 @@ public async Task<IActionResult> Update(Guid id, UpdateLeadRequest request, Canc
     var lead = await _db.Leads.FindAsync([new LeadId(id)], ct);
     if (lead is null) return NotFound();
 
-    lead.Update(request.Name, request.Value);       // KHONG kiem tra chu so huu
+    lead.Update(request.Name, request.Value);       // KHÔNG kiểm tra chủ sở hữu
     await _db.SaveChangesAsync(ct);
 
     return NoContent();
@@ -41,11 +41,11 @@ public async Task<IActionResult> Update(Guid id, UpdateLeadRequest request, Canc
 ```
 
 ```
-Nhan vien A (sales) dang nhap, xem lead cua minh:
+Nhân viên A (sales) đăng nhập, xem lead của mình:
   PUT /api/leads/8f3a1b2c-...     -> OK, dung
 
-Nhan vien A doi id tren URL:
-  PUT /api/leads/7c1d9e4f-...     -> OK, VA DAY LA LEAD CUA NHAN VIEN B
+Nhân viên A đổi id trên URL:
+  PUT /api/leads/7c1d9e4f-...     -> OK, VÀ ĐÂY LÀ LEAD CỦA NHÂN VIÊN B
 ```
 
 `[Authorize(Roles = "Sales")]` trả lời đúng câu hỏi nó được hỏi: A **có** vai trò Sales. Nhưng câu hỏi cần trả lời là: A có được sửa **lead này** không?
@@ -128,8 +128,8 @@ if (!authorized.Succeeded) return Forbid(); // 403
 Hai mã khác nhau **tiết lộ** thông tin:
 
 ```
-GET /api/leads/{id-khong-ton-tai}      -> 404
-GET /api/leads/{id-cua-nguoi-khac}     -> 403   <- xac nhan ID NAY TON TAI
+GET /api/leads/{non-existent-id}       -> 404
+GET /api/leads/{someone-elses-id}      -> 403   <- xác nhận ID NÀY TỒN TẠI
 ```
 
 Kẻ tấn công dò id và phân biệt được id nào tồn tại — đủ để suy ra quy mô dữ liệu, và trong một số trường hợp id mang ý nghĩa (số hoá đơn tăng dần chẳng hạn) thì đó là rò rỉ thật.
@@ -142,7 +142,7 @@ var lead = await _db.Leads.FindAsync([new LeadId(id)], ct);
 var authorized = lead is not null &&
     (await _authorizationService.AuthorizeAsync(User, lead, "LeadOwner")).Succeeded;
 
-if (!authorized) return NotFound();      // khong phan biet duoc
+if (!authorized) return NotFound();      // không phân biệt được
 ```
 
 **Đánh đổi:** người dùng hợp lệ gặp lỗi phân quyền sẽ thấy "không tìm thấy" thay vì "không có quyền" — khó hiểu hơn, và có thể làm tăng số cuộc gọi hỗ trợ.
@@ -154,7 +154,7 @@ Cân bằng thực dụng: dùng `403` cho ứng dụng nội bộ (nơi mọi n
 Trong hệ multi-tenant, kiểm tra ở tầng ứng dụng **không đủ** — một chỗ quên là rò rỉ dữ liệu giữa các công ty khác nhau.
 
 ```csharp
-// Global query filter — ap dung TU DONG cho MOI truy van
+// Global query filter — áp dụng TỰ ĐỘNG cho MỌI truy vấn
 protected override void OnModelCreating(ModelBuilder modelBuilder)
 {
     modelBuilder.Entity<Lead>()
@@ -167,11 +167,11 @@ Giờ `_db.Leads.FindAsync(id)` **không bao giờ** trả về lead của tenan
 **Hai cái bẫy của global query filter:**
 
 ```csharp
-// 1. IgnoreQueryFilters bo qua HET — chi dung trong job he thong
+// 1. IgnoreQueryFilters bỏ qua HẾT — chỉ dùng trong job hệ thống
 var tatCa = await _db.Leads.IgnoreQueryFilters().ToListAsync(ct);
 
-// 2. Filter dung gia tri tu scoped service nhung DbContext bi cache model
-// -> neu TenantId duoc doc luc DUNG MODEL, moi tenant se dung chung filter cua
+// 2. Filter dùng giá trị từ scoped service nhưng DbContext bị cache model
+// -> nếu TenantId được đọc lúc DỰNG MODEL, mọi tenant sẽ dùng chung filter của
 //    tenant dau tien. Phai dung IModelCacheKeyFactory theo tenant.
 ```
 

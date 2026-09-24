@@ -30,16 +30,16 @@ Sau bài này bạn có thể:
 ASP.NET Core dùng Data Protection API để mã hoá cookie xác thực, token chống CSRF và dữ liệu tạm. Mặc định, **mỗi instance sinh khoá riêng**:
 
 ```
-Instance A ma hoa cookie bang khoa A
-Nguoi dung request tiep theo -> load balancer chuyen sang Instance B
-Instance B khong giai ma duoc cookie do -> coi nhu chua dang nhap
--> Nguoi dung bi DANG XUAT ngau nhien
+Instance A mã hoá cookie bằng khoá A
+Người dùng request tiếp theo -> load balancer chuyển sang Instance B
+Instance B không giải mã được cookie đó -> coi như chưa đăng nhập
+-> Người dùng bị ĐĂNG XUẤT ngẫu nhiên
 ```
 
 Triệu chứng rất dễ nhận ra khi đã biết, và rất khó lần ra khi chưa biết: người dùng bị đăng xuất **ngẫu nhiên**, và tần suất **tăng theo số instance**.
 
 ```csharp
-// Luu khoa dung chung
+// Lưu khoá dùng chung
 builder.Services.AddDataProtection()
     .PersistKeysToStackExchangeRedis(redis, "DataProtection-Keys")
     .SetApplicationName("CrmApi");        // PHAI giong nhau moi instance
@@ -57,23 +57,23 @@ PKCE giải quyết một lỗ hổng cụ thể của authorization code flow:
 
 ```
 1. App mo trinh duyet toi identity provider
-2. Nguoi dung dang nhap
-3. Provider chuyen huong ve app kem MOT MA (authorization code)
+2. Người dùng đăng nhập
+3. Provider chuyển hướng về app kèm MỘT MÃ (authorization code)
 4. App doi ma do lay token
 
 Lo hong: buoc 3 di qua he dieu hanh. Mot app doc hai dang ky
-cung URL scheme co the CHAN duoc ma do va doi lay token.
+cùng URL scheme có thể CHẶN được mã đó và đổi lấy token.
 ```
 
 PKCE vá lỗ hổng đó:
 
 ```
-1. App sinh mot chuoi ngau nhien (code_verifier), giu BI MAT
-2. Gui ban bam cua no (code_challenge) kem yeu cau dang nhap
-3. Khi doi ma lay token, app gui kem code_verifier goc
-4. Provider bam lai va so sanh
+1. App sinh một chuỗi ngẫu nhiên (code_verifier), giữ BÍ MẬT
+2. Gửi bản băm của nó (code_challenge) kèm yêu cầu đăng nhập
+3. Khi đổi mã lấy token, app gửi kèm code_verifier gốc
+4. Provider băm lại và so sánh
 
-App doc hai chan duoc ma nhung KHONG co code_verifier -> khong doi duoc token.
+App độc hại chặn được mã nhưng KHÔNG có code_verifier -> không đổi được token.
 ```
 
 ```csharp
@@ -165,7 +165,7 @@ app.Use(async (ctx, next) =>
 });
 
 // 2. Rate limit tren endpoint dang nhap — chong do mat khau
-// 3. Log moi lan dang nhap that bai kem IP
+// 3. Log mỗi lần đăng nhập thất bại kèm IP
 // 4. Khoa tam tai khoan sau N lan sai
 ```
 

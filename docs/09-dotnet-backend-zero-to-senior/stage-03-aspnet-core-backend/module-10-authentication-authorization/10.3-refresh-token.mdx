@@ -43,13 +43,13 @@ Khác biệt quyết định là dòng "lưu ở server". Refresh token được
 ```sql
 CREATE TABLE RefreshTokens (
     Id          UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    TokenHash   VARBINARY(32)    NOT NULL,          -- SHA-256, KHONG luu plaintext
+    TokenHash   VARBINARY(32)    NOT NULL,          -- SHA-256, KHÔNG lưu plaintext
     UserId      NVARCHAR(450)    NOT NULL,
     CreatedAt   DATETIME2        NOT NULL,
     ExpiresAt   DATETIME2        NOT NULL,
     AbsoluteExpiresAt DATETIME2  NOT NULL,          -- tran tuyet doi
     RevokedAt   DATETIME2        NULL,
-    ReplacedByHash VARBINARY(32) NULL,              -- lien ket chuoi rotation
+    ReplacedByHash VARBINARY(32) NULL,              -- liên kết chuỗi rotation
     CreatedByIp NVARCHAR(45)     NULL,
     UserAgent   NVARCHAR(512)    NULL,
 
@@ -89,7 +89,7 @@ public sealed class RefreshTokenService(AppDbContext db, TimeProvider clock)
         });
 
         await db.SaveChangesAsync(ct);
-        return raw;               // tra ve ban THO, chi mot lan duy nhat
+        return raw;               // trả về bản THÔ, chỉ một lần duy nhất
     }
 }
 ```
@@ -111,7 +111,7 @@ public async Task<Result<TokenPair>> RefreshAsync(
         .FirstOrDefaultAsync(t => t.TokenHash == hash, ct);
 
     if (stored is null)
-        return Result.Fail("Refresh token khong hop le");
+        return Result.Fail("Refresh token không hợp lệ");
 
     var now = clock.GetUtcNow().UtcDateTime;
 
@@ -119,14 +119,14 @@ public async Task<Result<TokenPair>> RefreshAsync(
     if (stored.RevokedAt is not null)
     {
         logger.LogCritical(
-            "Refresh token DA BI HUY duoc dung lai. User {UserId}, IP {Ip}",
+            "Refresh token ĐÃ BỊ HUỶ được dùng lại. User {UserId}, IP {Ip}",
             stored.UserId, ip);
 
-        // Token nay da duoc rotate -> ai do dang giu ban sao cu
-        // => Coi nhu ca chuoi bi xam nhap, huy TAT CA
+        // Token này đã được rotate -> ai đó đang giữ bản sao cũ
+        // => Coi như cả chuỗi bị xâm nhập, huỷ TẤT CẢ
         await RevokeAllForUserAsync(stored.UserId, "reuse-detected", ct);
 
-        return Result.Fail("Phien dang nhap khong hop le, vui long dang nhap lai");
+        return Result.Fail("Phiên đăng nhập không hợp lệ, vui lòng đăng nhập lại");
     }
 
     if (stored.ExpiresAt < now || stored.AbsoluteExpiresAt < now)
@@ -145,7 +145,7 @@ public async Task<Result<TokenPair>> RefreshAsync(
         UserId            = stored.UserId,
         CreatedAt         = now,
         ExpiresAt         = now.AddDays(7),
-        AbsoluteExpiresAt = stored.AbsoluteExpiresAt,   // KHONG gia han tran tuyet doi
+        AbsoluteExpiresAt = stored.AbsoluteExpiresAt,   // KHÔNG gia hạn trần tuyệt đối
         CreatedByIp       = ip,
     });
 
@@ -162,12 +162,12 @@ public async Task<Result<TokenPair>> RefreshAsync(
 ```
 Ke tan cong danh cap refresh token R1.
 
-Truong hop A — ke tan cong dung truoc:
+Trường hợp A — kẻ tấn công dùng trước:
   R1 -> R2 (ke tan cong giu R2)
-  Nguoi dung that dung R1 -> DA BI HUY -> phat hien!
+  Người dùng thật dùng R1 -> ĐÃ BỊ HUỶ -> phát hiện!
 
-Truong hop B — nguoi dung dung truoc:
-  R1 -> R2 (nguoi dung giu R2)
+Trường hợp B — người dùng dùng trước:
+  R1 -> R2 (người dùng giữ R2)
   Ke tan cong dung R1 -> DA BI HUY -> phat hien!
 ```
 
@@ -193,10 +193,10 @@ Mọi bài viết khuyên lưu token trong `localStorage` đều bỏ qua một 
 ```csharp
 Response.Cookies.Append("refresh_token", rawToken, new CookieOptions
 {
-    HttpOnly = true,                       // JavaScript khong doc duoc
+    HttpOnly = true,                       // JavaScript không đọc được
     Secure   = true,                       // chi qua HTTPS
     SameSite = SameSiteMode.Strict,        // chong CSRF
-    Path     = "/api/auth",                // chi gui toi endpoint auth
+    Path     = "/api/auth",                // chỉ gửi tới endpoint auth
     Expires  = DateTimeOffset.UtcNow.AddDays(7),
 });
 ```
@@ -212,10 +212,10 @@ Dùng cookie thì phải chống CSRF — `SameSite=Strict` xử lý phần lớ
 Người dùng mở 3 tab. Access token hết hạn. Cả 3 tab cùng gọi `/refresh` với **cùng** một refresh token:
 
 ```
-Tab 1: R1 -> R2  (thanh cong)
+Tab 1: R1 -> R2  (thành công)
 Tab 2: R1 -> DA BI HUY -> phat hien tai su dung -> HUY TAT CA
-Tab 3: R1 -> that bai
-=> Nguoi dung bi dang xuat du khong co tan cong nao
+Tab 3: R1 -> thất bại
+=> Người dùng bị đăng xuất dù không có tấn công nào
 ```
 
 Đây là vấn đề **thật** và hay bị bỏ qua cho tới khi người dùng phàn nàn "cứ bị đăng xuất".
@@ -296,11 +296,11 @@ public sealed class RefreshTokenCleanupWorker(
                     .Where(t => t.AbsoluteExpiresAt < cutoff)
                     .ExecuteDeleteAsync(ct);
 
-                logger.LogInformation("Da xoa {Count} refresh token het han", removed);
+                logger.LogInformation("Đã xoá {Count} refresh token hết hạn", removed);
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Don dep refresh token that bai");
+                logger.LogError(ex, "Dọn dẹp refresh token thất bại");
             }
         }
     }

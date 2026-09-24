@@ -45,7 +45,7 @@ builder.Services
     })
     .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<AppDbContext>()
-    .AddDefaultTokenProviders();     // cho xac nhan email, dat lai mat khau
+    .AddDefaultTokenProviders();     // cho xác nhận email, đặt lại mật khẩu
 ```
 
 | | `AddIdentityCore` | `AddDefaultIdentity` |
@@ -73,7 +73,7 @@ public sealed class AppUser : IdentityUser
 ### 10.9.2 — Băm mật khẩu: đừng tự viết
 
 ```csharp
-// SAI — SHA-256 KHONG phai ham bam mat khau
+// SAI — SHA-256 KHÔNG phải hàm băm mật khẩu
 var hash = SHA256.HashData(Encoding.UTF8.GetBytes(password));
 ```
 
@@ -114,7 +114,7 @@ public async Task<Result<TokenPair>> LoginAsync(
         return Result.Fail("Email hoặc mật khẩu không đúng");
     }
 
-    await _userManager.ResetAccessFailedCountAsync(user);     // thanh cong -> reset
+    await _userManager.ResetAccessFailedCountAsync(user);     // thành công -> reset
 
     if (_identityOptions.SignIn.RequireConfirmedEmail && !user.EmailConfirmed)
         return Result.Fail("Vui lòng xác nhận email trước khi đăng nhập");
@@ -145,7 +145,7 @@ await _userManager.UpdateSecurityStampAsync(user);
 // 1. Nhet stamp vao token luc phat
 claims.Add(new Claim("sstamp", await _userManager.GetSecurityStampAsync(user)));
 
-// 2. Doi chieu khi xac thuc token
+// 2. Đối chiếu khi xác thực token
 options.Events = new JwtBearerEvents
 {
     OnTokenValidated = async ctx =>
@@ -171,7 +171,7 @@ Cái giá: **một truy vấn database cho mỗi request**. Thực tế nên cac
 ### 10.9.5 — Token cho email và đặt lại mật khẩu
 
 ```csharp
-// Xac nhan email
+// Xác nhận email
 var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
 var encoded = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
 var link = $"{_options.ClientUrl}/confirm-email?userId={user.Id}&token={encoded}";
@@ -179,9 +179,9 @@ await _email.SendAsync(user.Email!, "Xác nhận email", link, ct);
 
 // Dat lai mat khau
 var resetToken = await _userManager.GeneratePasswordResetTokenAsync(user);
-// ... gui link tuong tu ...
+// ... gửi link tương tự ...
 
-// Xac nhan
+// Xác nhận
 var decoded = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(encodedToken));
 var result = await _userManager.ResetPasswordAsync(user, decoded, newPassword);
 
@@ -207,7 +207,7 @@ public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest request, C
     if (user is not null && await _userManager.IsEmailConfirmedAsync(user))
         await SendResetLinkAsync(user, ct);
 
-    // LUON tra ve nhu nhau
+    // LUÔN trả về như nhau
     return Ok(new { message = "Nếu email tồn tại, chúng tôi đã gửi hướng dẫn." });
 }
 ```
