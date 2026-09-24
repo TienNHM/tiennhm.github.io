@@ -1,94 +1,301 @@
 ---
 title: "10.6 — 5. Policy-based Authorization"
-description: "Policy-based Authorization — bài học thuộc Module 10 — Authentication authorization trong lộ trình .NET backend từ zero đến senior."
+description: "Requirement và handler, nhiều handler cho một requirement là OR, Fail() không thể ghi đè, policy provider động, và vì sao handler là singleton."
 sidebar_position: 6
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
 # 10.6 — 5. Policy-based Authorization
 
+<SummaryBox>
+Policy tách **"quy tắc là gì"** khỏi **"quy tắc áp ở đâu"**. Thay vì rải `[Authorize(Roles = "Admin,Manager")]` khắp 40 action, bạn khai `[Authorize(Policy = "CanApproveDeal")]` và định nghĩa quy tắc ở **một chỗ** — đổi quy tắc là sửa một dòng. Ba hành vi quyết định mà tài liệu không nhấn mạnh đủ: khi có **nhiều handler** cho cùng một requirement, **chỉ cần một cái gọi `Succeed()`** là qua (OR, không phải AND); **`Fail()` không thể bị ghi đè** bởi bất kỳ `Succeed()` nào sau đó; và một policy có **nhiều requirement** thì **mọi** requirement phải được thoả (AND).
+</SummaryBox>
+
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Định nghĩa policy từ vai trò, claim và biểu thức tuỳ ý.
+- Viết `IAuthorizationRequirement` và handler tương ứng.
+- Dự đoán đúng kết quả khi nhiều handler cùng chạy.
+- Dùng `Fail()` đúng chỗ và biết hậu quả của nó.
+- Sinh policy động cho quyền có tham số.
 
 ## Nội dung bài học
 
-### 10.6.1 — Cấu hình Policies
+### 10.6.1 — Policy đơn giản
 
 ```csharp
 builder.Services.AddAuthorization(options =>
 {
-    // Chỉ SalesRep và Manager mới truy cập customer pipeline
-    options.AddPolicy("CanAccessPipeline", policy =>
-        policy.RequireRole(CrmRoles.SalesRep, CrmRoles.Manager));
+    options.AddPolicy("CanApproveDeal", p =>
+        p.RequireRole(CrmRoles.Admin, CrmRoles.Manager));
 
-    // Chỉ Manager/Admin mới approve deal
-    options.AddPolicy("CanApproveDeal", policy =>
-        policy.RequireRole(CrmRoles.Admin, CrmRoles.Manager));
+    options.AddPolicy("HasTerritory", p =>
+        p.RequireClaim("territory"));
 
-    // Yêu cầu claim territory tồn tại
-    options.AddPolicy("HasTerritory", policy =>
-        policy.RequireClaim("territory"));
+    options.AddPolicy("NorthernManager", p =>
+        p.RequireRole(CrmRoles.Manager)
+         .RequireClaim("territory", "HN", "HP", "QN"));      // gia tri nam trong tap
+
+    options.AddPolicy("SeniorSales", p =>
+        p.RequireAssertion(ctx =>
+        {
+            var years = ctx.User.FindFirstValue("experience_years");
+            return int.TryParse(years, out var y) && y >= 3;
+        }));
 });
 ```
 
-### 10.6.2 — Custom Requirement
+```csharp
+[Authorize(Policy = "CanApproveDeal")]
+[HttpPost("{id:guid}/approve")]
+public Task<IActionResult> Approve(Guid id, CancellationToken ct);
+```
+
+Giá trị thật hiện ra khi quy tắc **thay đổi**. Nếu sau này `FinanceApprover` cũng được duyệt deal, bạn sửa **một dòng** trong `Program.cs` thay vì tìm và sửa 40 attribute — và không bỏ sót chỗ nào.
+
+Chú ý cách các `Require*` kết hợp: chúng là **AND**. `NorthernManager` yêu cầu **cả** vai trò `Manager` **và** claim `territory` thuộc tập cho trước.
+
+`RequireAssertion` tiện cho quy tắc một dòng, nhưng nó **không tiêm được dependency** — cần service thì phải dùng handler.
+
+### 10.6.2 — Requirement và handler
 
 ```csharp
-// Requirement: deal value >= threshold
-public class MinDealValueRequirement : IAuthorizationRequirement
+// 1. Requirement — mang THAM SO, khong mang logic
+public sealed class MinimumExperienceRequirement(int years) : IAuthorizationRequirement
 {
-    public decimal Threshold { get; }
-    public MinDealValueRequirement(decimal threshold) => Threshold = threshold;
+    public int Years { get; } = years;
 }
 
-public class MinDealValueHandler
-    : AuthorizationHandler<MinDealValueRequirement, Deal>
+// 2. Handler — mang LOGIC
+public sealed class MinimumExperienceHandler(ILogger<MinimumExperienceHandler> logger)
+    : AuthorizationHandler<MinimumExperienceRequirement>
 {
     protected override Task HandleRequirementAsync(
         AuthorizationHandlerContext context,
-        MinDealValueRequirement requirement,
-        Deal deal)
+        MinimumExperienceRequirement requirement)
     {
-        bool isApprover = context.User.IsInRole(CrmRoles.Admin)
-                       || context.User.IsInRole(CrmRoles.Manager);
+        var claim = context.User.FindFirst("hire_date");
 
-        if (isApprover && deal.Value >= requirement.Threshold)
+        if (claim is null || !DateTime.TryParse(claim.Value, out var hireDate))
+            return Task.CompletedTask;          // khong Succeed, cung khong Fail
+
+        var years = (DateTime.UtcNow - hireDate).TotalDays / 365.25;
+
+        if (years >= requirement.Years)
             context.Succeed(requirement);
 
         return Task.CompletedTask;
     }
 }
+```
 
-// Đăng ký
-builder.Services.AddSingleton<IAuthorizationHandler, MinDealValueHandler>();
+```csharp
+builder.Services.AddSingleton<IAuthorizationHandler, MinimumExperienceHandler>();
+
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("ApproveBigDeal", policy =>
-        policy.AddRequirements(new MinDealValueRequirement(500_000_000m))); // 500 triệu VND
+    options.AddPolicy("Experienced", p =>
+        p.AddRequirements(new MinimumExperienceRequirement(3)));
 });
 ```
 
----
+**Chi tiết quan trọng nhất: không gọi gì cũng là từ chối.** Requirement chưa được `Succeed` thì mặc định là thất bại. Nên với trường hợp "không đủ thông tin để quyết định", bạn **không** cần làm gì — và **không nên** gọi `Fail()`, vì lý do ở mục sau.
+
+**Handler được đăng ký `Singleton`.** Nghĩa là nó không được tiêm `DbContext` hay bất kỳ service scoped nào vào constructor ([bài 7.5](../../stage-02-csharp-professional/module-07-dependency-injection/7.5-service-lifetimes.mdx)).
+
+Cần truy cập database trong handler thì đăng ký handler là `Scoped`:
+
+```csharp
+builder.Services.AddScoped<IAuthorizationHandler, PermissionHandler>();
+```
+
+Nhưng hãy cân nhắc: handler chạy trên **mọi** request tới endpoint đó. Một truy vấn database ở đây là một truy vấn thêm cho mỗi request — nên cache là gần như bắt buộc ([bài 10.8](10.8-permission-system.mdx)).
+
+### 10.6.3 — Ba quy tắc kết hợp
+
+**Quy tắc 1: nhiều requirement trong một policy là AND.**
+
+```csharp
+options.AddPolicy("SeniorNorthernManager", p =>
+{
+    p.RequireRole(CrmRoles.Manager);
+    p.AddRequirements(new MinimumExperienceRequirement(3));
+    p.RequireClaim("territory", "HN");
+});
+// Phai thoa CA BA
+```
+
+**Quy tắc 2: nhiều handler cho cùng một requirement là OR.**
+
+```csharp
+builder.Services.AddSingleton<IAuthorizationHandler, OwnerHandler>();
+builder.Services.AddSingleton<IAuthorizationHandler, ManagerHandler>();
+builder.Services.AddSingleton<IAuthorizationHandler, AdminHandler>();
+// Ca ba cung xu ly SameOwnerRequirement
+// => CHI CAN MOT cai Succeed la qua
+```
+
+Đây là mẫu thiết kế rất hữu ích: mỗi handler là **một con đường được phép**, độc lập nhau. Thêm một con đường mới là thêm một handler, không sửa handler cũ — đúng tinh thần Open/Closed.
+
+**Quy tắc 3: `Fail()` là quyết định cuối cùng.**
+
+```csharp
+context.Fail();    // KHONG Succeed nao sau do ghi de duoc
+```
+
+Khác hẳn với "không làm gì": không làm gì nghĩa là "tôi không cho phép, nhưng handler khác có thể"; `Fail()` nghĩa là "**cấm**, bất kể ai nói gì".
+
+```csharp
+// Dung Fail() — chan tuyet doi
+public sealed class SuspendedAccountHandler : AuthorizationHandler<IAuthorizationRequirement>
+{
+    protected override Task HandleRequirementAsync(
+        AuthorizationHandlerContext context, IAuthorizationRequirement requirement)
+    {
+        if (context.User.HasClaim("account_status", "suspended"))
+            context.Fail();       // tai khoan bi khoa -> khong con duong nao
+
+        return Task.CompletedTask;
+    }
+}
+```
+
+Dùng `Fail()` cho **chính sách chặn**: tài khoản bị khoá, IP trong danh sách đen, ngoài giờ làm việc với thao tác nhạy cảm. Đừng dùng nó cho "người này không thoả điều kiện của tôi" — vì nó sẽ chặn luôn cả những con đường hợp lệ khác.
+
+Từ .NET 7, `context.Fail(new AuthorizationFailureReason(this, "Tài khoản đã bị khoá"))` cho phép kèm lý do, hữu ích để log và chẩn đoán.
+
+### 10.6.4 — Policy động
+
+Với quyền có tham số, khai từng policy một là không khả thi:
+
+```csharp
+options.AddPolicy("Permission:customer.read", ...);
+options.AddPolicy("Permission:customer.create", ...);
+// ... 200 dong nua
+```
+
+`IAuthorizationPolicyProvider` sinh policy **khi cần**:
+
+```csharp
+public sealed class PermissionPolicyProvider(IOptions<AuthorizationOptions> options)
+    : IAuthorizationPolicyProvider
+{
+    private const string Prefix = "Permission:";
+    private readonly DefaultAuthorizationPolicyProvider _fallback = new(options);
+
+    public Task<AuthorizationPolicy?> GetPolicyAsync(string policyName)
+    {
+        if (!policyName.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase))
+            return _fallback.GetPolicyAsync(policyName);       // policy thuong
+
+        var permission = policyName[Prefix.Length..];
+
+        var policy = new AuthorizationPolicyBuilder()
+            .RequireAuthenticatedUser()
+            .AddRequirements(new PermissionRequirement(permission))
+            .Build();
+
+        return Task.FromResult<AuthorizationPolicy?>(policy);
+    }
+
+    public Task<AuthorizationPolicy> GetDefaultPolicyAsync() => _fallback.GetDefaultPolicyAsync();
+    public Task<AuthorizationPolicy?> GetFallbackPolicyAsync() => _fallback.GetFallbackPolicyAsync();
+}
+
+builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
+```
+
+```csharp
+[Authorize(Policy = "Permission:customer.delete")]
+public Task<IActionResult> Delete(Guid id, CancellationToken ct);
+```
+
+Bọc thêm một attribute để tránh chuỗi ma thuật:
+
+```csharp
+public sealed class RequirePermissionAttribute(string permission)
+    : AuthorizeAttribute($"Permission:{permission}");
+
+[RequirePermission(Permissions.Customer.Delete)]
+public Task<IActionResult> Delete(Guid id, CancellationToken ct);
+```
+
+Giờ gõ sai tên quyền là **lỗi biên dịch**, không phải 403 lúc chạy.
+
+**Lưu ý hiệu năng:** `GetPolicyAsync` được gọi cho **mỗi request**, nên đừng làm gì nặng trong đó. `DefaultAuthorizationPolicyProvider` có cache sẵn; provider tự viết thì nên thêm một `ConcurrentDictionary` làm cache.
+
+### 10.6.5 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát policy"
+  items={[
+    { text: "Quy tắc lặp lại ở nhiều action đã được gom thành policy." },
+    { text: "Tên policy dùng hằng số hoặc attribute có kiểu, không phải chuỗi." },
+    { text: "Handler đăng ký Singleton không tiêm service scoped vào constructor." },
+    { text: "Handler cần database được đăng ký Scoped và có cache." },
+    { text: "Fail() chỉ dùng cho chính sách chặn tuyệt đối, không cho điều kiện thông thường." },
+    { text: "Hiểu rằng nhiều handler cùng requirement là OR, chỉ cần một Succeed." },
+    { text: "Policy provider tự viết có cache và gọi fallback cho policy thường." },
+    { text: "Handler không ném exception khi thiếu claim, chỉ đơn giản không Succeed." },
+  ]}
+/>
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **OR giữa các handler.** Viết ba handler cho cùng một requirement, mỗi cái cho phép theo một con đường khác nhau. Xác nhận người dùng chỉ thoả **một** con đường vẫn qua được.
+
+2. **`Fail()` chặn tất cả.** Thêm một handler gọi `Fail()` khi tài khoản bị khoá, và một handler khác luôn `Succeed()`. Xác nhận kết quả cuối cùng là từ chối.
+
+3. **Policy động.** Cài `PermissionPolicyProvider` và `RequirePermissionAttribute`, sau đó gõ sai tên quyền và xác nhận bạn nhận **lỗi biên dịch** thay vì 403 lúc chạy.
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "Policy hơn attribute vai trò ở điểm nào?",
+      answer: "Nó tách quy tắc là gì khỏi quy tắc áp ở đâu. Khi quy tắc thay đổi, bạn sửa một dòng định nghĩa policy thay vì tìm và sửa hàng chục attribute rải khắp controller, và không bỏ sót chỗ nào."
+    },
+    {
+      question: "Nhiều handler cho cùng một requirement kết hợp thế nào?",
+      answer: "Là OR, chỉ cần một handler gọi Succeed là qua. Đây là mẫu thiết kế hữu ích vì mỗi handler là một con đường được phép độc lập, nên thêm con đường mới là thêm handler chứ không sửa handler cũ."
+    },
+    {
+      question: "Nhiều requirement trong một policy thì sao?",
+      answer: "Là AND, mọi requirement đều phải được thoả. Các lời gọi RequireRole, RequireClaim và AddRequirements trong cùng một policy builder đều cộng dồn theo AND."
+    },
+    {
+      question: "Fail() khác không làm gì thế nào?",
+      answer: "Không làm gì nghĩa là tôi không cho phép nhưng handler khác có thể; đó là mặc định vì requirement chưa Succeed thì coi như thất bại. Fail nghĩa là cấm tuyệt đối, không Succeed nào sau đó ghi đè được. Chỉ dùng Fail cho chính sách chặn như tài khoản bị khoá."
+    },
+    {
+      question: "Handler đăng ký lifetime nào?",
+      answer: "Mặc định là Singleton, nên không được tiêm DbContext hay service scoped vào constructor. Cần truy cập database thì đăng ký handler là Scoped, nhưng phải nhớ handler chạy trên mọi request tới endpoint đó nên cache gần như bắt buộc."
+    },
+    {
+      question: "Khi nào cần IAuthorizationPolicyProvider?",
+      answer: "Khi quyền có tham số và việc khai từng policy một là không khả thi, ví dụ hàng trăm quyền dạng chuỗi. Provider sinh policy khi cần từ tên policy. Lưu ý nó được gọi mỗi request nên phải có cache, và phải gọi fallback provider cho những policy thường."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **Nhiều handler cùng requirement là OR; nhiều requirement trong policy là AND.**
+2. **`Fail()` không thể ghi đè.** Chỉ dùng cho chặn tuyệt đối.
+3. **Handler là singleton.** Cần database thì đổi sang scoped và thêm cache.
+
+## Tham khảo
+
+- [Policy-based authorization in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/security/authorization/policies)
+- [Custom authorization policy providers](https://learn.microsoft.com/en-us/aspnet/core/security/authorization/iauthorizationpolicyprovider)
+- [Claims-based authorization in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/security/authorization/claims)
+- [Introduction to authorization in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/security/authorization/introduction)
 
 ## Điều hướng
 
