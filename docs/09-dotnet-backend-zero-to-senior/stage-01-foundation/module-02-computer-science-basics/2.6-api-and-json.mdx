@@ -1,94 +1,244 @@
 ---
 title: "2.6 — 4. API và JSON"
-description: "Các kiểu dữ liệu JSON: string, number, boolean, null, array [], object {}"
+description: "REST, JSON và cái bẫy số học: JavaScript không giữ nổi số nguyên 64-bit, nên một Id kiểu long sẽ âm thầm sai ở chữ số cuối. Kèm cách thiết kế response ổn định và xử lý lỗi cho đúng."
 sidebar_position: 6
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
 # 2.6 — 4. API và JSON
 
+<SummaryBox>
+JSON đơn giản tới mức người ta quên rằng nó có **giới hạn thật**. Cái bẫy tốn kém nhất: JavaScript lưu mọi số bằng `double`, nên số nguyên vượt quá **9.007.199.254.740.991** bị làm tròn — một `Id` kiểu `long` hay một `Snowflake ID` sẽ sai ở vài chữ số cuối mà **không có lỗi nào được ném ra**. Bài này đi qua nguyên tắc REST dùng được trong thực tế, cách thiết kế response không phá vỡ client cũ, chuẩn `ProblemDetails` cho lỗi, và bốn kiểu dữ liệu mà JSON không có sẵn: số lớn, ngày tháng, `decimal` và `null` có nghĩa.
+</SummaryBox>
+
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Thiết kế đường dẫn và method REST theo tài nguyên thay vì theo hành động.
+- Giải thích vì sao `Id` kiểu `long` phải trả về dưới dạng chuỗi trong JSON.
+- Trả lỗi theo chuẩn `ProblemDetails` thay vì tự bịa định dạng.
+- Chọn đúng cách biểu diễn ngày tháng và số tiền trong JSON.
+- Phân biệt trường vắng mặt với trường có giá trị `null`.
 
 ## Nội dung bài học
 
-### 2.6.1 — REST API là gì
+### 2.6.1 — REST: đặt tên theo tài nguyên, không theo hành động
 
-**REST (Representational State Transfer)** là kiến trúc thiết kế API phổ biến nhất, dựa trên nguyên tắc:
+```
+❌ POST /api/getCustomerById          ✅ GET    /api/customers/42
+❌ POST /api/createCustomer           ✅ POST   /api/customers
+❌ POST /api/deleteCustomer?id=42     ✅ DELETE /api/customers/42
+❌ GET  /api/updateCustomerName       ✅ PATCH  /api/customers/42
+```
 
-1. **Resources qua URL**: Mỗi "tài nguyên" có URL riêng — `/customers`, `/orders`, `/contacts`
-2. **Stateless**: Mỗi request độc lập, server không nhớ state từ request trước
-3. **HTTP methods chuẩn**: Dùng đúng GET/POST/PUT/DELETE như đã nêu
-4. **JSON response**: Trả dữ liệu dạng JSON
+Nguyên tắc: **đường dẫn là danh từ, method là động từ**. Đường dẫn chỉ ra *cái gì*, method chỉ ra *làm gì với nó*.
 
-### 2.6.2 — JSON Format
+Vài quy ước đi kèm, dùng thẳng được:
 
-**JSON (JavaScript Object Notation)** là định dạng trao đổi dữ liệu phổ biến nhất hiện nay:
+```
+GET    /api/customers?page=2&pageSize=50&sort=-createdAt   # danh sách, phân trang, sắp xếp
+GET    /api/customers/42/orders                            # tài nguyên con
+POST   /api/customers/42/orders                            # tạo đơn cho khách 42
+POST   /api/orders/99/cancel                               # hành động không map được vào CRUD
+```
+
+Dòng cuối là một ngoại lệ hợp lý. Không phải thao tác nghiệp vụ nào cũng ép được vào bốn động từ; "huỷ đơn" là một hành động có quy tắc riêng, và `POST /orders/99/cancel` rõ ràng hơn nhiều so với cố nhét vào `PATCH`.
+
+### 2.6.2 — JSON: bốn thứ nó không có
+
+JSON chỉ có sáu kiểu: chuỗi, số, boolean, `null`, mảng, object. Không có ngày tháng. Không có `decimal`. Không có số nguyên lớn. Không có kiểu nhị phân.
+
+**1. Số nguyên lớn — cái bẫy nguy hiểm nhất**
+
+```json
+{ "id": 9007199254740993 }
+```
+
+JavaScript lưu mọi số bằng `double` 64-bit, chỉ giữ chính xác được số nguyên tới `2⁵³ − 1 = 9.007.199.254.740.991`. Vượt qua đó:
+
+```javascript
+JSON.parse('{"id": 9007199254740993}').id   // 9007199254740992  ← sai 1 đơn vị
+```
+
+**Không có ngoại lệ nào được ném.** Dữ liệu chỉ lặng lẽ sai. Với `Id` kiểu `long`, Snowflake ID hoặc mã giao dịch, hậu quả là client thao tác nhầm bản ghi.
+
+Cách xử lý: trả số lớn dưới dạng **chuỗi**.
+
+```csharp
+public class CustomerDto
+{
+    [JsonConverter(typeof(NumberToStringConverter))]
+    public long Id { get; set; }      // → "9007199254740993"
+}
+```
+
+**2. Ngày tháng** — JSON không có kiểu ngày, nên phải quy ước. Dùng **ISO 8601 với múi giờ**:
+
+```json
+{ "createdAt": "2026-09-24T10:30:00+07:00" }   ✅ không mơ hồ
+{ "createdAt": "2026-09-24 10:30:00" }         ❌ múi giờ nào?
+{ "createdAt": 1758697800 }                    ⚠️ giây hay mili giây?
+```
+
+**3. Số tiền** — `double` của JSON gặp đúng vấn đề đã nói ở [bài 1.2](/docs/dotnet-backend-zero-to-senior/stage-01-foundation/module-01-programming-logic/1.2-variables-and-data-types). An toàn nhất là dùng chuỗi hoặc số nguyên đơn vị nhỏ nhất:
+
+```json
+{ "amount": "1500000.50", "currency": "VND" }
+{ "amountInCents": 150000050 }
+```
+
+**4. Nhị phân** — không có. Phải mã hoá Base64, và chấp nhận phình thêm khoảng 33%.
+
+### 2.6.3 — Vắng mặt khác `null`
+
+```json
+{ "name": "A", "phone": null }    // "hãy XOÁ số điện thoại"
+{ "name": "A" }                   // "đừng đụng vào số điện thoại"
+```
+
+Với `PATCH`, hai thứ này phải được đối xử khác nhau. Trong .NET, phân biệt bằng `JsonElement` hoặc một kiểu bọc tự định nghĩa — nếu chỉ dùng `string? Phone` thì cả hai trường hợp đều ra `null` và bạn mất thông tin.
+
+Đây là lý do nhiều API chọn `PUT` (thay thế toàn bộ) thay vì `PATCH`: nó tránh hẳn sự mơ hồ này.
+
+### 2.6.4 — Lỗi: dùng chuẩn có sẵn
+
+Đừng tự bịa định dạng lỗi. RFC 7807 / 9457 đã chuẩn hoá `ProblemDetails`, và ASP.NET Core hỗ trợ sẵn:
 
 ```json
 {
-  "id": 42,
-  "name": "Nguyen Van A",
-  "email": "a@example.com",
-  "isActive": true,
-  "tags": ["vip", "enterprise"],
-  "address": {
-    "city": "Ho Chi Minh",
-    "country": "Vietnam"
-  },
-  "createdAt": "2025-01-15T08:30:00Z"
+  "type": "https://api.company.com/errors/validation",
+  "title": "Dữ liệu không hợp lệ",
+  "status": 422,
+  "detail": "Email đã tồn tại trong hệ thống",
+  "instance": "/api/customers",
+  "errors": {
+    "email": ["Địa chỉ email này đã được đăng ký"]
+  }
 }
 ```
-
-Các kiểu dữ liệu JSON: `string`, `number`, `boolean`, `null`, `array []`, `object {}`
-
-### 2.6.3 — Serialize và Deserialize trong C#
 
 ```csharp
-using System.Text.Json;
-
-// Class ánh xạ với JSON
-public class Customer
-{
-    public int Id { get; set; }
-    public string Name { get; set; } = "";
-    public string Email { get; set; } = "";
-    public bool IsActive { get; set; }
-}
-
-// Deserialize: JSON string → C# object
-string json = """{"id":42,"name":"Nguyen Van A","email":"a@example.com","isActive":true}""";
-Customer customer = JsonSerializer.Deserialize<Customer>(json)!;
-Console.WriteLine(customer.Name); // Nguyen Van A
-
-// Serialize: C# object → JSON string
-string output = JsonSerializer.Serialize(customer);
-Console.WriteLine(output);
+// ASP.NET Core sinh sẵn định dạng này
+return Problem(
+    title: "Dữ liệu không hợp lệ",
+    detail: "Email đã tồn tại trong hệ thống",
+    statusCode: StatusCodes.Status422UnprocessableEntity);
 ```
 
-> **Trong CRM:** Mỗi lần frontend gửi form "Thêm khách hàng", dữ liệu được chuyển thành JSON, gửi lên server. ASP.NET Core tự động deserialize JSON đó thành object `Customer` C# để xử lý.
+Lợi ích không nằm ở cái tên: client dùng **một** cách xử lý lỗi cho mọi endpoint, và công cụ bên ngoài hiểu được mà không cần đọc tài liệu riêng của bạn.
 
----
+### 2.6.5 — Response ổn định: bọc hay không bọc
+
+```json
+// Kiểu bọc
+{ "data": { "id": 42 }, "meta": { "requestId": "abc" } }
+
+// Kiểu trần
+{ "id": 42 }
+```
+
+Cả hai đều dùng được, miễn **nhất quán trong toàn bộ API**. Nhưng với danh sách thì kiểu bọc có lợi rõ ràng, vì phải chở thêm thông tin phân trang:
+
+```json
+{
+  "items": [ ... ],
+  "page": 2,
+  "pageSize": 50,
+  "totalItems": 3_000_000,
+  "totalPages": 60000
+}
+```
+
+Lưu ý hiệu năng: `totalItems` trên bảng lớn đòi một câu `COUNT(*)` quét rất nhiều dòng. Với dữ liệu hàng triệu bản ghi, cân nhắc phân trang theo con trỏ (`cursor`) thay vì theo số trang — chi tiết ở bài [hiệu năng truy vấn](/docs/database/learn-sql-in-30-days/20-query-performance).
+
+### 2.6.6 — `System.Text.Json` trong .NET
+
+```csharp
+builder.Services.ConfigureHttpJsonOptions(o =>
+{
+    o.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+    o.SerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+});
+```
+
+Ba điều nên biết:
+
+- **`System.Text.Json` phân biệt hoa thường** theo mặc định, khác với `Newtonsoft.Json`. Đây là nguồn lỗi hay gặp khi chuyển đổi thư viện.
+- Nó **không** hỗ trợ tham chiếu vòng nếu chưa bật `ReferenceHandler.IgnoreCycles`. Trả thẳng entity của EF Core có quan hệ hai chiều là gặp ngay.
+- Đừng trả entity trực tiếp. Dùng DTO — vừa tránh vòng lặp, vừa không vô tình phơi ra cột nội bộ như `PasswordHash`.
+
+Tài liệu: [System.Text.Json overview](https://learn.microsoft.com/en-us/dotnet/standard/serialization/system-text-json/overview).
+
+### 2.6.7 — Rà lại API của bạn
+
+<Checklist
+  title="Danh sách rà soát API và JSON"
+  items={[
+    { text: "Đường dẫn là danh từ số nhiều; hành động nằm ở HTTP method." },
+    { text: "Id kiểu long và mọi số vượt 2^53 đều trả về dưới dạng chuỗi." },
+    { text: "Ngày tháng theo ISO 8601 kèm múi giờ, không dùng chuỗi tự chế." },
+    { text: "Số tiền trả về dạng chuỗi hoặc số nguyên đơn vị nhỏ nhất, kèm mã tiền tệ." },
+    { text: "Lỗi trả theo ProblemDetails, thống nhất trên mọi endpoint." },
+    { text: "Không trả entity của EF Core trực tiếp; luôn đi qua DTO." },
+    { text: "Endpoint danh sách có phân trang, và đã cân nhắc cursor cho bảng lớn." },
+  ]}
+/>
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **Tự chứng minh mất chính xác.** Mở console trình duyệt, chạy `JSON.parse('{"id":9007199254740993}').id`. Ghi lại kết quả. Sau đó tạo một endpoint .NET trả `long.MaxValue` và xem client JavaScript nhận được số nào.
+
+2. **Chuẩn hoá lỗi.** Chọn ba endpoint trả lỗi theo ba định dạng khác nhau. Viết lại cả ba theo `ProblemDetails` và chỉ ra client bớt được bao nhiêu nhánh xử lý.
+
+3. **Phân biệt vắng mặt và null.** Viết một endpoint `PATCH` xử lý đúng hai trường hợp: body có `"phone": null` (xoá số) và body không có trường `phone` (giữ nguyên).
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "Vì sao Id kiểu long phải trả về dưới dạng chuỗi trong JSON?",
+      answer: "Vì JavaScript lưu mọi số bằng double, chỉ giữ chính xác số nguyên tới 2 mũ 53 trừ 1, tức khoảng 9 triệu tỉ. Số lớn hơn bị làm tròn mà không có lỗi nào được ném ra, nên client thao tác nhầm bản ghi. Trả dưới dạng chuỗi là cách duy nhất bảo đảm không mất chữ số nào."
+    },
+    {
+      question: "JSON thiếu những kiểu dữ liệu nào?",
+      answer: "Bốn thứ: số nguyên lớn vượt 2 mũ 53, ngày tháng, số thập phân chính xác kiểu decimal, và dữ liệu nhị phân. Ngày tháng phải quy ước theo ISO 8601 kèm múi giờ. Số tiền nên dùng chuỗi hoặc số nguyên đơn vị nhỏ nhất. Nhị phân phải mã hoá Base64 và chấp nhận phình thêm khoảng 33%."
+    },
+    {
+      question: "Trường vắng mặt và trường null khác nhau thế nào?",
+      answer: "Trong PATCH, trường có giá trị null nghĩa là hãy xoá giá trị đó, còn trường vắng mặt nghĩa là đừng đụng tới. Nếu model chỉ dùng string? thì cả hai đều thành null và bạn mất thông tin. Phải phân biệt bằng JsonElement hoặc kiểu bọc riêng — hoặc tránh hẳn bằng cách dùng PUT thay thế toàn bộ."
+    },
+    {
+      question: "ProblemDetails giải quyết vấn đề gì?",
+      answer: "Nó chuẩn hoá định dạng lỗi theo RFC 7807 và 9457, nên client chỉ cần một cách xử lý lỗi cho mọi endpoint thay vì mỗi endpoint một kiểu. Công cụ bên ngoài cũng hiểu được mà không cần đọc tài liệu riêng. ASP.NET Core có sẵn phương thức Problem() sinh đúng định dạng này."
+    },
+    {
+      question: "Vì sao không nên trả entity của EF Core trực tiếp?",
+      answer: "Hai lý do. Entity có quan hệ hai chiều sẽ gây tham chiếu vòng khi serialize, trừ khi bật ReferenceHandler.IgnoreCycles. Và nguy hiểm hơn, nó vô tình phơi ra những cột nội bộ như PasswordHash hay cờ trạng thái mà client không nên thấy. Dùng DTO giải quyết cả hai."
+    },
+    {
+      question: "Khi nào nên phân trang theo cursor thay vì theo số trang?",
+      answer: "Khi bảng rất lớn. Phân trang theo số trang cần một câu COUNT để tính tổng số trang, và câu đó quét rất nhiều dòng trên bảng hàng triệu bản ghi. Phân trang theo cursor chỉ cần lấy n bản ghi kế tiếp sau một mốc, nên chi phí không tăng theo số trang."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **Số nguyên lớn trong JSON sai một cách im lặng.** Không có ngoại lệ, không có cảnh báo — chỉ có chữ số cuối bị đổi.
+2. **Đường dẫn là danh từ, method là động từ.** Mọi quy ước REST khác đều bắt nguồn từ câu này.
+3. **Lỗi có chuẩn rồi, đừng bịa thêm.** `ProblemDetails` cho client một cách xử lý duy nhất.
+
+## Tham khảo
+
+- [ASP.NET Core Web API](https://learn.microsoft.com/en-us/aspnet/core/web-api/) — controller, routing, ProblemDetails
+- [System.Text.Json overview](https://learn.microsoft.com/en-us/dotnet/standard/serialization/system-text-json/overview)
+- [HTTP response status codes](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status) — chọn mã cho đúng
+- [RFC 9110 — HTTP Semantics](https://www.rfc-editor.org/rfc/rfc9110.html)
 
 ## Điều hướng
 

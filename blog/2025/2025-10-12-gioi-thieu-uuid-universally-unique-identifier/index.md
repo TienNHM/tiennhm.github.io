@@ -488,5 +488,5 @@ Khi quyết định sử dụng UUID, hãy cân nhắc kỹ lưỡng về yêu c
 ## Bài liên quan
 
 - [02. Cấu trúc bảng và kiểu dữ liệu](/docs/database/learn-sql-in-30-days/02-table-structure-and-data-types) — Giới thiệu cấu trúc bảng và kiểu dữ liệu trong SQL
-- [27. Database design best practices](/docs/database/learn-sql-in-30-days/27-database-design-best-practices) — Thiết kế cơ sở dữ liệu (Database Design) - Nguyên tắc chuẩn hóa CSDL, khi nào nên phi chuẩn hóa, best practices thiết kế CSDL hiệu quả.
 - [1.2 — 1. Biến và Kiểu Dữ Liệu](/docs/dotnet-backend-zero-to-senior/stage-01-foundation/module-01-programming-logic/1.2-variables-and-data-types) — Biến, kiểu giá trị và kiểu tham chiếu, vì sao tiền phải dùng decimal chứ không phải double, DateTime hay DateTimeOffset, và nullable reference types…
+- [27. Database design best practices](/docs/database/learn-sql-in-30-days/27-database-design-best-practices) — Thiết kế cơ sở dữ liệu (Database Design) - Nguyên tắc chuẩn hóa CSDL, khi nào nên phi chuẩn hóa, best practices thiết kế CSDL hiệu quả.
