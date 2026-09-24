@@ -1,84 +1,211 @@
 ---
 title: "6.4 — 2. ConfigureAwait"
-description: "ConfigureAwait(false) bảo CLR: \"Không cần quay về SynchronizationContext gốc, chạy trên bất kỳ thread nào cũng được.\""
+description: "ConfigureAwait(false) nói với CLR rằng continuation không cần quay về SynchronizationContext gốc. Vì sao nó cứu deadlock trên ASP.NET Framework và vì sao ASP.NET Core không cần."
 sidebar_position: 4
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
 # 6.4 — 2. ConfigureAwait
 
+<SummaryBox>
+`ConfigureAwait(false)` nói một điều duy nhất: **"phần code sau `await` không cần chạy lại trên context gốc"**. Nó tồn tại vì `SynchronizationContext` — cơ chế trong ASP.NET Framework và WinForms/WPF bắt continuation phải quay về đúng một thread. Khi thread đó đang bị `.Result` hoặc `.Wait()` block, bạn có một **deadlock hoàn hảo**: thread chờ Task, Task chờ thread. **ASP.NET Core không có `SynchronizationContext`**, nên trong code ứng dụng web ngày nay bạn không cần `ConfigureAwait(false)` — nhưng trong **thư viện** thì vẫn cần, vì thư viện không biết ai sẽ gọi mình.
+</SummaryBox>
+
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Giải thích `SynchronizationContext` là gì và nó làm gì với continuation.
+- Vẽ lại chính xác chuỗi sự kiện dẫn tới deadlock `.Result`.
+- Quyết định đúng nơi cần và không cần `ConfigureAwait(false)`.
+- Biết vì sao `ConfigureAwait(false)` chỉ chữa triệu chứng, không chữa nguyên nhân.
 
 ## Nội dung bài học
 
-### 6.4.1 — Vấn đề: Deadlock trong ASP.NET (classic)
+### 6.4.1 — `SynchronizationContext` là gì
 
-Trong ASP.NET Framework cũ (không phải Core), `SynchronizationContext` yêu cầu continuation phải chạy trên thread gốc. Nếu thread gốc đang bị block bởi `.Result` hoặc `.Wait()`, xảy ra deadlock:
+Khi bạn `await`, runtime hỏi một câu: *"phần còn lại của phương thức này nên chạy ở đâu?"*
+
+Câu trả lời mặc định là: **ở nơi tôi vừa rời đi** — tức `SynchronizationContext.Current` tại thời điểm `await`. Runtime chụp lại context đó và đăng ký continuation vào nó.
+
+| Môi trường | `SynchronizationContext.Current` | Continuation chạy ở đâu |
+|---|---|---|
+| ASP.NET Framework (System.Web) | `AspNetSynchronizationContext` | Đúng thread request, một lúc một cái |
+| WinForms | `WindowsFormsSynchronizationContext` | Đúng UI thread |
+| WPF | `DispatcherSynchronizationContext` | Đúng UI thread |
+| **ASP.NET Core** | **`null`** | **Thread pool bất kỳ** |
+| Console | `null` | Thread pool bất kỳ |
+
+Dòng in đậm là lý do cả bài này nhẹ đi rất nhiều với .NET hiện đại: ASP.NET Core đã **bỏ hẳn** `SynchronizationContext`.
+
+### 6.4.2 — Deadlock xảy ra chính xác như thế nào
 
 ```csharp
-// DEADLOCK trong ASP.NET Framework (không phải Core)
+// ASP.NET Framework (KHÔNG phải Core)
 public ActionResult GetData()
 {
-    // Thread HTTP đang block ở đây và giữ SynchronizationContext
-    var data = GetDataAsync().Result; // Deadlock!
+    var data = GetDataAsync().Result;   // (1) block thread request
     return View(data);
 }
 
 private async Task<string> GetDataAsync()
 {
-    // Continuation cần quay về SynchronizationContext
-    // nhưng thread đó đang bị .Result block → deadlock
-    return await httpClient.GetStringAsync("https://api.example.com");
+    return await _http.GetStringAsync("https://api.example.com");  // (2)
 }
 ```
 
-### 6.4.2 — ConfigureAwait(false)
+Chuỗi sự kiện:
 
-`ConfigureAwait(false)` bảo CLR: "Không cần quay về SynchronizationContext gốc, chạy trên bất kỳ thread nào cũng được."
+```mermaid
+sequenceDiagram
+    participant T as Thread request
+    participant C as SynchronizationContext
+    participant IO as HTTP call
+    T->>T: goi .Result - block va giu context
+    T->>IO: gui request
+    IO-->>C: phan hoi ve, dang ky continuation
+    C--xT: can dung thread nay de chay tiep
+    Note over T,C: Thread cho Task<br/>Task cho thread<br/>DEADLOCK
+```
+
+1. `.Result` **block** thread request. Thread này đang giữ `AspNetSynchronizationContext`.
+2. HTTP trả về. Continuation của `GetDataAsync` được đăng ký vào context đó.
+3. Context chỉ cho phép **một** thao tác tại một thời điểm, và slot đó đang bị `.Result` chiếm.
+4. Continuation không bao giờ chạy → `Task` không bao giờ hoàn thành → `.Result` không bao giờ trả về.
+
+Hai bên chờ nhau vĩnh viễn. Không có exception, không có log — request chỉ đơn giản treo cho tới khi timeout.
+
+:::tip Đọc thêm
+Bài [Gọi `.Result` khi nào thì deadlock, khi nào thì không?](/blog/deadlock-result-wait-csharp) đi sâu vào việc vì sao cùng một dòng code treo trong WPF/ASP.NET Framework nhưng chạy bình thường trong Console/ASP.NET Core.
+:::
+
+### 6.4.3 — `ConfigureAwait(false)` phá vòng lặp ra sao
 
 ```csharp
-// Trong library code — dùng ConfigureAwait(false)
-public async Task<Customer?> GetFromCacheAsync(int id)
+private async Task<string> GetDataAsync()
 {
-    var cached = await _cache.GetAsync($"customer:{id}").ConfigureAwait(false);
-    if (cached is null) return null;
-
-    return JsonSerializer.Deserialize<Customer>(cached);
+    return await _http.GetStringAsync("https://api.example.com")
+                      .ConfigureAwait(false);   // khong quay ve context
 }
 ```
 
-### 6.4.3 — Rule of thumb
+Với `ConfigureAwait(false)`, continuation chạy trên **thread pool bất kỳ**. Nó không cần cái slot đang bị `.Result` chiếm, nên nó chạy được, `Task` hoàn thành, `.Result` trả về.
 
-| Loại code | Dùng ConfigureAwait(false)? | Lý do |
-|-----------|---------------------------|-------|
-| **Library / Infrastructure** | Có | Tránh deadlock, hiệu năng tốt hơn |
-| **ASP.NET Core controller / service** | Không cần | ASP.NET Core không có SynchronizationContext |
-| **WinForms / WPF UI code** | Không | Cần quay về UI thread để cập nhật controls |
+Nhưng hãy nhìn cho đúng bản chất:
 
-> **ASP.NET Core** đã loại bỏ SynchronizationContext nên deadlock dạng này không xảy ra. Tuy nhiên, nếu bạn viết NuGet library thì vẫn dùng `ConfigureAwait(false)`.
+> `ConfigureAwait(false)` **không chữa nguyên nhân**. Nguyên nhân là `.Result`. `ConfigureAwait(false)` chỉ làm cho một lỗi thiết kế tạm thời không phát nổ.
 
----
+Cách chữa thật sự là **async all the way**: `public async Task<ActionResult> GetData() => View(await GetDataAsync());`
+
+### 6.4.4 — Nó lan truyền theo từng `await`, không theo phương thức
+
+Đây là điểm rất hay bị hiểu sai:
+
+```csharp
+public async Task ProcessAsync()
+{
+    await StepOneAsync().ConfigureAwait(false);   // continuation: thread pool
+    await StepTwoAsync();                         // continuation: context da mat roi
+}
+```
+
+`ConfigureAwait` áp dụng cho **đúng một `await`**, không phải cả phương thức. Nhưng sau `await` đầu tiên với `false`, bạn **đã ra khỏi context** — nên `await` thứ hai dù không ghi gì cũng chẳng có context nào để quay về.
+
+Hệ quả: trong thư viện, nếu đã dùng thì phải dùng **nhất quán ở mọi `await`**. Dùng nửa vời gây ra hành vi phụ thuộc vào việc thao tác nào hoàn thành đồng bộ — nghĩa là bug chỉ xuất hiện khi có cache hit, hoặc chỉ trên máy production.
+
+### 6.4.5 — Dùng ở đâu
+
+| Loại code | `ConfigureAwait(false)`? | Lý do |
+|---|---|---|
+| **Thư viện NuGet, code hạ tầng dùng lại** | **Có, ở mọi `await`** | Không biết ai gọi mình; có thể là WPF hoặc ASP.NET Framework |
+| **ASP.NET Core controller / service / repository** | Không cần | Không có `SynchronizationContext` để quay về |
+| **Worker Service, Console, hosted service** | Không cần | Context là `null` |
+| **WinForms / WPF, code chạm vào control** | **Không** | Bắt buộc phải quay về UI thread |
+| **WinForms / WPF, code không chạm UI** | Có | Tránh dồn việc vô ích lên UI thread |
+
+Với WPF/WinForms, bỏ `ConfigureAwait(false)` sai chỗ cho bạn `InvalidOperationException: The calling thread cannot access this object because a different thread owns it.`
+
+### 6.4.6 — `ConfigureAwait(ConfigureAwaitOptions)` từ .NET 8
+
+.NET 8 thêm một overload rõ nghĩa hơn cho `Task` (không phải `Task<T>`):
+
+```csharp
+await task.ConfigureAwait(ConfigureAwaitOptions.None);                 // = ConfigureAwait(false)
+await task.ConfigureAwait(ConfigureAwaitOptions.ContinueOnCapturedContext); // = ConfigureAwait(true)
+await task.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);     // khong nem lai exception
+await task.ConfigureAwait(ConfigureAwaitOptions.ForceYielding);        // luon yield, khong bao gio dong bo
+```
+
+`SuppressThrowing` hữu ích khi bạn chỉ muốn **chờ xong** mà không quan tâm kết quả, thay cho `try { await t; } catch { }`.
+
+### 6.4.7 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát ConfigureAwait"
+  items={[
+    { text: "Không có .Result hay .Wait() nào trong đường chạy request." },
+    { text: "Trong thư viện dùng lại: ConfigureAwait(false) ở MỌI await, không nửa vời." },
+    { text: "Trong ASP.NET Core: không rải ConfigureAwait(false) vô ích khắp nơi." },
+    { text: "Trong WPF/WinForms: không ConfigureAwait(false) trước code chạm vào control." },
+    { text: "Hiểu rằng ConfigureAwait(false) chỉ giấu triệu chứng của .Result, không chữa nó." },
+    { text: "Đã cân nhắc ConfigureAwaitOptions.SuppressThrowing thay cho try/catch rỗng." },
+  ]}
+/>
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **Tái hiện deadlock.** Tạo một project ASP.NET Framework (hoặc WPF cho nhanh), gọi `.Result` trên một `Task` có I/O thật, xác nhận nó treo. Thêm `ConfigureAwait(false)` vào phương thức async và xác nhận nó hết treo.
+
+2. **Chứng minh context mất sau `await` đầu tiên.** Trong WPF, in `SynchronizationContext.Current` trước `await`, sau một `await` có `ConfigureAwait(false)`, và sau một `await` tiếp theo không ghi gì. Ghi lại ba giá trị.
+
+3. **Rà thư viện của bạn.** Chọn một project library trong repo, `grep` tất cả `await` và đếm xem bao nhiêu chỗ có `ConfigureAwait(false)`. Nếu tỷ lệ không phải 0% hoặc 100%, bạn đang có bug tiềm ẩn.
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "SynchronizationContext là gì?",
+      answer: "Là cơ chế trả lời câu hỏi phần code sau await nên chạy ở đâu. Mặc định runtime chụp lại SynchronizationContext.Current tại thời điểm await và đăng ký continuation vào đó, nên continuation quay về đúng thread cũ. ASP.NET Framework, WinForms và WPF đều có context; ASP.NET Core và Console thì context là null."
+    },
+    {
+      question: "Deadlock khi gọi .Result xảy ra như thế nào?",
+      answer: "Thread request bị .Result block và đang giữ context. Khi I/O trả về, continuation được đăng ký vào chính context đó, nhưng context chỉ cho một thao tác tại một thời điểm và slot đang bị .Result chiếm. Continuation không chạy nên Task không hoàn thành, mà .Result thì chờ Task. Hai bên chờ nhau vĩnh viễn, không có exception và không có log."
+    },
+    {
+      question: "ASP.NET Core có cần ConfigureAwait(false) không?",
+      answer: "Không, vì ASP.NET Core đã bỏ hẳn SynchronizationContext nên không có context nào để quay về. Rải ConfigureAwait(false) khắp controller và service chỉ làm code khó đọc mà không được gì. Thư viện dùng lại thì vẫn cần, vì thư viện không biết ai sẽ gọi mình."
+    },
+    {
+      question: "ConfigureAwait áp dụng cho cả phương thức hay chỉ một await?",
+      answer: "Chỉ đúng một await. Nhưng sau await đầu tiên có ConfigureAwait(false) thì bạn đã ra khỏi context rồi, nên những await sau dù không ghi gì cũng không còn context để quay về. Vì vậy trong thư viện phải dùng nhất quán ở mọi await, nếu không sẽ có bug chỉ xuất hiện khi thao tác hoàn thành đồng bộ."
+    },
+    {
+      question: "ConfigureAwait(false) có phải cách chữa deadlock đúng không?",
+      answer: "Không, nó chỉ giấu triệu chứng. Nguyên nhân thật là .Result hoặc .Wait() chặn thread. Cách chữa đúng là async all the way, tức để phương thức gọi cũng là async Task và dùng await thay vì .Result."
+    },
+    {
+      question: "ConfigureAwaitOptions trong .NET 8 có gì mới?",
+      answer: "Nó là overload rõ nghĩa hơn cho Task, với None tương đương ConfigureAwait(false), ContinueOnCapturedContext tương đương true, SuppressThrowing để chờ xong mà không ném lại exception, và ForceYielding để luôn yield chứ không bao giờ chạy đồng bộ."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **`ConfigureAwait(false)` nói: đừng quay về context gốc.** Nó chỉ có ý nghĩa ở nơi có `SynchronizationContext`.
+2. **ASP.NET Core không có context**, nên code ứng dụng không cần nó — thư viện thì cần, và phải dùng ở **mọi** `await`.
+3. **Nó không chữa deadlock, chỉ hoãn deadlock.** Thứ cần sửa là `.Result`.
+
+## Tham khảo
+
+- [ConfigureAwait FAQ (.NET Blog)](https://devblogs.microsoft.com/dotnet/configureawait-faq/)
+- [Task.ConfigureAwait method](https://learn.microsoft.com/en-us/dotnet/api/system.threading.tasks.task.configureawait)
+- [Task asynchronous programming model](https://learn.microsoft.com/en-us/dotnet/csharp/asynchronous-programming/task-asynchronous-programming-model)
+- [ASP.NET Core best practices](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/best-practices)
 
 ## Điều hướng
 
