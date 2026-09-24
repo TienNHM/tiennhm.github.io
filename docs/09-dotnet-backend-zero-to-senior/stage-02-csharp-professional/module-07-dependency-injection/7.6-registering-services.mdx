@@ -186,11 +186,274 @@ services.Decorate<ICustomerRepository, CachedCustomerRepository>();
 
 ## Bài tập áp dụng
 
-1. **Captive dependency mà validator không bắt.** Viết một factory `AddSingleton<IFoo>(sp => new Foo(sp.GetRequiredService<IScopedBar>()))`, bật `ValidateScopes`, chạy và xác nhận nó **không** báo lỗi. Ghi lại ý nghĩa của điều đó với code review.
+#### Bài 1 — Ranh giới của `ValidateOnBuild` và `ValidateScopes`
 
-2. **Đăng ký nhân đôi.** Viết một extension `AddMyFeature()` dùng `Add` cho một `IValidator`, gọi nó hai lần, và đếm số lần validator chạy. Sửa bằng `TryAddEnumerable` và đếm lại.
+Viết hai cách đăng ký cùng một captive dependency — một bằng constructor injection, một bằng factory — rồi bật cả `ValidateScopes` lẫn `ValidateOnBuild`. So sánh **thời điểm** lỗi xuất hiện.
 
-3. **Decorator hai tầng.** Bọc một repository bằng caching rồi bọc tiếp bằng logging, sao cho thứ tự là logging → caching → thật. Viết bằng container .NET thuần, rồi viết lại bằng Scrutor và so sánh.
+**Tiêu chí hoàn thành:** bạn nêu đúng cách nào bị bắt **lúc khởi động** và cách nào chỉ lộ ra **lúc chạy**.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** `ValidateOnBuild` phân tích **kiểu** của các đăng ký để suy ra đồ thị phụ thuộc. Với một factory là lambda, nó thấy được gì bên trong lambda đó?
+
+**Lời giải.**
+
+```csharp
+static void Thu(string ten, Action<IServiceCollection> dangKy)
+{
+    var s = new ServiceCollection();
+    s.AddScoped<IScopedBar, ScopedBar>();
+    dangKy(s);
+    try
+    {
+        var p = s.BuildServiceProvider(
+            new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
+        Console.WriteLine("    Build   : không báo lỗi");
+        try { p.GetRequiredService<IFoo>(); Console.WriteLine("    Resolve : KHÔNG báo lỗi"); }
+        catch (Exception e) { Console.WriteLine($"    Resolve : {e.GetType().Name}"); }
+    }
+    catch (Exception e) { Console.WriteLine($"    Build   : {e.GetType().Name} -> BẮT LÚC KHỞI ĐỘNG"); }
+}
+
+Thu("constructor", s => s.AddSingleton<IFoo, Foo>());
+Thu("factory",     s => s.AddSingleton<IFoo>(sp => new Foo(sp.GetRequiredService<IScopedBar>())));
+```
+
+**Kết quả đo thật trên .NET 9:**
+
+```text
+--- constructor injection  AddSingleton<IFoo, Foo>()
+    Build   : AggregateException -> BẮT LÚC KHỞI ĐỘNG
+
+--- factory  AddSingleton<IFoo>(sp => new Foo(sp.GetRequiredService<IScopedBar>()))
+    Build   : không báo lỗi
+    Resolve : InvalidOperationException
+              Cannot resolve scoped service 'IScopedBar' from root provider.
+```
+
+**Kết luận chính xác:**
+
+| Cách đăng ký | `ValidateOnBuild` bắt được? | `ValidateScopes` bắt được? |
+|---|---|---|
+| Constructor injection | **Có** — lúc khởi động | Có |
+| Factory (lambda) | **Không** | Có, nhưng **chỉ lúc resolve** |
+
+**Vì sao khác nhau.** `ValidateOnBuild` đọc **kiểu** của lớp cài đặt và dò constructor của nó để dựng đồ thị phụ thuộc. Với `AddSingleton<IFoo, Foo>()`, nó thấy `Foo` cần `IScopedBar` và phát hiện vi phạm ngay.
+
+Với factory, thứ được đăng ký chỉ là một **delegate**. Container không thể nhìn vào thân lambda để biết nó sẽ yêu cầu những gì — điều đó chỉ lộ ra khi lambda thật sự chạy.
+
+**Ý nghĩa với code review và vận hành:**
+
+- **Constructor injection an toàn hơn** không chỉ vì rõ ràng hơn, mà vì nó **kiểm chứng được tự động**. Đây là một lý do nữa để ưu tiên nó, bên cạnh các lý do ở [bài 7.4](7.4-three-ways-register-services.mdx).
+- **Factory là điểm mù.** Ứng dụng khởi động bình thường, và lỗi chỉ xuất hiện khi có request đầu tiên chạm tới đường dẫn đó. Nếu đó là một tính năng ít dùng, có thể mất nhiều ngày.
+- **Vì vậy factory phải được rà bằng mắt.** Mỗi `sp.GetRequiredService<T>()` bên trong một đăng ký `AddSingleton` là một chỗ cần kiểm tra vòng đời của `T`.
+
+**Khi buộc phải dùng factory cho `Singleton`,** đừng lấy service `Scoped` ra rồi giữ. Lấy `IServiceScopeFactory` và tạo phạm vi khi cần:
+
+```csharp
+// SAI
+builder.Services.AddSingleton<IFoo>(sp => new Foo(sp.GetRequiredService<IScopedBar>()));
+
+// ĐÚNG
+builder.Services.AddSingleton<IFoo>(sp => new Foo(sp.GetRequiredService<IServiceScopeFactory>()));
+
+public class Foo(IServiceScopeFactory sf) : IFoo
+{
+    public async Task LamViecAsync(CancellationToken ct)
+    {
+        using var scope = sf.CreateScope();
+        var bar = scope.ServiceProvider.GetRequiredService<IScopedBar>();
+        // dùng bar trong phạm vi này, không giữ lại
+    }
+}
+```
+
+**Khi nào factory là lựa chọn đúng.** Khi việc khởi tạo cần logic mà constructor injection không diễn đạt được — đọc cấu hình, chọn cài đặt theo điều kiện, hoặc gọi một hàm khởi tạo bất đồng bộ. Ngoài ra thì đăng ký theo kiểu vừa gọn hơn vừa được kiểm chứng.
+
+</details>
+
+#### Bài 2 — Đăng ký nhân đôi
+
+Viết một extension `AddTinhNang()` dùng `Add` cho một validator, gọi nó hai lần, và đếm số lần validator chạy. Sửa bằng `TryAddEnumerable` và đếm lại.
+
+**Tiêu chí hoàn thành:** bạn phân biệt được `Add`, `TryAdd` và `TryAddEnumerable`, và nêu được khi nào dùng cái nào.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Ba phương thức này xử lý trường hợp "đã có đăng ký cho kiểu này" theo ba cách hoàn toàn khác nhau. Hãy thử từng cái và quan sát `GetServices<T>()` trả về gì.
+
+**Lời giải — bản có vấn đề:**
+
+```csharp
+public static IServiceCollection AddTinhNang(this IServiceCollection s)
+{
+    s.AddScoped<IValidator<Order>, OrderValidator>();     // dùng Add
+    return s;
+}
+
+// Program.cs — vô tình gọi hai lần
+builder.Services.AddTinhNang();
+builder.Services.AddTinhNang();     // ví dụ: một lần trong AddCrmCore, một lần trực tiếp
+```
+
+```csharp
+var vs = sp.GetServices<IValidator<Order>>();
+Console.WriteLine(vs.Count());        // 2
+```
+
+Validator chạy **hai lần** cho mỗi đơn hàng. Với validator thì hậu quả là thông báo lỗi bị lặp. Với một trình xử lý sự kiện hoặc một bộ lọc thì hậu quả nghiêm trọng hơn nhiều — email gửi hai lần, bản ghi tạo hai lần.
+
+**Ba phương thức và hành vi:**
+
+```csharp
+// Add — luôn thêm, dù đã có
+s.AddScoped<IValidator<Order>, OrderValidator>();
+// GetServices -> [OrderValidator, OrderValidator]
+// GetRequiredService -> cái CUỐI cùng
+
+// TryAdd — chỉ thêm nếu CHƯA CÓ đăng ký nào cho kiểu dịch vụ này
+s.TryAddScoped<IValidator<Order>, OrderValidator>();
+// GetServices -> [OrderValidator]   (gọi hai lần cũng chỉ một)
+
+// TryAddEnumerable — chỉ thêm nếu chưa có đăng ký nào với CÙNG KIỂU CÀI ĐẶT
+s.TryAddEnumerable(ServiceDescriptor.Scoped<IValidator<Order>, OrderValidator>());
+// GetServices -> [OrderValidator]
+// nhưng thêm EmailValidator thì -> [OrderValidator, EmailValidator]
+```
+
+**Khác biệt then chốt giữa `TryAdd` và `TryAddEnumerable`:**
+
+| | `TryAdd` | `TryAddEnumerable` |
+|---|---|---|
+| So sánh theo | Kiểu **dịch vụ** | Kiểu **dịch vụ + kiểu cài đặt** |
+| Thêm cài đặt thứ hai | **Bị bỏ qua** | Được thêm |
+| Dùng cho | Chỉ có một cài đặt đúng | Nhiều cài đặt cùng tồn tại |
+
+Đây là điểm dễ sai nhất: dùng `TryAdd` cho validator sẽ khiến validator thứ hai — cho một kiểu khác — **bị âm thầm bỏ qua**.
+
+**Bảng chọn:**
+
+| Tình huống | Dùng |
+|---|---|
+| Cho phép người dùng thư viện ghi đè mặc định của bạn | `TryAdd` |
+| Nhiều cài đặt cùng chạy: validator, handler, bộ lọc | `TryAddEnumerable` |
+| Cố ý muốn thay thế đăng ký trước | `Replace` |
+| Chắc chắn chỉ gọi một lần, và muốn lỗi nếu trùng | `Add` |
+
+**Quy tắc cho tác giả thư viện.** Mọi extension `AddXxx` công khai nên dùng `TryAdd` hoặc `TryAddEnumerable`, không dùng `Add`. Lý do: bạn không kiểm soát được người dùng gọi nó bao nhiêu lần, và một extension gọi hai lần mà gây lỗi là một API dễ dùng sai.
+
+Đây cũng chính là cách mọi gói của Microsoft được viết — `AddLogging`, `AddOptions`, `AddHttpClient` đều gọi được nhiều lần mà không sao.
+
+**Cách phát hiện đăng ký trùng trong dự án đang chạy:**
+
+```csharp
+var trung = builder.Services
+    .GroupBy(d => (d.ServiceType, d.ImplementationType))
+    .Where(g => g.Key.ImplementationType is not null && g.Count() > 1)
+    .ToList();
+
+foreach (var g in trung)
+    Console.WriteLine($"TRÙNG {g.Count()} lần: {g.Key.ServiceType.Name} -> {g.Key.ImplementationType!.Name}");
+```
+
+Đặt đoạn này ngay trước `builder.Build()` ở môi trường Development. Nó bắt được lớp lỗi mà không công cụ nào khác bắt.
+
+</details>
+
+#### Bài 3 — Decorator hai tầng
+
+Bọc một repository bằng caching rồi bọc tiếp bằng logging, sao cho thứ tự là logging → caching → thật. Viết bằng container .NET thuần, rồi viết lại bằng Scrutor và so sánh.
+
+**Tiêu chí hoàn thành:** thứ tự thực thi đúng như mô tả, và bạn nêu được vì sao container .NET thuần không có `Decorate` sẵn.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Decorator là một lớp cài cùng interface và nhận **chính interface đó** qua constructor. Vấn đề với container .NET: khi `LoggingRepo` yêu cầu `IOrderRepository`, làm sao container biết phải đưa `CachingRepo` chứ không phải chính `LoggingRepo`?
+
+**Lời giải — các lớp:**
+
+```csharp
+public interface IOrderRepository { Task<Order?> LayAsync(int id, CancellationToken ct); }
+
+public class EfOrderRepository(CrmDbContext db) : IOrderRepository
+{
+    public async Task<Order?> LayAsync(int id, CancellationToken ct)
+        => await db.Orders.FindAsync([id], ct);
+}
+
+public class CachingOrderRepository(IOrderRepository inner, IMemoryCache cache) : IOrderRepository
+{
+    public async Task<Order?> LayAsync(int id, CancellationToken ct)
+        => await cache.GetOrCreateAsync($"order:{id}", async e =>
+        {
+            e.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5);
+            return await inner.LayAsync(id, ct);
+        });
+}
+
+public class LoggingOrderRepository(IOrderRepository inner, ILogger<LoggingOrderRepository> log)
+    : IOrderRepository
+{
+    public async Task<Order?> LayAsync(int id, CancellationToken ct)
+    {
+        log.LogInformation("Lấy đơn hàng {Id}", id);
+        var sw = Stopwatch.StartNew();
+        var kq = await inner.LayAsync(id, ct);
+        log.LogInformation("Xong sau {Ms} ms", sw.ElapsedMilliseconds);
+        return kq;
+    }
+}
+```
+
+**Bằng container .NET thuần — phải tự dựng chuỗi bằng factory:**
+
+```csharp
+builder.Services.AddScoped<EfOrderRepository>();     // đăng ký theo KIỂU CỤ THỂ
+
+builder.Services.AddScoped<IOrderRepository>(sp =>
+{
+    var that   = sp.GetRequiredService<EfOrderRepository>();
+    var caching = new CachingOrderRepository(that, sp.GetRequiredService<IMemoryCache>());
+    var logging = new LoggingOrderRepository(caching, sp.GetRequiredService<ILogger<LoggingOrderRepository>>());
+    return logging;      // ngoài cùng là logging
+});
+```
+
+Thứ tự thực thi: `logging` → `caching` → `EfOrderRepository`. Đúng yêu cầu.
+
+**Bằng Scrutor:**
+
+```csharp
+builder.Services.AddScoped<IOrderRepository, EfOrderRepository>();
+builder.Services.Decorate<IOrderRepository, CachingOrderRepository>();
+builder.Services.Decorate<IOrderRepository, LoggingOrderRepository>();
+```
+
+Lớp bọc **sau** nằm ở **ngoài** — nên thứ tự vẫn là logging → caching → thật.
+
+**So sánh:**
+
+| | Container thuần | Scrutor |
+|---|---|---|
+| Số dòng | ~8 | 3 |
+| Tự dựng phụ thuộc của decorator | **Phải làm tay** | Tự động |
+| Thêm một tầng bọc | Sửa lambda | Thêm một dòng |
+| Phụ thuộc thêm | Không | Một gói NuGet |
+
+Khác biệt lớn nhất nằm ở dòng thứ hai: với container thuần, mọi phụ thuộc của decorator phải tự lấy ra bằng `GetRequiredService`, và danh sách đó dài ra theo thời gian.
+
+**Vì sao container .NET không có `Decorate` sẵn.** Đây là lựa chọn thiết kế có chủ ý: container tích hợp được giữ **tối giản**, chỉ cung cấp những gì framework cần. Các tính năng nâng cao — decorator, đăng ký theo quy ước, chặn lời gọi, đặt tên đăng ký — được để cho container bên thứ ba.
+
+Đánh đổi này hợp lý: container mặc định nhẹ, khởi động nhanh, và ai cần thêm thì cài thêm.
+
+**Vì sao decorator đáng dùng.** Nó là cách áp dụng nguyên tắc Open/Closed một cách rất sạch: thêm caching hay logging **không sửa một dòng nào** trong `EfOrderRepository`. Mỗi mối quan tâm nằm trong một lớp riêng, kiểm thử riêng được, và bật tắt bằng một dòng đăng ký.
+
+**Một lưu ý về thứ tự.** Đặt caching **bên trong** logging nghĩa là log ghi lại cả những lần trúng cache — đó thường là điều bạn muốn, vì bạn cần biết tỉ lệ trúng cache. Đảo lại thì log chỉ ghi khi phải xuống database, và bạn mất thông tin đó. Thứ tự bọc là một quyết định có ý nghĩa, không tuỳ tiện.
+
+</details>
 
 ## Tự kiểm tra
 

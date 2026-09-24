@@ -180,11 +180,293 @@ Ngoài bốn chỗ này, method injection trong code của bạn thường là d
 
 ## Bài tập áp dụng
 
-1. **Chuyển sang primary constructor.** Lấy một service có 4 phụ thuộc, viết lại bằng primary constructor của C# 12. Thử gán lại một tham số trong phương thức và quan sát trình biên dịch **không** báo lỗi — ghi lại ý nghĩa của điều đó.
+#### Bài 1 — Primary constructor và điều nó **không** bảo đảm
 
-2. **Tái hiện lỗi property injection.** Viết một lớp có phụ thuộc qua property, quên gán nó, và quan sát `NullReferenceException` nổ ra ở đâu so với chỗ thật sự sai. Thay bằng Null Object và so sánh.
+Lấy một service có 4 phụ thuộc, viết lại bằng primary constructor của C# 12. Thử gán lại một tham số trong phương thức và quan sát trình biên dịch **không** báo lỗi.
 
-3. **Captive dependency trong middleware.** Tiêm một service scoped vào **constructor** của middleware, chạy ứng dụng và ghi lại exception nhận được. Chuyển sang tham số của `InvokeAsync` và xác nhận nó chạy.
+**Tiêu chí hoàn thành:** bạn nêu được vì sao điều đó là một khác biệt có ý nghĩa so với trường `readonly`.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Tham số của primary constructor được trình biên dịch nâng thành **trường ẩn** — nhưng trường đó có `readonly` không?
+
+**Lời giải — trước:**
+
+```csharp
+public class OrderService
+{
+    private readonly IOrderRepository _repo;
+    private readonly IEmailSender _mail;
+    private readonly ITaxCalculator _tax;
+    private readonly ILogger<OrderService> _log;
+
+    public OrderService(IOrderRepository repo, IEmailSender mail,
+                        ITaxCalculator tax, ILogger<OrderService> log)
+    {
+        _repo = repo; _mail = mail; _tax = tax; _log = log;
+    }
+}
+```
+
+**Sau — 13 dòng xuống 1:**
+
+```csharp
+public class OrderService(
+    IOrderRepository repo,
+    IEmailSender mail,
+    ITaxCalculator tax,
+    ILogger<OrderService> log)
+{
+    public async Task XuLyAsync(Order o, CancellationToken ct)
+    {
+        await repo.ThemAsync(o, ct);
+        log.LogInformation("Đã xử lý đơn {Id}", o.Id);
+    }
+}
+```
+
+**Thử gán lại:**
+
+```csharp
+public void PhaHoai()
+{
+    repo = new EfOrderRepository(null!);   // BIÊN DỊCH ĐƯỢC
+}
+```
+
+Trình biên dịch **không báo lỗi**. Với bản dùng trường `readonly`, cùng dòng đó cho lỗi:
+
+```text
+error CS0191: A readonly field cannot be assigned to
+```
+
+**Vì sao điều này có ý nghĩa.** Tham số primary constructor được nâng thành trường ẩn **không có `readonly`**. Hệ quả là một lớp có thể tự thay đổi phụ thuộc của mình giữa chừng, và không có gì ngăn cản:
+
+```csharp
+public class Svc(IEmailSender mail)
+{
+    public void Reset() => mail = new NullEmailSender();   // hợp lệ
+    public Task GuiAsync() => mail.GuiAsync(...);          // giờ là bản khác
+}
+```
+
+Đây là một **thoái lui nhỏ về tính bất biến** so với cách viết cũ. Trong thực tế hiếm ai cố tình làm vậy, nhưng nó có thể xảy ra do nhầm lẫn — ví dụ gõ `repo = ...` khi định viết `var repo = ...`.
+
+**Cách lấy lại bảo đảm khi cần:**
+
+```csharp
+public class OrderService(IOrderRepository repo)
+{
+    private readonly IOrderRepository _repo = repo;    // gán vào trường readonly
+    // dùng _repo thay vì repo
+}
+```
+
+Đổi lại thì mất phần lớn sự gọn gàng. Với phần lớn service, primary constructor vẫn là đánh đổi tốt.
+
+**Ba lưu ý khác về primary constructor:**
+
+1. **Tham số được ghi lại thành trường chỉ khi được dùng.** Nếu bạn chỉ truyền nó cho lớp cơ sở, trình biên dịch không tạo trường — đó là tối ưu tốt, và là lý do cảnh báo `CS9113` xuất hiện khi tham số không được dùng.
+
+2. **Cẩn thận với `record` có primary constructor.** Với `record`, tham số trở thành **thuộc tính công khai**; với `class` thì không. Đây là khác biệt dễ nhầm:
+
+   ```csharp
+   public record R(int X);      // X là thuộc tính CÔNG KHAI
+   public class C(int X);       // X là trường ẩn, KHÔNG công khai
+   ```
+
+3. **Không dùng được với xác thực trong constructor.** Muốn kiểm tra tham số trước khi gán thì phải viết constructor thường — hoặc dùng cách gán vào trường có xác thực:
+
+   ```csharp
+   public class Svc(string ten)
+   {
+       private readonly string _ten = string.IsNullOrWhiteSpace(ten)
+           ? throw new ArgumentException(null, nameof(ten))
+           : ten;
+   }
+   ```
+
+</details>
+
+#### Bài 2 — Tái hiện lỗi property injection
+
+Viết một lớp có phụ thuộc qua thuộc tính, quên gán nó, và quan sát `NullReferenceException` nổ ra **ở đâu** so với chỗ thật sự sai. Thay bằng Null Object và so sánh.
+
+**Tiêu chí hoàn thành:** bạn chỉ ra được khoảng cách giữa **nơi lỗi nổ** và **nơi nguyên nhân**.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Với constructor injection, thiếu phụ thuộc thì **không tạo được đối tượng**. Với property injection, đối tượng được tạo bình thường và lỗi chỉ xuất hiện khi thuộc tính đó được dùng.
+
+**Lời giải.**
+
+```csharp
+public class OrderService
+{
+    public IEmailSender? Mail { get; set; }        // property injection
+
+    public async Task XuLyAsync(Order o, CancellationToken ct)
+    {
+        await _repo.ThemAsync(o, ct);              // dòng 12
+        // ... 40 dòng logic nghiệp vụ ...
+        await Mail!.GuiXacNhanAsync(o, ct);        // dòng 53 — NỔ Ở ĐÂY
+    }
+}
+
+// Ở Program.cs — quên gán
+builder.Services.AddScoped<OrderService>();        // dòng 27 — NGUYÊN NHÂN Ở ĐÂY
+```
+
+**Khoảng cách:**
+
+| | Nơi |
+|---|---|
+| Nguyên nhân thật | `Program.cs` dòng 27 — quên đăng ký hoặc quên gán |
+| Nơi lỗi nổ | `OrderService.cs` dòng 53 |
+| Thời điểm | Khi request đầu tiên đi tới nhánh gửi email |
+
+Ba khoảng cách cùng lúc: **khác file**, **khác thời điểm**, và **đơn hàng đã được lưu rồi** — nên hệ thống ở trạng thái dở dang.
+
+Với constructor injection, cùng lỗi đó cho:
+
+```text
+InvalidOperationException: Unable to resolve service for type 'IEmailSender'
+while attempting to activate 'OrderService'.
+```
+
+Thông báo nói rõ **thiếu gì** và **cho lớp nào**, và nó xuất hiện **lúc khởi động** nếu bật `ValidateOnBuild` như [bài 7.6](7.6-registering-services.mdx) trình bày.
+
+**Null Object — giảm nhẹ nhưng không sửa gốc:**
+
+```csharp
+public sealed class NullEmailSender : IEmailSender
+{
+    public static readonly NullEmailSender Instance = new();
+    public Task GuiXacNhanAsync(Order o, CancellationToken ct) => Task.CompletedTask;
+}
+
+public class OrderService
+{
+    public IEmailSender Mail { get; set; } = NullEmailSender.Instance;   // mặc định an toàn
+}
+```
+
+Giờ không còn `NullReferenceException`. Nhưng hãy chú ý điều đã đổi:
+
+| | Trước (null) | Sau (Null Object) |
+|---|---|---|
+| Triệu chứng | Ngoại lệ rõ ràng | **Không có triệu chứng** |
+| Hậu quả | Request thất bại | Email **âm thầm không được gửi** |
+| Phát hiện | Ngay | Khi khách hàng phàn nàn |
+
+Null Object đổi một lỗi **ồn ào** thành một lỗi **im lặng**. Với thứ không quan trọng như ghi log, đó là đánh đổi tốt — `NullLogger<T>.Instance` tồn tại chính vì lý do đó. Với thứ quan trọng như gửi email xác nhận, đó là đánh đổi tệ.
+
+**Ba chỗ property injection chính đáng:**
+
+1. **Thuộc tính thật sự tuỳ chọn**, và hành vi mặc định là hợp lý — ví dụ `ILogger`.
+2. **Framework yêu cầu**, ví dụ một số bộ lọc của ASP.NET Core.
+3. **Phá vòng phụ thuộc** — nhưng vòng phụ thuộc thường là dấu hiệu thiết kế sai, nên hãy sửa gốc trước.
+
+Ngoài ba trường hợp trên, constructor injection luôn tốt hơn vì nó biến "quên cấu hình" thành **lỗi lúc khởi động** thay vì **lỗi lúc chạy**.
+
+</details>
+
+#### Bài 3 — Captive dependency trong middleware
+
+Tiêm một service `Scoped` vào **constructor** của middleware, chạy ứng dụng và ghi lại ngoại lệ. Chuyển sang tham số của `InvokeAsync` và xác nhận nó chạy.
+
+**Tiêu chí hoàn thành:** bạn nêu được vì sao middleware là `Singleton` dù bạn không đăng ký nó như vậy.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Middleware được dựng **một lần** khi đường ống được xây, không phải mỗi request. Vậy vòng đời thực tế của nó là gì?
+
+**Lời giải — bản sai:**
+
+```csharp
+public class TenantMiddleware
+{
+    private readonly RequestDelegate _next;
+    private readonly ITenantContext _tenant;          // Scoped
+
+    public TenantMiddleware(RequestDelegate next, ITenantContext tenant)
+    {
+        _next = next;
+        _tenant = tenant;
+    }
+
+    public async Task InvokeAsync(HttpContext ctx) { /* ... */ }
+}
+```
+
+```text
+InvalidOperationException: Cannot resolve scoped service 'ITenantContext'
+from root provider.
+```
+
+**Bản đúng — nhận qua tham số của `InvokeAsync`:**
+
+```csharp
+public class TenantMiddleware(RequestDelegate next)
+{
+    public async Task InvokeAsync(HttpContext ctx, ITenantContext tenant)
+    {
+        // tenant được lấy từ phạm vi CỦA REQUEST NÀY
+        ctx.Items["TenantId"] = tenant.TenantId;
+        await next(ctx);
+    }
+}
+```
+
+**Vì sao middleware là `Singleton`.** Đường ống middleware được xây **một lần** lúc khởi động. Mỗi middleware được khởi tạo đúng một lần và tồn tại suốt vòng đời ứng dụng — dù bạn không viết `AddSingleton` ở đâu cả.
+
+Đây là điểm dễ gây bất ngờ: vòng đời không đến từ đăng ký DI mà đến từ **cách framework xây đường ống**.
+
+ASP.NET Core biết điều này, nên nó cho phép `InvokeAsync` nhận thêm tham số và **tự giải quyết chúng từ phạm vi của request**. Đây là một trong số ít chỗ mà method injection là cách làm đúng và được khuyến khích.
+
+**Cùng vấn đề, ba chỗ khác:**
+
+| Thành phần | Vòng đời thực tế | Cách nhận service `Scoped` |
+|---|---|---|
+| Middleware | `Singleton` | Tham số của `InvokeAsync` |
+| `BackgroundService` | `Singleton` | `IServiceScopeFactory` |
+| `IHostedService` | `Singleton` | `IServiceScopeFactory` |
+| Bộ lọc dạng thuộc tính | Tuỳ cách đăng ký | `ServiceFilter` hoặc `TypeFilter` |
+
+**Middleware dựa trên factory — lựa chọn thay thế.** Khi bạn muốn middleware có vòng đời `Scoped`:
+
+```csharp
+public class TenantMiddleware(ITenantContext tenant) : IMiddleware
+{
+    public async Task InvokeAsync(HttpContext ctx, RequestDelegate next)
+    {
+        ctx.Items["TenantId"] = tenant.TenantId;
+        await next(ctx);
+    }
+}
+
+builder.Services.AddScoped<TenantMiddleware>();    // BẮT BUỘC phải đăng ký
+app.UseMiddleware<TenantMiddleware>();
+```
+
+Với `IMiddleware`, ASP.NET Core lấy middleware từ container **cho mỗi request**, nên constructor injection service `Scoped` trở nên hợp lệ.
+
+**So sánh hai cách:**
+
+| | Quy ước (`InvokeAsync`) | `IMiddleware` |
+|---|---|---|
+| Phải đăng ký DI | Không | **Có** |
+| Vòng đời | `Singleton` | Theo đăng ký |
+| Nhận service `Scoped` | Qua tham số phương thức | Qua constructor |
+| Hiệu năng | Nhanh hơn chút | Một lần resolve mỗi request |
+| Kiểm tra lúc biên dịch | Không — dựa trên quy ước tên | **Có** — cài interface |
+
+Với middleware đơn giản, cách quy ước là đủ và nhẹ hơn. Với middleware có nhiều phụ thuộc, `IMiddleware` rõ ràng hơn và được trình biên dịch kiểm tra.
+
+</details>
 
 ## Tự kiểm tra
 
