@@ -1,71 +1,236 @@
 ---
 title: "5.8 — 7. Expression Trees và Reflection (Overview)"
-description: "Expression Trees và Reflection (Overview): Khi Nào Bạn Gặp; Dynamic Query Builder Đơn Giản; Lưu Ý Hiệu Năng."
+description: "Expression tree là code dưới dạng dữ liệu — nền của mọi ORM. Reflection đọc và gọi kiểu lúc chạy. Kèm cái giá hiệu năng và vì sao cả hai xung đột với Native AOT."
 sidebar_position: 8
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
 # 5.8 — 7. Expression Trees và Reflection (Overview)
 
+<SummaryBox>
+Hai cơ chế này trả lời cùng một câu hỏi — *"làm sao code biết về chính nó?"* — nhưng ở hai thời điểm khác nhau. **Expression tree** biến một lambda thành **cây dữ liệu mô tả nó**, để thứ khác đọc và dịch sang ngôn ngữ khác — đây chính là cách `_db.Orders.Where(o => o.Total > 100)` trở thành một câu `WHERE` trong SQL. **Reflection** đọc thông tin kiểu và gọi thành viên lúc chạy — nền của mọi DI container và serializer. Cả hai rất mạnh, và cả hai đều có **cái giá thật**: reflection chậm hơn gọi trực tiếp hàng chục tới hàng trăm lần, và cả hai đều xung đột với Native AOT cùng tính năng cắt tỉa mã.
+</SummaryBox>
+
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Phân biệt `Func<T, bool>` với `Expression<Func<T, bool>>` và nói được cái nào dịch sang SQL được.
+- Giải thích vì sao ORM cần expression tree.
+- Dùng reflection để đọc thông tin kiểu, và biết khi nào nên tránh.
+- Nêu cái giá hiệu năng và cách giảm bằng caching hoặc source generator.
+- Biết vì sao cả hai gây khó cho Native AOT.
 
 ## Nội dung bài học
 
-### 5.8.1 — 7.1 Khi Nào Bạn Gặp
-
-- ORMs (Entity Framework): dùng Expression Tree để dịch LINQ sang SQL
-- AutoMapper, FluentValidation: dùng Reflection để map/validate tự động
-- Dynamic query builder: filter theo field do user chọn
-
-### 5.8.2 — 7.2 Dynamic Query Builder Đơn Giản
+### 5.8.1 — Hai thứ rất giống nhau, khác nhau một chữ
 
 ```csharp
-// Xây filter expression động — gặp nhiều trong CRM report
-public static IQueryable<T> WhereIf<T>(
-    this IQueryable<T> query,
-    bool condition,
-    Expression<Func<T, bool>> predicate)
-    => condition ? query.Where(predicate) : query;
+// Delegate — code ĐÃ BIÊN DỊCH, chỉ gọi được
+Func<Order, bool> f = o => o.Total > 100_000m;
+bool result = f(order);
 
-// Dùng:
-var leads = context.Leads
-    .WhereIf(!string.IsNullOrEmpty(keyword), l => l.Name.Contains(keyword!))
-    .WhereIf(minScore.HasValue, l => l.Score >= minScore!.Value)
-    .WhereIf(assignedTo.HasValue, l => l.AssignedUserId == assignedTo);
+// Expression tree — CÂY DỮ LIỆU mô tả đoạn code đó
+Expression<Func<Order, bool>> e = o => o.Total > 100_000m;
+Console.WriteLine(e);        // o => (o.Total > 100000)
 ```
 
-### 5.8.3 — 7.3 Lưu Ý Hiệu Năng
+Chỉ khác chữ `Expression<...>` bọc bên ngoài, nhưng bản chất hoàn toàn khác. Cái thứ hai **đọc ra được**:
 
 ```csharp
-// Reflection chậm hơn direct call — cache nếu dùng trong hot path
-private static readonly PropertyInfo[] _props = typeof(Customer).GetProperties();
-
-// Expression Tree được compile → performance tốt hơn Reflection thuần
-// Tránh lạm dụng: chỉ dùng khi thực sự cần dynamic behavior
+var body = (BinaryExpression)e.Body;
+Console.WriteLine(body.NodeType);   // GreaterThan
+Console.WriteLine(body.Left);       // o.Total
+Console.WriteLine(body.Right);      // 100000
 ```
 
----
+Cây đó có thể được duyệt và **dịch sang ngôn ngữ khác** — ví dụ SQL.
+
+### 5.8.2 — Vì sao ORM cần expression tree
+
+```csharp
+// IQueryable nhận Expression -> dịch được sang SQL
+IQueryable<Order> q = _db.Orders;
+q.Where(o => o.Total > 100_000m);
+// -> SELECT * FROM Orders WHERE Total > 100000
+
+// IEnumerable nhận Func -> KHÔNG dịch được, phải chạy trong bộ nhớ
+IEnumerable<Order> e = _db.Orders.AsEnumerable();
+e.Where(o => o.Total > 100_000m);
+// -> SELECT * FROM Orders   rồi lọc bằng C#
+```
+
+Nhìn vào chữ ký là thấy toàn bộ câu chuyện:
+
+```csharp
+// System.Linq.Enumerable
+Where<T>(this IEnumerable<T> source, Func<T, bool> predicate)
+
+// System.Linq.Queryable
+Where<T>(this IQueryable<T> source, Expression<Func<T, bool>> predicate)
+```
+
+Đây là lời giải thích kỹ thuật cho cái bẫy `.ToList()` đặt sai chỗ ở [bài 5.4](5.4-linq.mdx): gọi `AsEnumerable()` hay `ToList()` là **đổi kiểu tham số từ `Expression` sang `Func`**, và từ đó không còn gì để dịch sang SQL nữa.
+
+Hệ quả kèm theo: chỉ những biểu thức mà provider **biết cách dịch** mới dùng được. Gọi một hàm C# tự viết trong `Where` sẽ ném ngoại lệ, vì cây biểu thức chứa một nút mà EF Core không hiểu.
+
+### 5.8.3 — Tự dựng expression tree
+
+```csharp
+// Tương đương: o => o.Total > 100000
+var param = Expression.Parameter(typeof(Order), "o");
+var body = Expression.GreaterThan(
+    Expression.Property(param, nameof(Order.Total)),
+    Expression.Constant(100_000m));
+
+var lambda = Expression.Lambda<Func<Order, bool>>(body, param);
+
+// Dùng trực tiếp với IQueryable
+var result = await _db.Orders.Where(lambda).ToListAsync(ct);
+
+// Hoặc biên dịch thành delegate để chạy trong bộ nhớ
+Func<Order, bool> compiled = lambda.Compile();
+```
+
+Chỗ dùng thật của kỹ thuật này: **dựng bộ lọc động** khi người dùng chọn cột và toán tử ở giao diện, mà vẫn giữ được việc lọc chạy trong database.
+
+Lưu ý về `Compile()`: nó **rất tốn kém** vì phải sinh IL lúc chạy. Gọi nó trong một vòng lặp hoặc trong mỗi request là một lỗi hiệu năng nghiêm trọng — hãy biên dịch một lần và cache lại.
+
+### 5.8.4 — Reflection: đọc và gọi lúc chạy
+
+```csharp
+var type = typeof(Customer);
+
+foreach (var prop in type.GetProperties())
+    Console.WriteLine($"{prop.Name}: {prop.PropertyType.Name}");
+
+// Tạo instance và gán giá trị mà không biết kiểu lúc biên dịch
+var instance = Activator.CreateInstance(type)!;
+type.GetProperty("Name")!.SetValue(instance, "Nguyen Van A");
+
+// Tìm mọi lớp cài đặt một interface — nền của việc tự đăng ký DI
+var handlers = Assembly.GetExecutingAssembly()
+    .GetTypes()
+    .Where(t => t.IsAssignableTo(typeof(IEventHandler)) && !t.IsAbstract);
+```
+
+Bạn dùng reflection mỗi ngày mà không biết: DI container phân giải constructor bằng nó, `System.Text.Json` đọc thuộc tính bằng nó, ASP.NET Core tìm controller và action bằng nó, EF Core ánh xạ entity sang bảng bằng nó.
+
+### 5.8.5 — Cái giá
+
+```csharp
+// Gọi trực tiếp — nhanh nhất
+var name = customer.Name;
+
+// Reflection — chậm hơn hàng chục tới hàng trăm lần
+var name = typeof(Customer).GetProperty("Name")!.GetValue(customer);
+
+// Reflection có cache — nhanh hơn nhiều
+private static readonly PropertyInfo NameProp = typeof(Customer).GetProperty("Name")!;
+var name = NameProp.GetValue(customer);
+
+// Biên dịch thành delegate một lần — gần bằng gọi trực tiếp
+private static readonly Func<Customer, string> GetName = BuildGetter();
+var name = GetName(customer);
+```
+
+Phần chậm nhất của reflection là **tra cứu metadata** (`GetProperty`, `GetMethod`), không phải lời gọi. Nên quy tắc là: **tra cứu một lần, cache lại, dùng nhiều lần**.
+
+Hướng hiện đại hơn là **source generator**: sinh mã lúc biên dịch thay vì suy diễn lúc chạy. `System.Text.Json` đã có chế độ này, cho hiệu năng gần bằng mã viết tay và hoạt động được với AOT.
+
+### 5.8.6 — Xung đột với Native AOT và trimming
+
+Đây là điểm ngày càng quan trọng.
+
+**Trimming** loại bỏ mã không được tham chiếu để giảm kích thước. **Native AOT** biên dịch thẳng sang mã máy lúc build, như đã nói ở [bài 2.10](/docs/dotnet-backend-zero-to-senior/stage-01-foundation/module-02-computer-science-basics/2.10-dotnet-runtime-and-ecosystem).
+
+Cả hai đều cần biết **lúc biên dịch** những gì sẽ được dùng. Reflection phá vỡ giả định đó:
+
+```csharp
+// Trình phân tích không thấy được kiểu này được dùng -> có thể bị cắt mất
+var type = Type.GetType(configuration["HandlerType"]!)!;
+var handler = Activator.CreateInstance(type);
+```
+
+Kết quả là ngoại lệ lúc chạy, và **chỉ xuất hiện ở bản build đã trim** — không tái hiện được khi chạy debug. Đây là loại lỗi rất khó chẩn đoán.
+
+Cách xử lý, theo thứ tự nên dùng:
+
+1. **Dùng source generator** thay cho reflection ở những chỗ có sẵn (`System.Text.Json`, logging, `RegexGenerator`).
+2. **Đăng ký tường minh** thay vì quét assembly.
+3. Nếu buộc phải dùng reflection, gắn `[DynamicallyAccessedMembers]` để trình phân tích biết giữ lại gì.
+
+Nếu dự án của bạn không dùng AOT thì chưa phải lo. Nhưng đây là hướng mà .NET đang đi, nên mỗi chỗ dùng reflection là một khoản nợ tương lai.
+
+### 5.8.7 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát expression tree và reflection"
+  items={[
+    { text: "Hiểu rõ chỗ nào trong code chuyển từ IQueryable sang IEnumerable." },
+    { text: "Không gọi Expression.Compile() trong vòng lặp hay trong mỗi request." },
+    { text: "Mọi kết quả GetProperty, GetMethod dùng lặp lại đều được cache trong static readonly." },
+    { text: "Không quét assembly trong đường chạy nóng; chỉ quét một lần lúc khởi động." },
+    { text: "Ưu tiên source generator ở những chỗ có sẵn thay cho reflection." },
+    { text: "Nếu nhắm tới AOT hoặc trimming, đã rà soát mọi chỗ dùng reflection." },
+    { text: "Bộ lọc động dựng bằng expression tree để lọc vẫn chạy trong database." },
+  ]}
+/>
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **Nhìn vào cây.** Tạo `Expression<Func<Order, bool>>` cho một điều kiện có hai vế nối bằng `&&`. In ra `NodeType`, `Left`, `Right` của từng nút và vẽ lại cây bằng tay.
+
+2. **Đo giá của reflection.** Đọc một thuộc tính một triệu lần theo ba cách: trực tiếp, reflection không cache, reflection có cache `PropertyInfo`. Đo bằng `Stopwatch` và lập bảng tỉ lệ.
+
+3. **Bộ lọc động.** Viết một hàm nhận tên cột và giá trị, dựng `Expression` tương ứng, rồi áp vào `IQueryable`. Bật log SQL và xác nhận điều kiện lọc thật sự xuất hiện trong câu lệnh.
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "Func và Expression của Func khác nhau ra sao?",
+      answer: "Func là code đã biên dịch, chỉ gọi được. Expression của Func là một cây dữ liệu mô tả chính đoạn code đó, nên đọc ra được và dịch sang ngôn ngữ khác được. Đó là lý do IQueryable nhận Expression để dịch sang SQL, còn IEnumerable nhận Func và chạy trong bộ nhớ."
+    },
+    {
+      question: "Vì sao gọi ToList sớm lại làm mất khả năng dịch sang SQL?",
+      answer: "Vì nó đổi kiểu tham số từ Expression sang Func. Sau khi đã là IEnumerable, mọi Where nhận một delegate đã biên dịch chứ không phải cây biểu thức, nên không còn gì để provider đọc và dịch sang SQL. Toàn bộ dữ liệu phải được kéo về trước rồi mới lọc bằng C#."
+    },
+    {
+      question: "Vì sao gọi một hàm C# tự viết trong Where của EF Core lại lỗi?",
+      answer: "Vì cây biểu thức khi đó chứa một nút gọi phương thức mà provider không biết cách dịch sang SQL. EF Core 3.0 trở lên ném ngoại lệ thay vì âm thầm kéo cả bảng về như phiên bản cũ, và đó là hành vi tốt hơn vì nó buộc bạn quyết định."
+    },
+    {
+      question: "Phần nào của reflection là chậm nhất?",
+      answer: "Việc tra cứu metadata như GetProperty hay GetMethod, chứ không phải lời gọi. Nên quy tắc là tra cứu một lần rồi cache PropertyInfo vào một static readonly, và dùng lại nhiều lần. Nhanh hơn nữa là biên dịch thành delegate một lần, cho hiệu năng gần bằng gọi trực tiếp."
+    },
+    {
+      question: "Vì sao reflection xung đột với Native AOT và trimming?",
+      answer: "Vì cả hai cần biết lúc biên dịch những gì sẽ được dùng, để cắt bỏ phần còn lại hoặc sinh sẵn mã máy. Reflection tra cứu kiểu lúc chạy, thường từ chuỗi trong cấu hình, nên trình phân tích không thấy được và có thể cắt mất kiểu đó. Lỗi chỉ xuất hiện ở bản build đã trim, không tái hiện khi debug."
+    },
+    {
+      question: "Source generator giải quyết vấn đề gì?",
+      answer: "Nó sinh mã lúc biên dịch thay vì suy diễn lúc chạy, nên vừa nhanh gần bằng mã viết tay, vừa hoạt động được với AOT và trimming vì mọi thứ đều hiện diện lúc build. System.Text.Json đã có chế độ này, và đó là hướng .NET đang đi để thay dần reflection."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **`Expression` là code dưới dạng dữ liệu.** Đó là toàn bộ lý do ORM dịch được LINQ sang SQL.
+2. **Reflection chậm ở khâu tra cứu, không ở khâu gọi.** Cache `PropertyInfo` là hầu hết những gì bạn cần làm.
+3. **Mỗi chỗ dùng reflection là một khoản nợ với AOT.** Ưu tiên source generator ở nơi có sẵn.
+
+## Tham khảo
+
+- [Expression trees](https://learn.microsoft.com/en-us/dotnet/csharp/advanced-topics/expression-trees/)
+- [Reflection in .NET](https://learn.microsoft.com/en-us/dotnet/fundamentals/reflection/reflection)
+- [Native AOT deployment](https://learn.microsoft.com/en-us/dotnet/core/deploying/native-aot/) — hạn chế với reflection
+- [LINQ overview](https://learn.microsoft.com/en-us/dotnet/csharp/linq/) — nơi expression tree được dùng nhiều nhất
 
 ## Điều hướng
 

@@ -1,123 +1,262 @@
 ---
 title: "5.4 — 3. LINQ"
-description: "LINQ (Language Integrated Query) cho phép query collection và database với cú pháp C# nhất quán."
+description: "LINQ chạy trễ, và đó là nguồn gốc của mọi bất ngờ: duyệt hai lần là chạy hai lần, và một câu IQueryable đi sai chỗ sẽ kéo cả bảng về bộ nhớ rồi mới lọc."
 sidebar_position: 4
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
 # 5.4 — 3. LINQ
 
+<SummaryBox>
+Hai tính chất của LINQ giải thích gần như mọi bất ngờ mà người ta gặp với nó. **Thứ nhất, nó chạy trễ**: `Where` không lọc gì cả cho tới khi ai đó bắt đầu duyệt, nên duyệt hai lần là chạy lại toàn bộ hai lần. **Thứ hai, `IEnumerable` và `IQueryable` trông giống hệt nhau nhưng chạy ở hai nơi khác nhau** — `IQueryable` dịch biểu thức thành SQL, còn `IEnumerable` xử lý trong bộ nhớ. Gọi `.ToList()` sớm một dòng là biến một câu `WHERE` trong database thành việc **kéo cả bảng về rồi mới lọc**. Đây là lỗi hiệu năng phổ biến nhất mà LINQ gây ra, và nó không báo lỗi gì cả.
+</SummaryBox>
+
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Giải thích đánh giá trễ và chỉ ra thời điểm một truy vấn LINQ thật sự chạy.
+- Phân biệt `IEnumerable` với `IQueryable` và nói được câu lệnh chạy ở đâu.
+- Nhận ra bẫy duyệt nhiều lần và bẫy `.ToList()` đặt sai chỗ.
+- Chọn đúng giữa `First`, `FirstOrDefault`, `Single`, `SingleOrDefault`.
+- Viết truy vấn nhóm và tổng hợp mà không kéo dữ liệu thừa.
 
 ## Nội dung bài học
 
-LINQ (Language Integrated Query) cho phép query collection và database với cú pháp C# nhất quán.
-
-### 5.4.1 — 3.1 Method Syntax so với Query Syntax
+### 5.4.1 — Hai cú pháp, một kết quả
 
 ```csharp
-var leads = context.Leads.Where(l => l.Status == LeadStatus.New).ToList();
+// Cú pháp truy vấn — gần với SQL
+var q1 = from o in orders
+         where o.Total >= 500_000m
+         orderby o.CreatedAt descending
+         select new { o.Code, o.Total };
 
-// Method syntax (phổ biến hơn trong production)
-var hotLeads = leads
-    .Where(l => l.Score >= 80)
-    .OrderByDescending(l => l.Score)
-    .Take(10)
+// Cú pháp phương thức — phổ biến hơn trong .NET hiện đại
+var q2 = orders
+    .Where(o => o.Total >= 500_000m)
+    .OrderByDescending(o => o.CreatedAt)
+    .Select(o => new { o.Code, o.Total });
+```
+
+Trình biên dịch dịch cú pháp truy vấn thành cú pháp phương thức, nên hai câu trên **giống hệt nhau** sau khi biên dịch. Cú pháp truy vấn dễ đọc hơn với `join` nhiều bảng; phần còn lại thì cú pháp phương thức gọn hơn.
+
+### 5.4.2 — Đánh giá trễ: câu lệnh chạy lúc nào
+
+```csharp
+var query = orders.Where(o => { Console.WriteLine("đang lọc"); return o.IsPaid; });
+Console.WriteLine("đã tạo truy vấn");      // in ra TRƯỚC
+
+foreach (var o in query) { }               // "đang lọc" mới bắt đầu in
+```
+
+`Where`, `Select`, `OrderBy`, `Take` chỉ **mô tả** việc cần làm. Chúng không chạy gì cho tới khi có một thao tác buộc phải duyệt:
+
+| Chạy trễ (trả về truy vấn) | Chạy ngay (buộc duyệt) |
+|---|---|
+| `Where`, `Select`, `OrderBy` | `ToList`, `ToArray`, `ToDictionary` |
+| `Take`, `Skip`, `Distinct` | `Count`, `Sum`, `Any`, `First` |
+| `GroupBy`, `Join`, `SelectMany` | `foreach` |
+
+Lợi ích của việc chạy trễ: bạn ghép truy vấn theo điều kiện mà không chạy nhiều lần.
+
+```csharp
+IQueryable<Order> q = _db.Orders;
+
+if (filter.CustomerId is int id)   q = q.Where(o => o.CustomerId == id);
+if (filter.From is DateTimeOffset f) q = q.Where(o => o.CreatedAt >= f);
+if (filter.OnlyPaid)                q = q.Where(o => o.IsPaid);
+
+var result = await q.ToListAsync(ct);      // MỘT câu SQL duy nhất
+```
+
+### 5.4.3 — Bẫy 1: duyệt nhiều lần
+
+```csharp
+var expensive = orders.Where(o => SlowCheck(o));   // chưa chạy
+
+var count = expensive.Count();       // chạy lần 1 — SlowCheck n lần
+var first = expensive.First();       // chạy LẠI lần 2
+foreach (var o in expensive) { }     // chạy LẠI lần 3
+```
+
+Với `IEnumerable` trong bộ nhớ, đây là lãng phí CPU. Với `IQueryable` trên database, đây là **ba câu truy vấn**.
+
+```csharp
+var materialized = expensive.ToList();   // chạy đúng một lần
+var count = materialized.Count;          // đọc thuộc tính, không chạy lại
+```
+
+Quy tắc: **nếu dùng kết quả nhiều hơn một lần, hãy `ToList()`**. Nếu chỉ duyệt một lần, đừng.
+
+### 5.4.4 — Bẫy 2: `IQueryable` biến thành `IEnumerable`
+
+Đây là lỗi tốn kém nhất mà LINQ gây ra.
+
+```csharp
+// SAI — ToList() kéo TOÀN BỘ bảng về bộ nhớ, rồi mới lọc
+var orders = _db.Orders
+    .ToList()                                  // SELECT * FROM Orders  (3 triệu dòng)
+    .Where(o => o.CustomerId == id)            // lọc trong bộ nhớ
     .ToList();
 
-// Query syntax (gần SQL hơn, ít dùng)
-var hotLeadsQ = (from l in leads
-                 where l.Score >= 80
-                 orderby l.Score descending
-                 select l)
-                .Take(10)
-                .ToList();
+// ĐÚNG — lọc chạy trong database
+var orders = await _db.Orders
+    .Where(o => o.CustomerId == id)            // WHERE CustomerId = @id
+    .ToListAsync(ct);
 ```
 
-### 5.4.2 — 3.2 Các Operator Quan Trọng
+Hai dòng trên trông gần giống nhau và cho **cùng kết quả**. Khác biệt là một bên chuyển vài chục dòng qua mạng, bên kia chuyển ba triệu.
+
+Cùng một lỗi có thể đến từ chỗ khác — một hàm trả về sai kiểu:
 
 ```csharp
-// --- Filter & Projection ---
-var emails = customers
-    .Where(c => c.IsActive)
-    .Select(c => c.Email);
+// Trả IEnumerable: mọi thao tác sau đó chạy TRONG BỘ NHỚ
+public IEnumerable<Order> GetOrders() => _db.Orders;
 
-// SelectMany: flatten nhiều deal của nhiều customer
-var allDealNames = customers
-    .SelectMany(c => c.Deals)
-    .Select(d => d.Name);
-
-// --- Grouping ---
-var revenueByMonth = deals
-    .Where(d => d.Status == DealStatus.Won)
-    .GroupBy(d => new { d.ClosedDate.Year, d.ClosedDate.Month })
-    .Select(g => new
-    {
-        Year    = g.Key.Year,
-        Month   = g.Key.Month,
-        Revenue = g.Sum(d => d.Value),
-        Count   = g.Count()
-    })
-    .OrderBy(r => r.Year).ThenBy(r => r.Month);
-
-// --- Aggregation ---
-decimal totalRevenue = deals.Where(d => d.Status == DealStatus.Won).Sum(d => d.Value);
-decimal avgDeal      = deals.Average(d => d.Value);
-var     maxDeal      = deals.MaxBy(d => d.Value);
-
-// --- Lookup ---
-var vip = customers.FirstOrDefault(c => c.Email == "vip@corp.com");
-bool hasOverdue = deals.Any(d => d.DueDate < DateTime.Today && d.Status != DealStatus.Won);
-bool allPaid    = invoices.All(i => i.IsPaid);
-
-// --- Aggregate tùy chỉnh ---
-string allNames = customers
-    .Select(c => c.Name)
-    .Aggregate((a, b) => $"{a}, {b}");
+GetOrders().Where(o => o.IsPaid).Take(10);   // kéo cả bảng rồi mới lọc
 ```
 
-### 5.4.3 — 3.3 Deferred Execution — Cạm Bẫy Phổ Biến
+Nhận biết: `IQueryable` dịch biểu thức sang SQL; `IEnumerable` chạy delegate trong tiến trình .NET. Ranh giới giữa hai thứ là nơi dữ liệu rời khỏi database, và bạn phải biết nó nằm ở đâu.
+
+Phần bên phía SQL của câu chuyện này nằm ở bài [hiệu năng truy vấn](/docs/database/learn-sql-in-30-days/20-query-performance), và một biến thể khác của nó là [vấn đề N+1](/blog/ef-core-n-plus-1-query).
+
+### 5.4.5 — Bẫy 3: hàm không dịch được sang SQL
 
 ```csharp
-// CẢNH BÁO: query chưa thực thi ở đây
-IQueryable<Lead> query = context.Leads.Where(l => l.AssignedTo == userId);
-
-// Thực thi lần 1 — gọi DB
-var list1 = query.ToList();
-
-// Nếu data trong DB thay đổi giữa chừng...
-// Thực thi lần 2 — gọi DB lần nữa, kết quả có thể khác!
-var list2 = query.ToList();
-
-// FIX: materialize sớm nếu cần snapshot tại một thời điểm
-var snapshot = context.Leads.Where(l => l.AssignedTo == userId).ToList(); // chỉ gọi DB 1 lần
+// Không dịch được — MyCustomCheck là code C#, SQL không biết nó
+var orders = await _db.Orders
+    .Where(o => MyCustomCheck(o.Code))
+    .ToListAsync(ct);
 ```
 
----
+EF Core 3.0 trở lên **ném ngoại lệ** thay vì âm thầm kéo cả bảng về (hành vi cũ của EF Core 2.x, vốn gây rất nhiều sự cố hiệu năng bí ẩn). Ngoại lệ là điều tốt: nó buộc bạn quyết định.
+
+Hai hướng xử lý: viết lại điều kiện bằng thứ SQL hiểu được, hoặc gọi `.AsEnumerable()` tường minh để nói rõ "từ đây trở đi xử lý trong bộ nhớ" — sau khi đã lọc bớt dữ liệu.
+
+Một lưu ý liên quan: bọc hàm quanh cột trong `Where` làm **index không dùng được** dù câu lệnh vẫn dịch sang SQL. Đó là chủ đề của bài [Sargability](/blog/sql-index-khong-duoc-dung-sargable).
+
+### 5.4.6 — `First`, `Single` và các biến thể
+
+| Phương thức | Không có phần tử | Nhiều hơn một |
+|---|---|---|
+| `First()` | **Ném** | Lấy cái đầu |
+| `FirstOrDefault()` | `null` / `default` | Lấy cái đầu |
+| `Single()` | **Ném** | **Ném** |
+| `SingleOrDefault()` | `null` / `default` | **Ném** |
+
+Chọn theo **ý định**, không chọn theo thói quen:
+
+- Tra theo khoá chính, kỳ vọng đúng một → `SingleOrDefault`. Nếu có hai, dữ liệu đã sai và bạn muốn biết ngay.
+- Lấy bản ghi mới nhất sau `OrderByDescending` → `FirstOrDefault`.
+
+Lưu ý hiệu năng: `Single` phải đọc **hai** bản ghi để xác nhận không có cái thứ hai, còn `First` dừng ở bản ghi đầu. Trên tập dữ liệu lớn không có index, khác biệt này có thật.
+
+### 5.4.7 — Vài thói quen nhỏ tạo khác biệt lớn
+
+```csharp
+// Kiểm tra có tồn tại không
+if (orders.Count() > 0) { }     // đếm HẾT rồi so sánh
+if (orders.Any()) { }           // dừng ngay khi thấy phần tử đầu
+
+// Chỉ lấy cột cần dùng
+var names = await _db.Customers.ToListAsync(ct);              // SELECT *
+var names = await _db.Customers.Select(c => c.Name).ToListAsync(ct);  // SELECT Name
+
+// Không cần theo dõi thay đổi thì tắt đi
+var report = await _db.Orders.AsNoTracking().Where(...).ToListAsync(ct);
+```
+
+`AsNoTracking` đáng dùng cho **mọi truy vấn chỉ đọc**: EF Core bỏ qua việc dựng bộ theo dõi thay đổi, tiết kiệm bộ nhớ và thời gian đáng kể trên tập dữ liệu lớn.
+
+Và nhóm dữ liệu thì để database làm:
+
+```csharp
+// Nhóm trong database — trả về vài chục dòng
+var stats = await _db.Orders
+    .GroupBy(o => o.CustomerId)
+    .Select(g => new { CustomerId = g.Key, Total = g.Sum(o => o.Total), Count = g.Count() })
+    .ToListAsync(ct);
+```
+
+### 5.4.8 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát LINQ"
+  items={[
+    { text: "Không có ToList() nào đứng trước Where trên một IQueryable." },
+    { text: "Hàm truy vấn trả về IQueryable khi người gọi còn lọc tiếp, không trả IEnumerable." },
+    { text: "Kết quả dùng nhiều hơn một lần đều được ToList() trước." },
+    { text: "Dùng Any() thay cho Count() > 0." },
+    { text: "Truy vấn chỉ đọc đều có AsNoTracking()." },
+    { text: "Select chỉ lấy cột thật sự cần, không kéo cả entity." },
+    { text: "Chọn Single hay First theo ý định, không theo thói quen." },
+    { text: "Phép nhóm và tổng hợp chạy trong database, không chạy sau khi ToList()." },
+  ]}
+/>
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **Đo giá của `ToList()` sai chỗ.** Với một bảng vài chục nghìn dòng, viết hai phiên bản của cùng một truy vấn: một đặt `ToList()` trước `Where`, một đặt sau. Bật log SQL của EF Core và so sánh câu lệnh sinh ra cùng thời gian chạy.
+
+2. **Đếm số lần chạy.** Tạo một `IEnumerable` với `Where` có `Console.WriteLine` bên trong. Gọi `Count()`, `First()` rồi `foreach`. Đếm số dòng in ra và giải thích.
+
+3. **`Single` so với `First`.** Bật log SQL, chạy `SingleOrDefault` và `FirstOrDefault` trên cùng một điều kiện. So sánh câu SQL sinh ra — đặc biệt mệnh đề `TOP`.
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "Đánh giá trễ trong LINQ nghĩa là gì?",
+      answer: "Where, Select, OrderBy chỉ mô tả việc cần làm chứ không chạy gì. Truy vấn chỉ thật sự chạy khi có thao tác buộc phải duyệt như ToList, Count, Any, First hoặc một vòng foreach. Nhờ đó bạn ghép thêm điều kiện theo nhánh if mà cuối cùng vẫn chỉ sinh ra một câu SQL."
+    },
+    {
+      question: "Duyệt một truy vấn LINQ hai lần thì sao?",
+      answer: "Nó chạy lại từ đầu hai lần. Với dữ liệu trong bộ nhớ đó là lãng phí CPU; với IQueryable trên database đó là hai câu truy vấn thật sự. Nếu cần dùng kết quả nhiều hơn một lần thì gọi ToList để vật chất hoá đúng một lần."
+    },
+    {
+      question: "IEnumerable và IQueryable khác nhau ở đâu?",
+      answer: "IQueryable dịch biểu thức thành SQL và để database thực thi. IEnumerable chạy delegate ngay trong tiến trình .NET. Vì thế gọi ToList quá sớm sẽ kéo toàn bộ bảng về bộ nhớ rồi mới lọc, trong khi giữ IQueryable thì điều kiện lọc chạy ngay trong database."
+    },
+    {
+      question: "Vì sao hàm truy vấn không nên trả về IEnumerable?",
+      answer: "Vì mọi thao tác LINQ sau đó sẽ chạy trong bộ nhớ chứ không đẩy xuống database. Một hàm trả IEnumerable của Orders rồi người gọi thêm Where và Take sẽ kéo cả bảng về trước. Trả IQueryable khi người gọi còn lọc tiếp, và chỉ vật chất hoá ở nơi biết rõ mình muốn gì."
+    },
+    {
+      question: "Chọn giữa Single và First thế nào?",
+      answer: "Theo ý định. Tra theo khoá chính và kỳ vọng đúng một bản ghi thì dùng SingleOrDefault, vì nếu có hai thì dữ liệu đã sai và bạn muốn biết ngay. Lấy bản ghi mới nhất sau khi sắp xếp thì dùng FirstOrDefault. Về hiệu năng, Single phải đọc hai bản ghi để xác nhận không có cái thứ hai."
+    },
+    {
+      question: "AsNoTracking dùng khi nào?",
+      answer: "Cho mọi truy vấn chỉ đọc. EF Core mặc định dựng bộ theo dõi thay đổi cho các entity lấy về để biết cái nào đã sửa. Nếu bạn không định sửa gì thì công đó là thừa, và AsNoTracking tiết kiệm được bộ nhớ lẫn thời gian đáng kể trên tập dữ liệu lớn."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **LINQ chạy trễ.** Biết chính xác dòng nào buộc truy vấn chạy là biết được nó chạy mấy lần.
+2. **`.ToList()` là ranh giới giữa database và bộ nhớ.** Đặt sai một dòng là đổi vài chục bản ghi thành ba triệu.
+3. **`Any()` thay `Count() > 0`, `AsNoTracking()` cho truy vấn đọc.** Hai thói quen nhỏ, hiệu quả thấy ngay.
+
+## Tham khảo
+
+- [LINQ overview](https://learn.microsoft.com/en-us/dotnet/csharp/linq/)
+- [Standard query operators](https://learn.microsoft.com/en-us/dotnet/csharp/linq/standard-query-operators/) — danh sách đầy đủ
+- [Async programming in EF Core](https://learn.microsoft.com/en-us/ef/core/miscellaneous/async)
+- [Entity Framework Core](https://learn.microsoft.com/en-us/ef/core/) — phần theo dõi thay đổi và dịch truy vấn
 
 ## Điều hướng
 
 - **Bài trước:** [5.3 — 2. Generics](5.3-generics.mdx)
 - **Bài tiếp theo:** [5.5 — 4. Delegates và Events](5.5-delegates-and-events.mdx)
 - **Về module:** [Trang mục lục](./)
+
+## Bài liên quan
+
+- [Vì sao EF Core bắn 201 query cho 1 màn hình danh sách? Cách sửa N+1](/blog/ef-core-n-plus-1-query) — Một màn hình 200 dòng mà log SQL ghi 201 câu lệnh là dấu hiệu của N+1 query.
+- [Có index rồi mà truy vấn vẫn quét toàn bảng? Sargability và một hàm bọc quanh cột](/blog/sql-index-khong-duoc-dung-sargable) — Cột đã có index, câu WHERE lọc đúng cột đó, nhưng execution plan vẫn là Seq Scan.
