@@ -229,11 +229,268 @@ Chuyện tương tự xảy ra với định dạng số và ngày: `decimal.Par
 
 ## Bài tập áp dụng
 
-1. **Tái hiện Turkish I.** Viết một đoạn code so sánh `"admin".ToUpper() == "ADMIN"`, đặt `CultureInfo.CurrentCulture = new CultureInfo("tr-TR")` trước đó. Ghi lại kết quả. Sửa bằng `StringComparison.OrdinalIgnoreCase` và chạy lại.
+#### Bài 1 — Tái hiện lỗi Turkish I
 
-2. **Săn god class.** Liệt kê năm file dài nhất trong dự án. Với mỗi file, trả lời câu hỏi "ai yêu cầu thay đổi class này". Nếu có nhiều hơn một nhóm người, phác thảo cách tách.
+Viết một đoạn code so sánh `"admin".ToUpper() == "ADMIN"`, đặt văn hoá hiện tại là `tr-TR` trước đó. Ghi lại kết quả. Sửa bằng `StringComparison.OrdinalIgnoreCase` và chạy lại.
 
-3. **Đo giá của ngoại lệ.** Viết vòng lặp 100.000 lần parse chuỗi sai định dạng, một lần dùng `try/catch` với `Parse`, một lần dùng `TryParse`. Đo bằng `Stopwatch` và ghi lại tỉ lệ.
+**Tiêu chí hoàn thành:** bạn hiểu vì sao đây là lỗ hổng **bảo mật**, không chỉ là lỗi hiển thị.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Tiếng Thổ Nhĩ Kỳ có **bốn** chữ i, không phải hai: `i` và `İ` là một cặp có chấm, `ı` và `I` là một cặp không chấm. Vậy `"i".ToUpper()` trong văn hoá Thổ cho ra chữ gì?
+
+**Lời giải.**
+
+```csharp
+CultureInfo.CurrentCulture = new CultureInfo("tr-TR");
+
+Console.WriteLine($"\"admin\".ToUpper() = {"admin".ToUpper()}");
+Console.WriteLine($"ToUpper() == ADMIN -> {"admin".ToUpper() == "ADMIN"}");
+Console.WriteLine($"OrdinalIgnoreCase  -> {string.Equals("admin", "ADMIN", StringComparison.OrdinalIgnoreCase)}");
+```
+
+**Kết quả chạy thật trên .NET 9:**
+
+```text
+"admin".ToUpper() = ADMİN
+ToUpper() == ADMIN -> False
+OrdinalIgnoreCase  -> True
+```
+
+`"admin".ToUpper()` cho `ADMİN` — chữ I **có chấm**, ký tự Unicode U+0130, khác hoàn toàn với `I` thường U+0049.
+
+**Vì sao đây là lỗ hổng bảo mật.** Xét đoạn kiểm tra quyền rất hay gặp:
+
+```csharp
+if (user.Role.ToUpper() == "ADMIN")
+    ChoPhepXoaMoiThu();
+```
+
+Trên máy chủ cấu hình văn hoá Thổ Nhĩ Kỳ, người dùng có vai trò `admin` **không** được nhận là quản trị viên — hệ thống từ chối người đúng. Nguy hiểm hơn là chiều ngược lại:
+
+```csharp
+if (input.ToLower() != "admin")        // chặn đăng ký tên admin
+    ChoPhepDangKy(input);
+```
+
+Người dùng đăng ký tên `ADMIN`. Trong văn hoá Thổ, `"ADMIN".ToLower()` cho `admın` — chữ i **không chấm** — nên khác `"admin"` và **lọt qua** bộ lọc. Giờ hệ thống có hai tài khoản mà mắt người đọc đều thấy là "admin".
+
+**Ba nguồn khiến văn hoá đổi mà bạn không biết:**
+
+| Nguồn | Tình huống |
+|---|---|
+| Ngôn ngữ hệ điều hành của máy chủ | Máy chủ đặt ở vùng khác |
+| Biến môi trường `LANG` trong container | Image cơ sở khác nhau có mặc định khác nhau |
+| Header `Accept-Language` của người dùng | Khi bật middleware bản địa hoá, văn hoá đổi **theo từng request** |
+
+Dòng cuối đáng sợ nhất: cùng một dòng code cho kết quả khác nhau tuỳ vào ai đang gọi.
+
+**Quy tắc — chia làm hai nhóm rõ ràng:**
+
+| Mục đích | Dùng | Ví dụ |
+|---|---|---|
+| **So sánh trong logic** | `StringComparison.Ordinal` hoặc `OrdinalIgnoreCase` | Vai trò, mã, khoá, tên file, giao thức |
+| **Hiển thị cho người dùng** | `StringComparison.CurrentCulture` | Sắp xếp danh sách tên để hiển thị |
+
+Mặc định nên là **Ordinal**. Chỉ dùng văn hoá khi bạn thật sự đang sắp xếp hoặc so sánh thứ tự để **người đọc** nhìn.
+
+**Cách phòng có hệ thống.** Bật bộ phân tích để trình biên dịch cảnh báo mỗi khi so sánh chuỗi không nêu rõ cách so sánh:
+
+```xml
+<PropertyGroup>
+  <EnableNETAnalyzers>true</EnableNETAnalyzers>
+  <AnalysisMode>Recommended</AnalysisMode>
+</PropertyGroup>
+```
+
+Quy tắc `CA1862` cảnh báo khi dùng `ToUpper()` hoặc `ToLower()` để so sánh; `CA1310` yêu cầu nêu rõ `StringComparison`. Đây là hai cảnh báo đáng biến thành lỗi.
+
+**Ghi nhớ.** Lỗi này có tên riêng — *Turkish I problem* — vì nó đã gây sự cố đủ nhiều để được đặt tên. Nó cũng là ví dụ điển hình cho một loại lỗi khó chịu: code đúng trên máy bạn, đúng trên CI, và sai trên đúng một môi trường.
+
+</details>
+
+#### Bài 2 — Săn god class
+
+Liệt kê năm file dài nhất trong dự án. Với mỗi file, trả lời câu hỏi *"ai yêu cầu thay đổi class này"*. Nếu có nhiều hơn một nhóm người, phác thảo cách tách.
+
+**Tiêu chí hoàn thành:** bạn tách theo **người yêu cầu thay đổi**, không tách theo số dòng.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Tìm file dài nhất:
+
+```bash
+find . -name "*.cs" -not -path "*/obj/*" -not -path "*/bin/*" \
+  | xargs wc -l | sort -rn | head -10
+```
+
+Nhưng số dòng chỉ là **dấu hiệu**, không phải tiêu chí. Tiêu chí là số **lý do độc lập** khiến file phải sửa.
+
+**Lời giải — ví dụ một god class 900 dòng:**
+
+```csharp
+public class OrderService
+{
+    public Task<Order> TaoDonAsync(...) { }            // nghiệp vụ đặt hàng
+    public Task HuyDonAsync(...) { }                   // nghiệp vụ đặt hàng
+    public Task<decimal> TinhThueAsync(...) { }        // quy định thuế
+    public Task<decimal> TinhPhiVanChuyenAsync(...) { }// hợp đồng vận chuyển
+    public Task GuiEmailXacNhanAsync(...) { }          // marketing
+    public Task GuiSmsAsync(...) { }                   // marketing
+    public Task<byte[]> XuatPdfAsync(...) { }          // kế toán
+    public Task DongBoErpAsync(...) { }                // hệ thống ERP bên ngoài
+    public Task<Report> BaoCaoDoanhThuAsync(...) { }   // ban giám đốc
+}
+```
+
+**Bảng "ai yêu cầu thay đổi":**
+
+| Nhóm phương thức | Ai yêu cầu đổi | Tần suất đổi |
+|---|---|---|
+| Tạo, huỷ đơn | Phòng kinh doanh | Cao |
+| Tính thuế | Thay đổi quy định pháp luật | Thấp, nhưng bắt buộc và gấp |
+| Phí vận chuyển | Đàm phán lại hợp đồng | Trung bình |
+| Email, SMS | Marketing | **Rất cao** |
+| Xuất PDF | Kế toán | Thấp |
+| Đồng bộ ERP | Đội hệ thống ERP | Trung bình |
+| Báo cáo | Ban giám đốc | Cao |
+
+**Bảy nhóm người khác nhau** cùng có lý do sửa một file. Hậu quả cụ thể:
+
+- Marketing đổi mẫu email, và lần triển khai đó **kéo theo** mọi thay đổi chưa xong của các nhóm khác.
+- Hai người sửa hai việc không liên quan luôn gặp xung đột trong cùng file.
+- Bài kiểm thử cho việc tính thuế phải dựng cả `IEmailSender` và `IPdfGenerator`.
+- Không ai dám đụng vào file, vì không ai hiểu hết nó.
+
+**Phác thảo tách:**
+
+```text
+OrderService          -> chỉ còn tạo, huỷ, điều phối    (~120 dòng)
+TaxCalculator         -> tính thuế                       (~80 dòng)
+ShippingFeeCalculator -> tính phí vận chuyển             (~60 dòng)
+OrderNotifier         -> email và SMS                    (~100 dòng)
+OrderPdfExporter      -> xuất PDF                        (~150 dòng)
+ErpSyncService        -> đồng bộ ERP                     (~120 dòng)
+OrderReportQuery      -> báo cáo (chỉ đọc)               (~200 dòng)
+```
+
+`OrderService` còn lại chỉ điều phối:
+
+```csharp
+public class OrderService
+{
+    private readonly IOrderRepository _repo;
+    private readonly ITaxCalculator _thue;
+    private readonly IOrderNotifier _thongBao;
+
+    public async Task<Result<Order>> TaoDonAsync(CreateOrderRequest req, CancellationToken ct)
+    {
+        var don = Order.Tao(req.CustomerId, req.Lines);
+        if (don.IsFailure) return don;
+
+        don.Value.ApDungThue(await _thue.TinhAsync(don.Value, ct));
+        await _repo.ThemAsync(don.Value, ct);
+        await _thongBao.ThongBaoDonMoiAsync(don.Value, ct);
+        return don;
+    }
+}
+```
+
+**Vì sao tách theo người yêu cầu chứ không theo số dòng.** Một class 600 dòng chỉ phục vụ **một** nhóm người vẫn là class tốt — tách nó ra chỉ làm code khó theo dõi. Ngược lại, một class 80 dòng phục vụ **ba** nhóm người là class có vấn đề.
+
+Số dòng là dấu hiệu, không phải bệnh. Bệnh là **nhiều lý do độc lập để thay đổi** — chính là nội dung của Single Responsibility Principle, và [bài 5.2](../module-05-advanced-csharp/5.2-solid-principles.mdx) sẽ bàn kỹ.
+
+**Cách tách an toàn từng bước.** Đừng tách một lần. Mỗi lần lấy ra **một** nhóm phương thức, viết kiểm thử cho nó, merge, rồi mới làm nhóm tiếp theo — đúng tinh thần commit nguyên tử ở [bài 3.5](../../stage-01-foundation/module-03-git-developer-workflow/3.5-workflow-co-ban.mdx).
+
+</details>
+
+#### Bài 3 — Đo giá của ngoại lệ
+
+Viết vòng lặp 100.000 lần phân tích chuỗi sai định dạng, một lần dùng `try/catch` với `Parse`, một lần dùng `TryParse`. Đo bằng `Stopwatch` và ghi lại tỉ lệ.
+
+**Tiêu chí hoàn thành:** bạn có tỉ lệ cụ thể và nêu được khi nào **vẫn nên** dùng ngoại lệ.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Chạy ở chế độ Release và làm nóng trước, như [bài 1.8](../../stage-01-foundation/module-01-programming-logic/1.8-data-structures-and-big-o.mdx) đã nêu.
+
+**Lời giải.**
+
+```csharp
+const int N = 100_000;
+
+var sw = Stopwatch.StartNew();
+int loi1 = 0;
+for (int i = 0; i < N; i++)
+{
+    try { int.Parse("không phải số"); }
+    catch (FormatException) { loi1++; }
+}
+sw.Stop();
+var tEx = sw.Elapsed.TotalMilliseconds;
+
+sw.Restart();
+int loi2 = 0;
+for (int i = 0; i < N; i++)
+    if (!int.TryParse("không phải số", out _)) loi2++;
+sw.Stop();
+var tTry = sw.Elapsed.TotalMilliseconds;
+```
+
+**Kết quả đo thật trên .NET 9, chế độ Release:**
+
+```text
+try/catch Parse : 858.2 ms  (8.58  micro-giây mỗi lần)
+TryParse        :   1.1 ms  (0.011 micro-giây mỗi lần)
+chậm gấp        : 778 lần
+```
+
+**Vì sao ngoại lệ đắt.** Ném một ngoại lệ không chỉ là trả về một giá trị. Runtime phải:
+
+1. Cấp phát đối tượng ngoại lệ trên heap.
+2. **Đi ngược ngăn xếp** để tìm khối `catch` phù hợp — chi phí tỉ lệ với độ sâu ngăn xếp.
+3. Thu thập dấu vết ngăn xếp, gồm tên phương thức, tên file và số dòng.
+4. Tháo dỡ các khung ngăn xếp và chạy mọi khối `finally` trên đường đi.
+
+Bước 2 và 3 là phần đắt nhất, và chúng **đắt hơn** khi ngăn xếp sâu — nghĩa là trong ứng dụng thật, con số còn tệ hơn trong bài đo này.
+
+**Khi nào dùng cái gì:**
+
+| Tình huống | Dùng | Vì sao |
+|---|---|---|
+| Đầu vào người dùng có thể sai | `TryParse`, `Result<T>` | Sai là chuyện **bình thường**, không phải ngoại lệ |
+| Tìm bản ghi có thể không tồn tại | Trả `null` hoặc `Option` | Không tìm thấy là kết quả hợp lệ |
+| Vi phạm quy tắc nghiệp vụ dự đoán được | `Result<T>` | Xảy ra thường xuyên, cần thông điệp rõ |
+| Tham số sai do lỗi lập trình | **Ngoại lệ** | Đây là lỗi thật, phải dừng ngay và ồn ào |
+| Mất kết nối database | **Ngoại lệ** | Thật sự bất thường, không dự đoán được |
+| Trạng thái không thể xảy ra | **Ngoại lệ** | Phát hiện sớm còn hơn chạy tiếp với dữ liệu sai |
+
+**Nguyên tắc.** Ngoại lệ dành cho những gì **ngoại lệ** — đúng như tên gọi. Nếu một tình huống xảy ra trong luồng bình thường của hệ thống, nó không phải ngoại lệ, và biểu diễn nó bằng giá trị trả về sẽ vừa nhanh hơn vừa rõ ràng hơn.
+
+**Một hiểu nhầm cần đính chính.** Nhiều người kết luận từ con số này rằng "đừng bao giờ dùng ngoại lệ". Đó là kết luận sai. Một ngoại lệ mất khoảng 8,6 micro-giây; nếu nó xảy ra **một lần mỗi vài nghìn request**, chi phí đó hoàn toàn không đáng kể so với một truy vấn database mất vài mili-giây. Vấn đề chỉ xuất hiện khi ngoại lệ nằm trong **luồng thường xuyên** hoặc trong **vòng lặp**.
+
+**Mẫu `Result<T>` thay thế:**
+
+```csharp
+public readonly record struct Result<T>
+{
+    public bool ThanhCong { get; }
+    public T? GiaTri { get; }
+    public string? Loi { get; }
+
+    private Result(bool ok, T? v, string? loi) => (ThanhCong, GiaTri, Loi) = (ok, v, loi);
+
+    public static Result<T> Ok(T v) => new(true, v, null);
+    public static Result<T> That(string loi) => new(false, default, loi);
+}
+```
+
+[Module 5](../module-05-advanced-csharp/) xây dựng đầy đủ mẫu này, và [Module 9](../../stage-03-aspnet-core-backend/module-09-web-api-professional/) ánh xạ nó sang mã trạng thái HTTP.
+
+</details>
 
 ## Tự kiểm tra
 
