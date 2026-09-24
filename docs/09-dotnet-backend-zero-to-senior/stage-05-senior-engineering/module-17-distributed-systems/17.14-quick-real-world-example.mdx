@@ -1,40 +1,216 @@
 ---
 title: "17.14 — Ví dụ thực tế nhanh"
-description: "Ví dụ thực tế ngắn cho Module 17 — Distributed systems: áp dụng kiến thức vừa học vào một tình huống CRM/.NET backend cụ thể."
+description: "Queue dồn 400.000 message trong 20 phút vì một consumer chậm: chẩn đoán prefetch, số consumer và poison message chỉ với ba chỉ số."
 sidebar_position: 14
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
 # 17.14 — Ví dụ thực tế nhanh
 
+<SummaryBox>
+Một tình huống ngắn nhưng rất hay gặp: queue `lead-converted` bình thường luôn rỗng, rồi đột ngột dồn **400.000 message trong 20 phút**. Không có lỗi nào trong log, consumer vẫn "chạy", và CPU của nó chỉ 8%. Bài này cho thấy cách chẩn đoán loại sự cố này bằng đúng **ba chỉ số** — độ sâu queue, số message chưa ACK, và số consumer đang gắn — và bảng đối chiếu ba chỉ số đó với năm nguyên nhân phổ biến. Điều đáng nhớ nhất: **queue dồn gần như không bao giờ là lỗi của broker** — nó là triệu chứng của consumer, và ba chỉ số này chỉ thẳng ra consumer đang sai ở đâu.
+</SummaryBox>
+
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Chẩn đoán queue dồn bằng ba chỉ số.
+- Phân biệt năm nguyên nhân phổ biến.
+- Xử lý sự cố ngay và phòng ngừa sau đó.
+- Đặt cảnh báo đúng cho hệ thống message.
 
 ## Nội dung bài học
 
-- Một ví dụ áp dụng trực tiếp vào luồng CRM/ERP hiện tại.
-- Một lỗi phổ biến dễ gặp khi triển khai thật.
-- Một cách kiểm tra nhanh để tự xác nhận bạn đã hiểu đúng.
+### 17.14.1 — Tình huống
+
+```
+14:00  Queue "lead-converted": 0 message (binh thuong)
+14:05  8.000 message
+14:12  120.000 message
+14:20  400.000 message va van tang
+       Consumer: dang chay, CPU 8%, KHONG co loi trong log
+```
+
+Bộ nhớ RabbitMQ tăng dần, và nếu chạm ngưỡng cao thì broker sẽ **chặn publisher** — nghĩa là API nghiệp vụ cũng dừng theo.
+
+### 17.14.2 — Ba chỉ số cần xem
+
+```bash
+rabbitmqctl list_queues name messages messages_unacknowledged consumers
+```
+
+```
+name             messages  messages_unacknowledged  consumers
+lead-converted   400123    1                        1
+```
+
+Đọc ba con số cuối:
+
+| Chỉ số | Ý nghĩa | Giá trị ở đây |
+|---|---|---|
+| `messages` | Tổng đang chờ | 400.123 — dồn nặng |
+| `messages_unacknowledged` | Đang được xử lý | **1** — chỉ xử lý một message một lúc |
+| `consumers` | Số consumer đang gắn | **1** — chỉ một instance |
+
+Hai con số cuối cho câu trả lời ngay: một consumer, xử lý tuần tự từng message một. Với 400.000 message và mỗi message tốn 50ms, cần **5,5 giờ** để rút hết.
+
+### 17.14.3 — Bảng chẩn đoán
+
+| `messages` | `unacked` | `consumers` | Nguyên nhân |
+|---|---|---|---|
+| Cao | **0** | **0** | Consumer đã chết hoặc mất kết nối |
+| Cao | **Thấp** | Thấp | **Thiếu consumer / prefetch quá nhỏ** |
+| Cao | **Cao** | Bình thường | Consumer chậm — xử lý lâu hoặc chờ I/O |
+| Cao | Dao động, message quay lại | Bình thường | **Poison message** — lỗi rồi requeue vô hạn |
+| Thấp nhưng tăng dần | Bình thường | Bình thường | Tốc độ publish vượt tốc độ xử lý |
+
+Ca này khớp hàng thứ hai. Hàng thứ tư đáng cảnh giác nhất: nhìn qua trông như consumer đang làm việc, nhưng thực ra nó xử lý **cùng một** message mãi mãi ([bài 17.7](17.7-retry-and-backoff.mdx)).
+
+### 17.14.4 — Nguyên nhân gốc
+
+```csharp
+// Cau hinh hien tai
+cfg.ReceiveEndpoint("lead-converted", e =>
+{
+    e.PrefetchCount = 1;              // chi giu 1 message mot luc
+    e.ConcurrentMessageLimit = 1;     // chi xu ly 1 message mot luc
+    e.Consumer<LeadConvertedConsumer>();
+});
+```
+
+```yaml
+replicas: 1                           # chi MOT instance
+```
+
+Cấu hình này giới hạn thông lượng ở **một message tại một thời điểm, trên một instance**. Nó đủ dùng khi lưu lượng bình thường (vài chục message mỗi phút), nhưng một chiến dịch marketing đẩy 400.000 lead vào hệ thống thì không cách nào theo kịp.
+
+Vì sao `PrefetchCount = 1`? Vì ai đó từng gặp vấn đề phân bổ tải không đều và đặt nó xuống 1 để "cho chắc" — một cách sửa quá tay ([bài 17.5](17.5-kafka-vs-rabbitmq-pragmatic.mdx)).
+
+### 17.14.5 — Xử lý ngay
+
+```csharp
+cfg.ReceiveEndpoint("lead-converted", e =>
+{
+    e.PrefetchCount = 32;             // giu san 32 message trong bo dem
+    e.ConcurrentMessageLimit = 8;     // xu ly 8 message song song
+    e.Consumer<LeadConvertedConsumer>();
+});
+```
+
+```bash
+kubectl scale deployment lead-consumer --replicas=6
+```
+
+```
+Thong luong: 20 msg/s -> 960 msg/s
+Thoi gian rut het 400.000 message: 5,5 gio -> ~7 phut
+```
+
+**Điều kiện tiên quyết** trước khi tăng song song: consumer **phải** idempotent. Xử lý song song làm tăng khả năng hai message liên quan chạy đồng thời và va vào nhau ([bài 17.3](17.3-messaging-fears-lost-duplicates.mdx)).
+
+Và phải kiểm tra **database chịu được không**: 6 instance × 8 luồng = 48 truy vấn song song. Nếu connection pool hoặc database không chịu nổi, bạn chỉ chuyển nghẽn từ queue sang database ([bài 19.7](../module-19-performance-engineering/19.7-scaling-strategy.mdx)).
+
+### 17.14.6 — Phòng ngừa
+
+**1. Cảnh báo theo xu hướng, không theo giá trị tuyệt đối:**
+
+```
+CANH BAO khi: do sau queue tang lien tuc trong 5 phut
+CANH BAO khi: tuoi message cu nhat > 2 phut
+CANH BAO khi: so consumer = 0
+```
+
+Ngưỡng tuyệt đối như "queue > 10.000" gây báo động giả vào lúc cao điểm bình thường và im lặng khi một consumer duy nhất chết trong lúc lưu lượng thấp.
+
+Chỉ số **tuổi message cũ nhất** tốt hơn số lượng: 400.000 message vừa được publish trong một giây là bình thường; **một** message kẹt 10 phút là sự cố ([bài 17.8](17.8-outbox-idempotency-demo.mdx)).
+
+**2. Tự co giãn theo độ sâu queue**, không theo CPU:
+
+```yaml
+# KEDA — scale theo so message dang cho
+triggers:
+  - type: rabbitmq
+    metadata:
+      queueName: lead-converted
+      queueLength: "50"        # moi 50 message them mot pod
+```
+
+CPU là chỉ số sai ở đây: consumer chờ I/O có CPU rất thấp ngay cả khi queue dồn 400.000 message ([bài 19.4](../module-19-performance-engineering/19.4-dotnet-server-profiling.mdx)).
+
+**3. Test tải cho consumer.** Đẩy 100.000 message vào staging và đo thông lượng thật. Con số đó cho biết hệ thống chịu được đỉnh tải cỡ nào **trước khi** đỉnh tải xảy ra.
+
+### 17.14.7 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát queue dồn"
+  items={[
+    { text: "PrefetchCount không bị đặt bằng 1 mà không có lý do rõ ràng." },
+    { text: "ConcurrentMessageLimit đặt theo khả năng thật của consumer." },
+    { text: "Consumer idempotent trước khi tăng mức song song." },
+    { text: "Đã kiểm tra database chịu được số truy vấn song song sau khi scale." },
+    { text: "Có cảnh báo khi số consumer bằng 0." },
+    { text: "Cảnh báo dựa trên xu hướng và tuổi message, không chỉ số lượng." },
+    { text: "Tự co giãn theo độ sâu queue, không theo CPU." },
+    { text: "Đã đo thông lượng thật của consumer bằng test tải." },
+    { text: "Có DLQ và cảnh báo trên DLQ để bắt poison message." },
+  ]}
+/>
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **Đọc ba chỉ số.** Chạy `rabbitmqctl list_queues` trên môi trường của bạn và đối chiếu với bảng chẩn đoán ở mục 17.14.3.
+
+2. **Đo thông lượng.** Đẩy 50.000 message vào staging, đo thời gian rút hết, rồi tăng `PrefetchCount` và `ConcurrentMessageLimit` và đo lại.
+
+3. **Tái hiện poison message.** Gửi một message gây exception và quan sát nó quay lại queue liên tục nếu không có DLQ.
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "Ba chỉ số nào đủ để chẩn đoán queue dồn?",
+      answer: "Tổng số message đang chờ, số message chưa được xác nhận tức đang xử lý, và số consumer đang gắn. Ba con số này đối chiếu với bảng chẩn đoán cho ra năm nguyên nhân phổ biến."
+    },
+    {
+      question: "Tổ hợp nào cho thấy thiếu consumer hoặc prefetch quá nhỏ?",
+      answer: "Số message chờ rất cao nhưng số message đang xử lý rất thấp và số consumer ít. Nó nghĩa là consumer chỉ nhận một hoặc vài message một lúc nên không thể rút kịp."
+    },
+    {
+      question: "Tổ hợp nào cho thấy poison message?",
+      answer: "Số message chờ cao, số đang xử lý dao động, và message liên tục quay lại queue. Nhìn qua trông như consumer đang làm việc nhưng thực ra nó xử lý cùng một message mãi mãi."
+    },
+    {
+      question: "Điều kiện tiên quyết trước khi tăng mức song song là gì?",
+      answer: "Consumer phải idempotent, vì xử lý song song làm tăng khả năng hai message liên quan chạy đồng thời và va vào nhau. Ngoài ra phải kiểm tra database chịu được số truy vấn song song mới."
+    },
+    {
+      question: "Vì sao cảnh báo theo ngưỡng tuyệt đối là sai?",
+      answer: "Vì nó báo động giả vào lúc cao điểm bình thường và im lặng khi một consumer duy nhất chết trong lúc lưu lượng thấp. Cảnh báo theo xu hướng và theo tuổi message cũ nhất phản ánh đúng vấn đề hơn."
+    },
+    {
+      question: "Vì sao tự co giãn theo CPU không phù hợp với consumer?",
+      answer: "Vì consumer chờ I/O có CPU rất thấp ngay cả khi queue đang dồn hàng trăm nghìn message. Co giãn theo độ sâu queue phản ánh đúng khối lượng công việc còn lại."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **Ba chỉ số đủ để chẩn đoán** hầu hết ca queue dồn.
+2. **Queue dồn là triệu chứng của consumer**, gần như không bao giờ là lỗi của broker.
+3. **Cảnh báo theo tuổi message, co giãn theo độ sâu queue.** Cả hai đều không phải CPU.
+
+## Tham khảo
+
+- [RabbitMQ consumer prefetch](https://www.rabbitmq.com/docs/confirms)
+- [RabbitMQ quorum queues](https://www.rabbitmq.com/docs/quorum-queues)
+- [Competing Consumers pattern](https://learn.microsoft.com/en-us/azure/architecture/patterns/competing-consumers)
+- [Azure Service Bus overview](https://learn.microsoft.com/en-us/azure/service-bus-messaging/service-bus-messaging-overview)
 
 ## Điều hướng
 

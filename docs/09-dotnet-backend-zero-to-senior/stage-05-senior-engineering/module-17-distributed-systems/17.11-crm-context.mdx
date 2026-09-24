@@ -1,42 +1,261 @@
 ---
 title: "17.11 — Liên hệ CRM"
-description: "Liên hệ CRM — bài học thuộc Module 17 — Distributed systems trong lộ trình .NET backend từ zero đến senior."
+description: "Bốn luồng event thật trong CRM/ERP, khoá idempotency đúng cho từng luồng, và ba thao tác tuyệt đối không được dùng event."
 sidebar_position: 11
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
 # 17.11 — Liên hệ CRM
 
+<SummaryBox>
+Bốn luồng event xuất hiện trong gần như mọi CRM/ERP, kèm **khoá idempotency đúng** cho từng luồng — vì chọn sai khoá là nguồn gốc của phần lớn sự cố trùng lặp. Nguyên tắc chọn khoá: dùng **định danh nghiệp vụ** (mã giao dịch của cổng thanh toán, mã hoá đơn), không dùng `EventId` sinh ngẫu nhiên nếu có định danh nghiệp vụ. Lý do cụ thể: nếu producer retry và sinh `EventId` **mới** cho cùng một sự việc, khoá theo `EventId` sẽ **không** chặn được trùng — nhưng khoá theo mã giao dịch thì có. Và quan trọng không kém: bài này chỉ ra **ba thao tác không được dùng event**, vì chúng cần câu trả lời ngay.
+</SummaryBox>
+
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Thiết kế bốn luồng event cốt lõi của CRM.
+- Chọn khoá idempotency đúng cho từng luồng.
+- Nhận ra thao tác nào không được dùng event.
+- Đặt tên và phiên bản integration event nhất quán.
 
 ## Nội dung bài học
 
-- **Lead converted** → event cho **Billing** (tạo subscription) và **Support** (mở onboarding ticket).
-- **Payment succeeded** → **Loyalty** cộng điểm — luôn idempotent theo `paymentIntentId`.
-- Outbox đảm bảo: **không** có chuyện “đã lưu Customer nhưng Billing không nhận được tin” nếu DB commit.
+### 17.11.1 — Luồng 1: Lead được chuyển đổi
 
----
+```csharp
+public sealed record LeadConvertedIntegrationEvent(
+    Guid EventId,
+    Guid LeadId,
+    Guid CustomerId,
+    string CustomerEmail,       // tu chua — consumer khong phai goi nguoc
+    string CustomerName,
+    decimal ContractValue,
+    string Currency,
+    DateTime OccurredAtUtc);
+```
+
+Ba bên quan tâm, mỗi bên một khoá idempotency khác nhau:
+
+| Consumer | Việc làm | Khoá idempotency |
+|---|---|---|
+| Billing | Tạo subscription nháp | `CustomerId` + kỳ |
+| Support | Mở ticket onboarding | `CustomerId` (chỉ một ticket onboarding mỗi khách) |
+| Analytics | Ghi số liệu chuyển đổi | `LeadId` (mỗi lead chuyển đổi một lần) |
+
+Điểm quan trọng: **mỗi consumer tự chọn khoá theo nghiệp vụ của mình**, không dùng chung một khoá. Analytics khoá theo `LeadId` vì một lead chỉ chuyển đổi một lần; Billing khoá theo `CustomerId` + kỳ vì một khách có thể có nhiều kỳ.
+
+### 17.11.2 — Luồng 2: Thanh toán thành công
+
+Đây là luồng **nhạy cảm nhất** vì sai là mất tiền.
+
+```csharp
+public sealed record PaymentSucceededIntegrationEvent(
+    Guid EventId,
+    string PaymentIntentId,     // ma tu CONG THANH TOAN — khoa idempotency
+    Guid CustomerId,
+    Guid InvoiceId,
+    decimal Amount,
+    DateTime PaidAtUtc);
+```
+
+```csharp
+// Khoa theo PaymentIntentId, KHONG theo EventId
+public async Task Consume(ConsumeContext<PaymentSucceededIntegrationEvent> context)
+{
+    var evt = context.Message;
+
+    _db.LoyaltyTransactions.Add(new LoyaltyTransaction
+    {
+        PaymentIntentId = evt.PaymentIntentId,     // UNIQUE INDEX o day
+        CustomerId = evt.CustomerId,
+        Points = CalculatePoints(evt.Amount)
+    });
+
+    try { await _db.SaveChangesAsync(context.CancellationToken); }
+    catch (DbUpdateException ex) when (ex.IsUniqueViolation()) { return; }
+}
+```
+
+**Vì sao không dùng `EventId`:** nếu producer retry và sinh `EventId` mới cho **cùng một** giao dịch, khoá theo `EventId` sẽ coi đó là hai sự việc khác nhau và cộng điểm hai lần. `PaymentIntentId` do cổng thanh toán cấp là định danh **của sự việc thật**, nên nó chặn được cả trường hợp đó ([bài 17.13](17.13-mini-case-study.mdx)).
+
+**Quy tắc chung:** có định danh nghiệp vụ thì dùng nó; `EventId` chỉ là phương án dự phòng khi không có gì khác.
+
+### 17.11.3 — Luồng 3: Deal thay đổi trạng thái
+
+```csharp
+public sealed record DealStageChangedIntegrationEvent(
+    Guid EventId,
+    Guid DealId,
+    string FromStage,
+    string ToStage,
+    Guid ChangedByUserId,
+    DateTime OccurredAtUtc,
+    int Version);               // so thu tu TRONG deal — chong xu ly nguoc
+```
+
+Luồng này có đặc thù: **thứ tự quan trọng**. Deal đi `Qualified → Proposal → Won`, và xử lý ngược thứ tự sẽ ghi sai trạng thái.
+
+```csharp
+// Bo qua event CU hon trang thai hien tai
+var snapshot = await _db.DealSnapshots.FindAsync(evt.DealId, ct);
+
+if (snapshot is not null && snapshot.Version >= evt.Version)
+{
+    _logger.LogDebug("Bỏ qua event cũ cho deal {DealId}: {EventVersion} <= {Current}",
+        evt.DealId, evt.Version, snapshot.Version);
+    return;
+}
+```
+
+Cách này đơn giản hơn nhiều so với cố đảm bảo thứ tự xuyên hệ thống ([bài 17.4](17.4-outbox-pattern-applied.mdx)): consumer chỉ cần biết **phiên bản hiện tại** và bỏ qua mọi thứ cũ hơn. Nó cũng đúng cả khi message tới trùng.
+
+### 17.11.4 — Luồng 4: Khách hàng bị khoá
+
+```csharp
+public sealed record CustomerSuspendedIntegrationEvent(
+    Guid EventId,
+    Guid CustomerId,
+    string Reason,
+    DateTime SuspendedAtUtc);
+```
+
+Luồng này có một đặc điểm khác hẳn ba luồng trên: nó ảnh hưởng tới **bảo mật**, nên độ trễ không chấp nhận được.
+
+| Consumer | Xử lý |
+|---|---|
+| Identity | Thu hồi token đang hoạt động — **phải nhanh** |
+| Billing | Dừng thu tự động |
+| Notification | Ngừng gửi email marketing |
+
+Với consumer Identity, nếu nghiệp vụ yêu cầu khoá **tức thì**, event bất đồng bộ **không đủ** — phải gọi đồng bộ hoặc dùng danh sách chặn token kiểm tra ở mỗi request ([bài 18.7](../module-18-microservices/18.7-distributed-identity-overview.mdx)).
+
+Đây là ví dụ cho nguyên tắc chung: **event phù hợp khi trễ vài giây chấp nhận được**. Với bảo mật, thường là không.
+
+### 17.11.5 — Ba thao tác KHÔNG được dùng event
+
+```csharp
+// SAI 1 — kiem tra ton kho truoc khi dat hang
+await _bus.Publish(new CheckStockCommand(items));
+// ... roi CHO event phan hoi?
+// Day la goi dong bo viet phuc tap hon nam lan.
+
+// SAI 2 — kiem tra han muc tin dung
+// Can cau tra loi NGAY de quyet dinh co tao don hay khong.
+
+// SAI 3 — xac thuc dang nhap
+// Nguoi dung dang doi man hinh.
+```
+
+Cả ba đều cần **câu trả lời ngay để tiếp tục**, nên phải gọi đồng bộ ([bài 18.5](../module-18-microservices/18.5-inter-service-communication.mdx)).
+
+Dấu hiệu nhận ra bạn đang dùng sai: **publish một event rồi chờ event phản hồi**. Đó là gọi đồng bộ được viết bằng cách phức tạp hơn nhiều lần, và mất luôn khả năng gỡ lỗi bằng stack trace.
+
+### 17.11.6 — Quy ước đặt tên và phiên bản
+
+```csharp
+// Dat ten: <DanhTu><DongTu qua khu>IntegrationEvent
+LeadConvertedIntegrationEvent          // DUNG — viec DA xay ra
+CustomerSuspendedIntegrationEvent      // DUNG
+PaymentSucceededIntegrationEvent       // DUNG
+
+ConvertLeadEvent                       // SAI — nghe nhu menh lenh
+LeadEvent                              // SAI — khong biet chuyen gi xay ra
+UpdateCustomerEvent                    // SAI — la command, khong phai event
+```
+
+Event mô tả việc **đã xảy ra**, ở **quá khứ**. Nếu tên nghe như mệnh lệnh, có thể bạn đang gửi command chứ không phải event — và command thì thường nên đi đồng bộ.
+
+**Phiên bản:** chỉ thêm trường tuỳ chọn, không bao giờ xoá hay đổi nghĩa trường cũ ([bài 17.2](17.2-event-driven-architecture-when-to-use.mdx)).
+
+```csharp
+// V2 — them truong TUY CHON, doc duoc ca message V1
+public sealed record LeadConvertedIntegrationEvent(
+    Guid EventId,
+    Guid LeadId,
+    Guid CustomerId,
+    string CustomerEmail,
+    string CustomerName,
+    decimal ContractValue,
+    string Currency,
+    DateTime OccurredAtUtc,
+    string? CampaignSource = null);       // moi, co gia tri mac dinh
+```
+
+Cần thay đổi lớn thì phát hành `LeadConvertedIntegrationEventV2` song song và tắt V1 sau khi queue cạn.
+
+### 17.11.7 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát event trong CRM"
+  items={[
+    { text: "Integration event tự chứa, consumer không gọi ngược về producer." },
+    { text: "Khoá idempotency dùng định danh nghiệp vụ, không dùng EventId nếu có lựa chọn." },
+    { text: "Mỗi consumer chọn khoá theo nghiệp vụ của mình, không dùng chung." },
+    { text: "Luồng cần thứ tự có số phiên bản và consumer bỏ qua event cũ." },
+    { text: "Thao tác cần câu trả lời ngay đi đồng bộ, không qua event." },
+    { text: "Không có chỗ nào publish event rồi chờ event phản hồi." },
+    { text: "Tên event ở thể quá khứ, mô tả việc đã xảy ra." },
+    { text: "Thay đổi event chỉ thêm trường tuỳ chọn có giá trị mặc định." },
+    { text: "Thao tác liên quan bảo mật không dựa vào độ trễ của event." },
+  ]}
+/>
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **Rà khoá idempotency.** Với mỗi consumer trong dự án, kiểm tra khoá đang dùng có phải định danh nghiệp vụ không.
+
+2. **Tìm event dùng sai.** Tìm mọi chỗ publish event rồi chờ phản hồi và chuyển chúng sang gọi đồng bộ.
+
+3. **Thử phiên bản.** Thêm một trường tuỳ chọn vào một event đang dùng và xác nhận consumer cũ vẫn đọc được message mới.
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "Vì sao nên dùng định danh nghiệp vụ thay vì EventId làm khoá idempotency?",
+      answer: "Vì nếu producer retry và sinh EventId mới cho cùng một sự việc, khoá theo EventId sẽ coi đó là hai sự việc khác nhau và xử lý hai lần. Mã giao dịch do cổng thanh toán cấp là định danh của sự việc thật nên chặn được cả trường hợp đó."
+    },
+    {
+      question: "Vì sao mỗi consumer nên chọn khoá idempotency riêng?",
+      answer: "Vì nghiệp vụ của từng consumer khác nhau. Analytics khoá theo LeadId vì một lead chỉ chuyển đổi một lần, còn Billing khoá theo CustomerId cộng kỳ vì một khách có thể có nhiều kỳ."
+    },
+    {
+      question: "Cách xử lý thứ tự trong luồng thay đổi trạng thái deal là gì?",
+      answer: "Đưa số phiên bản vào event và để consumer bỏ qua mọi event có phiên bản nhỏ hơn hoặc bằng trạng thái hiện tại. Cách này đơn giản hơn nhiều so với cố đảm bảo thứ tự xuyên hệ thống, và nó đúng cả khi message tới trùng."
+    },
+    {
+      question: "Vì sao luồng khoá khách hàng cần cách xử lý khác?",
+      answer: "Vì nó ảnh hưởng tới bảo mật nên độ trễ không chấp nhận được. Nếu nghiệp vụ yêu cầu khoá tức thì thì event bất đồng bộ không đủ, phải gọi đồng bộ hoặc dùng danh sách chặn token kiểm tra ở mỗi request."
+    },
+    {
+      question: "Ba thao tác nào không được dùng event?",
+      answer: "Kiểm tra tồn kho trước khi đặt hàng, kiểm tra hạn mức tín dụng, và xác thực đăng nhập. Cả ba đều cần câu trả lời ngay để tiếp tục nên phải gọi đồng bộ."
+    },
+    {
+      question: "Quy ước đặt tên integration event là gì?",
+      answer: "Danh từ cộng động từ ở thể quá khứ, mô tả việc đã xảy ra, ví dụ LeadConverted hay PaymentSucceeded. Nếu tên nghe như mệnh lệnh thì có thể bạn đang gửi command chứ không phải event, và command thường nên đi đồng bộ."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **Khoá idempotency dùng định danh nghiệp vụ**, không dùng `EventId` nếu có lựa chọn.
+2. **Số phiên bản trong event giải quyết thứ tự** đơn giản hơn mọi cách đảm bảo thứ tự.
+3. **Việc cần câu trả lời ngay không phải là event.** Bảo mật thường thuộc nhóm này.
+
+## Tham khảo
+
+- [Integration events trong .NET microservices](https://learn.microsoft.com/en-us/dotnet/architecture/microservices/multi-container-microservice-net-applications/integration-event-based-microservice-communications)
+- [Idempotent consumer](https://learn.microsoft.com/en-us/dotnet/architecture/microservices/multi-container-microservice-net-applications/subscribe-events)
+- [Transactional Outbox pattern](https://microservices.io/patterns/data/transactional-outbox.html)
+- [Azure Service Bus message sessions](https://learn.microsoft.com/en-us/azure/service-bus-messaging/message-sessions)
 
 ## Điều hướng
 
