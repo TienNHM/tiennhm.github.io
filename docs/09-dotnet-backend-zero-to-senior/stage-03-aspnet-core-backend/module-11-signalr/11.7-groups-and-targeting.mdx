@@ -1,95 +1,241 @@
 ---
 title: "11.7 — 6. Groups và Targeting"
-description: "Groups và Targeting — bài học thuộc Module 11 — Signalr trong lộ trình .NET backend từ zero đến senior."
+description: "Nhóm không bền vững qua reconnect, đặt tên nhóm theo tenant, Clients.User vs Group, Others và Except, và chi phí broadcast."
 sidebar_position: 7
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
 # 11.7 — 6. Groups và Targeting
 
+<SummaryBox>
+Nhóm trong SignalR là **tập các `ConnectionId`**, và ba đặc điểm của nó quyết định cách bạn thiết kế. **Một: nhóm không bền vững** — không có danh sách thành viên lưu ở đâu cả, và mọi thành viên biến mất khi kết nối đứt; không có API nào hỏi "ai đang trong nhóm này". **Hai: tên nhóm là chuỗi tự do** — không có quyền nào gắn với nó, nên `Clients.Group("tenant-42")` gửi cho bất kỳ ai đã vào nhóm đó, kể cả người vào nhầm. **Ba: `Clients.User(id)` khác hẳn nhóm** — SignalR duy trì ánh xạ người dùng sang kết nối **tự động và bền qua reconnect**, nên với "gửi cho một người" thì luôn dùng nó.
+</SummaryBox>
+
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Chọn đúng giữa `User`, `Group`, `Client` và `All`.
+- Đặt tên nhóm an toàn trong hệ thống nhiều khách hàng.
+- Xử lý việc nhóm mất sau khi kết nối lại.
+- Dùng `Others` và `Except` đúng chỗ.
+- Ước lượng chi phí broadcast.
 
 ## Nội dung bài học
 
-### 11.7.1 — Chiến lược nhóm trong CRM
+### 11.7.1 — Các cách nhắm đích
 
 ```csharp
-public class CrmNotificationHub : Hub<ICrmNotificationClient>
+await Clients.All.Receive(dto);                          // moi ket noi
+await Clients.Caller.Receive(dto);                       // dung tab vua goi
+await Clients.Others.Receive(dto);                       // tat ca TRU tab vua goi
+await Clients.Client(connectionId).Receive(dto);         // mot ket noi cu the
+await Clients.User(userId).Receive(dto);                 // MOI thiet bi cua mot nguoi
+await Clients.Users([id1, id2]).Receive(dto);            // nhieu nguoi
+await Clients.Group("tenant-42").Receive(dto);           // mot nhom
+await Clients.GroupExcept("tenant-42", connectionId).Receive(dto);
+await Clients.OthersInGroup("tenant-42").Receive(dto);   // trong nhom, tru tab goi
+```
+
+| Dùng | Khi |
+|---|---|
+| `Caller` | Trả lời trực tiếp một lời gọi |
+| `User(id)` | **Gửi cho một người** — mặc định cho thông báo cá nhân |
+| `Group(name)` | Chủ đề: tenant, phòng chat, bản ghi đang xem chung |
+| `Others` / `OthersInGroup` | Tin nhắn chat: người gửi đã thấy tin của mình rồi |
+| `All` | Bảo trì hệ thống — **hiếm khi đúng** |
+
+`Clients.All` gần như luôn là lựa chọn sai trong hệ thống nhiều khách hàng: nó gửi cho **mọi** người đang kết nối, kể cả khách hàng khác.
+
+`Others` và `OthersInGroup` giải quyết một vấn đề cụ thể trong chat: người gửi đã hiển thị tin nhắn của mình ngay khi bấm gửi (optimistic update), nên nhận lại chính tin đó sẽ tạo bản sao.
+
+### 11.7.2 — Nhóm không bền vững
+
+Ba hệ quả cần thiết kế quanh chúng:
+
+**Nhóm biến mất khi kết nối đứt.** Không lưu ở đâu cả — SignalR chỉ giữ ánh xạ trong bộ nhớ (hoặc trong backplane).
+
+**Không hỏi được "ai đang trong nhóm".** SignalR không có API nào trả về danh sách thành viên. Cần biết thì phải tự lưu ([bài 11.10](11.10-presence-online-offline-status.mdx)).
+
+**Không có quyền gắn với tên nhóm.** `AddToGroupAsync` không kiểm tra gì. Ai gọi được Hub method đó đều vào được nhóm bất kỳ.
+
+Cách xử lý đúng cho hệ quả thứ nhất: **server tự gán nhóm** trong `OnConnectedAsync` dựa trên claim ([bài 11.6](11.6-signalr-authentication.mdx)).
+
+```csharp
+public override async Task OnConnectedAsync()
 {
-    // Gửi cho toàn bộ tenant
-    public async Task NotifyTenant(string tenantId, NotificationDto notification)
-    {
-        await Clients.Group($"tenant-{tenantId}").ReceiveNotification(notification);
-    }
+    var tenantId = Context.User?.FindFirstValue("tenant_id");
+    if (tenantId is null) { Context.Abort(); return; }
 
-    // Gửi cho một team cụ thể
-    public async Task NotifyTeam(string tenantId, string teamId, NotificationDto notification)
-    {
-        var groupName = $"tenant-{tenantId}-team-{teamId}";
-        await Clients.Group(groupName).ReceiveNotification(notification);
-    }
+    await Groups.AddToGroupAsync(Context.ConnectionId, $"tenant:{tenantId}");
 
-    // Gửi cho một user cụ thể (dù đang đăng nhập từ nhiều thiết bị)
-    public async Task NotifyUser(string userId, NotificationDto notification)
-    {
-        // Clients.User tự tập hợp tất cả connection của userId đó
-        await Clients.User(userId).ReceiveNotification(notification);
-    }
+    var teamId = Context.User!.FindFirstValue("team_id");
+    if (teamId is not null)
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"tenant:{tenantId}:team:{teamId}");
 
-    // Ví dụ thực tế: Sales team của tenant X vừa có deal mới
-    public async Task BroadcastNewDeal(string tenantId, string teamId, DealDto deal)
-    {
-        var notification = new NotificationDto
-        {
-            Id = Guid.NewGuid(),
-            Message = $"Deal mới: {deal.Name} — {deal.Value:C}",
-            Type = NotificationType.Success,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        // Chỉ sales team của tenant đó nhận được
-        await Clients.Group($"tenant-{tenantId}-team-{teamId}")
-                     .ReceiveNotification(notification);
-    }
+    await base.OnConnectedAsync();
 }
 ```
 
-### 11.7.2 — Quản lý group membership động
+Vì `OnConnectedAsync` chạy lại sau **mỗi** lần kết nối lại, nhóm tự khôi phục — client không cần nhớ gọi lại gì cả.
+
+Với nhóm động (phòng chat, bản ghi đang xem), client phải join lại, và bạn **phải** kiểm tra quyền mỗi lần:
 
 ```csharp
-// Khi nhân viên đổi team → cập nhật group membership
-public async Task SwitchTeam(string tenantId, string oldTeamId, string newTeamId)
+public async Task JoinDealRoom(Guid dealId)
 {
-    var oldGroup = $"tenant-{tenantId}-team-{oldTeamId}";
-    var newGroup = $"tenant-{tenantId}-team-{newTeamId}";
+    await using var scope = _scopeFactory.CreateAsyncScope();
+    var deals = scope.ServiceProvider.GetRequiredService<IDealRepository>();
 
-    await Groups.RemoveFromGroupAsync(Context.ConnectionId, oldGroup);
-    await Groups.AddToGroupAsync(Context.ConnectionId, newGroup);
+    if (!await deals.CanAccessAsync(dealId, Context.UserIdentifier!, Context.ConnectionAborted))
+        throw new HubException("Không có quyền truy cập");
+
+    await Groups.AddToGroupAsync(Context.ConnectionId, GroupNames.DealRoom(tenantId, dealId));
 }
 ```
 
----
+### 11.7.3 — Đặt tên nhóm
+
+Tên nhóm là chuỗi tự do, nên đặt tên sai là rò rỉ dữ liệu giữa các khách hàng:
+
+```csharp
+public static class GroupNames
+{
+    // LUON co tenant o dau — cach ly cung
+    public static string Tenant(Guid tenantId) => $"t:{tenantId}";
+    public static string Team(Guid tenantId, Guid teamId) => $"t:{tenantId}:team:{teamId}";
+    public static string DealRoom(Guid tenantId, Guid dealId) => $"t:{tenantId}:deal:{dealId}";
+    public static string Role(Guid tenantId, string role) => $"t:{tenantId}:role:{role}";
+}
+```
+
+Ba nguyên tắc:
+
+**Luôn có tenant id ở đầu.** Nhóm `deal:42` có thể va chạm giữa hai khách hàng nếu id không toàn cục duy nhất. `t:{tenant}:deal:42` thì không.
+
+**Dùng hằng số, không nối chuỗi tại chỗ.** `$"tenant-{id}"` ở một nơi và `$"tenant:{id}"` ở nơi khác là hai nhóm khác nhau — và tin nhắn im lặng không tới ai.
+
+**Đừng đưa dữ liệu nhạy cảm vào tên nhóm.** Tên nhóm xuất hiện trong log và trong backplane.
+
+### 11.7.4 — `Clients.User` khác nhóm ở đâu
+
+Với "gửi cho một người", bạn có hai lựa chọn:
+
+```csharp
+// Cach 1 — nhom mot nguoi (tu quan ly)
+await Groups.AddToGroupAsync(Context.ConnectionId, $"user:{userId}");
+await Clients.Group($"user:{userId}").Receive(dto);
+
+// Cach 2 — Clients.User (SignalR tu quan ly)
+await Clients.User(userId).Receive(dto);
+```
+
+Cách 2 tốt hơn ở mọi mặt:
+
+- SignalR **tự** duy trì ánh xạ người dùng sang kết nối, dựa trên `IUserIdProvider`.
+- Nó **tự khôi phục** sau mỗi lần kết nối lại, không cần `OnConnectedAsync` làm gì.
+- Nó hoạt động **xuyên instance** qua backplane mà không cần bạn làm gì.
+
+Cách 1 chỉ đáng dùng khi bạn cần một biến thể đặc biệt của "một người" — ví dụ chỉ gửi tới thiết bị di động của họ.
+
+### 11.7.5 — Chi phí broadcast
+
+Broadcast tới nhóm lớn có ba loại chi phí:
+
+**Serialize một lần, gửi N lần.** SignalR serialize payload một lần rồi gửi tới từng kết nối. 10.000 kết nối vẫn là 10.000 lượt ghi socket.
+
+**Backplane nhân lên.** Với Redis backplane, mỗi lần gửi nhóm là một lần publish lên Redis, và **mọi** instance nhận rồi mới lọc ra kết nối của mình. Broadcast thường xuyên tới nhóm lớn làm Redis thành nút cổ chai ([bài 11.11](11.11-scale-out-and-production.mdx)).
+
+**Client không xử lý kịp.** Gửi 1.000 tin mỗi giây tới một trình duyệt là nó treo.
+
+Ba cách giảm:
+
+```csharp
+// 1. Gom nhieu thay doi thanh mot tin
+await Clients.Group(g).ReceiveBatch(changes);          // thay vi N lan goi
+
+// 2. Gui tin hieu, client tu lay chi tiet
+await Clients.Group(g).DataChanged("deals");           // client goi REST
+
+// 3. Gioi han tan suat — toi da 1 tin moi 2 giay cho mot nhom
+```
+
+Cách 2 đặc biệt đáng dùng cho bảng điều khiển: thay vì đẩy toàn bộ dữ liệu, đẩy **một tín hiệu** rằng có thay đổi và để client gọi REST lấy dữ liệu mới. Payload nhỏ, và nó tôn trọng phân quyền — mỗi client chỉ nhận phần dữ liệu họ được xem, điều mà broadcast không làm được.
+
+Đây cũng là câu trả lời cho một vấn đề tinh tế: **broadcast không lọc theo quyền**. Mọi người trong nhóm nhận **cùng một payload**. Nếu payload chứa thứ chỉ một số người được xem, bạn vừa rò rỉ dữ liệu — và [bài 10.7](../module-10-authentication-authorization/10.7-resource-based-authorization.mdx) đã nói việc lọc quyền phải nằm ở tầng truy vấn.
+
+### 11.7.6 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát nhóm và nhắm đích"
+  items={[
+    { text: "Dùng Clients.User cho thông báo cá nhân, không tự tạo nhóm một người." },
+    { text: "Không dùng Clients.All trong hệ thống nhiều khách hàng." },
+    { text: "Mọi tên nhóm có tenant id ở đầu." },
+    { text: "Tên nhóm sinh từ hằng số, không nối chuỗi rải rác." },
+    { text: "Nhóm cố định được server gán trong OnConnectedAsync theo claim." },
+    { text: "Mọi Hub method cho client tham gia nhóm đều kiểm tra quyền." },
+    { text: "Payload broadcast không chứa dữ liệu mà chỉ một phần nhóm được xem." },
+    { text: "Bảng điều khiển đẩy tín hiệu thay đổi thay vì đẩy toàn bộ dữ liệu." },
+    { text: "Có giới hạn tần suất cho nhóm có lưu lượng cao." },
+    { text: "Chat dùng Others hoặc OthersInGroup để tránh nhân đôi tin của người gửi." },
+  ]}
+/>
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **Nhóm mất sau reconnect.** Join một nhóm bằng Hub method từ client, ngắt mạng rồi kết nối lại, và xác nhận client **không** còn nhận tin của nhóm. Chuyển sang gán ở `OnConnectedAsync` và kiểm chứng.
+
+2. **Tên nhóm lệch.** Dùng `$"tenant-{id}"` ở chỗ gửi và `$"tenant:{id}"` ở chỗ join. Xác nhận tin nhắn **không tới ai** và không có lỗi nào.
+
+3. **Chi phí broadcast.** Tạo 500 kết nối vào một nhóm, đẩy 100 tin mỗi giây, và đo CPU server cùng lưu lượng Redis. Chuyển sang gửi tín hiệu và so sánh.
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "Nhóm trong SignalR có bền vững không?",
+      answer: "Không. Nhóm là tập các ConnectionId giữ trong bộ nhớ hoặc backplane, và mọi thành viên biến mất khi kết nối đứt. Cũng không có API nào hỏi ai đang trong nhóm; cần biết thì phải tự lưu."
+    },
+    {
+      question: "Vì sao nên dùng Clients.User thay vì tự tạo nhóm một người?",
+      answer: "Vì SignalR tự duy trì ánh xạ người dùng sang kết nối dựa trên IUserIdProvider, tự khôi phục sau mỗi lần kết nối lại mà không cần OnConnectedAsync làm gì, và hoạt động xuyên instance qua backplane. Nhóm tự quản lý thì bạn phải tự lo tất cả."
+    },
+    {
+      question: "Đặt tên nhóm cần theo nguyên tắc nào?",
+      answer: "Luôn có tenant id ở đầu để tránh va chạm giữa các khách hàng, sinh tên từ hằng số thay vì nối chuỗi rải rác vì một dấu gạch ngang thay cho dấu hai chấm tạo ra hai nhóm khác nhau, và không đưa dữ liệu nhạy cảm vào tên nhóm vì nó xuất hiện trong log và backplane."
+    },
+    {
+      question: "AddToGroupAsync có kiểm tra quyền không?",
+      answer: "Không, tên nhóm là chuỗi tự do và không có quyền nào gắn với nó. Ai gọi được Hub method đó đều vào được nhóm bất kỳ, nên mọi method cho client tham gia nhóm đều phải tự kiểm tra quyền."
+    },
+    {
+      question: "Broadcast tới nhóm lớn tốn kém ở đâu?",
+      answer: "Payload được serialize một lần nhưng vẫn gửi N lượt ghi socket. Với backplane, mỗi lần gửi nhóm là một lần publish và mọi instance đều nhận rồi mới lọc, nên Redis dễ thành nút cổ chai. Và client cũng có thể không xử lý kịp nếu tần suất quá cao."
+    },
+    {
+      question: "Vì sao nên đẩy tín hiệu thay vì đẩy dữ liệu cho bảng điều khiển?",
+      answer: "Payload nhỏ hơn nhiều, và quan trọng hơn là nó tôn trọng phân quyền: mỗi client gọi REST và chỉ nhận phần dữ liệu họ được xem. Broadcast thì mọi người trong nhóm nhận cùng một payload, nên nếu nó chứa thứ chỉ một số người được xem thì bạn vừa rò rỉ dữ liệu."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **Nhóm biến mất khi kết nối đứt.** Gán nhóm cố định ở `OnConnectedAsync`.
+2. **`Clients.User` bền qua reconnect và xuyên instance** — luôn dùng nó cho "gửi cho một người".
+3. **Broadcast không lọc theo quyền.** Đẩy tín hiệu, để client gọi REST.
+
+## Tham khảo
+
+- [Manage users and groups in SignalR](https://learn.microsoft.com/en-us/aspnet/core/signalr/groups)
+- [Use hubs in SignalR for ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/signalr/hubs)
+- [Security considerations in ASP.NET Core SignalR](https://learn.microsoft.com/en-us/aspnet/core/signalr/security)
+- [SignalR scale-out considerations](https://learn.microsoft.com/en-us/aspnet/core/signalr/scale)
 
 ## Điều hướng
 
