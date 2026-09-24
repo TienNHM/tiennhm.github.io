@@ -1,40 +1,262 @@
 ---
 title: "19.13 — Ví dụ thực tế nhanh"
-description: "Ví dụ thực tế ngắn cho Module 19 — Performance engineering: áp dụng kiến thức vừa học vào một tình huống CRM/.NET backend cụ thể."
+description: "Một endpoint export Excel làm sập container: từ OOM kill tới streaming, kèm lỗi phổ biến nhất và cách tự kiểm tra trong 5 phút."
 sidebar_position: 13
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
 # 19.13 — Ví dụ thực tế nhanh
 
+<SummaryBox>
+Một ví dụ ngắn nhưng đắt giá: endpoint export danh sách lead ra Excel chạy tốt suốt một năm, rồi một ngày làm **container bị OOM kill** — và điều tệ nhất là nó không chỉ làm hỏng request export, mà làm **mọi request đang chạy trên instance đó** chết theo. Nguyên nhân: toàn bộ 200.000 bản ghi được nạp vào `List`, rồi dựng thành một file Excel trong `MemoryStream`, rồi copy sang mảng byte để trả về — **ba bản sao** của cùng dữ liệu tồn tại cùng lúc. Cách sửa là **streaming**, và nó cũng dạy một bài học chung: trong backend, thứ nguy hiểm không phải code chậm mà là code có mức tiêu thụ bộ nhớ **tỷ lệ với dữ liệu đầu vào**.
+</SummaryBox>
+
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Nhận ra code có bộ nhớ tỷ lệ với dữ liệu đầu vào.
+- Chuyển một endpoint export sang streaming.
+- Giải thích vì sao OOM kill nguy hiểm hơn một lỗi thường.
+- Tự kiểm tra rủi ro này trong dự án chỉ với vài phút.
 
 ## Nội dung bài học
 
-- Một ví dụ áp dụng trực tiếp vào luồng CRM/ERP hiện tại.
-- Một lỗi phổ biến dễ gặp khi triển khai thật.
-- Một cách kiểm tra nhanh để tự xác nhận bạn đã hiểu đúng.
+### 19.13.1 — Ví dụ: export Excel
+
+```csharp
+// Code that — chay tot voi 5.000 lead, GIET container voi 200.000
+[HttpGet("export")]
+public async Task<IActionResult> ExportLeads(CancellationToken ct)
+{
+    // Ban sao 1: toan bo entity trong bo nho
+    var leads = await _db.Leads.Where(l => l.TenantId == _tenant.Id).ToListAsync(ct);
+
+    using var workbook = new XLWorkbook();
+    var sheet = workbook.Worksheets.Add("Leads");
+
+    for (int i = 0; i < leads.Count; i++)
+    {
+        sheet.Cell(i + 2, 1).Value = leads[i].Name;
+        sheet.Cell(i + 2, 2).Value = leads[i].Email;
+        sheet.Cell(i + 2, 3).Value = leads[i].Value;
+    }
+
+    // Ban sao 2: ca file Excel trong bo nho
+    using var stream = new MemoryStream();
+    workbook.SaveAs(stream);
+
+    // Ban sao 3: ToArray() COPY toan bo stream sang mang moi
+    return File(stream.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "leads.xlsx");
+}
+```
+
+Ước lượng bộ nhớ với 200.000 lead:
+
+```
+Ban sao 1: 200.000 entity x ~800 B          = ~160 MB
+Ban sao 2: workbook trong MemoryStream      = ~180 MB
+Ban sao 3: ToArray() copy stream            = ~180 MB
+Object trung gian cua thu vien Excel        = ~200 MB
+                                            ----------
+Dinh bo nho cho MOT request                 = ~720 MB
+```
+
+Container có `memory limit: 512Mi` → **OOM kill**.
+
+### 19.13.2 — Vì sao OOM kill tệ hơn một lỗi thường
+
+```
+Request export bat dau
+Bo nho tang dan: 200MB... 400MB... 512MB
+Kernel OOM killer GIET tien trinh — KHONG co exception, KHONG co log
+
+Hau qua:
+  - 40 request khac dang chay tren instance do: MAT HET
+  - Khong co stack trace de dieu tra
+  - Kubernetes restart pod, vai giay khong phuc vu duoc
+  - Lan sau van vay
+```
+
+Đây là điểm quan trọng nhất: một lỗi thường chỉ làm **một** request thất bại và để lại stack trace. OOM kill giết **cả tiến trình**, không để lại gì trong log ứng dụng, và kéo theo mọi request đang chạy ([bài 15.10](../../stage-04-database-production/module-15-docker-deployment/15.10-awareness-level.mdx)).
+
+Dấu hiệu nhận ra trong Kubernetes:
+
+```bash
+kubectl describe pod crm-api-7d8f9
+
+# Last State:  Terminated
+#   Reason:    OOMKilled          <-- day
+#   Exit Code: 137                <-- 128 + 9 (SIGKILL)
+```
+
+`Exit Code 137` là chữ ký của OOM kill. Nếu thấy nó trong lịch sử pod, bạn có vấn đề bộ nhớ chứ không phải bug logic.
+
+### 19.13.3 — Sửa bằng streaming
+
+```csharp
+[HttpGet("export")]
+public async Task ExportLeads(CancellationToken ct)
+{
+    Response.ContentType = "text/csv";
+    Response.Headers.ContentDisposition = "attachment; filename=leads.csv";
+
+    await using var writer = new StreamWriter(Response.Body);
+    await writer.WriteLineAsync("Name,Email,Value");
+
+    // AsAsyncEnumerable: doc TUNG hang, khong nap het vao bo nho
+    var query = _db.Leads
+        .AsNoTracking()
+        .Where(l => l.TenantId == _tenant.Id)
+        .Select(l => new { l.Name, l.Email, l.Value })
+        .AsAsyncEnumerable();
+
+    await foreach (var lead in query.WithCancellation(ct))
+    {
+        await writer.WriteLineAsync($"{Escape(lead.Name)},{lead.Email},{lead.Value}");
+    }
+}
+```
+
+Bộ nhớ giờ là **hằng số** — khoảng vài MB bất kể 5.000 hay 5 triệu bản ghi.
+
+Bốn thay đổi tạo nên khác biệt:
+
+| Thay đổi | Tác dụng |
+|---|---|
+| `AsAsyncEnumerable` | Đọc từng hàng, không nạp hết |
+| `Select` projection | Chỉ lấy 3 cột cần |
+| `AsNoTracking` | Không giữ snapshot change tracking |
+| Ghi thẳng `Response.Body` | Không có bản sao trung gian nào |
+
+Đổi từ Excel sang CSV cũng là một quyết định có chủ đích: định dạng Excel **buộc phải** dựng toàn bộ workbook trong bộ nhớ trước khi ghi ra. Nếu nghiệp vụ bắt buộc `.xlsx`, dùng thư viện hỗ trợ streaming (ví dụ chế độ `SpreadsheetWriter` của OpenXML SDK), hoặc chuyển export sang **job nền** và gửi link tải về sau ([bài 14.7](../../stage-04-database-production/module-14-caching-background-jobs/14.7-hangfire-background-jobs.mdx)).
+
+### 19.13.4 — Lỗi phổ biến nhất khi sửa
+
+```csharp
+// VAN SAI — ToListAsync van nap het roi moi ghi tung dong
+var leads = await query.ToListAsync(ct);
+foreach (var lead in leads)
+    await writer.WriteLineAsync(...);
+```
+
+Ghi ra từng dòng **không** giải quyết gì nếu bạn đã nạp hết vào bộ nhớ trước đó. Phần tốn bộ nhớ nằm ở `ToListAsync`, không phải ở vòng lặp ghi.
+
+Một biến thể tinh vi hơn:
+
+```csharp
+// CUNG SAI — phan trang nhung van gom lai
+var all = new List<Lead>();
+for (int page = 0; ; page++)
+{
+    var batch = await query.Skip(page * 1000).Take(1000).ToListAsync(ct);
+    if (batch.Count == 0) break;
+    all.AddRange(batch);            // van gom het vao bo nho!
+}
+```
+
+Phân trang chỉ giúp nếu bạn **xử lý xong rồi bỏ** mỗi lô, không giữ lại.
+
+### 19.13.5 — Tự kiểm tra trong 5 phút
+
+Ba câu hỏi rà nhanh toàn dự án:
+
+**1. Tìm mọi `ToListAsync` không có `Take`:**
+
+```bash
+grep -rn "ToListAsync" --include=*.cs src/ | grep -v "Take(" | grep -v "FirstOrDefault"
+```
+
+Mỗi kết quả là một chỗ **có thể** nạp không giới hạn. Với truy vấn theo `TenantId`, số bản ghi phụ thuộc tenant — và một tenant lớn có thể làm sập hệ thống.
+
+**2. Tìm `MemoryStream` kèm `ToArray`:**
+
+```bash
+grep -rn "\.ToArray()" --include=*.cs src/ | grep -i "stream"
+```
+
+`ToArray()` trên `MemoryStream` **nhân đôi** bộ nhớ ngay tại thời điểm đó. Dùng `GetBuffer()` hoặc ghi thẳng vào `Response.Body`.
+
+**3. Kiểm tra lịch sử OOM:**
+
+```bash
+kubectl get pods -o json | jq -r '
+  .items[] | select(.status.containerStatuses[]?.lastState.terminated.reason == "OOMKilled")
+  | .metadata.name'
+```
+
+Nếu có kết quả, đã có OOM kill xảy ra mà có thể chưa ai để ý — vì nó không xuất hiện trong log ứng dụng.
+
+### 19.13.6 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát bộ nhớ theo dữ liệu đầu vào"
+  items={[
+    { text: "Không có ToListAsync nào trên truy vấn không giới hạn số hàng." },
+    { text: "Endpoint export dùng streaming, không dựng cả file trong bộ nhớ." },
+    { text: "Không gọi ToArray trên MemoryStream lớn." },
+    { text: "Truy vấn export dùng projection và AsNoTracking." },
+    { text: "Export định dạng bắt buộc dựng toàn bộ đã chuyển sang job nền." },
+    { text: "Đã kiểm tra lịch sử pod có OOMKilled hay không." },
+    { text: "Container có memory limit và có cảnh báo khi dùng gần ngưỡng." },
+    { text: "Đã kiểm thử export với lượng dữ liệu của tenant lớn nhất." },
+  ]}
+/>
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **Tái hiện OOM.** Tạo 200.000 bản ghi, chạy endpoint export kiểu cũ trong container giới hạn 512Mi, và xác nhận exit code 137.
+
+2. **Đo bộ nhớ hai cách.** Dùng `dotnet-counters` theo dõi `GC Heap Size` trong lúc chạy cả hai phiên bản export.
+
+3. **Rà dự án.** Chạy ba lệnh kiểm tra ở mục 19.13.5 trên dự án thật và đếm số vị trí cần xem lại.
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "Vì sao ba bản sao dữ liệu cùng tồn tại trong ví dụ ban đầu?",
+      answer: "Bản một là toàn bộ entity nạp bằng ToListAsync, bản hai là file Excel dựng trong MemoryStream, bản ba là mảng byte do ToArray copy ra từ stream. Cộng thêm object trung gian của thư viện Excel, đỉnh bộ nhớ cho một request vượt xa giới hạn container."
+    },
+    {
+      question: "Vì sao OOM kill nguy hiểm hơn một lỗi thường?",
+      answer: "Vì nó giết cả tiến trình chứ không chỉ một request, nên mọi request đang chạy trên instance đó mất hết. Nó cũng không để lại exception hay stack trace trong log ứng dụng, nên rất khó điều tra."
+    },
+    {
+      question: "Dấu hiệu nào nhận ra OOM kill trong Kubernetes?",
+      answer: "Trạng thái terminated với lý do OOMKilled và exit code 137, tức 128 cộng 9 của SIGKILL. Thấy nó trong lịch sử pod nghĩa là có vấn đề bộ nhớ chứ không phải bug logic."
+    },
+    {
+      question: "Vì sao ghi ra từng dòng chưa chắc giải quyết vấn đề?",
+      answer: "Vì nếu vẫn gọi ToListAsync trước đó thì dữ liệu đã nằm hết trong bộ nhớ rồi. Phần tốn bộ nhớ nằm ở việc nạp dữ liệu, không nằm ở vòng lặp ghi."
+    },
+    {
+      question: "Phân trang có giải quyết được vấn đề không?",
+      answer: "Chỉ khi bạn xử lý xong rồi bỏ mỗi lô. Nếu gom mọi lô vào một danh sách chung thì kết quả y hệt việc nạp hết một lần, chỉ chậm hơn."
+    },
+    {
+      question: "Nếu nghiệp vụ bắt buộc định dạng xlsx thì sao?",
+      answer: "Dùng thư viện hỗ trợ ghi theo dòng thay vì dựng toàn bộ workbook trong bộ nhớ, hoặc chuyển export sang job nền rồi gửi cho người dùng một đường dẫn tải về sau khi file đã sẵn sàng."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **Code có bộ nhớ tỷ lệ với dữ liệu đầu vào là quả bom hẹn giờ** — nó chỉ chờ một tenant đủ lớn.
+2. **OOM kill giết cả tiến trình và không để lại log.** Exit code 137 là chữ ký của nó.
+3. **Streaming giữ bộ nhớ ở mức hằng số**, bất kể dữ liệu lớn tới đâu.
+
+## Tham khảo
+
+- [ASP.NET Core performance best practices](https://learn.microsoft.com/en-us/aspnet/core/performance/performance-best-practices)
+- [EF Core performance](https://learn.microsoft.com/en-us/ef/core/performance/)
+- [dotnet-counters](https://learn.microsoft.com/en-us/dotnet/core/diagnostics/dotnet-counters)
+- [dotnet-gcdump](https://learn.microsoft.com/en-us/dotnet/core/diagnostics/dotnet-gcdump)
 
 ## Điều hướng
 
