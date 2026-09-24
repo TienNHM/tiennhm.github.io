@@ -1,40 +1,269 @@
 ---
 title: "2.13 — Ví dụ thực tế nhanh"
-description: "Ví dụ thực tế ngắn cho Module 2 — Computer science basics: áp dụng kiến thức vừa học vào một tình huống CRM/.NET backend cụ thể."
+description: "Lỗi CORS chặn mọi lời gọi API từ frontend: đọc thông điệp lỗi đúng cách, hiểu preflight, và ba cấu hình sai thường gặp."
 sidebar_position: 13
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
 # 2.13 — Ví dụ thực tế nhanh
 
+<SummaryBox>
+Lỗi CORS là thứ **mọi** lập trình viên backend đều gặp, và cũng là thứ bị hiểu sai nhiều nhất. Hiểu lầm phổ biến nhất: nghĩ rằng "server chặn request" — thực tế **server đã nhận và đã xử lý request**, chỉ là **trình duyệt** từ chối đưa phản hồi cho JavaScript vì thiếu một header. Hiểu lầm đó dẫn tới việc tìm sai chỗ hàng giờ. Bài này chỉ cách đọc thông điệp lỗi để biết **chính xác** thiếu gì, giải thích **preflight** — lý do khiến "GET thì được mà POST thì lỗi" — và ba cấu hình sai hay gặp, trong đó có một cấu hình **trông như đã bật CORS** nhưng thực ra không hoạt động.
+</SummaryBox>
+
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Đọc thông điệp lỗi CORS và biết chính xác thiếu gì.
+- Giải thích preflight request và khi nào nó xảy ra.
+- Cấu hình CORS đúng trong ASP.NET Core.
+- Tránh ba cấu hình sai thường gặp.
 
 ## Nội dung bài học
 
-- Một tình huống áp dụng trực tiếp trong dự án.
-- Một lỗi thường gặp khi triển khai ngoài thực tế.
-- Một câu tự kiểm tra để xác nhận bạn hiểu đúng bản chất.
+### 2.13.1 — Thông điệp lỗi
+
+```
+Access to fetch at 'https://api.company.com/leads'
+from origin 'https://crm.company.com' has been blocked by CORS policy:
+No 'Access-Control-Allow-Origin' header is present on the requested resource.
+```
+
+Đọc từng phần:
+
+| Phần | Nghĩa |
+|---|---|
+| `from origin 'https://crm.company.com'` | Trang web đang gọi |
+| `at 'https://api.company.com/leads'` | Đích đến |
+| `No 'Access-Control-Allow-Origin' header` | **Thiếu chính xác header này** |
+
+Thông điệp nói thẳng thiếu gì. Ba biến thể khác bạn sẽ gặp:
+
+```
+... does not have HTTP ok status.
+    -> Server tra ve loi cho request preflight (OPTIONS)
+
+... The value of the 'Access-Control-Allow-Origin' header is not equal to
+    the supplied origin.
+    -> Co header nhung SAI gia tri origin
+
+... Request header field authorization is not allowed by
+    Access-Control-Allow-Headers.
+    -> Thieu khai bao header 'authorization' duoc phep
+```
+
+Mỗi biến thể chỉ ra một chỗ sửa khác nhau. Đọc kỹ tiết kiệm rất nhiều thời gian ([CORS trên MDN](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS)).
+
+### 2.13.2 — Hiểu lầm lớn nhất
+
+```
+Hieu SAI:  "Server tu choi request cua toi."
+Thuc te:   Server DA NHAN request, DA XU LY, DA TRA VE phan hoi.
+           TRINH DUYET tu choi dua phan hoi do cho JavaScript.
+```
+
+Bằng chứng: chạy cùng request bằng `curl` sẽ **thành công**.
+
+```bash
+curl -i https://api.company.com/leads -H "Origin: https://crm.company.com"
+# 200 OK — du lieu tra ve binh thuong
+```
+
+`curl` không phải trình duyệt nên không thực thi chính sách CORS.
+
+Hệ quả quan trọng về **bảo mật**: CORS **không bảo vệ API của bạn**. Nó bảo vệ **người dùng** khỏi việc một trang web độc hại đọc dữ liệu từ một trang khác mà họ đang đăng nhập. Ai cũng gọi API của bạn được bằng `curl` hoặc Postman — nên xác thực và phân quyền vẫn là bắt buộc ([bài 2.8](2.8-authentication-and-authorization.mdx)).
+
+### 2.13.3 — Preflight: vì sao GET được mà POST lỗi
+
+Với một số request, trình duyệt gửi **trước** một request `OPTIONS` để hỏi xem có được phép không:
+
+```
+1. Trinh duyet -> OPTIONS /api/leads
+                  Origin: https://crm.company.com
+                  Access-Control-Request-Method: POST
+                  Access-Control-Request-Headers: authorization, content-type
+
+2. Server      -> 204 No Content
+                  Access-Control-Allow-Origin: https://crm.company.com
+                  Access-Control-Allow-Methods: GET, POST, PUT, DELETE
+                  Access-Control-Allow-Headers: authorization, content-type
+                  Access-Control-Max-Age: 3600
+
+3. Trinh duyet -> POST /api/leads   (gio moi gui request that)
+```
+
+**Khi nào có preflight:** khi request dùng method khác `GET`/`HEAD`/`POST`, hoặc có header tuỳ chỉnh (như `Authorization`), hoặc `Content-Type` là `application/json`.
+
+Điều này giải thích triệu chứng rất hay gặp: **`GET` đơn giản thì chạy, nhưng `POST` với JSON thì lỗi** — vì cái sau kích hoạt preflight còn cái trước thì không.
+
+**`Access-Control-Max-Age`** cho trình duyệt nhớ kết quả preflight, tránh gửi `OPTIONS` trước **mỗi** request. Thiếu nó nghĩa là số request tăng gấp đôi.
+
+### 2.13.4 — Cấu hình đúng trong ASP.NET Core
+
+```csharp
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("CrmFrontend", policy =>
+    {
+        policy.WithOrigins(
+                  "https://crm.company.com",
+                  "http://localhost:5173")        // moi truong phat trien
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials()                 // neu dung cookie
+              .SetPreflightMaxAge(TimeSpan.FromHours(1));
+    });
+});
+
+var app = builder.Build();
+
+app.UseCors("CrmFrontend");     // PHAI truoc UseAuthentication va MapControllers
+```
+
+### 2.13.5 — Ba cấu hình sai thường gặp
+
+**Sai 1 — `UseCors` đặt sai vị trí.**
+
+```csharp
+// SAI — CORS chay SAU khi request da bi tu choi vi chua xac thuc
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseCors("CrmFrontend");     // qua muon
+app.MapControllers();
+```
+
+Middleware chạy **theo thứ tự đăng ký**. Request `OPTIONS` của preflight **không mang token**, nên nếu `UseAuthentication` chạy trước, nó bị từ chối với 401 — và phản hồi 401 đó không có header CORS, nên trình duyệt báo lỗi CORS thay vì lỗi xác thực. Đây là cấu hình sai gây nhầm lẫn nhiều nhất ([bài 8.3](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.3-request-pipeline-and-middleware.mdx)).
+
+**Sai 2 — `AllowAnyOrigin` cùng `AllowCredentials`.**
+
+```csharp
+// KHONG HOAT DONG — dac ta cam to hop nay
+policy.AllowAnyOrigin().AllowCredentials();
+```
+
+Đặc tả CORS **cấm** dùng `*` cho origin khi có `credentials`, vì như vậy bất kỳ trang web nào cũng đọc được dữ liệu của người dùng đang đăng nhập. ASP.NET Core sẽ ném exception lúc khởi động.
+
+Phải liệt kê origin cụ thể:
+
+```csharp
+policy.WithOrigins("https://crm.company.com").AllowCredentials();
+```
+
+**Sai 3 — `AllowAnyOrigin` trên production.**
+
+```csharp
+// SAI tren production
+policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
+```
+
+Nó "sửa được lỗi" ngay nên rất hấp dẫn, nhưng nó cho **mọi** trang web gọi API của bạn từ trình duyệt của người dùng. Với API công khai không có xác thực thì chấp nhận được; với API nội bộ thì không.
+
+Cách đúng: đọc danh sách origin từ cấu hình theo môi trường.
+
+```csharp
+policy.WithOrigins(builder.Configuration.GetSection("Cors:Origins").Get<string[]>()!)
+```
+
+### 2.13.6 — Tự kiểm tra trong vài phút
+
+**1. Xem preflight có thành công không:**
+
+```bash
+curl -i -X OPTIONS https://api.company.com/leads \
+  -H "Origin: https://crm.company.com" \
+  -H "Access-Control-Request-Method: POST" \
+  -H "Access-Control-Request-Headers: authorization,content-type"
+```
+
+Phải trả về `204` hoặc `200` **kèm** các header `Access-Control-Allow-*`. Nếu trả về `401` hoặc `404`, vấn đề nằm ở thứ tự middleware hoặc route.
+
+**2. Kiểm tra thứ tự middleware:**
+
+```bash
+grep -n "UseCors\|UseAuthentication\|UseAuthorization\|MapControllers" Program.cs
+```
+
+`UseCors` phải đứng **trước** cả ba cái còn lại.
+
+**3. Kiểm tra origin khớp chính xác:**
+
+```
+https://crm.company.com   va   https://crm.company.com/   -> KHAC NHAU
+http://localhost:5173     va   http://127.0.0.1:5173      -> KHAC NHAU
+```
+
+So khớp origin là **chính xác từng ký tự**, không có dấu `/` ở cuối, và `localhost` khác `127.0.0.1` dù trỏ cùng một chỗ.
+
+### 2.13.7 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát CORS"
+  items={[
+    { text: "UseCors đặt trước UseAuthentication, UseAuthorization và MapControllers." },
+    { text: "Không dùng AllowAnyOrigin trên production cho API có xác thực." },
+    { text: "Origin liệt kê cụ thể và đọc từ cấu hình theo môi trường." },
+    { text: "Origin viết chính xác, không thừa dấu gạch chéo cuối." },
+    { text: "Đã đặt SetPreflightMaxAge để giảm số request OPTIONS." },
+    { text: "Đã thử request OPTIONS bằng curl và xác nhận trả về header đúng." },
+    { text: "Hiểu rằng CORS không bảo vệ API, nên vẫn có xác thực và phân quyền." },
+  ]}
+/>
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **Tái hiện lỗi.** Dựng một API ASP.NET Core không bật CORS và gọi nó từ một trang HTML ở origin khác. Đọc thông điệp lỗi trong console.
+
+2. **Quan sát preflight.** Gọi `GET` rồi gọi `POST` với JSON, xem tab Network và đếm số request thực tế được gửi.
+
+3. **Thử sai thứ tự.** Đặt `UseCors` sau `UseAuthentication` và quan sát thông điệp lỗi thay đổi thế nào.
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "Hiểu lầm lớn nhất về CORS là gì?",
+      answer: "Nghĩ rằng server chặn request. Thực tế server đã nhận, đã xử lý và đã trả về phản hồi, chỉ là trình duyệt từ chối đưa phản hồi đó cho JavaScript vì thiếu header. Chạy cùng request bằng curl sẽ thành công."
+    },
+    {
+      question: "CORS bảo vệ ai?",
+      answer: "Nó bảo vệ người dùng khỏi việc một trang web độc hại đọc dữ liệu từ một trang khác mà họ đang đăng nhập. Nó không bảo vệ API, vì ai cũng gọi API được bằng curl hay Postman. Xác thực và phân quyền vẫn là bắt buộc."
+    },
+    {
+      question: "Khi nào trình duyệt gửi preflight?",
+      answer: "Khi request dùng method khác GET, HEAD hoặc POST, hoặc có header tuỳ chỉnh như Authorization, hoặc Content-Type là application/json. Đó là lý do GET đơn giản thì chạy mà POST với JSON thì lỗi."
+    },
+    {
+      question: "Vì sao UseCors phải đứng trước UseAuthentication?",
+      answer: "Vì request OPTIONS của preflight không mang token. Nếu UseAuthentication chạy trước, nó từ chối với 401, và phản hồi 401 đó không có header CORS nên trình duyệt báo lỗi CORS thay vì lỗi xác thực."
+    },
+    {
+      question: "Vì sao không dùng được AllowAnyOrigin cùng AllowCredentials?",
+      answer: "Vì đặc tả CORS cấm tổ hợp đó: nếu cho phép mọi origin kèm credentials thì bất kỳ trang web nào cũng đọc được dữ liệu của người dùng đang đăng nhập. ASP.NET Core ném exception ngay lúc khởi động."
+    },
+    {
+      question: "Vì sao cần SetPreflightMaxAge?",
+      answer: "Để trình duyệt nhớ kết quả preflight trong một khoảng thời gian, tránh gửi request OPTIONS trước mỗi lời gọi. Thiếu nó thì số request thực tế tăng gấp đôi."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **CORS là chính sách của trình duyệt**, không phải của server — `curl` vẫn gọi được.
+2. **Thứ tự middleware là nguyên nhân số một** của lỗi CORS khó hiểu.
+3. **CORS không thay thế xác thực.** Nó bảo vệ người dùng, không bảo vệ API.
+
+## Tham khảo
+
+- [CORS trên MDN](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS)
+- [HTTP trên MDN](https://developer.mozilla.org/en-US/docs/Web/HTTP)
+- [ASP.NET Core fundamentals](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/)
+- [RFC 9110 — HTTP Semantics](https://datatracker.ietf.org/doc/html/rfc9110)
 
 ## Điều hướng
 
