@@ -123,7 +123,7 @@ public async Task<Result<OrderDto>> CreateAsync(
 {
     var existing = await _store.GetAsync(idempotencyKey, ct);
     if (existing is not null)
-        return Result.Success(existing.Response);    // tra lai ket qua cu
+        return Result.Success(existing.Response);    // trả lại kết quả cũ
 
     var order = await _orders.CreateAsync(request, ct);
     await _store.SaveAsync(idempotencyKey, order, TimeSpan.FromHours(24), ct);
@@ -260,23 +260,23 @@ app.MapPost("/orders", async (
         return Results.BadRequest("Thiếu header Idempotency-Key");
 
     // Ghi khoá TRƯỚC, dựa vào ràng buộc duy nhất của database
-    var ban = new IdempotencyRecord { Key = key, CreatedAt = DateTime.UtcNow };
-    db.IdempotencyRecords.Add(ban);
+    var record = new IdempotencyRecord { Key = key, CreatedAt = DateTime.UtcNow };
+    db.IdempotencyRecords.Add(record);
     try
     {
         await db.SaveChangesAsync(ct);
     }
-    catch (DbUpdateException) when (LaLoiTrungKhoa())
+    catch (DbUpdateException) when (IsUniqueViolation())
     {
         // Đã xử lý rồi — trả lại kết quả cũ
-        var cu = await db.IdempotencyRecords.AsNoTracking()
-                         .FirstAsync(x => x.Key == key, ct);
-        return Results.Ok(JsonSerializer.Deserialize<Order>(cu.Response!));
+        var saved = await db.IdempotencyRecords.AsNoTracking()
+                           .FirstAsync(x => x.Key == key, ct);
+        return Results.Ok(JsonSerializer.Deserialize<Order>(saved.Response!));
     }
 
     var order = new Order { CustomerId = req.CustomerId, Total = req.Total };
     db.Orders.Add(order);
-    ban.Response = JsonSerializer.Serialize(order);
+    record.Response = JsonSerializer.Serialize(order);
     await db.SaveChangesAsync(ct);
 
     return Results.Created($"/orders/{order.Id}", order);
@@ -417,17 +417,17 @@ Lưu bước hiện tại của một biểu mẫu nhiều bước vào bộ nh�
 public static class WizardStore
 {
     private static readonly ConcurrentDictionary<string, WizardState> _store = new();
-    public static void Luu(string id, WizardState s) => _store[id] = s;
+    public static void Save(string id, WizardState s) => _store[id] = s;
     public static WizardState? Get(string id) => _store.GetValueOrDefault(id);
 }
 
-app.MapPost("/wizard/{id}/buoc/{n:int}", (string id, int n, StepData data) =>
+app.MapPost("/wizard/{id}/steps/{n:int}", (string id, int n, StepData data) =>
 {
     var s = WizardStore.Get(id) ?? new WizardState();
-    s.Buoc = n;
-    s.DuLieu[n] = data;
-    WizardStore.Luu(id, s);
-    return Results.Ok(new { buocTiepTheo = n + 1 });
+    s.Step = n;
+    s.Data[n] = data;
+    WizardStore.Save(id, s);
+    return Results.Ok(new { nextStep = n + 1 });
 });
 
 app.MapGet("/wizard/{id}", (string id) =>

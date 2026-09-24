@@ -189,7 +189,7 @@ public sealed class TestAuthHandler(
 {
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        // Doc vai tro tu header de moi test tu chon danh tinh
+        // Đọc vai trò từ header để mỗi bài kiểm thử tự chọn danh tính
         var roles = Context.Request.Headers["X-Test-Roles"].ToString()
             .Split(',', StringSplitOptions.RemoveEmptyEntries);
 
@@ -238,7 +238,7 @@ Phân quyền vẫn chạy đầy đủ; chỉ phần lấy danh tính bị thay
 public async Task Create_WithInvalidEmail_Returns400WithProblemDetails()
 {
     var response = await _client.PostAsJsonAsync("/api/v1/customers",
-        new { name = "Test", email = "khong-phai-email" });
+        new { name = "Test", email = "not-an-email" });
 
     Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
 
@@ -264,7 +264,7 @@ public async Task Create_ReturnsLocationHeader()
     Assert.NotNull(response.Headers.Location);
 
     var follow = await _client.GetAsync(response.Headers.Location);
-    Assert.Equal(HttpStatusCode.OK, follow.StatusCode);      // URL tra ve phai dung
+    Assert.Equal(HttpStatusCode.OK, follow.StatusCode);      // URL trả về phải dùng được
 }
 ```
 
@@ -307,7 +307,7 @@ Viết một bài kiểm thử cho ràng buộc duy nhất trên email. Chạy v
 [Fact]
 public async Task KhongChoPhepEmailTrung()
 {
-    using var db = TaoContext();
+    using var db = CreateContext();
 
     db.Customers.Add(new Customer("An",  new Email("a@x.com")));
     db.Customers.Add(new Customer("Bình", new Email("a@x.com")));   // TRÙNG
@@ -375,11 +375,11 @@ Thêm hai thứ nữa: không có **so sánh chuỗi theo quy tắc của databa
 
 ```csharp
 // Kiểm thử logic tính hoa hồng — database chỉ là nơi lấy dữ liệu
-var db = TaoInMemory();
-db.Orders.AddRange(TaoDuLieuMau());
+var db = CreateInMemory();
+db.Orders.AddRange(CreateSampleData());
 await db.SaveChangesAsync();
 
-var result = await new HoaHongService(db).TinhAsync(42, default);
+var result = await new CommissionService(db).CalculateAsync(42, default);
 Assert.Equal(1_250_000m, result);
 ```
 
@@ -421,9 +421,9 @@ Viết hai lớp kiểm thử cùng tạo dữ liệu và một bài đếm tổ
 public class CustomerTests(DatabaseFixture fx) : IClassFixture<DatabaseFixture>
 {
     [Fact]
-    public async Task TaoKhachHang()
+    public async Task CreateCustomer()
     {
-        using var db = fx.TaoContext();
+        using var db = fx.CreateContext();
         db.Customers.Add(new Customer("An", new Email("an@x.com")));
         await db.SaveChangesAsync();
         Assert.Equal(1, await db.Customers.CountAsync());      // giả định database trống
@@ -433,9 +433,9 @@ public class CustomerTests(DatabaseFixture fx) : IClassFixture<DatabaseFixture>
 public class OrderTests(DatabaseFixture fx) : IClassFixture<DatabaseFixture>
 {
     [Fact]
-    public async Task TaoDonHang()
+    public async Task CreateOrder()
     {
-        using var db = fx.TaoContext();
+        using var db = fx.CreateContext();
         db.Customers.Add(new Customer("Bình", new Email("binh@x.com")));
         await db.SaveChangesAsync();
         Assert.Equal(1, await db.Customers.CountAsync());      // cũng giả định vậy
@@ -476,7 +476,7 @@ public class DatabaseFixture : IAsyncLifetime
     public async Task InitializeAsync()
     {
         await _db.StartAsync();
-        await ChayMigrationAsync();
+        await RunMigrationsAsync();
 
         _respawner = await Respawner.CreateAsync(ConnectionString, new RespawnerOptions
         {
@@ -521,10 +521,10 @@ Viết lại bài kiểm thử ở trên cho đúng:
 
 ```csharp
 [Fact]
-public async Task TaoKhachHang()
+public async Task CreateCustomer()
 {
     await fx.CleanAsync();
-    using var db = fx.TaoContext();
+    using var db = fx.CreateContext();
     db.Customers.Add(new Customer("An", new Email("an@x.com")));
     await db.SaveChangesAsync();
 
@@ -551,13 +551,13 @@ Chú ý khẳng định đã đổi: thay vì đếm tổng — vốn phụ thu�
 **Lời giải — code có lỗi:**
 
 ```csharp
-[HttpGet("{id:int}", Name = "LayKhachHangTheoId")]
+[HttpGet("{id:int}", Name = "GetCustomerById")]
 public async Task<IActionResult> TheoId(int id) { }
 
 [HttpPost]
 public async Task<IActionResult> Create(CreateCustomerRequest req, CancellationToken ct)
 {
-    var customer = await _svc.TaoAsync(req, ct);
+    var customer = await _svc.CreateAsync(req, ct);
     return CreatedAtRoute("GetCustomerById", new { id = customer.Id }, customer);
     //                     ^^^^^^^^^^^^^^^ tên route KHÔNG TỒN TẠI
 }
@@ -567,7 +567,7 @@ public async Task<IActionResult> Create(CreateCustomerRequest req, CancellationT
 
 ```csharp
 [Fact]
-public async Task Tao_TraVe201()
+public async Task Create_Returns201()
 {
     var ctrl = new CustomersController(_svcGia);
     var result = await ctrl.Create(new CreateCustomerRequest("An", "an@x.com"), default);
@@ -583,7 +583,7 @@ public async Task Tao_TraVe201()
 
 ```csharp
 [Fact]
-public async Task Tao_TraVeLocationHopLe()
+public async Task Create_ReturnsValidLocation()
 {
     var res = await _client.PostAsJsonAsync("/api/v1/customers",
         new { name = "An", email = "an@x.com" });

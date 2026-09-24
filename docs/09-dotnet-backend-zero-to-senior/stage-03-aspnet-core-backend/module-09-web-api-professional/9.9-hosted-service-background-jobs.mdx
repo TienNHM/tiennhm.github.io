@@ -37,17 +37,17 @@ Bài này tập trung loại thứ nhất; loại thứ hai đã nói ở Module
 ### 9.10.2 — `PeriodicTimer` thay cho `Task.Delay`
 
 ```csharp
-// CACH CU — troi dan theo thoi gian
+// CÁCH CŨ — trôi dần theo thời gian
 while (!stoppingToken.IsCancellationRequested)
 {
-    await DoWorkAsync(stoppingToken);              // mat 8 giay
+    await DoWorkAsync(stoppingToken);              // mất 8 giây
     await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
-    // Chu ky thuc te: 5 phut 8 giay, roi 5 phut 16 giay...
+    // Chu kỳ thực tế: 5 phút 8 giây, rồi 5 phút 16 giây...
 }
 ```
 
 ```csharp
-// .NET 6+ — chu ky on dinh
+// .NET 6+ — chu kỳ ổn định
 using var timer = new PeriodicTimer(TimeSpan.FromMinutes(5));
 
 while (await timer.WaitForNextTickAsync(stoppingToken))
@@ -103,12 +103,12 @@ public sealed class DailyDigestWorker(
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
-                break;                                  // shutdown binh thuong
+                break;                                  // tắt máy bình thường
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Digest that bai, se thu lai o chu ky sau");
-                // KHONG throw — mot lan loi khong duoc giet worker
+                logger.LogError(ex, "Gửi digest thất bại, sẽ thử lại ở chu kỳ sau");
+                // KHÔNG ném lại — một lần lỗi không được giết worker
             }
         }
     }
@@ -132,10 +132,10 @@ public sealed class DailyDigestWorker(
         foreach (var user in recipients)
         {
             ct.ThrowIfCancellationRequested();
-            await email.SendAsync(user.Email, $"CRM Digest — {newLeads} lead moi", ..., ct);
+            await email.SendAsync(user.Email, $"CRM Digest — {newLeads} lead mới", ..., ct);
         }
 
-        logger.LogInformation("Da gui digest cho {Count} nguoi", recipients.Count);
+        logger.LogInformation("Đã gửi digest cho {Count} người", recipients.Count);
     }
 }
 ```
@@ -163,7 +163,7 @@ Từ .NET 6, `BackgroundServiceExceptionBehavior.StopHost` là mặc định —
 ```csharp
 private async Task<bool> TryAcquireLockAsync(string jobName, CancellationToken ct)
 {
-    // Chi mot instance INSERT thanh cong nho rang buoc unique
+    // Chỉ một thể hiện INSERT thành công nhờ ràng buộc duy nhất
     try
     {
         _db.JobLocks.Add(new JobLock
@@ -176,7 +176,7 @@ private async Task<bool> TryAcquireLockAsync(string jobName, CancellationToken c
         await _db.SaveChangesAsync(ct);
         return true;
     }
-    catch (DbUpdateException)     // vi pham unique -> instance khac dang chay
+    catch (DbUpdateException)     // vi phạm ràng buộc duy nhất -> thể hiện khác đang chạy
     {
         return false;
     }
@@ -196,7 +196,7 @@ Cách 2 đáng cân nhắc hơn nhiều người nghĩ. Chạy job nền trong t
 ```csharp
 public override async Task StopAsync(CancellationToken ct)
 {
-    logger.LogInformation("Worker dang dung, cho viec hien tai hoan tat");
+    logger.LogInformation("Worker đang dừng, chờ việc hiện tại hoàn tất");
     await base.StopAsync(ct);
 }
 ```
@@ -221,8 +221,8 @@ foreach (var batch in batches)
 {
     if (ct.IsCancellationRequested)
     {
-        logger.LogInformation("Dung sau lo {Index}, se tiep tuc o lan chay sau", index);
-        break;                       // dung o RANH GIOI lo, khong giua lo
+        logger.LogInformation("Dừng sau lô {Index}, sẽ tiếp tục ở lần chạy sau", index);
+        break;                       // dừng ở RANH GIỚI lô, không giữa lô
     }
     await ProcessBatchAsync(batch, ct);
 }
@@ -247,7 +247,7 @@ Câu hỏi quyết định: **"nếu job này không chạy một lần, có ai 
 Nếu câu trả lời là "không" thì bạn cần Hangfire — nó ghi lại mọi lần chạy, mọi lần thất bại, và cho bạn chạy lại. Với `BackgroundService`, một job im lặng thất bại là một job không ai phát hiện.
 
 ```csharp
-// Hangfire — dang ky mot dong
+// Hangfire — đăng ký một dòng
 RecurringJob.AddOrUpdate<IDigestService>(
     "daily-digest", s => s.SendAsync(CancellationToken.None), "0 7 * * *");
 ```
@@ -329,23 +329,23 @@ Cho một công việc gây ngoại lệ. Kết quả:
 ```csharp
 public class WorkerHeartbeat
 {
-    private long _lanCuoi = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-    public void Record() => Interlocked.Exchange(ref _lanCuoi,
+    private long _lastBeatUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+    public void Beat() => Interlocked.Exchange(ref _lastBeatUnix,
         DateTimeOffset.UtcNow.ToUnixTimeSeconds());
-    public TimeSpan KhoangCach => TimeSpan.FromSeconds(
-        DateTimeOffset.UtcNow.ToUnixTimeSeconds() - Interlocked.Read(ref _lanCuoi));
+    public TimeSpan SinceLastBeat => TimeSpan.FromSeconds(
+        DateTimeOffset.UtcNow.ToUnixTimeSeconds() - Interlocked.Read(ref _lastBeatUnix));
 }
 
 public class WorkerHealthCheck(WorkerHeartbeat hb) : IHealthCheck
 {
     public Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext c, CancellationToken ct)
-        => Task.FromResult(hb.KhoangCach < TimeSpan.FromMinutes(3)
+        => Task.FromResult(hb.SinceLastBeat < TimeSpan.FromMinutes(3)
             ? HealthCheckResult.Healthy()
-            : HealthCheckResult.Unhealthy($"Worker im lặng {hb.KhoangCach.TotalMinutes:F0} phút"));
+            : HealthCheckResult.Unhealthy($"Worker im lặng {hb.SinceLastBeat.TotalMinutes:F0} phút"));
 }
 ```
 
-Worker gọi `hb.Record()` sau mỗi vòng. Nếu nó chết, health check chuyển sang không khoẻ sau 3 phút.
+Worker gọi `hb.Beat()` sau mỗi vòng. Nếu nó chết, health check chuyển sang không khoẻ sau 3 phút.
 
 **Quan trọng: đặt health check này ở nhóm nào?**
 
@@ -362,7 +362,7 @@ while (await timer.WaitForNextTickAsync(ct))
         using var scope = sf.CreateScope();
         var svc = scope.ServiceProvider.GetRequiredService<IEmailQueue>();
         await svc.ProcessQueueAsync(ct);
-        hb.Record();
+        hb.Beat();
     }
     catch (OperationCanceledException) when (ct.IsCancellationRequested) { break; }
     catch (Exception ex)
@@ -401,7 +401,7 @@ So sánh `Task.Delay` và `PeriodicTimer` với công việc mất 0,8 giây và
 // Cách 1 — Task.Delay
 while (!ct.IsCancellationRequested)
 {
-    await LamViecAsync(ct);                       // 0,8 giây
+    await DoWorkAsync(ct);                       // 0,8 giây
     await Task.Delay(TimeSpan.FromSeconds(1), ct);
 }
 
@@ -409,7 +409,7 @@ while (!ct.IsCancellationRequested)
 using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
 while (await timer.WaitForNextTickAsync(ct))
 {
-    await LamViecAsync(ct);                       // 0,8 giây
+    await DoWorkAsync(ct);                       // 0,8 giây
 }
 ```
 
@@ -456,9 +456,9 @@ Dòng thứ hai là hậu quả nghiêm trọng nhất: một công việc chạ
 
 ```csharp
 // Với Quartz.NET hoặc Hangfire
-RecurringJob.AddOrUpdate<BaoCaoJob>(
-    "bao-cao-cuoi-ngay",
-    j => j.ChayAsync(CancellationToken.None),
+RecurringJob.AddOrUpdate<EndOfDayReportJob>(
+    "end-of-day-report",
+    j => j.RunAsync(CancellationToken.None),
     "0 23 * * *",                                    // 23:00 mỗi ngày
     new RecurringJobOptions { TimeZone = TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time") });
 ```
@@ -490,7 +490,7 @@ Chạy 3 thể hiện cùng một công việc gửi email, đếm số email nh
 **Lời giải — không có khoá:**
 
 ```csharp
-public class NhacNhoWorker(IServiceScopeFactory sf) : BackgroundService
+public class ReminderWorker(IServiceScopeFactory sf) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
@@ -501,8 +501,8 @@ public class NhacNhoWorker(IServiceScopeFactory sf) : BackgroundService
             var db = scope.ServiceProvider.GetRequiredService<CrmDbContext>();
             var mail = scope.ServiceProvider.GetRequiredService<IEmailSender>();
 
-            var can = await db.Leads.Where(l => l.CanNhacNho).ToListAsync(ct);
-            foreach (var l in can) await mail.GuiNhacNhoAsync(l.Email, ct);
+            var due = await db.Leads.Where(l => l.NeedsReminder).ToListAsync(ct);
+            foreach (var l in due) await mail.SendReminderAsync(l.Email, ct);
         }
     }
 }
@@ -517,16 +517,16 @@ Tệ hơn với công việc thay đổi dữ liệu: ba thể hiện cùng đ�
 **Cách 1 — khoá phân tán qua database:**
 
 ```csharp
-public class DistributedLock(CrmDbContext db)
+public class DistributedJobLock(CrmDbContext db)
 {
-    public async Task<bool> ThuLayAsync(string ten, TimeSpan thoiHan, CancellationToken ct)
+    public async Task<bool> TryAcquireAsync(string name, TimeSpan ttl, CancellationToken ct)
     {
-        var het = DateTime.UtcNow.Add(thoiHan);
+        var expiresAt = DateTime.UtcNow.Add(ttl);
         var n = await db.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO "JobLocks" ("Name", "OwnedBy", "ExpiresAt")
-            VALUES ({ten}, {Environment.MachineName}, {het})
+            VALUES ({name}, {Environment.MachineName}, {expiresAt})
             ON CONFLICT ("Name") DO UPDATE
-              SET "OwnedBy" = {Environment.MachineName}, "ExpiresAt" = {het}
+              SET "OwnedBy" = {Environment.MachineName}, "ExpiresAt" = {expiresAt}
               WHERE "JobLocks"."ExpiresAt" < {DateTime.UtcNow}
             """, ct);
         return n > 0;
@@ -538,9 +538,9 @@ public class DistributedLock(CrmDbContext db)
 while (await timer.WaitForNextTickAsync(ct))
 {
     using var scope = sf.CreateScope();
-    var khoa = scope.ServiceProvider.GetRequiredService<DistributedLock>();
+    var jobLock = scope.ServiceProvider.GetRequiredService<DistributedJobLock>();
 
-    if (!await khoa.ThuLayAsync("nhac-nho", TimeSpan.FromMinutes(30), ct))
+    if (!await jobLock.TryAcquireAsync("reminder", TimeSpan.FromMinutes(30), ct))
         continue;                              // thể hiện khác đang chạy
 
     await ProcessAsync(scope, ct);
@@ -562,7 +562,7 @@ Chỉ một thể hiện lấy được khoá; hai thể hiện kia bỏ qua vò
 builder.Services.AddHangfire(c => c.UsePostgreSqlStorage(cs));
 builder.Services.AddHangfireServer();
 
-RecurringJob.AddOrUpdate<NhacNhoJob>("nhac-nho", j => j.ChayAsync(default), Cron.Hourly);
+RecurringJob.AddOrUpdate<ReminderJob>("nhac-nho", j => j.RunAsync(default), Cron.Hourly);
 ```
 
 Hangfire lưu trạng thái công việc trong database, nên nhiều thể hiện phối hợp được với nhau. Nó cũng cho sẵn thử lại, bảng điều khiển theo dõi, và lịch sử chạy.
@@ -581,11 +581,11 @@ Hangfire lưu trạng thái công việc trong database, nên nhiều thể hi�
 ```csharp
 // Đánh dấu đã gửi TRƯỚC khi gửi, dùng cập nhật có điều kiện
 var n = await db.Leads
-    .Where(l => l.Id == id && !l.DaGuiNhacNho)
-    .ExecuteUpdateAsync(s => s.SetProperty(x => x.DaGuiNhacNho, true), ct);
+    .Where(l => l.Id == id && !l.ReminderSent)
+    .ExecuteUpdateAsync(s => s.SetProperty(x => x.ReminderSent, true), ct);
 
 if (n == 0) return;        // thể hiện khác đã xử lý
-await mail.GuiNhacNhoAsync(email, ct);
+await mail.SendReminderAsync(email, ct);
 ```
 
 Làm cho công việc idempotent thường đơn giản hơn và bền hơn so với thêm một lớp khoá — đúng tinh thần của idempotency key ở [bài 9.1](9.1-rest-api-design-principles.mdx).

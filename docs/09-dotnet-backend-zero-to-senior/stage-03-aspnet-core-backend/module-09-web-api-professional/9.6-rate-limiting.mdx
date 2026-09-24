@@ -41,7 +41,7 @@ options.AddFixedWindowLimiter("fixed", o =>
 {
     o.PermitLimit = 100;
     o.Window = TimeSpan.FromMinutes(1);
-    o.QueueLimit = 0;                    // tu choi ngay thay vi xep hang
+    o.QueueLimit = 0;                    // từ chối ngay thay vì xếp hàng
 });
 ```
 
@@ -58,7 +58,7 @@ options.AddSlidingWindowLimiter("sliding", o =>
 {
     o.PermitLimit = 100;
     o.Window = TimeSpan.FromMinutes(1);
-    o.SegmentsPerWindow = 6;             // moi doan 10 giay
+    o.SegmentsPerWindow = 6;             // mỗi đoạn 10 giây
 });
 ```
 
@@ -111,7 +111,7 @@ builder.Services.AddRateLimiter(options =>
     {
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-        // Nguoi dung da dang nhap: han muc rong
+        // Người dùng đã đăng nhập: hạn mức rộng
         if (userId is not null)
             return RateLimitPartition.GetTokenBucketLimiter(userId, _ => new()
             {
@@ -121,7 +121,7 @@ builder.Services.AddRateLimiter(options =>
                 AutoReplenishment = true
             });
 
-        // Khach vang lai: han muc hep, theo IP
+        // Khách vãng lai: hạn mức hẹp, theo IP
         var ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
         return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new()
         {
@@ -172,7 +172,7 @@ options.OnRejected = async (context, ct) =>
     {
         Status = StatusCodes.Status429TooManyRequests,
         Title = "Qua nhieu yeu cau",
-        Detail = "Ban da vuot han muc. Vui long thu lai sau.",
+        Detail = "Bạn đã vượt hạn mức. Vui lòng thử lại sau.",
         Extensions = { ["traceId"] = context.HttpContext.TraceIdentifier }
     }, ct);
 };
@@ -216,7 +216,7 @@ Quy tắc thực dụng: **giới hạn thô ở gateway, giới hạn theo nghi
 ### 9.7.5 — Đừng chặn nhầm
 
 ```csharp
-// Health check, metric, callback cua doi tac: KHONG gioi han
+// Health check, chỉ số, callback của đối tác: KHÔNG giới hạn
 [DisableRateLimiting]
 ```
 
@@ -278,7 +278,7 @@ Cấu hình cửa sổ cố định 100 request mỗi phút, bắn 100 request �
 ```csharp
 builder.Services.AddRateLimiter(o =>
 {
-    o.AddFixedWindowLimiter("cu-dinh", opt =>
+    o.AddFixedWindowLimiter("fixed", opt =>
     {
         opt.PermitLimit = 100;
         opt.Window = TimeSpan.FromMinutes(1);
@@ -314,7 +314,7 @@ Server nhận **gấp đôi** hạn mức trong một khoảng rất ngắn — 
 **Cửa sổ trượt:**
 
 ```csharp
-o.AddSlidingWindowLimiter("truot", opt =>
+o.AddSlidingWindowLimiter("sliding", opt =>
 {
     opt.PermitLimit = 100;
     opt.Window = TimeSpan.FromMinutes(1);
@@ -336,7 +336,7 @@ Thay vì đặt lại một lần mỗi phút, nó chia cửa sổ thành các �
 **Gáo token đáng chú ý** vì nó cho phép tăng vọt **một cách có kiểm soát**:
 
 ```csharp
-o.AddTokenBucketLimiter("gao", opt =>
+o.AddTokenBucketLimiter("token-bucket", opt =>
 {
     opt.TokenLimit = 100;                                  // sức chứa gáo
     opt.TokensPerPeriod = 10;                              // nạp lại 10 mỗi lần
@@ -349,7 +349,7 @@ Người dùng không hoạt động một lúc sẽ tích đủ 100 token và d
 **Giới hạn đồng thời giải quyết một vấn đề khác hẳn:**
 
 ```csharp
-o.AddConcurrencyLimiter("dong-thoi", opt =>
+o.AddConcurrencyLimiter("concurrency", opt =>
 {
     opt.PermitLimit = 10;                                  // tối đa 10 request ĐANG chạy
     opt.QueueLimit = 50;
@@ -473,7 +473,7 @@ Viết client thử lại **ngay lập tức** khi nhận `429` mà không đọ
 **Lời giải — client sai:**
 
 ```csharp
-async Task<HttpResponseMessage> GoiXau(string url, CancellationToken ct)
+async Task<HttpResponseMessage> CallBadly(string url, CancellationToken ct)
 {
     while (true)
     {
@@ -504,19 +504,19 @@ Client tạo ra **hàng nghìn** request để nhận đúng 10 kết quả.
 **Client đúng:**
 
 ```csharp
-async Task<HttpResponseMessage> GoiTot(string url, CancellationToken ct)
+async Task<HttpResponseMessage> CallWell(string url, CancellationToken ct)
 {
-    for (int lan = 0; lan < 5; lan++)
+    for (int attempt = 0; attempt < 5; attempt++)
     {
         var res = await _http.GetAsync(url, ct);
         if (res.StatusCode != HttpStatusCode.TooManyRequests) return res;
 
-        var cho = res.Headers.RetryAfter?.Delta
-                  ?? TimeSpan.FromSeconds(Math.Pow(2, lan));         // lùi theo cấp số nhân
-        cho += TimeSpan.FromMilliseconds(Random.Shared.Next(0, 1000));  // thêm nhiễu
+        var delay = res.Headers.RetryAfter?.Delta
+                    ?? TimeSpan.FromSeconds(Math.Pow(2, attempt));   // lùi theo cấp số nhân
+        delay += TimeSpan.FromMilliseconds(Random.Shared.Next(0, 1000));  // thêm nhiễu
 
-        _logger.LogWarning("Bị giới hạn, chờ {Giay}s", cho.TotalSeconds);
-        await Task.Delay(cho, ct);
+        _logger.LogWarning("Bị giới hạn, chờ {Seconds}s", delay.TotalSeconds);
+        await Task.Delay(delay, ct);
     }
     throw new HttpRequestException("Vẫn bị giới hạn after 5 lần thử");
 }
