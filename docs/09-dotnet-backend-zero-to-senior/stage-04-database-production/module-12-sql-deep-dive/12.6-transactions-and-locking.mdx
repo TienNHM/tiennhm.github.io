@@ -120,17 +120,17 @@ Bài [Isolation level trong SQL: chọn sai thì dữ liệu sai ở đâu](/blo
 ```
 Transaction A:  khoa Customers(42)  ->  doi Leads(7)
 Transaction B:  khoa Leads(7)       ->  doi Customers(42)
-=> Cho nhau vinh vien -> SQL Server chon MOT nan nhan va rollback
+=> Chờ nhau vĩnh viễn -> SQL Server chọn MỘT nạn nhân và rollback
 ```
 
 **Nguyên nhân gần như luôn là thứ tự khoá khác nhau.** Cách sửa cũng vậy:
 
 ```csharp
-// SAI — thu tu phu thuoc du lieu dau vao
+// SAI — thứ tự phụ thuộc dữ liệu đầu vào
 foreach (var id in customerIds)          // moi request mot thu tu khac nhau
     await UpdateCustomerAsync(id, ct);
 
-// DUNG — thu tu NHAT QUAN
+// ĐÚNG — thứ tự NHẤT QUÁN
 foreach (var id in customerIds.OrderBy(x => x))
     await UpdateCustomerAsync(id, ct);
 ```
@@ -175,7 +175,7 @@ UPDATE Customers
 SET    CompanyName = @name, RowVersion = ...
 WHERE  CustomerId = @id AND RowVersion = @originalRowVersion;
 
--- 0 dong bi anh huong => ai do da sua truoc
+-- 0 dòng bị ảnh hưởng => ai đó đã sửa trước
 ```
 
 ```csharp
@@ -186,7 +186,7 @@ try
 }
 catch (DbUpdateConcurrencyException ex)
 {
-    // Hien cho nguoi dung: "Ban ghi da duoc nguoi khac sua"
+    // Hiện cho người dùng: "Bản ghi đã được người khác sửa"
 }
 ```
 
@@ -217,12 +217,12 @@ Pessimistic đúng cho: trừ kho, cấp số hoá đơn tuần tự, và nhữn
 Có một mẫu thứ ba tốt hơn cả hai cho bộ đếm:
 
 ```sql
--- Khong doc roi ghi — lam TAT CA trong mot cau lenh
+-- Không đọc rồi ghi — làm TẤT CẢ trong một câu lệnh
 UPDATE Inventory
 SET    Quantity = Quantity - @qty
 WHERE  ProductId = @id AND Quantity >= @qty;
 
-IF @@ROWCOUNT = 0 THROW 50001, 'Khong du hang', 1;
+IF @@ROWCOUNT = 0 THROW 50001, 'Không đủ hàng', 1;
 ```
 
 Một câu lệnh duy nhất là **nguyên tử** — không có khoảng trống giữa đọc và ghi để ai chen vào. Nhanh hơn và đơn giản hơn cả hai cách trên.

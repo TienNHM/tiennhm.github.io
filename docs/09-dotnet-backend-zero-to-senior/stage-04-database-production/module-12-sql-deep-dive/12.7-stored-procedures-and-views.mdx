@@ -63,16 +63,16 @@ END;
 Gọi với `@Value = "' OR 1=1 --"` và bạn lấy được toàn bộ bảng. Việc câu lệnh nằm trong SP **không bảo vệ gì cả**.
 
 ```sql
--- AN TOAN — tham so hoa, va whitelist cho ten cot
+-- AN TOÀN — tham số hoá, và whitelist cho tên cột
 CREATE OR ALTER PROCEDURE sp_SearchLeads
     @Column NVARCHAR(50), @Value NVARCHAR(100)
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Ten cot KHONG tham so hoa duoc -> phai whitelist
+    -- Tên cột KHÔNG tham số hoá được -> phải whitelist
     IF @Column NOT IN ('Status', 'CompanyName', 'Source')
-        THROW 50001, 'Cot khong hop le', 1;
+        THROW 50001, 'Cột không hợp lệ', 1;
 
     DECLARE @sql NVARCHAR(MAX) =
         N'SELECT LeadId, CompanyName, Status FROM Leads WHERE '
@@ -99,7 +99,7 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    IF @PageSize > 100 SET @PageSize = 100;         -- tran cung
+    IF @PageSize > 100 SET @PageSize = 100;         -- trần cứng
 
     SELECT  l.LeadId, l.CompanyName, l.Status, l.EstimatedValue, u.FullName
     FROM    Leads l
@@ -138,9 +138,9 @@ Giá trị thật của view:
 
 ```sql
 CREATE VIEW vw_LeadsPublic AS
-SELECT LeadId, CompanyName, Status FROM Leads;       -- khong co EstimatedValue
+SELECT LeadId, CompanyName, Status FROM Leads;       -- không có EstimatedValue
 
-GRANT SELECT ON vw_LeadsPublic TO ReportingRole;     -- KHONG cap quyen tren Leads
+GRANT SELECT ON vw_LeadsPublic TO ReportingRole;     -- KHÔNG cấp quyền trên Leads
 ```
 
 **Cái giá lớn nhất là view lồng view:**
@@ -162,7 +162,7 @@ Quy tắc thực dụng: **một tầng view, không lồng**. Cần phức tạ
 ### 12.8.4 — Indexed view và materialized view
 
 ```sql
--- SQL Server: indexed view — CAP NHAT DONG BO
+-- SQL Server: indexed view — CẬP NHẬT ĐỒNG BỘ
 CREATE VIEW vw_CustomerLeadCount
 WITH SCHEMABINDING                       -- BAT BUOC
 AS
@@ -172,7 +172,7 @@ JOIN    dbo.Leads l ON l.ConvertedToCustomerId = c.CustomerId
 GROUP   BY c.CustomerId;
 
 CREATE UNIQUE CLUSTERED INDEX IX_vw_CustomerLeadCount
-    ON vw_CustomerLeadCount (CustomerId);          -- luc nay moi LUU du lieu
+    ON vw_CustomerLeadCount (CustomerId);          -- lúc này mới LƯU dữ liệu
 ```
 
 Ràng buộc của indexed view khá chặt: bắt buộc `SCHEMABINDING`, tên hai phần (`dbo.`), `COUNT_BIG` thay `COUNT`, không `OUTER JOIN`, không subquery, không hàm không xác định.
@@ -180,7 +180,7 @@ Ràng buộc của indexed view khá chặt: bắt buộc `SCHEMABINDING`, tên 
 **Đánh đổi quan trọng nhất:** indexed view được cập nhật **đồng bộ** trong cùng transaction với bảng gốc. Mọi `INSERT` vào `Leads` phải cập nhật view — nên nó làm **ghi chậm hơn** để đổi lấy đọc nhanh.
 
 ```sql
--- PostgreSQL: materialized view — CAP NHAT THU CONG
+-- PostgreSQL: materialized view — CẬP NHẬT THỦ CÔNG
 CREATE MATERIALIZED VIEW mv_monthly_revenue AS
 SELECT  DATE_TRUNC('month', converted_at) AS month,
         SUM(estimated_value) AS revenue,
@@ -210,7 +210,7 @@ Chọn thế nào: **dữ liệu phải luôn mới** → indexed view; **báo c
 ```sql
 -- Nen tranh: quy tac nghiep vu trong SP
 IF @EstimatedValue > 500000000 AND @CustomerTier = 'Bronze'
-    THROW 50002, 'Khach hang Bronze khong duoc tao deal tren 500 trieu', 1;
+    THROW 50002, 'Khách hàng Bronze không được tạo deal trên 500 triệu', 1;
 ```
 
 Quy tắc này ở trong database thì: không test được bằng unit test, không tái sử dụng được từ background job hay một service khác, không xuất hiện trong code review bình thường, và không ai tìm thấy khi đọc code ứng dụng.

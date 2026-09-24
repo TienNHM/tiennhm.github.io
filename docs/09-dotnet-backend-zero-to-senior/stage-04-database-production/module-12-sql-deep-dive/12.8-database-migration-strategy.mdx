@@ -65,7 +65,7 @@ Trong một lần triển khai rolling, có khoảng thời gian **code cũ và 
 
 ```
 t=0   3 pod code cu
-t=1   2 pod code cu + 1 pod code moi     <- CUNG database
+t=1   2 pod code cũ + 1 pod code mới     <- CÙNG database
 t=2   1 pod code cu + 2 pod code moi
 t=3   3 pod code moi
 ```
@@ -99,7 +99,7 @@ ALTER TABLE Leads ADD ContactEmail NVARCHAR(256) NULL;
 ```
 
 ```csharp
-// Code deploy 1: GHI ca hai, DOC cot cu
+// Code deploy 1: GHI cả hai, ĐỌC cột cũ
 lead.Email = value;
 lead.ContactEmail = value;
 var email = lead.Email;
@@ -111,20 +111,20 @@ var email = lead.Email;
 ```
 
 ```csharp
-// Code deploy 2: GHI ca hai, DOC cot MOI
+// Code deploy 2: GHI cả hai, ĐỌC cột MỚI
 lead.Email = value;
 lead.ContactEmail = value;
 var email = lead.ContactEmail;
 ```
 
 ```csharp
-// Code deploy 3: chi ghi va doc cot moi
+// Code deploy 3: chỉ ghi và đọc cột mới
 lead.ContactEmail = value;
 var email = lead.ContactEmail;
 ```
 
 ```sql
--- === DEPLOY 4: CONTRACT — sau khi chac chan khong ai dung cot cu ===
+-- === DEPLOY 4: CONTRACT — sau khi chắc chắn không ai dùng cột cũ ===
 ALTER TABLE Leads DROP COLUMN Email;
 ```
 
@@ -141,10 +141,10 @@ Giữa deploy 3 và 4 nên chờ ít nhất **một chu kỳ phát hành** — �
 ALTER TABLE Leads ADD Notes NVARCHAR(MAX) NULL;
 ALTER TABLE Leads ADD Tier NVARCHAR(50) NOT NULL DEFAULT 'Standard';
 
--- CHAM — ghi lai TOAN BO bang, khoa suot thoi gian do
+-- CHẬM — ghi lại TOÀN BỘ bảng, khoá suốt thời gian đó
 ALTER TABLE Leads ALTER COLUMN CompanyName NVARCHAR(500) NOT NULL;
-ALTER TABLE Leads ADD CONSTRAINT FK_... FOREIGN KEY ...;   -- kiem tra moi dong
-ALTER TABLE Leads ADD CONSTRAINT CK_... CHECK ...;         -- kiem tra moi dong
+ALTER TABLE Leads ADD CONSTRAINT FK_... FOREIGN KEY ...;   -- kiểm tra mọi dòng
+ALTER TABLE Leads ADD CONSTRAINT CK_... CHECK ...;         -- kiểm tra mọi dòng
 ```
 
 Thêm cột `NOT NULL` **có default** là thao tác metadata từ SQL Server 2012 và PostgreSQL 11 — gần như tức thì bất kể bảng lớn cỡ nào. **Trước** các phiên bản đó, nó ghi lại toàn bộ bảng.
@@ -152,11 +152,11 @@ Thêm cột `NOT NULL` **có default** là thao tác metadata từ SQL Server 20
 Thêm khoá ngoại hoặc `CHECK` phải **kiểm tra mọi dòng hiện có**. Với bảng 50 triệu dòng, đó là vài phút khoá — đủ để mọi request timeout.
 
 ```sql
--- SQL Server: them ma KHONG kiem tra du lieu cu
+-- SQL Server: thêm mà KHÔNG kiểm tra dữ liệu cũ
 ALTER TABLE Leads WITH NOCHECK
     ADD CONSTRAINT FK_Leads_Users FOREIGN KEY (AssignedToUserId) REFERENCES Users(UserId);
 
--- Kiem tra sau, ngoai gio cao diem
+-- Kiểm tra sau, ngoài giờ cao điểm
 ALTER TABLE Leads WITH CHECK CHECK CONSTRAINT FK_Leads_Users;
 ```
 
@@ -165,7 +165,7 @@ ALTER TABLE Leads WITH CHECK CHECK CONSTRAINT FK_Leads_Users;
 ALTER TABLE leads ADD CONSTRAINT fk_leads_users
     FOREIGN KEY (assigned_to_user_id) REFERENCES users(user_id) NOT VALID;
 
-ALTER TABLE leads VALIDATE CONSTRAINT fk_leads_users;   -- khoa nhe hon nhieu
+ALTER TABLE leads VALIDATE CONSTRAINT fk_leads_users;   -- khoá nhẹ hơn nhiều
 ```
 
 `NOT VALID` trong PostgreSQL đặc biệt hữu ích: ràng buộc áp dụng ngay cho dữ liệu **mới**, còn dữ liệu cũ được kiểm tra sau bằng một lệnh khoá nhẹ hơn nhiều.
@@ -173,10 +173,10 @@ ALTER TABLE leads VALIDATE CONSTRAINT fk_leads_users;   -- khoa nhe hon nhieu
 **Tạo index** cũng khoá:
 
 ```sql
--- SQL Server (Enterprise): khong chan doc/ghi
+-- SQL Server (Enterprise): không chặn đọc/ghi
 CREATE INDEX IX_Leads_Status ON Leads(Status) WITH (ONLINE = ON);
 
--- PostgreSQL: khong chan ghi
+-- PostgreSQL: không chặn ghi
 CREATE INDEX CONCURRENTLY idx_leads_status ON leads(status);
 ```
 
@@ -208,7 +208,7 @@ BEGIN
                     WHEN AnnualRevenue >= 100000  THEN 'Business'
                     ELSE 'Standard'
                   END
-    WHERE  Tier IS NULL;                 -- dieu kien de LAN SAU bo qua dong da xong
+    WHERE  Tier IS NULL;                 -- điều kiện để LẦN SAU bỏ qua dòng đã xong
 
     SET @Rows = @@ROWCOUNT;
     WAITFOR DELAY '00:00:00.100';        -- nhuong cho giao dich khac
@@ -236,7 +236,7 @@ Với bảng rất lớn, tách backfill thành một **job nền** chạy vài 
 | Thủ công | Kiểm soát tối đa | Người quên, môi trường lệch nhau |
 
 ```csharp
-// Chap nhan duoc cho du an nho — KHONG cho production nhieu instance
+// Chấp nhận được cho dự án nhỏ — KHÔNG cho production nhiều instance
 using var scope = app.Services.CreateScope();
 await scope.ServiceProvider.GetRequiredService<AppDbContext>()
     .Database.MigrateAsync();
