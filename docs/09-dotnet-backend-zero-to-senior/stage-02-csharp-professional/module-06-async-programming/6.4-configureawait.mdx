@@ -155,11 +155,249 @@ await task.ConfigureAwait(ConfigureAwaitOptions.ForceYielding);        // luon y
 
 ## Bài tập áp dụng
 
-1. **Tái hiện deadlock.** Tạo một project ASP.NET Framework (hoặc WPF cho nhanh), gọi `.Result` trên một `Task` có I/O thật, xác nhận nó treo. Thêm `ConfigureAwait(false)` vào phương thức async và xác nhận nó hết treo.
+#### Bài 1 — Tái hiện deadlock
 
-2. **Chứng minh context mất sau `await` đầu tiên.** Trong WPF, in `SynchronizationContext.Current` trước `await`, sau một `await` có `ConfigureAwait(false)`, và sau một `await` tiếp theo không ghi gì. Ghi lại ba giá trị.
+Tạo một project WPF (nhanh nhất) hoặc ASP.NET Framework, gọi `.Result` trên một `Task` có I/O thật, xác nhận nó treo. Thêm `ConfigureAwait(false)` vào phương thức async và xác nhận nó hết treo.
 
-3. **Rà thư viện của bạn.** Chọn một project library trong repo, `grep` tất cả `await` và đếm xem bao nhiêu chỗ có `ConfigureAwait(false)`. Nếu tỷ lệ không phải 0% hoặc 100%, bạn đang có bug tiềm ẩn.
+**Tiêu chí hoàn thành:** bạn mô tả được vòng chờ **theo đúng thứ tự**, và giải thích vì sao ASP.NET Core **không** bị deadlock.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Deadlock cần hai điều kiện đồng thời: một `SynchronizationContext` chỉ có **một** luồng, và một lời gọi **chặn** luồng đó. Thiếu một trong hai là không treo.
+
+**Lời giải — dựng nhanh bằng WPF:**
+
+```csharp
+// MainWindow.xaml.cs
+private async Task<string> LayDuLieuAsync()
+{
+    using var http = new HttpClient();
+    return await http.GetStringAsync("https://example.com");
+}
+
+private void Button_Click(object sender, RoutedEventArgs e)
+{
+    var kq = LayDuLieuAsync().Result;      // TREO VĨNH VIỄN
+    MessageBox.Show(kq);
+}
+```
+
+Giao diện đóng băng và không bao giờ phục hồi.
+
+**Vòng chờ, theo đúng thứ tự:**
+
+```text
+1. Luồng UI chạy Button_Click
+2. Gọi LayDuLieuAsync(), chạy tới await GetStringAsync
+3. await ghi nhớ SynchronizationContext hiện tại = context của luồng UI
+4. LayDuLieuAsync trả về một Task chưa hoàn tất
+5. .Result CHẶN luồng UI, chờ Task đó
+6. HTTP hoàn tất -> phần còn lại của LayDuLieuAsync cần chạy tiếp
+7. Nó được xếp lịch chạy TRÊN LUỒNG UI (vì bước 3)
+8. Luồng UI đang bị chặn ở bước 5 -> không bao giờ nhận được việc ở bước 7
+9. Task không bao giờ hoàn tất -> .Result chờ mãi
+```
+
+Hai bên chờ nhau: luồng UI chờ `Task`, `Task` chờ luồng UI.
+
+**Sửa bằng `ConfigureAwait(false)`:**
+
+```csharp
+private async Task<string> LayDuLieuAsync()
+{
+    using var http = new HttpClient();
+    return await http.GetStringAsync("https://example.com").ConfigureAwait(false);
+}
+```
+
+`ConfigureAwait(false)` nói: *"sau khi chờ xong, không cần quay lại context ban đầu"*. Phần còn lại chạy trên một luồng thread pool bất kỳ, `Task` hoàn tất, và `.Result` được giải phóng. Vòng chờ bị phá ở bước 7.
+
+**Vì sao ASP.NET Core không bị deadlock.** Nó **không có `SynchronizationContext`**. Bước 3 không ghi nhớ gì, nên bước 7 chạy trên luồng thread pool bất kỳ. Không có vòng chờ.
+
+**Nhưng đừng kết luận sai.** Không deadlock **không có nghĩa là an toàn**:
+
+| | ASP.NET Framework / WPF | ASP.NET Core |
+|---|---|---|
+| Gọi `.Result` | **Deadlock** — treo ngay | Không deadlock |
+| Hậu quả | Rõ ràng, phát hiện ngay | **Giam một luồng thread pool** |
+| Khi có tải | — | Thread pool starvation, như [bài 6.2](6.2-why-async-matters.mdx) |
+
+Nghịch lý: hành vi của ASP.NET Framework **dễ chịu hơn** về mặt phát hiện lỗi, vì nó hỏng ngay và hỏng rõ ràng. ASP.NET Core thì chạy tốt trên máy phát triển và chỉ sụp khi có tải thật.
+
+**Kết luận thực dụng.** `ConfigureAwait(false)` chữa **triệu chứng**; bệnh là việc chặn luồng. Cách đúng là **đừng chặn**:
+
+```csharp
+private async void Button_Click(object sender, RoutedEventArgs e)
+{
+    try { MessageBox.Show(await LayDuLieuAsync()); }
+    catch (Exception ex) { MessageBox.Show(ex.Message); }
+}
+```
+
+Đây là một trong những trường hợp hiếm hoi `async void` được chấp nhận, như [bài 6.3](6.3-task-and-async-await.mdx) đã nêu — và vẫn phải bọc `try/catch`.
+
+</details>
+
+#### Bài 2 — Chứng minh context mất sau `ConfigureAwait(false)`
+
+Trong WPF, in `SynchronizationContext.Current` trước `await`, sau một `await` có `ConfigureAwait(false)`, và sau một `await` tiếp theo không ghi gì. Ghi lại ba giá trị.
+
+**Tiêu chí hoàn thành:** bạn nêu được vì sao giá trị thứ ba vẫn là `null`, dù `await` đó không có `ConfigureAwait(false)`.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** `ConfigureAwait` áp dụng cho **một lệnh `await` cụ thể**, không cho cả phương thức. Nhưng hãy nghĩ kỹ: lệnh `await` thứ hai đọc context từ đâu?
+
+**Lời giải.**
+
+```csharp
+private async Task ThuNghiemAsync()
+{
+    Console.WriteLine($"1. trước await      : {SynchronizationContext.Current?.GetType().Name ?? "null"}");
+
+    await Task.Delay(10).ConfigureAwait(false);
+    Console.WriteLine($"2. sau ConfigureAwait(false): {SynchronizationContext.Current?.GetType().Name ?? "null"}");
+
+    await Task.Delay(10);                    // KHÔNG có ConfigureAwait
+    Console.WriteLine($"3. sau await thường : {SynchronizationContext.Current?.GetType().Name ?? "null"}");
+}
+```
+
+**Kết quả trong WPF:**
+
+```text
+1. trước await               : DispatcherSynchronizationContext
+2. sau ConfigureAwait(false) : null
+3. sau await thường          : null
+```
+
+**Vì sao giá trị thứ ba vẫn `null`.** Đây là phần tinh tế nhất của bài. Lệnh `await` thứ hai **cũng cố quay lại context** — nhưng nó đọc `SynchronizationContext.Current` **tại thời điểm nó chạy**. Sau lệnh `await` thứ nhất với `ConfigureAwait(false)`, code đang chạy trên luồng thread pool, nơi `Current` đã là `null`. Không có context nào để quay về.
+
+**Hệ quả: `ConfigureAwait(false)` có tính lan truyền một chiều.** Một khi đã rời khỏi context, mọi `await` sau đó trong cùng luồng thực thi đều không quay lại được, dù không ai viết `ConfigureAwait(false)` cho chúng.
+
+**Điều này gây ra một lỗi thật trong ứng dụng có giao diện:**
+
+```csharp
+private async Task LuuAsync()
+{
+    await _repo.LuuAsync().ConfigureAwait(false);    // rời context
+    await Task.Delay(100);                            // vẫn ở thread pool
+    txtTrangThai.Text = "Đã lưu";                     // NÉM — không phải luồng UI
+}
+```
+
+```text
+System.InvalidOperationException: The calling thread cannot access this object
+because a different thread owns it.
+```
+
+**Quy tắc dùng, theo loại dự án:**
+
+| Loại dự án | Khuyến nghị |
+|---|---|
+| **Thư viện dùng chung** | `ConfigureAwait(false)` ở **mọi** `await` — thư viện không biết nó chạy ở đâu |
+| **ASP.NET Core** | **Không cần** — không có context, thêm vào chỉ làm rối code |
+| **WPF, WinForms, MAUI** | Dùng ở tầng logic; **không** dùng ở chỗ sau đó chạm vào giao diện |
+
+**Vì sao thư viện phải dùng 100%.** Một thư viện có thể được gọi từ ASP.NET Core (không context), từ WPF (có context), hay từ một ứng dụng cũ. Nếu nó cố quay lại context mà không cần, bạn trả chi phí điều phối vô ích ở trường hợp tốt, và gây deadlock ở trường hợp xấu.
+
+**Kiểm tra tính nhất quán:**
+
+```bash
+awk 'BEGIN{a=0;c=0} /await /{a++} /ConfigureAwait\(false\)/{c++} END{printf "await: %d, ConfigureAwait(false): %d (%.0f%%)\n", a, c, c*100/a}' \
+  $(find src/Crm.Shared -name '*.cs')
+```
+
+Tỉ lệ nên là **0% hoặc 100%**. Con số ở giữa nghĩa là có chỗ dùng chỗ không — và những chỗ thiếu chính là bug tiềm ẩn.
+
+**Cách ép bằng công cụ.** Quy tắc `CA2007` cảnh báo mọi `await` thiếu `ConfigureAwait`. Bật nó cho **dự án thư viện** và tắt cho **dự án ứng dụng ASP.NET Core**:
+
+```xml
+<!-- Chỉ trong Crm.Shared.csproj -->
+<WarningsAsErrors>$(WarningsAsErrors);CA2007</WarningsAsErrors>
+```
+
+</details>
+
+#### Bài 3 — Rà tính nhất quán trong thư viện của bạn
+
+Chọn một project library trong repo, đếm số lệnh `await` và số chỗ có `ConfigureAwait(false)`. Nếu tỉ lệ không phải 0% hoặc 100%, bạn đang có bug tiềm ẩn.
+
+**Tiêu chí hoàn thành:** bạn có tỉ lệ cụ thể và một quyết định rõ ràng cho dự án đó.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Đếm bằng lệnh, rồi phân loại dự án trước khi quyết định — câu trả lời khác nhau cho thư viện và cho ứng dụng.
+
+**Lời giải.**
+
+```bash
+for p in $(find src -name '*.csproj'); do
+  d=$(dirname "$p")
+  a=$(grep -rho 'await ' --include=*.cs "$d" | wc -l)
+  c=$(grep -rho 'ConfigureAwait(false)' --include=*.cs "$d" | wc -l)
+  [ "$a" -gt 0 ] && printf "%-32s await=%-5d cfg=%-5d %3d%%\n" "$(basename $d)" "$a" "$c" "$((c*100/a))"
+done
+```
+
+**Kết quả điển hình:**
+
+```text
+Crm.Domain                       await=12    cfg=0       0%
+Crm.Application                  await=148   cfg=0       0%
+Crm.Infrastructure               await=203   cfg=47     23%     <- VẤN ĐỀ
+Crm.Api                          await=89    cfg=0       0%
+Crm.Shared                       await=34    cfg=34    100%
+```
+
+**Đọc bảng này:**
+
+- `Crm.Shared` ở **100%** — đúng, đây là thư viện dùng chung.
+- `Crm.Api` và `Crm.Application` ở **0%** — đúng, chúng chỉ chạy trong ASP.NET Core.
+- `Crm.Infrastructure` ở **23%** — đây là vấn đề. Con số ở giữa nghĩa là ai đó thêm `ConfigureAwait(false)` ở một số chỗ, có lẽ sau khi đọc một bài viết, rồi dừng giữa chừng. Tình trạng này tệ hơn cả hai thái cực, vì:
+
+  1. Người đọc code không biết quy ước của dự án là gì.
+  2. Người viết code mới sẽ sao chép theo file họ tình cờ mở, làm tỉ lệ càng lệch.
+  3. Nếu thư viện này sau được dùng ở nơi có `SynchronizationContext`, 77% số `await` thiếu sẽ gây vấn đề.
+
+**Quyết định cho từng loại dự án:**
+
+| Dự án | Quyết định | Cách thực hiện |
+|---|---|---|
+| `Crm.Domain`, `Crm.Application`, `Crm.Api` | Giữ 0% | Tắt `CA2007` |
+| `Crm.Shared` | Giữ 100% | Bật `CA2007` thành lỗi |
+| `Crm.Infrastructure` | **Chọn một** | Xem dưới |
+
+**Với `Crm.Infrastructure`**, câu hỏi là: *dự án này có bao giờ được dùng ngoài ASP.NET Core không?*
+
+- **Không** — ví dụ nó chỉ phục vụ API này. Xoá hết `ConfigureAwait(false)` cho nhất quán và code gọn hơn.
+- **Có** — ví dụ nó được dùng lại trong một công cụ dòng lệnh hoặc một ứng dụng desktop. Bổ sung cho đủ 100% và bật `CA2007`.
+
+**Cách áp dụng hàng loạt:**
+
+```xml
+<!-- Directory.Build.props ở thư mục gốc — mặc định cho mọi dự án -->
+<Project>
+  <PropertyGroup>
+    <NoWarn>$(NoWarn);CA2007</NoWarn>
+  </PropertyGroup>
+</Project>
+```
+
+```xml
+<!-- Crm.Shared.csproj — ghi đè cho riêng thư viện -->
+<PropertyGroup>
+  <NoWarn>$(NoWarn.Replace('CA2007',''))</NoWarn>
+  <WarningsAsErrors>$(WarningsAsErrors);CA2007</WarningsAsErrors>
+</PropertyGroup>
+```
+
+**Điều quan trọng nhất của bài này.** Vấn đề không phải "dùng hay không dùng `ConfigureAwait(false)`" — cả hai lựa chọn đều đúng trong ngữ cảnh của nó. Vấn đề là **không có quyết định nào được ghi lại**, nên mỗi người làm một kiểu. Hãy chọn một, ghi vào tài liệu của dự án, và **để công cụ ép buộc** thay vì trông chờ vào code review — đúng nguyên tắc ở [bài 4.7](../module-04-csharp-core/4.7-access-modifiers.mdx): biến quy ước thành ràng buộc kỹ thuật.
+
+</details>
 
 ## Tự kiểm tra
 

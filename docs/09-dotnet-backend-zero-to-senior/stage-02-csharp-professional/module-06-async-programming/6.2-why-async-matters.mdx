@@ -161,11 +161,233 @@ Nguyên tắc: **một chuỗi gọi đã async thì phải async suốt**, từ
 
 ## Bài tập áp dụng
 
-1. **Tái hiện thread pool starvation.** Viết hai endpoint: một gọi `Thread.Sleep(1000)`, một gọi `await Task.Delay(1000)`. Dùng công cụ tạo tải gửi 200 request đồng thời vào mỗi cái. So sánh thời gian phản hồi trung bình và mức CPU.
+#### Bài 1 — Tái hiện thread pool starvation
 
-2. **Chứng minh `Task.Run` không giúp I/O.** Viết ba phiên bản của cùng một truy vấn: đồng bộ, bọc `Task.Run`, và async thật. Đo thông lượng dưới tải với `dotnet-counters` theo dõi số thread của pool.
+Viết hai endpoint: một gọi `Thread.Sleep(1000)`, một gọi `await Task.Delay(1000)`. Gửi 200 request đồng thời vào mỗi cái. So sánh thời gian phản hồi và mức CPU.
 
-3. **Đo chi phí máy trạng thái.** Viết một phương thức `async` trả về giá trị có sẵn, gọi nó mười triệu lần. So với phiên bản đồng bộ. Ghi lại khác biệt và tự đánh giá nó có đáng quan tâm trong bối cảnh của bạn không.
+**Tiêu chí hoàn thành:** bạn nêu được **cặp triệu chứng** đặc trưng của starvation, và vì sao nó hay bị chẩn đoán nhầm.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Cả hai endpoint đều "chờ một giây". Khác biệt duy nhất là **luồng có bị giam trong lúc chờ hay không**.
+
+**Lời giải.**
+
+```csharp
+app.MapGet("/dong-bo", () =>
+{
+    Thread.Sleep(1000);          // giam một luồng thread pool trong 1 giây
+    return Results.Ok();
+});
+
+app.MapGet("/bat-dong-bo", async () =>
+{
+    await Task.Delay(1000);      // trả luồng về pool trong lúc chờ
+    return Results.Ok();
+});
+```
+
+Tạo tải:
+
+```bash
+bombardier -c 200 -n 200 http://localhost:5000/dong-bo
+bombardier -c 200 -n 200 http://localhost:5000/bat-dong-bo
+```
+
+**Kết quả điển hình trên máy 8 nhân:**
+
+| | `/dong-bo` | `/bat-dong-bo` |
+|---|---|---|
+| Thời gian hoàn tất 200 request | ~25–90 giây | ~1,1 giây |
+| Độ trễ phân vị 95 | rất cao, tăng dần | ~1,05 giây |
+| **CPU** | **gần 0%** | gần 0% |
+| Số luồng thread pool | tăng dần, 1–2 mỗi giây | ổn định ~8 |
+
+**Cặp triệu chứng đặc trưng: độ trễ rất cao trong khi CPU gần bằng không.**
+
+**Vì sao con số 25–90 giây.** Thread pool khởi đầu với số luồng bằng số nhân CPU, ở đây là 8. Tám request đầu chạy ngay. 192 request còn lại xếp hàng. Thread pool **có** nở thêm, nhưng rất chậm — khoảng một tới hai luồng mỗi giây. Vì vậy hệ thống phải mất hàng chục giây mới đủ luồng phục vụ hết.
+
+**Vì sao hay bị chẩn đoán nhầm.** Người vận hành nhìn biểu đồ CPU thấy gần 0% và kết luận: *"máy chủ còn rảnh, chắc do database chậm hoặc mạng có vấn đề"*. Họ đi tối ưu truy vấn, tăng cấu hình máy, thêm chỉ mục — không cái nào có tác dụng, vì nguyên nhân nằm ở chỗ khác hoàn toàn.
+
+**Cách xác nhận bằng số liệu thay vì đoán:**
+
+```bash
+dotnet-counters monitor --process-id <pid> --counters System.Runtime
+```
+
+Nhìn hai chỉ số:
+
+| Chỉ số | Dấu hiệu starvation |
+|---|---|
+| `threadpool-queue-length` | **Tăng vọt** — đây là bằng chứng trực tiếp |
+| `threadpool-thread-count` | Tăng chậm, đều đặn 1–2 mỗi giây |
+
+`threadpool-queue-length` cao nghĩa là có việc đang xếp hàng chờ luồng. Kết hợp với CPU thấp, kết luận gần như chắc chắn.
+
+**Ba nguồn chặn luồng phổ biến trong code thật:**
+
+```csharp
+var kq = GoiApiAsync().Result;           // 1. .Result
+GoiApiAsync().Wait();                    // 2. .Wait()
+var kq = GoiApiAsync().GetAwaiter().GetResult();   // 3. tưởng là "an toàn hơn" — không phải
+```
+
+Cả ba đều giam luồng. Cách thứ ba đặc biệt nguy hiểm vì nhiều người tin rằng nó tránh được vấn đề — nó chỉ tránh được việc ngoại lệ bị bọc trong `AggregateException`, còn việc chặn luồng thì y hệt.
+
+**Cách phòng.** Bật bộ phân tích và biến cảnh báo thành lỗi:
+
+```xml
+<PropertyGroup>
+  <WarningsAsErrors>$(WarningsAsErrors);CA2007;CA1849</WarningsAsErrors>
+</PropertyGroup>
+```
+
+`CA1849` cảnh báo khi gọi phương thức đồng bộ trong ngữ cảnh đã có bản bất đồng bộ.
+
+</details>
+
+#### Bài 2 — Chứng minh `Task.Run` không giúp gì cho I/O
+
+Viết ba phiên bản của cùng một truy vấn: đồng bộ, bọc `Task.Run`, và async thật. Đo thông lượng dưới tải và theo dõi số luồng của pool.
+
+**Tiêu chí hoàn thành:** bạn giải thích được vì sao bản `Task.Run` **không** tốt hơn bản đồng bộ một cách đáng kể.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** `Task.Run` đẩy công việc sang một luồng thread pool. Nhưng công việc đó là gì — tính toán, hay chờ đợi? Và luồng được mượn ra làm gì trong lúc chờ?
+
+**Lời giải.**
+
+```csharp
+// 1. Đồng bộ — giam luồng đang xử lý request
+app.MapGet("/v1", () => { var kq = LayDuLieuDongBo(); return Results.Ok(kq); });
+
+// 2. Task.Run — mượn MỘT luồng khác rồi cũng giam nó
+app.MapGet("/v2", async () => { var kq = await Task.Run(LayDuLieuDongBo); return Results.Ok(kq); });
+
+// 3. Async thật — không giam luồng nào
+app.MapGet("/v3", async (CancellationToken ct) => { var kq = await LayDuLieuAsync(ct); return Results.Ok(kq); });
+```
+
+**Kết quả điển hình với 200 request đồng thời:**
+
+| | Thông lượng | Số luồng pool | Luồng bị giam |
+|---|---|---|---|
+| `/v1` đồng bộ | Thấp | Tăng dần | 1 mỗi request |
+| `/v2` `Task.Run` | **Thấp tương tự** | Tăng dần | 1 mỗi request, cộng chi phí chuyển ngữ cảnh |
+| `/v3` async thật | Cao | Ổn định | **0** |
+
+**Vì sao `Task.Run` không giúp.** Nó chỉ **dời** chỗ chặn, không **loại bỏ** việc chặn:
+
+```text
+Đồng bộ:
+  Luồng A (xử lý request) ──── bị giam 1 giây ────> trả kết quả
+
+Task.Run:
+  Luồng A (xử lý request) ──await──> trả về pool
+  Luồng B (mượn từ pool)  ──── bị giam 1 giây ────> đánh thức luồng A
+
+  -> Tổng số luồng bị giam: vẫn 1. Cộng thêm hai lần chuyển ngữ cảnh.
+```
+
+Cả hai bản đều tiêu tốn **một luồng thread pool cho mỗi request đang chờ**. Bản `Task.Run` còn tệ hơn một chút vì tốn thêm chi phí điều phối.
+
+**Khi nào `Task.Run` là đúng.** Chỉ khi công việc **thật sự tốn CPU**:
+
+```csharp
+// ĐÚNG — xử lý ảnh là công việc CPU, mất 2 giây tính toán thật
+var thumbnail = await Task.Run(() => TaoThumbnail(anh), ct);
+```
+
+Ngay cả ở đây cũng cần thận trọng trong ASP.NET Core: `Task.Run` lấy một luồng **khỏi chính pool đang phục vụ các request khác**. Với công việc CPU nặng và thường xuyên, giải pháp đúng là đẩy sang một tác vụ nền hoặc một dịch vụ riêng, như [Module 14](../../stage-04-database-production/module-14-caching-background-jobs/) trình bày.
+
+**Bảng phân biệt hai loại công việc:**
+
+| | I/O-bound | CPU-bound |
+|---|---|---|
+| Ví dụ | Database, HTTP, đọc file | Mã hoá, nén, xử lý ảnh, tính toán |
+| Trong lúc chờ | **Không cần luồng nào** | Luôn cần một luồng |
+| Công cụ đúng | `async`/`await` | `Task.Run`, `Parallel.ForEach` |
+| Dùng nhầm công cụ | Lãng phí luồng | Chặn luồng gọi |
+
+**Câu hỏi phân biệt.** *Trong lúc thao tác này diễn ra, CPU có đang làm việc không?* Không thì đó là I/O — dùng `async`. Có thì đó là CPU — và lúc đó mới nghĩ tới `Task.Run`.
+
+</details>
+
+#### Bài 3 — Đo chi phí của máy trạng thái
+
+Viết một phương thức `async` trả về giá trị có sẵn, gọi mười triệu lần. So với phiên bản đồng bộ và với `ValueTask`.
+
+**Tiêu chí hoàn thành:** bạn có con số, **và** kết luận đúng về việc nó có đáng quan tâm trong bối cảnh của bạn hay không.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Khi một phương thức `async` hoàn tất **đồng bộ** — không thật sự chờ gì — nó vẫn phải cấp phát một đối tượng `Task` và chạy qua máy trạng thái. Đó là chi phí bạn đang đo.
+
+**Lời giải.**
+
+```csharp
+static int Sync(int x) => x + 1;
+static async Task<int> AsyncCoSan(int x) => x + 1;      // cảnh báo CS1998 — có chủ ý
+static ValueTask<int> VtCoSan(int x) => new(x + 1);
+
+const int N = 10_000_000;
+// ... làm nóng, rồi đo từng vòng lặp
+```
+
+**Kết quả đo thật trên .NET 9, chế độ Release:**
+
+```text
+đồng bộ          :   6 ms   (0.60 ns/lần)
+async Task       : 485 ms   (48.51 ns/lần)  81.0x
+ValueTask có sẵn :  30 ms   ( 2.95 ns/lần)   4.9x
+```
+
+**Kết luận đúng — và đây là phần quan trọng nhất của bài.** Tỉ lệ **81 lần** nghe rất lớn. Nhưng hãy nhìn con số tuyệt đối: **48 nano-giây**.
+
+Đặt vào bối cảnh một API handler thật:
+
+| Thao tác | Thời gian |
+|---|---|
+| Máy trạng thái async | 0,000048 ms |
+| Một truy vấn database | 2–10 ms |
+| Một lời gọi HTTP nội bộ | 5–50 ms |
+| Tuần tự hoá JSON một đối tượng vừa | 0,01–0,1 ms |
+
+Chi phí async chiếm khoảng **một phần trăm nghìn** thời gian của một truy vấn database. Kết luận thực dụng: **trong code backend thông thường, chi phí này hoàn toàn không đáng quan tâm**, và đánh đổi lấy khả năng phục vụ nhiều request đồng thời là hoàn toàn xứng đáng.
+
+**Khi nào nó đáng quan tâm — hai trường hợp:**
+
+1. **Phương thức được gọi hàng triệu lần trong vòng lặp nóng**, và **thường hoàn tất đồng bộ**. Ví dụ điển hình là một hàm đọc cache: 95% số lần giá trị đã có sẵn trong bộ nhớ, chỉ 5% phải đi lấy từ nguồn.
+
+2. **Thư viện nền tảng** nơi chi phí nhân lên qua mọi người dùng.
+
+Ở hai trường hợp đó, `ValueTask` là công cụ đúng — nó **không cấp phát** khi kết quả có sẵn:
+
+```csharp
+public ValueTask<Customer?> LayAsync(int id, CancellationToken ct)
+{
+    if (_cache.TryGetValue(id, out var kh))
+        return new ValueTask<Customer?>(kh);          // không cấp phát
+
+    return new ValueTask<Customer?>(LayTuDbAsync(id, ct));   // chỉ cấp phát khi cần
+}
+```
+
+Số đo cho thấy `ValueTask` giảm từ 48,51 ns xuống 2,95 ns — **hơn 16 lần**.
+
+**Ba hạn chế của `ValueTask`, phải biết trước khi dùng:**
+
+1. **Chỉ được `await` đúng một lần.** `await` lần thứ hai cho hành vi không xác định.
+2. **Không được gọi `.Result` khi chưa hoàn tất.**
+3. **Không dùng được với `Task.WhenAll` trực tiếp** — phải gọi `.AsTask()` trước, và lúc đó lại cấp phát.
+
+**Khuyến nghị.** Mặc định dùng `Task`. Chỉ chuyển sang `ValueTask` khi bạn đã **đo** và xác nhận rằng chỗ đó là nút thắt. Đây là ví dụ tốt cho nguyên tắc của [Module 19](../../stage-05-senior-engineering/module-19-performance-engineering/): đo trước, tối ưu sau — và phần lớn tối ưu người ta tưởng là cần thì không cần.
+
+</details>
 
 ## Tự kiểm tra
 
