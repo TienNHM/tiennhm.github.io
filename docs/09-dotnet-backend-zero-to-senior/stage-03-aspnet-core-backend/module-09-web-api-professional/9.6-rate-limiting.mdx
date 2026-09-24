@@ -262,11 +262,307 @@ options.AddPolicy("per-client", context =>
 
 ## Bài tập áp dụng
 
-1. **Burst ở ranh giới.** Cấu hình fixed window 100/phút, bắn 100 request ở giây thứ 59 và 100 nữa ở giây thứ 61. Xác nhận cả 200 đều qua. Đổi sang sliding window và đo lại.
+#### Bài 1 — Đợt tăng vọt ở ranh giới cửa sổ
 
-2. **Nhân theo instance.** Chạy 3 instance sau một load balancer với giới hạn 10/phút mỗi instance. Bắn 30 request và đếm bao nhiêu cái qua.
+Cấu hình cửa sổ cố định 100 request mỗi phút, bắn 100 request ở giây thứ 59 và 100 nữa ở giây thứ 61. Xác nhận cả 200 đều qua. Đổi sang cửa sổ trượt và đo lại.
 
-3. **Retry bão hoà.** Viết client retry ngay lập tức khi nhận 429 (không đọc `Retry-After`), đo số request nó tạo ra trong một phút. Sửa để tôn trọng `Retry-After` và đo lại.
+**Tiêu chí hoàn thành:** bạn giải thích được vì sao cửa sổ cố định cho phép **gấp đôi** hạn mức trong một khoảng ngắn.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Cửa sổ cố định đặt lại bộ đếm về 0 ở mỗi mốc phút. Hãy vẽ trục thời gian và đánh dấu mốc đặt lại.
+
+**Lời giải.**
+
+```csharp
+builder.Services.AddRateLimiter(o =>
+{
+    o.AddFixedWindowLimiter("cu-dinh", opt =>
+    {
+        opt.PermitLimit = 100;
+        opt.Window = TimeSpan.FromMinutes(1);
+    });
+});
+```
+
+```bash
+# Chờ tới giây thứ 59 của một phút
+while [ $(date +%S) -ne 59 ]; do sleep 0.1; done
+for i in $(seq 1 100); do curl -s -o /dev/null -w "%{http_code} " localhost:5000/api/v1/customers & done; wait
+echo
+sleep 2      # sang phút mới
+for i in $(seq 1 100); do curl -s -o /dev/null -w "%{http_code} " localhost:5000/api/v1/customers & done; wait
+```
+
+**Kết quả:** cả 200 request đều trả `200`.
+
+**Trục thời gian:**
+
+```text
+Phút 1                              | Phút 2
+...........................[59s]    | [01s]......................
+                            100 req |  100 req
+                                    ^
+                              bộ đếm ĐẶT LẠI về 0
+
+-> 200 request trong khoảng 2 giây, dù hạn mức là 100 mỗi phút
+```
+
+Server nhận **gấp đôi** hạn mức trong một khoảng rất ngắn — đúng thứ mà giới hạn tần suất sinh ra để ngăn.
+
+**Cửa sổ trượt:**
+
+```csharp
+o.AddSlidingWindowLimiter("truot", opt =>
+{
+    opt.PermitLimit = 100;
+    opt.Window = TimeSpan.FromMinutes(1);
+    opt.SegmentsPerWindow = 6;          // chia thành 6 đoạn 10 giây
+});
+```
+
+Thay vì đặt lại một lần mỗi phút, nó chia cửa sổ thành các đoạn nhỏ và **trượt dần**: mỗi 10 giây, đoạn cũ nhất hết hạn và giải phóng phần hạn mức của nó. Đợt thứ hai sẽ bị chặn phần lớn, vì 100 request của đợt đầu vẫn nằm trong cửa sổ 60 giây tính lùi.
+
+**Bốn thuật toán, so sánh:**
+
+| Thuật toán | Cho phép tăng vọt | Bộ nhớ | Độ chính xác | Dùng khi |
+|---|---|---|---|---|
+| Cửa sổ cố định | **Gấp đôi ở ranh giới** | Thấp nhất | Thấp | Chỉ cần chặn thô |
+| Cửa sổ trượt | Ít | Trung bình | Cao | **Mặc định tốt** |
+| Gáo token | **Có chủ ý** | Thấp | Cao | Cho phép tăng vọt ngắn, ví dụ nhập liệu hàng loạt |
+| Đồng thời | Không áp dụng | Thấp | — | Giới hạn **số request đang chạy**, không phải tần suất |
+
+**Gáo token đáng chú ý** vì nó cho phép tăng vọt **một cách có kiểm soát**:
+
+```csharp
+o.AddTokenBucketLimiter("gao", opt =>
+{
+    opt.TokenLimit = 100;                                  // sức chứa gáo
+    opt.TokensPerPeriod = 10;                              // nạp lại 10 mỗi lần
+    opt.ReplenishmentPeriod = TimeSpan.FromSeconds(6);     // mỗi 6 giây
+});
+```
+
+Người dùng không hoạt động một lúc sẽ tích đủ 100 token và dùng hết một lần — hợp lý cho thao tác nhập liệu hàng loạt. Nhưng về lâu dài họ chỉ duy trì được 100 request mỗi phút.
+
+**Giới hạn đồng thời giải quyết một vấn đề khác hẳn:**
+
+```csharp
+o.AddConcurrencyLimiter("dong-thoi", opt =>
+{
+    opt.PermitLimit = 10;                                  // tối đa 10 request ĐANG chạy
+    opt.QueueLimit = 50;
+});
+```
+
+Nó bảo vệ **tài nguyên** chứ không bảo vệ khỏi lạm dụng — ví dụ giới hạn số báo cáo nặng chạy cùng lúc. Với endpoint tốn kém, đây thường là công cụ đúng chứ không phải giới hạn tần suất.
+
+</details>
+
+#### Bài 2 — Hạn mức nhân lên theo số thể hiện
+
+Chạy 3 thể hiện sau một bộ cân bằng tải với giới hạn 10 request mỗi phút **trên mỗi thể hiện**. Bắn 30 request và đếm bao nhiêu cái qua.
+
+**Tiêu chí hoàn thành:** bạn nêu được vì sao đây là giới hạn cơ bản của giới hạn tần suất trong tiến trình, và hai cách khắc phục.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Middleware giới hạn tần suất của ASP.NET Core giữ bộ đếm **trong bộ nhớ của tiến trình**. Ba tiến trình thì có bao nhiêu bộ đếm?
+
+**Lời giải.**
+
+```csharp
+o.AddFixedWindowLimiter("mac-dinh", opt =>
+{
+    opt.PermitLimit = 10;
+    opt.Window = TimeSpan.FromMinutes(1);
+});
+```
+
+Bắn 30 request qua bộ cân bằng tải luân phiên trước 3 thể hiện:
+
+```bash
+for i in $(seq 1 30); do curl -s -o /dev/null -w "%{http_code}\n" localhost:8080/api/v1/customers; done | sort | uniq -c
+```
+
+**Kết quả:**
+
+```text
+  30 200
+```
+
+**Cả 30 đều qua.** Mỗi thể hiện nhận 10 request và mỗi cái đều nghĩ mình đang ở đúng hạn mức.
+
+**Hạn mức thực tế = hạn mức cấu hình × số thể hiện.**
+
+| Thể hiện | Hạn mức cấu hình | Hạn mức thực tế |
+|---|---|---|
+| 1 | 10/phút | 10/phút |
+| 3 | 10/phút | **30/phút** |
+| 10 (sau khi tự mở rộng) | 10/phút | **100/phút** |
+
+Dòng cuối là điều nguy hiểm nhất: hạn mức **thay đổi theo số thể hiện đang chạy**, và số đó tự động biến động. Bạn không kiểm soát được hạn mức thật.
+
+**Vì sao đây là giới hạn cơ bản.** Bộ đếm nằm trong bộ nhớ tiến trình, và các tiến trình **không biết gì về nhau** — đúng vấn đề trạng thái cục bộ ở [bài 9.1](9.1-rest-api-design-principles.mdx). Đây không phải thiếu sót của ASP.NET Core mà là hệ quả tất yếu của thiết kế phi trạng thái.
+
+**Hai cách khắc phục:**
+
+**Cách 1 — đặt giới hạn ở tầng hạ tầng.** Đây là cách phổ biến nhất và thường tốt nhất:
+
+```nginx
+# Nginx — một bộ đếm dùng shared cho mọi thể hiện phía after
+limit_req_zone $binary_remote_addr zone=api:10m rate=10r/m;
+
+location /api/ {
+    limit_req zone=api burst=5 nodelay;
+    proxy_pass http://backend;
+}
+```
+
+Ưu điểm lớn: lưu lượng thừa bị chặn **trước khi** chạm tới ứng dụng, nên không tốn tài nguyên nào của bạn. Cloudflare, AWS API Gateway, Azure API Management đều làm việc này tốt hơn.
+
+**Cách 2 — bộ đếm dùng chung trong Redis:**
+
+```csharp
+o.AddPolicy("redis", ctx =>
+    RedisRateLimitPartition.GetFixedWindowRateLimiter(
+        partitionKey: ctx.User.Identity?.Name ?? ctx.Connection.RemoteIpAddress?.ToString() ?? "anon",
+        _ => new RedisFixedWindowRateLimiterOptions
+        {
+            ConnectionMultiplexerFactory = () => _redis,
+            PermitLimit = 10,
+            Window = TimeSpan.FromMinutes(1)
+        }));
+```
+
+Chính xác hơn, nhưng thêm một phụ thuộc vào đường dẫn nóng của **mọi** request — và Redis hỏng thì bạn phải quyết định: chặn hết hay cho qua hết.
+
+**Khuyến nghị: dùng cả hai tầng, với vai trò khác nhau.**
+
+| Tầng | Chặn gì | Hạn mức |
+|---|---|---|
+| Hạ tầng | Lưu lượng thô theo IP, tấn công từ chối dịch vụ | Rộng, ví dụ 1000/phút mỗi IP |
+| Ứng dụng | Theo người dùng hoặc khoá API, theo gói dịch vụ | Chặt, theo nghiệp vụ |
+
+Tầng ứng dụng lúc này không cần chính xác tuyệt đối — nó chỉ cần đủ tốt, vì tầng hạ tầng đã chặn phần nguy hiểm.
+
+**Một cách giảm nhẹ nếu chỉ dùng trong tiến trình.** Chia hạn mức cho số thể hiện dự kiến:
+
+```csharp
+var soThersHien = builder.Configuration.GetValue<int>("ExpectedInstanceCount", 3);
+opt.PermitLimit = 100 / soThersHien;
+```
+
+Cách này thô và sai khi số thể hiện thay đổi, nhưng tốt hơn là không làm gì — và nó ít nhất làm cho giả định trở nên tường minh trong code.
+
+</details>
+
+#### Bài 3 — Thử lại gây bão
+
+Viết client thử lại **ngay lập tức** khi nhận `429` mà không đọc `Retry-After`, đo số request nó tạo ra trong một phút. Sửa để tôn trọng `Retry-After` và đo lại.
+
+**Tiêu chí hoàn thành:** bạn nêu được vì sao việc thử lại ngay lập tức làm **tình hình tệ hơn** cho chính client đó.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** `429` nghĩa là "bạn đang gửi quá nhanh". Thử lại ngay lập tức là phản ứng nào với thông điệp đó?
+
+**Lời giải — client sai:**
+
+```csharp
+async Task<HttpResponseMessage> GoiXau(string url, CancellationToken ct)
+{
+    while (true)
+    {
+        var res = await _http.GetAsync(url, ct);
+        if (res.StatusCode != HttpStatusCode.TooManyRequests) return res;
+        // thử lại NGAY
+    }
+}
+```
+
+**Đo trong một phút với hạn mức 10 request mỗi phút:**
+
+```text
+10 request đầu   -> 200
+Phần còn lại     -> 429, thử lại ngay, lại 429, ...
+Tổng số request gửi đi trong 1 phút: hàng nghìn
+Tổng số thành công: 10
+```
+
+Client tạo ra **hàng nghìn** request để nhận đúng 10 kết quả.
+
+**Vì sao làm tình hình tệ hơn cho chính client đó:**
+
+1. **Tốn tài nguyên của chính nó.** Hàng nghìn kết nối, hàng nghìn lần bắt tay TLS — chi phí mà [bài 2.2](../../stage-01-foundation/module-02-computer-science-basics/2.2-how-the-internet-works.mdx) đã đo là đáng kể.
+2. **Có thể bị chặn ở tầng cao hơn.** Nhiều hệ thống phát hiện mẫu hành vi này và chuyển từ giới hạn tần suất sang **chặn hẳn địa chỉ IP**. Lúc đó client không gọi được gì nữa, kể cả request hợp lệ.
+3. **Với nhiều client cùng làm vậy**, chúng đồng bộ hoá với nhau và tạo ra các đợt dội đúng vào thời điểm hạn mức được đặt lại — làm server chịu tải đỉnh cao hơn nữa.
+
+**Client đúng:**
+
+```csharp
+async Task<HttpResponseMessage> GoiTot(string url, CancellationToken ct)
+{
+    for (int lan = 0; lan < 5; lan++)
+    {
+        var res = await _http.GetAsync(url, ct);
+        if (res.StatusCode != HttpStatusCode.TooManyRequests) return res;
+
+        var cho = res.Headers.RetryAfter?.Delta
+                  ?? TimeSpan.FromSeconds(Math.Pow(2, lan));         // lùi theo cấp số nhân
+        cho += TimeSpan.FromMilliseconds(Random.Shared.Next(0, 1000));  // thêm nhiễu
+
+        _logger.LogWarning("Bị giới hạn, chờ {Giay}s", cho.TotalSeconds);
+        await Task.Delay(cho, ct);
+    }
+    throw new HttpRequestException("Vẫn bị giới hạn after 5 lần thử");
+}
+```
+
+**Số request trong một phút giảm từ hàng nghìn xuống dưới 20.**
+
+**Ba yếu tố bắt buộc trong đoạn trên:**
+
+1. **Đọc `Retry-After`.** Server biết chính xác khi nào hạn mức được đặt lại; đừng đoán.
+2. **Lùi theo cấp số nhân** khi không có `Retry-After`: 1, 2, 4, 8, 16 giây.
+3. **Thêm nhiễu ngẫu nhiên.** Không có nó, mọi client bị chặn cùng lúc sẽ thử lại **cùng lúc** — và tạo ra đúng đợt dội mà việc lùi định giải quyết.
+
+Yếu tố thứ ba hay bị bỏ qua nhất và lại quan trọng nhất khi có nhiều client.
+
+**Phía server phải trả `Retry-After`:**
+
+```csharp
+o.OnRejected = async (ctx, ct) =>
+{
+    ctx.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+
+    if (ctx.Lease.TryGetMetadata(MetadataName.RetryAfter, out var ra))
+        ctx.HttpContext.Response.Headers.RetryAfter = ((int)ra.TotalSeconds).ToString();
+
+    await ctx.HttpContext.Response.WriteAsJsonAsync(new ProblemDetails
+    {
+        Status = 429,
+        Title = "Quá nhiều yêu cầu",
+        Detail = "Bạn đã vượt hạn mức. Vui lòng thử lại after."
+    }, ct);
+};
+```
+
+Không trả `Retry-After` nghĩa là buộc mọi client phải đoán — và phần lớn sẽ đoán sai theo hướng quá hung hăng.
+
+**Dùng thư viện thay vì tự viết.** `Microsoft.Extensions.Http.Resilience` xử lý sẵn cả ba yếu tố:
+
+```csharp
+builder.Services.AddHttpClient<ICrmApiClient, CrmApiClient>()
+    .AddStandardResilienceHandler();
+```
+
+Nó có lùi theo cấp số nhân, nhiễu ngẫu nhiên, cầu dao ngắt mạch và hạn chờ — [Module 17](../../stage-05-senior-engineering/module-17-distributed-systems/) trình bày từng cơ chế.
+
+</details>
 
 ## Tự kiểm tra
 
