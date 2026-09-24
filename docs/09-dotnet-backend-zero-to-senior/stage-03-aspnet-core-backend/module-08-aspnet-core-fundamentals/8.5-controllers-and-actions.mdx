@@ -1,82 +1,285 @@
 ---
 title: "8.5 — 4. Controllers và Actions"
-description: "Controllers và Actions: ControllerBase so với Controller; [ApiController] Attribute; Model Binding."
+description: "ControllerBase, [ApiController] và bốn thứ nó bật tự động, model binding và quy tắc suy luận nguồn, cùng cách chọn kiểu trả về và mã trạng thái đúng."
 sidebar_position: 5
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
 # 8.5 — 4. Controllers và Actions
 
+<SummaryBox>
+Controller trong Web API nên **mỏng**: nhận request, gọi một service, ánh xạ kết quả sang mã HTTP. Hai thứ quyết định trải nghiệm viết controller. **`[ApiController]`** bật bốn hành vi cùng lúc — đáng giá nhất là **tự trả 400 khi model không hợp lệ**, nghĩa là bạn không bao giờ phải viết `if (!ModelState.IsValid)` nữa. Và **model binding** tự suy luận nguồn dữ liệu: kiểu phức tạp lấy từ body, kiểu đơn giản lấy từ route hoặc query. Quy tắc suy luận này tiện cho tới lúc nó đoán sai — và lúc đó bạn nhận một tham số `null` không lời giải thích.
+</SummaryBox>
+
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Giải thích bốn hành vi mà `[ApiController]` bật.
+- Dự đoán đúng model binding sẽ lấy dữ liệu từ đâu.
+- Chọn giữa `IActionResult`, `ActionResult<T>` và kiểu trả về trần.
+- Trả về đúng mã trạng thái cho từng tình huống.
+- Giữ controller mỏng và kiểm thử được.
 
 ## Nội dung bài học
 
-### 8.5.1 — ControllerBase so với Controller
+### 8.5.1 — `ControllerBase`, không phải `Controller`
 
-- `ControllerBase`: Dành cho **Web API** — không có View support
-- `Controller`: Kế thừa `ControllerBase` + thêm View/Razor support — dùng cho MVC app
+```csharp
+public class CustomersController : ControllerBase   // Web API
+public class HomeController : Controller            // MVC co View
+```
 
-Luôn dùng `ControllerBase` cho API project.
+`Controller` kế thừa `ControllerBase` và thêm `View()`, `ViewBag`, `ViewData`, `PartialView()` — toàn bộ máy Razor. Trong một API JSON, chúng không bao giờ được dùng nhưng vẫn nằm trong IntelliSense và vẫn được nạp.
 
-### 8.5.2 — [ApiController] Attribute
+**Luôn dùng `ControllerBase` cho API.**
 
-`[ApiController]` tự động:
-- Bật automatic model validation (không cần kiểm tra `ModelState.IsValid` thủ công)
-- Binding source inference (`[FromBody]` cho complex type, `[FromRoute]` cho route param)
-- Trả `ValidationProblemDetails` khi validation fail (HTTP 400)
-
-### 8.5.3 — Model Binding
+### 8.5.2 — `[ApiController]` bật bốn thứ
 
 ```csharp
 [ApiController]
 [Route("api/v1/customers")]
-public class CustomersController : ControllerBase
+public class CustomersController(ICustomerService service) : ControllerBase
+```
+
+**1. Tự động trả 400 khi model không hợp lệ.**
+
+```csharp
+// KHONG can viet nua
+if (!ModelState.IsValid) return BadRequest(ModelState);
+```
+
+Validation chạy **trước** khi action được gọi. Lỗi trả về dưới dạng `ValidationProblemDetails` theo chuẩn RFC 7807 ([bài 8.6](8.6-model-validation.mdx)).
+
+**2. Suy luận nguồn binding** — mục tiếp theo.
+
+**3. Bắt buộc attribute routing.** Không có `[Route]` hay `[HttpGet]` thì ứng dụng **không khởi động được**. Đây là tính năng: nó loại bỏ hoàn toàn loại lỗi "action này không bao giờ được gọi".
+
+**4. Chi tiết lỗi theo chuẩn.** `NotFound()`, `BadRequest()` và mọi mã 4xx/5xx trả `ProblemDetails` thay vì body rỗng.
+
+Muốn đổi định dạng lỗi validation:
+
+```csharp
+builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
-    // [FromRoute] — từ URL path
-    [HttpGet("{id:int}")]
-    public IActionResult GetById([FromRoute] int id) { ... }
+    options.InvalidModelStateResponseFactory = context =>
+        new BadRequestObjectResult(new { /* dinh dang rieng cua ban */ });
+});
+```
 
-    // [FromQuery] — từ query string ?page=1&pageSize=20
-    [HttpGet]
-    public IActionResult GetAll(
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 20,
-        [FromQuery] string? search = null) { ... }
+### 8.5.3 — Model binding và quy tắc suy luận
 
-    // [FromBody] — từ JSON body (POST/PUT)
-    [HttpPost]
-    public IActionResult Create([FromBody] CreateCustomerRequest request) { ... }
+Với `[ApiController]`, nguồn dữ liệu được suy luận theo thứ tự:
 
-    // [FromHeader] — từ HTTP header
-    [HttpPost("import")]
-    public IActionResult Import(
-        [FromHeader(Name = "X-Import-Source")] string importSource,
-        [FromBody] ImportCustomersRequest request) { ... }
+| Kiểu tham số | Nguồn mặc định |
+|---|---|
+| Khớp tên tham số trong route template | `[FromRoute]` |
+| Kiểu phức tạp (class, record) | `[FromBody]` |
+| `IFormFile`, `IFormFileCollection` | `[FromForm]` |
+| Kiểu đã đăng ký trong DI | `[FromServices]` |
+| Còn lại (kiểu đơn giản) | `[FromQuery]` |
+
+```csharp
+[HttpGet("{id:guid}")]
+public async Task<IActionResult> GetById(
+    Guid id,                                    // [FromRoute] — khop route
+    [FromQuery] bool includeOrders,             // kieu don gian
+    CancellationToken ct)                       // dac biet: token cua request
+
+[HttpPost]
+public async Task<IActionResult> Create(
+    CreateCustomerRequest request,              // [FromBody] — kieu phuc tap
+    [FromHeader(Name = "X-Idempotency-Key")] string? idempotencyKey,
+    CancellationToken ct)
+```
+
+**Ba điều dễ vấp:**
+
+**Chỉ một tham số được `[FromBody]`.** Body là stream đọc một lần. Hai tham số phức tạp không có attribute → lỗi lúc khởi động. Cần nhiều thứ thì gộp vào một record.
+
+```csharp
+// SAI
+public IActionResult Create(CreateCustomerRequest req, AddressRequest addr);
+
+// DUNG
+public record CreateCustomerRequest(string Name, string Email, AddressRequest Address);
+```
+
+**Kiểu đơn giản nhiều tham số thì gom lại:**
+
+```csharp
+// Thay vi 5 tham so [FromQuery] roi rac
+public record PagedRequest(int Page = 1, int PageSize = 20, string? Search = null);
+
+[HttpGet]
+public Task<IActionResult> GetAll([FromQuery] PagedRequest request, CancellationToken ct);
+```
+
+`[FromQuery]` trên một kiểu phức tạp bind **từng thuộc tính** từ query string — và giờ bạn validate được chúng bằng data annotation.
+
+**`CancellationToken` là tham số đặc biệt.** Nó không đến từ request mà được framework tiêm — chính là `HttpContext.RequestAborted`, huỷ khi client ngắt kết nối. **Mọi action có I/O đều nên nhận nó và truyền xuống** ([bài 6.5](../../stage-02-csharp-professional/module-06-async-programming/6.5-cancellationtoken.mdx)).
+
+### 8.5.4 — Kiểu trả về
+
+```csharp
+// 1. ActionResult<T> — tot nhat cho API
+[HttpGet("{id:guid}")]
+public async Task<ActionResult<CustomerDto>> GetById(Guid id, CancellationToken ct)
+{
+    var customer = await service.GetByIdAsync(id, ct);
+    if (customer is null) return NotFound();
+    return customer;                              // chuyen ngam sang Ok(customer)
+}
+
+// 2. IActionResult — khi tra nhieu kieu khac nhau
+[HttpPost("export")]
+public async Task<IActionResult> Export(CancellationToken ct)
+    => File(await service.BuildCsvAsync(ct), "text/csv", "customers.csv");
+
+// 3. Kieu tran — chi khi LUON thanh cong
+[HttpGet("count")]
+public async Task<int> Count(CancellationToken ct) => await service.CountAsync(ct);
+```
+
+`ActionResult<T>` là lựa chọn mặc định: Swagger biết kiểu thành công là gì, và bạn vẫn trả được `NotFound()`.
+
+Bổ sung `[ProducesResponseType]` để tài liệu đầy đủ:
+
+```csharp
+[HttpGet("{id:guid}")]
+[ProducesResponseType<CustomerDto>(StatusCodes.Status200OK)]
+[ProducesResponseType(StatusCodes.Status404NotFound)]
+public async Task<ActionResult<CustomerDto>> GetById(Guid id, CancellationToken ct);
+```
+
+### 8.5.5 — Mã trạng thái
+
+| Tình huống | Mã | Helper |
+|---|---|---|
+| Lấy được dữ liệu | 200 | `Ok(dto)` |
+| Tạo mới xong | **201** | `CreatedAtRoute("GetCustomer", new { id }, dto)` |
+| Nhận việc, xử lý sau | 202 | `Accepted()` |
+| Thành công, không có nội dung | 204 | `NoContent()` |
+| Dữ liệu đầu vào sai | 400 | `BadRequest()` — thường tự động |
+| Chưa đăng nhập | 401 | `Unauthorized()` |
+| Đã đăng nhập, không đủ quyền | 403 | `Forbid()` |
+| Không tồn tại | 404 | `NotFound()` |
+| Xung đột trạng thái | 409 | `Conflict()` |
+| Vi phạm quy tắc nghiệp vụ | 422 | `UnprocessableEntity()` |
+
+Ba chỗ hay bị dùng sai:
+
+- **201 cho POST tạo mới**, kèm header `Location`. Dùng `CreatedAtRoute` để framework sinh URL thay vì nối chuỗi.
+- **401 và 403 khác nhau**: 401 là "tôi không biết bạn là ai", 403 là "tôi biết bạn là ai và bạn không được phép".
+- **DELETE trả 204**, và **nên idempotent** — xoá một thứ đã xoá vẫn trả 204, không phải 404.
+
+### 8.5.6 — Controller phải mỏng
+
+```csharp
+// SAI — nghiep vu nam trong controller
+[HttpPost]
+public async Task<IActionResult> Create(CreateCustomerRequest request, CancellationToken ct)
+{
+    if (await _db.Customers.AnyAsync(c => c.Email == request.Email, ct))
+        return Conflict("Email da ton tai");
+
+    var customer = new Customer { Name = request.Name, Email = request.Email };
+    _db.Customers.Add(customer);
+    await _db.SaveChangesAsync(ct);
+    await _email.SendWelcomeAsync(customer.Email, ct);
+    ...
 }
 ```
 
----
+```csharp
+// DUNG — controller chi dich ket qua sang HTTP
+[HttpPost]
+[ProducesResponseType<CustomerDto>(StatusCodes.Status201Created)]
+[ProducesResponseType(StatusCodes.Status409Conflict)]
+public async Task<ActionResult<CustomerDto>> Create(
+    CreateCustomerRequest request, CancellationToken ct)
+{
+    var result = await service.CreateAsync(request, ct);
+
+    return result.IsSuccess
+        ? CreatedAtRoute("GetCustomer", new { id = result.Value.Id }, result.Value)
+        : Conflict(result.Error);
+}
+```
+
+Nghiệp vụ trong controller không test được nếu không dựng cả `HttpContext`, không dùng lại được từ background job, và không di chuyển sang Minimal API được. Chi tiết về ranh giới này ở [Module 16 — Clean Architecture](../../stage-05-senior-engineering/module-16-clean-architecture/).
+
+### 8.5.7 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát controller"
+  items={[
+    { text: "Mọi controller API kế thừa ControllerBase, không phải Controller." },
+    { text: "Mọi controller API có [ApiController]." },
+    { text: "Không còn dòng if (!ModelState.IsValid) nào." },
+    { text: "Mỗi action chỉ có nhiều nhất một tham số [FromBody]." },
+    { text: "Tham số query rời rạc đã gom thành một record [FromQuery]." },
+    { text: "Mọi action có I/O đều nhận CancellationToken và truyền xuống." },
+    { text: "Kiểu trả về là ActionResult<T> với [ProducesResponseType] đầy đủ." },
+    { text: "POST tạo mới trả 201 kèm Location qua CreatedAtRoute." },
+    { text: "Không có truy vấn database hay logic nghiệp vụ nào trong controller." },
+  ]}
+/>
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **Suy luận binding đoán sai.** Viết action nhận hai tham số kiểu phức tạp không có attribute, chạy ứng dụng và ghi lại lỗi lúc khởi động. Sửa bằng cách gộp thành một record.
+
+2. **Thấy `CancellationToken` hoạt động.** Viết endpoint mất 10 giây, gọi bằng `curl` rồi ngắt giữa chừng. Log giá trị `ct.IsCancellationRequested` ở server và xác nhận công việc dừng lại.
+
+3. **Làm mỏng một controller.** Lấy một action có truy vấn database trực tiếp, chuyển nghiệp vụ xuống service, và viết unit test cho service đó mà không dựng `HttpContext`. So sánh với việc test action cũ.
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "ControllerBase khác Controller ở đâu?",
+      answer: "Controller kế thừa ControllerBase và thêm View, ViewBag, ViewData, PartialView, tức toàn bộ máy Razor. Trong một API JSON thì chúng không bao giờ được dùng nhưng vẫn nằm trong IntelliSense và vẫn được nạp. Với API thì luôn dùng ControllerBase."
+    },
+    {
+      question: "[ApiController] bật những gì?",
+      answer: "Bốn thứ. Tự động trả 400 khi model không hợp lệ, chạy trước khi action được gọi nên không cần viết kiểm tra ModelState. Suy luận nguồn binding. Bắt buộc attribute routing, thiếu thì ứng dụng không khởi động được. Và trả lỗi theo chuẩn ProblemDetails thay vì body rỗng."
+    },
+    {
+      question: "Model binding suy luận nguồn dữ liệu thế nào?",
+      answer: "Tham số khớp tên trong route template lấy từ route, kiểu phức tạp lấy từ body, IFormFile lấy từ form, kiểu đã đăng ký trong DI lấy từ container, còn lại lấy từ query string. Quy tắc này tiện cho tới lúc nó đoán sai, và khi đó bạn nhận một tham số null không lời giải thích."
+    },
+    {
+      question: "Vì sao chỉ một tham số được FromBody?",
+      answer: "Vì body là stream đọc một lần. Hai tham số kiểu phức tạp không có attribute sẽ gây lỗi lúc khởi động. Cần nhiều thứ thì gộp chúng vào một record duy nhất."
+    },
+    {
+      question: "CancellationToken trong action đến từ đâu?",
+      answer: "Nó không đến từ request mà được framework tiêm, chính là HttpContext.RequestAborted, và được kích hoạt khi client ngắt kết nối. Mọi action có I/O đều nên nhận nó và truyền xuống các lớp bên dưới."
+    },
+    {
+      question: "401 và 403 khác nhau thế nào?",
+      answer: "401 nghĩa là tôi không biết bạn là ai, tức chưa xác thực hoặc token không hợp lệ. 403 nghĩa là tôi biết bạn là ai nhưng bạn không được phép làm việc này. Dùng lẫn hai mã khiến client không biết nên đăng nhập lại hay báo cho quản trị viên."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **`[ApiController]` xoá bỏ `if (!ModelState.IsValid)`** và bắt buộc attribute routing.
+2. **Một `[FromBody]` duy nhất mỗi action**; gom tham số query thành record.
+3. **Controller chỉ dịch kết quả sang HTTP.** Nghiệp vụ trong controller là nghiệp vụ không test được.
+
+## Tham khảo
+
+- [Create web APIs with ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/web-api/)
+- [Model Binding in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/mvc/models/model-binding)
+- [Controller action return types in ASP.NET Core web API](https://learn.microsoft.com/en-us/aspnet/core/web-api/action-return-types)
+- [Handle errors in ASP.NET Core web APIs](https://learn.microsoft.com/en-us/aspnet/core/web-api/handle-errors)
 
 ## Điều hướng
 
