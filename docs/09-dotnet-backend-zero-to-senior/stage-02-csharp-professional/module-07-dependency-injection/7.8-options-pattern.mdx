@@ -1,146 +1,272 @@
 ---
 title: "7.8 — 6. Options Pattern"
-description: "Thay vì inject IConfiguration trực tiếp (fragile, stringly-typed), Options Pattern cho phép bind config vào POCO class type-safe."
+description: "Bind cấu hình vào POCO type-safe: IOptions, IOptionsSnapshot, IOptionsMonitor khác nhau ra sao, ValidateOnStart, named options và secret."
 sidebar_position: 8
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
 # 7.8 — 6. Options Pattern
 
+<SummaryBox>
+Options pattern biến cấu hình từ những chuỗi rời rạc (`_config["Email:Port"]`) thành **một lớp có kiểu**, kiểm tra được ngay lúc khởi động. Ba interface, và chọn sai là nguồn bug: **`IOptions<T>`** đọc một lần rồi giữ mãi (Singleton, không reload), **`IOptionsSnapshot<T>`** đọc lại mỗi request (Scoped — **không tiêm được vào Singleton**), **`IOptionsMonitor<T>`** là Singleton nhưng vẫn thấy giá trị mới nhất. Thứ đáng giá nhất trong bài là **`ValidateOnStart()`**: thiếu connection string thì ứng dụng **không khởi động được**, thay vì chạy bình thường rồi lỗi vào lúc có người gọi đúng endpoint.
+</SummaryBox>
+
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Bind một section cấu hình vào lớp POCO và validate nó.
+- Chọn đúng một trong ba interface theo lifetime và nhu cầu reload.
+- Viết validation phức tạp bằng `IValidateOptions<T>`.
+- Dùng named options cho nhiều cấu hình cùng kiểu.
+- Biết chỗ nào **không** được để secret.
 
 ## Nội dung bài học
 
-### 7.8.1 — Tại sao cần Options Pattern?
+### 7.8.1 — Vấn đề với `IConfiguration` trực tiếp
 
-Thay vì inject `IConfiguration` trực tiếp (fragile, stringly-typed), Options Pattern cho phép bind config vào POCO class type-safe.
+```csharp
+public class EmailService(IConfiguration config)
+{
+    public async Task SendAsync(...)
+    {
+        var host = config["EmailSettings:Host"];           // string? — co the null
+        var port = int.Parse(config["EmailSettings:Port"]!); // nem luc chay
+    }
+}
+```
 
-### 7.8.2 — Ba interface
+Bốn vấn đề: gõ sai khoá thì nhận `null` chứ không phải lỗi biên dịch; mọi giá trị đều là `string` nên phải tự ép kiểu; không có cách nào biết cấu hình đủ hay chưa cho tới khi code chạy tới; và unit test phải dựng một `IConfiguration` giả.
 
-| Interface | Đọc config | Reloadable | Khi nào dùng |
-|-----------|-----------|------------|-------------|
-| `IOptions<T>` | Lúc app start | Không | Singleton, config không đổi |
-| `IOptionsSnapshot<T>` | Mỗi request | Có | Scoped, config có thể reload |
-| `IOptionsMonitor<T>` | Realtime | Có (callback) | Singleton, cần phản ứng khi config thay đổi |
-
-### 7.8.3 — Ví dụ: CrmSettings và EmailSettings
+### 7.8.2 — Bind vào POCO
 
 ```json
-// appsettings.json
 {
-  "CrmSettings": {
-    "MaxLeadsPerAgent": 50,
-    "LeadExpirationDays": 30,
-    "DefaultCurrency": "VND",
-    "EnableAutoAssignment": true
-  },
   "EmailSettings": {
     "Host": "smtp.company.com",
     "Port": 587,
     "UseSsl": true,
-    "SenderName": "CRM System",
     "SenderEmail": "crm@company.com"
   }
 }
 ```
 
 ```csharp
-// CrmSettings.cs
-public sealed class CrmSettings
-{
-    public const string SectionName = "CrmSettings";
-
-    public int MaxLeadsPerAgent      { get; init; } = 50;
-    public int LeadExpirationDays    { get; init; } = 30;
-    public string DefaultCurrency    { get; init; } = "VND";
-    public bool EnableAutoAssignment { get; init; } = true;
-}
-
-// EmailSettings.cs
 public sealed class EmailSettings
 {
     public const string SectionName = "EmailSettings";
 
-    [Required] public string Host        { get; init; } = string.Empty;
-    [Range(1, 65535)] public int Port    { get; init; } = 587;
-    public bool UseSsl                   { get; init; } = true;
-    public string SenderName             { get; init; } = string.Empty;
-    public string SenderEmail            { get; init; } = string.Empty;
+    [Required]                 public string Host        { get; init; } = string.Empty;
+    [Range(1, 65535)]          public int Port           { get; init; } = 587;
+                               public bool UseSsl        { get; init; } = true;
+    [Required, EmailAddress]   public string SenderEmail { get; init; } = string.Empty;
 }
 ```
 
 ```csharp
-// Đăng ký với validation
-services.AddOptions<CrmSettings>()
-    .Bind(configuration.GetSection(CrmSettings.SectionName))
-    .ValidateDataAnnotations()
-    .ValidateOnStart(); // Lỗi config sẽ fail ngay khi app start
-
 services.AddOptions<EmailSettings>()
     .Bind(configuration.GetSection(EmailSettings.SectionName))
     .ValidateDataAnnotations()
+    .ValidateOnStart();          // <-- dong quan trong nhat trong bai
+```
+
+`ValidateOnStart()` chạy validation **lúc khởi động** chứ không phải lúc `IOptions<T>` được resolve lần đầu. Không có nó, ứng dụng khởi động bình thường với `Host` rỗng, và bạn phát hiện ra lúc có người bấm nút gửi email — thường là trên production.
+
+`const string SectionName` nằm trong chính lớp đó để tên section và lớp không bao giờ lệch nhau.
+
+### 7.8.3 — Ba interface
+
+| | Lifetime | Đọc lại khi file đổi | Tiêm được vào |
+|---|---|---|---|
+| `IOptions<T>` | Singleton | **Không** | Mọi nơi |
+| `IOptionsSnapshot<T>` | **Scoped** | Có, mỗi request | **Không tiêm được vào Singleton** |
+| `IOptionsMonitor<T>` | Singleton | Có, ngay lập tức | Mọi nơi |
+
+```csharp
+// IOptions — mac dinh, cho cau hinh khong doi
+public class LeadService(IOptions<CrmSettings> options)
+{
+    private readonly CrmSettings _settings = options.Value;
+}
+
+// IOptionsSnapshot — doc lai moi request
+public class PricingService(IOptionsSnapshot<PricingSettings> options)
+{
+    public decimal Calculate(decimal amount)
+        => amount * options.Value.TaxRate;     // .Value moi lan goi
+}
+
+// IOptionsMonitor — Singleton nhung van thay gia tri moi
+public class EmailService(IOptionsMonitor<EmailSettings> monitor)
+{
+    public Task SendAsync(...)
+    {
+        var settings = monitor.CurrentValue;   // luon la ban moi nhat
+        ...
+    }
+}
+```
+
+Quy tắc chọn:
+
+- Cấu hình **không đổi khi đang chạy** (connection string, host) → `IOptions<T>`.
+- Cần đổi mà **không restart**, dùng trong service scoped (feature flag, thuế suất) → `IOptionsSnapshot<T>`.
+- Cần đổi mà không restart, nhưng service là **Singleton** → `IOptionsMonitor<T>`.
+
+Tiêm `IOptionsSnapshot<T>` vào một Singleton là **captive dependency** ([bài 7.5](7.5-service-lifetimes.mdx)) — nó bị giam và không bao giờ đọc lại nữa, im lặng.
+
+**Một bẫy nhỏ với `OnChange`:**
+
+```csharp
+monitor.OnChange(s => _logger.LogInformation("Config doi: {Host}", s.Host));
+```
+
+`OnChange` thường **bắn hai lần** cho một lần sửa file, vì nhiều trình soạn thảo ghi file theo hai bước. Nếu callback có tác dụng phụ (kết nối lại, xoá cache), hãy tự chống trùng. Và `OnChange` trả về một `IDisposable` — không giữ và huỷ nó thì callback sống mãi.
+
+### 7.8.4 — Validation phức tạp
+
+`ValidateDataAnnotations()` chỉ kiểm tra từng thuộc tính. Với luật liên quan nhiều thuộc tính:
+
+```csharp
+services.AddOptions<EmailSettings>()
+    .Bind(configuration.GetSection(EmailSettings.SectionName))
+    .ValidateDataAnnotations()
+    .Validate(s => !s.UseSsl || s.Port != 25, "SSL khong dung duoc voi port 25")
     .ValidateOnStart();
 ```
 
+Khi luật cần tới service khác, dùng `IValidateOptions<T>` — nó được resolve từ container:
+
 ```csharp
-// Sử dụng trong service
-public class LeadService
+public sealed class EmailSettingsValidator(IDnsChecker dns) : IValidateOptions<EmailSettings>
 {
-    private readonly ILeadRepository _repo;
-    private readonly CrmSettings _settings;
-
-    public LeadService(ILeadRepository repo, IOptions<CrmSettings> options)
+    public ValidateOptionsResult Validate(string? name, EmailSettings options)
     {
-        _repo     = repo;
-        _settings = options.Value; // Lấy giá trị type-safe
-    }
+        if (!dns.CanResolve(options.Host))
+            return ValidateOptionsResult.Fail($"Khong phan giai duoc host {options.Host}");
 
-    public async Task<bool> CanAssignLeadAsync(string agentId)
-    {
-        var count = await _repo.CountByAgentAsync(agentId);
-        return count < _settings.MaxLeadsPerAgent;
+        return ValidateOptionsResult.Success;
     }
 }
 
-// Service cần reload config (ví dụ: feature flag)
-public class EmailService
+services.AddSingleton<IValidateOptions<EmailSettings>, EmailSettingsValidator>();
+```
+
+Đây cũng là câu trả lời cho vấn đề ở [bài 7.7](7.7-program-cs-and-webapplicationbuilder.mdx): cần một service để cấu hình một service khác mà **không** gọi `BuildServiceProvider()`. `IConfigureOptions<T>` làm điều tương tự cho việc thiết lập giá trị:
+
+```csharp
+public sealed class ConfigureEmailSettings(ITenantContext tenant) : IConfigureOptions<EmailSettings>
 {
-    private readonly IOptionsMonitor<EmailSettings> _optionsMonitor;
-
-    public EmailService(IOptionsMonitor<EmailSettings> optionsMonitor)
-    {
-        _optionsMonitor = optionsMonitor;
-        // Đăng ký callback khi config thay đổi
-        _optionsMonitor.OnChange(settings =>
-            Console.WriteLine($"Email config reloaded: {settings.Host}"));
-    }
-
-    public EmailSettings CurrentSettings => _optionsMonitor.CurrentValue;
+    public void Configure(EmailSettings options) => options.SenderEmail = tenant.SenderEmail;
 }
 ```
 
----
+### 7.8.5 — Named options
+
+Khi cần **nhiều cấu hình cùng một kiểu**:
+
+```csharp
+services.Configure<ApiClientSettings>("crm",       configuration.GetSection("Apis:Crm"));
+services.Configure<ApiClientSettings>("analytics", configuration.GetSection("Apis:Analytics"));
+```
+
+```csharp
+public class ReportService(IOptionsMonitor<ApiClientSettings> monitor)
+{
+    public async Task RunAsync()
+    {
+        var crm       = monitor.Get("crm");
+        var analytics = monitor.Get("analytics");
+    }
+}
+```
+
+Chỉ `IOptionsSnapshot<T>` và `IOptionsMonitor<T>` có `Get(name)`; `IOptions<T>` thì không.
+
+### 7.8.6 — Secret không nằm trong `appsettings.json`
+
+`appsettings.json` **nằm trong Git**. Mật khẩu, API key và connection string có thông tin đăng nhập không được để ở đó.
+
+```bash
+# Development — luu ngoai repo
+dotnet user-secrets init
+dotnet user-secrets set "EmailSettings:Password" "..."
+```
+
+Trên production dùng biến môi trường (`EmailSettings__Password`, hai dấu gạch dưới thay cho dấu hai chấm), Azure Key Vault, hoặc secret của hệ thống điều phối. Điểm hay của options pattern: **code không đổi** — mọi nguồn đều bind vào cùng một `EmailSettings`.
+
+Xem [Module 15 — Docker và Deployment](../../stage-04-database-production/module-15-docker-deployment/) về cách truyền secret vào container.
+
+### 7.8.7 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát Options Pattern"
+  items={[
+    { text: "Không còn service nào tiêm IConfiguration để đọc giá trị lẻ." },
+    { text: "Mọi AddOptions đều có ValidateOnStart()." },
+    { text: "Mỗi lớp settings có const SectionName nằm trong chính nó." },
+    { text: "Không tiêm IOptionsSnapshot vào service Singleton." },
+    { text: "Cấu hình cần reload trong Singleton dùng IOptionsMonitor.CurrentValue." },
+    { text: "Callback OnChange có chống trùng và IDisposable của nó được giữ lại." },
+    { text: "Luật liên quan nhiều thuộc tính dùng Validate hoặc IValidateOptions." },
+    { text: "Không có mật khẩu hay API key nào trong appsettings.json đã commit." },
+  ]}
+/>
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **Thấy giá trị của `ValidateOnStart`.** Xoá `Host` khỏi `appsettings.json` và chạy ứng dụng **có** rồi **không có** `ValidateOnStart()`. Ghi lại thời điểm và nội dung lỗi trong mỗi trường hợp.
+
+2. **Captive options.** Tiêm `IOptionsSnapshot<T>` vào một Singleton, sửa `appsettings.json` khi ứng dụng đang chạy và xác nhận giá trị **không** đổi. Chuyển sang `IOptionsMonitor<T>` và xác nhận nó đổi.
+
+3. **`OnChange` bắn hai lần.** Đăng ký một callback ghi log, sửa file cấu hình bằng VS Code và đếm số dòng log. Viết cơ chế chống trùng và kiểm chứng lại.
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "Options pattern giải quyết vấn đề gì của IConfiguration?",
+      answer: "Bốn vấn đề: gõ sai khoá chỉ nhận null chứ không có lỗi biên dịch, mọi giá trị đều là string nên phải tự ép kiểu, không biết cấu hình đủ hay chưa cho tới khi code chạy tới, và unit test phải dựng IConfiguration giả. Options bind cấu hình vào một lớp POCO có kiểu và kiểm tra được ngay lúc khởi động."
+    },
+    {
+      question: "ValidateOnStart quan trọng ở chỗ nào?",
+      answer: "Nó chạy validation lúc khởi động thay vì lúc IOptions được resolve lần đầu. Không có nó thì ứng dụng khởi động bình thường với cấu hình thiếu, và bạn chỉ phát hiện khi có người gọi đúng chức năng đó, thường là trên production."
+    },
+    {
+      question: "Ba interface IOptions khác nhau thế nào?",
+      answer: "IOptions là Singleton, đọc một lần và không reload. IOptionsSnapshot là Scoped, đọc lại mỗi request nên không tiêm được vào Singleton. IOptionsMonitor là Singleton nhưng CurrentValue luôn là bản mới nhất. Chọn theo cấu hình có đổi khi đang chạy không, và lifetime của service dùng nó."
+    },
+    {
+      question: "Tiêm IOptionsSnapshot vào Singleton thì sao?",
+      answer: "Đó là captive dependency: snapshot bị giam trong Singleton và không bao giờ đọc lại cấu hình nữa. Nó xảy ra im lặng, không có lỗi nào, chỉ là cấu hình trông như không đổi. Với Singleton thì dùng IOptionsMonitor."
+    },
+    {
+      question: "Khi luật kiểm tra cần tới service khác thì làm sao?",
+      answer: "Dùng IValidateOptions<T>, vì nó được resolve từ container nên tiêm được dependency. Đây cũng là câu trả lời cho nhu cầu dùng một service để cấu hình một service khác mà không phải gọi BuildServiceProvider thủ công; IConfigureOptions<T> làm điều tương tự cho việc thiết lập giá trị."
+    },
+    {
+      question: "Secret nên để ở đâu?",
+      answer: "Không để trong appsettings.json vì file đó nằm trong Git. Development dùng dotnet user-secrets, production dùng biến môi trường với hai dấu gạch dưới thay cho dấu hai chấm, Azure Key Vault hoặc secret của hệ thống điều phối. Điểm hay là code không đổi vì mọi nguồn đều bind vào cùng một lớp settings."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **`ValidateOnStart()` trên mọi `AddOptions`** — lỗi cấu hình phải chặn khởi động, không phải chặn người dùng.
+2. **`IOptionsSnapshot` là Scoped.** Trong Singleton thì dùng `IOptionsMonitor`.
+3. **`IValidateOptions` và `IConfigureOptions`** là cách đúng để dùng service khi cấu hình, thay cho `BuildServiceProvider()`.
+
+## Tham khảo
+
+- [Options pattern in .NET](https://learn.microsoft.com/en-us/dotnet/core/extensions/options)
+- [Options pattern in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/configuration/options)
+- [Configuration in .NET](https://learn.microsoft.com/en-us/dotnet/core/extensions/configuration)
+- [Safe storage of app secrets in development](https://learn.microsoft.com/en-us/aspnet/core/security/app-secrets)
 
 ## Điều hướng
 

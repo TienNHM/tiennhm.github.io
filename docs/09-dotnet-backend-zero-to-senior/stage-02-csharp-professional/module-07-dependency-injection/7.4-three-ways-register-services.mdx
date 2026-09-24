@@ -1,106 +1,236 @@
 ---
-title: "7.4 — 2. Ba cách đăng ký service"
-description: "Đây là cách phổ biến nhất, rõ ràng nhất và được .NET DI hỗ trợ tự động:"
+title: "7.4 — 2. Ba cách tiêm dependency"
+description: "Constructor injection, property injection và method injection: cách nào container .NET hỗ trợ, cách nào không, và vì sao constructor gần như luôn đúng."
 sidebar_position: 4
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
-# 7.4 — 2. Ba cách đăng ký service
+# 7.4 — 2. Ba cách tiêm dependency
+
+<SummaryBox>
+Có ba kiểu tiêm phụ thuộc, nhưng chúng **không ngang hàng nhau**. **Constructor injection** là mặc định cho gần như mọi trường hợp, và là kiểu duy nhất container .NET hỗ trợ sẵn — nó cho bạn `readonly`, đảm bảo đối tượng không bao giờ ở trạng thái thiếu phụ thuộc, và biến constructor thành tài liệu trung thực. **Property injection** phá vỡ cả ba điều đó và container .NET **không hỗ trợ**. **Method injection** hẹp nhưng có chỗ đứng thật: khi framework tự tiêm vào từng lời gọi, như `[FromServices]` trong action hay `InvokeAsync` của middleware.
+</SummaryBox>
 
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Viết constructor injection đúng chuẩn với primary constructor của C# 12.
+- Giải thích ba lý do constructor injection thắng property injection.
+- Nhận ra đúng bốn chỗ method injection là cách làm chính thống.
+- Xử lý phụ thuộc tuỳ chọn mà không cần property injection.
 
 ## Nội dung bài học
 
-### 7.4.1 — Constructor Injection (khuyến nghị)
-
-Đây là cách phổ biến nhất, rõ ràng nhất và được .NET DI hỗ trợ tự động:
+### 7.4.1 — Constructor injection
 
 ```csharp
 public class CustomerService
 {
     private readonly ICustomerRepository _repository;
-    private readonly IEmailService _emailService;
+    private readonly IEmailService _email;
     private readonly ILogger<CustomerService> _logger;
 
-    // Constructor injection — .NET DI tự inject khi resolve CustomerService
     public CustomerService(
         ICustomerRepository repository,
-        IEmailService emailService,
+        IEmailService email,
         ILogger<CustomerService> logger)
     {
-        _repository   = repository   ?? throw new ArgumentNullException(nameof(repository));
-        _emailService = emailService ?? throw new ArgumentNullException(nameof(emailService));
-        _logger       = logger       ?? throw new ArgumentNullException(nameof(logger));
+        _repository = repository;
+        _email      = email;
+        _logger     = logger;
     }
+}
+```
 
-    public async Task<Customer> CreateCustomerAsync(CreateCustomerRequest request)
+Từ C# 12, primary constructor gọn hơn nhiều:
+
+```csharp
+public class CustomerService(
+    ICustomerRepository repository,
+    IEmailService email,
+    ILogger<CustomerService> logger)
+{
+    public async Task<Customer> CreateAsync(CreateCustomerRequest request, CancellationToken ct)
     {
         var customer = new Customer(request.Name, request.Email);
-        await _repository.AddAsync(customer);
-        await _emailService.SendWelcomeEmailAsync(customer.Email);
-        _logger.LogInformation("Customer {CustomerId} created", customer.Id);
+        await repository.AddAsync(customer, ct);
+        await email.SendWelcomeAsync(customer.Email, ct);
+        logger.LogInformation("Customer {CustomerId} created", customer.Id);
         return customer;
     }
 }
 ```
 
-### 7.4.2 — Property Injection
+Một lưu ý: tham số của primary constructor **không phải `readonly`** — bạn có thể gán lại chúng trong phương thức, và trình biên dịch không ngăn. Nếu muốn giữ đảm bảo đó thì vẫn viết constructor truyền thống, hoặc gán ra field `readonly`.
 
-Ít dùng hơn, thường cho optional dependency:
+**Ba lý do nó là mặc định:**
+
+1. **Bất biến** — field `readonly` không ai đổi được sau khi dựng.
+2. **Không có trạng thái nửa vời** — đối tượng tồn tại nghĩa là nó đã đủ phụ thuộc.
+3. **Trung thực** — đọc constructor là biết lớp này cần gì. Constructor dài là tín hiệu lớp làm quá nhiều việc, chứ không phải lỗi của DI.
+
+**Còn kiểm tra `null` thì sao?**
+
+```csharp
+_repository = repository ?? throw new ArgumentNullException(nameof(repository));
+```
+
+Với lớp **do container tạo**, việc này thừa: container không bao giờ truyền `null` — nó ném exception ngay nếu thiếu đăng ký. Kiểm tra `null` chỉ đáng giá trong **thư viện công khai**, nơi người khác có thể gọi constructor trực tiếp. Trong code ứng dụng, bật nullable reference types là đủ.
+
+### 7.4.2 — Property injection và vì sao nên tránh
 
 ```csharp
 public class ReportGenerator
 {
-    // Optional dependency — không bắt buộc
-    public IReportFormatter? Formatter { get; set; }
-
-    public string Generate(IEnumerable<Customer> customers)
-    {
-        var data = BuildReportData(customers);
-        return Formatter?.Format(data) ?? data.ToString()!;
-    }
+    public IReportFormatter? Formatter { get; set; }   // container .NET KHONG tiem cai nay
 }
 ```
 
-### 7.4.3 — Method Injection
+Container .NET **không** hỗ trợ property injection. Autofac có, nhưng cả khi có thì nó vẫn phá đúng ba điều ở mục trên:
 
-Dùng khi chỉ cần dependency trong một method cụ thể (thường thấy trong middleware, filter):
+- **Không `readonly`** — bất kỳ ai cũng gán lại được, kể cả nhầm.
+- **Có trạng thái nửa vời** — giữa lúc `new` và lúc gán property, đối tượng tồn tại nhưng chưa dùng được.
+- **Phụ thuộc bị giấu** — constructor rỗng, người đọc không biết lớp cần gì.
+
+Điểm thứ hai gây ra `NullReferenceException` ở **rất xa** chỗ thật sự sai: ai đó quên gán property, và lỗi nổ ba tầng phía dưới.
+
+**Phụ thuộc tuỳ chọn thì làm thế nào?** Không dùng property injection. Có ba cách tốt hơn:
 
 ```csharp
-public class CustomerExportService
+// 1. Null Object — implementation khong lam gi
+public sealed class NullReportFormatter : IReportFormatter
 {
-    public async Task ExportAsync(
-        IEnumerable<Customer> customers,
-        IExportProvider exportProvider,  // inject qua method
-        CancellationToken ct = default)
+    public string Format(ReportData d) => d.ToString();
+}
+services.AddSingleton<IReportFormatter, NullReportFormatter>();
+
+// 2. Constructor cho phep null, ro rang trong chu ky
+public class ReportGenerator(IReportFormatter? formatter = null) { }
+
+// 3. Tach thanh hai lop, moi lop mot trach nhiem
+```
+
+Cách 1 là tốt nhất: code dùng không cần kiểm tra `null` ở đâu cả.
+
+### 7.4.3 — Method injection và bốn chỗ nó đúng
+
+Method injection là truyền phụ thuộc vào **từng lời gọi** thay vì vào đối tượng. Nó đúng khi **framework tự làm việc đó cho bạn**:
+
+```csharp
+// 1. Middleware — InvokeAsync duoc tiem theo tung request
+public class AuditMiddleware(RequestDelegate next)
+{
+    public async Task InvokeAsync(HttpContext context, IAuditService audit)
     {
-        await exportProvider.ExportAsync(customers, ct);
+        await audit.LogAsync(context.Request.Path);
+        await next(context);
     }
 }
 ```
 
----
+Chỗ này **bắt buộc** dùng method injection: middleware được dựng **một lần** lúc khởi động (singleton), nên tiêm `IAuditService` (scoped) vào constructor là lỗi captive dependency — xem [bài 7.5](7.5-service-lifetimes.mdx).
+
+```csharp
+// 2. Minimal API — tiem thang vao handler
+app.MapGet("/customers/{id}", async (int id, ICustomerService service, CancellationToken ct)
+    => await service.GetAsync(id, ct));
+
+// 3. [FromServices] trong controller — service chi mot action can
+[HttpPost("export")]
+public async Task<IActionResult> Export([FromServices] IExportService export, CancellationToken ct)
+    => File(await export.BuildAsync(ct), "text/csv", "customers.csv");
+
+// 4. IHostedService/Program.cs — resolve tai composition root
+using var scope = app.Services.CreateScope();
+var migrator = scope.ServiceProvider.GetRequiredService<IDbMigrator>();
+await migrator.MigrateAsync();
+```
+
+Trường hợp 3 đáng dùng khi một service **nặng** mà chỉ một action trong controller cần: đưa vào constructor thì mọi request tới controller đó đều phải dựng nó.
+
+Ngoài bốn chỗ này, method injection trong code của bạn thường là dấu hiệu lớp đang làm hai việc khác nhau.
+
+### 7.4.4 — Bảng so sánh
+
+| | Constructor | Property | Method |
+|---|---|---|---|
+| Container .NET hỗ trợ | Có | **Không** | Chỉ ở framework hook |
+| `readonly` được | Có | Không | Không áp dụng |
+| Phụ thuộc hiện rõ | Có | Không | Có, ở chữ ký hàm |
+| Trạng thái nửa vời | Không | **Có** | Không |
+| Khi nào dùng | Mặc định | Gần như không bao giờ | Middleware, minimal API, `[FromServices]` |
+
+### 7.4.5 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát cách tiêm dependency"
+  items={[
+    { text: "Mọi phụ thuộc bắt buộc đều đi qua constructor." },
+    { text: "Mỗi lớp chỉ có một constructor công khai." },
+    { text: "Field phụ thuộc là readonly, hoặc dùng primary constructor có ý thức." },
+    { text: "Không có public setter nào dùng để tiêm phụ thuộc." },
+    { text: "Phụ thuộc tuỳ chọn dùng Null Object thay vì property nullable." },
+    { text: "Middleware tiêm service scoped qua InvokeAsync, không qua constructor." },
+    { text: "[FromServices] chỉ dùng cho service nặng mà một action cần." },
+    { text: "Không kiểm tra null thủ công trong constructor của lớp nội bộ." },
+  ]}
+/>
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **Chuyển sang primary constructor.** Lấy một service có 4 phụ thuộc, viết lại bằng primary constructor của C# 12. Thử gán lại một tham số trong phương thức và quan sát trình biên dịch **không** báo lỗi — ghi lại ý nghĩa của điều đó.
+
+2. **Tái hiện lỗi property injection.** Viết một lớp có phụ thuộc qua property, quên gán nó, và quan sát `NullReferenceException` nổ ra ở đâu so với chỗ thật sự sai. Thay bằng Null Object và so sánh.
+
+3. **Captive dependency trong middleware.** Tiêm một service scoped vào **constructor** của middleware, chạy ứng dụng và ghi lại exception nhận được. Chuyển sang tham số của `InvokeAsync` và xác nhận nó chạy.
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "Vì sao constructor injection là mặc định?",
+      answer: "Ba lý do. Nó cho phép field readonly nên phụ thuộc bất biến sau khi dựng. Nó không tạo ra trạng thái nửa vời, tức đối tượng tồn tại nghĩa là đã đủ phụ thuộc. Và nó trung thực, đọc constructor là biết lớp cần gì. Đây cũng là kiểu duy nhất container .NET hỗ trợ sẵn."
+    },
+    {
+      question: "Primary constructor của C# 12 có nhược điểm gì?",
+      answer: "Tham số của nó không phải readonly, bạn có thể gán lại trong phương thức và trình biên dịch không ngăn. Nếu muốn giữ đảm bảo bất biến thì viết constructor truyền thống hoặc gán ra field readonly."
+    },
+    {
+      question: "Có nên kiểm tra null trong constructor không?",
+      answer: "Với lớp do container tạo thì thừa, vì container không bao giờ truyền null mà sẽ ném exception ngay nếu thiếu đăng ký. Kiểm tra null chỉ đáng giá trong thư viện công khai nơi người khác gọi constructor trực tiếp. Trong code ứng dụng, bật nullable reference types là đủ."
+    },
+    {
+      question: "Vì sao nên tránh property injection?",
+      answer: "Container .NET không hỗ trợ nó, và ngay cả khi dùng container khác thì nó phá cả ba lợi ích của constructor injection: không readonly được, có trạng thái nửa vời giữa lúc new và lúc gán, và phụ thuộc bị giấu khỏi constructor. Hậu quả điển hình là NullReferenceException nổ ra rất xa chỗ thật sự sai."
+    },
+    {
+      question: "Phụ thuộc tuỳ chọn thì xử lý thế nào?",
+      answer: "Tốt nhất là Null Object, tức một implementation không làm gì được đăng ký bình thường, để code dùng không phải kiểm tra null ở đâu cả. Hai cách khác là tham số constructor nullable có giá trị mặc định, hoặc tách thành hai lớp mỗi lớp một trách nhiệm."
+    },
+    {
+      question: "Method injection đúng ở những chỗ nào?",
+      answer: "Bốn chỗ: tham số của InvokeAsync trong middleware, handler của minimal API, thuộc tính FromServices trong action của controller, và việc resolve tại composition root qua CreateScope. Với middleware thì đây là bắt buộc chứ không phải lựa chọn, vì middleware là singleton nên tiêm service scoped vào constructor là captive dependency."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **Constructor injection là mặc định** — và là kiểu duy nhất container .NET hỗ trợ.
+2. **Property injection giấu phụ thuộc và tạo trạng thái nửa vời.** Dùng Null Object cho phụ thuộc tuỳ chọn.
+3. **Method injection đúng ở đúng bốn chỗ**, và với middleware thì nó bắt buộc.
+
+## Tham khảo
+
+- [Dependency injection in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/dependency-injection)
+- [Dependency injection guidelines](https://learn.microsoft.com/en-us/dotnet/core/extensions/dependency-injection-guidelines)
+- [Write custom ASP.NET Core middleware](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/middleware/write)
+- [Primary constructors (C# reference)](https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/classes-and-structs/instance-constructors#primary-constructors)
 
 ## Điều hướng
 

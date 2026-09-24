@@ -203,4 +203,4 @@ Quy tắc rút gọn để nhớ: `await` bắt context, block giữ thread. Dea
 
 - [Module 6 — Async Programming](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-06-async-programming) — Lập trình bất đồng bộ .NET: Task, async/await, cancellation, ConfigureAwait — mô hình I/O-bound cho ASP.NET Core và tích hợp HTTP.
 - [6.4 — 2. ConfigureAwait](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-06-async-programming/6.4-configureawait) — ConfigureAwait(false) nói với CLR rằng continuation không cần quay về SynchronizationContext gốc.
-- [Module 13 — Entity Framework Core](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core) — EF Core: change tracking, migrations, raw SQL, performance patterns — ORM mapping an toàn cho domain CRM.
+- [6.3 — 1. Task và async/await](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-06-async-programming/6.3-task-and-async-await) — Task là lời hứa về một kết quả tương lai, không phải một thread.
