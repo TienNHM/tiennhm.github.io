@@ -252,11 +252,267 @@ await _db.SaveChangesAsync(commit.Token);
 
 ## Bài tập áp dụng
 
-1. **Đo tác dụng thật.** Viết một endpoint gọi `Task.Delay(30_000, ct)`. Gọi nó bằng `curl`, bấm `Ctrl+C` sau 2 giây, và quan sát log. Sau đó bỏ `ct` khỏi `Task.Delay` rồi làm lại. Ghi lại khác biệt về thời điểm dòng log cuối cùng xuất hiện.
+#### Bài 1 — Đo tác dụng thật của `CancellationToken`
 
-2. **Phân biệt hai nguồn huỷ.** Cài đặt mẫu `CreateLinkedTokenSource` ở mục 6.5.6, rồi tạo hai tình huống: một lần client ngắt, một lần timeout kích hoạt. Endpoint phải trả về `499`/không trả gì trong trường hợp đầu, và `504` trong trường hợp sau.
+Viết một endpoint gọi `Task.Delay(30_000, ct)`. Gọi bằng `curl`, bấm `Ctrl+C` sau 2 giây, quan sát log. Sau đó **bỏ** `ct` khỏi `Task.Delay` rồi làm lại.
 
-3. **Săn lỗi 1 trong dự án thật.** Tìm trong codebase của bạn mọi chỗ `catch (OperationCanceledException)` và mọi `catch (Exception)` bọc quanh code async. Với từng chỗ, trả lời: nếu request bị huỷ tại đúng dòng này, bên gọi có phân biệt được "không có dữ liệu" và "đã bỏ cuộc" không?
+**Tiêu chí hoàn thành:** bạn ghi lại được thời điểm dòng log cuối cùng xuất hiện trong cả hai trường hợp.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** ASP.NET Core huỷ `HttpContext.RequestAborted` khi client ngắt kết nối. Nhưng việc huỷ trong .NET là **hợp tác** — nó chỉ có tác dụng nếu code của bạn thật sự nhận và tôn trọng token.
+
+**Lời giải.**
+
+```csharp
+app.MapGet("/cham", async (ILogger<Program> log, CancellationToken ct) =>
+{
+    log.LogInformation("BẮT ĐẦU");
+    try
+    {
+        await Task.Delay(30_000, ct);          // phiên bản A: có truyền ct
+        // await Task.Delay(30_000);           // phiên bản B: KHÔNG truyền
+        log.LogInformation("XONG");
+        return Results.Ok();
+    }
+    catch (OperationCanceledException)
+    {
+        log.LogWarning("BỊ HUỶ");
+        throw;
+    }
+});
+```
+
+Thử:
+
+```bash
+curl http://localhost:5000/cham
+# bấm Ctrl+C sau 2 giây
+```
+
+**Kết quả:**
+
+| | Có truyền `ct` | Không truyền `ct` |
+|---|---|---|
+| Dòng log cuối | `BỊ HUỶ` tại giây thứ **2** | `XONG` tại giây thứ **30** |
+| Luồng bị chiếm | 2 giây | 30 giây |
+| Kết nối database giữ | 2 giây | 30 giây |
+
+**Ý nghĩa.** Ở phiên bản B, client đã bỏ đi từ giây thứ 2, nhưng server vẫn làm việc thêm **28 giây** cho một kết quả không ai nhận. Trên hệ thống có tải, phần công việc vô ích này tích tụ rất nhanh.
+
+**Vì sao "hợp tác" lại là thiết kế đúng.** .NET **không có** cơ chế giết một luồng đang chạy giữa chừng — và đó là chủ ý. Cưỡng chế dừng sẽ để lại trạng thái dở dang: giao dịch chưa commit, file ghi được nửa chừng, khoá chưa nhả. Vì vậy mỗi thao tác phải **tự kiểm tra** xem có nên dừng không, tại những điểm mà việc dừng là an toàn.
+
+**Ba cách phản ứng với token, tuỳ ngữ cảnh:**
+
+```csharp
+// 1. Truyền xuống — cách dùng phổ biến nhất, và nên là mặc định
+await _db.Customers.ToListAsync(ct);
+
+// 2. Kiểm tra thủ công — trong vòng lặp tính toán dài
+foreach (var item in danhSachLon)
+{
+    ct.ThrowIfCancellationRequested();
+    XuLy(item);
+}
+
+// 3. Đăng ký hàm gọi lại — khi cần dọn dẹp riêng
+using var dangKy = ct.Register(() => _connection.Cancel());
+```
+
+**Quy tắc.** Mọi phương thức `async` trong hệ thống nên nhận `CancellationToken` làm **tham số cuối cùng** và truyền nó xuống mọi lời gọi async bên trong. Thêm tham số này từ đầu gần như miễn phí; thêm sau khi đã có hàng trăm phương thức là một dự án nhỏ.
+
+**Một lưu ý về xử lý ngoại lệ.** Khi bị huỷ, ASP.NET Core **không** ghi nó như một lỗi 500 — nó nhận ra `OperationCanceledException` gắn với `RequestAborted` và bỏ qua. Nhưng nếu bạn tự bắt rồi ném lại một ngoại lệ khác, hệ thống giám sát sẽ báo động giả. Đây chính là lỗi mà mục 6.5.7 cảnh báo.
+
+</details>
+
+#### Bài 2 — Phân biệt hai nguồn huỷ
+
+Cài đặt mẫu `CreateLinkedTokenSource`, rồi tạo hai tình huống: client ngắt, và timeout kích hoạt. Endpoint phải phản ứng khác nhau với mỗi trường hợp.
+
+**Tiêu chí hoàn thành:** hai tình huống cho hai mã trạng thái khác nhau, và bạn nêu được vì sao phân biệt chúng lại quan trọng.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Khi nối hai token, token kết quả bị huỷ nếu **bất kỳ** token nguồn nào bị huỷ. Để biết nguồn nào đã kích hoạt, hãy hỏi từng token nguồn sau khi bắt được ngoại lệ.
+
+**Lời giải.**
+
+```csharp
+app.MapGet("/bao-cao", async (HttpContext ctx, ILogger<Program> log, CancellationToken clientToken) =>
+{
+    using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+    using var noiCts = CancellationTokenSource.CreateLinkedTokenSource(clientToken, timeoutCts.Token);
+
+    try
+    {
+        var kq = await SinhBaoCaoAsync(noiCts.Token);
+        return Results.Ok(kq);
+    }
+    catch (OperationCanceledException)
+    {
+        if (clientToken.IsCancellationRequested)
+        {
+            log.LogInformation("Client đã ngắt kết nối");
+            return Results.StatusCode(499);          // client bỏ đi
+        }
+
+        log.LogWarning("Sinh báo cáo quá 10 giây");
+        return Results.StatusCode(504);              // server quá hạn
+    }
+});
+```
+
+**Hai tình huống:**
+
+```bash
+# 1. Client ngắt — bấm Ctrl+C sau 2 giây
+curl http://localhost:5000/bao-cao
+# log: "Client đã ngắt kết nối"
+
+# 2. Timeout — để chạy quá 10 giây
+curl -m 60 http://localhost:5000/bao-cao
+# HTTP 504, log: "Sinh báo cáo quá 10 giây"
+```
+
+**Vì sao phân biệt lại quan trọng — ba lý do cụ thể:**
+
+1. **Cảnh báo vận hành.** Client ngắt là chuyện **bình thường** — người dùng đóng tab, mạng chập chờn. Timeout là **dấu hiệu hệ thống có vấn đề**. Gộp cả hai vào một loại log khiến biểu đồ lỗi đầy nhiễu, và cảnh báo thật bị chìm.
+
+2. **Client cần biết nên làm gì.** Với `504`, thử lại có thể thành công. Với `499` thì không có ai để thử lại, vì chính client đã bỏ đi.
+
+3. **Chỉ số chất lượng dịch vụ.** Nếu tính tỉ lệ lỗi mà gộp cả trường hợp người dùng đóng tab, con số trở nên vô nghĩa.
+
+**Lưu ý về mã 499.** Đây là mã **không chuẩn**, do nginx đặt ra cho trường hợp client đóng kết nối. Nó không nằm trong đặc tả HTTP. Thực tế client đã ngắt nên không ai nhận được phản hồi này — giá trị của nó nằm ở **log và chỉ số**, không nằm ở việc truyền tin.
+
+**Mẫu nối token cũng dùng cho ba tình huống khác:**
+
+```csharp
+// Hạn riêng cho một lời gọi bên ngoài, ngắn hơn hạn của cả request
+using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+cts.CancelAfter(TimeSpan.FromSeconds(3));
+var kq = await _httpClient.GetAsync(url, cts.Token);
+
+// Dừng tác vụ nền khi ứng dụng tắt
+using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct, _lifetime.ApplicationStopping);
+
+// Huỷ khi bất kỳ tác vụ song song nào thất bại
+using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+```
+
+**Một điều bắt buộc.** Luôn `Dispose` `CancellationTokenSource` — dùng `using`. Không làm vậy sẽ rò rỉ, đặc biệt với `CancelAfter` vì nó tạo một bộ đếm thời gian nội bộ. Đây là một trong những nguồn rò rỉ bộ nhớ âm thầm nhất trong code async.
+
+</details>
+
+#### Bài 3 — Săn lỗi nuốt ngoại lệ huỷ
+
+Tìm trong codebase mọi chỗ `catch (OperationCanceledException)` và mọi `catch (Exception)` bọc quanh code async. Với từng chỗ, trả lời: nếu request bị huỷ tại đúng dòng này, bên gọi có phân biệt được "không có dữ liệu" và "đã bỏ cuộc" không?
+
+**Tiêu chí hoàn thành:** bạn tìm được ít nhất một chỗ mà việc huỷ bị biến thành một kết quả trông như hợp lệ.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Tìm bằng:
+
+```bash
+grep -rn -A3 "catch (OperationCanceledException\|catch (TaskCanceledException\|catch (Exception" --include=*.cs . \
+  | grep -B1 "return\|= null\|= new\|Empty"
+```
+
+Dấu hiệu nguy hiểm: khối `catch` trả về một giá trị **trông như bình thường** thay vì ném lại.
+
+**Lời giải — ba mẫu sai, xếp theo mức nghiêm trọng.**
+
+**Mẫu 1 — biến việc huỷ thành "không có dữ liệu":**
+
+```csharp
+// SAI
+public async Task<List<Order>> LayDonAsync(int id, CancellationToken ct)
+{
+    try { return await _db.Orders.Where(o => o.CustomerId == id).ToListAsync(ct); }
+    catch (OperationCanceledException) { return []; }     // NGUY HIỂM
+}
+```
+
+Bên gọi nhận danh sách rỗng và **không phân biệt được** "khách hàng này không có đơn nào" với "truy vấn bị huỷ giữa chừng". Nếu kết quả đó được dùng để quyết định — ví dụ "không có đơn thì cho phép xoá khách hàng" — bạn vừa xoá nhầm dữ liệu.
+
+**Mẫu 2 — ghi log như một lỗi thật:**
+
+```csharp
+// SAI — tạo cảnh báo giả
+catch (Exception ex)
+{
+    _logger.LogError(ex, "Lỗi khi lấy đơn hàng");    // huỷ cũng rơi vào đây
+    throw;
+}
+```
+
+Mỗi lần người dùng đóng tab là một dòng log mức `Error`. Hệ thống giám sát báo động, và sau vài tuần không ai còn để ý tới cảnh báo nữa — kể cả cảnh báo thật.
+
+**Mẫu 3 — nuốt hoàn toàn:**
+
+```csharp
+// SAI NHẤT
+catch (Exception) { }
+```
+
+**Cách xử lý đúng — phân biệt rõ ràng:**
+
+```csharp
+public async Task<List<Order>> LayDonAsync(int id, CancellationToken ct)
+{
+    try
+    {
+        return await _db.Orders.Where(o => o.CustomerId == id).ToListAsync(ct);
+    }
+    catch (OperationCanceledException) when (ct.IsCancellationRequested)
+    {
+        _logger.LogInformation("Truy vấn đơn hàng bị huỷ cho khách {Id}", id);
+        throw;                                       // ném lại, KHÔNG nuốt
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Lỗi khi lấy đơn hàng của khách {Id}", id);
+        throw;
+    }
+}
+```
+
+**Ba điểm quan trọng trong đoạn trên:**
+
+1. **Mệnh đề `when (ct.IsCancellationRequested)`.** Nó phân biệt việc huỷ **có chủ ý** với `TaskCanceledException` do **timeout của `HttpClient`** — vốn cũng là một `OperationCanceledException` nhưng lại là một lỗi thật cần xử lý khác.
+
+2. **Log mức `Information`, không phải `Error`.** Huỷ là chuyện bình thường.
+
+3. **Luôn ném lại.** Bên gọi cần biết thao tác không hoàn tất. ASP.NET Core sẽ nhận ra và không trả 500.
+
+**Quy tắc chung.** `OperationCanceledException` **không phải lỗi** — nó là một tín hiệu điều khiển luồng. Xử lý nó như lỗi tạo ra nhiễu; xử lý nó như kết quả bình thường tạo ra dữ liệu sai. Cách đúng duy nhất là **ghi nhận rồi để nó đi tiếp**.
+
+**Một chỗ hiếm hoi được phép nuốt.** Trong vòng lặp của một `BackgroundService`, khi ứng dụng đang tắt:
+
+```csharp
+protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+{
+    try
+    {
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            await XuLyMotVongAsync(stoppingToken);
+            await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
+        }
+    }
+    catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+    {
+        // Ứng dụng đang tắt — đây là kết thúc bình thường, không ném lại
+    }
+}
+```
+
+Ở đây không có bên gọi nào cần biết, và việc huỷ chính là cách dừng được thiết kế sẵn. [Module 14](../../stage-04-database-production/module-14-caching-background-jobs/) trình bày đầy đủ vòng đời của tác vụ nền.
+
+</details>
 
 ## Tự kiểm tra
 
