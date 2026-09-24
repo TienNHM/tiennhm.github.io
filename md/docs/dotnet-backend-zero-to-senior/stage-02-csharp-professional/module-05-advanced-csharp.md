@@ -5,7 +5,6 @@
 
 ## Nội dung module
 
-- [5.1 — Module Orientation](5.1-module-orientation.mdx)
 - [5.2 — 1. SOLID Principles](5.2-solid-principles.mdx)
 - [5.3 — 2. Generics](5.3-generics.mdx)
 - [5.4 — 3. LINQ](5.4-linq.mdx)

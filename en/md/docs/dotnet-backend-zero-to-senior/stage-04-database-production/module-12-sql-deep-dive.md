@@ -5,7 +5,6 @@
 
 ## Nội dung module
 
-- [12.1 — Module Orientation](12.1-module-orientation.mdx)
 - [12.2 — 1. Database Design cho CRM](12.2-crm-database-design.mdx)
 - [12.3 — 2. SQL Server so với PostgreSQL](12.3-sql-server-vs-postgresql.mdx)
 - [12.4 — 3. Queries Nâng Cao](12.4-advanced-queries.mdx)

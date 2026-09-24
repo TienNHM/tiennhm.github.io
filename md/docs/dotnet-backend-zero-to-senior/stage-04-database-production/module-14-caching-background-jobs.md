@@ -5,7 +5,6 @@
 
 ## Nội dung module
 
-- [14.1 — Module Orientation](14.1-module-orientation.mdx)
 - [14.2 — 1. Caching Fundamentals](14.2-caching-fundamentals.mdx)
 - [14.3 — 2. IMemoryCache](14.3-imemorycache.mdx)
 - [14.4 — 3. IDistributedCache và Redis](14.4-idistributedcache-and-redis.mdx)

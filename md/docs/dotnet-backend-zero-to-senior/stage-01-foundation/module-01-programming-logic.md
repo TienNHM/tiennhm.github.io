@@ -5,7 +5,6 @@
 
 ## Nội dung module
 
-- [1.1 — Module Orientation](1.1-module-orientation.mdx)
 - [1.2 — 1. Biến và Kiểu Dữ Liệu](1.2-variables-and-data-types.mdx)
 - [1.3 — 2. Điều Kiện (Conditions)](1.3-conditions.mdx)
 - [1.4 — 3. Vòng Lặp (Loops)](1.4-loops.mdx)

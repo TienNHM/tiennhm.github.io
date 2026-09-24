@@ -5,7 +5,6 @@
 
 ## Nội dung module
 
-- [13.1 — Module Orientation](13.1-module-orientation.mdx)
 - [13.2 — 1. EF Core Overview](13.2-ef-core-overview.mdx)
 - [13.3 — 2. DbContext và Entity Configuration](13.3-dbcontext-and-entity-configuration.mdx)
 - [13.4 — 3. Relationships](13.4-relationships.mdx)

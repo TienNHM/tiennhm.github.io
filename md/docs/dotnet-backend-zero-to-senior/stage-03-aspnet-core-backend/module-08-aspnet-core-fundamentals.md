@@ -5,7 +5,6 @@
 
 ## Nội dung module
 
-- [8.1 — Module Orientation](8.1-module-orientation.mdx)
 - [8.2 — 1. Kiến trúc ASP.NET Core](8.2-aspnet-core-architecture.mdx)
 - [8.3 — 2. Request Pipeline và Middleware](8.3-request-pipeline-and-middleware.mdx)
 - [8.4 — 3. Routing](8.4-routing.mdx)

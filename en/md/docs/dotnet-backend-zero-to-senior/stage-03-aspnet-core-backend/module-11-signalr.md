@@ -5,7 +5,6 @@
 
 ## Nội dung module
 
-- [11.1 — Module Orientation](11.1-module-orientation.mdx)
 - [11.2 — 1. Tại sao cần Real-time?](11.2-tai-sao-can-real-time.mdx)
 - [11.3 — 2. SignalR Architecture](11.3-signalr-architecture.mdx)
 - [11.4 — 3. Setup SignalR Server](11.4-setup-signalr-server.mdx)

@@ -5,7 +5,6 @@
 
 ## Nội dung module
 
-- [17.1 — Module Orientation](17.1-module-orientation.mdx)
 - [17.2 — 1. Event-driven architecture (EDA) — khi nào dùng?](17.2-event-driven-architecture-when-to-use.mdx)
 - [17.3 — 2. Hai nỗi sợ cốt lõi: mất tin & gửi trùng](17.3-messaging-fears-lost-duplicates.mdx)
 - [17.4 — 3. Outbox pattern (ứng dụng)](17.4-outbox-pattern-applied.mdx)

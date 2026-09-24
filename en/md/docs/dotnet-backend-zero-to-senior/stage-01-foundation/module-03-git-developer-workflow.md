@@ -5,7 +5,6 @@
 
 ## Nội dung module
 
-- [3.1 — Module Orientation](3.1-module-orientation.mdx)
 - [3.2 — 1. Git là gì và tại sao cần](3.2-git-intro-and-motivation.mdx)
 - [3.3 — 2. Cài đặt và cấu hình Git](3.3-git-install-config.mdx)
 - [3.4 — Checklist an toàn khi làm Git](3.4-git-safety-checklist.mdx)

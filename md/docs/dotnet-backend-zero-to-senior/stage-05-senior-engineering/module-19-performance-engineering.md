@@ -5,7 +5,6 @@
 
 ## Nội dung module
 
-- [19.1 — Module Orientation](19.1-module-orientation.mdx)
 - [19.2 — 1. Nguyên tắc: đo trước, đo sau](19.2-measure-before-and-after.mdx)
 - [19.3 — 2. BenchmarkDotNet](19.3-benchmarkdotnet.mdx)
 - [19.4 — 3. Profiling trên .NET server](19.4-dotnet-server-profiling.mdx)
