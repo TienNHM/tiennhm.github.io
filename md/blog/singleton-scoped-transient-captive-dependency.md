@@ -194,5 +194,5 @@ Không. Transient chỉ quy định mỗi lần resolve tạo một instance m�
 ## Bài liên quan
 
 - [Module 7 — Dependency Injection](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-07-dependency-injection) — Dependency injection trong .NET: service lifetime, composition root, options pattern — khớp với container ASP.NET Core và kiểm thử đơn vị.
+- [7.5 — 3. Service Lifetimes](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-07-dependency-injection/7.5-service-lifetimes) — Transient, Scoped, Singleton: khi nào tạo mới, khi nào Dispose, và vì sao captive dependency khiến DbContext sống mãi tới lúc ứng dụng tắt.
 - [Module 16 — Clean Architecture](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-05-senior-engineering/module-16-clean-architecture) — Clean Architecture & DDD tactical: layers, aggregates, application services — giảm coupling và tăng khả năng kiểm chứng cho CRM lớn.
-- [7.10 — 8. Anti-patterns](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-07-dependency-injection/7.10-anti-patterns) — Anti-patterns: Service Locator (tại sao xấu); Ambient Context; Over-injection — dấu hiệu God Service.
