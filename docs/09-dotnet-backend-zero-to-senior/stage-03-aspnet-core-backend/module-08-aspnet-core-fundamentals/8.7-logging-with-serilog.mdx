@@ -27,10 +27,10 @@ Sau bài này bạn có thể:
 ### 8.8.1 — Message template, không phải nội suy chuỗi
 
 ```csharp
-// SAI — chuoi da nau chin, khong con truong nao
+// SAI — chuỗi đã nấu chín, không còn trường nào
 logger.LogInformation($"Customer {customer.Id} created by {userId}");
 
-// DUNG — CustomerId va UserId la truong truy van duoc
+// ĐÚNG — CustomerId và UserId là trường truy vấn được
 logger.LogInformation("Customer {CustomerId} created by {UserId}",
     customer.Id, userId);
 ```
@@ -56,7 +56,7 @@ Còn hai lý do nữa:
 Hai quy ước đặt tên: **PascalCase** cho placeholder, và tiền tố `@` khi muốn Serilog ghi cả đối tượng thay vì gọi `ToString()`:
 
 ```csharp
-logger.LogInformation("Nhan don hang {@Order}", order);   // ghi ca object
+logger.LogInformation("Nhận đơn hàng {@Order}", order);   // ghi cả object
 ```
 
 Cẩn thận với `@`: nó ghi **toàn bộ** thuộc tính, nên rất dễ đưa dữ liệu nhạy cảm vào log.
@@ -181,10 +181,10 @@ using (logger.BeginScope(new Dictionary<string, object>
     ["TenantId"] = tenant.Id
 }))
 {
-    logger.LogInformation("Bat dau xu ly");
-    await ValidateAsync(order, ct);      // moi log ben trong deu co OrderId va TenantId
+    logger.LogInformation("Bắt đầu xử lý");
+    await ValidateAsync(order, ct);      // mọi log bên trong đều có OrderId và TenantId
     await ChargeAsync(order, ct);
-    logger.LogInformation("Hoan tat");
+    logger.LogInformation("Hoàn tất");
 }
 ```
 
@@ -455,31 +455,31 @@ Và hậu quả trực tiếp: **mọi mật khẩu đã lọt vào log phải �
 **Sửa bằng chính sách phân rã:**
 
 ```csharp
-public class LoaiBoDuLieuNhayCam : IDestructuringPolicy
+public class SensitiveDataPolicy : IDestructuringPolicy
 {
-    private static readonly HashSet<string> TruongCam = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> MaskedFields = new(StringComparer.OrdinalIgnoreCase)
     {
-        "Password", "MatKhau", "Token", "AccessToken", "RefreshToken",
-        "Secret", "ApiKey", "CreditCard", "Cvv", "SoTheNganHang", "CanCuoc"
+        "Password", "Token", "AccessToken", "RefreshToken",
+        "Secret", "ApiKey", "CreditCard", "Cvv", "BankCardNumber", "NationalId"
     };
 
     public bool TryDestructure(object value, ILogEventPropertyValueFactory f,
-                               out LogEventPropertyValue? kq)
+                               out LogEventPropertyValue? result)
     {
         var props = value.GetType().GetProperties()
             .Select(p => new LogEventProperty(
                 p.Name,
-                TruongCam.Contains(p.Name)
+                MaskedFields.Contains(p.Name)
                     ? new ScalarValue("***")
                     : f.CreatePropertyValue(p.GetValue(value))));
 
-        kq = new StructureValue(props);
+        result = new StructureValue(props);
         return true;
     }
 }
 
 Log.Logger = new LoggerConfiguration()
-    .Destructure.With<LoaiBoDuLieuNhayCam>()
+    .Destructure.With<SensitiveDataPolicy>()
     .CreateLogger();
 ```
 

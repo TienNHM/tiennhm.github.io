@@ -57,17 +57,17 @@ Một sự cố database đã biến thành sự cố toàn hệ thống, và v�
 
 ```csharp
 builder.Services.AddHealthChecks()
-    // Liveness — khong cham gi ben ngoai
+    // Liveness — không chạm gì bên ngoài
     .AddCheck("self", () => HealthCheckResult.Healthy(), tags: ["live"])
 
-    // Readiness — phu thuoc bat buoc
+    // Readiness — phụ thuộc bắt buộc
     .AddSqlServer(
         connectionString: builder.Configuration.GetConnectionString("CrmDb")!,
         name: "database",
         failureStatus: HealthStatus.Unhealthy,
         tags: ["ready"])
 
-    // Phu thuoc khong bat buoc -> Degraded, KHONG phai Unhealthy
+    // Phụ thuộc không bắt buộc -> Degraded, KHÔNG phải Unhealthy
     .AddRedis(
         builder.Configuration.GetConnectionString("Redis")!,
         name: "cache",
@@ -109,22 +109,22 @@ public sealed class PaymentGatewayHealthCheck(IHttpClientFactory factory) : IHea
         try
         {
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            cts.CancelAfter(TimeSpan.FromSeconds(3));          // BAT BUOC co timeout
+            cts.CancelAfter(TimeSpan.FromSeconds(3));          // BẮT BUỘC có timeout
 
             var client = factory.CreateClient("payment");
             var response = await client.GetAsync("/ping", cts.Token);
 
             return response.IsSuccessStatusCode
                 ? HealthCheckResult.Healthy()
-                : HealthCheckResult.Degraded($"Gateway tra ve {(int)response.StatusCode}");
+                : HealthCheckResult.Degraded($"Gateway trả về {(int)response.StatusCode}");
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
-            return HealthCheckResult.Degraded("Gateway khong phan hoi trong 3 giay");
+            return HealthCheckResult.Degraded("Gateway không phản hồi trong 3 giây");
         }
         catch (Exception ex)
         {
-            return HealthCheckResult.Unhealthy("Khong ket noi duoc gateway", ex);
+            return HealthCheckResult.Unhealthy("Không kết nối được gateway", ex);
         }
     }
 }
@@ -157,7 +157,7 @@ static Task WriteJsonResponse(HttpContext context, HealthReport report)
             name = e.Key,
             status = e.Value.Status.ToString(),
             duration = e.Value.Duration.TotalMilliseconds
-            // KHONG tra e.Value.Description hay Exception ra ngoai
+            // KHÔNG trả e.Value.Description hay Exception ra ngoài
         })
     });
 }
@@ -193,10 +193,10 @@ healthcheck:
 
 ```yaml
 # Kubernetes
-startupProbe:                       # cho phep khoi dong cham
+startupProbe:                       # cho phép khởi động chậm
   httpGet: { path: /health/live, port: 8080 }
   failureThreshold: 30
-  periodSeconds: 10                 # cho toi da 300 giay
+  periodSeconds: 10                 # chờ tối đa 300 giây
 
 livenessProbe:
   httpGet: { path: /health/live, port: 8080 }
