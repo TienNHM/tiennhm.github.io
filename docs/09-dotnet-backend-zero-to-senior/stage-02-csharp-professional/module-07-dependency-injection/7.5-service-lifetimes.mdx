@@ -188,11 +188,236 @@ Ba cách xử lý:
 
 ## Bài tập áp dụng
 
-1. **Tái hiện captive dependency.** Đăng ký một Singleton nhận `DbContext` qua constructor. Chạy ở Development và ghi lại exception. Sau đó đặt `ASPNETCORE_ENVIRONMENT=Production`, chạy lại và xác nhận nó **không** báo gì.
+#### Bài 1 — Tái hiện captive dependency
 
-2. **Thấy dữ liệu cũ.** Với cấu hình sai ở trên (chạy ở Production), đọc một bản ghi, sửa nó trực tiếp trong database, rồi đọc lại qua API. Ghi lại giá trị nhận được và giải thích.
+Đăng ký một `Singleton` nhận `DbContext` qua constructor. Chạy ở Development và ghi lại ngoại lệ. Sau đó đặt môi trường là Production, chạy lại và xác nhận nó **không** báo gì.
 
-3. **Rò rỉ Transient.** Đăng ký một `Transient` cài `IDisposable` ghi log trong `Dispose`. Resolve nó 1000 lần từ `app.Services`. Đếm số lần `Dispose` được gọi và đo bộ nhớ.
+**Tiêu chí hoàn thành:** bạn nêu được vì sao việc "chạy được ở Production" lại là điều **tệ hơn** so với việc báo lỗi.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** ASP.NET Core bật `ValidateScopes` và `ValidateOnBuild` **tự động ở môi trường Development**, và **tắt** chúng ở các môi trường khác vì lý do hiệu năng khởi động.
+
+**Lời giải.**
+
+```csharp
+builder.Services.AddDbContext<CrmDbContext>(o => o.UseNpgsql(cs));   // mặc định Scoped
+builder.Services.AddSingleton<BaoCaoService>();                       // nhận CrmDbContext
+```
+
+**Ở Development:**
+
+```text
+System.AggregateException: Some services are not able to be constructed
+ ---> InvalidOperationException: Cannot consume scoped service 'CrmDbContext'
+      from singleton 'BaoCaoService'.
+```
+
+Ứng dụng **không khởi động được**. Đây là kết quả tốt nhất có thể.
+
+**Ở Production** (`ASPNETCORE_ENVIRONMENT=Production`): ứng dụng khởi động bình thường, không một cảnh báo nào.
+
+**Vì sao "chạy được" lại tệ hơn.** Vì lỗi không biến mất — nó chỉ chuyển từ dạng **hỏng ngay và rõ ràng** sang dạng **hỏng dần và khó hiểu**:
+
+| Triệu chứng ở Production | Xuất hiện sau |
+|---|---|
+| Bộ nhớ tăng đều, không bao giờ giảm | Vài giờ tới vài ngày |
+| API trả dữ liệu cũ, không khớp database | Ngay, nhưng khó nhận ra |
+| `InvalidOperationException: A second operation was started on this context` | Khi có hai request đồng thời |
+| Ngoại lệ ngẫu nhiên không tái hiện được | Không đoán trước được |
+
+Không triệu chứng nào trong bảng trên chỉ thẳng về nguyên nhân. Một lỗi biên dịch chỉ mất mười giây để sửa; cùng lỗi đó phát hiện qua bốn triệu chứng rời rạc trên production tốn nhiều ngày.
+
+**Vì sao `DbContext` đặc biệt nguy hiểm khi bị giam:**
+
+1. **Bộ theo dõi thay đổi tích luỹ vĩnh viễn.** Mọi thực thể từng đọc đều bị giữ lại. Sau một triệu truy vấn, đó là một triệu đối tượng không thể thu gom.
+2. **Dữ liệu cũ.** Bộ theo dõi trả về **thực thể đã cache** thay vì đọc lại từ database. Bài 2 sẽ chứng minh điều này.
+3. **Không an toàn khi dùng đồng thời.** `DbContext` được thiết kế cho một luồng tại một thời điểm. Nhiều request cùng chạm vào nó gây ngoại lệ ngẫu nhiên.
+
+**Cách bật kiểm tra ở mọi môi trường** — và nên bật:
+
+```csharp
+builder.Host.UseDefaultServiceProvider((ctx, o) =>
+{
+    o.ValidateScopes = true;
+    o.ValidateOnBuild = true;
+});
+```
+
+Chi phí là vài trăm mili-giây khi khởi động. Đổi lại, cấu hình sai bị chặn **trước khi** ứng dụng nhận request đầu tiên — thà không khởi động được còn hơn chạy sai.
+
+**Cách sửa đúng khi Singleton thật sự cần dữ liệu:**
+
+```csharp
+public class BaoCaoService(IServiceScopeFactory scopeFactory)
+{
+    public async Task<List<Branch>> LayChiNhanhAsync(CancellationToken ct)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CrmDbContext>();
+        return await db.Branches.ToListAsync(ct);
+    }
+}
+```
+
+`IServiceScopeFactory` **là** `Singleton`, nên tiêm nó vào `Singleton` hoàn toàn hợp lệ. Mỗi lần dùng tạo một phạm vi mới và giải phóng ngay.
+
+</details>
+
+#### Bài 2 — Thấy dữ liệu cũ do `DbContext` bị giam
+
+Với cấu hình sai ở bài 1 chạy ở Production, đọc một bản ghi, sửa nó **trực tiếp trong database**, rồi đọc lại qua API. Ghi lại giá trị nhận được.
+
+**Tiêu chí hoàn thành:** bạn giải thích được vì sao API trả giá trị cũ dù truy vấn **có** chạy xuống database.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Bật log SQL và quan sát: truy vấn **có** được gửi xuống database. Vậy vì sao kết quả trả về vẫn cũ?
+
+**Lời giải.**
+
+```bash
+# 1. Đọc qua API
+curl localhost:5000/api/v1/branches/1
+# {"id":1,"name":"Chi nhánh Hà Nội"}
+
+# 2. Sửa thẳng trong database
+psql -c "UPDATE \"Branches\" SET \"Name\" = 'Chi nhánh HN mới' WHERE \"Id\" = 1;"
+
+# 3. Đọc lại qua API
+curl localhost:5000/api/v1/branches/1
+# {"id":1,"name":"Chi nhánh Hà Nội"}     <- VẪN GIÁ TRỊ CŨ
+```
+
+Log SQL cho thấy truy vấn **đã chạy** và trả về `Chi nhánh HN mới`. Nhưng API vẫn trả giá trị cũ.
+
+**Vì sao — cơ chế định danh của bộ theo dõi thay đổi.** EF Core giữ một bản đồ từ khoá chính tới thực thể đã nạp. Khi một truy vấn trả về một dòng có khoá chính đã nằm trong bản đồ, EF Core **giữ nguyên thực thể cũ** và bỏ qua dữ liệu mới:
+
+```text
+1. Lần đọc đầu: nạp Branch(1) vào bộ theo dõi với Name = "Chi nhánh Hà Nội"
+2. Database đổi thành "Chi nhánh HN mới"
+3. Lần đọc sau: SQL chạy, trả về dòng mới
+4. EF Core thấy khoá 1 ĐÃ có trong bộ theo dõi
+5. -> trả về thực thể CŨ, bỏ qua dữ liệu vừa đọc
+```
+
+Đây là hành vi **có chủ ý và đúng** trong phạm vi một request: nó bảo đảm mọi phần của cùng một thao tác nhìn thấy cùng một trạng thái, và cho phép EF Core theo dõi thay đổi để lưu sau.
+
+Nó chỉ trở thành lỗi khi `DbContext` sống **quá lâu** — đúng tình huống captive dependency đang gây ra.
+
+**Ba cách khắc phục, tuỳ nguyên nhân:**
+
+```csharp
+// 1. Sửa gốc: DbContext đúng vòng đời Scoped
+//    -> mỗi request một context mới, không có dữ liệu cũ
+
+// 2. Với truy vấn chỉ đọc: tắt theo dõi
+var ds = await db.Branches.AsNoTracking().ToListAsync(ct);
+
+// 3. Ép nạp lại một thực thể cụ thể
+await db.Entry(branch).ReloadAsync(ct);
+```
+
+**Cách 2 đáng thành thói quen.** Mọi truy vấn chỉ để hiển thị nên có `AsNoTracking()`. Ngoài việc tránh dữ liệu cũ, nó còn:
+
+- Nhanh hơn, vì không phải tạo bản chụp để so sánh thay đổi.
+- Tốn ít bộ nhớ hơn, vì không giữ thực thể trong bộ theo dõi.
+- Bắt buộc với `IAsyncEnumerable`, như [bài 6.7](../module-06-async-programming/6.7-async-patterns.mdx) đã nêu.
+
+Có thể đặt làm mặc định cho toàn bộ context và chỉ bật theo dõi khi thật sự cần ghi:
+
+```csharp
+optionsBuilder.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
+```
+
+**Vì sao lỗi này khó chẩn đoán.** Người điều tra nhìn log SQL, thấy truy vấn chạy đúng và trả dữ liệu đúng, rồi kết luận "database ổn, chắc do cache ở tầng nào đó". Họ đi tìm Redis, tìm CDN, tìm cache của trình duyệt — trong khi cache thật nằm ngay trong tiến trình, ở một chỗ không ai gọi là cache. [Bài 13.6](../../stage-04-database-production/module-13-entity-framework-core/13.6-query-patterns.mdx) trình bày đầy đủ về bộ theo dõi thay đổi.
+
+</details>
+
+#### Bài 3 — Rò rỉ do `Transient` cài `IDisposable`
+
+Đăng ký một `Transient` cài `IDisposable` ghi log trong `Dispose`. Resolve nó 1000 lần từ `app.Services`. Đếm số lần `Dispose` được gọi và đo bộ nhớ.
+
+**Tiêu chí hoàn thành:** bạn nêu đúng **thời điểm** `Dispose` được gọi, và vì sao đó là một dạng rò rỉ.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Container **chịu trách nhiệm giải phóng** mọi đối tượng nó tạo ra có cài `IDisposable`. Câu hỏi là: nó giữ chúng ở đâu cho tới lúc giải phóng?
+
+**Lời giải.**
+
+```csharp
+public class Disp : IDisposable
+{
+    public static int SoLan;
+    public void Dispose() => SoLan++;
+}
+
+var s = new ServiceCollection();
+s.AddTransient<Disp>();
+var p = s.BuildServiceProvider();
+
+for (int i = 0; i < 1000; i++) p.GetRequiredService<Disp>();
+Console.WriteLine($"sau 1000 resolve: Dispose gọi {Disp.SoLan} lần");
+
+(p as IDisposable)?.Dispose();
+Console.WriteLine($"sau khi dispose provider: Dispose gọi {Disp.SoLan} lần");
+```
+
+**Kết quả đo thật trên .NET 9:**
+
+```text
+sau 1000 resolve từ root       : Dispose gọi 0 lần
+sau khi dispose root provider  : Dispose gọi 1000 lần
+```
+
+**Thời điểm `Dispose` được gọi: khi phạm vi chứa chúng bị huỷ.** Với `app.Services` — tức phạm vi gốc — điều đó nghĩa là **khi ứng dụng tắt**.
+
+**Vì sao đây là rò rỉ.** Container giữ tham chiếu tới **mọi** thể hiện `Transient` có cài `IDisposable` mà nó tạo ra, để còn giải phóng chúng sau. Với phạm vi gốc, danh sách đó chỉ có tăng, không bao giờ giảm:
+
+```text
+Request 1  -> tạo 1 Disp -> vào danh sách của phạm vi gốc
+Request 2  -> tạo 1 Disp -> vào danh sách
+...
+Request 1.000.000 -> danh sách có một triệu đối tượng
+```
+
+Bộ thu gom rác **không thể** dọn chúng, vì container vẫn đang giữ tham chiếu. Triệu chứng: bộ nhớ tăng tuyến tính theo số request và không bao giờ giảm.
+
+**Vì sao trong ASP.NET Core thường không sao.** Mỗi request có phạm vi riêng, và phạm vi đó bị huỷ khi request kết thúc — nên `Transient` được giải phóng đúng lúc. Vấn đề chỉ xuất hiện khi bạn resolve từ **phạm vi gốc**:
+
+```csharp
+// NGUY HIỂM — resolve từ phạm vi gốc
+var svc = app.Services.GetRequiredService<MyDisposableService>();
+
+// AN TOÀN — resolve từ phạm vi của request
+app.MapGet("/x", (MyDisposableService svc) => ...);
+
+// AN TOÀN — tự tạo phạm vi và huỷ nó
+using var scope = app.Services.CreateScope();
+var svc = scope.ServiceProvider.GetRequiredService<MyDisposableService>();
+```
+
+**Ba chỗ hay resolve nhầm từ phạm vi gốc:**
+
+| Chỗ | Vì sao nguy hiểm |
+|---|---|
+| `BackgroundService` | Nó là `Singleton`, nên `IServiceProvider` tiêm vào nó là phạm vi gốc |
+| Code khởi động trong `Program.cs` | `app.Services` chính là phạm vi gốc |
+| Bất kỳ đâu dùng Service Locator | Thường không rõ đang ở phạm vi nào |
+
+**Quy tắc.** Nếu một kiểu cài `IDisposable`, hãy cân nhắc rất kỹ trước khi đăng ký nó là `Transient`. Ba lựa chọn thay thế:
+
+1. **`Scoped`** — được giải phóng khi request kết thúc, đây là mặc định hợp lý.
+2. **`Singleton`** — nếu nó không giữ trạng thái riêng của người dùng và việc dùng lại là an toàn.
+3. **Tự quản lý bằng factory** — trả về một factory và để người gọi bọc trong `using`.
+
+**Một lưu ý về `HttpClient`.** Đây chính là lý do `IHttpClientFactory` tồn tại: `HttpClient` cài `IDisposable`, và cả hai cách dùng ngây thơ — tạo mới mỗi lần, hoặc đăng ký `Transient` — đều gây vấn đề, như [bài 2.3](../../stage-01-foundation/module-02-computer-science-basics/2.3-how-the-internet-works.mdx) đã đo.
+
+</details>
 
 ## Tự kiểm tra
 
