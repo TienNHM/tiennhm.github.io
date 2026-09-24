@@ -1,95 +1,272 @@
 ---
 title: "3.10 — 8. Debugging Workflow"
-description: "Watch Window — theo dõi giá trị biến theo thời gian thực. Mở qua Debug → Windows → Watch."
+description: "git bisect tìm commit gây lỗi trong 10.000 commit bằng 14 lần thử. Kèm breakpoint có điều kiện, correlation id để lần theo một request qua nhiều dịch vụ, và bộ công cụ chẩn đoán .NET."
 sidebar_position: 10
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
 # 3.10 — 8. Debugging Workflow
 
+<SummaryBox>
+Sửa lỗi có một thứ tự đúng, và bước đầu tiên không phải là mở debugger — mà là **tái hiện lỗi một cách ổn định**. Không tái hiện được thì không biết mình đã sửa hay chỉ vô tình che đi. Khi đã tái hiện được, công cụ mạnh nhất trong Git là **`git bisect`**: nó chia đôi lịch sử để tìm commit gây lỗi, nên **10.000 commit chỉ cần khoảng 14 lần thử**. Bài này cũng nói về hai thứ chỉ dùng được trên production: **correlation id** để lần theo một request qua nhiều dịch vụ, và bộ `dotnet-counters`, `dotnet-dump`, `dotnet-trace` để khám một tiến trình đang chạy mà không dừng nó.
+</SummaryBox>
+
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Đi theo năm bước sửa lỗi có thứ tự, thay vì đọc mò.
+- Dùng `git bisect` để khoanh vùng commit gây lỗi, kể cả tự động.
+- Đặt breakpoint có điều kiện thay vì bấm Continue hàng trăm lần.
+- Gắn correlation id và lần theo một request qua nhiều dịch vụ.
+- Chọn đúng công cụ chẩn đoán .NET cho từng loại triệu chứng.
 
 ## Nội dung bài học
 
-### 3.10.1 — Tư duy debug đúng đắn
+### 3.10.1 — Năm bước, đúng thứ tự
 
-Debug không phải là "thêm `Console.WriteLine` rồi xóa đi". Đó là quá trình có hệ thống:
-
-1. **Tái hiện lỗi** — xác định bước chính xác gây ra lỗi
-2. **Đặt giả thuyết** — tại sao đoạn code này sai?
-3. **Kiểm chứng** — dùng debugger để xác nhận hoặc bác bỏ giả thuyết
-4. **Sửa và verify** — sửa xong, chạy lại để chắc chắn không có regression
-
-### 3.10.2 — Visual Studio Debugger — các tính năng thiết yếu
-
-**Breakpoint** — dừng chương trình tại một dòng cụ thể:
-
-- Nhấn `F9` trên dòng muốn dừng, hoặc click vào margin trái
-- **Conditional breakpoint**: chuột phải vào breakpoint → Conditions → ví dụ `customer.Email == "test@example.com"` (chỉ dừng khi điều kiện đúng — rất hữu ích khi debug vòng lặp 1000 phần tử)
-
-**Các phím điều hướng khi đang debug:**
-
-| Phím | Hành động |
-|---|---|
-| `F5` | Tiếp tục chạy đến breakpoint tiếp theo |
-| `F10` | Step Over — chạy dòng hiện tại, không đi vào trong hàm |
-| `F11` | Step Into — đi vào trong hàm đang gọi |
-| `Shift+F11` | Step Out — thoát ra khỏi hàm hiện tại |
-| `F9` | Toggle breakpoint |
-
-**Watch Window** — theo dõi giá trị biến theo thời gian thực. Mở qua Debug → Windows → Watch.
-
-**Call Stack** — xem chuỗi các hàm đã gọi dẫn đến điểm hiện tại. Rất hữu ích khi debug exception ở tầng sâu:
-
-```
-CustomerController.SearchAsync()
-  → CustomerService.SearchByNameAsync()
-    → CustomerRepository.FindAsync()    ← lỗi xảy ra ở đây
+```mermaid
+flowchart LR
+    A[1 - Tai hien<br/>on dinh] --> B[2 - Khoanh vung]
+    B --> C[3 - Tim nguyen nhan goc]
+    C --> D[4 - Sua]
+    D --> E[5 - Viet test<br/>chong tai dien]
 ```
 
-**Exception Settings** — cấu hình để debugger dừng ngay khi exception xảy ra (kể cả exception đã được catch):
+Bước 1 quan trọng nhất và hay bị bỏ qua nhất. **Không tái hiện được thì không xác nhận được là đã sửa.** Bạn sẽ đổi một thứ, thấy lỗi biến mất, và không bao giờ biết đó là do bản sửa hay do may mắn.
 
-Debug → Windows → Exception Settings → tích `Common Language Runtime Exceptions`
+Tái hiện ổn định nghĩa là trả lời được: dữ liệu đầu vào nào, trạng thái nào, thứ tự thao tác nào thì **lần nào cũng** ra lỗi.
 
-### 3.10.3 — Debug trong môi trường API (.NET)
+Bước 5 cũng hay bị bỏ. Một test tái hiện đúng lỗi vừa sửa là thứ duy nhất bảo đảm nó không quay lại sau sáu tháng.
 
-Khi debug ASP.NET Core Web API cho CRM:
+### 3.10.2 — `git bisect`: chia đôi lịch sử
+
+Tình huống: tính năng chạy tốt ở bản phát hành tháng trước, giờ hỏng. Giữa hai mốc có 800 commit.
 
 ```bash
-# Chạy với hot reload để không cần restart liên tục
-dotnet watch run
+git bisect start
+git bisect bad                    # commit hiện tại: có lỗi
+git bisect good v1.4.0            # bản này: không lỗi
 
-# Hoặc chạy ở chế độ Development để xem đầy đủ stack trace
-ASPNETCORE_ENVIRONMENT=Development dotnet run
+# Git tự checkout commit ở giữa. Bạn kiểm tra rồi trả lời:
+git bisect good                   # commit này ổn
+# hoặc
+git bisect bad                    # commit này đã có lỗi
+
+# Lặp lại. Sau khoảng 10 lần, Git chỉ đúng commit gây lỗi.
+git bisect reset                  # quay về trạng thái ban đầu
 ```
 
-Dùng file `launch.json` trong So với Code để cấu hình debug profile, hoặc nhấn `F5` trong Visual Studio sau khi chọn project API làm Startup Project.
+Mỗi câu trả lời loại bỏ **một nửa** số commit còn lại. Quan hệ giữa số commit và số lần thử:
 
----
+| Số commit | Số lần thử |
+|---|---|
+| 100 | 7 |
+| 1.000 | 10 |
+| 10.000 | **14** |
+| 1.000.000 | 20 |
+
+Đây chính là `O(log n)` từ [bài 1.8](/docs/dotnet-backend-zero-to-senior/stage-01-foundation/module-01-programming-logic/1.8-data-structures-and-big-o), áp dụng vào lịch sử commit.
+
+**Tự động hoá** khi bạn có một lệnh phân biệt được tốt/xấu:
+
+```bash
+git bisect start HEAD v1.4.0
+git bisect run dotnet test --filter FullyQualifiedName~OrderTotalTests
+# Git tự chạy, tự trả lời, tự tìm ra commit. Đi pha cà phê.
+```
+
+Quy ước: script trả `0` là tốt, khác `0` là xấu, `125` là "bỏ qua commit này".
+
+Đây là lý do **mỗi commit phải build được** như [bài 3.5](3.5-workflow-co-ban.mdx) đã nói. Một commit hỏng build nằm giữa dải tìm kiếm làm hỏng cả quy trình.
+
+### 3.10.3 — Debugger: dùng cho đúng
+
+```csharp
+// Breakpoint có ĐIỀU KIỆN — dừng đúng lúc cần
+// Điều kiện: order.Id == 4729
+foreach (var order in orders)       // 10.000 đơn
+{
+    Process(order);                 // chỉ dừng ở đơn 4729
+}
+```
+
+Bốn tính năng đáng dùng hơn là bấm Continue liên tục:
+
+| Tính năng | Dùng khi |
+|---|---|
+| **Conditional breakpoint** | Chỉ muốn dừng khi một điều kiện đúng |
+| **Hit count** | Dừng ở lần lặp thứ n |
+| **Tracepoint / Logpoint** | Muốn in giá trị mà **không dừng** chương trình |
+| **Exception settings** | Dừng ngay khi ngoại lệ được ném, trước khi bị `catch` nuốt |
+
+Cái cuối cùng cứu rất nhiều thời gian: khi một ngoại lệ bị một khối `catch` ở tầng trên nuốt mất, bật "break when thrown" cho bạn thấy nó ở đúng nơi phát sinh, kèm đầy đủ trạng thái cục bộ.
+
+### 3.10.4 — Khi không gắn debugger được: log có cấu trúc
+
+Trên production bạn không dừng tiến trình được. Log là thứ thay thế — nhưng chỉ khi nó có cấu trúc.
+
+```csharp
+// Không truy vấn được — chuỗi phẳng
+_logger.LogInformation($"Xu ly don {order.Id} cho khach {customerId}");
+
+// Truy vấn được — tham số có tên
+_logger.LogInformation("Xu ly don {OrderId} cho khach {CustomerId}",
+    order.Id, customerId);
+```
+
+Cách thứ hai cho phép truy vấn `OrderId = 4729` trong công cụ tập trung log, thay vì tìm chuỗi bằng regex.
+
+Ba mức log dùng cho đúng:
+
+- `Debug` — chi tiết chỉ bật khi đang điều tra
+- `Information` — mốc nghiệp vụ: đơn được tạo, thanh toán thành công
+- `Warning` — bất thường nhưng xử lý được: thử lại lần 2, cache miss cao
+- `Error` — thất bại cần người xem
+
+Tránh `Information` cho mọi thứ. Log quá nhiều cũng mù như log quá ít, chỉ tốn tiền hơn.
+
+### 3.10.5 — Correlation id: lần theo một request
+
+Một request đi qua API gateway, dịch vụ đơn hàng, dịch vụ thanh toán, rồi một job nền. Khi có lỗi, bạn cần ghép các mảnh log lại.
+
+```csharp
+// Middleware gắn id cho mọi request
+app.Use(async (context, next) =>
+{
+    var correlationId = context.Request.Headers["X-Correlation-Id"].FirstOrDefault()
+                        ?? Guid.NewGuid().ToString();
+
+    using (_logger.BeginScope(new Dictionary<string, object>
+           { ["CorrelationId"] = correlationId }))
+    {
+        context.Response.Headers["X-Correlation-Id"] = correlationId;
+        await next();
+    }
+});
+```
+
+Hai điều quan trọng:
+
+1. **Nhận id từ header nếu có**, chỉ sinh mới khi không có. Nhờ vậy id đi xuyên qua các dịch vụ.
+2. **Trả id về trong response.** Người dùng báo lỗi kèm id đó, và bạn tìm ra toàn bộ chuỗi log trong vài giây.
+
+Khi hệ thống lớn hơn, đây chính là nền của distributed tracing — .NET có sẵn qua `System.Diagnostics.Activity` và [OpenTelemetry](https://opentelemetry.io/docs/languages/net/).
+
+### 3.10.6 — Bộ công cụ chẩn đoán .NET
+
+Ba công cụ khám một tiến trình **đang chạy**, không phải dừng nó:
+
+```bash
+dotnet tool install -g dotnet-counters
+dotnet tool install -g dotnet-dump
+dotnet tool install -g dotnet-trace
+
+# Theo dõi thời gian thực: CPU, bộ nhớ, số request, số exception
+dotnet-counters monitor -p <pid>
+
+# Chụp ảnh bộ nhớ khi nghi rò rỉ
+dotnet-dump collect -p <pid>
+dotnet-dump analyze core_dump
+> dumpheap -stat              # object nào chiếm nhiều bộ nhớ nhất
+
+# Ghi lại hoạt động để phân tích CPU
+dotnet-trace collect -p <pid>
+```
+
+Chọn theo triệu chứng:
+
+| Triệu chứng | Công cụ |
+|---|---|
+| Không biết đang xảy ra gì | `dotnet-counters monitor` |
+| Bộ nhớ tăng dần | `dotnet-dump` + `dumpheap -stat` |
+| CPU cao | `dotnet-trace` |
+| Ứng dụng treo | `dotnet-dump` + `clrstack` mọi thread |
+| Request chậm nhưng CPU thấp | Xem chỗ chờ I/O, kiểm tra connection pool |
+
+Dòng cuối là trường hợp hay gặp nhất trong backend, và nó thường dẫn về một trong hai bài: [deadlock do gọi `.Result`](/blog/deadlock-result-wait-csharp) hoặc [N+1 query](/blog/ef-core-n-plus-1-query).
+
+Lưu ý về `dotnet-counters`: nếu thấy bộ nhớ cao mà GC không giảm, đọc lại [bài 2.10](/docs/dotnet-backend-zero-to-senior/stage-01-foundation/module-02-computer-science-basics/2.10-dotnet-runtime-and-ecosystem) — Server GC giữ bộ nhớ là hành vi cố ý, không phải rò rỉ.
+
+### 3.10.7 — Rà lại quy trình sửa lỗi
+
+<Checklist
+  title="Danh sách rà soát debugging"
+  items={[
+    { text: "Luôn tái hiện lỗi ổn định trước khi sửa bất cứ thứ gì." },
+    { text: "Mọi lỗi đã sửa đều có một test tái hiện đúng tình huống đó." },
+    { text: "Biết dùng git bisect, kể cả chế độ tự động với git bisect run." },
+    { text: "Mọi commit trong lịch sử đều build được, để bisect dùng được." },
+    { text: "Log dùng tham số có tên, không nội suy chuỗi." },
+    { text: "Mọi request có correlation id, và id đó được trả về trong response." },
+    { text: "Đã cài dotnet-counters, dotnet-dump, dotnet-trace trên môi trường chạy thật." },
+    { text: "Dùng conditional breakpoint thay vì bấm Continue nhiều lần." },
+  ]}
+/>
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **Bisect tự động.** Trên một kho có lịch sử dài, cố ý làm hỏng một test ở một commit giữa chừng. Dùng `git bisect run dotnet test` tìm lại nó. Ghi số lần Git phải thử và so với `log2(số commit)`.
+
+2. **Gắn correlation id.** Thêm middleware ở mục 3.10.5 vào một dự án. Gọi một endpoint, lấy id từ response header, rồi tìm toàn bộ log của request đó bằng id ấy.
+
+3. **Khám một tiến trình sống.** Chạy ứng dụng, dùng `dotnet-counters monitor` quan sát khi đang tải. Tạo tải bằng vòng lặp `curl`, và ghi lại chỉ số nào phản ứng trước tiên.
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "Vì sao bước đầu tiên khi sửa lỗi là tái hiện chứ không phải đọc code?",
+      answer: "Vì không tái hiện được thì không xác nhận được là đã sửa. Bạn đổi một thứ, thấy lỗi biến mất, và không bao giờ biết đó là nhờ bản sửa hay chỉ do may mắn. Tái hiện ổn định nghĩa là trả lời được dữ liệu nào, trạng thái nào, thứ tự thao tác nào thì lần nào cũng ra lỗi."
+    },
+    {
+      question: "git bisect hoạt động ra sao và mạnh cỡ nào?",
+      answer: "Bạn đánh dấu một commit tốt và một commit xấu, Git checkout commit ở giữa và hỏi bạn kiểm tra. Mỗi câu trả lời loại bỏ một nửa số commit còn lại. Nhờ đó 10.000 commit chỉ cần khoảng 14 lần thử. Với git bisect run, bạn đưa cho nó một lệnh test và nó tự chạy tới khi tìm ra."
+    },
+    {
+      question: "Vì sao mỗi commit phải build được mới dùng bisect hiệu quả?",
+      answer: "Vì bisect sẽ checkout những commit bất kỳ trong dải tìm kiếm để kiểm tra. Một commit hỏng build nằm giữa dải làm bạn không phân biệt được tốt hay xấu, phải dùng git bisect skip, và nếu có nhiều commit như vậy thì cả quy trình mất tác dụng."
+    },
+    {
+      question: "Log có cấu trúc khác log chuỗi phẳng thế nào?",
+      answer: "Log có cấu trúc dùng tham số có tên trong template thay vì nội suy chuỗi. Nhờ đó công cụ tập trung log lưu từng tham số thành một trường riêng và bạn truy vấn được theo OrderId bằng 4729, thay vì phải tìm chuỗi bằng regex. Đây là khác biệt giữa log tra được và log chỉ để đọc."
+    },
+    {
+      question: "Correlation id giải quyết vấn đề gì?",
+      answer: "Nó cho phép ghép các mảnh log của cùng một request rải trên nhiều dịch vụ. Middleware nhận id từ header nếu có và chỉ sinh mới khi không có, nhờ vậy id đi xuyên suốt chuỗi gọi. Trả id về trong response còn giúp người dùng báo lỗi kèm id, và bạn tìm ra toàn bộ chuỗi log trong vài giây."
+    },
+    {
+      question: "Chọn công cụ chẩn đoán .NET theo triệu chứng nào?",
+      answer: "Không biết đang xảy ra gì thì dùng dotnet-counters monitor. Bộ nhớ tăng dần thì dotnet-dump rồi dumpheap -stat. CPU cao thì dotnet-trace. Ứng dụng treo thì dotnet-dump rồi xem clrstack của mọi thread. Request chậm mà CPU thấp thì vấn đề nằm ở chỗ chờ I/O, thường là connection pool hoặc deadlock."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **Tái hiện trước, sửa sau.** Không có bước một thì không có cách nào biết bước bốn đã thành công.
+2. **`git bisect run` là công cụ bị dùng ít nhất so với sức mạnh của nó.** 10.000 commit, 14 lần thử, và bạn không phải ngồi canh.
+3. **Correlation id là thứ rẻ nhất bạn thêm được vào hệ thống.** Vài dòng middleware, đổi lại khả năng lần theo một request qua toàn bộ hệ thống.
+
+## Tham khảo
+
+- [git-bisect](https://git-scm.com/docs/git-bisect) — kèm chế độ `run`
+- [.NET diagnostic tools](https://learn.microsoft.com/en-us/dotnet/core/diagnostics/) — tổng quan bộ công cụ
+- [dotnet-counters](https://learn.microsoft.com/en-us/dotnet/core/diagnostics/dotnet-counters) · [dotnet-dump](https://learn.microsoft.com/en-us/dotnet/core/diagnostics/dotnet-dump)
+- [Logging trong ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/logging/) — log có cấu trúc và scope
+- [Distributed tracing trong .NET](https://learn.microsoft.com/en-us/dotnet/core/diagnostics/distributed-tracing)
 
 ## Điều hướng
 
 - **Bài trước:** [3.9 — 7. Developer Workflow thực tế](3.9-real-world-developer-workflow.mdx)
 - **Bài tiếp theo:** [3.11 — 9. Conventional Commits](3.11-conventional-commits.mdx)
 - **Về module:** [Trang mục lục](./)
+
+## Bài liên quan
+
+- [Vì sao EF Core bắn 201 query cho 1 màn hình danh sách? Cách sửa N+1](/blog/ef-core-n-plus-1-query) — Một màn hình 200 dòng mà log SQL ghi 201 câu lệnh là dấu hiệu của N+1 query.
+- [Gọi .Result khi nào thì deadlock, khi nào thì không?](/blog/deadlock-result-wait-csharp) — Gọi .Result hay .Wait() trên một Task treo cứng ứng dụng WPF và ASP.NET Framework, nhưng chạy bình thường trong console và ASP.NET Core.
