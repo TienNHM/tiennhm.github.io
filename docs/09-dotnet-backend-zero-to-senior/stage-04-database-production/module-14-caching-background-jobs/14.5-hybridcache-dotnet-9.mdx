@@ -29,10 +29,10 @@ Sau bài này bạn có thể:
 Trước `HybridCache`, một cache "đúng" cần bốn thứ tự viết:
 
 ```csharp
-// 1. Kiem tra L1
+// 1. Kiểm tra L1
 if (_memory.TryGetValue(key, out T? local)) return local;
 
-// 2. Kiem tra L2
+// 2. Kiểm tra L2
 var bytes = await _distributed.GetAsync(key, ct);
 if (bytes is not null)
 {
@@ -45,7 +45,7 @@ if (bytes is not null)
 await gate.WaitAsync(ct);
 try
 {
-    // 4. Kiem tra LAI ca hai tang, roi goi factory, roi ghi ca hai tang
+    // 4. Kiểm tra LẠI cả hai tầng, rồi gọi factory, rồi ghi cả hai tầng
     ...
 }
 finally { gate.Release(); }
@@ -54,7 +54,7 @@ finally { gate.Release(); }
 Khoảng 60 dòng, và mỗi dự án viết một kiểu khác nhau — với những lỗi khác nhau.
 
 ```csharp
-// HybridCache — tuong duong
+// HybridCache — tương đương
 var value = await _cache.GetOrCreateAsync(key,
     async token => await LoadFromDatabaseAsync(id, token),
     cancellationToken: ct);
@@ -69,7 +69,7 @@ dotnet add package Microsoft.Extensions.Caching.Hybrid
 ```csharp
 builder.Services.AddHybridCache(options =>
 {
-    options.MaximumPayloadBytes = 1024 * 1024;        // 1 MB — mac dinh
+    options.MaximumPayloadBytes = 1024 * 1024;        // 1 MB — mặc định
     options.MaximumKeyLength = 1024;
 
     options.DefaultEntryOptions = new HybridCacheEntryOptions
@@ -94,9 +94,9 @@ Tỷ lệ thực dụng: L1 bằng khoảng **1/5** L2. L2 5 phút thì L1 1 ph�
 **`MaximumPayloadBytes` là cái bẫy im lặng:**
 
 ```
-Doi tuong 1,5 MB -> VUOT gioi han -> KHONG duoc cache
+Đối tượng 1,5 MB -> VƯỢT giới hạn -> KHÔNG được cache
 => Moi lan goi deu la miss, factory luon chay
-=> Khong co loi, khong co canh bao
+=> Không có lỗi, không có cảnh báo
 ```
 
 Triệu chứng: cache "không hoạt động" mà không hiểu vì sao. Nếu bạn cache đối tượng lớn, hãy tăng giới hạn — nhưng cũng nên hỏi lại liệu có nên cache thứ 1,5MB vào Redis không.
@@ -143,7 +143,7 @@ await cache.GetOrCreateAsync(key,
 Lambda bắt `db` và `id` nên trình biên dịch tạo một **display class** mỗi lần gọi — kể cả khi cache **trúng** và factory không chạy.
 
 ```csharp
-// TOT — truyen state, lambda STATIC, khong cap phat
+// TỐT — truyền state, lambda STATIC, không cấp phát
 await cache.GetOrCreateAsync(
     key,
     (db, id),                                          // state
@@ -162,8 +162,8 @@ Overload nhận `state` cộng lambda `static` loại bỏ cấp phát hoàn to�
 ```csharp
 tags: ["customers", $"customer:{id}", $"tenant:{tenantId}"]
 
-await cache.RemoveByTagAsync($"customer:{id}", ct);     // mot khach hang
-await cache.RemoveByTagAsync("customers", ct);          // MOI cache khach hang
+await cache.RemoveByTagAsync($"customer:{id}", ct);     // một khách hàng
+await cache.RemoveByTagAsync("customers", ct);          // MỌI cache khách hàng
 ```
 
 Cùng nguyên tắc ở [bài 14.5](14.4-cache-invalidation-strategies.mdx): **tag hẹp nhất có thể**. Tag `"customers"` xoá mọi thứ, nên dùng nó là gần như tắt cache.
@@ -179,9 +179,9 @@ Ba điều về tag trong `HybridCache`:
 Đây là hai lợi ích lớn nhất, và cả hai **tự động**:
 
 ```
-100 request dong thoi, cache miss
+100 request đồng thời, cache miss
 => HybridCache goi factory MOT LAN
-=> 99 request con lai cho ket qua do
+=> 99 request còn lại chờ kết quả đó
 ```
 
 So với `IMemoryCache.GetOrCreateAsync` chạy factory 100 lần ([bài 14.3](14.2-imemorycache.mdx)), đây là khác biệt giữa "cache giúp" và "cache làm sập database".

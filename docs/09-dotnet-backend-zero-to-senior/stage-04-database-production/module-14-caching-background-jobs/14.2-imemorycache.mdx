@@ -37,7 +37,7 @@ Không có giới hạn, cache chỉ bị dọn khi **GC báo áp lực bộ nh�
 // DUNG
 builder.Services.AddMemoryCache(options =>
 {
-    options.SizeLimit = 10_000;                         // don vi TU DINH NGHIA
+    options.SizeLimit = 10_000;                         // đơn vị TỰ ĐỊNH NGHĨA
     options.CompactionPercentage = 0.25;                // don 25% khi day
     options.ExpirationScanFrequency = TimeSpan.FromMinutes(1);
 });
@@ -81,7 +81,7 @@ Rồi cấm dùng `IMemoryCache` trực tiếp trong code nghiệp vụ.
 ```csharp
 var options = new MemoryCacheEntryOptions
 {
-    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30),   // TRAN cung
+    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30),   // TRẦN cứng
     SlidingExpiration = TimeSpan.FromMinutes(5),                  // gia han khi doc
     Size = 1,
     Priority = CacheItemPriority.Normal,
@@ -97,7 +97,7 @@ var options = new MemoryCacheEntryOptions
 **`SlidingExpiration` một mình là nguy hiểm:**
 
 ```csharp
-// Entry duoc doc moi phut -> KHONG BAO GIO het han
+// Entry được đọc mỗi phút -> KHÔNG BAO GIỜ hết hạn
 new MemoryCacheEntryOptions { SlidingExpiration = TimeSpan.FromMinutes(5) };
 ```
 
@@ -106,8 +106,8 @@ Khoá nóng được truy cập liên tục sẽ giữ **dữ liệu cũ mãi m�
 ```csharp
 new MemoryCacheEntryOptions
 {
-    SlidingExpiration = TimeSpan.FromMinutes(5),                 // don dep entry nguoi
-    AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1),     // TRAN cung
+    SlidingExpiration = TimeSpan.FromMinutes(5),                 // dọn dẹp entry nguội
+    AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1),     // TRẦN cứng
     Size = 1,
 };
 ```
@@ -115,9 +115,9 @@ new MemoryCacheEntryOptions
 `Priority` quyết định thứ tự bị dọn khi cache đầy:
 
 ```csharp
-Priority = CacheItemPriority.NeverRemove;    // chi bi xoa khi het han
+Priority = CacheItemPriority.NeverRemove;    // chỉ bị xoá khi hết hạn
 Priority = CacheItemPriority.High;
-Priority = CacheItemPriority.Normal;         // mac dinh
+Priority = CacheItemPriority.Normal;         // mặc định
 Priority = CacheItemPriority.Low;            // don dau tien
 ```
 
@@ -168,7 +168,7 @@ public sealed class SafeCache(IMemoryCache cache)
 
         try
         {
-            if (cache.TryGetValue(key, out cached)) return cached!;     // kiem tra LAI
+            if (cache.TryGetValue(key, out cached)) return cached!;     // kiểm tra LẠI
 
             var value = await factory(ct);
             cache.Set(key, value, new MemoryCacheEntryOptions
@@ -194,7 +194,7 @@ Dòng dọn rác cuối quan trọng: không có nó, `_locks` lớn dần theo 
 ### 14.3.4 — Đừng cache entity EF Core
 
 ```csharp
-// SAI — nhieu tang van de
+// SAI — nhiều tầng vấn đề
 var customer = await _cache.GetOrCreateAsync($"customer:{id}", async entry =>
 {
     entry.Size = 1;
@@ -234,7 +234,7 @@ Với kiểu **có thể thay đổi**, cân nhắc lưu bản sao thay vì tham
 ```
 3 pod, moi pod cache RIENG
 => Ty le trung giam 3 lan (moi pod phai tu nap)
-=> Xoa cache tren pod A KHONG anh huong pod B va C
+=> Xoá cache trên pod A KHÔNG ảnh hưởng pod B và C
 => Deploy la mat sach cache -> dot tai dot bien vao database
 ```
 
