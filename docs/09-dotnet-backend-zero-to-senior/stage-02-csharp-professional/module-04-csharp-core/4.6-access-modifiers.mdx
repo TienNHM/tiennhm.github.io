@@ -276,7 +276,7 @@ Trong một giải pháp nhiều project, đổi một lớp repository thành `
 // Crm.Application/IOrderRepository.cs
 public interface IOrderRepository
 {
-    Task<Order?> LayTheoIdAsync(int id, CancellationToken ct);
+    Task<Order?> GetByIdAsync(int id, CancellationToken ct);
 }
 
 // Crm.Infrastructure/EfOrderRepository.cs
@@ -379,10 +379,10 @@ Giờ project test truy cập được:
 public class SqlErrorMapperTests
 {
     [Fact]
-    public void NhanDienDuocLoiTrungKhoaCuaPostgres()
+    public void DetectsPostgresUniqueViolation()
     {
-        var ex = TaoDbUpdateException(sqlState: "23505");
-        Assert.True(SqlErrorMapper.LaLoiTrungKhoa(ex));   // lớp internal
+        var ex = CreateDbUpdateException(sqlState: "23505");
+        Assert.True(SqlErrorMapper.IsUniqueViolation(ex));   // lớp internal
     }
 }
 ```

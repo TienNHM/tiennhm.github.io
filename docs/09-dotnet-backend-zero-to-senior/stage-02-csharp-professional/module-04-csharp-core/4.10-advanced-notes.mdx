@@ -26,18 +26,18 @@ Sau bài này bạn có thể:
 ### 4.11.1 — required members: dùng ngay
 
 ```csharp
-// Truoc — khong co gi buoc phai gan Name
+// Trước — không có gì buộc phải gán Name
 public class Lead
 {
-    public string Name { get; set; }        // canh bao: co the null
+    public string Name { get; set; }        // cảnh báo: có thể null
     public string Email { get; set; }
 }
 
-var lead = new Lead();                       // bien dich duoc, Name la null
+var lead = new Lead();                       // biên dịch được, Name là null
 ```
 
 ```csharp
-// Sau — trinh bien dich BUOC phai gan
+// Sau — trình biên dịch BUỘC phải gán
 public class Lead
 {
     public required string Name { get; init; }
@@ -56,7 +56,7 @@ Kết hợp với `init` cho đối tượng chỉ đọc sau khi tạo — đú
 ### 4.11.2 — Primary constructor: dùng ngay
 
 ```csharp
-// Truoc — ba lan lap lai moi ten
+// Trước — ba lần lặp lại mỗi tên
 public class LeadService
 {
     private readonly ILeadRepository _repository;
@@ -93,18 +93,18 @@ Với `record`, primary constructor sinh luôn thuộc tính public — khác v�
 ### 4.11.3 — Collection expression: dùng ngay
 
 ```csharp
-// Truoc
-List<string> ten = new List<string> { "An", "Bình" };
-int[] so = new int[] { 1, 2, 3 };
+// Trước
+List<string> names = new List<string> { "An", "Bình" };
+int[] numbers = new int[] { 1, 2, 3 };
 private readonly List<Activity> _activities = new();
 
-// Sau — cu phap thong nhat cho moi kieu collection
-List<string> ten = ["An", "Bình"];
-int[] so = [1, 2, 3];
+// Sau — cú pháp thống nhất cho mọi kiểu collection
+List<string> names = ["An", "Bình"];
+int[] numbers = [1, 2, 3];
 private readonly List<Activity> _activities = [];
 
-// Ghep bang spread
-int[] tatCa = [..so, 4, 5];
+// Ghép bằng spread
+int[] all = [..numbers, 4, 5];
 ```
 
 Ngắn hơn và — quan trọng hơn — **thống nhất** cho `List`, mảng, `Span` và `ImmutableArray`. Trước đây mỗi kiểu có cú pháp khởi tạo riêng.
@@ -123,16 +123,16 @@ public sealed class ExcelExporter : IDisposable
 
     public void Dispose()
     {
-        if (_disposed) return;               // an toan khi goi nhieu lan
+        if (_disposed) return;               // an toàn khi gọi nhiều lần
         _stream.Dispose();
         _disposed = true;
     }
 }
 
-// Su dung — using dam bao Dispose duoc goi KE CA khi co exception
-using var exporter = new ExcelExporter("bao-cao.xlsx");
+// Sử dụng — using đảm bảo Dispose được gọi KỂ CẢ khi có exception
+using var exporter = new ExcelExporter("revenue-report.xlsx");
 exporter.Export(data);
-// Dispose tu dong goi o cuoi pham vi
+// Dispose tự động gọi ở cuối phạm vi
 ```
 
 **Vì sao quên `using` nguy hiểm:** không có lỗi nào được báo. Chương trình chạy bình thường, chỉ là tài nguyên không được trả lại. Trong ứng dụng web, biểu hiện là sau vài giờ chạy, mọi request bắt đầu timeout vì connection pool đã cạn — và nguyên nhân rất khó lần ra từ triệu chứng đó.
@@ -167,8 +167,8 @@ public readonly record struct LeadId(Guid Value) : IParsable<LeadId>
     public static LeadId Parse(string s) => new(Guid.Parse(s));
 }
 
-// Gio goi duoc phuong thuc tinh qua generic
-T ParseTu<T>(string s) where T : IParsable<T> => T.Parse(s);
+// Giờ gọi được phương thức tĩnh qua generic
+T ParseFrom<T>(string s) where T : IParsable<T> => T.Parse(s);
 ```
 
 Trước .NET 7, không có cách nào ràng buộc "kiểu này phải có phương thức tĩnh tên `Parse`". Tính năng này làm được, và nó là nền tảng cho generic math trong .NET.
@@ -194,7 +194,7 @@ var sql = """
       AND Status <> 'Lost'
     """;
 
-// nameof — doi ten thuoc tinh thi chuoi tu doi theo
+// nameof — đổi tên thuộc tính thì chuỗi tự đổi theo
 throw new ArgumentNullException(nameof(request));
 ```
 
