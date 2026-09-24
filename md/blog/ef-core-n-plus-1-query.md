@@ -226,5 +226,5 @@ Không. AsNoTracking chỉ bỏ bước chụp snapshot entity vào change track
 ## Bài liên quan
 
 - [Module 13 — Entity Framework Core](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core) — EF Core: change tracking, migrations, raw SQL, performance patterns — ORM mapping an toàn cho domain CRM.
-- [13.6 — 5. Query Patterns](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.6-query-patterns) — Query Patterns: AsNoTracking — khi nào dùng; Eager Loading với Include/ThenInclude; Explicit Loading (load sau khi đã có entity); Projection với…
+- [13.6 — 5. Query Patterns](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.6-query-patterns) — Projection thay vì Include, split query và cartesian explosion, explicit loading, FindAsync, và compiled query cho đường chạy nóng.
 - [Lộ trình .NET Backend: From Zero → Senior (Backend-first)](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/dotnet-backend-zero-to-senior-roadmap) — Curriculum hub: lộ trình .NET backend-first (C#, ASP.NET Core, SQL, EF Core, distributed systems, microservices) với trục nghiệp vụ CRM/ERP — tối ưu…
