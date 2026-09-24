@@ -128,7 +128,7 @@ var messages = await _db.OutboxMessages
 Ba instance cùng `SELECT` ra cùng 100 hàng và cùng publish → mỗi message đi **ba lần**. Sửa bằng cách khoá hàng ngay khi đọc:
 
 ```sql
--- SQL Server: READPAST bo qua hang dang bi instance khac khoa
+-- SQL Server: READPAST bỏ qua hàng đang bị instance khác khoá
 UPDATE TOP (100) OutboxMessages WITH (READPAST, UPDLOCK)
 SET ProcessedOnUtc = SYSUTCDATETIME()
 OUTPUT inserted.Id, inserted.Type, inserted.Payload

@@ -74,7 +74,7 @@ public async Task<TokenPair> RefreshAsync(string refreshToken, CancellationToken
 
     if (stored.User.SecurityStamp != stored.SecurityStamp)
     {
-        // Mat khau hoac quyen da doi ke tu khi cap token
+        // Mật khẩu hoặc quyền đã đổi kể từ khi cấp token
         await RevokeAllTokensAsync(stored.UserId, "Thông tin bảo mật đã thay đổi", ct);
         throw new UnauthorizedAccessException("Vui lòng đăng nhập lại");
     }
@@ -86,7 +86,7 @@ public async Task<TokenPair> RefreshAsync(string refreshToken, CancellationToken
 `SecurityStamp` là một giá trị thay đổi mỗi khi có thay đổi ảnh hưởng bảo mật: đổi mật khẩu, đổi vai trò, bật xác thực hai lớp. So sánh nó khi refresh khiến **mọi token cũ tự vô hiệu** sau những thay đổi đó — không cần danh sách chặn riêng.
 
 ```csharp
-// Khi doi mat khau hoac quyen
+// Khi đổi mật khẩu hoặc quyền
 user.SecurityStamp = Guid.NewGuid().ToString();
 await _db.SaveChangesAsync(ct);
 // Mọi refresh token cũ giờ đều không dùng được

@@ -172,7 +172,7 @@ var tatCa = await _db.Leads.IgnoreQueryFilters().ToListAsync(ct);
 
 // 2. Filter dùng giá trị từ scoped service nhưng DbContext bị cache model
 // -> nếu TenantId được đọc lúc DỰNG MODEL, mọi tenant sẽ dùng chung filter của
-//    tenant dau tien. Phai dung IModelCacheKeyFactory theo tenant.
+//    tenant đầu tiên. Phải dùng IModelCacheKeyFactory theo tenant.
 ```
 
 Cái bẫy thứ hai tinh vi và nguy hiểm: EF Core cache model đã dựng, nên nếu biểu thức filter chụp giá trị `TenantId` tại thời điểm dựng model, mọi tenant sau đó dùng chung giá trị của tenant đầu tiên. Cách tránh là tham chiếu tới **service** trong biểu thức (như ví dụ trên) chứ không tới **giá trị**.

@@ -232,7 +232,7 @@ if (stored.RevokedAt is not null)
     if (age < TimeSpan.FromSeconds(10) && stored.ReplacedByHash is not null)
         return await ReturnExistingReplacementAsync(stored, ct);   // tra lai R2
 
-    // Ngoai cua so -> tan cong that
+    // Ngoài cửa sổ -> tấn công thật
     await RevokeAllForUserAsync(stored.UserId, "reuse-detected", ct);
     return Result.Fail(...);
 }
@@ -290,7 +290,7 @@ public sealed class RefreshTokenCleanupWorker(
                 await using var scope = scopeFactory.CreateAsyncScope();
                 var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-                // Giu them 30 ngay de con dau vet dieu tra
+                // Giữ thêm 30 ngày để còn dấu vết điều tra
                 var cutoff = DateTime.UtcNow.AddDays(-30);
                 var removed = await db.RefreshTokens
                     .Where(t => t.AbsoluteExpiresAt < cutoff)

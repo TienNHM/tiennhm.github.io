@@ -31,7 +31,7 @@ Sau bài này bạn có thể:
 var orders = await _db.Orders.Take(100).ToListAsync(ct);
 foreach (var order in orders)
 {
-    // Moi vong lap la MOT round-trip toi database
+    // Mỗi vòng lặp là MỘT round-trip tới database
     var customer = await _db.Customers.FindAsync(order.CustomerId);
     Console.WriteLine(customer!.Name);
 }
@@ -166,10 +166,10 @@ EXEC sp_query_store_force_plan @query_id = 42, @plan_id = 17;
 ### 19.5.4 — Projection: đừng lấy thừa
 
 ```csharp
-// SAI — lay TOAN BO entity de dung 3 truong
+// SAI — lấy TOÀN BỘ entity để dùng 3 trường
 var leads = await _db.Leads
     .Include(l => l.Customer)
-    .Include(l => l.Activities)          // co the hang tram ban ghi moi lead
+    .Include(l => l.Activities)          // có thể hàng trăm bản ghi mỗi lead
     .ToListAsync(ct);
 
 return leads.Select(l => new LeadDto(l.Id, l.Name, l.Customer.Name));

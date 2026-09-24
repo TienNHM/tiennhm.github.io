@@ -67,7 +67,7 @@ public sealed class RedisPresenceTracker(IConnectionMultiplexer redis) : IPresen
     {
         var db = redis.GetDatabase();
 
-        // Khoa mot ket noi — TU HET HAN
+        // Khoá một kết nối — TỰ HẾT HẠN
         await db.StringSetAsync(ConnKey(userId, connectionId), "1", Ttl);
 
         // Tập kết nối của người dùng — cũng có TTL để không rò rỉ
@@ -124,7 +124,7 @@ public sealed class PresenceHeartbeatWorker(
 
         while (await timer.WaitForNextTickAsync(ct))
         {
-            // Gia han TTL cho moi ket noi ma INSTANCE NAY dang giu
+            // Gia hạn TTL cho mọi kết nối mà INSTANCE NÀY đang giữ
             foreach (var (userId, connectionId) in registry.GetLocalConnections())
                 await presence.HeartbeatAsync(userId, connectionId, ct);
         }
