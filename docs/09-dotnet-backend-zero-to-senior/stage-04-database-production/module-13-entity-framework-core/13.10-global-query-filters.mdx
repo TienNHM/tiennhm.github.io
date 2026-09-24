@@ -71,7 +71,7 @@ public override ValueTask<InterceptionResult<int>> SavingChangesAsync(
     foreach (var entry in eventData.Context!.ChangeTracker.Entries<ISoftDeletable>()
                           .Where(e => e.State == EntityState.Deleted))
     {
-        entry.State = EntityState.Modified;              // khong xoa that
+        entry.State = EntityState.Modified;              // không xoá thật
         entry.Entity.DeletedAt = DateTime.UtcNow;
     }
 
@@ -149,7 +149,7 @@ EF Core không cho bỏ qua **một** filter cụ thể. Phải tự áp lại p
 ```csharp
 var deleted = await db.Customers
     .IgnoreQueryFilters()
-    .Where(c => c.TenantId == _tenantId)      // TU ap lai cach ly tenant
+    .Where(c => c.TenantId == _tenantId)      // TỰ áp lại cách ly tenant
     .Where(c => c.DeletedAt != null)
     .ToListAsync(ct);
 ```
@@ -179,10 +179,10 @@ Hàng đầu là nguồn của "tại sao `FindAsync` lấy được khách hàn
 
 ```csharp
 modelBuilder.Entity<Customer>().HasQueryFilter(c => c.DeletedAt == null);
-// Contact KHONG co filter
+// Contact KHÔNG có filter
 
 var contacts = await db.Contacts.Include(c => c.Customer).ToListAsync(ct);
-// Contact cua customer DA XOA -> Customer la NULL
+// Contact của customer ĐÃ XOÁ -> Customer là NULL
 ```
 
 Filter được áp khi nạp navigation, nên `contact.Customer` thành `null` dù khoá ngoại là **bắt buộc**. Code giả định `contact.Customer` không bao giờ `null` sẽ ném `NullReferenceException`.
@@ -210,7 +210,7 @@ modelBuilder.Entity<Contact>()
 Filter xuất hiện trong **mọi** truy vấn, nên index phải hỗ trợ nó:
 
 ```csharp
-// Cot filter dat TRUOC trong composite index
+// Cột filter đặt TRƯỚC trong composite index
 builder.HasIndex(c => new { c.TenantId, c.DeletedAt, c.Status });
 ```
 

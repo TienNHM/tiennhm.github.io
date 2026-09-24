@@ -52,7 +52,7 @@ SELECT COUNT(*) FROM Contacts WHERE CustomerId = 2;      -- 3
 **1. AutoMapper**
 
 ```csharp
-var customers = await db.Customers.ToListAsync(ct);      // KHONG Include
+var customers = await db.Customers.ToListAsync(ct);      // KHÔNG Include
 
 var dtos = mapper.Map<List<CustomerDto>>(customers);     // N+1 O DAY
 ```
@@ -104,12 +104,12 @@ var customers = await db.Customers
     .AsNoTracking()
     .ToListAsync(ct);
 
-// 2. Projection — TOT NHAT khi chi can vai truong
+// 2. Projection — TỐT NHẤT khi chỉ cần vài trường
 var dtos = await db.Customers
     .Select(c => new CustomerDto(c.Id, c.Name, c.Contacts.Count()))
     .ToListAsync(ct);
 
-// 3. Nap theo lo — khi khong ghep truy van duoc
+// 3. Nạp theo lô — khi không ghép truy vấn được
 var ids = customers.Select(c => c.Id).ToList();
 var contactsByCustomer = await db.Contacts
     .Where(ct2 => ids.Contains(ct2.CustomerId))

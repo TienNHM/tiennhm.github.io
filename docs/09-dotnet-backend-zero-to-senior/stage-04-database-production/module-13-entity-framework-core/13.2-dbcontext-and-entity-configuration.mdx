@@ -81,7 +81,7 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
 {
     modelBuilder.Entity<Customer>().Property(c => c.Name).HasMaxLength(200);
     modelBuilder.Entity<Customer>().HasIndex(c => c.Email).IsUnique();
-    // ... 400 dong nua
+    // ... 400 dòng nữa
 }
 ```
 
@@ -136,7 +136,7 @@ Chú ý `HasConversion<string>()` cho enum: mặc định EF lưu enum thành `i
 Value converter cho phép **domain dùng kiểu riêng** trong khi database lưu kiểu nguyên thuỷ:
 
 ```csharp
-// Strongly-typed ID — khong the truyen nham CustomerId vao cho LeadId
+// Strongly-typed ID — không thể truyền nhầm CustomerId vào chỗ LeadId
 public readonly record struct CustomerId(int Value);
 
 builder.Property(c => c.Id)
@@ -176,7 +176,7 @@ protected override void ConfigureConventions(ModelConfigurationBuilder builder)
            .HaveConversion<UtcDateTimeConverter>();
 
     builder.Properties<decimal>()
-           .HavePrecision(18, 2);        // tranh mac dinh cua provider
+           .HavePrecision(18, 2);        // tránh mặc định của provider
 }
 ```
 
@@ -185,7 +185,7 @@ protected override void ConfigureConventions(ModelConfigurationBuilder builder)
 ### 13.3.4 — Owned type cho value object
 
 ```csharp
-public sealed class Address                   // khong co Id — la value object
+public sealed class Address                   // không có Id — là value object
 {
     public required string Street { get; init; }
     public required string City { get; init; }
@@ -220,7 +220,7 @@ Ba điều cần biết:
 ### 13.3.5 — Interceptor thay vì override `SaveChanges`
 
 ```csharp
-// Cach pho bien nhung han che
+// Cách phổ biến nhưng hạn chế
 public override Task<int> SaveChangesAsync(CancellationToken ct = default)
 {
     foreach (var entry in ChangeTracker.Entries<Customer>()) { ... }   // CHI Customer

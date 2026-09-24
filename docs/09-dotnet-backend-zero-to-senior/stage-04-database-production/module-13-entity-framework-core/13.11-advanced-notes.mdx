@@ -54,7 +54,7 @@ public sealed class AuditInterceptor(ICurrentUser currentUser, TimeProvider cloc
                     break;
 
                 case EntityState.Deleted:
-                    // Soft delete — doi thanh Modified thay vi xoa that
+                    // Soft delete — đổi thành Modified thay vì xoá thật
                     entry.State = EntityState.Modified;
                     entry.Entity.IsDeleted = true;
                     entry.Entity.DeletedUtc = now;
@@ -135,17 +135,17 @@ EF Core dựng model từ cấu hình khi khởi tạo `DbContext` lần đầu.
 **Điều kiện kích hoạt:** value object cần ánh xạ vào nhiều cột.
 
 ```csharp
-// Owned entity — co tu EF Core 2
-b.OwnsOne(l => l.DiaChi, a =>
+// Owned entity — có từ EF Core 2
+b.OwnsOne(l => l.Address, a =>
 {
-    a.Property(x => x.SoNha).HasColumnName("DiaChi_SoNha");
-    a.Property(x => x.Duong).HasColumnName("DiaChi_Duong");
+    a.Property(x => x.HouseNumber).HasColumnName("Address_HouseNumber");
+    a.Property(x => x.Street).HasColumnName("Address_Street");
 });
 
-// Complex type — EF Core 8+, tot hon
-b.ComplexProperty(l => l.DiaChi, a =>
+// Complex type — EF Core 8+, tốt hơn
+b.ComplexProperty(l => l.Address, a =>
 {
-    a.Property(x => x.SoNha).HasColumnName("DiaChi_SoNha");
+    a.Property(x => x.HouseNumber).HasColumnName("Address_HouseNumber");
 });
 ```
 

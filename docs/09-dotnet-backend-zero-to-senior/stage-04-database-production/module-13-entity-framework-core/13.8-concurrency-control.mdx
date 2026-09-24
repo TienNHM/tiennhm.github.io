@@ -29,8 +29,8 @@ Sau bài này bạn có thể:
 ```
 t=0   An   doc Lead #42 (Value = 100)
 t=1   Binh doc Lead #42 (Value = 100)
-t=2   An   luu Value = 150
-t=3   Binh luu Value = 200        <- ghi de thay doi cua An
+t=2   An   lưu Value = 150
+t=3   Bình lưu Value = 200        <- ghi đè thay đổi của An
 ```
 
 Đây là **lost update**, và nó xảy ra **im lặng**. Không có lỗi, không có log, và An chỉ phát hiện khi mở lại bản ghi.
@@ -40,14 +40,14 @@ Với dữ liệu tài chính hoặc tồn kho, đó là lỗi nghiêm trọng.
 ### 13.9.2 — Concurrency token
 
 ```csharp
-// SQL Server — ROWVERSION tu dong doi moi lan ghi
+// SQL Server — ROWVERSION tự động đổi mỗi lần ghi
 public byte[] RowVersion { get; set; } = [];
 
 builder.Property(c => c.RowVersion).IsRowVersion();
 ```
 
 ```csharp
-// PostgreSQL — dung cot he thong xmin
+// PostgreSQL — dùng cột hệ thống xmin
 builder.UseXminAsConcurrencyToken();
 ```
 
@@ -56,7 +56,7 @@ builder.UseXminAsConcurrencyToken();
 public Guid Version { get; set; }
 
 builder.Property(c => c.Version).IsConcurrencyToken();
-// Phai TU cap nhat moi lan sua
+// Phải TỰ cập nhật mỗi lần sửa
 ```
 
 `IsRowVersion()` mạnh hơn hai cách kia ở một điểm: **database tự đổi giá trị**, nên nó bắt được cả thay đổi từ script thủ công hay một ứng dụng khác. Token thủ công chỉ đổi khi code của bạn nhớ đổi.
@@ -67,7 +67,7 @@ EF Core sinh:
 UPDATE Leads SET Value = @p0, Status = @p1
 WHERE Id = @p2 AND RowVersion = @p3;      -- token trong WHERE
 
--- 0 dong bi anh huong => DbUpdateConcurrencyException
+-- 0 dòng bị ảnh hưởng => DbUpdateConcurrencyException
 ```
 
 **Không nhất thiết dùng `ROWVERSION`.** Bất kỳ cột nào cũng làm concurrency token được:
@@ -93,7 +93,7 @@ catch (DbUpdateConcurrencyException ex)
     if (databaseValues is null)
         return Result.Fail("Bản ghi đã bị xoá bởi người dùng khác");
 
-    // ... xu ly theo mot trong ba chien luoc
+    // ... xử lý theo một trong ba chiến lược
 }
 ```
 
@@ -126,7 +126,7 @@ foreach (var property in entry.Metadata.GetProperties())
     var current  = databaseValues[property];
     var original = entry.Property(property.Name).OriginalValue;
 
-    // CHI bao xung dot khi CA HAI cung sua mot truong
+    // CHỈ báo xung đột khi CẢ HAI cùng sửa một trường
     if (!Equals(proposed, original) && !Equals(current, original))
         conflicts.Add(new FieldConflict(property.Name, original, proposed, current));
 }
@@ -169,7 +169,7 @@ public async Task<IActionResult> Update(int id, UpdateLeadRequest request, Cance
     var lead = await db.Leads.FirstOrDefaultAsync(l => l.Id == id, ct);
     if (lead is null) return NotFound();
 
-    // Gan gia tri GOC ma client da thay
+    // Gán giá trị GỐC mà client đã thấy
     db.Entry(lead).Property(l => l.RowVersion).OriginalValue =
         Convert.FromBase64String(request.RowVersion);
 
@@ -205,7 +205,7 @@ Thiếu `If-Match` thì trả **428 Precondition Required**; token không khớp
 ### 13.9.5 — `ExecuteUpdate` bỏ qua tất cả
 
 ```csharp
-// KHONG kiem tra concurrency token
+// KHÔNG kiểm tra concurrency token
 await db.Leads.Where(l => l.Id == 42)
               .ExecuteUpdateAsync(s => s.SetProperty(l => l.Value, 200), ct);
 ```
@@ -227,12 +227,12 @@ if (affected == 0) return Result.Conflict();
 Với **bộ đếm và số dư**, cách tốt nhất là **không đọc trước**:
 
 ```csharp
-// KEM — doc, sua, luu. Co the xung dot.
+// KÉM — đọc, sửa, lưu. Có thể xung đột.
 var product = await db.Products.FindAsync([id], ct);
 product.Stock -= quantity;
 await db.SaveChangesAsync(ct);
 
-// TOT — mot cau lenh nguyen tu, kiem tra ngay trong WHERE
+// TỐT — một câu lệnh nguyên tử, kiểm tra ngay trong WHERE
 var affected = await db.Products
     .Where(p => p.Id == id && p.Stock >= quantity)
     .ExecuteUpdateAsync(s => s.SetProperty(p => p.Stock, p => p.Stock - quantity), ct);
@@ -262,10 +262,10 @@ public async Task ConcurrentUpdate_ShouldThrowConcurrencyException()
     await using var ctx2 = _factory.CreateDbContext();
 
     var lead1 = await ctx1.Leads.FirstAsync(l => l.Id == 42);
-    var lead2 = await ctx2.Leads.FirstAsync(l => l.Id == 42);   // CUNG ban ghi
+    var lead2 = await ctx2.Leads.FirstAsync(l => l.Id == 42);   // CÙNG bản ghi
 
     lead1.Value = 150;
-    await ctx1.SaveChangesAsync();          // thanh cong
+    await ctx1.SaveChangesAsync();          // thành công
 
     lead2.Value = 200;
     await Assert.ThrowsAsync<DbUpdateConcurrencyException>(
