@@ -1,67 +1,319 @@
 ---
 title: "13.2 — 1. EF Core Overview"
-description: "ORM (Object-Relational Mapper) ánh xạ giữa bảng trong RDBMS và class trong C#, giúp lập trình viên thao tác dữ liệu qua object thay vì viết SQL thuần."
+description: "EF Core làm gì bên dưới, chi phí thật của ORM, change tracker, khi nào dùng Dapper, và vì sao LINQ không phải SQL."
 sidebar_position: 2
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
 # 13.2 — 1. EF Core Overview
 
+<SummaryBox>
+EF Core không chỉ là "dịch LINQ sang SQL". Nó còn giữ một **change tracker** theo dõi mọi entity đã nạp để biết cái nào thay đổi khi bạn gọi `SaveChanges()` — và đó là nơi phần lớn chi phí, cũng như phần lớn bất ngờ về hiệu năng, đến từ. Hai điều cần hiểu sớm. **`IQueryable` là cây biểu thức, không phải dữ liệu**: mọi `Where` chỉ thêm vào cây cho tới khi bạn gọi `ToList` — và một `.ToList()` đặt sai chỗ biến bộ lọc thành lọc trong bộ nhớ sau khi đã kéo cả bảng về. **EF Core không phải lúc nào cũng dịch được**: từ EF Core 3.0, thứ không dịch được sẽ **ném exception lúc chạy** thay vì âm thầm chạy ở client — một thay đổi tốt, nhưng nó biến lỗi biên dịch tiềm năng thành lỗi runtime.
+</SummaryBox>
+
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Mô tả những gì EF Core làm giữa LINQ và SQL.
+- Giải thích change tracker và chi phí của nó.
+- Phân biệt `IQueryable` và `IEnumerable` trong ngữ cảnh EF.
+- Chọn giữa EF Core, Dapper và ADO.NET có lý do.
+- Bật log SQL để thấy EF Core thật sự sinh ra gì.
 
 ## Nội dung bài học
 
-### 13.2.1 — ORM là gì?
+### 13.2.1 — EF Core làm gì
 
-ORM (Object-Relational Mapper) ánh xạ giữa bảng trong RDBMS và class trong C#, giúp lập trình viên thao tác dữ liệu qua object thay vì viết SQL thuần.
+```mermaid
+flowchart LR
+    A[LINQ query] --> B[Expression tree]
+    B --> C[Query pipeline<br/>dich sang SQL]
+    C --> D[(Database)]
+    D --> E[DbDataReader]
+    E --> F[Materialize<br/>tao doi tuong]
+    F --> G[Change tracker<br/>luu ban sao goc]
+    G --> H[Entity tra ve code]
+```
 
-**EF Core** là ORM chính thức của Microsoft, hỗ trợ SQL Server, PostgreSQL, MySQL, SQLite và nhiều provider khác.
+Bốn việc, và việc thứ tư là thứ phân biệt EF Core với một thư viện mapping thuần:
 
-### 13.2.2 — Code-First so với Database-First
+1. **Dịch LINQ sang SQL** qua cây biểu thức.
+2. **Vật chất hoá** kết quả thành đối tượng C#.
+3. **Theo dõi thay đổi** — giữ một bản sao giá trị gốc của mỗi entity.
+4. **Sinh SQL cập nhật** khi `SaveChanges()`, chỉ cho những gì thật sự đổi.
 
-| Hướng tiếp cận | Mô tả | Khi nào dùng |
-|---|---|---|
-| **Code-First** | Định nghĩa entity class → EF sinh schema | Dự án mới, team kiểm soát schema |
-| **Database-First** | DB có sẵn → `Scaffold-DbContext` sinh code | Legacy DB, DBA quản lý schema |
-| **Model-First** | Thiết kế visual → sinh cả code lẫn DB | Ít dùng trong thực tế |
+Dapper làm việc 1 và 2. Việc 3 và 4 là lý do EF Core tiện hơn — và cũng là nơi chi phí nằm.
 
-> Khóa học này dùng **Code-First** — phổ biến nhất trong team .NET hiện đại.
+### 13.2.2 — Change tracker
 
-### 13.2.3 — EF Core so với Dapper so với ADO.NET
+```csharp
+var customer = await db.Customers.FindAsync(42);   // EF luu BAN SAO gia tri goc
+customer.Name = "Tên mới";                          // ban chi doi doi tuong
+await db.SaveChangesAsync();                        // EF SO SANH va sinh UPDATE
+```
 
-| | EF Core | Dapper | ADO.NET thuần |
+EF Core sinh ra:
+
+```sql
+UPDATE Customers SET Name = @p0 WHERE Id = @p1;   -- CHI cot Name
+```
+
+Để làm được, nó giữ **hai bản** của mỗi entity đã nạp: giá trị hiện tại và giá trị gốc. Với 10 cột, đó là gấp đôi bộ nhớ cho mỗi dòng.
+
+Hệ quả: **nạp 100.000 entity với tracking là chậm và tốn bộ nhớ** — không phải vì truy vấn, mà vì việc dựng và theo dõi 100.000 đối tượng.
+
+```csharp
+// Chi doc -> TAT tracking
+var customers = await db.Customers.AsNoTracking().ToListAsync(ct);
+```
+
+`AsNoTracking()` thường nhanh hơn **20–50%** cho truy vấn đọc nhiều dòng, và tốn ít bộ nhớ hơn đáng kể. Với API chỉ trả dữ liệu ra ngoài, nó gần như luôn đúng.
+
+Bật mặc định cho toàn bộ context:
+
+```csharp
+builder.Services.AddDbContext<CrmDbContext>(options =>
+    options.UseSqlServer(conn)
+           .UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking));
+```
+
+Rồi dùng `.AsTracking()` ở những chỗ thật sự cần sửa. Đây là mặc định an toàn hơn: quên `AsNoTracking` chỉ làm chậm, còn quên `AsTracking` thì `SaveChanges` không làm gì — lỗi rõ ràng và dễ phát hiện.
+
+Change tracker còn giải thích một hành vi hay gây bối rối:
+
+```csharp
+var a = await db.Customers.FindAsync(42);
+var b = await db.Customers.FindAsync(42);
+Console.WriteLine(ReferenceEquals(a, b));    // True — CUNG mot doi tuong
+```
+
+Đây là **identity map**: trong một `DbContext`, mỗi khoá chính chỉ có **một** instance. `FindAsync` còn kiểm tra change tracker **trước** khi đi xuống database — nên lần gọi thứ hai không sinh truy vấn nào.
+
+Mặt trái: `DbContext` sống lâu tích luỹ entity và **trả về dữ liệu cũ**. Đó là lý do `DbContext` phải là `Scoped` ([bài 7.5](../../stage-02-csharp-professional/module-07-dependency-injection/7.5-service-lifetimes.mdx)).
+
+### 13.2.3 — `IQueryable` là cây biểu thức
+
+```csharp
+// CHUA co truy van nao chay
+var query = db.Customers.Where(c => c.Status == CustomerStatus.Active);
+query = query.Where(c => c.CreatedAt > cutoff);
+query = query.OrderByDescending(c => c.CreatedAt);
+
+// Bay gio moi chay — MOT cau SQL
+var result = await query.Take(20).ToListAsync(ct);
+```
+
+Mỗi toán tử chỉ **thêm một nút vào cây biểu thức**. Truy vấn chạy khi gặp `ToListAsync`, `FirstOrDefaultAsync`, `CountAsync`, `AnyAsync` hoặc vòng lặp `foreach`.
+
+Đây là điều làm nên sức mạnh — và cũng là cái bẫy lớn nhất:
+
+```csharp
+// SAI — .ToList() keo CA BANG ve roi moi loc
+var customers = db.Customers.ToList()
+    .Where(c => c.Status == CustomerStatus.Active);
+
+// DUNG — loc o database
+var customers = await db.Customers
+    .Where(c => c.Status == CustomerStatus.Active)
+    .ToListAsync(ct);
+```
+
+Sau `.ToList()`, kiểu trở thành `IEnumerable<T>` và mọi `Where` sau đó chạy **trong bộ nhớ ứng dụng**. Code biên dịch được, chạy được, và trên máy dev với 100 dòng thì không ai để ý.
+
+Cùng lý do đó, **phương thức trả về kiểu gì cũng quan trọng**:
+
+```csharp
+// SAI — cat mat kha nang tiep tuc dung SQL
+public IEnumerable<Customer> GetActive() =>
+    db.Customers.Where(c => c.Status == CustomerStatus.Active);
+
+// DUNG — nguoi goi van them dieu kien vao SQL duoc
+public IQueryable<Customer> GetActive() =>
+    db.Customers.Where(c => c.Status == CustomerStatus.Active);
+```
+
+Phiên bản đầu trông vô hại vì `IQueryable` **kế thừa** `IEnumerable`, nên nó biên dịch. Nhưng người gọi thêm `.Where(...).Take(20)` sẽ lọc trong bộ nhớ sau khi đã nạp toàn bộ khách hàng active. Chi tiết ở [Module 5](../../stage-02-csharp-professional/module-05-advanced-csharp/).
+
+### 13.2.4 — Khi EF Core không dịch được
+
+```csharp
+// KHONG dich duoc — EF Core nem exception luc chay
+var customers = await db.Customers
+    .Where(c => MyCustomValidator.IsValid(c.Email))     // ham C# tuy y
+    .ToListAsync(ct);
+```
+
+Từ EF Core 3.0, thứ không dịch được sẽ ném `InvalidOperationException` thay vì âm thầm chuyển sang đánh giá ở client. Đây là thay đổi **tốt** — trước đó, một truy vấn như vậy sẽ kéo cả bảng về mà không ai biết — nhưng nó nghĩa là lỗi chỉ xuất hiện **lúc chạy**.
+
+Ba cách xử lý:
+
+```csharp
+// 1. Viet lai bang bieu thuc dich duoc
+.Where(c => c.Email.EndsWith("@company.com"))
+
+// 2. Chuyen sang bo nho MOT CACH CO CHU DICH, sau khi da loc
+var candidates = await db.Customers
+    .Where(c => c.Status == CustomerStatus.Active)      // loc o SQL truoc
+    .ToListAsync(ct);
+var valid = candidates.Where(c => MyCustomValidator.IsValid(c.Email));
+
+// 3. Dung SQL thuan
+var customers = await db.Customers
+    .FromSql($"SELECT * FROM Customers WHERE {predicate}")
+    .ToListAsync(ct);
+```
+
+Cách 2 là đúng khi bộ lọc thật sự cần logic C# — điểm mấu chốt là **lọc ở SQL trước** để tập đưa về bộ nhớ đủ nhỏ.
+
+`FromSql` (EF Core 8+) dùng chuỗi nội suy nhưng **tham số hoá tự động** — an toàn với SQL injection. `FromSqlRaw` thì không; nó chỉ nên dùng với tham số khai rõ.
+
+### 13.2.5 — EF Core, Dapper hay ADO.NET
+
+| | EF Core | Dapper | ADO.NET |
 |---|---|---|---|
-| **Abstraction** | Cao — LINQ → SQL | Trung bình — SQL + mapping | Thấp — SQL hoàn toàn |
-| **Tốc độ phát triển** | Nhanh nhất | Trung bình | Chậm nhất |
-| **Performance** | Tốt (với tuning) | Rất tốt | Tốt nhất |
-| **Migrations** | Có sẵn | Không | Không |
-| **Dùng khi** | CRUD phức tạp, domain model rõ | Reporting, complex query, cần tốc độ tối đa | Micro-optimization, stored proc nặng |
-| **Không dùng khi** | Bulk insert triệu dòng | Domain model phức tạp | Team thiếu SQL skill |
+| Change tracking | **Có** | Không | Không |
+| Migration | **Có** | Không | Không |
+| Viết SQL | Hiếm khi | **Luôn** | Luôn |
+| Tốc độ phát triển | Nhanh nhất | Trung bình | Chậm |
+| Hiệu năng đọc thô | Tốt với `AsNoTracking` | **Rất tốt** | Tốt nhất |
+| Kiểm soát SQL | Gián tiếp | **Hoàn toàn** | Hoàn toàn |
 
-**Khuyến nghị thực tế**: Dùng EF Core làm default; kết hợp Dapper hoặc `FromSqlRaw` cho query phức tạp cần performance cao.
+Khác biệt hiệu năng giữa EF Core `AsNoTracking` và Dapper **nhỏ hơn nhiều người nghĩ** — thường dưới 20% cho truy vấn thông thường. Khoảng cách lớn xuất hiện khi có tracking, hoặc khi EF Core sinh SQL kém cho một truy vấn phức tạp.
 
----
+**Mẫu thực dụng nhất là dùng cả hai:**
+
+```csharp
+// EF Core cho CRUD va domain
+var customer = await db.Customers.FindAsync([id], ct);
+customer.Status = CustomerStatus.Active;
+await db.SaveChangesAsync(ct);
+
+// Dapper cho bao cao phuc tap
+var report = await connection.QueryAsync<RevenueRow>(
+    """
+    SELECT DATE_TRUNC('month', converted_at) AS Month, SUM(value) AS Revenue
+    FROM leads WHERE status = 'Won'
+    GROUP BY 1 ORDER BY 1
+    """);
+```
+
+Chúng dùng chung connection và chung transaction, nên không có rào cản kỹ thuật nào.
+
+**Ba chỗ EF Core không phù hợp:**
+
+1. **Chèn hàng loạt** — 100.000 dòng qua `SaveChanges` là chậm. Dùng `SqlBulkCopy` hoặc `EFCore.BulkExtensions`.
+2. **Truy vấn báo cáo phức tạp** — window function, CTE đệ quy, gợi ý truy vấn.
+3. **Cập nhật hàng loạt theo điều kiện** — nhưng EF Core 7 đã có `ExecuteUpdateAsync`/`ExecuteDeleteAsync` giải quyết phần lớn.
+
+```csharp
+// EF Core 7+: mot cau UPDATE, khong nap entity nao
+await db.Leads
+    .Where(l => l.Status == LeadStatus.New && l.CreatedAt < cutoff)
+    .ExecuteUpdateAsync(s => s.SetProperty(l => l.Status, LeadStatus.Lost), ct);
+```
+
+### 13.2.6 — Thấy SQL thật
+
+Đây là thói quen quan trọng nhất khi làm việc với EF Core:
+
+```csharp
+builder.Services.AddDbContext<CrmDbContext>(options =>
+{
+    options.UseSqlServer(conn);
+
+    if (builder.Environment.IsDevelopment())
+    {
+        options.LogTo(Console.WriteLine, LogLevel.Information)
+               .EnableSensitiveDataLogging()     // hien GIA TRI tham so
+               .EnableDetailedErrors();
+    }
+});
+```
+
+`EnableSensitiveDataLogging` hiện giá trị tham số trong log — rất hữu ích khi gỡ lỗi và **tuyệt đối không bật ở production** ([bài 8.8](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.8-logging-with-serilog.mdx)).
+
+Xem SQL của một truy vấn cụ thể mà không chạy nó:
+
+```csharp
+var sql = db.Customers.Where(c => c.Status == CustomerStatus.Active)
+                      .ToQueryString();
+```
+
+`ToQueryString()` (EF Core 5+) là cách nhanh nhất để trả lời "EF Core thật sự sinh ra gì". Nhiều vấn đề hiệu năng hiện ra ngay khi bạn nhìn thấy câu SQL.
+
+### 13.2.7 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát EF Core cơ bản"
+  items={[
+    { text: "Truy vấn chỉ đọc dùng AsNoTracking, hoặc context mặc định NoTracking." },
+    { text: "Không có .ToList() nào đặt trước bộ lọc." },
+    { text: "Phương thức trả về IQueryable khi người gọi còn cần thêm điều kiện." },
+    { text: "Không có biểu thức nào không dịch được trong Where đi thẳng xuống SQL." },
+    { text: "Lọc trong bộ nhớ chỉ xảy ra sau khi đã thu hẹp tập ở SQL." },
+    { text: "Dùng FromSql thay vì FromSqlRaw khi cần SQL thuần." },
+    { text: "Cập nhật hàng loạt dùng ExecuteUpdateAsync thay vì nạp rồi sửa." },
+    { text: "Chèn hàng loạt dùng bulk copy, không dùng SaveChanges." },
+    { text: "Log SQL được bật ở Development." },
+    { text: "EnableSensitiveDataLogging không bật ở Production." },
+  ]}
+/>
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **Đo tracking.** Nạp 50.000 entity có và không có `AsNoTracking`, đo thời gian và bộ nhớ bằng `dotnet-counters`.
+
+2. **`.ToList()` sai chỗ.** Viết hai phiên bản của cùng một bộ lọc, một lọc ở SQL và một lọc sau `.ToList()`. Bật log SQL và so sánh câu lệnh sinh ra cùng số dòng trả về.
+
+3. **`ToQueryString`.** Lấy một truy vấn phức tạp trong dự án của bạn, in SQL bằng `ToQueryString()`, và chạy nó trong SSMS với execution plan. Ghi lại những gì bạn không ngờ tới.
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "Change tracker làm gì và tốn kém ở đâu?",
+      answer: "Nó giữ bản sao giá trị gốc của mỗi entity đã nạp để biết cái nào thay đổi khi SaveChanges, nhờ đó EF chỉ sinh UPDATE cho cột thật sự đổi. Cái giá là gấp đôi bộ nhớ cho mỗi dòng và chi phí dựng đối tượng, nên nạp hàng chục nghìn entity có tracking là chậm và tốn bộ nhớ."
+    },
+    {
+      question: "Vì sao nên đặt NoTracking làm mặc định?",
+      answer: "Vì quên AsNoTracking chỉ làm chậm, còn quên AsTracking thì SaveChanges không làm gì, và đó là lỗi rõ ràng dễ phát hiện. Với API chỉ trả dữ liệu ra ngoài thì NoTracking gần như luôn đúng và nhanh hơn khoảng 20 tới 50 phần trăm."
+    },
+    {
+      question: "IQueryable khác IEnumerable thế nào trong EF Core?",
+      answer: "IQueryable là một cây biểu thức chưa chạy, mỗi toán tử chỉ thêm một nút cho tới khi gặp ToList hay tương tự. Sau khi gọi ToList thì kiểu thành IEnumerable và mọi bộ lọc sau đó chạy trong bộ nhớ ứng dụng, tức bạn đã kéo cả bảng về rồi mới lọc."
+    },
+    {
+      question: "Vì sao không nên trả về IEnumerable từ phương thức truy vấn?",
+      answer: "Vì IQueryable kế thừa IEnumerable nên code vẫn biên dịch, nhưng người gọi thêm điều kiện sẽ lọc trong bộ nhớ thay vì trong SQL. Trả về IQueryable giữ được khả năng ghép thêm điều kiện vào câu SQL."
+    },
+    {
+      question: "EF Core xử lý biểu thức không dịch được ra sao?",
+      answer: "Từ EF Core 3.0, nó ném InvalidOperationException lúc chạy thay vì âm thầm đánh giá ở client. Đây là thay đổi tốt vì trước đó truy vấn như vậy sẽ kéo cả bảng về mà không ai biết, nhưng nó nghĩa là lỗi chỉ xuất hiện lúc chạy chứ không phải lúc biên dịch."
+    },
+    {
+      question: "Khi nào EF Core không phù hợp?",
+      answer: "Chèn hàng loạt hàng trăm nghìn dòng qua SaveChanges là chậm, nên dùng bulk copy. Truy vấn báo cáo phức tạp với window function hay CTE đệ quy thì Dapper hoặc SQL thuần tốt hơn. Cập nhật hàng loạt từng là vấn đề nhưng EF Core 7 đã có ExecuteUpdateAsync."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **Change tracker là tiện ích chính và chi phí chính.** Tắt nó cho truy vấn đọc.
+2. **`.ToList()` sai chỗ biến bộ lọc SQL thành lọc trong bộ nhớ** — và code vẫn chạy.
+3. **Luôn nhìn SQL thật.** `ToQueryString()` trả lời phần lớn câu hỏi hiệu năng.
+
+## Tham khảo
+
+- [Entity Framework Core documentation](https://learn.microsoft.com/en-us/ef/core/)
+- [Change tracking in EF Core](https://learn.microsoft.com/en-us/ef/core/change-tracking/)
+- [Client vs. server evaluation](https://learn.microsoft.com/en-us/ef/core/querying/client-eval)
+- [Simple logging — EF Core](https://learn.microsoft.com/en-us/ef/core/logging-events-diagnostics/simple-logging)
 
 ## Điều hướng
 
