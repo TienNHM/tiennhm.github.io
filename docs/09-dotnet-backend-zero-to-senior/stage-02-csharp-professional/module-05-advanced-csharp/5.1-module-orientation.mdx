@@ -1,96 +1,290 @@
 ---
-title: "5.1 — Module Orientation"
-description: "Định hướng Module 5 — Advanced csharp: mục tiêu, thứ tự bài học và liên kết tới chương trước — chương sau trong lộ trình .NET backend."
+title: "5.1 — Định hướng Module 5"
+description: "Định hướng Module 5 — C# nâng cao: SOLID, Generics, LINQ và Nullable Reference Types dưới góc nhìn công cụ giảm trùng lặp, bản đồ 8 bài và bài tập khởi động có lời giải."
 sidebar_position: 1
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
-# 5.1 — Module Orientation
+# 5.1 — Định hướng Module 5: C# nâng cao
 
-## Mục tiêu bài học
+<SummaryBox>
+Module 4 dạy cách mô hình hoá **một** khái niệm nghiệp vụ. Module này dạy cách viết code **không lặp lại chính nó** khi số khái niệm tăng lên hai mươi. Bốn công cụ chính: **SOLID** để biết khi nào nên tách, **Generics** để viết một lần dùng cho mọi kiểu, **LINQ** để diễn đạt phép biến đổi dữ liệu bằng ý định thay vì vòng lặp, và **Nullable Reference Types** để trình biên dịch chỉ ra chỗ có thể `null` trước khi người dùng chỉ ra hộ bạn. Cảnh báo quan trọng: mọi công cụ ở đây đều **dễ dùng quá tay**, nên mỗi bài đều có phần "khi nào thì đừng".
+</SummaryBox>
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+## Module này giải quyết vấn đề gì
 
-## Nội dung bài học
+Sau module 4, bạn có `Customer`, `Lead`, `Contact`. Bây giờ mỗi lớp cần lưu trữ, phân trang, lọc, và trả về kết quả kèm thông tin lỗi. Viết thủ công thì thành ra thế này:
 
-### 5.1.1 — 5.1 — Liên kết điều phối (curriculum graph)
+```csharp
+public class CustomerRepository
+{
+    public List<Customer> GetPage(int page, int size) { /* 15 dòng */ }
+    public int Count() { /* 5 dòng */ }
+}
 
-- **Hub lộ trình**: [00. Lộ trình From Zero → Senior .NET (Backend-first)](../../roadmap-dotnet-backend-zero-to-senior.mdx)
-- **Chương trước**: [Module 4 — C# Core](../module-04-csharp-core/)
-- **Chương tiếp theo**: [Module 6 — Async Programming](../module-06-async-programming/)
+public class LeadRepository
+{
+    public List<Lead> GetPage(int page, int size) { /* 15 dòng GIỐNG HỆT */ }
+    public int Count() { /* 5 dòng GIỐNG HỆT */ }
+}
 
-### 5.1.2 — 5.2 — Tham chiếu có thẩm quyền (E‑E‑A‑T / retrieval)
+public class ContactRepository
+{
+    public List<Contact> GetPage(int page, int size) { /* 15 dòng GIỐNG HỆT */ }
+    public int Count() { /* 5 dòng GIỐNG HỆT */ }
+}
+```
 
-Danh sách sau ưu tiên **tài liệu gốc** (Microsoft Learn, đặc tả hệ sinh thái .NET) nhằm tăng **độ tin cậy trích dẫn** và hỗ trợ **công cụ tìm kiếm / tác tử AI** (RAG, overview synthesis).
+Trùng lặp không chỉ tốn công gõ. Cái giá thật là khi phát hiện lỗi off-by-one trong logic phân trang: phải sửa ở ba chỗ, và gần như chắc chắn sẽ quên một chỗ. Sáu tháng sau có thêm `Deal` và `Task`, thành năm chỗ.
 
-- [.NET documentation — Microsoft Learn](https://learn.microsoft.com/dotnet/)
-- [ASP.NET Core documentation](https://learn.microsoft.com/aspnet/core/)
-- [ASP.NET Core Developer roadmap — roadmap.sh](https://roadmap.sh/aspnet-core)
-- [Generics in .NET](https://learn.microsoft.com/dotnet/standard/generics/)
-- [LINQ (C#)](https://learn.microsoft.com/dotnet/csharp/linq/)
+Generics gộp cả ba thành một:
 
-### 5.1.3 — 5.3 — Từ khóa chỉ mục (semantic hooks)
+```csharp
+public class Repository<T> where T : class, IEntity
+{
+    public List<T> GetPage(int page, int size) { /* 15 dòng, viết một lần */ }
+    public int Count() { /* 5 dòng, viết một lần */ }
+}
+```
 
-Các thẻ `tags` / `keywords` trong frontmatter của trang này được chọn để **đồng nhất ngữ nghĩa** với chủ đề chương và với **đồ thị nội bộ** của giáo trình — hỗ trợ khám phá theo chủ đề và câu hỏi dạng *"học .NET backend theo lộ trình nào?"*.
+Nhưng — và đây là lý do module này cần một bài riêng cho mỗi công cụ — **gộp quá đà cũng tai hại không kém**. Một `Repository<T>` gánh cả phân trang, xuất Excel, gửi email thông báo và ghi nhật ký kiểm toán sẽ trở thành thứ không ai dám sửa. Ranh giới giữa "trừu tượng hoá đúng chỗ" và "trừu tượng hoá quá sớm" chính là nội dung thật sự của SOLID.
 
-### 5.1.4 — 5.4 — Phương pháp học tập
+```mermaid
+flowchart LR
+    A["Code lặp lại"] -->|"5.3 Generics"| B["Gộp theo kiểu"]
+    A -->|"5.6 Extension Methods"| C["Gộp theo hành vi"]
+    A -->|"5.4 LINQ"| D["Gộp theo phép biến đổi"]
+    B --> E{"5.2 SOLID: gộp đã đúng chưa?"}
+    C --> E
+    D --> E
+    E -->|"Quá chung"| F["Tách nhỏ lại"]
+    E -->|"Vừa đủ"| G["Giữ"]
+```
 
-Bài học này được dẫn dắt theo chu trình học tập chủ động:
+## Bạn cần gì trước khi bắt đầu
 
-1. **Khởi động tư duy**: bắt đầu bằng câu hỏi gợi mở để kích hoạt kiến thức nền.
-2. **Kiến tạo kiến thức**: học khái niệm cốt lõi đi kèm ví dụ có ngữ cảnh.
-3. **Luyện tập có hướng dẫn**: áp dụng qua mini case và ví dụ thực tế ngắn.
-4. **Tự đánh giá và phản tư**: dùng checklist + bài thực hành để chốt năng lực.
+<Checklist
+  title="Điều kiện đầu vào"
+  items={[
+    { text: <>{"Đã xong Module 4, và có thư viện "}<code>Crm.Domain</code>{" với ít nhất ba lớp."}</> },
+    { text: <>{"Viết và cài đặt được "}<code>interface</code>{" mà không cần tra tài liệu."}</> },
+    { text: <>{"Hiểu "}<code>{"List<T>"}</code>{" hoạt động thế nào — module này sẽ hỏi vì sao nó cần dấu ngoặc nhọn."}</> },
+    { text: <>{"Cài được gói NuGet bằng "}<code>dotnet add package</code>{"."}</> },
+    { text: "Dành được khoảng 12–14 giờ. LINQ và SOLID mỗi phần đều cần thời gian ngấm." },
+  ]}
+/>
 
-> Mục tiêu là bạn hiểu sâu, dùng được ngay, và tự đánh giá được mức độ nắm bài.
+## Bản đồ module
 
-### 5.1.5 — 5.5 — Mục tiêu học tập
+Tám bài chia thành ba cụm: nguyên tắc, công cụ gộp, và cú pháp hỗ trợ.
 
-Sau module này bạn có thể:
+| Bài | Câu hỏi bài này trả lời | Thời lượng |
+|---|---|---|
+| [5.2 — SOLID Principles](5.2-solid-principles.mdx) | Năm nguyên tắc này thực sự ngăn vấn đề gì, và khi nào bỏ qua được? | 120 phút |
+| [5.3 — Generics](5.3-generics.mdx) | Viết một lần dùng cho mọi kiểu bằng cách nào, và ràng buộc để làm gì? | 90 phút |
+| [5.4 — LINQ](5.4-linq.mdx) | Vì sao `Where` chưa chạy ngay, và điều đó quan trọng thế nào? | 120 phút |
+| [5.5 — Delegates và Events](5.5-delegates-and-events.mdx) | Làm sao một lớp báo tin cho lớp khác mà không cần biết lớp đó? | 90 phút |
+| [5.6 — Extension Methods](5.6-extension-methods.mdx) | Thêm phương thức vào kiểu không sở hữu bằng cách nào, và khi nào đừng? | 60 phút |
+| [5.7 — Nullable Reference Types](5.7-nullable-reference-types.mdx) | Làm sao để trình biên dịch cảnh báo `null` trước khi người dùng gặp? | 90 phút |
+| [5.8 — Expression Trees và Reflection](5.8-overview.mdx) | Vì sao EF Core dịch được biểu thức C# thành câu SQL? | 75 phút |
+| [5.9 — Tuples và Deconstruction](5.9-tuples-and-deconstruction.mdx) | Trả về nhiều giá trị mà không cần tạo lớp riêng bằng cách nào? | 60 phút |
 
-- Nhận diện và refactor code vi phạm từng nguyên lý SOLID trong dự án CRM
-- Xây dựng generic repository, `PagedResult<T>`, `Result<T>` pattern tái sử dụng toàn app
-- Viết các LINQ query phức tạp: filter, group, aggregate để tạo báo cáo doanh thu và lead pipeline
-- Triển khai event pattern để thông báo thay đổi trạng thái khách hàng mà không coupling service với nhau
-- Bật Nullable Reference Types và xử lý null an toàn theo best practice C# 10+
+Phần bổ trợ: [5.10 — Mở rộng và đào sâu](5.10-advanced-notes.mdx), [5.11 — Mini case study](5.11-mini-case-study.mdx), [5.12 — Ví dụ thực tế nhanh](5.12-quick-real-world-example.mdx), [5.13 — Review and Assessment](5.13-review-and-assessment.mdx).
 
----
+## Kết quả đầu ra đo được
 
-### 5.1.6 — 5.6 — Câu hỏi khởi động
+| Năng lực | Cách tự kiểm chứng |
+|---|---|
+| Nhận ra vi phạm SOLID | Lấy một lớp 300 dòng và chỉ ra chính xác nó gánh mấy trách nhiệm |
+| Viết generic có ràng buộc | Viết `Repository<T>` với `where T : IEntity` và giải thích vì sao cần ràng buộc |
+| Phân biệt thực thi hoãn và tức thì | Nói được vì sao gọi `Where` hai lần trên cùng nguồn lại truy vấn database hai lần |
+| Viết LINQ nhóm và tổng hợp | Viết một truy vấn tính doanh thu theo chi nhánh theo quý |
+| Dùng event để tách phụ thuộc | Cho `Lead` phát sự kiện khi đổi trạng thái, không tham chiếu tới lớp gửi email |
+| Bật NRT trên dự án có sẵn | Bật `<Nullable>enable</Nullable>` và xử lý hết cảnh báo mà không dùng `!` bừa |
+| Biết khi nào **không** trừu tượng hoá | Nêu một trường hợp code lặp lại nhưng nên để nguyên |
 
-- Nếu không có kiến thức trong bài này, hệ thống CRM/ERP sẽ gặp rủi ro gì?
-- Trong dự án thực tế, bạn nghĩ phần kiến thức này nằm ở tầng nào (API, nghiệp vụ, dữ liệu, vận hành)?
-- Dấu hiệu nào cho thấy bạn đã hiểu bản chất bài học (không chỉ nhớ định nghĩa)?
+## Sản phẩm bàn giao của module
 
-### 5.1.7 — 5.7 — Kiến thức cần có trước
+Một thư viện **`Crm.Shared`** chứa các khối dùng lại, cộng với `Crm.Domain` đã bật NRT:
 
-- OOP cơ bản: class, interface, inheritance, polymorphism (Module 4)
-- C# syntax: property, method, collection
-- Đã tạo được project .NET 6+ và chạy được unit test cơ bản
+```text
+Crm.Shared/
+├── Result.cs            Result<T>: thành công kèm giá trị, thất bại kèm lỗi
+├── PagedResult.cs       PagedResult<T>: items, tổng số, trang hiện tại
+├── IRepository.cs       hợp đồng chung cho mọi kho dữ liệu
+├── Extensions/
+│   ├── QueryableExtensions.cs   .Paginate(page, size)
+│   └── StringExtensions.cs      .ToSlug(), .Truncate(n)
+└── Events/
+    └── DomainEvent.cs   lớp cơ sở cho sự kiện nghiệp vụ
+```
 
----
+Tiêu chí nghiệm thu:
 
-## Bài tập áp dụng
+1. `Crm.Domain` bật `<Nullable>enable</Nullable>` và biên dịch **không còn cảnh báo**.
+2. `Result<T>` được dùng thay cho việc ném ngoại lệ ở ít nhất ba chỗ xử lý lỗi nghiệp vụ dự đoán được.
+3. Có một truy vấn LINQ nhóm dữ liệu và một truy vấn tổng hợp, cùng viết được bằng hai cú pháp.
+4. `Lead` phát một sự kiện khi chuyển trạng thái, và có ít nhất hai bên đăng ký nhận.
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+`Result<T>` sẽ quay lại ở [Module 9](../../stage-03-aspnet-core-backend/module-09-web-api-professional/) khi ánh xạ lỗi nghiệp vụ sang mã HTTP, và ở [Module 16](../../stage-05-senior-engineering/module-16-clean-architecture/) khi bàn về ranh giới use case.
 
-## Tự kiểm tra
+## Lộ trình học gợi ý
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+| Ngày | Nội dung | Việc phải xong |
+|---|---|---|
+| 1 | 5.2 (SRP + OCP) | Tách được một lớp gánh nhiều trách nhiệm |
+| 2 | 5.2 (LSP + ISP + DIP) | Nêu được một ví dụ vi phạm LSP trong code của mình |
+| 3 | 5.3 | Có `Repository<T>` và `PagedResult<T>` chạy được |
+| 4 | 5.4 | Viết được truy vấn nhóm và tổng hợp |
+| 5 | 5.5 + 5.6 | `Lead` phát sự kiện, có `.Paginate()` dạng extension |
+| 6 | 5.7 | Bật NRT, xử lý hết cảnh báo |
+| 7 | 5.8 + 5.9 → 5.13 | Hoàn tất `Crm.Shared`, làm bài tự chấm 5.13 |
+
+## Ba sai lầm thường gặp khi học module này
+
+**Một — áp dụng SOLID như luật thay vì như công cụ chẩn đoán.** Một codebase áp dụng SOLID máy móc sẽ có bốn mươi interface mỗi cái một phương thức, và đọc một luồng nghiệp vụ phải mở mười hai file. Đó không phải mục tiêu của SOLID. Cách dùng đúng là chẩn đoán: *khi sửa một yêu cầu, tôi phải đụng vào mấy file?* Nếu đụng nhiều file cho một thay đổi, hoặc một file cho nhiều thay đổi khác nhau, thì mới cần tách. Không có triệu chứng thì không cần thuốc.
+
+**Hai — không phân biệt thực thi hoãn của LINQ.** `IEnumerable` và `IQueryable` trông giống nhau nhưng khác nhau ở chỗ quyết định: khi nào truy vấn **thật sự chạy**. Gọi `.Where()` không chạy gì cả; nó chỉ dựng mô tả. Truy vấn chạy khi bạn duyệt kết quả, gọi `.ToList()` hay `.Count()`. Hệ quả thực tế là một vòng lặp duyệt `IQueryable` bên trong một vòng lặp khác có thể sinh ra hàng nghìn câu lệnh gửi xuống database — đúng lỗi mà [Module 13](../../stage-04-database-production/module-13-entity-framework-core/) gọi là N+1.
+
+**Ba — tắt cảnh báo Nullable Reference Types cho nhanh.** Khi bật NRT trên dự án có sẵn, trình biên dịch thường phun ra hàng trăm cảnh báo, và cám dỗ lớn nhất là rắc toán tử `!` cho im tiếng. Làm vậy là vứt bỏ toàn bộ giá trị của tính năng: mỗi `!` là một lời hứa "chỗ này chắc chắn không null" mà không ai kiểm chứng. Cách đúng là bật theo từng file bằng `#nullable enable`, xử lý dứt điểm rồi chuyển sang file kế tiếp.
+
+## Bài tập khởi động
+
+Làm trước khi vào 5.2. Bài này đo khả năng nhìn ra trách nhiệm chồng chéo.
+
+> **Đề bài.** Lớp dưới đây có mặt trong rất nhiều dự án thật. Hãy liệt kê **các lý do khác nhau** khiến lớp này phải bị sửa trong tương lai. Với mỗi lý do, ghi rõ ai là người yêu cầu thay đổi đó.
+>
+> ```csharp
+> public class LeadService
+> {
+>     public void CreateLead(string name, string email, decimal value)
+>     {
+>         if (!email.Contains("@")) throw new Exception("Email sai");
+>
+>         var sql = $"INSERT INTO Leads (Name, Email, Value) VALUES ('{name}', '{email}', {value})";
+>         using var conn = new SqlConnection("Server=prod;Database=Crm;...");
+>         conn.Execute(sql);
+>
+>         var body = $"<h1>Lead mới</h1><p>{name} - {value:N0} đ</p>";
+>         _smtp.Send("sales@company.com", "Lead mới", body);
+>
+>         File.AppendAllText("C:\\logs\\leads.txt", $"{DateTime.Now}: {name}\n");
+>     }
+> }
+> ```
+
+<details>
+<summary><strong>Gợi ý — cách đếm trách nhiệm</strong></summary>
+
+Đừng đếm số dòng hay số thao tác. Hãy hỏi: **ai trong tổ chức có thể yêu cầu đổi đoạn này?**
+
+Đi qua từng khối và gán cho một phòng ban hoặc một vai trò. Nếu hai khối thuộc về hai người khác nhau, đó là hai trách nhiệm — và cũng là hai lý do độc lập khiến file này phải mở ra sửa.
+
+Ngoài ra, có một lỗi **bảo mật nghiêm trọng** trong đoạn code này, không liên quan tới SOLID. Tìm ra nó luôn.
+
+</details>
+
+<details>
+<summary><strong>Hướng dẫn giải — đọc sau khi đã tự làm</strong></summary>
+
+**Năm lý do thay đổi, tương ứng năm người yêu cầu khác nhau:**
+
+| Trách nhiệm | Ai yêu cầu đổi | Ví dụ yêu cầu |
+|---|---|---|
+| Xác thực dữ liệu | Phân tích nghiệp vụ | "Email phải thuộc tên miền công ty" |
+| Truy cập dữ liệu | Quản trị database | "Chuyển sang PostgreSQL" |
+| Soạn nội dung email | Marketing | "Đổi mẫu email, thêm logo" |
+| Quyết định gửi cho ai | Trưởng phòng kinh doanh | "Gửi cho quản lý khu vực thay vì địa chỉ chung" |
+| Ghi nhật ký | Vận hành | "Đẩy log về hệ thống tập trung thay vì file" |
+
+Năm lý do độc lập để sửa một lớp chính là định nghĩa vi phạm **Single Responsibility Principle**. Hệ quả cụ thể chứ không trừu tượng: marketing đổi mẫu email và vô tình làm hỏng logic lưu dữ liệu, vì cả hai nằm trong một hàm và cùng đi qua một lần triển khai.
+
+**Ba vấn đề nữa, quan trọng không kém:**
+
+1. **SQL injection.** Chuỗi SQL được nối trực tiếp từ đầu vào người dùng. Đặt tên khách hàng là `'); DROP TABLE Leads; --` là xoá sạch bảng. Đây là lỗ hổng thuộc nhóm Injection trong [OWASP Top 10](https://owasp.org/Top10/). [Module 12](../../stage-04-database-production/module-12-sql-deep-dive/) và [Module 13](../../stage-04-database-production/module-13-entity-framework-core/) xử lý bằng tham số hoá truy vấn.
+
+2. **Không thể kiểm thử.** Muốn viết một bài kiểm thử cho logic xác thực email, bạn buộc phải có database thật, máy chủ SMTP thật và ổ đĩa `C:\`. Vì vậy trên thực tế sẽ không ai viết kiểm thử cho lớp này. Không kiểm thử được là **triệu chứng**, còn bệnh là phụ thuộc bị gắn cứng — và [Module 7](../module-07-dependency-injection/) chữa đúng bệnh đó.
+
+3. **Chuỗi kết nối nằm trong code.** Mật khẩu production nằm trong mã nguồn, tức là nằm trong Git, tức là ai đọc được kho code đều đọc được nó. [Module 8](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/) trình bày cách đưa nó ra cấu hình, và [Module 5 bài 5.2](5.2-solid-principles.mdx) giải thích vì sao lớp này không nên tự biết mình nối tới đâu.
+
+**Hướng tách.** Năm trách nhiệm thành bốn thành phần, `LeadService` chỉ còn điều phối:
+
+```csharp
+public class LeadService
+{
+    private readonly ILeadRepository _repository;
+    private readonly INotificationSender _notifier;
+    private readonly ILogger<LeadService> _logger;
+
+    public async Task<Result<Lead>> CreateLeadAsync(CreateLeadRequest request, CancellationToken ct)
+    {
+        var lead = Lead.Create(request.Name, request.Email, request.Value);
+        if (lead.IsFailure) return lead;
+
+        await _repository.AddAsync(lead.Value, ct);
+        await _notifier.NotifyNewLeadAsync(lead.Value, ct);
+        _logger.LogInformation("Đã tạo lead {LeadId}", lead.Value.Id);
+        return lead;
+    }
+}
+```
+
+Bản này kiểm thử được mà không cần database, marketing đổi mẫu email không đụng tới logic lưu trữ, và không còn chỗ nào nối chuỗi SQL. Đó là toàn bộ điều SOLID hướng tới — không phải để đúng nguyên tắc, mà để giảm chi phí thay đổi.
+
+**Điểm tự chấm.** Tìm ra từ ba trách nhiệm trở lên **và** phát hiện SQL injection là mức tốt để vào module.
+
+</details>
+
+## Tự kiểm tra đầu vào
+
+<FAQSection
+  items={[
+    {
+      question: "SOLID có phải lúc nào cũng nên áp dụng không?",
+      answer: "Không. SOLID là công cụ chẩn đoán chứ không phải luật bắt buộc. Áp dụng máy móc sẽ tạo ra hàng chục interface mỗi cái một phương thức và khiến việc đọc một luồng nghiệp vụ phải mở mười file. Cách dùng đúng là quan sát triệu chứng: nếu một thay đổi buộc phải sửa nhiều file, hoặc một file phải sửa vì nhiều lý do không liên quan, thì đó là lúc tách. Với một script chạy một lần rồi bỏ thì không cần SOLID gì cả."
+    },
+    {
+      question: "IEnumerable và IQueryable khác nhau ở đâu?",
+      answer: "IEnumerable xử lý trong bộ nhớ của ứng dụng: dữ liệu đã được lấy về rồi mới lọc. IQueryable dựng một cây biểu thức để nhà cung cấp dữ liệu dịch sang ngôn ngữ đích, thường là SQL, nên việc lọc diễn ra ở database và chỉ kết quả cuối mới truyền về. Hệ quả thực tế rất lớn: gọi ToList rồi mới Where nghĩa là kéo toàn bộ bảng về ứng dụng, còn Where rồi mới ToList nghĩa là database lọc giúp. Bài 5.4 và bài 5.8 giải thích cơ chế bên dưới."
+    },
+    {
+      question: "Vì sao nên bật Nullable Reference Types?",
+      answer: "Vì NullReferenceException là loại lỗi phổ biến nhất trong lịch sử .NET, và bản chất nó là lỗi hoàn toàn phát hiện được lúc biên dịch. Khi bật NRT, trình biên dịch phân biệt được kiểu có thể null với kiểu không, rồi cảnh báo ở đúng chỗ bạn quên kiểm tra. Chi phí là một đợt xử lý cảnh báo ban đầu, nên cách làm hợp lý là bật dần theo từng file bằng chỉ thị nullable enable thay vì bật toàn dự án rồi dùng toán tử chấm than cho im tiếng."
+    },
+    {
+      question: "Generics có làm code chậm đi không?",
+      answer: "Không, và đây là điểm khác biệt với generics của Java. Trình biên dịch .NET sinh mã riêng cho từng kiểu giá trị, nên List số nguyên không phải đóng hộp từng phần tử và chạy nhanh như mảng viết tay. Với kiểu tham chiếu thì mã được dùng chung, cũng không phát sinh chi phí thêm. Ngược lại, generics thường làm code nhanh hơn so với dùng object kèm ép kiểu, vì tránh được việc đóng hộp và kiểm tra kiểu lúc chạy."
+    },
+    {
+      question: "Extension method có thể thay thế kế thừa không?",
+      answer: "Trong nhiều trường hợp thì có, và đó thường là lựa chọn tốt hơn. Extension method cho phép thêm hành vi vào một kiểu mà không sửa kiểu đó và không tạo ràng buộc kế thừa. Đó là cách toàn bộ LINQ được xây dựng: Where và Select là extension method trên IEnumerable chứ không phải phương thức của nó. Giới hạn là extension method không truy cập được thành viên riêng tư và không tham gia đa hình, nên khi cần hành vi thay đổi theo kiểu thực tế thì vẫn phải dùng interface."
+    },
+    {
+      question: "Khi nào nên dùng event thay vì gọi thẳng phương thức?",
+      answer: "Khi bên phát tin không cần biết ai nghe và không cần kết quả trả về. Ví dụ điển hình là lead chuyển trạng thái sang Won: bên đổi trạng thái không nên biết rằng có ba việc cần làm theo sau là gửi email, cập nhật báo cáo và ghi nhật ký kiểm toán. Ngược lại, khi cần kết quả hoặc cần bảo đảm thứ tự thực hiện thì gọi thẳng rõ ràng hơn. Module 17 sẽ mở rộng ý này sang phạm vi nhiều tiến trình dưới tên kiến trúc hướng sự kiện."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+1. **Mọi công cụ trong module này đều dễ dùng quá tay.** Câu hỏi luôn là "vấn đề cụ thể nào đang cần nó", không phải "có nên dùng cho hiện đại".
+2. **Thực thi hoãn của LINQ là kiến thức có hậu quả trên hoá đơn database.** Nắm chắc trước khi sang Module 13.
+3. **Bật NRT sớm, xử lý cảnh báo thật, đừng dùng `!` cho im tiếng.**
+
+## Tham khảo
+
+- [Language Integrated Query (LINQ) — C# guide](https://learn.microsoft.com/en-us/dotnet/csharp/linq/) — tài liệu gốc kèm ví dụ theo nhóm toán tử
+- [Generics in .NET](https://learn.microsoft.com/en-us/dotnet/standard/generics/) — cơ chế và ràng buộc kiểu
+- [Nullable reference types](https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references) — hướng dẫn bật dần trên dự án có sẵn
+- [Architectural principles — .NET microservices](https://learn.microsoft.com/en-us/dotnet/architecture/modern-web-apps-azure/architectural-principles) — SOLID đặt trong bối cảnh ứng dụng thật
 
 ## Điều hướng
 
+- **Hub lộ trình:** [00. Lộ trình From Zero → Senior .NET (Backend-first)](../../roadmap-dotnet-backend-zero-to-senior.mdx)
 - **Bài trước:** Không có (bài mở đầu module).
-- **Bài tiếp theo:** [5.2 — 1. SOLID Principles](5.2-solid-principles.mdx)
+- **Bài tiếp theo:** [5.2 — SOLID Principles](5.2-solid-principles.mdx)
+- **Module trước:** [Module 4 — C# Core](../module-04-csharp-core/)
+- **Module tiếp theo:** [Module 6 — Async Programming](../module-06-async-programming/)
 - **Về module:** [Trang mục lục](./)
