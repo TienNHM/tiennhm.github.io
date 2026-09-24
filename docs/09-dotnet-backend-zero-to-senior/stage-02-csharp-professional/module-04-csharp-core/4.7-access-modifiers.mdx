@@ -1,76 +1,240 @@
 ---
 title: "4.7 — 6. Access Modifiers"
-description: "Access Modifiers — bài học thuộc Module 4 — Csharp core trong lộ trình .NET backend từ zero đến senior."
+description: "Sáu mức truy cập của C# và mức mặc định của từng ngữ cảnh. Kèm vì sao protected internal khác private protected, và cách mở cửa cho test mà không phơi ra cho cả thế giới."
 sidebar_position: 7
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
 # 4.7 — 6. Access Modifiers
 
+<SummaryBox>
+C# có **sáu** mức truy cập, và điều đáng nhớ nhất không phải danh sách mà là **mức mặc định khi bạn không viết gì**: thành viên của class mặc định là `private`, còn kiểu ở cấp namespace mặc định là `internal`. Nghĩa là một `class Order` không có từ khoá nào **không** dùng được từ project khác — nguồn của câu hỏi "vì sao tôi không thấy class này". Bài này cũng làm rõ cặp dễ nhầm nhất, `protected internal` (là **HOẶC**) và `private protected` (là **VÀ**), cùng cách mở cửa cho unit test mà không biến mọi thứ thành `public`.
+</SummaryBox>
+
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Liệt kê sáu mức truy cập và phạm vi của từng mức.
+- Nói được mức mặc định trong từng ngữ cảnh khi không viết từ khoá nào.
+- Phân biệt `protected internal` với `private protected`.
+- Cho test truy cập thành viên `internal` mà không phải đổi sang `public`.
+- Chọn mức truy cập theo nguyên tắc đóng trước, mở sau.
 
 ## Nội dung bài học
 
-| Modifier | Cùng class | Cùng assembly | Lớp con | Mọi nơi |
-|---|---|---|---|---|
-| `private` | Có | Không | Không | Không |
-| `protected` | Có | Không | Có | Không |
-| `internal` | Có | Có | Không | Không |
-| `protected internal` | Có | Có | Có | Không |
-| `private protected` | Có | Không | Có (cùng assembly) | Không |
-| `public` | Có | Có | Có | Có |
+### 4.7.1 — Sáu mức
 
-**Best practice:**
+| Mức | Ai truy cập được |
+|---|---|
+| `private` | Chỉ trong chính kiểu đó |
+| `protected` | Kiểu đó và các lớp con |
+| `internal` | Mọi nơi trong **cùng assembly** |
+| `protected internal` | Cùng assembly **HOẶC** lớp con ở assembly khác |
+| `private protected` | Lớp con **VÀ** phải cùng assembly |
+| `public` | Mọi nơi |
 
-- Mặc định dùng `private` cho fields và helper methods
-- `public` chỉ cho API thực sự cần lộ ra ngoài
-- Properties nên `public get` + `private set` hoặc `init`
-- Dùng `internal` cho class chỉ dùng trong cùng project/library
+Hai dòng giữa là chỗ hay nhầm:
 
 ```csharp
-public class Order : BaseEntity
+public class Base
 {
-    private readonly List<OrderItem> _items = new();  // private field
-    private decimal _discountRate;                     // private field
-
-    public IReadOnlyList<OrderItem> Items => _items;   // public read-only
-    public decimal Total { get; private set; }         // private set
-
-    protected void RecalculateTotal()                  // protected: lớp con dùng được
-    {
-        Total = _items.Sum(i => i.SubTotal) * (1 - _discountRate);
-    }
-
-    internal void ApplyBulkDiscount(decimal rate)      // internal: chỉ trong assembly
-    {
-        _discountRate = rate;
-        RecalculateTotal();
-    }
+    protected internal int A;   // rộng hơn: cùng assembly HOẶC lớp con bất kỳ
+    private protected  int B;   // hẹp hơn: lớp con VÀ cùng assembly
 }
 ```
 
----
+Mẹo nhớ: đọc dấu cách giữa hai từ như một phép toán. `protected internal` = `protected` **hoặc** `internal`. `private protected` = giao của hai điều kiện, nên hẹp nhất trong nhóm.
+
+Trong thực tế `private protected` rất hiếm dùng; `protected internal` cũng vậy. Đừng dùng chúng chỉ vì chúng tồn tại.
+
+### 4.7.2 — Mức mặc định: nguồn của nhiều bối rối
+
+```csharp
+class Order { }                 // internal — KHÔNG thấy từ project khác
+
+public class Customer
+{
+    int _id;                    // private
+    void Calculate() { }        // private
+    public string Name { get; } // public, vì đã viết rõ
+}
+
+interface IRepository
+{
+    void Save();                // public — interface member luôn public
+}
+```
+
+Bảng mặc định khi bạn không viết gì:
+
+| Ngữ cảnh | Mặc định |
+|---|---|
+| Kiểu ở cấp namespace (class, record, interface, enum) | `internal` |
+| Thành viên của class / struct | `private` |
+| Thành viên của interface | `public` |
+| Thành viên của enum | `public` |
+
+Câu hỏi "vì sao project kia không thấy class của tôi" gần như luôn có cùng một câu trả lời: bạn quên chữ `public`, và nó đang là `internal`.
+
+### 4.7.3 — `internal`: ranh giới của assembly
+
+`internal` là mức bị dùng ít hơn mức nó đáng được dùng.
+
+```csharp
+// Trong project MyApp.Infrastructure
+public interface IOrderRepository { /* ... */ }        // hợp đồng — public
+
+internal class SqlOrderRepository : IOrderRepository   // cài đặt — internal
+{
+    // Project khác không new được class này.
+    // Chúng chỉ lấy được qua DI, dưới dạng IOrderRepository.
+}
+
+// Đăng ký DI vẫn nằm trong assembly này nên truy cập được
+public static class DependencyInjection
+{
+    public static IServiceCollection AddInfrastructure(this IServiceCollection s)
+        => s.AddScoped<IOrderRepository, SqlOrderRepository>();
+}
+```
+
+Mẫu này rất đáng dùng: **hợp đồng `public`, cài đặt `internal`**. Nó biến ranh giới kiến trúc thành thứ trình biên dịch ép buộc, thay vì chỉ là quy ước trong tài liệu. Một người viết code ở tầng khác **không thể** vô tình phụ thuộc vào lớp cài đặt, vì nó không nhìn thấy được.
+
+### 4.7.4 — Cho test truy cập `internal`
+
+Vấn đề quen thuộc: bạn muốn test một class `internal` nhưng project test là assembly khác.
+
+Cách sai là đổi nó thành `public` — bạn vừa phơi chi tiết cài đặt ra cho toàn bộ giải pháp chỉ vì lý do kiểm thử.
+
+Cách đúng:
+
+```xml
+<!-- Trong .csproj của project cần test -->
+<ItemGroup>
+  <InternalsVisibleTo Include="MyApp.Infrastructure.Tests" />
+</ItemGroup>
+```
+
+Hoặc dạng attribute cũ hơn, đặt trong `AssemblyInfo.cs`:
+
+```csharp
+[assembly: InternalsVisibleTo("MyApp.Infrastructure.Tests")]
+```
+
+Chỉ đúng assembly được nêu tên mới nhìn thấy. Phần còn lại của giải pháp vẫn bị chặn.
+
+Một lưu ý về triết lý: nếu bạn thường xuyên phải mở `internal` ra để test, hãy tự hỏi có phải mình đang test **chi tiết cài đặt** thay vì test **hành vi qua API công khai**. Đôi khi câu trả lời là có, và bài test đó sẽ vỡ mỗi lần refactor dù hành vi không đổi.
+
+### 4.7.5 — Mức truy cập của accessor
+
+```csharp
+public class Order
+{
+    public decimal Total { get; private set; }      // đọc công khai, ghi nội bộ
+    public string Code { get; init; }                // chỉ gán lúc khởi tạo
+    protected internal int Version { get; private set; }
+}
+```
+
+Quy tắc: mức của accessor phải **hẹp hơn hoặc bằng** mức của property.
+
+```csharp
+private decimal Total { get; public set; }   // Lỗi biên dịch: set rộng hơn property
+```
+
+`{ get; private set; }` là dạng hữu dụng nhất trong nhóm này: bên ngoài đọc được giá trị nhưng chỉ phương thức của class mới thay đổi được — tức là mọi thay đổi đều đi qua một quy tắc, đúng tinh thần [đóng gói ở bài 4.3](4.3-encapsulation.mdx).
+
+### 4.7.6 — Đóng trước, mở sau
+
+```mermaid
+flowchart LR
+    A[private] --> B[private protected]
+    B --> C[internal / protected]
+    C --> D[protected internal]
+    D --> E[public]
+```
+
+Nguyên tắc: **bắt đầu ở mức đóng nhất, chỉ mở khi có nhu cầu thật**.
+
+Lý do thực dụng, không phải triết lý:
+
+- **Mở rộng quyền truy cập là thay đổi tương thích ngược.** `private` → `public` không phá vỡ code nào.
+- **Siết lại thì phá vỡ mọi chỗ đang gọi.** `public` → `internal` có thể làm hỏng cả những project bạn không kiểm soát.
+
+Nói cách khác, bạn luôn mở ra được, nhưng đóng lại thì rất tốn. Nên mặc định chọn chặt.
+
+Với thư viện dùng chung, điều này còn quan trọng hơn: **mọi thứ `public` là một lời hứa** bạn phải giữ ở các phiên bản sau, và phá vỡ nó buộc tăng số major theo [SemVer](https://semver.org/).
+
+### 4.7.7 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát mức truy cập"
+  items={[
+    { text: "Không có class nào public chỉ vì quên nghĩ; mỗi public là một quyết định." },
+    { text: "Lớp cài đặt của interface được khai internal khi không cần dùng ngoài assembly." },
+    { text: "Không có field nào public; chỉ có property." },
+    { text: "Test truy cập internal qua InternalsVisibleTo, không bằng cách đổi thành public." },
+    { text: "Property nghiệp vụ dùng { get; private set; } thay vì { get; set; }." },
+    { text: "Không dùng protected internal hay private protected nếu không có lý do cụ thể." },
+    { text: "Thư viện dùng chung có API public tối thiểu, vì mỗi public là một cam kết." },
+  ]}
+/>
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **Đếm `public` thừa.** Chạy thống kê số class `public` trong một project hạ tầng. Với mỗi cái, hỏi: có project nào khác thật sự dùng nó không? Đổi những cái không ai dùng thành `internal` và build lại.
+
+2. **Dựng ranh giới bằng trình biên dịch.** Trong một giải pháp nhiều project, đổi một lớp repository thành `internal` và chỉ để lại interface `public`. Thử `new` nó từ project khác và ghi lại lỗi biên dịch.
+
+3. **Mở cửa đúng cách.** Thêm `InternalsVisibleTo` cho project test, viết một test chạm vào lớp `internal`. Sau đó thử truy cập từ một project thứ ba và xác nhận nó vẫn bị chặn.
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "Mức truy cập mặc định trong từng ngữ cảnh là gì?",
+      answer: "Kiểu ở cấp namespace mặc định là internal. Thành viên của class và struct mặc định là private. Thành viên của interface và enum luôn public. Vì vậy một class không có từ khoá nào sẽ không dùng được từ project khác — đó là câu trả lời cho phần lớn thắc mắc vì sao không thấy class này."
+    },
+    {
+      question: "protected internal khác private protected ở đâu?",
+      answer: "protected internal là phép HOẶC: cùng assembly hoặc là lớp con ở bất kỳ assembly nào, nên nó rộng hơn cả hai. private protected là phép VÀ: phải là lớp con và phải cùng assembly, nên nó hẹp nhất trong nhóm. Cả hai đều hiếm dùng trong thực tế."
+    },
+    {
+      question: "Mẫu hợp đồng public, cài đặt internal có lợi gì?",
+      answer: "Nó biến ranh giới kiến trúc thành thứ trình biên dịch ép buộc thay vì chỉ là quy ước trong tài liệu. Người viết code ở tầng khác không thể vô tình phụ thuộc vào lớp cài đặt vì họ không nhìn thấy nó; họ chỉ lấy được qua dependency injection dưới dạng interface."
+    },
+    {
+      question: "Làm sao cho project test truy cập được thành viên internal?",
+      answer: "Dùng InternalsVisibleTo trong file csproj hoặc dưới dạng attribute trong AssemblyInfo, nêu đích danh tên assembly test. Chỉ assembly được nêu tên mới nhìn thấy, phần còn lại vẫn bị chặn. Đổi sang public chỉ để test là phơi chi tiết cài đặt ra cho toàn bộ giải pháp."
+    },
+    {
+      question: "Nếu phải mở internal ra để test thường xuyên thì sao?",
+      answer: "Đó là dấu hiệu bạn đang test chi tiết cài đặt thay vì test hành vi qua API công khai. Những bài test như vậy sẽ vỡ mỗi lần refactor dù hành vi không đổi, nên chúng làm chậm việc cải tiến code thay vì bảo vệ nó."
+    },
+    {
+      question: "Vì sao nên bắt đầu ở mức truy cập đóng nhất?",
+      answer: "Vì mở rộng quyền truy cập là thay đổi tương thích ngược, không phá vỡ code nào. Còn siết lại thì làm hỏng mọi chỗ đang gọi, kể cả những project bạn không kiểm soát. Với thư viện dùng chung, mỗi thành viên public là một cam kết phải giữ ở các phiên bản sau."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **Mặc định là `internal` cho kiểu, `private` cho thành viên.** Biết điều này là hết bối rối.
+2. **Hợp đồng `public`, cài đặt `internal`.** Cách rẻ nhất để trình biên dịch giữ giúp ranh giới kiến trúc.
+3. **Mở thì dễ, đóng thì đau.** Luôn bắt đầu ở mức chặt nhất.
+
+## Tham khảo
+
+- [Access modifiers — C# reference](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/access-modifiers)
+- [Properties](https://learn.microsoft.com/en-us/dotnet/csharp/properties) — mức truy cập của accessor
+- [Framework design guidelines](https://learn.microsoft.com/en-us/dotnet/standard/design-guidelines/) — thiết kế API công khai
+- [Semantic Versioning](https://semver.org/) — vì sao `public` là một cam kết
 
 ## Điều hướng
 
