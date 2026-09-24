@@ -39,7 +39,7 @@ ETag: "a3f8b2c1"
 GET /api/products/123
 If-None-Match: "a3f8b2c1"
 
-HTTP/1.1 304 Not Modified          <- KHONG co body, tiet kiem bang thong
+HTTP/1.1 304 Not Modified          <- KHÔNG có body, tiết kiệm băng thông
 ```
 
 Hai cơ chế bổ sung nhau:
@@ -54,9 +54,9 @@ Hai cơ chế bổ sung nhau:
 **Chỉ thị quan trọng nhất cần phân biệt:**
 
 ```http
-Cache-Control: public          # CDN va proxy duoc phep cache
-Cache-Control: private         # CHI trinh duyet cua nguoi dung
-Cache-Control: no-store        # KHONG duoc luu o dau ca
+Cache-Control: public          # CDN và proxy được phép cache
+Cache-Control: private         # CHỈ trình duyệt của người dùng
+Cache-Control: no-store        # KHÔNG được lưu ở đâu cả
 ```
 
 Nhầm `private` thành `public` cho dữ liệu riêng của người dùng là lỗ hổng thật: CDN có thể phục vụ dữ liệu của người này cho người khác.
@@ -87,13 +87,13 @@ Ba khái niệm đủ để bắt đầu: **image** (bản đóng gói), **conta
 Vấn đề HTTP/2 giải quyết:
 
 ```
-HTTP/1.1: moi ket noi TCP xu ly MOT request tai mot thoi diem
-          -> trinh duyet mo 6 ket noi song song
-          -> tai trang co 50 file phai cho theo dot
+HTTP/1.1: mỗi kết nối TCP xử lý MỘT request tại một thời điểm
+          -> trình duyệt mở 6 kết nối song song
+          -> tải trang có 50 file phải chờ theo đợt
 
-HTTP/2:   MOT ket noi, NHIEU request song song (multiplexing)
-          + nen header
-          + server day truoc tai nguyen
+HTTP/2:   MỘT kết nối, NHIỀU request song song (multiplexing)
+          + nén header
+          + server đẩy trước tài nguyên
 ```
 
 Điểm hay bị hiểu nhầm: **lợi ích của HTTP/2 chủ yếu dành cho trang web có nhiều tài nguyên nhỏ** (ảnh, CSS, JavaScript). Với một API trả về JSON theo từng request riêng lẻ, vấn đề "50 file phải chờ theo đợt" **không tồn tại**, nên cải thiện là không đáng kể.
@@ -109,8 +109,8 @@ gRPC dùng HTTP/2 làm nền, và đó là nơi bạn gặp nó rõ nhất ([bà
 **Ưu tiên trung bình.** Cần khi có tính năng thời gian thực.
 
 ```
-HTTP:       Client hoi -> Server tra loi -> ket thuc
-WebSocket:  Ket noi MO lien tuc, CA HAI ben gui bat cu luc nao
+HTTP:       Client hỏi -> Server trả lời -> kết thúc
+WebSocket:  Kết nối MỞ liên tục, CẢ HAI bên gửi bất cứ lúc nào
 ```
 
 Cần khi: chat, thông báo đẩy, bảng giá cập nhật liên tục, hiển thị ai đang online.

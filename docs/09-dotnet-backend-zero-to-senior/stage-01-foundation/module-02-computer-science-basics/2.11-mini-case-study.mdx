@@ -26,14 +26,14 @@ Sau bài này bạn có thể:
 ### 2.12.1 — Triệu chứng
 
 ```
-Nguoi dung: "Toi dang nhap duoc, nhung bam vao bat ky menu nao
-             deu bi day ve trang dang nhap."
+Người dùng: "Tôi đăng nhập được, nhưng bấm vào bất kỳ menu nào
+             đều bị đẩy về trang đăng nhập."
 
-Kiem tra ban dau:
-  - POST /api/auth/login  -> 200 OK, tra ve token
+Kiểm tra ban đầu:
+  - POST /api/auth/login  -> 200 OK, trả về token
   - GET  /api/leads       -> 401 Unauthorized
-  - Xay ra voi MOI nguoi dung
-  - Moi bat dau sang nay, hom qua van binh thuong
+  - Xảy ra với MỌI người dùng
+  - Mới bắt đầu sáng nay, hôm qua vẫn bình thường
 ```
 
 Hai thông tin trong phần cuối đã thu hẹp phạm vi rất nhiều: **mọi người dùng** nghĩa là không phải vấn đề tài khoản cá nhân; **mới bắt đầu hôm nay** nghĩa là có gì đó vừa thay đổi.
@@ -59,7 +59,7 @@ Mở DevTools, tab Network, xem request `GET /api/leads`:
 Request URL:     https://crm.company.com/api/leads
 Status Code:     401 Unauthorized
 Request Headers:
-  Authorization: Bearer eyJhbGciOiJIUzI1NiIs...     <- token CO gui di
+  Authorization: Bearer eyJhbGciOiJIUzI1NiIs...     <- token CÓ gửi đi
 ```
 
 Hai kết luận ngay:
@@ -72,7 +72,7 @@ Hai kết luận ngay:
 ### 2.12.4 — Chặng 3: request có tới backend không?
 
 ```bash
-# Gui request truc tiep, bo qua trinh duyet
+# Gửi request trực tiếp, bỏ qua trình duyệt
 curl -i https://crm.company.com/api/leads \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
 ```
@@ -101,10 +101,10 @@ echo "eyJzdWIiOiIxMjMiLCJleHAiOjE3NjQ5NDY1OTF9" | base64 -d
 ```
 
 ```bash
-# Doi timestamp sang thoi gian doc duoc
+# Đổi timestamp sang thời gian đọc được
 date -u -d @1764946591    # exp: 02:03:11 UTC
-date -u -d @1764945691    # iat: 01:48:11 UTC  (cap luc nay)
-date -u                   # BAY GIO: 02:15:33 UTC   <-- !!
+date -u -d @1764945691    # iat: 01:48:11 UTC  (cấp lúc này)
+date -u                   # BÂY GIỜ: 02:15:33 UTC   <-- !!
 ```
 
 Token được cấp lúc `01:48:11` với hạn 15 phút, tức hết hạn lúc `02:03:11`. Nhưng "bây giờ" theo đồng hồ máy là `02:15:33` — **muộn hơn 12 phút** so với lúc token còn hạn.
@@ -118,8 +118,8 @@ timedatectl status
 ```
                Local time: Wed 2026-09-24 02:15:33 UTC
           Time zone: UTC (UTC, +0000)
-System clock synchronized: no                    <-- KHONG dong bo
-              NTP service: inactive              <-- NTP DA TAT
+System clock synchronized: no                    <-- KHÔNG đồng bộ
+              NTP service: inactive              <-- NTP ĐÃ TẮT
 ```
 
 **Nguyên nhân gốc:** dịch vụ NTP bị tắt trong một đợt cập nhật hệ thống đêm qua. Đồng hồ server trôi dần, và tới sáng nay nó lệch đủ để mọi token vừa cấp đã bị coi là hết hạn.
@@ -129,10 +129,10 @@ System clock synchronized: no                    <-- KHONG dong bo
 JWT chứa `exp` là một **mốc thời gian tuyệt đối** (số giây từ 1970). Bên cấp và bên kiểm tra đều so nó với đồng hồ của mình. Nếu hai đồng hồ lệch nhau, kết luận sẽ khác nhau.
 
 ```
-Server cap token:    dung dong ho A -> exp = A + 15 phut
-Server kiem tra:     dung dong ho B
+Server cấp token:    dùng đồng hồ A -> exp = A + 15 phút
+Server kiểm tra:     dùng đồng hồ B
 
-Neu B nhanh hon A 20 phut -> token vua cap da "het han"
+Nếu B nhanh hơn A 20 phút -> token vừa cấp đã "hết hạn"
 ```
 
 Trong ca này, cả hai là **cùng một server** — nhưng đồng hồ trôi **giữa** lúc cấp và lúc kiểm tra, và độ trôi lớn hơn khoảng `ClockSkew` mặc định.
@@ -142,7 +142,7 @@ Trong ca này, cả hai là **cùng một server** — nhưng đồng hồ trôi
 ```bash
 sudo timedatectl set-ntp true
 sudo systemctl restart systemd-timesyncd
-timedatectl status | grep synchronized      # xac nhan: yes
+timedatectl status | grep synchronized      # xác nhận: yes
 ```
 
 Vấn đề biến mất ngay, không cần deploy lại gì.

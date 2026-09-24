@@ -43,15 +43,15 @@ Thông điệp nói thẳng thiếu gì. Ba biến thể khác bạn sẽ gặp:
 
 ```
 ... does not have HTTP ok status.
-    -> Server tra ve loi cho request preflight (OPTIONS)
+    -> Server trả về lỗi cho request preflight (OPTIONS)
 
 ... The value of the 'Access-Control-Allow-Origin' header is not equal to
     the supplied origin.
-    -> Co header nhung SAI gia tri origin
+    -> Có header nhưng SAI giá trị origin
 
 ... Request header field authorization is not allowed by
     Access-Control-Allow-Headers.
-    -> Thieu khai bao header 'authorization' duoc phep
+    -> Thiếu khai báo header 'authorization' được phép
 ```
 
 Mỗi biến thể chỉ ra một chỗ sửa khác nhau. Đọc kỹ tiết kiệm rất nhiều thời gian ([CORS trên MDN](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS)).
@@ -59,16 +59,16 @@ Mỗi biến thể chỉ ra một chỗ sửa khác nhau. Đọc kỹ tiết ki�
 ### 2.13.2 — Hiểu lầm lớn nhất
 
 ```
-Hieu SAI:  "Server tu choi request cua toi."
-Thuc te:   Server DA NHAN request, DA XU LY, DA TRA VE phan hoi.
-           TRINH DUYET tu choi dua phan hoi do cho JavaScript.
+Hiểu SAI:  "Server từ chối request của tôi."
+Thực tế:   Server ĐÃ NHẬN request, ĐÃ XỬ LÝ, ĐÃ TRẢ VỀ phản hồi.
+           TRÌNH DUYỆT từ chối đưa phản hồi đó cho JavaScript.
 ```
 
 Bằng chứng: chạy cùng request bằng `curl` sẽ **thành công**.
 
 ```bash
 curl -i https://api.company.com/leads -H "Origin: https://crm.company.com"
-# 200 OK — du lieu tra ve binh thuong
+# 200 OK — dữ liệu trả về bình thường
 ```
 
 `curl` không phải trình duyệt nên không thực thi chính sách CORS.
@@ -91,7 +91,7 @@ Với một số request, trình duyệt gửi **trước** một request `OPTIO
                   Access-Control-Allow-Headers: authorization, content-type
                   Access-Control-Max-Age: 3600
 
-3. Trinh duyet -> POST /api/leads   (gio moi gui request that)
+3. Trình duyệt -> POST /api/leads   (giờ mới gửi request thật)
 ```
 
 **Khi nào có preflight:** khi request dùng method khác `GET`/`HEAD`/`POST`, hoặc có header tuỳ chỉnh (như `Authorization`), hoặc `Content-Type` là `application/json`.
@@ -109,10 +109,10 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins(
                   "https://crm.company.com",
-                  "http://localhost:5173")        // moi truong phat trien
+                  "http://localhost:5173")        // môi trường phát triển
               .AllowAnyHeader()
               .AllowAnyMethod()
-              .AllowCredentials()                 // neu dung cookie
+              .AllowCredentials()                 // nếu dùng cookie
               .SetPreflightMaxAge(TimeSpan.FromHours(1));
     });
 });
@@ -139,7 +139,7 @@ Middleware chạy **theo thứ tự đăng ký**. Request `OPTIONS` của prefli
 **Sai 2 — `AllowAnyOrigin` cùng `AllowCredentials`.**
 
 ```csharp
-// KHONG HOAT DONG — dac ta cam to hop nay
+// KHÔNG HOẠT ĐỘNG — đặc tả cấm tổ hợp này
 policy.AllowAnyOrigin().AllowCredentials();
 ```
 
