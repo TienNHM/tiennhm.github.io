@@ -67,18 +67,18 @@ Thiếu `Produces`, công cụ sinh không biết kiểu trả về và cho ra `
 Webhook nghe đơn giản — gọi một URL do đối tác cung cấp — nhưng làm đúng cần năm thứ:
 
 ```csharp
-public async Task GuiWebhookAsync(WebhookEvent evt, CancellationToken ct)
+public async Task SendWebhookAsync(WebhookEvent evt, CancellationToken ct)
 {
     var payload = JsonSerializer.Serialize(evt);
     var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
-    // 1. KY — de doi tac xac minh la ban gui
+    // 1. KÝ — để đối tác xác minh là bạn gửi
     var signature = ComputeHmac($"{timestamp}.{payload}", _secret);
 
     var request = new HttpRequestMessage(HttpMethod.Post, _endpoint)
     {
         Content = new StringContent(payload, Encoding.UTF8, "application/json")
-    };
+    request.Headers.Add("X-Event-Id", evt.Id.ToString());   // 2. để đối tác chống trùng
     request.Headers.Add("X-Signature", $"t={timestamp},v1={signature}");
     request.Headers.Add("X-Event-Id", evt.Id.ToString());   // 2. de doi tac chong trung
 

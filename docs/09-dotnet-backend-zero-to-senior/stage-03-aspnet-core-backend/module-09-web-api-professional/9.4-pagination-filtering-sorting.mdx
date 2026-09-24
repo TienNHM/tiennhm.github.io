@@ -82,9 +82,9 @@ Database phải **đọc 100.020 dòng** rồi vứt đi 100.000 dòng đầu. T
 **Vấn đề 2: bỏ sót và trùng lặp.**
 
 ```
-t=0   Nguoi dung xem trang 1 (ban ghi 1-20, moi nhat truoc)
-t=1   Co 5 ban ghi MOI duoc tao
-t=2   Nguoi dung bam trang 2 -> OFFSET 20
+t=0   Người dùng xem trang 1 (bản ghi 1-20, mới nhất trước)
+t=1   Có 5 bản ghi MỚI được tạo
+t=2   Người dùng bấm trang 2 -> OFFSET 20
       => 5 ban ghi cuoi cua trang 1 cu bi day xuong va hien LAI o trang 2
       => 5 ban ghi khac bi BO SOT hoan toan
 ```
@@ -117,7 +117,7 @@ public async Task<CursorResponse<CustomerDto>> GetPageAsync(
 
     var items = await query
         .OrderByDescending(c => c.CreatedAt).ThenByDescending(c => c.Id)
-        .Take(pageSize + 1)                                    // lay du 1 de biet con nua khong
+        .Take(pageSize + 1)                                    // lấy dư 1 để biết còn nữa không
         .Select(c => new CustomerDto(c.Id, c.Name, c.Email, c.CreatedAt))
         .ToListAsync(ct);
 
@@ -181,7 +181,7 @@ Hai điểm dễ sai:
 ### 9.5.5 — Sorting phải có whitelist
 
 ```csharp
-// SAI — cho phep sap xep theo bat ky cot nao
+// SAI — cho phép sắp xếp theo bất kỳ cột nào
 query = query.OrderBy(request.SortBy);      // Dynamic LINQ
 
 // DUNG — whitelist
@@ -202,7 +202,7 @@ public static IQueryable<Customer> ApplySort(
 
     query = desc ? query.OrderByDescending(key) : query.OrderBy(key);
 
-    return query.ThenBy(c => c.Id);       // thu tu on dinh
+    return query.ThenBy(c => c.Id);       // thứ tự ổn định
 }
 ```
 
@@ -226,12 +226,12 @@ Mỗi trang là **hai** truy vấn, và `COUNT` với điều kiện lọc phứ
 Ba cách giảm:
 
 ```csharp
-// 1. Khong tra tong — chi cho biet con trang sau khong
+// 1. Không trả tổng — chỉ cho biết còn trang sau không
 var items = await query.Skip(skip).Take(pageSize + 1).ToListAsync(ct);
 var hasNext = items.Count > pageSize;
 
-// 2. Cache tong trong thoi gian ngan khi bo loc khong doi
-// 3. Tra tong gan dung khi vuot nguong: "hon 10.000 ket qua"
+// 2. Cache tổng trong thời gian ngắn khi bộ lọc không đổi
+// 3. Trả tổng gần đúng khi vượt ngưỡng: "hơn 10.000 kết quả"
 ```
 
 Google, GitHub và phần lớn API lớn đều làm cách 1 hoặc 3. Người dùng hiếm khi cần biết chính xác có 48.213 kết quả; họ cần biết **có còn trang sau không**.
@@ -561,16 +561,16 @@ Mỗi kết quả là một chỗ cần rà: nếu truy vấn đó được phâ
 **Áp dụng chung cho cả sắp xếp do người dùng chọn:**
 
 ```csharp
-private static readonly Dictionary<string, Expression<Func<Order, object>>> ChoPhep = new()
+private static readonly Dictionary<string, Expression<Func<Order, object>>> AllowedSorts = new()
 {
     ["createdAt"] = o => o.CreatedAt,
     ["total"]     = o => o.Total,
     ["status"]    = o => o.Status
 };
 
-var sx = ChoPhep.TryGetValue(sortBy ?? "createdAt", out var e) ? e : ChoPhep["createdAt"];
+var sort = AllowedSorts.TryGetValue(sortBy ?? "createdAt", out var e) ? e : AllowedSorts["createdAt"];
 
-var q = desc ? db.Orders.OrderByDescending(sx) : db.Orders.OrderBy(sx);
+var q = desc ? db.Orders.OrderByDescending(sort) : db.Orders.OrderBy(sort);
 q = desc ? ((IOrderedQueryable<Order>)q).ThenByDescending(o => o.Id)
          : ((IOrderedQueryable<Order>)q).ThenBy(o => o.Id);      // LUÔN có tie-breaker
 ```

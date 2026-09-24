@@ -44,7 +44,7 @@ Trạng thái phải nằm ở **client** (token JWT) hoặc ở **kho dùng chu
 ### 9.2.2 — URL định danh tài nguyên
 
 ```
-# DUNG — danh tu so nhieu, dong tu nam o HTTP method
+# ĐÚNG — danh từ số nhiều, động từ nằm ở HTTP method
 GET    /api/v1/customers
 GET    /api/v1/customers/{id}
 POST   /api/v1/customers
@@ -53,7 +53,7 @@ PATCH  /api/v1/customers/{id}
 DELETE /api/v1/customers/{id}
 GET    /api/v1/customers/{id}/contacts
 
-# SAI — dong tu trong URL
+# SAI — động từ trong URL
 POST   /api/v1/getCustomers
 POST   /api/v1/deleteCustomer
 POST   /api/v1/customers/create
@@ -64,11 +64,11 @@ Quy ước: **danh từ số nhiều**, chữ thường, phân tách bằng dấ
 **Còn những hành động không phải CRUD?** Ví dụ "duyệt đơn hàng", "gửi lại email xác nhận". Có hai cách chấp nhận được:
 
 ```
-# 1. Coi hanh dong nhu mot tai nguyen con
+# 1. Coi hành động như một tài nguyên con
 POST /api/v1/orders/{id}/approval
 POST /api/v1/orders/{id}/cancellation
 
-# 2. Doi trang thai bang PATCH
+# 2. Đổi trạng thái bằng PATCH
 PATCH /api/v1/orders/{id}   {"status": "approved"}
 ```
 
@@ -93,9 +93,9 @@ Cách 1 rõ hơn khi hành động có tác dụng phụ (gửi email, trừ kho
 
 ```
 Client --POST /orders--> [timeout]
-                          ^ request DA toi server, don hang DA tao,
-                            chi co response bi mat
-Client --POST /orders--> tao them mot don hang nua
+                          ^ request ĐÃ tới server, đơn hàng ĐÃ tạo,
+                            chỉ có response bị mất
+Client --POST /orders--> tạo thêm một đơn hàng nữa
 ```
 
 Hệ quả thiết kế:
@@ -138,11 +138,11 @@ Client sinh khoá **một lần** rồi dùng lại cho mọi lần retry của 
 ### 9.2.5 — PUT hay PATCH
 
 ```http
-# PUT — thay the TOAN BO. Truong khong gui se bi XOA.
+# PUT — thay thế TOÀN BỘ. Trường không gửi sẽ bị XOÁ.
 PUT /api/v1/customers/{id}
 { "name": "Nguyen Van A", "email": "a@example.com", "phone": null }
 
-# PATCH — chi sua truong duoc gui
+# PATCH — chỉ sửa trường được gửi
 PATCH /api/v1/customers/{id}
 { "phone": "0901234567" }
 ```

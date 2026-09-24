@@ -26,10 +26,10 @@ Sau bài này bạn có thể:
 ### 9.12.1 — Sự cố
 
 ```csharp
-// Truoc
+// Trước
 public record LeadDto(int CustomerId, string Name, decimal Value);
 
-// Sau — doi sang Guid cho nhat quan voi phan con lai
+// Sau — đổi sang Guid cho nhất quán với phần còn lại
 public record LeadDto(Guid CustomerId, string Name, decimal Value);
 ```
 
@@ -37,16 +37,16 @@ public record LeadDto(Guid CustomerId, string Name, decimal Value);
 // Client mobile mong doi
 { "customerId": 4821, "name": "Công ty ABC", "value": 5000000 }
 
-// Nhan duoc
+// Nhận được
 { "customerId": "8f3a1b2c-...", "name": "Công ty ABC", "value": 5000000 }
 ```
 
 ```
 14:30  Deploy
 14:34  Crash report tang vot: JsonParseException tren Android va iOS
-14:40  12.000 nguoi dung khong mo duoc app
-14:45  Rollback backend — nhung nhung nguoi da mo app trong 15 phut do
-       van co du lieu hong trong cache cuc bo
+14:40  12.000 người dùng không mở được app
+14:45  Rollback backend — nhưng những người đã mở app trong 15 phút đó
+       vẫn có dữ liệu hỏng trong cache cục bộ
 ```
 
 Web app không bị ảnh hưởng vì nó dùng JavaScript (không kiểu chặt) và người dùng chỉ cần refresh. **Mobile thì không**: bản vá phải qua kiểm duyệt cửa hàng, và kể cả sau đó người dùng phải chủ động cập nhật.
@@ -56,13 +56,13 @@ Web app không bị ảnh hưởng vì nó dùng JavaScript (không kiểu chặ
 **An toàn — không phá client cũ:**
 
 ```csharp
-// Them truong MOI (client cu bo qua truong khong biet)
+// Thêm trường MỚI (client cũ bỏ qua trường không biết)
 public record LeadDto(Guid Id, string Name, decimal Value, string? Source = null);
 
 // Them endpoint moi
 app.MapGet("/api/leads/{id}/history", ...);
 
-// Them gia tri enum moi — CHI khi client xu ly duoc gia tri la
+// Thêm giá trị enum mới — CHỈ khi client xử lý được giá trị lạ
 // Noi long rang buoc: bat buoc -> tuy chon
 ```
 
@@ -140,14 +140,14 @@ SAI:
 Cách đúng: **chỉ tầng DTO có phiên bản**, logic nghiệp vụ dùng chung.
 
 ```csharp
-// Mot service duy nhat, tra ve model NGHIEP VU
+// Một service duy nhất, trả về model NGHIỆP VỤ
 public async Task<Lead> GetAsync(LeadId id, CancellationToken ct);
 
-// Hai DTO — chi khac cach TRINH BAY
+// Hai DTO — chỉ khác cách TRÌNH BÀY
 public record LeadDtoV1(int CustomerId, string Name, decimal Value)
 {
     public static LeadDtoV1 From(Lead lead) => new(
-        CustomerId: lead.LegacyCustomerId,      // giu cot cu de tuong thich
+        CustomerId: lead.LegacyCustomerId,      // giữ cột cũ để tương thích
         Name: lead.Name,
         Value: lead.Value.Amount);
 }
@@ -171,7 +171,7 @@ Quy tắc: **phiên bản hoá ranh giới, không phiên bản hoá logic**. N�
 - name: Sinh tai lieu OpenAPI
   run: dotnet run --project src/Crm.Api -- --generate-openapi > openapi-new.json
 
-- name: So sanh voi ban da phat hanh
+- name: So sánh với bản đã phát hành
   run: |
     npx @redocly/cli diff openapi-baseline.json openapi-new.json \
       --fail-on breaking
@@ -188,7 +188,7 @@ public async Task LeadDtoV1_GiuNguyenHopDong()
     var response = await _client.GetAsync("/api/v1/leads/8f3a...");
     var json = await response.Content.ReadFromJsonAsync<JsonElement>();
 
-    // Khang dinh KIEU, khong chi su ton tai
+    // Khẳng định KIỂU, không chỉ sự tồn tại
     Assert.Equal(JsonValueKind.Number, json.GetProperty("customerId").ValueKind);
     Assert.Equal(JsonValueKind.String, json.GetProperty("name").ValueKind);
 }
@@ -200,13 +200,13 @@ Khẳng định **kiểu** chứ không chỉ sự tồn tại — vì đó chí
 
 ```
 1. Phat hanh v2, GIU v1 chay song song
-2. Tra header canh bao tren v1:
+2. Trả header cảnh báo trên v1:
       Deprecation: true
       Sunset: Sat, 31 Dec 2026 23:59:59 GMT
       Link: </api/v2/leads>; rel="successor-version"
-3. Theo doi luu luong v1 theo tung client
-4. Lien he truc tiep nhung client con dung
-5. Tat v1 khi luu luong ve gan 0 — VA da bao truoc du lau
+3. Theo dõi lưu lượng v1 theo từng client
+4. Liên hệ trực tiếp những client còn dùng
+5. Tắt v1 khi lưu lượng về gần 0 — VÀ đã báo trước đủ lâu
 ```
 
 **Thời gian giữ phiên bản cũ** phụ thuộc loại client:
