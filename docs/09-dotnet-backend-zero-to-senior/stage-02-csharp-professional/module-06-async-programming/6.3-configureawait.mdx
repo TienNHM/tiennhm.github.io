@@ -62,11 +62,11 @@ sequenceDiagram
     participant T as Thread request
     participant C as SynchronizationContext
     participant IO as HTTP call
-    T->>T: goi .Result - block va giu context
-    T->>IO: gui request
-    IO-->>C: phan hoi ve, dang ky continuation
-    C--xT: can dung thread nay de chay tiep
-    Note over T,C: Thread cho Task<br/>Task cho thread<br/>DEADLOCK
+    T->>T: gọi .Result — block và giữ context
+    T->>IO: gửi request
+    IO-->>C: phản hồi về, đăng ký continuation
+    C--xT: cần dùng thread này để chạy tiếp
+    Note over T,C: Thread chờ Task<br/>Task chờ thread<br/>DEADLOCK
 ```
 
 1. `.Result` **block** thread request. Thread này đang giữ `AspNetSynchronizationContext`.
@@ -86,7 +86,7 @@ Bài [Gọi `.Result` khi nào thì deadlock, khi nào thì không?](/blog/deadl
 private async Task<string> GetDataAsync()
 {
     return await _http.GetStringAsync("https://api.example.com")
-                      .ConfigureAwait(false);   // khong quay ve context
+                      .ConfigureAwait(false);   // không quay về context
 }
 ```
 
@@ -133,8 +133,8 @@ Với WPF/WinForms, bỏ `ConfigureAwait(false)` sai chỗ cho bạn `InvalidOpe
 ```csharp
 await task.ConfigureAwait(ConfigureAwaitOptions.None);                 // = ConfigureAwait(false)
 await task.ConfigureAwait(ConfigureAwaitOptions.ContinueOnCapturedContext); // = ConfigureAwait(true)
-await task.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);     // khong nem lai exception
-await task.ConfigureAwait(ConfigureAwaitOptions.ForceYielding);        // luon yield, khong bao gio dong bo
+await task.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);     // không ném lại exception
+await task.ConfigureAwait(ConfigureAwaitOptions.ForceYielding);        // luôn yield, không bao giờ đồng bộ
 ```
 
 `SuppressThrowing` hữu ích khi bạn chỉ muốn **chờ xong** mà không quan tâm kết quả, thay cho `try { await t; } catch { }`.
@@ -170,7 +170,7 @@ Tạo một project WPF (nhanh nhất) hoặc ASP.NET Framework, gọi `.Result`
 
 ```csharp
 // MainWindow.xaml.cs
-private async Task<string> LayDuLieuAsync()
+private async Task<string> GetDataAsync()
 {
     using var http = new HttpClient();
     return await http.GetStringAsync("https://example.com");
@@ -178,8 +178,8 @@ private async Task<string> LayDuLieuAsync()
 
 private void Button_Click(object sender, RoutedEventArgs e)
 {
-    var kq = LayDuLieuAsync().Result;      // TREO VĨNH VIỄN
-    MessageBox.Show(kq);
+    var result = GetDataAsync().Result;   // TREO VĨNH VIỄN
+    MessageBox.Show(result);
 }
 ```
 
@@ -189,11 +189,11 @@ Giao diện đóng băng và không bao giờ phục hồi.
 
 ```text
 1. Luồng UI chạy Button_Click
-2. Gọi LayDuLieuAsync(), chạy tới await GetStringAsync
+2. Gọi GetDataAsync(), chạy tới await GetStringAsync
 3. await ghi nhớ SynchronizationContext hiện tại = context của luồng UI
-4. LayDuLieuAsync trả về một Task chưa hoàn tất
+4. GetDataAsync trả về một Task chưa hoàn tất
 5. .Result CHẶN luồng UI, chờ Task đó
-6. HTTP hoàn tất -> phần còn lại của LayDuLieuAsync cần chạy tiếp
+6. HTTP hoàn tất -> phần còn lại của GetDataAsync cần chạy tiếp
 7. Nó được xếp lịch chạy TRÊN LUỒNG UI (vì bước 3)
 8. Luồng UI đang bị chặn ở bước 5 -> không bao giờ nhận được việc ở bước 7
 9. Task không bao giờ hoàn tất -> .Result chờ mãi
@@ -204,7 +204,7 @@ Hai bên chờ nhau: luồng UI chờ `Task`, `Task` chờ luồng UI.
 **Sửa bằng `ConfigureAwait(false)`:**
 
 ```csharp
-private async Task<string> LayDuLieuAsync()
+private async Task<string> GetDataAsync()
 {
     using var http = new HttpClient();
     return await http.GetStringAsync("https://example.com").ConfigureAwait(false);
@@ -230,7 +230,7 @@ Nghịch lý: hành vi của ASP.NET Framework **dễ chịu hơn** về mặt p
 ```csharp
 private async void Button_Click(object sender, RoutedEventArgs e)
 {
-    try { MessageBox.Show(await LayDuLieuAsync()); }
+    try { MessageBox.Show(await GetDataAsync()); }
     catch (Exception ex) { MessageBox.Show(ex.Message); }
 }
 ```
@@ -253,7 +253,7 @@ Trong WPF, in `SynchronizationContext.Current` trước `await`, sau một `awai
 **Lời giải.**
 
 ```csharp
-private async Task ThuNghiemAsync()
+private async Task ProbeContextAsync()
 {
     Console.WriteLine($"1. trước await      : {SynchronizationContext.Current?.GetType().Name ?? "null"}");
 
@@ -280,11 +280,11 @@ private async Task ThuNghiemAsync()
 **Điều này gây ra một lỗi thật trong ứng dụng có giao diện:**
 
 ```csharp
-private async Task LuuAsync()
+private async Task SaveAsync()
 {
-    await _repo.LuuAsync().ConfigureAwait(false);    // rời context
-    await Task.Delay(100);                            // vẫn ở thread pool
-    txtTrangThai.Text = "Đã lưu";                     // NÉM — không phải luồng UI
+    await _repo.SaveAsync().ConfigureAwait(false);   // rời context
+    await Task.Delay(100);                           // vẫn ở thread pool
+    txtStatus.Text = "Đã lưu";                       // NÉM — không phải luồng UI
 }
 ```
 

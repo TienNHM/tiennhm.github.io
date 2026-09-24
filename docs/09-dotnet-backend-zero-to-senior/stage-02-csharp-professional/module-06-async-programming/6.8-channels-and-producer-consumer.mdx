@@ -43,10 +43,10 @@ Producer trả lời ngay; consumer xử lý theo nhịp của nó; và khi hàn
 ### 6.9.2 — Bounded và unbounded
 
 ```csharp
-// UNBOUNDED — khong gioi han. Producer khong bao gio bi chan.
+// UNBOUNDED — không giới hạn. Producer không bao giờ bị chặn.
 var unbounded = Channel.CreateUnbounded<Job>();
 
-// BOUNDED — toi da 1000. Day thi WriteAsync cho.
+// BOUNDED — tối đa 1000. Đầy thì WriteAsync chờ.
 var bounded = Channel.CreateBounded<Job>(new BoundedChannelOptions(1000)
 {
     FullMode = BoundedChannelFullMode.Wait
@@ -72,8 +72,8 @@ Có hai tuỳ chọn tối ưu đáng bật khi bạn chắc chắn về mô hì
 new BoundedChannelOptions(1000)
 {
     FullMode = BoundedChannelFullMode.Wait,
-    SingleReader = true,    // chi mot consumer
-    SingleWriter = false,   // nhieu request cung ghi
+    SingleReader = true,    // chỉ một consumer
+    SingleWriter = false,   // nhiều request cùng ghi
 }
 ```
 
@@ -114,7 +114,7 @@ Có cả bản không chờ, dùng khi bạn không muốn producer bị chặn:
 
 ```csharp
 if (!_channel.Writer.TryWrite(job))
-    _logger.LogWarning("Hang doi day, bo qua job {Id}", job.Id);
+    _logger.LogWarning("Hàng đợi đầy, bỏ qua job {Id}", job.Id);
 ```
 
 ### 6.9.4 — Consumer phải là `BackgroundService`, không phải `IHostedService.StartAsync`
@@ -122,7 +122,7 @@ if (!_channel.Writer.TryWrite(job))
 Đây là lỗi hay gặp nhất trong bài này:
 
 ```csharp
-// SAI — StartAsync khong bao gio tra ve, ung dung khong bao gio khoi dong xong
+// SAI — StartAsync không bao giờ trả về, ứng dụng không bao giờ khởi động xong
 public async Task StartAsync(CancellationToken ct)
 {
     await foreach (var job in _queue.ReadAllAsync(ct))
@@ -158,8 +158,8 @@ public sealed class JobProcessor : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Job {Id} that bai", job.Id);
-                // KHONG throw — mot job hong khong duoc lam chet consumer
+                _logger.LogError(ex, "Job {Id} thất bại", job.Id);
+                // KHÔNG throw — một job hỏng không được làm chết consumer
             }
         }
     }
@@ -198,8 +198,8 @@ Nhớ đặt `SingleReader = false` khi làm vậy. Channel tự chia việc —
 ```csharp
 public override async Task StopAsync(CancellationToken ct)
 {
-    _queue.Complete();          // khong nhan viec moi nua
-    await base.StopAsync(ct);   // cho ExecuteAsync ket thuc
+    _queue.Complete();          // không nhận việc mới nữa
+    await base.StopAsync(ct);   // chờ ExecuteAsync kết thúc
 }
 ```
 
@@ -355,8 +355,8 @@ public class EmailConsumer : IHostedService
 
     public async Task StartAsync(CancellationToken ct)
     {
-        await foreach (var job in _q.DocAsync(ct))     // KHÔNG BAO GIỜ kết thúc
-            await XuLyAsync(job, ct);
+        await foreach (var job in _q.ReadAllAsync(ct))     // KHÔNG BAO GIỜ kết thúc
+            await ProcessAsync(job, ct);
     }
 
     public Task StopAsync(CancellationToken ct) => Task.CompletedTask;
@@ -380,8 +380,8 @@ public class EmailConsumer(EmailQueue q) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await foreach (var job in q.DocAsync(stoppingToken))
-            await XuLyAsync(job, stoppingToken);
+        await foreach (var job in q.ReadAllAsync(stoppingToken))
+            await ProcessAsync(job, stoppingToken);
     }
 }
 ```
@@ -436,7 +436,7 @@ public class MigrationRunner(IServiceScopeFactory sf) : IHostedService
 ```csharp
 using var timer = new PeriodicTimer(TimeSpan.FromMinutes(5));
 while (await timer.WaitForNextTickAsync(stoppingToken))
-    await XuLyAsync(stoppingToken);
+    await ProcessAsync(stoppingToken);
 ```
 
 `Task.Delay(5 phút)` sau mỗi lần xử lý nghĩa là chu kỳ thật bằng 5 phút **cộng** thời gian xử lý, và sai lệch tích luỹ dần.
@@ -459,20 +459,20 @@ Bỏ `try/catch` quanh thân vòng lặp, đẩy vào một công việc gây ng
 ```csharp
 protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 {
-    await foreach (var job in _q.DocAsync(stoppingToken))
-        await XuLyAsync(job, stoppingToken);      // ném -> thoát vòng lặp -> consumer chết
+    await foreach (var job in _q.ReadAllAsync(stoppingToken))
+        await ProcessAsync(job, stoppingToken);      // ném -> thoát vòng lặp -> consumer chết
 }
 ```
 
 Thử:
 
 ```csharp
-await q.XepAsync(new Job("LOI"), ct);                    // gây ngoại lệ
+await q.EnqueueAsync(new Job("FAIL"), ct);                   // gây ngoại lệ
 for (int i = 1; i <= 10; i++)
-    await q.XepAsync(new Job($"hop-le-{i}"), ct);
+    await q.EnqueueAsync(new Job($"valid-{i}"), ct);
 ```
 
-**Kết quả:** công việc `LOI` ném ngoại lệ, consumer thoát vòng lặp. Mười công việc hợp lệ nằm mãi trong hàng đợi. Ứng dụng **vẫn phục vụ HTTP bình thường**, health check vẫn xanh, không có dấu hiệu nào cho thấy có vấn đề.
+**Kết quả:** công việc `FAIL` ném ngoại lệ, consumer thoát vòng lặp. Mười công việc hợp lệ nằm mãi trong hàng đợi. Ứng dụng **vẫn phục vụ HTTP bình thường**, health check vẫn xanh, không có dấu hiệu nào cho thấy có vấn đề.
 
 Đây là loại sự cố tệ nhất: **một phần hệ thống chết trong khi mọi chỉ số bề mặt đều bình thường.**
 
@@ -481,11 +481,11 @@ for (int i = 1; i <= 10; i++)
 ```csharp
 protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 {
-    await foreach (var job in _q.DocAsync(stoppingToken))
+    await foreach (var job in _q.ReadAllAsync(stoppingToken))
     {
         try
         {
-            await XuLyAsync(job, stoppingToken);
+            await ProcessAsync(job, stoppingToken);
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
@@ -534,12 +534,12 @@ Với `Ignore`, bạn có đúng tình huống mô tả ở trên: consumer ch�
 ```csharp
 catch (Exception ex)
 {
-    _logger.LogError(ex, "Job {JobId} thất bại lần {Lan}", job.Id, job.SoLanThu);
+    _logger.LogError(ex, "Job {JobId} thất bại lần {Lần}", job.Id, job.RetryCount);
 
-    if (job.SoLanThu < 3)
-        await _q.XepAsync(job with { SoLanThu = job.SoLanThu + 1 }, stoppingToken);
+    if (job.RetryCount < 3)
+        await _q.EnqueueAsync(job with { RetryCount = job.RetryCount + 1 }, stoppingToken);
     else
-        await _deadLetter.LuuAsync(job, ex, stoppingToken);
+        await _deadLetter.SaveAsync(job, ex, stoppingToken);
 }
 ```
 

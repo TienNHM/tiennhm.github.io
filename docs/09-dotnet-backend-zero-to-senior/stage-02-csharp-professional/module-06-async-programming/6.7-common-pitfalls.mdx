@@ -37,11 +37,11 @@ Cách chữa là `async` lên tới tận trên cùng. Cơ chế deadlock đã m
 ### 6.8.2 — Bẫy 2: async-over-sync (`Task.Run` bọc I/O đồng bộ)
 
 ```csharp
-// SAI — van chiem mot thread, chi la thread khac
+// SAI — vẫn chiếm một thread, chỉ là thread khác
 public Task<string> ReadAsync(string path)
     => Task.Run(() => File.ReadAllText(path));
 
-// DUNG — I/O bat dong bo that
+// ĐÚNG — I/O bất đồng bộ thật
 public Task<string> ReadAsync(string path, CancellationToken ct = default)
     => File.ReadAllTextAsync(path, ct);
 ```
@@ -56,7 +56,7 @@ public Task<string> ReadAsync(string path, CancellationToken ct = default)
 [HttpGet]
 public async Task<IActionResult> Get()
 {
-    var result = await Task.Run(() => HeavyCalculation());   // khong giup gi
+    var result = await Task.Run(() => HeavyCalculation());   // không giúp gì
     return Ok(result);
 }
 ```
@@ -103,22 +103,22 @@ Và `Where(async c => await IsValidAsync(c))` thì **không biên dịch đượ
 ### 6.8.6 — Bẫy 6: `List<T>` không thread-safe
 
 ```csharp
-// SAI — List<T> khong thread-safe
+// SAI — List<T> không thread-safe
 var results = new List<Order>();
 
 await Parallel.ForEachAsync(ids, ct, async (id, token) =>
 {
-    results.Add(await LoadAsync(id, token));   // mat phan tu, hoac nem ngau nhien
+    results.Add(await LoadAsync(id, token));   // mất phần tử, hoặc ném ngẫu nhiên
 });
 ```
 
 `List<T>.Add` đọc `_size`, ghi vào mảng, rồi tăng `_size`. Hai task chạy xen kẽ giữa ba bước đó thì một phần tử bị ghi đè — **im lặng, không exception**. Đôi khi nó ném `IndexOutOfRangeException` từ bên trong `List`, và đó lại là may mắn vì ít nhất bạn biết.
 
 ```csharp
-// DUNG 1 — collection thread-safe
+// ĐÚNG 1 — collection thread-safe
 var results = new ConcurrentBag<Order>();
 
-// DUNG 2 — khong chia se state, gom lai o cuoi (thich hon)
+// ĐÚNG 2 — không chia sẻ state, gom lại ở cuối (thích hơn)
 var results = await Task.WhenAll(ids.Select(id => LoadAsync(id, ct)));
 ```
 
@@ -129,7 +129,7 @@ Cách 2 tốt hơn: không có trạng thái chia sẻ thì không có vấn đ�
 ```csharp
 lock (_gate)
 {
-    await DoAsync();      // KHONG BIEN DICH DUOC
+    await DoAsync();      // KHÔNG BIÊN DỊCH ĐƯỢC
 }
 ```
 
@@ -150,8 +150,8 @@ Từ .NET 9, `System.Threading.Lock` là kiểu khoá mới nhưng vẫn **khôn
 ### 6.8.8 — Bẫy 8: exception không được quan sát
 
 ```csharp
-var task = ProcessAsync();   // nem exception
-// khong bao gio await -> khong ai biet
+var task = ProcessAsync();   // ném exception
+// không bao giờ await -> không ai biết
 ```
 
 Exception nằm trong `Task` cho tới khi có người `await` hoặc đọc `.Exception`. Không ai đọc thì nó đi vào `TaskScheduler.UnobservedTaskException` lúc GC dọn `Task` — nghĩa là **muộn, ngẫu nhiên, và không liên quan gì tới chỗ gây lỗi**.
@@ -173,7 +173,7 @@ TaskScheduler.UnobservedTaskException += (_, e) =>
 ```csharp
 catch (Exception ex)
 {
-    _logger.LogError(ex, "That bai");   // huy khong phai that bai
+    _logger.LogError(ex, "Thất bại");   // huỷ không phải thất bại
     return StatusCode(500);
 }
 ```
@@ -401,29 +401,29 @@ Lấy một pull request async trong repo của bạn, hoặc tự viết một 
 **Lời giải — file thử vi phạm sáu bẫy:**
 
 ```csharp
-public class BaoCaoService
+public class ReportService
 {
     private readonly CrmDbContext _db;
-    private readonly List<string> _ketQua = new();        // bẫy 6
+    private readonly List<string> _results = new();       // bẫy 6
 
-    public async void XuLy()                              // bẫy 4
+    public async void Process()                           // bẫy 4
     {
-        var kh = _db.Customers.ToList();                  // bẫy 2 (có ToListAsync)
+        var customers = _db.Customers.ToList();           // bẫy 2 (có ToListAsync)
 
-        var ts = kh.Select(async c => await TinhAsync(c)); // bẫy 5 — chưa chạy
-        var tong = ts.Count();                            // chỉ đếm, không await
+        var tasks = customers.Select(async c => await ComputeAsync(c));  // bẫy 5 — chưa chạy
+        var count = tasks.Count();                        // chỉ đếm, không await
 
-        await Parallel.ForEachAsync(kh, async (c, ct) =>
+        await Parallel.ForEachAsync(customers, async (c, ct) =>
         {
-            var x = await _db.Orders.Where(o => o.CustomerId == c.Id)
-                                    .ToListAsync(ct);     // bẫy 3 — DbContext dùng chung
-            _ketQua.Add(x.Count.ToString());              // bẫy 6
+            var orders = await _db.Orders.Where(o => o.CustomerId == c.Id)
+                                         .ToListAsync(ct);   // bẫy 3 — DbContext dùng chung
+            _results.Add(orders.Count.ToString());        // bẫy 6
         });
 
-        var t = GuiEmailAsync();                          // bẫy 8 — không await, không quan sát
+        var t = SendEmailAsync();                         // bẫy 8 — không await, không quan sát
     }
 
-    private decimal TinhTong(Customer c)
+    private decimal SumTotals(Customer c)
         => _db.Orders.SumAsync(o => o.Total).Result;      // bẫy 1
 }
 ```
