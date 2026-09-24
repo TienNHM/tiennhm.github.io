@@ -1,46 +1,268 @@
 ---
 title: "16.14 — Mở rộng và đào sâu"
-description: "Ghi chú nâng cao cho Module 16 — Clean architecture: những điểm cần đào sâu nằm ngoài phạm vi các bài học chính."
+description: "Specification pattern, Result thay exception, Value Object nâng cao, Marten và event sourcing — điều kiện để mỗi thứ đáng dùng."
 sidebar_position: 14
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
 # 16.14 — Mở rộng và đào sâu
 
+<SummaryBox>
+Những mẫu thiết kế nằm ngoài phạm vi module, kèm điều kiện cụ thể. Mục đáng làm sớm nhất và cũng bị đánh giá thấp nhất là **`Result` thay cho exception** cho lỗi nghiệp vụ — không phải vì exception "xấu", mà vì lỗi nghiệp vụ **không phải trường hợp ngoại lệ**: "số dư không đủ" là một kết quả bình thường và được dự kiến của việc rút tiền, nên biểu diễn nó bằng cơ chế dành cho điều bất thường làm chữ ký phương thức nói dối về những gì nó có thể trả về. Ngược lại, mục cần thận trọng nhất là **event sourcing**: nó đổi toàn bộ cách đội làm việc với dữ liệu và gần như không quay lại được.
+</SummaryBox>
+
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Chọn giữa `Result` và exception cho từng loại lỗi.
+- Áp dụng Specification pattern khi điều kiện truy vấn bị nhân bản.
+- Thiết kế Value Object đúng cách với EF Core.
+- Đánh giá event sourcing có phù hợp hay không.
 
 ## Nội dung bài học
 
-### 16.14.1 — Mục đích của phần này
+### 16.14.1 — Result thay cho exception
 
-Phần này giúp bạn nắm **bản chất** của chủ đề: học để giải quyết vấn đề gì, đặt ở đâu trong kiến trúc backend, và vì sao cách làm này quan trọng trong dự án thật.
+**Điều kiện kích hoạt:** ngay từ đầu, cho mọi lỗi nghiệp vụ dự kiến được.
 
-### 16.14.2 — Khung hiểu nhanh
+```csharp
+// Exception cho loi NGHIEP VU — chu ky phuong thuc noi doi
+public async Task<Customer> ConvertLeadAsync(LeadId id, CancellationToken ct)
+{
+    var lead = await _repo.GetByIdAsync(id, ct);
+    if (lead is null)
+        throw new NotFoundException("Không tìm thấy lead");     // "ngoai le"?
+    if (lead.Status == LeadStatus.Lost)
+        throw new BusinessException("Lead đã mất");             // "ngoai le"?
+    // ...
+}
+```
 
-- **Bài toán**: vấn đề thực tế cần giải quyết.
-- **Cách tiếp cận**: kỹ thuật/chuẩn áp dụng trong bài.
-- **Kết quả mong đợi**: đầu ra đúng, dễ bảo trì, dễ mở rộng.
+Chữ ký nói "tôi trả về `Customer`", nhưng thực tế nó có thể ném hai loại exception mà trình biên dịch không hề nhắc người gọi.
+
+```csharp
+// Result — moi ket qua co the co deu nam trong chu ky
+public async Task<Result<Customer>> ConvertLeadAsync(LeadId id, CancellationToken ct)
+{
+    var lead = await _repo.GetByIdAsync(id, ct);
+    if (lead is null)
+        return Result.NotFound<Customer>("Không tìm thấy lead");
+    if (lead.Status == LeadStatus.Lost)
+        return Result.Failure<Customer>("Lead đã mất, không thể chuyển đổi");
+
+    var customer = lead.Convert(_clock.UtcNow);
+    return Result.Success(customer);
+}
+```
+
+Ba lợi ích cụ thể:
+
+| Lợi ích | Chi tiết |
+|---|---|
+| Chữ ký trung thực | Người gọi thấy ngay có thể thất bại |
+| Hiệu năng | Ném exception tốn kém hơn trả về giá trị rất nhiều |
+| Ánh xạ HTTP rõ ràng | `Result` mang mã lỗi, controller dịch sang status code |
+
+```csharp
+// Controller mong — chi dich Result sang HTTP
+return result.IsSuccess
+    ? Ok(result.Value)
+    : result.Error.ToProblemDetails();
+```
+
+**Vẫn dùng exception cho:** lỗi lập trình (`ArgumentNullException`), vi phạm invariant trong domain (`DomainException` — vì lúc đó dữ liệu đã hỏng và không nên tiếp tục), và lỗi hạ tầng (mất kết nối).
+
+Ranh giới thực dụng: **lỗi mà người dùng có thể sửa bằng cách nhập lại** thì dùng `Result`; lỗi mà **lập trình viên** phải sửa thì dùng exception.
+
+Thư viện `Ardalis.Result` hoặc `FluentResults` cung cấp sẵn, hoặc tự viết một struct nhỏ — nó không phức tạp.
+
+### 16.14.2 — Specification pattern
+
+**Điều kiện kích hoạt:** cùng một điều kiện lọc xuất hiện ở ba nơi trở lên.
+
+```csharp
+// Dieu kien "lead dang hoat dong cua tenant" lap o nhieu cho
+.Where(l => l.TenantId == tenantId && l.Status != LeadStatus.Lost && !l.IsDeleted)
+```
+
+```csharp
+public sealed class ActiveLeadsSpec : Specification<Lead>
+{
+    public ActiveLeadsSpec(TenantId tenantId)
+    {
+        Query.Where(l => l.TenantId == tenantId
+                      && l.Status != LeadStatus.Lost
+                      && !l.IsDeleted)
+             .OrderByDescending(l => l.CreatedAtUtc);
+    }
+}
+
+// Su dung
+var leads = await _repo.ListAsync(new ActiveLeadsSpec(tenantId), ct);
+```
+
+Lợi ích: điều kiện nằm một chỗ, test được độc lập, và kết hợp được với nhau.
+
+**Cảnh báo:** Specification dễ bị lạm dụng thành một tầng trừu tượng thừa. Với truy vấn chỉ dùng một lần, viết LINQ thẳng ngắn gọn và dễ đọc hơn. Và nếu điều kiện là **bảo mật** (lọc theo tenant), global query filter chặt chẽ hơn vì nó không thể bị quên ([bài 13.11](../../stage-04-database-production/module-13-entity-framework-core/13.11-global-query-filters.mdx)).
+
+`Ardalis.Specification` là thư viện phổ biến nhất trên .NET.
+
+### 16.14.3 — Value Object nâng cao
+
+**Điều kiện kích hoạt:** một khái niệm nghiệp vụ được biểu diễn bằng kiểu nguyên thuỷ và có quy tắc riêng.
+
+```csharp
+public sealed record Money
+{
+    public decimal Amount { get; }
+    public string Currency { get; }
+
+    public Money(decimal amount, string currency)
+    {
+        if (amount < 0) throw new DomainException("Số tiền không được âm");
+        if (currency.Length != 3) throw new DomainException("Mã tiền tệ phải có 3 ký tự");
+
+        Amount = amount;
+        Currency = currency;
+    }
+
+    public static Money Vnd(decimal amount) => new(amount, "VND");
+
+    public Money Add(Money other)
+    {
+        if (Currency != other.Currency)
+            throw new DomainException("Không cộng được hai loại tiền tệ khác nhau");
+        return new Money(Amount + other.Amount, Currency);
+    }
+}
+```
+
+Quy tắc "không cộng hai loại tiền tệ" giờ **không thể** vi phạm — trước đó, với hai biến `decimal`, trình biên dịch vui vẻ cho bạn cộng VND với USD.
+
+**Ba cách ánh xạ với EF Core:**
+
+```csharp
+// 1. Owned entity — luu thanh nhieu cot
+b.OwnsOne(l => l.Value, v =>
+{
+    v.Property(m => m.Amount).HasColumnName("Value").HasColumnType("decimal(18,2)");
+    v.Property(m => m.Currency).HasColumnName("Currency").HasMaxLength(3);
+});
+
+// 2. Value converter — luu thanh MOT cot
+b.Property(l => l.Email)
+ .HasConversion(e => e.Value, v => new EmailAddress(v))
+ .HasMaxLength(320);
+
+// 3. Complex type (EF Core 8+) — khong bi theo doi nhu entity
+b.ComplexProperty(l => l.Value);
+```
+
+Cách 3 là lựa chọn tốt nhất khi có sẵn: value object được đối xử đúng như **giá trị**, không phải entity có định danh, nên tránh được các vấn đề về change tracking mà `OwnsOne` đôi khi gây ra.
+
+**Strongly-typed ID** là ứng dụng đáng làm nhất của value object:
+
+```csharp
+public readonly record struct LeadId(Guid Value)
+{
+    public static LeadId New() => new(Guid.NewGuid());
+}
+
+// Trinh bien dich chan loi nay — voi Guid thuan thi khong
+await _service.ConvertLeadAsync(customerId);   // CompileError: sai kieu
+```
+
+Đây là loại bug rất khó tìm khi mọi id đều là `Guid` — và trình biên dịch bắt được nó miễn phí.
+
+### 16.14.4 — Event sourcing
+
+**Điều kiện kích hoạt:** nghiệp vụ yêu cầu lịch sử đầy đủ vì lý do kiểm toán hoặc pháp lý.
+
+Đã nói kỹ ở [bài 17.12](../module-17-distributed-systems/17.12-advanced-notes.mdx). Điểm cần nhắc lại ở đây: đây là quyết định **gần như không quay lại được**, và nó đổi cách **cả đội** làm việc với dữ liệu, không chỉ đổi một tầng.
+
+Với phần lớn CRM/ERP, **bảng audit log** cho lịch sử đầy đủ mà không đổi mô hình lập trình — và đó thường là điểm cân bằng đúng.
+
+### 16.14.5 — Thứ tự ưu tiên
+
+| Mức độ nên làm | Mẫu |
+|---|---|
+| **Làm sớm, rẻ, lợi ích rõ** | `Result` cho lỗi nghiệp vụ, strongly-typed ID |
+| **Làm khi thấy trùng lặp** | Specification, Value Object cho khái niệm phức tạp |
+| **Cân nhắc kỹ, khó quay lại** | Event sourcing, CQRS tách database |
+
+Hai mục hàng đầu nên làm ngay từ dự án mới: chúng rẻ, và sửa lại sau khi codebase đã lớn thì đắt hơn nhiều.
+
+### 16.14.6 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát mẫu nâng cao"
+  items={[
+    { text: "Lỗi nghiệp vụ trả về Result, không ném exception." },
+    { text: "Exception chỉ dùng cho lỗi lập trình và vi phạm invariant." },
+    { text: "Id của entity dùng kiểu riêng, không dùng Guid thuần." },
+    { text: "Khái niệm nghiệp vụ có quy tắc được bọc thành value object." },
+    { text: "Value object ánh xạ bằng complex property hoặc converter phù hợp." },
+    { text: "Điều kiện lọc lặp từ ba nơi trở lên được gom thành specification." },
+    { text: "Lọc theo tenant dùng global query filter, không dùng specification." },
+    { text: "Đã cân nhắc bảng audit log trước khi nghĩ tới event sourcing." },
+  ]}
+/>
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **Chuyển sang Result.** Chọn một use case đang ném `BusinessException` và chuyển sang `Result`. So sánh code của controller trước và sau.
+
+2. **Strongly-typed ID.** Thêm kiểu id riêng cho một entity và xem trình biên dịch bắt được bao nhiêu chỗ truyền nhầm.
+
+3. **Value Object.** Bọc một khái niệm nghiệp vụ đang dùng kiểu nguyên thuỷ và ánh xạ nó với EF Core.
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "Vì sao lỗi nghiệp vụ không nên dùng exception?",
+      answer: "Vì lỗi nghiệp vụ không phải trường hợp ngoại lệ. Số dư không đủ là kết quả bình thường và dự kiến được của việc rút tiền. Dùng exception làm chữ ký phương thức nói dối về những gì nó có thể trả về, và ném exception cũng tốn kém hơn trả về giá trị."
+    },
+    {
+      question: "Ranh giới giữa Result và exception là gì?",
+      answer: "Lỗi mà người dùng có thể sửa bằng cách nhập lại thì dùng Result. Lỗi mà lập trình viên phải sửa, như tham số null hay vi phạm invariant trong domain, thì dùng exception."
+    },
+    {
+      question: "Khi nào Specification pattern bị lạm dụng?",
+      answer: "Khi dùng cho truy vấn chỉ xuất hiện một lần, vì khi đó LINQ thẳng ngắn gọn và dễ đọc hơn. Và nếu điều kiện là bảo mật như lọc theo tenant thì global query filter chặt chẽ hơn vì nó không thể bị quên."
+    },
+    {
+      question: "Vì sao complex property tốt hơn owned entity cho value object?",
+      answer: "Vì value object được đối xử đúng như giá trị chứ không phải entity có định danh, nên tránh được các vấn đề về change tracking mà owned entity đôi khi gây ra."
+    },
+    {
+      question: "Strongly-typed ID giải quyết bug gì?",
+      answer: "Truyền nhầm id giữa các loại entity. Khi mọi id đều là Guid, trình biên dịch không phát hiện được việc truyền customerId vào chỗ cần leadId, và bug đó rất khó tìm lúc chạy."
+    },
+    {
+      question: "Hai mẫu nào nên làm ngay từ dự án mới?",
+      answer: "Result cho lỗi nghiệp vụ và strongly-typed ID. Cả hai đều rẻ để áp dụng từ đầu, trong khi sửa lại sau khi codebase đã lớn thì đắt hơn nhiều."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **Lỗi nghiệp vụ là kết quả, không phải ngoại lệ.** `Result` làm chữ ký trung thực.
+2. **Strongly-typed ID là lợi ích miễn phí từ trình biên dịch.**
+3. **Event sourcing gần như không quay lại được.** Bảng audit log thường đúng hơn.
+
+## Tham khảo
+
+- [Domain model layer (.NET microservices)](https://learn.microsoft.com/en-us/dotnet/architecture/microservices/microservice-ddd-cqrs-patterns/)
+- [Clean Architecture template (Steve Smith)](https://github.com/ardalis/CleanArchitecture)
+- [EF Core performance](https://learn.microsoft.com/en-us/ef/core/performance/)
+- [Design a DDD-oriented microservice](https://learn.microsoft.com/en-us/dotnet/architecture/microservices/microservice-ddd-cqrs-patterns/ddd-oriented-microservice)
 
 ## Điều hướng
 
