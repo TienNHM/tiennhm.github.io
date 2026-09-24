@@ -26,15 +26,15 @@ Sau bài này bạn có thể:
 ### 6.12.1 — Triệu chứng
 
 ```
-Gio cao diem, 200 request/giay:
-  p50 cua MOI endpoint:   4.200ms   (binh thuong: 80ms)
+Giờ cao điểm, 200 request/giây:
+  p50 của MỌI endpoint:   4.200ms   (bình thường: 80ms)
   p99:                   14.000ms
-  Ty le loi:             18% (timeout)
+  Tỷ lệ lỗi:             18% (timeout)
 
-  CPU:                        8%     <- RAT THAP
-  Bo nho:                   340 MB   <- binh thuong
-  CPU database:              12%     <- nhan roi
-  Do tre database:            3ms    <- nhanh
+  CPU:                        8%     <- RẤT THẤP
+  Bộ nhớ:                   340 MB   <- bình thường
+  CPU database:              12%     <- nhàn rỗi
+  Độ trễ database:            3ms    <- nhanh
 ```
 
 Mọi thành phần đều khoẻ, nhưng hệ thống không dùng được. Đây là chữ ký của **đang chờ**, không phải của thiếu tài nguyên tính toán.
@@ -47,8 +47,8 @@ dotnet-counters monitor -p 1 --counters System.Runtime
 
 ```
 ThreadPool Thread Count            112
-ThreadPool Queue Length          1,847        <- 1.847 viec DANG XEP HANG
-ThreadPool Completed Work Items    ~12/s      <- chi xong 12 viec moi giay
+ThreadPool Queue Length          1,847        <- 1.847 việc ĐANG XẾP HÀNG
+ThreadPool Completed Work Items    ~12/s      <- chỉ xong 12 việc mỗi giây
 CPU Usage (%)                        8
 ```
 
@@ -70,15 +70,15 @@ Một dòng. Trong một endpoint xuất báo cáo được gọi khoảng **20 
 ### 6.12.3 — Cơ chế
 
 ```
-Thread pool co N thread (mac dinh ~ so core, tang rat cham)
+Thread pool có N thread (mặc định ~ số core, tăng rất chậm)
 
-1. Request bao cao goi .Result
-2. Thread bi CHIEM, KHONG tra ve pool, cho I/O 3 giay
-3. Them mot request bao cao -> chiem them mot thread
-4. Pool tang them thread — nhung chi 1-2 thread MOI GIAY
-5. Request thuong den nhanh hon toc do tang thread
-6. Queue dai ra -> MOI endpoint cham, ke ca endpoint khong co loi
-7. CPU van 8% vi moi thread deu dang CHO, khong tinh toan
+1. Request báo cáo gọi .Result
+2. Thread bị CHIẾM, KHÔNG trả về pool, chờ I/O 3 giây
+3. Thêm một request báo cáo -> chiếm thêm một thread
+4. Pool tăng thêm thread — nhưng chỉ 1-2 thread MỖI GIÂY
+5. Request thường đến nhanh hơn tốc độ tăng thread
+6. Queue dài ra -> MỌI endpoint chậm, kể cả endpoint không có lỗi
+7. CPU vẫn 8% vì mọi thread đều đang CHỜ, không tính toán
 ```
 
 Bước 6 là điều khiến sự cố khó chẩn đoán: **endpoint gây lỗi không phải endpoint biểu hiện triệu chứng**. Người báo lỗi nói "màn hình danh sách khách hàng chậm", còn thủ phạm nằm ở màn hình báo cáo mà gần như không ai dùng.
@@ -88,11 +88,11 @@ Bước 6 là điều khiến sự cố khó chẩn đoán: **endpoint gây lỗ
 ### 6.12.4 — Sửa
 
 ```csharp
-// TRUOC
+// TRƯỚC
 [HttpGet("export")]
 public IActionResult Export([FromQuery] ReportRequest request)
 {
-    var data = _reportService.GenerateAsync(request).Result;     // chiem thread
+    var data = _reportService.GenerateAsync(request).Result;     // chiếm thread
     return File(data, "application/pdf");
 }
 
@@ -115,10 +115,10 @@ Ty le loi:                 18% -> 0,02%
 **Nguyên tắc: async phải đi suốt chuỗi.** Một mắt xích đồng bộ ở giữa phá hỏng cả chuỗi:
 
 ```csharp
-// SAI — van chan, du ham ngoai la async
+// SAI — vẫn chặn, dù hàm ngoài là async
 public async Task<byte[]> GenerateAsync(ReportRequest r, CancellationToken ct)
 {
-    var data = _repository.GetDataAsync(r, ct).Result;      // <- van chan o day
+    var data = _repository.GetDataAsync(r, ct).Result;      // <- vẫn chặn ở đây
     return Render(data);
 }
 ```
@@ -128,7 +128,7 @@ public async Task<byte[]> GenerateAsync(ReportRequest r, CancellationToken ct)
 Khi chưa sửa kịp và hệ thống đang cháy:
 
 ```csharp
-// KHONG phai cach sua — chi mua them thoi gian
+// KHÔNG phải cách sửa — chỉ mua thêm thời gian
 ThreadPool.SetMinThreads(workerThreads: 200, completionPortThreads: 200);
 ```
 
@@ -165,10 +165,10 @@ grep -rn "Task.Run(async" --include=*.cs src/
 ```
 
 ```csharp
-// SAI — chiem HAI thread thay vi khong chiem cai nao
+// SAI — chiếm HAI thread thay vì không chiếm cái nào
 await Task.Run(async () => await _service.DoAsync());
 
-// DUNG
+// ĐÚNG
 await _service.DoAsync();
 ```
 
@@ -180,7 +180,7 @@ await _service.DoAsync();
 <!-- .editorconfig -->
 dotnet_diagnostic.VSTHRD002.severity = error    <- sync-over-async
 dotnet_diagnostic.VSTHRD100.severity = error    <- async void
-dotnet_diagnostic.VSTHRD103.severity = error    <- goi ban dong bo khi co ban async
+dotnet_diagnostic.VSTHRD103.severity = error    <- gọi bản đồng bộ khi có bản async
 ```
 
 Cài gói `Microsoft.VisualStudio.Threading.Analyzers` và đặt mức `error`. Build sẽ thất bại nếu ai đó thêm `.Result` — tốt hơn nhiều so với hy vọng người review nhìn thấy.
@@ -188,7 +188,7 @@ Cài gói `Microsoft.VisualStudio.Threading.Analyzers` và đặt mức `error`.
 Thêm một cảnh báo trên số liệu:
 
 ```
-CANH BAO khi: ThreadPool Queue Length > 100 trong 1 phut
+CẢNH BÁO khi: ThreadPool Queue Length > 100 trong 1 phút
 ```
 
 Nó bắt được vấn đề **trước khi** người dùng phàn nàn — và bắt được cả những nguyên nhân khác cũng gây starvation, không riêng `.Result` ([bài 15.9](../../stage-04-database-production/module-15-docker-deployment/15.8-production-monitoring.mdx)).

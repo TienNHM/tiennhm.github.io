@@ -26,15 +26,15 @@ Sau bài này bạn có thể:
 ### 13.14.1 — Vấn đề
 
 ```
-10:00  An mo lead #123: { Ten: "Cong ty ABC", GiaTri: 5tr, GhiChu: "" }
-10:01  Binh mo lead #123: cung du lieu
+10:00  An mở lead #123: { Name: "Công ty ABC", Value: 5tr, Note: "" }
+10:01  Bình mở lead #123: cùng dữ liệu
 
-10:05  An sua GhiChu = "Da goi dien, quan tam" -> Luu
-       Database: { Ten: "Cong ty ABC", GiaTri: 5tr, GhiChu: "Da goi dien..." }
+10:05  An sửa Note = "Đã gọi điện, quan tâm" -> Lưu
+       Database: { Name: "Công ty ABC", Value: 5tr, Note: "Đã gọi điện..." }
 
-10:07  Binh sua GiaTri = 8tr -> Luu
-       Binh gui CA BAN GHI voi GhiChu = "" (gia tri luc Binh MO form)
-       Database: { Ten: "Cong ty ABC", GiaTri: 8tr, GhiChu: "" }   <- MAT ghi chu cua An
+10:07  Bình sửa Value = 8tr -> Lưu
+       Bình gửi CẢ BẢN GHI với Note = "" (giá trị lúc Bình MỞ form)
+       Database: { Name: "Công ty ABC", Value: 8tr, Note: "" }   <- MẤT ghi chú của An
 ```
 
 ```csharp
@@ -69,16 +69,16 @@ public class Lead
 ```
 
 ```csharp
-// Hoac cau hinh bang Fluent API
+// Hoặc cấu hình bằng Fluent API
 b.Property(l => l.RowVersion).IsRowVersion();
 ```
 
 ```sql
--- SQL gio kem dieu kien phien ban
+-- SQL giờ kèm điều kiện phiên bản
 UPDATE Leads SET Name = @p0, Value = @p1, Note = @p2
 WHERE Id = @p3 AND RowVersion = @p4;
 
--- Neu 0 hang bi anh huong -> ai do da sua truoc
+-- Nếu 0 hàng bị ảnh hưởng -> ai đó đã sửa trước
 ```
 
 `ROWVERSION` là kiểu của SQL Server tự tăng mỗi khi hàng thay đổi — bạn không cần quản lý gì. Trên PostgreSQL, dùng cột `xmin` hệ thống:
@@ -124,28 +124,28 @@ catch (DbUpdateConcurrencyException)
 catch (DbUpdateConcurrencyException ex)
 {
     var entry = ex.Entries.Single();
-    var giaTriHienTai = await entry.GetDatabaseValuesAsync(ct);
+    var databaseValues = await entry.GetDatabaseValuesAsync(ct);
 
-    if (giaTriHienTai is null)
+    if (databaseValues is null)
         return Result.NotFound("Bản ghi đã bị xoá");
 
-    // Chi ghi de nhung truong NGUOI DUNG NAY thuc su doi
+    // Chỉ ghi đè những trường NGƯỜI DÙNG NÀY thực sự đổi
     foreach (var property in entry.Metadata.GetProperties())
     {
-        var goc = entry.OriginalValues[property];
-        var moi = entry.CurrentValues[property];
-        var db  = giaTriHienTai[property];
+        var original = entry.OriginalValues[property];
+        var current  = entry.CurrentValues[property];
+        var fromDb   = databaseValues[property];
 
-        if (Equals(goc, moi))                        // nguoi dung khong doi truong nay
-            entry.CurrentValues[property] = db;      // -> giu gia tri cua nguoi kia
+        if (Equals(original, current))               // người dùng không đổi trường này
+            entry.CurrentValues[property] = fromDb;  // -> giữ giá trị của người kia
     }
 
-    entry.OriginalValues.SetValues(giaTriHienTai);
-    await _db.SaveChangesAsync(ct);                  // thu lai
+    entry.OriginalValues.SetValues(databaseValues);
+    await _db.SaveChangesAsync(ct);                  // thử lại
 }
 ```
 
-Trong ví dụ đầu bài, cách này cho kết quả đúng nhất: An đổi `GhiChu`, Bình đổi `GiaTri` — **không đụng nhau**, nên gộp được cả hai.
+Trong ví dụ đầu bài, cách này cho kết quả đúng nhất: An đổi `Note`, Bình đổi `Value` — **không đụng nhau**, nên gộp được cả hai.
 
 Nó chỉ thất bại khi cả hai người sửa **cùng một trường** — và khi đó báo xung đột là đúng.
 
@@ -155,8 +155,8 @@ Nó chỉ thất bại khi cả hai người sửa **cùng một trường** —
 return Conflict(new
 {
     Title = "Xung đột dữ liệu",
-    GiaTriCuaBan = entry.CurrentValues.ToObject(),
-    GiaTriTrenServer = giaTriHienTai.ToObject()
+    YourValues = entry.CurrentValues.ToObject(),
+    ServerValues = databaseValues.ToObject()
 });
 ```
 
@@ -173,7 +173,7 @@ Frontend hiện hai cột cạnh nhau cho người dùng quyết định. Tốt 
 | Rủi ro | Người dùng phải làm lại | **Deadlock**, chờ đợi |
 
 ```csharp
-// Pessimistic — khoa hang cho toi khi transaction ket thuc
+// Pessimistic — khoá hàng cho tới khi transaction kết thúc
 var lead = await _db.Leads
     .FromSqlRaw("SELECT * FROM Leads WITH (UPDLOCK, ROWLOCK) WHERE Id = {0}", id)
     .FirstAsync(ct);
@@ -186,7 +186,7 @@ Pessimistic chỉ hợp lý cho thao tác **ngắn và tranh chấp cao**: trừ
 ### 13.14.5 — Cái bẫy: ExecuteUpdate bỏ qua row version
 
 ```csharp
-// KHONG kiem tra row version — bo qua ca co che concurrency
+// KHÔNG kiểm tra row version — bỏ qua cả cơ chế concurrency
 await _db.Leads
     .Where(l => l.Status == LeadStatus.New)
     .ExecuteUpdateAsync(s => s.SetProperty(l => l.Status, LeadStatus.Contacted), ct);
@@ -206,7 +206,7 @@ public async Task Update_NemConcurrencyException_KhiCoNguoiSuaTruoc()
 {
     var lead = await SeedLeadAsync();
 
-    // Hai DbContext = hai nguoi dung
+    // Hai DbContext = hai người dùng
     await using var ctx1 = CreateContext();
     await using var ctx2 = CreateContext();
 
@@ -214,7 +214,7 @@ public async Task Update_NemConcurrencyException_KhiCoNguoiSuaTruoc()
     var lead2 = await ctx2.Leads.FindAsync(lead.Id);
 
     lead1!.UpdateNote("An sửa");
-    await ctx1.SaveChangesAsync();          // thanh cong
+    await ctx1.SaveChangesAsync();          // thành công
 
     lead2!.UpdateValue(Money.Vnd(8_000_000));
 

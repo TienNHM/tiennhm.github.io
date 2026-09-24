@@ -32,9 +32,9 @@ flowchart LR
     B --> C[Query pipeline<br/>dich sang SQL]
     C --> D[(Database)]
     D --> E[DbDataReader]
-    E --> F[Materialize<br/>tao doi tuong]
-    F --> G[Change tracker<br/>luu ban sao goc]
-    G --> H[Entity tra ve code]
+    E --> F[Materialize<br/>tạo đối tượng]
+    F --> G[Change tracker<br/>lưu bản sao gốc]
+    G --> H[Entity trả về code]
 ```
 
 Bốn việc, và việc thứ tư là thứ phân biệt EF Core với một thư viện mapping thuần:
@@ -49,15 +49,15 @@ Dapper làm việc 1 và 2. Việc 3 và 4 là lý do EF Core tiện hơn — v�
 ### 13.2.2 — Change tracker
 
 ```csharp
-var customer = await db.Customers.FindAsync(42);   // EF luu BAN SAO gia tri goc
+var customer = await db.Customers.FindAsync(42);   // EF lưu BẢN SAO giá trị gốc
 customer.Name = "Tên mới";                          // ban chi doi doi tuong
-await db.SaveChangesAsync();                        // EF SO SANH va sinh UPDATE
+await db.SaveChangesAsync();                        // EF SO SÁNH và sinh UPDATE
 ```
 
 EF Core sinh ra:
 
 ```sql
-UPDATE Customers SET Name = @p0 WHERE Id = @p1;   -- CHI cot Name
+UPDATE Customers SET Name = @p0 WHERE Id = @p1;   -- CHỈ cột Name
 ```
 
 Để làm được, nó giữ **hai bản** của mỗi entity đã nạp: giá trị hiện tại và giá trị gốc. Với 10 cột, đó là gấp đôi bộ nhớ cho mỗi dòng.
@@ -86,7 +86,7 @@ Change tracker còn giải thích một hành vi hay gây bối rối:
 ```csharp
 var a = await db.Customers.FindAsync(42);
 var b = await db.Customers.FindAsync(42);
-Console.WriteLine(ReferenceEquals(a, b));    // True — CUNG mot doi tuong
+Console.WriteLine(ReferenceEquals(a, b));    // True — CÙNG một đối tượng
 ```
 
 Đây là **identity map**: trong một `DbContext`, mỗi khoá chính chỉ có **một** instance. `FindAsync` còn kiểm tra change tracker **trước** khi đi xuống database — nên lần gọi thứ hai không sinh truy vấn nào.
@@ -101,7 +101,7 @@ var query = db.Customers.Where(c => c.Status == CustomerStatus.Active);
 query = query.Where(c => c.CreatedAt > cutoff);
 query = query.OrderByDescending(c => c.CreatedAt);
 
-// Bay gio moi chay — MOT cau SQL
+// Bây giờ mới chạy — MỘT câu SQL
 var result = await query.Take(20).ToListAsync(ct);
 ```
 
@@ -110,7 +110,7 @@ Mỗi toán tử chỉ **thêm một nút vào cây biểu thức**. Truy vấn 
 Đây là điều làm nên sức mạnh — và cũng là cái bẫy lớn nhất:
 
 ```csharp
-// SAI — .ToList() keo CA BANG ve roi moi loc
+// SAI — .ToList() kéo CẢ BẢNG về rồi mới lọc
 var customers = db.Customers.ToList()
     .Where(c => c.Status == CustomerStatus.Active);
 
@@ -129,7 +129,7 @@ Cùng lý do đó, **phương thức trả về kiểu gì cũng quan trọng**:
 public IEnumerable<Customer> GetActive() =>
     db.Customers.Where(c => c.Status == CustomerStatus.Active);
 
-// DUNG — nguoi goi van them dieu kien vao SQL duoc
+// ĐÚNG — người gọi vẫn thêm điều kiện vào SQL được
 public IQueryable<Customer> GetActive() =>
     db.Customers.Where(c => c.Status == CustomerStatus.Active);
 ```
@@ -139,9 +139,9 @@ Phiên bản đầu trông vô hại vì `IQueryable` **kế thừa** `IEnumerab
 ### 13.2.4 — Khi EF Core không dịch được
 
 ```csharp
-// KHONG dich duoc — EF Core nem exception luc chay
+// KHÔNG dịch được — EF Core ném exception lúc chạy
 var customers = await db.Customers
-    .Where(c => MyCustomValidator.IsValid(c.Email))     // ham C# tuy y
+    .Where(c => MyCustomValidator.IsValid(c.Email))     // hàm C# tuỳ ý
     .ToListAsync(ct);
 ```
 
@@ -150,12 +150,12 @@ Từ EF Core 3.0, thứ không dịch được sẽ ném `InvalidOperationExcept
 Ba cách xử lý:
 
 ```csharp
-// 1. Viet lai bang bieu thuc dich duoc
+// 1. Viết lại bằng biểu thức dịch được
 .Where(c => c.Email.EndsWith("@company.com"))
 
-// 2. Chuyen sang bo nho MOT CACH CO CHU DICH, sau khi da loc
+// 2. Chuyển sang bộ nhớ MỘT CÁCH CÓ CHỦ ĐÍCH, sau khi đã lọc
 var candidates = await db.Customers
-    .Where(c => c.Status == CustomerStatus.Active)      // loc o SQL truoc
+    .Where(c => c.Status == CustomerStatus.Active)      // lọc ở SQL trước
     .ToListAsync(ct);
 var valid = candidates.Where(c => MyCustomValidator.IsValid(c.Email));
 
@@ -190,7 +190,7 @@ var customer = await db.Customers.FindAsync([id], ct);
 customer.Status = CustomerStatus.Active;
 await db.SaveChangesAsync(ct);
 
-// Dapper cho bao cao phuc tap
+// Dapper cho báo cáo phức tạp
 var report = await connection.QueryAsync<RevenueRow>(
     """
     SELECT DATE_TRUNC('month', converted_at) AS Month, SUM(value) AS Revenue
@@ -208,7 +208,7 @@ Chúng dùng chung connection và chung transaction, nên không có rào cản 
 3. **Cập nhật hàng loạt theo điều kiện** — nhưng EF Core 7 đã có `ExecuteUpdateAsync`/`ExecuteDeleteAsync` giải quyết phần lớn.
 
 ```csharp
-// EF Core 7+: mot cau UPDATE, khong nap entity nao
+// EF Core 7+: một câu UPDATE, không nạp entity nào
 await db.Leads
     .Where(l => l.Status == LeadStatus.New && l.CreatedAt < cutoff)
     .ExecuteUpdateAsync(s => s.SetProperty(l => l.Status, LeadStatus.Lost), ct);
@@ -226,7 +226,7 @@ builder.Services.AddDbContext<CrmDbContext>(options =>
     if (builder.Environment.IsDevelopment())
     {
         options.LogTo(Console.WriteLine, LogLevel.Information)
-               .EnableSensitiveDataLogging()     // hien GIA TRI tham so
+               .EnableSensitiveDataLogging()     // hiện GIÁ TRỊ tham số
                .EnableDetailedErrors();
     }
 });

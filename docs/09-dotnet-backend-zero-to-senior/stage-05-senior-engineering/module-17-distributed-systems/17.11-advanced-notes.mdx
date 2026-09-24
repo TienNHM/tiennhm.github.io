@@ -29,8 +29,8 @@ Sau bài này bạn có thể:
 
 ```
 Dat hang: Order -> Payment -> Inventory -> Shipping
-Neu Inventory THAT BAI, phai HOAN LAI Payment.
-Khong co transaction phan tan => can BUOC BU TRU.
+Nếu Inventory THẤT BẠI, phải HOÀN LẠI Payment.
+Không có transaction phân tán => cần BƯỚC BÙ TRỪ.
 ```
 
 Hai kiểu điều phối:
@@ -71,7 +71,7 @@ Thay vì lưu **trạng thái hiện tại**, lưu **chuỗi sự kiện** và t
 ```
 Thay vi:  Lead { Status = "Won", Value = 5.000.000 }
 
-Luu:      LeadCreated    { Value = 3.000.000 }
+Lưu:      LeadCreated    { Value = 3.000.000 }
           ValueUpdated   { Value = 5.000.000 }
           LeadConverted  { At = ... }
 ```
@@ -97,7 +97,7 @@ Trên .NET, [Marten](https://martendb.io/) cung cấp event store trên PostgreS
 // Ghi: qua domain model, co quy tac nghiep vu
 await _sender.Send(new ConvertLeadCommand(leadId), ct);
 
-// Doc: truy van thang, khong qua domain
+// Đọc: truy vấn thẳng, không qua domain
 var summary = await _readDb.QueryAsync<LeadSummaryDto>(
     "SELECT ... FROM LeadSummaryView WHERE TenantId = @tenantId", new { tenantId });
 ```
@@ -115,10 +115,10 @@ Chỉ tách database riêng khi đọc và ghi có nhu cầu scale thật sự k
 Schema registry lưu định nghĩa schema của mỗi loại message và **từ chối** publish nếu schema mới không tương thích ngược:
 
 ```
-Producer dang ky schema v2 -> Registry kiem tra tuong thich voi v1
+Producer đăng ký schema v2 -> Registry kiểm tra tương thích với v1
   - Them truong tuy chon        -> OK
-  - Xoa truong bat buoc         -> TU CHOI
-  - Doi kieu du lieu            -> TU CHOI
+  - Xoá trường bắt buộc         -> TỪ CHỐI
+  - Đổi kiểu dữ liệu            -> TỪ CHỐI
 ```
 
 Đây là cách **tự động hoá** quy tắc versioning ở [bài 17.2](17.1-event-driven-architecture-when-to-use.mdx). Với một đội nhỏ, code review đủ. Với nhiều đội, code review **sẽ** bỏ sót — và hậu quả là consumer của đội khác gãy lúc 2 giờ sáng.
@@ -130,8 +130,8 @@ Confluent Schema Registry phổ biến nhất trong hệ Kafka. Với RabbitMQ, 
 Kafka có transaction và idempotent producer, cho phép "exactly-once semantics" — nhưng phạm vi hẹp hơn tên gọi rất nhiều:
 
 ```
-HOAT DONG:     Kafka -> xu ly -> Kafka   (trong mot transaction)
-KHONG AP DUNG: Kafka -> xu ly -> ghi SQL Server
+HOẠT ĐỘNG:     Kafka -> xử lý -> Kafka   (trong một transaction)
+KHÔNG ÁP DỤNG: Kafka -> xử lý -> ghi SQL Server
 ```
 
 Ngay khi consumer ghi ra một hệ thống **ngoài** Kafka, đảm bảo đó **không còn**, vì Kafka không thể tham gia transaction của database bạn.

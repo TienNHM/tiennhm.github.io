@@ -80,7 +80,7 @@ public sealed class OutboxMessageConfiguration : IEntityTypeConfiguration<Outbox
         b.Property(m => m.Type).HasMaxLength(300).IsRequired();
         b.Property(m => m.Payload).IsRequired();
 
-        // Filtered index: chi chua hang CHUA xu ly
+        // Filtered index: chỉ chứa hàng CHƯA xử lý
         b.HasIndex(m => m.OccurredOnUtc)
          .HasFilter("[ProcessedOnUtc] IS NULL")
          .HasDatabaseName("IX_Outbox_Unprocessed");
@@ -114,7 +114,7 @@ public sealed class ConvertLeadHandler(AppDbContext db) : IRequestHandler<Conver
                 OccurredAtUtc: DateTime.UtcNow))
         });
 
-        await db.SaveChangesAsync(ct);       // MOT transaction cho ca ba thay doi
+        await db.SaveChangesAsync(ct);       // MỘT transaction cho cả ba thay đổi
         return Result.Success();
     }
 }
@@ -140,7 +140,7 @@ public sealed class OutboxDispatcher(
             {
                 var processed = await DispatchBatchAsync(ct);
 
-                // Con viec thi lam tiep ngay, het viec thi nghi
+                // Còn việc thì làm tiếp ngay, hết việc thì nghỉ
                 if (processed == 0)
                     await Task.Delay(TimeSpan.FromSeconds(5), ct);
             }
@@ -161,7 +161,7 @@ public sealed class OutboxDispatcher(
         using var scope = scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        // READPAST: bo qua hang instance khac dang khoa -> khong publish trung
+        // READPAST: bỏ qua hàng instance khác đang khoá -> không publish trùng
         var messages = await db.OutboxMessages
             .FromSqlRaw($@"
                 SELECT TOP ({BatchSize}) * FROM OutboxMessages WITH (READPAST, UPDLOCK)
@@ -229,14 +229,14 @@ public sealed class LeadConvertedConsumer(BillingDbContext db, IBillingService b
         }
         catch (DbUpdateException ex) when (ex.IsUniqueViolation())
         {
-            return;                                  // da xu ly roi -> bo qua, ACK binh thuong
+            return;                                  // đã xử lý rồi -> bỏ qua, ACK bình thường
         }
 
         var subscription = Subscription.CreateDraft(evt.CustomerId, evt.ContractValue);
         db.Subscriptions.Add(subscription);
         await db.SaveChangesAsync(ct);
 
-        await tx.CommitAsync(ct);                    // inbox + nghiep vu commit CUNG NHAU
+        await tx.CommitAsync(ct);                    // inbox + nghiệp vụ commit CÙNG NHAU
     }
 }
 ```
@@ -246,34 +246,34 @@ public sealed class LeadConvertedConsumer(BillingDbContext db, IBillingService b
 ### 17.8.6 — Ba bài test bắt buộc
 
 ```csharp
-// 1. Crash sau commit -> message KHONG mat
+// 1. Crash sau commit -> message KHÔNG mất
 [Fact]
 public async Task Outbox_ShouldSurvive_CrashAfterCommit()
 {
     await _sender.Send(new ConvertLeadCommand(leadId));   // commit xong
 
-    // Gia lap crash: khong chay dispatcher, tao scope moi hoan toan
+    // Giả lập crash: không chạy dispatcher, tạo scope mới hoàn toàn
     await using var freshScope = _factory.Services.CreateAsyncScope();
     var db = freshScope.ServiceProvider.GetRequiredService<AppDbContext>();
 
     var pending = await db.OutboxMessages.Where(m => m.ProcessedOnUtc == null).ToListAsync();
-    Assert.Single(pending);        // message van con, se duoc publish khi dispatcher chay lai
+    Assert.Single(pending);        // message vẫn còn, sẽ được publish khi dispatcher chạy lại
 }
 
-// 2. Message trung -> chi xu ly MOT lan
+// 2. Message trùng -> chỉ xử lý MỘT lần
 [Fact]
 public async Task Consumer_ShouldBeIdempotent_WhenMessageDeliveredTwice()
 {
     var evt = new LeadConvertedIntegrationEvent(Guid.NewGuid(), leadId, customerId, 1000, DateTime.UtcNow);
 
     await _consumer.Consume(CreateContext(evt));
-    await _consumer.Consume(CreateContext(evt));        // CUNG EventId
+    await _consumer.Consume(CreateContext(evt));        // CÙNG EventId
 
     var count = await _billingDb.Subscriptions.CountAsync(s => s.CustomerId == customerId);
     Assert.Equal(1, count);
 }
 
-// 3. Hai dispatcher song song -> khong publish trung
+// 3. Hai dispatcher song song -> không publish trùng
 [Fact]
 public async Task TwoDispatchers_ShouldNotPublish_SameMessageTwice()
 {
@@ -293,7 +293,7 @@ Test 3 **phải chạy trên database thật** (Testcontainers) — provider InM
 ### 17.8.7 — Giám sát
 
 ```csharp
-// Chi so quan trong nhat: tuoi cua message chua xu ly CU NHAT
+// Chỉ số quan trọng nhất: tuổi của message chưa xử lý CŨ NHẤT
 _meter.CreateObservableGauge("outbox_oldest_pending_seconds", () =>
 {
     var oldest = db.OutboxMessages

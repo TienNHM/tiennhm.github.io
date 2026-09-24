@@ -46,7 +46,7 @@ public sealed class LeadService(
             entityType: nameof(Lead), entityId: leadId.ToString());
 
         await notifications.AddAsync(notification, ct);
-        await leads.SaveChangesAsync(ct);          // LUU XONG moi push
+        await leads.SaveChangesAsync(ct);          // LƯU XONG mới push
 
         await PushSafelyAsync(assigneeId, notification.ToDto(), ct);
     }
@@ -58,11 +58,11 @@ public sealed class LeadService(
 Dùng phiên bản **hai tham số generic** `IHubContext<THub, TClient>` để giữ kiểm tra lúc biên dịch:
 
 ```csharp
-// Mot generic — chuoi ma thuat, go sai la im lang
+// Một generic — chuỗi ma thuật, gõ sai là im lặng
 IHubContext<NotificationHub> hub;
 await hub.Clients.User(id).SendAsync("ReceiveNotification", dto);
 
-// Hai generic — kiem tra luc bien dich
+// Hai generic — kiểm tra lúc biên dịch
 IHubContext<NotificationHub, INotificationClient> hub;
 await hub.Clients.User(id).ReceiveNotification(dto);
 ```
@@ -108,8 +108,8 @@ private async Task PushSafelyAsync(string userId, NotificationDto dto, Cancellat
     }
     catch (Exception ex)
     {
-        // Da luu DB roi — client se thay khi dong bo qua REST
-        logger.LogWarning(ex, "Push that bai cho {UserId}", userId);
+        // Đã lưu DB rồi — client sẽ thấy khi đồng bộ qua REST
+        logger.LogWarning(ex, "Push thất bại cho {UserId}", userId);
     }
 }
 ```
@@ -119,7 +119,7 @@ private async Task PushSafelyAsync(string userId, NotificationDto dto, Cancellat
 Nhưng **đừng fire-and-forget**:
 
 ```csharp
-// SAI — exception bien mat, va viec bi cat khi request ket thuc
+// SAI — exception biến mất, và việc bị cắt khi request kết thúc
 _ = hub.Clients.User(userId).ReceiveNotification(dto);
 ```
 
@@ -145,7 +145,7 @@ public sealed class ReportWorker(
                 await using var scope = scopeFactory.CreateAsyncScope();
                 var reports = scope.ServiceProvider.GetRequiredService<IReportService>();
 
-                // Bao tien do — client thay thanh progress chay
+                // Báo tiến độ — client thấy thanh progress chạy
                 await hub.Clients.User(job.UserId).ReportProgress(job.Id, 0);
 
                 var url = await reports.GenerateAsync(job, stoppingToken);
@@ -155,7 +155,7 @@ public sealed class ReportWorker(
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Tao bao cao {JobId} that bai", job.Id);
+                logger.LogError(ex, "Tạo báo cáo {JobId} thất bại", job.Id);
 
                 await hub.Clients.User(job.UserId)
                     .ReceiveNotification(NotificationDto.ReportFailed(job.Name));
@@ -178,7 +178,7 @@ Với thông báo **quan trọng** — đơn hàng được duyệt, thanh toán
 Mẫu **outbox** đóng lỗ hổng đó: ghi thông báo **trong cùng transaction** với dữ liệu nghiệp vụ, rồi một worker riêng đọc và gửi.
 
 ```csharp
-// Trong transaction — nguyen tu voi du lieu nghiep vu
+// Trong transaction — nguyên tử với dữ liệu nghiệp vụ
 db.Outbox.Add(new OutboxMessage
 {
     Type = nameof(NotificationDto),
@@ -215,7 +215,7 @@ Cái giá: thêm một bảng, một worker, và độ trễ bằng chu kỳ c�
 ### 11.8.6 — Đừng để SignalR thành phụ thuộc cứng
 
 ```csharp
-// Khong ly tuong — tang nghiep vu biet ve SignalR
+// Không lý tưởng — tầng nghiệp vụ biết về SignalR
 public sealed class LeadService(IHubContext<NotificationHub, INotificationClient> hub);
 ```
 
@@ -235,7 +235,7 @@ public sealed class SignalRNotificationPublisher(
     public async Task PublishAsync(string userId, NotificationDto dto, CancellationToken ct)
     {
         try { await hub.Clients.User(userId).ReceiveNotification(dto); }
-        catch (Exception ex) { logger.LogWarning(ex, "Push that bai cho {UserId}", userId); }
+        catch (Exception ex) { logger.LogWarning(ex, "Push thất bại cho {UserId}", userId); }
     }
 }
 ```

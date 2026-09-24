@@ -29,9 +29,9 @@ Sau bài này bạn có thể:
 ```mermaid
 flowchart TB
     A["Fixed Window<br/>Dem reset moi N giay<br/>Don gian - co burst o ranh gioi"]
-    B["Sliding Window<br/>Chia cua so thanh doan<br/>Muot hon - ton bo nho hon"]
-    C["Token Bucket<br/>Token nap dan, moi request tieu 1<br/>Cho phep burst co kiem soat"]
-    D["Concurrency<br/>Gioi han SO REQUEST DONG THOI<br/>Khong lien quan thoi gian"]
+    B["Sliding Window<br/>Chia cửa sổ thành đoạn<br/>Mượt hơn — tốn bộ nhớ hơn"]
+    C["Token Bucket<br/>Token nạp dần, mỗi request tiêu 1<br/>Cho phép burst có kiểm soát"]
+    D["Concurrency<br/>Giới hạn SỐ REQUEST ĐỒNG THỜI<br/>Không liên quan thời gian"]
 ```
 
 **Fixed window** — đơn giản nhất, và có một khuyết điểm cụ thể:
@@ -171,7 +171,7 @@ options.OnRejected = async (context, ct) =>
     await context.HttpContext.Response.WriteAsJsonAsync(new ProblemDetails
     {
         Status = StatusCodes.Status429TooManyRequests,
-        Title = "Qua nhieu yeu cau",
+        Title = "Quá nhiều yêu cầu",
         Detail = "Bạn đã vượt hạn mức. Vui lòng thử lại sau.",
         Extensions = { ["traceId"] = context.HttpContext.TraceIdentifier }
     }, ct);
@@ -197,8 +197,8 @@ Rate limiter của .NET lưu trạng thái **trong bộ nhớ**. Hệ quả khi 
 ```
 Gioi han dat: 100 request/phut
 Chay 4 pod   -> moi pod dem RIENG
-=> Han muc thuc te: 400 request/phut
-=> Va nguoi dung bi chan hay khong phu thuoc vao pod nao nhan request
+=> Hạn mức thực tế: 400 request/phút
+=> Và người dùng bị chặn hay không phụ thuộc vào pod nào nhận request
 ```
 
 Hệ quả thứ hai tệ hơn con số: **hành vi không đoán trước được**. Cùng một client, cùng một tốc độ, lúc bị chặn lúc không.
@@ -374,7 +374,7 @@ Chạy 3 thể hiện sau một bộ cân bằng tải với giới hạn 10 req
 **Lời giải.**
 
 ```csharp
-o.AddFixedWindowLimiter("mac-dinh", opt =>
+o.AddFixedWindowLimiter("default", opt =>
 {
     opt.PermitLimit = 10;
     opt.Window = TimeSpan.FromMinutes(1);

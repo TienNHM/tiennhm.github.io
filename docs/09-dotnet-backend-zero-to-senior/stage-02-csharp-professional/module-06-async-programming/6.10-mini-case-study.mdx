@@ -26,24 +26,24 @@ Sau bài này bạn có thể:
 ### 6.11.1 — Code ban đầu
 
 ```csharp
-public async Task<SyncResult> DongBoKhachHangAsync(CancellationToken ct)
+public async Task<SyncResult> SyncCustomersAsync(CancellationToken ct)
 {
-    var khachHangs = await _db.Customers.Where(c => c.NeedsSync).ToListAsync(ct);
+    var customers = await _db.Customers.Where(c => c.NeedsSync).ToListAsync(ct);
 
-    foreach (var kh in khachHangs)              // 500 khach hang
+    foreach (var customer in customers)         // 500 khách hàng
     {
-        var ketQua = await _ketToanClient.DongBoAsync(kh, ct);   // ~950ms moi lan
-        kh.LastSyncedUtc = DateTime.UtcNow;
+        var result = await _accountingClient.SyncAsync(customer, ct);   // ~950ms mỗi lần
+        customer.LastSyncedUtc = DateTime.UtcNow;
     }
 
     await _db.SaveChangesAsync(ct);
-    return SyncResult.Success(khachHangs.Count);
+    return SyncResult.Success(customers.Count);
 }
 ```
 
 ```
-500 khach x 950ms = 475 giay = ~8 phut
-Timeout cua gateway: 300 giay  -> that bai truoc khi xong
+500 khách x 950ms = 475 giây = ~8 phút
+Timeout của gateway: 300 giây  -> thất bại trước khi xong
 ```
 
 Code này dùng `async/await` **đúng cú pháp**. Vấn đề không phải ở cú pháp mà ở **cấu trúc**: `await` bên trong `foreach` nghĩa là mỗi vòng lặp **chờ xong** rồi mới bắt đầu vòng sau.
@@ -53,12 +53,12 @@ Code này dùng `async/await` **đúng cú pháp**. Vấn đề không phải �
 ### 6.11.2 — Thử 1: song song tối đa
 
 ```csharp
-var tasks = khachHangs.Select(kh => _ketToanClient.DongBoAsync(kh, ct));
-var ketQuas = await Task.WhenAll(tasks);        // 500 loi goi CUNG LUC
+var tasks = customers.Select(c => _accountingClient.SyncAsync(c, ct));
+var results = await Task.WhenAll(tasks);        // 500 lời gọi CÙNG LÚC
 ```
 
 ```
-Thoi gian: 8 phut -> 1,2 giay
+Thời gian: 8 phút -> 1,2 giây
 ```
 
 Nhưng chạy trên môi trường thật thì hỏng ngay, theo ba cách.
@@ -75,7 +75,7 @@ Hệ thống kế toán cho tối đa 20 request đồng thời. 500 request cù
 **Bẫy 2 — `DbContext` không an toàn đa luồng:**
 
 ```csharp
-// Neu trong DongBoAsync co truy van database
+// Nếu trong SyncAsync có truy vấn database
 InvalidOperationException: A second operation was started on this context
 instance before a previous operation completed.
 ```
@@ -86,8 +86,8 @@ instance before a previous operation completed.
 
 ```csharp
 await Task.WhenAll(tasks);
-// Neu 1 task nem exception -> WhenAll nem exception
-// -> 499 ket qua thanh cong bi mat, khong biet cai nao da xong
+// Nếu 1 task ném exception -> WhenAll ném exception
+// -> 499 kết quả thành công bị mất, không biết cái nào đã xong
 ```
 
 Tệ hơn: `Task.WhenAll` chỉ ném **exception đầu tiên** trong `AggregateException`, nên bạn còn không biết có bao nhiêu cái thất bại.
@@ -95,47 +95,47 @@ Tệ hơn: `Task.WhenAll` chỉ ném **exception đầu tiên** trong `Aggregate
 ### 6.11.3 — Giải pháp: song song có giới hạn
 
 ```csharp
-public async Task<SyncResult> DongBoKhachHangAsync(CancellationToken ct)
+public async Task<SyncResult> SyncCustomersAsync(CancellationToken ct)
 {
-    var khachHangs = await _db.Customers
+    var customers = await _db.Customers
         .Where(c => c.NeedsSync)
         .AsNoTracking()
         .ToListAsync(ct);
 
-    var thanhCong = new ConcurrentBag<Guid>();
-    var thatBai = new ConcurrentBag<(Guid Id, string LyDo)>();
+    var succeeded = new ConcurrentBag<Guid>();
+    var failed = new ConcurrentBag<(Guid Id, string Reason)>();
 
     await Parallel.ForEachAsync(
-        khachHangs,
+        customers,
         new ParallelOptions
         {
-            MaxDegreeOfParallelism = 10,        // toi da 10 luc mot lan
+            MaxDegreeOfParallelism = 10,        // tối đa 10 lúc một lần
             CancellationToken = ct
         },
-        async (kh, token) =>
+        async (customer, token) =>
         {
             try
             {
-                await _ketToanClient.DongBoAsync(kh, token);
-                thanhCong.Add(kh.Id);
+                await _accountingClient.SyncAsync(customer, token);
+                succeeded.Add(customer.Id);
             }
             catch (Exception ex)
             {
-                // MOT loi KHONG lam hong cac cai khac
-                thatBai.Add((kh.Id, ex.Message));
-                _logger.LogWarning(ex, "Đồng bộ thất bại cho khách {Id}", kh.Id);
+                // MỘT lỗi KHÔNG làm hỏng các cái khác
+                failed.Add((customer.Id, ex.Message));
+                _logger.LogWarning(ex, "Đồng bộ thất bại cho khách {Id}", customer.Id);
             }
         });
 
-    // Cap nhat database SAU khi xong, tren MOT luong
-    await CapNhatTrangThaiAsync(thanhCong, ct);
+    // Cập nhật database SAU khi xong, trên MỘT luồng
+    await UpdateSyncStatusAsync(succeeded, ct);
 
-    return new SyncResult(thanhCong.Count, thatBai.ToList());
+    return new SyncResult(succeeded.Count, failed.ToList());
 }
 ```
 
 ```
-Thoi gian: 500 / 10 x 950ms = ~48 giay
+Thời gian: 500 / 10 x 950ms = ~48 giây
 ```
 
 Bốn thay đổi giải quyết cả ba cái bẫy:
@@ -154,22 +154,22 @@ Bốn thay đổi giải quyết cả ba cái bẫy:
 Khi cần kiểm soát chi tiết hơn `Parallel.ForEachAsync`:
 
 ```csharp
-var semaphore = new SemaphoreSlim(10);      // toi da 10 dong thoi
+var semaphore = new SemaphoreSlim(10);      // tối đa 10 đồng thời
 
-var tasks = khachHangs.Select(async kh =>
+var tasks = customers.Select(async customer =>
 {
     await semaphore.WaitAsync(ct);
     try
     {
-        return await _ketToanClient.DongBoAsync(kh, ct);
+        return await _accountingClient.SyncAsync(customer, ct);
     }
     finally
     {
-        semaphore.Release();                // PHAI o finally
+        semaphore.Release();                // PHẢI ở finally
     }
 });
 
-var ketQuas = await Task.WhenAll(tasks);
+var results = await Task.WhenAll(tasks);
 ```
 
 `Release()` trong `finally` là bắt buộc: nếu một exception thoát ra mà không `Release`, semaphore mất dần số lượt cho phép và cuối cùng **mọi task đều treo vĩnh viễn**.
@@ -188,10 +188,10 @@ Dùng `Parallel.ForEachAsync` làm mặc định.
 Không có con số đúng cho mọi trường hợp. Cách tìm:
 
 ```
-1. Bat dau tu 4
-2. Do thong luong va ty le loi
-3. Tang gap doi, do lai
-4. Dung khi: ty le loi tang, HOAC thong luong khong tang nua
+1. Bắt đầu từ 4
+2. Đo thông lượng và tỷ lệ lỗi
+3. Tăng gấp đôi, đo lại
+4. Dừng khi: tỷ lệ lỗi tăng, HOẶC thông lượng không tăng nữa
 ```
 
 Ba giới hạn cần cân nhắc cùng lúc:
@@ -209,16 +209,16 @@ Với công việc **thiên về I/O** như ca này, mức song song có thể c
 Sau khi tối ưu, 48 giây vẫn là quá lâu cho một request HTTP: người dùng chờ, gateway có timeout riêng, và nếu kết nối đứt thì không biết đã xong tới đâu.
 
 ```csharp
-// Tra ve ngay, chay nen
+// Trả về ngay, chạy nền
 [HttpPost("sync")]
-public IActionResult BatDauDongBo()
+public IActionResult StartSync()
 {
-    var jobId = _jobs.Enqueue<ISyncService>(s => s.DongBoKhachHangAsync(CancellationToken.None));
+    var jobId = _jobs.Enqueue<ISyncService>(s => s.SyncCustomersAsync(CancellationToken.None));
     return Accepted(new { jobId });          // 202 Accepted
 }
 
 [HttpGet("sync/{jobId}")]
-public async Task<IActionResult> TrangThai(string jobId)
+public async Task<IActionResult> GetStatus(string jobId)
     => Ok(await _jobs.GetStatusAsync(jobId));
 ```
 

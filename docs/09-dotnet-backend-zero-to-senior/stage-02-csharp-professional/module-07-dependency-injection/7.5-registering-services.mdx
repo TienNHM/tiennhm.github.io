@@ -32,10 +32,10 @@ services.AddScoped<ICustomerRepository, EfCustomerRepository>();
 services.AddSingleton<IEmailService, SmtpEmailService>();
 services.AddTransient<ILeadScorer, RuleBasedLeadScorer>();
 
-// Chi lop cu the, khong interface
+// Chỉ lớp cụ thể, không interface
 services.AddScoped<CustomerService>();
 
-// Instance co san — CHU Y: container KHONG Dispose cai nay
+// Instance có sẵn — CHÚ Ý: container KHÔNG Dispose cái này
 services.AddSingleton<IClock>(new SystemClock());
 ```
 
@@ -123,9 +123,9 @@ Nhớ hai điều từ [bài 7.3](7.2-ioc-container-and-di-container.mdx): `GetR
 ### 7.6.5 — `TryAdd` và `Replace`
 
 ```csharp
-services.TryAddScoped<IEmailService, SmtpEmailService>();            // chi them neu chua co
+services.TryAddScoped<IEmailService, SmtpEmailService>();            // chỉ thêm nếu chưa có
 services.TryAddEnumerable(
-    ServiceDescriptor.Scoped<IValidator<Customer>, EmailValidator>()); // khong them trung
+    ServiceDescriptor.Scoped<IValidator<Customer>, EmailValidator>()); // không thêm trùng
 
 services.Replace(ServiceDescriptor.Scoped<IEmailService, FakeEmailService>()); // thay the
 ```
@@ -376,34 +376,34 @@ Bọc một repository bằng caching rồi bọc tiếp bằng logging, sao cho
 **Lời giải — các lớp:**
 
 ```csharp
-public interface IOrderRepository { Task<Order?> LayAsync(int id, CancellationToken ct); }
+public interface IOrderRepository { Task<Order?> GetAsync(int id, CancellationToken ct); }
 
 public class EfOrderRepository(CrmDbContext db) : IOrderRepository
 {
-    public async Task<Order?> LayAsync(int id, CancellationToken ct)
+    public async Task<Order?> GetAsync(int id, CancellationToken ct)
         => await db.Orders.FindAsync([id], ct);
 }
 
 public class CachingOrderRepository(IOrderRepository inner, IMemoryCache cache) : IOrderRepository
 {
-    public async Task<Order?> LayAsync(int id, CancellationToken ct)
+    public async Task<Order?> GetAsync(int id, CancellationToken ct)
         => await cache.GetOrCreateAsync($"order:{id}", async e =>
         {
             e.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5);
-            return await inner.LayAsync(id, ct);
+            return await inner.GetAsync(id, ct);
         });
 }
 
 public class LoggingOrderRepository(IOrderRepository inner, ILogger<LoggingOrderRepository> log)
     : IOrderRepository
 {
-    public async Task<Order?> LayAsync(int id, CancellationToken ct)
+    public async Task<Order?> GetAsync(int id, CancellationToken ct)
     {
         log.LogInformation("Lấy đơn hàng {Id}", id);
         var sw = Stopwatch.StartNew();
-        var kq = await inner.LayAsync(id, ct);
+        var order = await inner.GetAsync(id, ct);
         log.LogInformation("Xong sau {Ms} ms", sw.ElapsedMilliseconds);
-        return kq;
+        return order;
     }
 }
 ```

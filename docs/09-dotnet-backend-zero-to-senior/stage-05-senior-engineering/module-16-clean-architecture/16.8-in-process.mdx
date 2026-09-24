@@ -27,7 +27,7 @@ Sau bài này bạn có thể:
 ### 16.9.1 — Vấn đề nó giải
 
 ```csharp
-// Ghep chat — moi phan ung moi phai sua handler nay
+// Ghép chặt — mỗi phản ứng mới phải sửa handler này
 public async Task<Result> Handle(ConvertLeadCommand command, CancellationToken ct)
 {
     var lead = await _leads.GetByIdAsync(command.LeadId, ct);
@@ -59,7 +59,7 @@ public sealed class Lead
         Status = LeadStatus.Won;
         ConvertedAt = now;
 
-        Raise(new LeadConverted(Id, Name, Email, now));      // CHI thong bao
+        Raise(new LeadConverted(Id, Name, Email, now));      // CHỈ thông báo
     }
 }
 ```
@@ -104,7 +104,7 @@ Ba nguyên tắc về nội dung event:
 Đây là quyết định thiết kế quan trọng nhất của bài.
 
 ```csharp
-// TRUOC commit — handler nam TRONG cung transaction
+// TRƯỚC commit — handler nằm TRONG cùng transaction
 public override async Task<int> SaveChangesAsync(CancellationToken ct = default)
 {
     var events = ChangeTracker.Entries<AggregateRoot>()
@@ -115,7 +115,7 @@ public override async Task<int> SaveChangesAsync(CancellationToken ct = default)
         entry.Entity.ClearDomainEvents();
 
     foreach (var domainEvent in events)
-        await _publisher.Publish(domainEvent, ct);      // CUNG transaction
+        await _publisher.Publish(domainEvent, ct);      // CÙNG transaction
 
     return await base.SaveChangesAsync(ct);
 }
@@ -123,7 +123,7 @@ public override async Task<int> SaveChangesAsync(CancellationToken ct = default)
 
 ```csharp
 // SAU commit — nghiep vu chinh an toan
-await _uow.SaveChangesAsync(ct);                       // commit TRUOC
+await _uow.SaveChangesAsync(ct);                       // commit TRƯỚC
 
 foreach (var domainEvent in events)
     await _publisher.Publish(domainEvent, ct);         // roi moi phat
@@ -145,7 +145,7 @@ foreach (var domainEvent in events)
 Nhiều dự án tách thành **hai loại event** cho đúng ngữ nghĩa này:
 
 ```csharp
-public interface IDomainEvent;              // dispatch TRUOC commit
+public interface IDomainEvent;              // dispatch TRƯỚC commit
 public interface IIntegrationEvent;         // dispatch SAU commit, qua outbox
 ```
 
@@ -167,7 +167,7 @@ public sealed class SendWelcomeEmailHandler(
         catch (Exception ex)
         {
             logger.LogError(ex, "Gửi email chào mừng thất bại cho {LeadId}", notification.LeadId);
-            // KHONG throw — mot email that bai khong duoc lam hong viec convert
+            // KHÔNG throw — một email thất bại không được làm hỏng việc convert
         }
     }
 }
@@ -208,16 +208,16 @@ Chuỗi ba tầng trông thanh lịch nhưng gây ba vấn đề:
 **Quy tắc: tối đa một tầng.** Event từ handler của event khác là dấu hiệu logic đó thuộc về **Application**, không thuộc về chuỗi phản ứng:
 
 ```csharp
-// Ro rang hon chuoi event
+// Rõ ràng hơn chuỗi event
 public async Task<Result> Handle(ConvertLeadCommand command, CancellationToken ct)
 {
     var lead = await _leads.GetByIdAsync(command.LeadId, ct);
     lead.Convert(now);
 
-    var customer = Customer.CreateFromLead(lead);     // TUONG MINH
+    var customer = Customer.CreateFromLead(lead);     // TƯỜNG MINH
     _customers.Add(customer);
 
-    var billing = BillingAccount.Create(customer.Id); // TUONG MINH
+    var billing = BillingAccount.Create(customer.Id); // TƯỜNG MINH
     _billing.Add(billing);
 
     await _uow.SaveChangesAsync(ct);
@@ -241,20 +241,20 @@ Ranh giới: *"nếu việc này không xảy ra, nghiệp vụ có sai không?"
 Đừng phát domain event ra ngoài hệ thống:
 
 ```csharp
-// SAI — kieu domain thanh hop dong cong khai
+// SAI — kiểu domain thành hợp đồng công khai
 await _bus.Publish(new LeadConverted(LeadId, ...));
 ```
 
 `LeadId` là kiểu nội bộ. Khi bạn refactor nó, **mọi consumer ở service khác gãy** — và bạn vừa biến chi tiết nội bộ thành hợp đồng công khai.
 
 ```csharp
-// DUNG — dich sang hop dong on dinh
+// ĐÚNG — dịch sang hợp đồng ổn định
 public sealed class PublishLeadConvertedHandler(IOutboxWriter outbox)
     : INotificationHandler<LeadConverted>
 {
     public Task Handle(LeadConverted notification, CancellationToken ct)
         => outbox.AddAsync(new LeadConvertedIntegrationEvent(
-               LeadId: notification.LeadId.Value,        // Guid, khong phai LeadId
+               LeadId: notification.LeadId.Value,        // Guid, không phải LeadId
                Email: notification.Email,
                OccurredAt: notification.OccurredAt), ct);
 }

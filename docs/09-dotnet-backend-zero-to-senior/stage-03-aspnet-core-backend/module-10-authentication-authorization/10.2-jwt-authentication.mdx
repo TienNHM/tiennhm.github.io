@@ -61,7 +61,7 @@ Ba phần, hai phần đầu là **Base64Url của JSON** — không mã hoá, c
 **Hệ quả của "chỉ ký, không mã hoá":**
 
 ```csharp
-// SAI — ai cam token cung doc duoc
+// SAI — ai cầm token cũng đọc được
 claims.Add(new Claim("salary", "50000000"));
 claims.Add(new Claim("ssn", "001234567890"));
 claims.Add(new Claim("internal_notes", "..."));
@@ -134,11 +134,11 @@ Nếu bạn dùng `Zero`, hãy chắc chắn mọi máy đều đồng bộ NTP.
 ### 10.3.4 — HMAC hay RSA
 
 ```csharp
-// HMAC (HS256) — MOT khoa bi mat dung chung
+// HMAC (HS256) — MỘT khoá bí mật dùng chung
 var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
 var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-// RSA (RS256) — khoa RIENG de ky, khoa CONG de xac thuc
+// RSA (RS256) — khoá RIÊNG để ký, khoá CÔNG để xác thực
 var rsa = RSA.Create();
 rsa.ImportFromPem(privateKeyPem);
 var creds = new SigningCredentials(new RsaSecurityKey(rsa), SecurityAlgorithms.RsaSha256);
@@ -218,10 +218,10 @@ public async Task<ActionResult<TokenResponse>> Login(
 {
     var user = await _userManager.FindByEmailAsync(request.Email);
 
-    // Thong bao GIONG NHAU cho moi truong hop that bai
+    // Thông báo GIỐNG NHAU cho mọi trường hợp thất bại
     if (user is null || !await _userManager.CheckPasswordAsync(user, request.Password))
     {
-        _logger.LogWarning("Dang nhap that bai cho {Email} tu {Ip}",
+        _logger.LogWarning("Đăng nhập thất bại cho {Email} từ {Ip}",
             request.Email, HttpContext.Connection.RemoteIpAddress);
 
         return Unauthorized(new ProblemDetails

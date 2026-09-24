@@ -77,7 +77,7 @@ Sau một cột dùng khoảng, mọi cột tiếp theo **không** còn dùng đ
 **SARGable** = Search ARGument able — điều kiện mà database dùng được index để seek.
 
 ```sql
--- KHONG SARGable — ham boc quanh COT
+-- KHÔNG SARGable — hàm bọc quanh CỘT
 WHERE YEAR(CreatedAt) = 2026
 WHERE UPPER(Email) = 'A@B.COM'
 WHERE CONVERT(DATE, CreatedAt) = '2026-03-15'
@@ -85,7 +85,7 @@ WHERE CompanyName LIKE '%tech%'          -- wildcard o DAU
 WHERE EstimatedValue + Discount > 1000
 WHERE ISNULL(Status, 'New') = 'New'
 
--- SARGable — cot dung mot minh
+-- SARGable — cột đứng một mình
 WHERE CreatedAt >= '2026-01-01' AND CreatedAt < '2027-01-01'
 WHERE Email = 'a@b.com'                  -- chuan hoa chu thuong khi ghi
 WHERE CreatedAt >= '2026-03-15' AND CreatedAt < '2026-03-16'
@@ -101,11 +101,11 @@ Quy tắc duy nhất cần nhớ: **cột phải đứng một mình ở một v
 Cần lọc theo biểu thức thật thì tạo **index trên biểu thức**:
 
 ```sql
--- SQL Server: cot tinh toan
+-- SQL Server: cột tính toán
 ALTER TABLE Leads ADD CreatedYear AS YEAR(CreatedAt) PERSISTED;
 CREATE INDEX IX_Leads_CreatedYear ON Leads(CreatedYear);
 
--- PostgreSQL: index tren bieu thuc, khong can them cot
+-- PostgreSQL: index trên biểu thức, không cần thêm cột
 CREATE INDEX idx_leads_created_year ON leads (EXTRACT(YEAR FROM created_at));
 ```
 
@@ -124,7 +124,7 @@ Index chỉ chứa `Status` và khoá gom cụm. Để lấy `CompanyName` và `
 Với 10 dòng thì không sao. Với 50.000 dòng, đó là 50.000 lần tra cứu ngẫu nhiên, và optimizer thường **bỏ index** để quét toàn bảng — vì quét tuần tự rẻ hơn.
 
 ```sql
--- Covering index — INCLUDE cac cot chi de doc
+-- Covering index — INCLUDE các cột chỉ để đọc
 CREATE INDEX IX_Leads_Status_Covering
     ON Leads (Status, CreatedAt DESC)
     INCLUDE (LeadId, CompanyName, EstimatedValue, AssignedToUserId);
@@ -150,7 +150,7 @@ PostgreSQL có `INCLUDE` từ v11; trước đó phải đưa hết vào cột k
 ### 12.5.5 — Filtered index
 
 ```sql
--- 95% truy van chi quan tam lead chua ket thuc
+-- 95% truy vấn chỉ quan tâm lead chưa kết thúc
 CREATE INDEX IX_Leads_Active
     ON Leads (AssignedToUserId, CreatedAt DESC)
     WHERE Status NOT IN ('Won', 'Lost');
@@ -192,7 +192,7 @@ JOIN   sys.indexes i ON i.object_id = s.object_id AND i.index_id = s.index_id
 WHERE  s.database_id = DB_ID()
   AND  i.is_primary_key = 0
   AND  s.user_seeks + s.user_scans + s.user_lookups = 0    -- chua bao gio DOC
-  AND  s.user_updates > 0                                  -- nhung van phai GHI
+  AND  s.user_updates > 0                                  -- nhưng vẫn phải GHI
 ORDER  BY s.user_updates DESC;
 ```
 

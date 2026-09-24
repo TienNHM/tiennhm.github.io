@@ -61,7 +61,7 @@ public async Task UpdateAsync(int id, UpdateCustomerRequest request, Cancellatio
     customer.Apply(request);
     await _db.SaveChangesAsync(ct);
 
-    await _cache.RemoveAsync(CacheKeys.Customer(_tenant.Id, id), ct);   // xoa
+    await _cache.RemoveAsync(CacheKeys.Customer(_tenant.Id, id), ct);   // xoá
 }
 ```
 
@@ -115,7 +115,7 @@ await _hybridCache.SetAsync(key, value,
     tags: ["customers", $"customer:{id}", $"tenant:{tenantId}"],
     cancellationToken: ct);
 
-await _hybridCache.RemoveByTagAsync("customers", ct);     // xoa CA NHOM
+await _hybridCache.RemoveByTagAsync("customers", ct);     // xoá CẢ NHÓM
 ```
 
 Với Redis trực tiếp, tự duy trì tập khoá:
@@ -157,10 +157,10 @@ Nguyên tắc: tag **hẹp nhất có thể**. Sửa khách hàng 42 thì xoá `
 Với `IMemoryCache` trên nhiều pod:
 
 ```
-Pod A: xoa cache "customer:42"
+Pod A: xoá cache "customer:42"
 Pod B: VAN giu ban cu
 Pod C: VAN giu ban cu
-=> Nguoi dung thay du lieu cu hay moi TUY VAO pod nao phuc vu
+=> Người dùng thấy dữ liệu cũ hay mới TUỲ VÀO pod nào phục vụ
 ```
 
 Triệu chứng đặc trưng: **F5 lại thì lúc đúng lúc sai** — rất khó chẩn đoán.
@@ -179,8 +179,8 @@ public sealed class CacheInvalidationService : IHostedService
         await sub.SubscribeAsync(RedisChannel.Literal(Channel), (_, message) =>
         {
             var key = message.ToString();
-            _memoryCache.Remove(key);                       // xoa L1 CUA POD NAY
-            _logger.LogDebug("Xoa cache cuc bo {Key}", key);
+            _memoryCache.Remove(key);                       // xoá L1 CỦA POD NÀY
+            _logger.LogDebug("Xoá cache cục bộ {Key}", key);
         });
     }
 
@@ -201,10 +201,10 @@ Lưu ý: pub/sub **không đảm bảo giao hàng** ([bài 11.11](../../stage-03
 ### 14.5.5 — Race condition khi xoá
 
 ```
-t=0   Request A doc cache MISS, bat dau truy van database
-t=1   Request B UPDATE du lieu, xoa cache
-t=2   Request A truy van XONG (voi du lieu CU tu t=0), GHI vao cache
-=> Cache chua du lieu CU, va se song het TTL
+t=0   Request A đọc cache MISS, bắt đầu truy vấn database
+t=1   Request B UPDATE dữ liệu, xoá cache
+t=2   Request A truy vấn XONG (với dữ liệu CŨ từ t=0), GHI vào cache
+=> Cache chứa dữ liệu CŨ, và sẽ sống hết TTL
 ```
 
 Đây là lỗi tinh tế và khó tái hiện, nhưng nó **xảy ra thật** dưới tải cao.
@@ -212,7 +212,7 @@ t=2   Request A truy van XONG (voi du lieu CU tu t=0), GHI vao cache
 Ba cách xử lý:
 
 ```csharp
-// 1. Xoa LAI sau mot khoang ngan (delayed double delete)
+// 1. Xoá LẠI sau một khoảng ngắn (delayed double delete)
 await _cache.RemoveAsync(key, ct);
 await _db.SaveChangesAsync(ct);
 
@@ -221,13 +221,13 @@ _ = Task.Delay(TimeSpan.FromMilliseconds(500), ct)
 ```
 
 ```csharp
-// 2. Ghi de thay vi xoa — biet chac gia tri moi
+// 2. Ghi đè thay vì xoá — biết chắc giá trị mới
 var updated = await LoadFreshAsync(id, ct);
 await _cache.SetAsync(key, updated, ttl, ct);
 ```
 
 ```csharp
-// 3. Kiem tra phien ban khi ghi cache — chac chan nhat
+// 3. Kiểm tra phiên bản khi ghi cache — chắc chắn nhất
 var version = await _db.Customers.Where(c => c.Id == id)
                                  .Select(c => c.RowVersion).FirstAsync(ct);
 

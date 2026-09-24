@@ -28,9 +28,9 @@ Sau bài này bạn có thể:
 
 ```mermaid
 flowchart TD
-    A[git merge] --> B{Hai nhanh co sua<br/>cung vung cua cung file?}
-    B -->|Khong| C[Merge tu dong thanh cong]
-    B -->|Co| D[XUNG DOT<br/>Git dung lai va hoi ban]
+    A[git merge] --> B{Hai nhánh có sửa<br/>cùng vùng của cùng file?}
+    B -->|Không| C[Merge tự động thành công]
+    B -->|Có| D[XUNG ĐỘT<br/>Git dừng lại và hỏi bạn]
 ```
 
 Git hợp nhánh theo **từng khối dòng**. Nếu hai nhánh sửa hai vùng cách xa nhau trong cùng một file, nó gộp được. Chỉ khi hai bên đụng vào **cùng một vùng** thì nó mới dừng.
@@ -196,13 +196,13 @@ Trên kho thử, tạo hai nhánh cùng sửa một dòng. Merge và giải bằ
 git init -q -b main
 echo "gốc" > f.txt && git add . && git commit -q -m base
 
-git checkout -q -b nhanh-b
-echo "TỪ NHÁNH B" > f.txt && git commit -q -am "sua tu B"
+git checkout -q -b branch-b
+echo "TỪ NHÁNH B" > f.txt && git commit -q -am "edit from B"
 
 git checkout -q main
-echo "TỪ MAIN" > f.txt && git commit -q -am "sua tu main"
+echo "TỪ MAIN" > f.txt && git commit -q -am "edit from main"
 
-git merge nhanh-b
+git merge branch-b
 ```
 
 **Output thật:**
@@ -219,7 +219,7 @@ CONFLICT (content): Merge conflict in f.txt
 TỪ MAIN
 =======
 TỪ NHÁNH B
->>>>>>> nhanh-b
+>>>>>>> branch-b
 ```
 
 **Đọc ba phần:**
@@ -228,7 +228,7 @@ TỪ NHÁNH B
 |---|---|---|
 | `<<<<<<< HEAD` tới `=======` | `TỪ MAIN` | Phiên bản của **nhánh bạn đang đứng** |
 | `=======` tới `>>>>>>>` | `TỪ NHÁNH B` | Phiên bản của **nhánh bạn đang gộp vào** |
-| Sau `>>>>>>>` | `nhanh-b` | Tên nhánh, để bạn biết phần dưới đến từ đâu |
+| Sau `>>>>>>>` | `branch-b` | Tên nhánh, để bạn biết phần dưới đến từ đâu |
 
 **Bốn cách giải:**
 
@@ -266,7 +266,7 @@ TỪ MAIN
 gốc
 =======
 TỪ NHÁNH B
->>>>>>> nhanh-b
+>>>>>>> branch-b
 ```
 
 Biết được điểm xuất phát giúp bạn hiểu **mỗi bên đã thay đổi gì**, thay vì chỉ thấy hai kết quả cuối và phải đoán. Đây là một dòng cấu hình đáng bật ngay.
@@ -286,11 +286,11 @@ Tạo xung đột và giải bằng `--ours` trong `merge`. Rồi tạo xung đ�
 
 **Lời giải — kết quả thật của cùng một kịch bản.**
 
-**Trong `merge`** (đang ở `main`, gộp `nhanh-b` vào):
+**Trong `merge`** (đang ở `main`, gộp `branch-b` vào):
 
 ```bash
 git checkout main
-git merge nhanh-b            # xung đột
+git merge branch-b            # xung đột
 git checkout --ours f.txt
 cat f.txt
 # TỪ MAIN
@@ -298,10 +298,10 @@ cat f.txt
 
 `--ours` = `main` = **nhánh bạn đang đứng**. Đúng như trực giác.
 
-**Trong `rebase`** (đang ở `nhanh-b`, rebase lên `main`):
+**Trong `rebase`** (đang ở `branch-b`, rebase lên `main`):
 
 ```bash
-git checkout nhanh-b
+git checkout branch-b
 git rebase main              # xung đột
 git checkout --ours f.txt
 cat f.txt
@@ -325,18 +325,18 @@ Nói cách khác: trong rebase, **bạn mới là "theirs"**. Đây là một tr
 
 | Thao tác | `--ours` là | `--theirs` là |
 |---|---|---|
-| `git merge nhanh-b` (đang ở `main`) | `main` | `nhanh-b` |
-| `git rebase main` (đang ở `nhanh-b`) | **`main`** | **`nhanh-b`** |
+| `git merge branch-b` (đang ở `main`) | `main` | `branch-b` |
+| `git rebase main` (đang ở `branch-b`) | **`main`** | **`branch-b`** |
 | `git cherry-pick X` | Nhánh hiện tại | Commit `X` |
 
 **Cách không bao giờ nhầm.** Đừng dựa vào `--ours` và `--theirs`. Đọc thẳng dấu xung đột trong file — nó nói rõ phần dưới đến từ đâu. Và dấu xung đột cũng khác nhau giữa hai trường hợp:
 
 ```text
 # Khi merge — phần dưới ghi TÊN NHÁNH
->>>>>>> nhanh-b
+>>>>>>> branch-b
 
 # Khi rebase — phần dưới ghi MÃ BĂM và MESSAGE của commit đang phát lại
->>>>>>> f59a6a7 (sua tu B)
+>>>>>>> f59a6a7 (edit from B)
 ```
 
 Nhìn dòng đó là biết mình đang ở tình huống nào.
@@ -362,14 +362,14 @@ Nhánh A đổi tên một phương thức, nhánh B thêm một chỗ gọi tê
 // Trạng thái ban đầu — CustomerService.cs
 public class CustomerService
 {
-    public decimal TinhDoanhThu(int customerId) { /* ... */ }
+    public decimal CalculateRevenue(int customerId) { /* ... */ }
 }
 ```
 
 **Nhánh A** — đổi tên cho rõ nghĩa hơn:
 
 ```csharp
-public decimal TinhDoanhThuNam(int customerId) { /* ... */ }
+public decimal CalculateAnnualRevenue(int customerId) { /* ... */ }
 ```
 
 **Nhánh B** — thêm một chỗ gọi, ở file **hoàn toàn khác**:
@@ -378,7 +378,7 @@ public decimal TinhDoanhThuNam(int customerId) { /* ... */ }
 // ReportService.cs — file mới, nhánh A không đụng tới
 public class ReportService
 {
-    public void XuatBaoCao(int id) => _customerService.TinhDoanhThu(id);
+    public void ExportReport(int id) => _customerService.CalculateRevenue(id);
 }
 ```
 
@@ -386,8 +386,8 @@ public class ReportService
 
 ```bash
 git checkout main
-git merge nhanh-a     # OK
-git merge nhanh-b     # OK, KHÔNG có xung đột
+git merge branch-a     # OK
+git merge branch-b     # OK, KHÔNG có xung đột
 ```
 
 Git báo thành công, vì hai nhánh sửa hai file khác nhau và không có một dòng nào chồng lấn.
@@ -396,7 +396,7 @@ Git báo thành công, vì hai nhánh sửa hai file khác nhau và không có m
 
 ```bash
 dotnet build
-# error CS1061: 'CustomerService' does not contain a definition for 'TinhDoanhThu'
+# error CS1061: 'CustomerService' does not contain a definition for 'CalculateRevenue'
 ```
 
 **Vì sao Git không thể phát hiện.** Git là hệ thống quản lý phiên bản **cho văn bản**, không phải cho ngôn ngữ lập trình. Nó không phân tích cú pháp, không biết khái niệm phương thức hay lời gọi. Để phát hiện được xung đột này, Git sẽ phải hiểu C# — và tương tự với mọi ngôn ngữ khác mà nó quản lý. Đó không phải giới hạn về kỹ thuật mà là giới hạn về **thiết kế có chủ ý**: Git giữ mình ở tầng văn bản để dùng được cho mọi loại nội dung.

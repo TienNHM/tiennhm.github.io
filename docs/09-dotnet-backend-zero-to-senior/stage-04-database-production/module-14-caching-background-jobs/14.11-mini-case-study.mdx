@@ -37,18 +37,18 @@ public sealed class EmailNhacLichJob(IServiceScopeFactory scopeFactory) : Backgr
             if (nextRun <= now) nextRun = nextRun.AddDays(1);
 
             await Task.Delay(nextRun - now, ct);
-            await GuiEmailNhacLichAsync(ct);          // chay tren MOI instance
+            await SendAppointmentRemindersAsync(ct);          // chạy trên MỌI instance
         }
     }
 }
 ```
 
 ```
-08:00:00  Instance A chay job -> gui 12.000 email
-08:00:01  Instance B chay job -> gui 12.000 email
-08:00:01  Instance C chay job -> gui 12.000 email
+08:00:00  Instance A chạy job -> gửi 12.000 email
+08:00:01  Instance B chạy job -> gửi 12.000 email
+08:00:01  Instance C chạy job -> gửi 12.000 email
 
-Tong: 36.000 email, 12.000 khach nhan 3 lan
+Tổng: 36.000 email, 12.000 khách nhận 3 lần
 ```
 
 `BackgroundService` chạy trên **mọi** instance — đó là thiết kế của nó. Với công việc xử lý hàng đợi, đó là điều bạn muốn. Với công việc chạy theo lịch, đó là bug.
@@ -62,11 +62,11 @@ protected override async Task ExecuteAsync(CancellationToken ct)
 {
     while (!ct.IsCancellationRequested)
     {
-        await ChoToiGioChayAsync(ct);
+        await WaitUntilScheduledTimeAsync(ct);
 
-        // Chi MOT instance lay duoc khoa
+        // Chỉ MỘT instance lấy được khoá
         await using var handle = await _lock.AcquireAsync(
-            "job:email-nhac-lich",
+            "job:appointment-reminders",
             ttl: TimeSpan.FromMinutes(30),
             ct);
 
@@ -76,7 +76,7 @@ protected override async Task ExecuteAsync(CancellationToken ct)
             continue;
         }
 
-        await GuiEmailNhacLichAsync(ct);
+        await SendAppointmentRemindersAsync(ct);
     }
 }
 ```
@@ -90,35 +90,35 @@ Với job gửi email, xác suất đó thấp nhưng khác không. Vì vậy kh
 Đây là lớp thật sự đảm bảo, và nó dựa vào database chứ không dựa vào giả định về thời gian:
 
 ```csharp
-public async Task GuiEmailNhacLichAsync(CancellationToken ct)
+public async Task SendAppointmentRemindersAsync(CancellationToken ct)
 {
-    var homNay = DateOnly.FromDateTime(DateTime.UtcNow);
+    var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
-    var canGui = await _db.LichHen
-        .Where(l => l.Ngay == homNay.AddDays(1))
-        .Where(l => !_db.EmailDaGui.Any(e =>
-            e.LichHenId == l.Id && e.Loai == "NhacLich"))     // CHUA gui
+    var pending = await _db.Appointments
+        .Where(a => a.Date == today.AddDays(1))
+        .Where(a => !_db.SentEmails.Any(e =>
+            e.AppointmentId == a.Id && e.Kind == "Reminder"))   // CHƯA gửi
         .ToListAsync(ct);
 
-    foreach (var lich in canGui)
+    foreach (var appointment in pending)
     {
         try
         {
-            // Ghi truoc — UNIQUE INDEX tren (LichHenId, Loai)
-            _db.EmailDaGui.Add(new EmailDaGui
+            // Ghi trước — UNIQUE INDEX trên (AppointmentId, Kind)
+            _db.SentEmails.Add(new SentEmail
             {
-                LichHenId = lich.Id,
-                Loai = "NhacLich",
-                GuiLucUtc = DateTime.UtcNow
+                AppointmentId = appointment.Id,
+                Kind = "Reminder",
+                SentAtUtc = DateTime.UtcNow
             });
             await _db.SaveChangesAsync(ct);
         }
         catch (DbUpdateException ex) when (ex.IsUniqueViolation())
         {
-            continue;      // instance khac da gui — bo qua
+            continue;      // instance khác đã gửi — bỏ qua
         }
 
-        await _emailSender.SendAsync(lich, ct);
+        await _emailSender.SendAsync(appointment, ct);
     }
 }
 ```
@@ -138,9 +138,9 @@ builder.Services.AddHangfire(config => config.UseSqlServerStorage(cs));
 builder.Services.AddHangfireServer();
 
 RecurringJob.AddOrUpdate<IEmailService>(
-    "email-nhac-lich",
-    s => s.GuiEmailNhacLichAsync(CancellationToken.None),
-    "0 8 * * *",                                  // cron: 8h sang moi ngay
+    "appointment-reminders",
+    s => s.SendAppointmentRemindersAsync(CancellationToken.None),
+    "0 8 * * *",                                  // cron: 8h sáng mỗi ngày
     new RecurringJobOptions { TimeZone = TimeZoneInfo.Local });
 ```
 
@@ -162,16 +162,16 @@ Và **vẫn cần idempotent**: Hangfire đảm bảo at-least-once, không ph�
 ### 14.12.5 — Cái bẫy: múi giờ
 
 ```csharp
-// SAI — tren container thuong la UTC, khong phai gio Viet Nam
-"0 8 * * *"      // 8h UTC = 15h Viet Nam
+// SAI — trên container thường là UTC, không phải giờ Việt Nam
+"0 8 * * *"      // 8h UTC = 15h Việt Nam
 ```
 
 Container Linux gần như luôn chạy ở UTC. Job "8 giờ sáng" thực tế chạy lúc 3 giờ chiều.
 
 ```csharp
 RecurringJob.AddOrUpdate<IEmailService>(
-    "email-nhac-lich",
-    s => s.GuiEmailNhacLichAsync(CancellationToken.None),
+    "appointment-reminders",
+    s => s.SendAppointmentRemindersAsync(CancellationToken.None),
     "0 8 * * *",
     new RecurringJobOptions
     {

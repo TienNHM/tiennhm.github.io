@@ -29,7 +29,7 @@ Sau bài này bạn có thể:
 ```csharp
 public sealed class Notification
 {
-    public Guid Id { get; init; } = Guid.CreateVersion7();   // sap xep theo thoi gian
+    public Guid Id { get; init; } = Guid.CreateVersion7();   // sắp xếp theo thời gian
     public required string UserId { get; init; }
     public required NotificationType Type { get; init; }
     public required string Message { get; init; }
@@ -41,7 +41,7 @@ public sealed class Notification
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
     public DateTime? ReadAt { get; set; }
 
-    // Gom nhom: "3 nguoi da binh luan"
+    // Gom nhóm: "3 người đã bình luận"
     public string? GroupKey { get; init; }
     public int Count { get; set; } = 1;
 }
@@ -73,7 +73,7 @@ public sealed class NotificationService(
     public async Task<NotificationDto> SendAsync(
         CreateNotificationRequest request, CancellationToken ct)
     {
-        // 1. Gom nhom neu da co thong bao tuong tu chua doc
+        // 1. Gom nhóm nếu đã có thông báo tương tự chưa đọc
         if (request.GroupKey is not null)
         {
             var existing = await db.Notifications.FirstOrDefaultAsync(
@@ -92,12 +92,12 @@ public sealed class NotificationService(
             }
         }
 
-        // 2. Tao moi va LUU truoc
+        // 2. Tạo mới và LƯU trước
         var notification = new Notification { ... };
         db.Notifications.Add(notification);
         await db.SaveChangesAsync(ct);
 
-        // 3. Push sau khi da luu
+        // 3. Push sau khi đã lưu
         var dto = notification.ToDto();
         await publisher.PublishAsync(request.UserId, dto, ct);
 
@@ -157,7 +157,7 @@ public sealed class NotificationsController(
 
         if (affected == 0) return NotFound();
 
-        // Bao cho CAC THIET BI KHAC cua chinh nguoi do
+        // Báo cho CÁC THIẾT BỊ KHÁC của chính người đó
         await _publisher.PublishReadStateAsync(user.Id, id, ct);
         return NoContent();
     }
@@ -207,7 +207,7 @@ hub.on("NotificationRead", ({ id }) => store.markRead(id));
 
 connection.onreconnected(async () => {
   const missed = await api.getNotifications({ since: store.lastCreatedAt });
-  missed.forEach(n => store.add(n));      // trung thi bi bo qua
+  missed.forEach(n => store.add(n));      // trùng thì bị bỏ qua
 });
 ```
 
@@ -241,17 +241,17 @@ public sealed class NotificationCleanupWorker(
                     .Where(n => n.ReadAt != null && n.ReadAt < readCutoff)
                     .ExecuteDeleteAsync(ct);
 
-                // Chua doc nhung qua 90 ngay — khong ai doc nua
+                // Chưa đọc nhưng quá 90 ngày — không ai đọc nữa
                 var staleCutoff = DateTime.UtcNow.AddDays(-90);
                 removed += await db.Notifications
                     .Where(n => n.ReadAt == null && n.CreatedAt < staleCutoff)
                     .ExecuteDeleteAsync(ct);
 
-                logger.LogInformation("Da xoa {Count} thong bao cu", removed);
+                logger.LogInformation("Đã xoá {Count} thông báo cũ", removed);
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Don dep thong bao that bai");
+                logger.LogError(ex, "Dọn dẹp thông báo thất bại");
             }
         }
     }

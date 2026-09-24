@@ -68,7 +68,7 @@ public sealed class EmailSettings
 services.AddOptions<EmailSettings>()
     .Bind(configuration.GetSection(EmailSettings.SectionName))
     .ValidateDataAnnotations()
-    .ValidateOnStart();          // <-- dong quan trong nhat trong bai
+    .ValidateOnStart();          // <-- dòng quan trọng nhất trong bài
 ```
 
 `ValidateOnStart()` chạy validation **lúc khởi động** chứ không phải lúc `IOptions<T>` được resolve lần đầu. Không có nó, ứng dụng khởi động bình thường với `Host` rỗng, và bạn phát hiện ra lúc có người bấm nút gửi email — thường là trên production.
@@ -84,25 +84,25 @@ services.AddOptions<EmailSettings>()
 | `IOptionsMonitor<T>` | Singleton | Có, ngay lập tức | Mọi nơi |
 
 ```csharp
-// IOptions — mac dinh, cho cau hinh khong doi
+// IOptions — mặc định, cho cấu hình không đổi
 public class LeadService(IOptions<CrmSettings> options)
 {
     private readonly CrmSettings _settings = options.Value;
 }
 
-// IOptionsSnapshot — doc lai moi request
+// IOptionsSnapshot — đọc lại mỗi request
 public class PricingService(IOptionsSnapshot<PricingSettings> options)
 {
     public decimal Calculate(decimal amount)
-        => amount * options.Value.TaxRate;     // .Value moi lan goi
+        => amount * options.Value.TaxRate;     // .Value mỗi lần gọi
 }
 
-// IOptionsMonitor — Singleton nhung van thay gia tri moi
+// IOptionsMonitor — Singleton nhưng vẫn thấy giá trị mới
 public class EmailService(IOptionsMonitor<EmailSettings> monitor)
 {
     public Task SendAsync(...)
     {
-        var settings = monitor.CurrentValue;   // luon la ban moi nhat
+        var settings = monitor.CurrentValue;   // luôn là bản mới nhất
         ...
     }
 }
@@ -132,7 +132,7 @@ monitor.OnChange(s => _logger.LogInformation("Config doi: {Host}", s.Host));
 services.AddOptions<EmailSettings>()
     .Bind(configuration.GetSection(EmailSettings.SectionName))
     .ValidateDataAnnotations()
-    .Validate(s => !s.UseSsl || s.Port != 25, "SSL khong dung duoc voi port 25")
+    .Validate(s => !s.UseSsl || s.Port != 25, "SSL không dùng được với port 25")
     .ValidateOnStart();
 ```
 
@@ -144,7 +144,7 @@ public sealed class EmailSettingsValidator(IDnsChecker dns) : IValidateOptions<E
     public ValidateOptionsResult Validate(string? name, EmailSettings options)
     {
         if (!dns.CanResolve(options.Host))
-            return ValidateOptionsResult.Fail($"Khong phan giai duoc host {options.Host}");
+            return ValidateOptionsResult.Fail($"Không phân giải được host {options.Host}");
 
         return ValidateOptionsResult.Success;
     }
@@ -189,7 +189,7 @@ Chỉ `IOptionsSnapshot<T>` và `IOptionsMonitor<T>` có `Get(name)`; `IOptions<
 `appsettings.json` **nằm trong Git**. Mật khẩu, API key và connection string có thông tin đăng nhập không được để ở đó.
 
 ```bash
-# Development — luu ngoai repo
+# Development — lưu ngoài repo
 dotnet user-secrets init
 dotnet user-secrets set "EmailSettings:Password" "..."
 ```
@@ -338,7 +338,7 @@ Tiêm `IOptionsSnapshot<T>` vào một `Singleton`, sửa `appsettings.json` khi
 // SAI — IOptionsSnapshot là Scoped, bị giam trong Singleton
 public class EmailSender(IOptionsSnapshot<SmtpOptions> opts) : IEmailSender
 {
-    public Task GuiAsync(...) => Gui(opts.Value.Host, ...);
+    public Task SendAsync(...) => Send(opts.Value.Host, ...);
 }
 builder.Services.AddSingleton<IEmailSender, EmailSender>();
 ```
@@ -357,7 +357,7 @@ Nếu tắt kiểm tra, ứng dụng chạy nhưng `opts.Value` **đóng băng**
 ```csharp
 public class EmailSender(IOptionsMonitor<SmtpOptions> opts) : IEmailSender
 {
-    public Task GuiAsync(...) => Gui(opts.CurrentValue.Host, ...);   // đọc CurrentValue mỗi lần
+    public Task SendAsync(...) => Send(opts.CurrentValue.Host, ...);   // đọc CurrentValue mỗi lần
 }
 ```
 
@@ -387,7 +387,7 @@ Sửa file cấu hình, gọi lại, giá trị đã đổi.
    // ĐÚNG
    public class EmailSender(IOptionsMonitor<SmtpOptions> opts) : IEmailSender
    {
-       public Task GuiAsync(...) => Gui(opts.CurrentValue.Host, ...);
+       public Task SendAsync(...) => Send(opts.CurrentValue.Host, ...);
    }
    ```
 

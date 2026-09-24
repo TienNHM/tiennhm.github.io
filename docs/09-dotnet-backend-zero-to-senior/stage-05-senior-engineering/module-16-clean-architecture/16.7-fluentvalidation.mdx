@@ -90,7 +90,7 @@ public sealed class CreateLeadValidator : AbstractValidator<CreateLeadCommand>
 
         RuleFor(x => x.Phone)
             .Matches(@"^(0|\+84)[0-9]{9}$")
-            .When(x => !string.IsNullOrEmpty(x.Phone));      // chi khi CO gia tri
+            .When(x => !string.IsNullOrEmpty(x.Phone));      // chỉ khi CÓ giá trị
     }
 }
 ```
@@ -129,10 +129,10 @@ RuleFor(x => x.EndDate)
 ```csharp
 public CreateLeadValidator()
 {
-    RuleLevelCascadeMode = CascadeMode.Stop;      // dung o loi DAU TIEN moi truong
+    RuleLevelCascadeMode = CascadeMode.Stop;      // dừng ở lỗi ĐẦU TIÊN mỗi trường
 
     RuleFor(x => x.Email).NotEmpty().EmailAddress();
-    // Email rong -> chi bao "bat buoc", khong bao them "khong dung dinh dang"
+    // Email rỗng -> chỉ báo "bắt buộc", không báo thêm "không đúng định dạng"
 }
 ```
 
@@ -236,7 +236,7 @@ public sealed class CreateLeadValidatorTests
     }
 
     [Theory]
-    [InlineData("khong-phai-email")]
+    [InlineData("not-an-email")]
     [InlineData("@example.com")]
     public void Should_HaveError_When_EmailInvalid(string email)
     {

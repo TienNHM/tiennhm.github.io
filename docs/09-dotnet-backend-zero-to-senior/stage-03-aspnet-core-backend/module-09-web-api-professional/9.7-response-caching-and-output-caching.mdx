@@ -55,16 +55,16 @@ Rồi hy vọng ai đó ở giữa tôn trọng nó. Và nó **tự vô hiệu**
 
 ```csharp
 builder.Services.AddResponseCaching();
-app.UseResponseCaching();     // dat TRUOC UseOutputCache neu dung ca hai
+app.UseResponseCaching();     // đặt TRƯỚC UseOutputCache nếu dùng cả hai
 ```
 
 ```csharp
-// Du lieu cong khai, it thay doi
+// Dữ liệu công khai, ít thay đổi
 [HttpGet("countries")]
 [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any)]
 public ActionResult<IEnumerable<CountryDto>> GetCountries();
 
-// Du lieu rieng tu — KHONG cache o dau ca
+// Dữ liệu riêng tư — KHÔNG cache ở đâu cả
 [HttpGet("me")]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 public ActionResult<ProfileDto> GetProfile();
@@ -81,7 +81,7 @@ public ActionResult<ProfileDto> GetProfile();
 **Quy tắc sống còn:** dữ liệu gắn với người dùng thì `Location = Client`, không bao giờ `Any`. Một CDN cache response `public` chứa thông tin cá nhân sẽ **trả nó cho người tiếp theo** hỏi cùng URL.
 
 ```csharp
-// SAI — CDN se phuc vu du lieu cua nguoi nay cho nguoi khac
+// SAI — CDN sẽ phục vụ dữ liệu của người này cho người khác
 [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any)]
 [Authorize]
 public ActionResult<CustomerDto> GetMyCustomer();
@@ -103,11 +103,11 @@ builder.Services.AddOutputCache(options =>
 
     options.AddPolicy("per-user", b => b
         .Expire(TimeSpan.FromMinutes(5))
-        .SetVaryByHeader("Authorization")     // moi token mot ban sao
+        .SetVaryByHeader("Authorization")     // mỗi token một bản sao
         .Tag("customers"));
 });
 
-app.UseOutputCache();     // sau UseRouting, truoc MapControllers
+app.UseOutputCache();     // sau UseRouting, trước MapControllers
 ```
 
 ```csharp
@@ -191,7 +191,7 @@ Và luôn đặt giới hạn kích thước:
 builder.Services.AddOutputCache(options =>
 {
     options.MaximumBodySize = 64 * 1024;          // bo qua response lon hon
-    options.SizeLimit = 100 * 1024 * 1024;        // tran cho toan bo cache
+    options.SizeLimit = 100 * 1024 * 1024;        // trần cho toàn bộ cache
 });
 ```
 

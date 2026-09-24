@@ -28,9 +28,9 @@ Sau bài này bạn có thể:
 
 ```
 Client -----request----> Server
-                         Server xu ly XONG
-       <----response--X  Response BI MAT
-Client: khong biet server da xu ly chua
+                         Server xử lý XONG
+       <----response--X  Response BỊ MẤT
+Client: không biết server đã xử lý chưa
 ```
 
 Client chỉ có hai lựa chọn, và **cả hai đều sai trong một trường hợp**:
@@ -47,10 +47,10 @@ Hệ quả: **chọn at-least-once và làm mọi thứ idempotent**. Đó là l
 > Thực hiện **một lần** hay **nhiều lần** đều cho **cùng một trạng thái cuối**.
 
 ```csharp
-// KHONG idempotent — chay hai lan la cong hai lan
+// KHÔNG idempotent — chạy hai lần là cộng hai lần
 balance += amount;
 
-// Idempotent — chay bao nhieu lan cung vay
+// Idempotent — chạy bao nhiêu lần cũng vậy
 balance = newBalance;
 ```
 
@@ -78,7 +78,7 @@ public async Task<Result<Order>> CreateAsync(
         ExpiresAt = DateTime.UtcNow.AddHours(24),
     });
 
-    await _db.SaveChangesAsync(ct);         // CUNG transaction voi tao don hang
+    await _db.SaveChangesAsync(ct);         // CÙNG transaction với tạo đơn hàng
     return Result.Success(order);
 }
 ```
@@ -99,7 +99,7 @@ public async Task MarkAsPaidAsync(int orderId, CancellationToken ct)
             .SetProperty(o => o.PaidAt, DateTime.UtcNow), ct);
 
     if (affected == 0)
-        _logger.LogInformation("Don hang {Id} da duoc thanh toan, bo qua", orderId);
+        _logger.LogInformation("Đơn hàng {Id} đã được thanh toán, bỏ qua", orderId);
 }
 ```
 
@@ -108,10 +108,10 @@ public async Task MarkAsPaidAsync(int orderId, CancellationToken ct)
 **3. Thao tác tự nhiên idempotent:**
 
 ```csharp
-// Dat gia tri — idempotent
+// Đặt giá trị — idempotent
 customer.Status = CustomerStatus.Active;
 
-// Them vao tap hop — idempotent (Set, khong phai List)
+// Thêm vào tập hợp — idempotent (Set, không phải List)
 await db.SetAddAsync($"tags:{id}", "vip");
 
 // Upsert — idempotent
@@ -131,9 +131,9 @@ HttpStatusCode.ServiceUnavailable    // 503
 HttpStatusCode.TooManyRequests       // 429
 
 // Loi VINH VIEN — retry VO NGHIA
-HttpStatusCode.BadRequest            // 400 — du lieu sai
+HttpStatusCode.BadRequest            // 400 — dữ liệu sai
 HttpStatusCode.Unauthorized          // 401 — token sai
-HttpStatusCode.Forbidden             // 403 — khong du quyen
+HttpStatusCode.Forbidden             // 403 — không đủ quyền
 HttpStatusCode.NotFound              // 404
 ValidationException
 ```
@@ -166,12 +166,12 @@ builder.Services.AddHttpClient<IPaymentGateway, PaymentGateway>()
 ### 14.10.4 — Jitter là bắt buộc
 
 ```
-1.000 client cung goi mot API.
+1.000 client cùng gọi một API.
 API tra 503.
-Khong co jitter:
-  Tat ca retry sau 1 giay  -> 1.000 request DONG THOI
-  Tat ca retry sau 2 giay  -> 1.000 request DONG THOI
-  => Dot tai dong bo, te hon lan dau
+Không có jitter:
+  Tất cả retry sau 1 giây  -> 1.000 request ĐỒNG THỜI
+  Tất cả retry sau 2 giây  -> 1.000 request ĐỒNG THỜI
+  => Đợt tải đồng bộ, tệ hơn lần đầu
 ```
 
 Đây là **thundering herd**, và nó biến một sự cố nhỏ thành sự cố kéo dài.
@@ -190,22 +190,22 @@ Với hàng đợi và background job cũng vậy: `DelaysInSeconds` cố địn
 
 ```
 Dich vu thanh toan chet.
-Khong co circuit breaker:
+Không có circuit breaker:
   Moi request cho 10 giay roi timeout
   Thread pool can kiet
-  => API CUA BAN cung chet
+  => API CỦA BẠN cũng chết
 ```
 
 Circuit breaker **ngừng gọi** sau một số lần thất bại:
 
 ```
 Closed  -> goi binh thuong
-Open    -> tu choi NGAY, khong goi
-Half-open -> thu MOT request; thanh cong thi dong lai
+Open    -> từ chối NGAY, không gọi
+Half-open -> thử MỘT request; thành công thì đóng lại
 ```
 
 ```csharp
-options.CircuitBreaker.FailureRatio = 0.5;              // 50% that bai
+options.CircuitBreaker.FailureRatio = 0.5;              // 50% thất bại
 options.CircuitBreaker.MinimumThroughput = 10;          // toi thieu 10 request
 options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(30);
 options.CircuitBreaker.BreakDuration = TimeSpan.FromSeconds(30);
@@ -254,7 +254,7 @@ Dịch vụ trả 503 vì quá tải. Bạn retry, tăng tải, nó càng quá t
 // SAI — retry du client da ngat ket noi
 await _http.GetAsync(url);
 
-// DUNG — token cua request duoc ton trong
+// ĐÚNG — token của request được tôn trọng
 await _http.GetAsync(url, ct);
 ```
 

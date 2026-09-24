@@ -107,7 +107,7 @@ public sealed class FutureDateAttribute : ValidationAttribute
 
     protected override ValidationResult? IsValid(object? value, ValidationContext ctx)
     {
-        if (value is null) return ValidationResult.Success;   // de [Required] lo viec nay
+        if (value is null) return ValidationResult.Success;   // để [Required] lo việc này
 
         if (value is not DateTime date)
             return new ValidationResult($"{ctx.DisplayName} phải là ngày hợp lệ");
@@ -301,21 +301,21 @@ public class CreateCustomerRequest
 }
 
 // Ở tầng nghiệp vụ — bất đồng bộ, và có lớp bảo vệ thật
-public async Task<Result<Customer>> TaoAsync(CreateCustomerRequest req, CancellationToken ct)
+public async Task<Result<Customer>> CreateAsync(CreateCustomerRequest req, CancellationToken ct)
 {
-    if (await _repo.TonTaiEmailAsync(req.Email, ct))
-        return Result<Customer>.ViPham("Email đã tồn tại");
+    if (await _repo.EmailExistsAsync(req.Email, ct))
+        return Result<Customer>.RuleViolation("Email đã tồn tại");
 
-    var kh = Customer.Tao(req.Name, new Email(req.Email));
+    var customer = Customer.Create(req.Name, new Email(req.Email));
     try
     {
-        await _repo.ThemAsync(kh, ct);
+        await _repo.AddAsync(customer, ct);
     }
     catch (DuplicateEmailException)       // ràng buộc duy nhất ở database bắt được cuộc đua
     {
-        return Result<Customer>.ViPham("Email đã tồn tại");
+        return Result<Customer>.RuleViolation("Email đã tồn tại");
     }
-    return Result<Customer>.Ok(kh);
+    return Result<Customer>.Ok(customer);
 }
 ```
 
@@ -453,26 +453,26 @@ Cài cùng một bộ quy tắc có điều kiện — khách doanh nghiệp b�
 ```csharp
 public class CreateCustomerRequest : IValidatableObject
 {
-    [Required, MaxLength(200)] public string Ten { get; init; } = "";
+    [Required, MaxLength(200)] public string Name { get; init; } = "";
     [Required, EmailAddress]   public string Email { get; init; } = "";
-    public LoaiKhach Loai { get; init; }
-    public string? MaSoThue { get; init; }
-    public string? NguoiDaiDien { get; init; }
+    public CustomerType Type { get; init; }
+    public string? TaxCode { get; init; }
+    public string? LegalRepresentative { get; init; }
 
     public IEnumerable<ValidationResult> Validate(ValidationContext ctx)
     {
-        if (Loai == LoaiKhach.DoanhNghiep)
+        if (Type == CustomerType.Business)
         {
-            if (string.IsNullOrWhiteSpace(MaSoThue))
+            if (string.IsNullOrWhiteSpace(TaxCode))
                 yield return new ValidationResult("Khách doanh nghiệp bắt buộc có mã số thuế",
-                                                  [nameof(MaSoThue)]);
-            else if (MaSoThue.Length is not (10 or 13))
+                                                  [nameof(TaxCode)]);
+            else if (TaxCode.Length is not (10 or 13))
                 yield return new ValidationResult("Mã số thuế phải có 10 hoặc 13 chữ số",
-                                                  [nameof(MaSoThue)]);
+                                                  [nameof(TaxCode)]);
 
-            if (string.IsNullOrWhiteSpace(NguoiDaiDien))
+            if (string.IsNullOrWhiteSpace(LegalRepresentative))
                 yield return new ValidationResult("Khách doanh nghiệp bắt buộc có người đại diện",
-                                                  [nameof(NguoiDaiDien)]);
+                                                  [nameof(LegalRepresentative)]);
         }
     }
 }
@@ -485,16 +485,16 @@ public class CreateCustomerValidator : AbstractValidator<CreateCustomerRequest>
 {
     public CreateCustomerValidator()
     {
-        RuleFor(x => x.Ten).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
         RuleFor(x => x.Email).NotEmpty().EmailAddress();
 
-        When(x => x.Loai == LoaiKhach.DoanhNghiep, () =>
+        When(x => x.Type == CustomerType.Business, () =>
         {
-            RuleFor(x => x.MaSoThue)
+            RuleFor(x => x.TaxCode)
                 .NotEmpty().WithMessage("Khách doanh nghiệp bắt buộc có mã số thuế")
                 .Must(m => m!.Length is 10 or 13).WithMessage("Mã số thuế phải có 10 hoặc 13 chữ số");
 
-            RuleFor(x => x.NguoiDaiDien)
+            RuleFor(x => x.LegalRepresentative)
                 .NotEmpty().WithMessage("Khách doanh nghiệp bắt buộc có người đại diện");
         });
     }
@@ -517,23 +517,23 @@ public class CreateCustomerValidator : AbstractValidator<CreateCustomerRequest>
 ```csharp
 // IValidatableObject — phải dựng ngữ cảnh
 [Fact]
-public void DoanhNghiepThieuMaSoThue_BaoLoi()
+public void BusinessWithoutTaxCode_ReportsError()
 {
-    var req = new CreateCustomerRequest { Loai = LoaiKhach.DoanhNghiep };
+    var req = new CreateCustomerRequest { Type = CustomerType.Business };
     var ctx = new ValidationContext(req);
-    var kq = req.Validate(ctx).ToList();
+    var results = req.Validate(ctx).ToList();
 
-    Assert.Contains(kq, r => r.MemberNames.Contains("MaSoThue"));
+    Assert.Contains(results, r => r.MemberNames.Contains("TaxCode"));
 }
 
 // FluentValidation — có API kiểm thử riêng
 [Fact]
-public void DoanhNghiepThieuMaSoThue_BaoLoi()
+public void BusinessWithoutTaxCode_ReportsError()
 {
-    var kq = new CreateCustomerValidator()
-        .TestValidate(new CreateCustomerRequest { Loai = LoaiKhach.DoanhNghiep });
+    var result = new CreateCustomerValidator()
+        .TestValidate(new CreateCustomerRequest { Type = CustomerType.Business });
 
-    kq.ShouldHaveValidationErrorFor(x => x.MaSoThue)
+    result.ShouldHaveValidationErrorFor(x => x.TaxCode)
       .WithErrorMessage("Khách doanh nghiệp bắt buộc có mã số thuế");
 }
 ```

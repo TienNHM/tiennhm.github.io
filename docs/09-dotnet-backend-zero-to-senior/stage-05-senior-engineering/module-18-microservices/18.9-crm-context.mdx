@@ -41,7 +41,7 @@ Sau bài này bạn có thể:
 ### 18.10.2 — Ba phần nên giữ nguyên
 
 ```csharp
-// Mot use case CRM dien hinh: chuyen doi lead
+// Một use case CRM điển hình: chuyển đổi lead
 public async Task<Result> ConvertLeadAsync(LeadId id, CancellationToken ct)
 {
     var lead = await _db.Leads.FindAsync(id, ct);
@@ -59,13 +59,13 @@ public async Task<Result> ConvertLeadAsync(LeadId id, CancellationToken ct)
 Lead, Customer và Deal thay đổi **cùng nhau**. Nếu tách thành ba service:
 
 ```
-Sales Service:     cap nhat Lead
-Customer Service:  tao Customer     <- co the that bai
-Deal Service:      tao Deal          <- co the that bai
+Sales Service:     cập nhật Lead
+Customer Service:  tạo Customer     <- có thể thất bại
+Deal Service:      tạo Deal          <- có thể thất bại
 
 => Can saga voi buoc bu tru cho moi buoc
-=> Trang thai trung gian: Lead "Won" nhung chua co Customer
-=> Nguoi dung thay du lieu mau thuan trong vai giay
+=> Trạng thái trung gian: Lead "Won" nhưng chưa có Customer
+=> Người dùng thấy dữ liệu mâu thuẫn trong vài giây
 ```
 
 Đổi một `SaveChangesAsync` lấy một saga ba bước có bù trừ, để nhận lại **không lợi ích nào** — ba phần này không có nhu cầu scale khác nhau và cùng một đội sở hữu.
@@ -124,7 +124,7 @@ Mọi service đều cần biết tên và email người dùng để hiển th�
 Cách thứ ba có một hạn chế hay bị bỏ sót: token chỉ chứa thông tin của **người đang gọi API**, nhưng màn hình thường cần hiển thị tên của **người khác** — chủ sở hữu lead, người tạo ghi chú. Token không giúp gì ở đó.
 
 ```csharp
-// Ban sao toi thieu trong moi service — chi nhung truong CAN de hien thi
+// Bản sao tối thiểu trong mỗi service — chỉ những trường CẦN để hiển thị
 public sealed class UserSnapshot
 {
     public Guid UserId { get; set; }
@@ -158,7 +158,7 @@ builder.Services.AddHealthChecks()
     .AddSqlServer(connectionString, tags: ["ready"])
     .AddRabbitMQ(rabbitConnection, tags: ["ready"])
     .AddRedis(redisConnection, tags: ["ready"])
-    // Identity la phu thuoc BAT BUOC cua Sales -> tinh vao readiness
+    // Identity là phụ thuộc BẮT BUỘC của Sales -> tính vào readiness
     .AddUrlGroup(new Uri("http://identity:8080/health/live"), tags: ["ready"]);
 ```
 

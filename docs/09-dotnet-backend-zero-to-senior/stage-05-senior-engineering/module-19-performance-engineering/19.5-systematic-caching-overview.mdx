@@ -37,11 +37,11 @@ Sau bài này bạn có thể:
 
 ```
 Instance A cache "danh sach san pham" luc 10:00
-Instance B cache CUNG khoa do luc 10:05
-10:07 admin sua gia -> xoa cache
+Instance B cache CÙNG khoá đó lúc 10:05
+10:07 admin sửa giá -> xoá cache
 
-Instance A: xoa OK
-Instance B: KHONG biet gi -> tiep tuc tra gia cu cho toi khi het TTL
+Instance A: xoá OK
+Instance B: KHÔNG biết gì -> tiếp tục trả giá cũ cho tới khi hết TTL
 ```
 
 Người dùng thấy giá khác nhau tuỳ request rơi vào instance nào. Đây là loại bug cực khó tái hiện vì nó phụ thuộc load balancer. Với hệ nhiều instance, hoặc dùng Redis, hoặc chấp nhận TTL rất ngắn.
@@ -80,7 +80,7 @@ Rủi ro rõ ràng: mỗi key mới là một chỗ phải nhớ xoá, và **qu�
 ```csharp
 public sealed class ProductCacheInvalidator(IDistributedCache cache)
 {
-    // MOT noi duy nhat biet moi key lien quan toi product
+    // MỘT nơi duy nhất biết mọi key liên quan tới product
     public async Task InvalidateAsync(Product product, CancellationToken ct)
     {
         foreach (var key in GetAffectedKeys(product))
@@ -92,11 +92,11 @@ public sealed class ProductCacheInvalidator(IDistributedCache cache)
 **3. Cache theo phiên bản — tránh phải xoá.**
 
 ```csharp
-// Dua so phien ban vao khoa -> doi phien ban la "xoa" toan bo
+// Đưa số phiên bản vào khoá -> đổi phiên bản là "xoá" toàn bộ
 var version = await _cache.GetOrCreateAsync("products:version", () => Task.FromResult(1));
 var key = $"products:list:v{version}";
 
-// Khi co thay doi: chi can tang phien ban
+// Khi có thay đổi: chỉ cần tăng phiên bản
 await _cache.SetAsync("products:version", version + 1);
 ```
 
@@ -106,10 +106,10 @@ Không cần biết có bao nhiêu key — tất cả key phiên bản cũ trở
 
 ```
 10:00:00  Key "products:featured" het han
-10:00:00  500 request cung den, ca 500 deu cache MISS
-10:00:00  Ca 500 cung chay truy van nang toi database
+10:00:00  500 request cùng đến, cả 500 đều cache MISS
+10:00:00  Cả 500 cùng chạy truy vấn nặng tới database
 10:00:02  Database qua tai, moi truy van timeout
-10:00:02  Khong request nao dien duoc cache
+10:00:02  Không request nào điền được cache
 10:00:03  500 request tiep theo... vong lap tiep dien
 ```
 
@@ -128,7 +128,7 @@ public async Task<List<Product>> GetFeaturedAsync(CancellationToken ct)
     await _lock.WaitAsync(ct);
     try
     {
-        // Kiem tra LAI — request khac co the da dien cache trong luc cho
+        // Kiểm tra LẠI — request khác có thể đã điền cache trong lúc chờ
         if (_cache.TryGetValue("products:featured", out cached))
             return cached!;
 
@@ -157,7 +157,7 @@ builder.Services.AddHybridCache(options =>
     };
 });
 
-// Chong stampede SAN — chi MOT lan goi factory du co bao nhieu request
+// Chống stampede SẴN — chỉ MỘT lần gọi factory dù có bao nhiêu request
 var products = await _hybridCache.GetOrCreateAsync(
     "products:featured",
     async token => await _repository.GetFeaturedAsync(token),
@@ -178,13 +178,13 @@ Cùng một nguyên tắc với jitter trong retry ([bài 17.7](../module-17-dis
 ### 19.6.4 — IMemoryCache phải có giới hạn
 
 ```csharp
-// SAI — khong gioi han -> cache lon dan toi khi OOM
+// SAI — không giới hạn -> cache lớn dần tới khi OOM
 builder.Services.AddMemoryCache();
 
 // DUNG — co tran
 builder.Services.AddMemoryCache(options =>
 {
-    options.SizeLimit = 10_000;                       // don vi do BAN dinh nghia
+    options.SizeLimit = 10_000;                       // đơn vị do BẠN định nghĩa
     options.CompactionPercentage = 0.25;              // don 25% khi day
 });
 ```
@@ -214,7 +214,7 @@ Và điều quan trọng nhất:
 
 ```csharp
 // Truy van 3 giay, cache lai -> 3 giay MOI LAN cache miss
-// Nguoi dung dau tien sau moi lan het han van doi 3 giay
+// Người dùng đầu tiên sau mỗi lần hết hạn vẫn đợi 3 giây
 ```
 
 **Cache không sửa được truy vấn chậm.** Sửa truy vấn trước ([bài 19.5](19.4-database-first-bottleneck.mdx)), rồi mới cache nếu vẫn cần. Cache một truy vấn chậm chỉ chuyển vấn đề từ "mọi người đều chậm" sang "một số người rất chậm còn lại thì nhanh" — và nhóm "một số người" đó không hề nhỏ dưới tải cao.

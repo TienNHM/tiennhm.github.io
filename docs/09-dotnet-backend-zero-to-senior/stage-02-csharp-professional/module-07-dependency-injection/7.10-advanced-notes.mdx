@@ -28,14 +28,14 @@ Sau bài này bạn có thể:
 **Điều kiện kích hoạt:** cần thêm caching, logging, retry hoặc đo lường vào một service có sẵn.
 
 ```csharp
-// Service goc — KHONG sua gi
+// Service gốc — KHÔNG sửa gì
 public sealed class LeadRepository(AppDbContext db) : ILeadRepository
 {
     public async Task<Lead?> GetByIdAsync(LeadId id, CancellationToken ct)
         => await db.Leads.FindAsync([id], ct);
 }
 
-// Decorator — bao ben ngoai, CUNG interface
+// Decorator — bao bên ngoài, CÙNG interface
 public sealed class CachedLeadRepository(
     ILeadRepository inner,
     IMemoryCache cache) : ILeadRepository
@@ -62,7 +62,7 @@ builder.Services.AddScoped<ILeadRepository, LeadRepository>();
 builder.Services.Decorate<ILeadRepository, CachedLeadRepository>();
 builder.Services.Decorate<ILeadRepository, LoggedLeadRepository>();
 
-// Chuoi thuc te: Logged -> Cached -> Repository
+// Chuỗi thực tế: Logged -> Cached -> Repository
 ```
 
 Mọi nơi tiêm `ILeadRepository` tự động nhận chuỗi decorator mà **không biết** và **không cần biết**.
@@ -90,7 +90,7 @@ builder.Services.AddScoped<ILeadRepository>(sp =>
 **Điều kiện kích hoạt:** cài đặt được chọn dựa trên dữ liệu chỉ biết lúc chạy.
 
 ```csharp
-// Keyed services (.NET 8+) — cach don gian nhat
+// Keyed services (.NET 8+) — cách đơn giản nhất
 builder.Services.AddKeyedScoped<IPaymentGateway, VnPayGateway>("vnpay");
 builder.Services.AddKeyedScoped<IPaymentGateway, MomoGateway>("momo");
 
@@ -123,14 +123,14 @@ await gateway.ChargeAsync(donHang, ct);
 **Điều kiện kích hoạt:** `Program.cs` vượt quá khoảng 50 dòng đăng ký.
 
 ```csharp
-// Program.cs — kho doc khi co 200 dong nhu nay
+// Program.cs — khó đọc khi có 200 dòng như này
 builder.Services.AddScoped<ILeadRepository, LeadRepository>();
 builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
-// ... 198 dong nua
+// ... 198 dòng nữa
 ```
 
 ```csharp
-// Gom theo tinh nang
+// Gom theo tính năng
 namespace Crm.Sales;
 
 public static class SalesModule
@@ -151,7 +151,7 @@ public static class SalesModule
 ```
 
 ```csharp
-// Program.cs — doc duoc
+// Program.cs — đọc được
 builder.Services
     .AddSales(builder.Configuration)
     .AddBilling(builder.Configuration)

@@ -27,7 +27,7 @@ Sau bài này bạn có thể:
 ### 15.4.1 — `depends_on` không đủ
 
 ```yaml
-# SAI — API khoi dong khi SQL Server CHUA san sang
+# SAI — API khởi động khi SQL Server CHƯA sẵn sàng
 services:
   api:
     depends_on:
@@ -77,10 +77,10 @@ services:
       - ConnectionStrings__Redis=redis:6379
 
   sqlserver:
-    # KHONG co "ports" — chi truy cap duoc tu trong mang Compose
+    # KHÔNG có "ports" — chỉ truy cập được từ trong mạng Compose
 
   redis:
-    # KHONG co "ports"
+    # KHÔNG có "ports"
 ```
 
 Compose tạo một mạng mặc định, và các container gọi nhau bằng **tên dịch vụ** — `sqlserver`, `redis`. Không cần biết IP.
@@ -95,7 +95,7 @@ Cần truy cập từ máy dev thì giới hạn vào localhost:
 
 ```yaml
 ports:
-  - "127.0.0.1:1433:1433"     # CHI localhost, khong ra ngoai
+  - "127.0.0.1:1433:1433"     # CHỈ localhost, không ra ngoài
 ```
 
 Đây là khác biệt quan trọng mà nhiều người không biết: `"1433:1433"` bind vào `0.0.0.0`.
@@ -107,12 +107,12 @@ services:
   api:
     networks: [frontend, backend]
   sqlserver:
-    networks: [backend]        # KHONG tiep xuc frontend
+    networks: [backend]        # KHÔNG tiếp xúc frontend
 
 networks:
   frontend:
   backend:
-    internal: true             # khong co truy cap Internet
+    internal: true             # không có truy cập Internet
 ```
 
 `internal: true` chặn cả truy cập **ra ngoài** — hữu ích cho database không cần gọi Internet.
@@ -131,7 +131,7 @@ services:
 ```
 
 ```bash
-# .env — KHONG commit
+# .env — KHÔNG commit
 MSSQL_SA_PASSWORD=Str0ng!Passw0rd
 REDIS_PASSWORD=An0ther!Str0ng
 JWT_SECRET=...
@@ -172,13 +172,13 @@ if (passwordFile is not null && File.Exists(passwordFile))
 ### 15.4.4 — Override file
 
 ```
-compose.yaml                  # chung cho moi moi truong
-compose.override.yaml         # TU DONG ap khi chay local
-compose.prod.yaml             # ap tuong minh cho production
+compose.yaml                  # chung cho mọi môi trường
+compose.override.yaml         # TỰ ĐỘNG áp khi chạy local
+compose.prod.yaml             # áp tường minh cho production
 ```
 
 ```yaml
-# compose.yaml — dinh nghia co ban
+# compose.yaml — định nghĩa cơ bản
 services:
   api:
     image: myrepo/crm-api:${TAG:-latest}
@@ -186,7 +186,7 @@ services:
 ```
 
 ```yaml
-# compose.override.yaml — chi cho dev, TU DONG duoc doc
+# compose.override.yaml — chỉ cho dev, TỰ ĐỘNG được đọc
 services:
   api:
     build: .                            # build tu ma nguon
@@ -196,11 +196,11 @@ services:
       - "8080:8080"
   sqlserver:
     ports:
-      - "127.0.0.1:1433:1433"           # de ket noi bang SSMS
+      - "127.0.0.1:1433:1433"           # để kết nối bằng SSMS
 ```
 
 ```yaml
-# compose.prod.yaml — ap tuong minh
+# compose.prod.yaml — áp tường minh
 services:
   api:
     deploy:
@@ -216,7 +216,7 @@ services:
 ```
 
 ```bash
-docker compose up -d                                        # dev (tu dong doc override)
+docker compose up -d                                        # dev (tự động đọc override)
 docker compose -f compose.yaml -f compose.prod.yaml up -d   # production
 ```
 
@@ -267,7 +267,7 @@ Và khi đó **không được publish cổng cố định** — hai container k
 docker compose logs -f api --tail 100
 docker compose ps                        # trang thai, ca healthcheck
 docker compose down                      # dung, GIU volume
-docker compose down -v                   # dung, XOA volume — CAN THAN
+docker compose down -v                   # dừng, XOÁ volume — CẨN THẬN
 ```
 
 `docker compose down -v` xoá **mọi dữ liệu** trong volume. Chạy nhầm lệnh này trên máy chủ có database là mất toàn bộ dữ liệu.

@@ -26,11 +26,11 @@ Sau bài này bạn có thể:
 ### 3.13.1 — Tình huống
 
 ```
-14:32  Lap trinh vien moi commit "them cau hinh moi truong"
+14:32  Lập trình viên mới commit "chore: add environment config"
 14:33  git push origin main
-14:35  Nhan email tu GitHub: "Possible valid secrets found in your repository"
-14:36  Kiem tra: appsettings.json chua chuoi ket noi SQL Server production
-       kem tai khoan sa va mat khau
+14:35  Nhận email từ GitHub: "Possible valid secrets found in your repository"
+14:36  Kiểm tra: appsettings.json chứa chuỗi kết nối SQL Server production
+       kèm tài khoản sa và mật khẩu
 ```
 
 Repository là **public**. Bí mật đã ở trên mạng 3 phút.
@@ -38,9 +38,9 @@ Repository là **public**. Bí mật đã ở trên mạng 3 phút.
 Phản ứng đầu tiên của hầu hết mọi người — và là phản ứng **sai**:
 
 ```bash
-# SAI — lam viec nay dau tien
+# SAI — làm việc này đầu tiên
 git rm --cached appsettings.json
-git commit -m "xoa file cau hinh"
+git commit -m "chore: remove config file"
 git push
 ```
 
@@ -61,7 +61,7 @@ Nếu bí mật là khoá API, thu hồi khoá đó ở nhà cung cấp. Nếu l
 **Bước 2 — kiểm tra xem đã bị dùng chưa.**
 
 ```sql
--- SQL Server: xem cac ket noi gan day
+-- SQL Server: xem các kết nối gần đây
 SELECT login_name, host_name, program_name, login_time
 FROM sys.dm_exec_sessions
 WHERE login_name = 'sa'
@@ -73,7 +73,7 @@ Tìm kết nối từ địa chỉ IP lạ. Nếu có, phạm vi sự cố rộn
 **Bước 3 — xoá file khỏi lịch sử.**
 
 ```bash
-# git-filter-repo — cong cu duoc khuyen nghi hien nay
+# git-filter-repo — công cụ được khuyến nghị hiện nay
 pip install git-filter-repo
 git filter-repo --path appsettings.json --invert-paths
 
@@ -92,12 +92,12 @@ git push origin --force --tags
 ### 3.13.3 — Vì sao xoá commit không đủ
 
 ```
-14:33  Push commit chua bi mat
-14:33  GitHub ghi vao event log (cong khai qua API)
-14:33  Cac dich vu quet bi mat tu dong doc thay
-14:34  Bot thu ket noi bang thong tin vua lay duoc
-14:35  Ban nhan canh bao
-14:40  Ban xoa commit  <- MUON 7 phut
+14:33  Push commit chứa bí mật
+14:33  GitHub ghi vào event log (công khai qua API)
+14:33  Các dịch vụ quét bí mật tự động đọc thấy
+14:34  Bot thử kết nối bằng thông tin vừa lấy được
+14:35  Bạn nhận cảnh báo
+14:40  Bạn xoá commit  <- MUỘN 7 phút
 ```
 
 Các bot quét GitHub public hoạt động **liên tục** và phản ứng trong vòng vài giây. Khoảng thời gian từ lúc push tới lúc bạn phát hiện, dù chỉ vài phút, là quá đủ.
@@ -129,8 +129,8 @@ Chỉ commit `appsettings.json` chứa giá trị **mặc định vô hại**, k
 # .git/hooks/pre-commit
 #!/bin/bash
 if git diff --cached | grep -qiE "(password|secret|api[_-]?key|connectionstring)\s*[:=]\s*['\"][^'\"]{8,}"; then
-    echo "CANH BAO: co the chua bi mat trong thay doi nay"
-    echo "Kiem tra lai, hoac dung --no-verify neu chac chan an toan"
+    echo "CẢNH BÁO: có thể chứa bí mật trong thay đổi này"
+    echo "Kiểm tra lại, hoặc dùng --no-verify nếu chắc chắn an toàn"
     exit 1
 fi
 ```
@@ -140,15 +140,15 @@ Dùng [Gitleaks](https://github.com/gitleaks/gitleaks) sẽ tốt hơn hook tự
 **Lớp 3 — quản lý bí mật đúng cách:**
 
 ```bash
-# Moi truong phat trien: user secrets — luu NGOAI thu muc du an
+# Môi trường phát triển: user secrets — lưu NGOÀI thư mục dự án
 dotnet user-secrets init
 dotnet user-secrets set "ConnectionStrings:Default" "Server=localhost;..."
 ```
 
 ```csharp
-// Production: bien moi truong hoac vault
+// Production: biến môi trường hoặc vault
 var connectionString = builder.Configuration.GetConnectionString("Default");
-// Doc tu bien moi truong ConnectionStrings__Default
+// Đọc từ biến môi trường ConnectionStrings__Default
 ```
 
 Với `user-secrets`, bí mật nằm ở thư mục người dùng — **không thể** vô tình commit được, vì nó không nằm trong cây thư mục dự án ([bài 15.5](../../stage-04-database-production/module-15-docker-deployment/15.4-environment-and-secrets.mdx)).
@@ -158,12 +158,12 @@ Với `user-secrets`, bí mật nằm ở thư mục người dùng — **không
 **Mất commit sau `git reset --hard`:**
 
 ```bash
-# Tuong da mat, nhung reflog con giu
+# Tưởng đã mất, nhưng reflog còn giữ
 git reflog
 # a3f8b2c HEAD@{0}: reset: moving to HEAD~3
-# 7c1d9e4 HEAD@{1}: commit: them tinh nang bao cao   <- commit "da mat"
+# 7c1d9e4 HEAD@{1}: commit: feat: add revenue report   <- commit "đã mất"
 
-git reset --hard 7c1d9e4      # khoi phuc
+git reset --hard 7c1d9e4      # khôi phục
 ```
 
 `git reflog` ghi lại **mọi** lần `HEAD` di chuyển và giữ khoảng 90 ngày. Gần như mọi thứ "mất" trong Git đều tìm lại được ở đây.
@@ -171,9 +171,9 @@ git reset --hard 7c1d9e4      # khoi phuc
 **Commit nhầm vào `main`:**
 
 ```bash
-git branch feature/bao-cao        # tao nhanh tai commit hien tai
-git reset --hard origin/main      # dua main ve trang thai tren remote
-git checkout feature/bao-cao      # tiep tuc lam tren nhanh dung
+git branch feature/revenue-report # tạo nhánh tại commit hiện tại
+git reset --hard origin/main      # đưa main về trạng thái trên remote
+git checkout feature/revenue-report # tiếp tục làm trên nhánh đúng
 ```
 
 Thứ tự quan trọng: tạo nhánh **trước**, reset **sau**. Ngược lại là mất công việc thật.

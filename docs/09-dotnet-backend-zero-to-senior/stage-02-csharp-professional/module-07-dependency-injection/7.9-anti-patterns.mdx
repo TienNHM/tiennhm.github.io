@@ -86,7 +86,7 @@ public sealed class HttpTenantContext(IHttpContextAccessor accessor) : ITenantCo
 {
     public string TenantId =>
         accessor.HttpContext?.User.FindFirst("tenant_id")?.Value
-        ?? throw new InvalidOperationException("Khong xac dinh duoc tenant");
+        ?? throw new InvalidOperationException("Không xác định được tenant");
 }
 
 services.AddHttpContextAccessor();
@@ -129,7 +129,7 @@ public class CustomerReportService(IReportGenerator reports, IExportService expo
 Cách sửa **sai** là gom lại cho gọn mắt:
 
 ```csharp
-// SAI — chi giau bot, khong giam phu thuoc
+// SAI — chỉ giấu bớt, không giảm phụ thuộc
 public class CustomerService(INotificationFacade notifications, IDataFacade data) { }
 ```
 
@@ -141,7 +141,7 @@ Ngưỡng thực dụng: **quá 5 phụ thuộc thì dừng lại xem xét**. Đ
 
 ```csharp
 public interface ICustomerMapper { CustomerDto Map(Customer c); }
-public class CustomerMapper : ICustomerMapper { ... }       // duy nhat, khong ai mock
+public class CustomerMapper : ICustomerMapper { ... }       // duy nhất, không ai mock
 ```
 
 Nếu một interface có **đúng một** implementation, **không ai mock nó** trong test, và bạn không thấy trước một implementation thứ hai — thì nó chỉ là chi phí: thêm một file, thêm một dòng đăng ký, và "Go to Definition" luôn dẫn tới một khai báo rỗng.
@@ -165,7 +165,7 @@ public class OrderService(ICustomerRepository repo)
 {
     public async Task ProcessAsync(Order order, CancellationToken ct)
     {
-        var email = new SmtpEmailService("smtp.company.com", 587);  // bo qua ca he thong DI
+        var email = new SmtpEmailService("smtp.company.com", 587);  // bỏ qua cả hệ thống DI
         ...
     }
 }
@@ -268,8 +268,8 @@ Giờ mọi lớp cần mã tổ chức **khai báo** điều đó:
 ```csharp
 public class OrderService(ITenantContext tenant, IOrderRepository repo)
 {
-    public Task<List<Order>> LayAsync(CancellationToken ct)
-        => repo.LayTheoTenantAsync(tenant.TenantId, ct);
+    public Task<List<Order>> GetAsync(CancellationToken ct)
+        => repo.GetByTenantAsync(tenant.TenantId, ct);
 }
 ```
 
@@ -308,7 +308,7 @@ Viết bài kiểm thử cho một lớp dùng Service Locator và cho cùng l�
 ```csharp
 public class OrderService(IServiceProvider sp)
 {
-    public async Task XuLyAsync(int id, CancellationToken ct)
+    public async Task ProcessAsync(int id, CancellationToken ct)
     {
         var repo = sp.GetRequiredService<IOrderRepository>();
         var mail = sp.GetRequiredService<IEmailSender>();
@@ -321,7 +321,7 @@ Bài kiểm thử phải dựng cả một container:
 
 ```csharp
 [Fact]
-public async Task XuLy_GuiEmail()
+public async Task Process_SendsEmail()
 {
     var services = new ServiceCollection();
     var repo = Substitute.For<IOrderRepository>();
@@ -331,9 +331,9 @@ public async Task XuLy_GuiEmail()
     var sp = services.BuildServiceProvider();
 
     var svc = new OrderService(sp);
-    await svc.XuLyAsync(1, default);
+    await svc.ProcessAsync(1, default);
 
-    await mail.Received(1).GuiAsync(Arg.Any<Email>(), Arg.Any<CancellationToken>());
+    await mail.Received(1).SendAsync(Arg.Any<Email>(), Arg.Any<CancellationToken>());
 }
 ```
 
@@ -347,15 +347,15 @@ public class OrderService(IOrderRepository repo, IEmailSender mail) { }
 
 ```csharp
 [Fact]
-public async Task XuLy_GuiEmail()
+public async Task Process_SendsEmail()
 {
     var repo = Substitute.For<IOrderRepository>();
     var mail = Substitute.For<IEmailSender>();
     var svc = new OrderService(repo, mail);
 
-    await svc.XuLyAsync(1, default);
+    await svc.ProcessAsync(1, default);
 
-    await mail.Received(1).GuiAsync(Arg.Any<Email>(), Arg.Any<CancellationToken>());
+    await mail.Received(1).SendAsync(Arg.Any<Email>(), Arg.Any<CancellationToken>());
 }
 ```
 
@@ -451,10 +451,10 @@ public class OrderDependencies(
 
 public class OrderService(OrderDependencies deps)     // chỉ còn 1 phụ thuộc!
 {
-    public async Task XuLyAsync(...)
+    public async Task ProcessAsync(...)
     {
-        await deps.Repo.ThemAsync(...);
-        await deps.Email.GuiAsync(...);
+        await deps.Repo.AddAsync(...);
+        await deps.Email.SendAsync(...);
     }
 }
 ```

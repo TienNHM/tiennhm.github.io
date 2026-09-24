@@ -27,7 +27,7 @@ Sau bài này bạn có thể:
 ### 14.9.1 — Vấn đề nó giải
 
 ```csharp
-// Ghep chat — moi tinh nang moi phai sua lop nay
+// Ghép chặt — mỗi tính năng mới phải sửa lớp này
 public async Task CreateAsync(CreateCustomerRequest request, CancellationToken ct)
 {
     var customer = await _repo.CreateAsync(request, ct);
@@ -64,11 +64,11 @@ Thêm một consumer mới **không sửa dòng nào** ở đây. Đây là đi�
 | MassTransit | `Send` tới endpoint | `Publish` |
 
 ```csharp
-// COMMAND — mot nguoi nhan
+// COMMAND — một người nhận
 public record SendWelcomeEmail(int CustomerId, string Email);
 await _bus.Send(new SendWelcomeEmail(id, email), ct);
 
-// EVENT — bao nhieu nguoi nhan cung duoc
+// EVENT — bao nhiêu người nhận cũng được
 public record CustomerCreated(int CustomerId, string Email, DateTime OccurredAt);
 await _bus.Publish(new CustomerCreated(id, email, DateTime.UtcNow), ct);
 ```
@@ -76,7 +76,7 @@ await _bus.Publish(new CustomerCreated(id, email, DateTime.UtcNow), ct);
 **Nhầm lẫn phổ biến nhất** là publish một event mà thực chất là command:
 
 ```csharp
-// SAI — day la command doi lot event
+// SAI — đây là command đội lốt event
 public record SendEmailRequested(string To, string Subject, string Body);
 await _bus.Publish(new SendEmailRequested(...));
 ```
@@ -88,10 +88,10 @@ Quy tắc đặt tên là công cụ tốt nhất: event **luôn ở quá khứ*
 **Nội dung message** nên chứa gì? Hai trường phái:
 
 ```csharp
-// 1. Chi id — consumer tu nap du lieu
+// 1. Chỉ id — consumer tự nạp dữ liệu
 public record CustomerCreated(int CustomerId);
 
-// 2. Du du lieu — consumer khong can goi nguoc
+// 2. Đủ dữ liệu — consumer không cần gọi ngược
 public record CustomerCreated(int CustomerId, string Email, string Name, DateTime OccurredAt);
 ```
 
@@ -128,7 +128,7 @@ builder.Services.AddMassTransit(x =>
         cfg.UseCircuitBreaker(cb =>
         {
             cb.TrackingPeriod = TimeSpan.FromMinutes(1);
-            cb.TripThreshold = 15;               // % that bai
+            cb.TripThreshold = 15;               // % thất bại
             cb.ActiveThreshold = 10;             // so message toi thieu
             cb.ResetInterval = TimeSpan.FromMinutes(5);
         });
@@ -147,7 +147,7 @@ public sealed class SendWelcomeEmailConsumer(
     {
         var message = context.Message;
 
-        logger.LogInformation("Gui email chao mung cho {CustomerId}", message.CustomerId);
+        logger.LogInformation("Gửi email chào mừng cho {CustomerId}", message.CustomerId);
 
         await email.SendWelcomeAsync(message.Email, context.CancellationToken);
     }
@@ -174,7 +174,7 @@ cfg.ReceiveEndpoint("welcome-email", e =>
 Đây là vấn đề khó nhất:
 
 ```csharp
-await _db.SaveChangesAsync(ct);                        // (1) luu database
+await _db.SaveChangesAsync(ct);                        // (1) lưu database
 await _bus.Publish(new CustomerCreated(id), ct);       // (2) publish
 ```
 
@@ -200,8 +200,8 @@ builder.Services.AddMassTransit(x =>
 
 ```csharp
 // Bay gio ca hai nam trong MOT transaction
-await _db.SaveChangesAsync(ct);                        // luu customer VA message
-await _bus.Publish(new CustomerCreated(id), ct);       // ghi vao bang outbox
+await _db.SaveChangesAsync(ct);                        // lưu customer VÀ message
+await _bus.Publish(new CustomerCreated(id), ct);       // ghi vào bảng outbox
 ```
 
 Message được ghi vào **bảng outbox trong cùng transaction** với dữ liệu nghiệp vụ. Một tiến trình nền đọc bảng đó và publish thật.
@@ -219,7 +219,7 @@ Message thất bại hết số lần retry đi vào **`_error` queue**:
 ```
 welcome-email          -> queue chinh
 welcome-email_error    -> DEAD LETTER
-welcome-email_skipped  -> message khong co consumer
+welcome-email_skipped  -> message không có consumer
 ```
 
 Ba điều về nó:
@@ -229,7 +229,7 @@ Ba điều về nó:
 3. **Phải có cách xử lý lại** sau khi sửa nguyên nhân.
 
 ```csharp
-// Cau hinh queue loi
+// Cấu hình queue lỗi
 cfg.ReceiveEndpoint("welcome-email", e =>
 {
     e.UseMessageRetry(r => r.Immediate(3));

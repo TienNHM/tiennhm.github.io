@@ -28,22 +28,22 @@ Sau bài này bạn có thể:
 **Điều kiện kích hoạt:** xử lý tập dữ liệu có thể rất lớn.
 
 ```csharp
-// Nap HET vao bo nho — 200.000 ban ghi = OOM
-public async Task<List<Lead>> LayTatCaAsync(CancellationToken ct)
+// Nạp HẾT vào bộ nhớ — 200.000 bản ghi = OOM
+public async Task<List<Lead>> GetAllAsync(CancellationToken ct)
     => await _db.Leads.ToListAsync(ct);
 
-// Stream tung ban ghi — bo nho la HANG SO
-public async IAsyncEnumerable<Lead> LayTatCaAsync(
+// Stream từng bản ghi — bộ nhớ là HẰNG SỐ
+public async IAsyncEnumerable<Lead> GetAllAsync(
     [EnumeratorCancellation] CancellationToken ct = default)
 {
     await foreach (var lead in _db.Leads.AsAsyncEnumerable().WithCancellation(ct))
         yield return lead;
 }
 
-// Su dung
-await foreach (var lead in _service.LayTatCaAsync(ct))
+// Sử dụng
+await foreach (var lead in _service.GetAllAsync(ct))
 {
-    await XuLyAsync(lead, ct);
+    await ProcessAsync(lead, ct);
 }
 ```
 
@@ -90,20 +90,20 @@ Source generator khác biệt với reflection ở một điểm quan trọng: n
 **Điều kiện kích hoạt:** bạn dùng nó **hàng ngày** qua EF Core; chỉ cần tự viết khi xây thư viện.
 
 ```csharp
-// Delegate — code DA BIEN DICH, chi chay duoc
-Func<Lead, bool> ham = l => l.Value > 1000;
+// Delegate — code ĐÃ BIÊN DỊCH, chỉ chạy được
+Func<Lead, bool> predicate = l => l.Value > 1000;
 
-// Expression tree — CAU TRUC DU LIEU mo ta code, DOC va PHAN TICH duoc
-Expression<Func<Lead, bool>> bieuThuc = l => l.Value > 1000;
+// Expression tree — CẤU TRÚC DỮ LIỆU mô tả code, ĐỌC và PHÂN TÍCH được
+Expression<Func<Lead, bool>> expression = l => l.Value > 1000;
 
-Console.WriteLine(bieuThuc.Body);          // (l.Value > 1000)
-Console.WriteLine(bieuThuc.Body.NodeType); // GreaterThan
+Console.WriteLine(expression.Body);          // (l.Value > 1000)
+Console.WriteLine(expression.Body.NodeType); // GreaterThan
 ```
 
 Đây chính là lý do EF Core dịch được LINQ sang SQL:
 
 ```csharp
-// EF Core DOC cay bieu thuc va sinh SQL
+// EF Core ĐỌC cây biểu thức và sinh SQL
 _db.Leads.Where(l => l.Value > 1000)
 // -> SELECT * FROM Leads WHERE Value > 1000
 ```
@@ -111,8 +111,8 @@ _db.Leads.Where(l => l.Value > 1000)
 Và cũng giải thích một lỗi rất hay gặp:
 
 ```csharp
-// Ham C# — EF Core KHONG doc duoc ben trong
-_db.Leads.Where(l => KiemTraHopLe(l))
+// Hàm C# — EF Core KHÔNG đọc được bên trong
+_db.Leads.Where(l => IsValid(l))
 // -> InvalidOperationException: could not be translated
 ```
 
@@ -125,11 +125,11 @@ Hiểu điều này giúp bạn đọc được thông báo lỗi "could not be 
 **Điều kiện kích hoạt:** hot path đã đo được là tốn cấp phát; hoặc bạn viết thư viện.
 
 ```csharp
-// Cap phat: Substring tao chuoi MOI
-string ma = input.Substring(0, 3);
+// Cấp phát: Substring tạo chuỗi MỚI
+string code = input.Substring(0, 3);
 
-// Khong cap phat: Span tro vao bo nho SAN CO
-ReadOnlySpan<char> ma = input.AsSpan(0, 3);
+// Không cấp phát: Span trỏ vào bộ nhớ SẴN CÓ
+ReadOnlySpan<char> code = input.AsSpan(0, 3);
 ```
 
 `Span<T>` là một "cửa sổ" nhìn vào vùng nhớ có sẵn, không sao chép gì. Với code chạy hàng triệu lần, khác biệt về số lần cấp phát là đáng kể.
@@ -146,25 +146,25 @@ Thực tế: bạn **dùng nó gián tiếp** liên tục. `int.Parse(ReadOnlySp
 **Điều kiện kích hoạt:** thiết kế interface generic dùng lại nhiều nơi.
 
 ```csharp
-// Covariance (out) — dung duoc kieu CU THE HON o dau ra
-IEnumerable<Lead> leads = danhSachLead;
-IEnumerable<object> objects = leads;         // OK vi IEnumerable<out T>
+// Covariance (out) — dùng được kiểu CỤ THỂ HƠN ở đầu ra
+IEnumerable<Lead> leads = leadList;
+IEnumerable<object> objects = leads;         // OK vì IEnumerable<out T>
 
-// Contravariance (in) — dung duoc kieu TONG QUAT HON o dau vao
-Action<object> xuLyObject = o => Console.WriteLine(o);
-Action<Lead> xuLyLead = xuLyObject;          // OK vi Action<in T>
+// Contravariance (in) — dùng được kiểu TỔNG QUÁT HƠN ở đầu vào
+Action<object> handleObject = o => Console.WriteLine(o);
+Action<Lead> handleLead = handleObject;      // OK vì Action<in T>
 ```
 
 ```csharp
-// Trong thiet ke cua ban
-public interface IReadOnlyRepository<out T>          // chi TRA VE T
+// Trong thiết kế của bạn
+public interface IReadOnlyRepository<out T>          // chỉ TRẢ VỀ T
 {
     Task<T?> GetByIdAsync(Guid id, CancellationToken ct);
 }
 
-// Gio dung duoc:
-IReadOnlyRepository<Lead> repoLead = ...;
-IReadOnlyRepository<IEntity> repoEntity = repoLead;   // hop le
+// Giờ dùng được:
+IReadOnlyRepository<Lead> leadRepo = ...;
+IReadOnlyRepository<IEntity> entityRepo = leadRepo;   // hợp lệ
 ```
 
 Quy tắc dễ nhớ: **`out` cho kiểu chỉ xuất hiện ở đầu ra**, **`in` cho kiểu chỉ xuất hiện ở đầu vào**. Nếu kiểu xuất hiện ở cả hai (ví dụ `IList<T>` vừa đọc vừa ghi), **không** đánh dấu được — và đó là lý do `IList<Lead>` không gán được cho `IList<object>`.

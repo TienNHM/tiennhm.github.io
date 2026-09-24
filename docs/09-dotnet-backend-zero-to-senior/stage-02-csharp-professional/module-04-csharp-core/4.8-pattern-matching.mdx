@@ -249,7 +249,7 @@ Tạo một `enum` bốn giá trị và một `switch` expression không có nh�
 ```csharp
 enum LeadStatus { New, Contacted, Qualified, Won }
 
-string MoTa(LeadStatus s) => s switch
+string Describe(LeadStatus s) => s switch
 {
     LeadStatus.New       => "Mới tạo",
     LeadStatus.Contacted => "Đã liên hệ",
@@ -296,20 +296,20 @@ Lưu ý hai điều: nhánh `_` này **ném ngoại lệ** chứ không trả gi
 **Một dạng vét cạn mạnh hơn: kiểu kín.** Từ C# 9, kết hợp lớp `abstract` với các lớp con `sealed` trong cùng file cho phép trình biên dịch kiểm tra vét cạn trên **kiểu**, không chỉ trên `enum`:
 
 ```csharp
-public abstract record KetQuaThanhToan
+public abstract record PaymentResult
 {
-    public sealed record ThanhCong(string MaGiaoDich) : KetQuaThanhToan;
-    public sealed record ThatBai(string LyDo) : KetQuaThanhToan;
-    public sealed record ChoXuLy(DateTime DuKien) : KetQuaThanhToan;
+    public sealed record Succeeded(string TransactionId) : PaymentResult;
+    public sealed record Failed(string Reason) : PaymentResult;
+    public sealed record Pending(DateTime ExpectedAt) : PaymentResult;
 
-    private KetQuaThanhToan() { }   // chặn lớp con từ bên ngoài
+    private PaymentResult() { }   // chặn lớp con từ bên ngoài
 }
 
-string MoTa(KetQuaThanhToan kq) => kq switch
+string Describe(PaymentResult result) => result switch
 {
-    KetQuaThanhToan.ThanhCong s => $"Thành công: {s.MaGiaoDich}",
-    KetQuaThanhToan.ThatBai t   => $"Thất bại: {t.LyDo}",
-    KetQuaThanhToan.ChoXuLy c   => $"Chờ tới {c.DuKien:dd/MM}"
+    PaymentResult.Succeeded ok  => $"Thành công: {ok.TransactionId}",
+    PaymentResult.Failed err    => $"Thất bại: {err.Reason}",
+    PaymentResult.Pending wait  => $"Chờ tới {wait.ExpectedAt:dd/MM}"
 };
 ```
 
@@ -331,7 +331,7 @@ Tìm một khối `if` lồng từ ba tầng trở lên kiểm tra thuộc tính
 **Lời giải — trước:**
 
 ```csharp
-public decimal TinhPhiGiaoHang(Order? order)
+public decimal CalculateShippingFee(Order? order)
 {
     if (order != null)
     {
@@ -357,7 +357,7 @@ public decimal TinhPhiGiaoHang(Order? order)
 **Sau:**
 
 ```csharp
-public decimal TinhPhiGiaoHang(Order? order) => order switch
+public decimal CalculateShippingFee(Order? order) => order switch
 {
     { Customer.Address.City: "Hà Nội", Total: > 500_000m } => 0m,
     { Customer.Address.City: "Hà Nội" }                    => 25_000m,
@@ -428,11 +428,11 @@ Tìm một `switch` trên kiểu trong dự án. Trả lời: logic này thuộc
 
 ```csharp
 // TRƯỚC — switch trên kiểu, nằm ở người gọi
-public decimal TinhPhi(PhuongThucThanhToan pt) => pt switch
+public decimal CalculateFee(PaymentMethod method) => method switch
 {
-    TheTinDung t => t.SoTien * 0.025m,
-    ChuyenKhoan c => 11_000m,
-    ViDienTu v   => v.SoTien * 0.015m,
+    CreditCard card    => card.Amount * 0.025m,
+    BankTransfer       => 11_000m,
+    EWallet wallet     => wallet.Amount * 0.015m,
     _ => throw new ArgumentOutOfRangeException()
 };
 ```
@@ -441,15 +441,15 @@ Thêm một phương thức thanh toán mới, ví dụ trả góp, thì phải 
 
 ```csharp
 // SAU — logic nằm trong đối tượng
-public abstract class PhuongThucThanhToan
+public abstract class PaymentMethod
 {
-    public abstract decimal TinhPhi();
+    public abstract decimal CalculateFee();
 }
 
-public class TheTinDung : PhuongThucThanhToan
+public class CreditCard : PaymentMethod
 {
-    public decimal SoTien { get; init; }
-    public override decimal TinhPhi() => SoTien * 0.025m;
+    public decimal Amount { get; init; }
+    public override decimal CalculateFee() => Amount * 0.025m;
 }
 ```
 

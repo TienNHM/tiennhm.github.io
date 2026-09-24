@@ -108,7 +108,7 @@ Lớp `WebApplication` cài đồng thời ba interface: `IHost` (vòng đời),
 
 ```csharp
 app.Run(async ctx => await ctx.Response.WriteAsync("hi"));   // terminal middleware
-app.Run();                                                    // khoi dong va chan luong
+app.Run();                                                    // khởi động và chặn luồng
 ```
 
 ### 8.2.4 — Generic Host
@@ -257,33 +257,33 @@ Ba dòng cuối là phần bảo mật:
 
 ```json
 // appsettings.json
-{ "Demo": { "Gia": "tu-appsettings" } }
+{ "Demo": { "Value": "from-appsettings" } }
 
 // appsettings.Development.json
-{ "Demo": { "Gia": "tu-development" } }
+{ "Demo": { "Value": "tu-development" } }
 ```
 
 ```bash
-export Demo__Gia="tu-bien-moi-truong"
+export Demo__Value="from-env-var"
 export ASPNETCORE_ENVIRONMENT=Development
 dotnet run
 ```
 
 ```csharp
-app.MapGet("/cau-hinh", (IConfiguration c) => new
+app.MapGet("/config", (IConfiguration c) => new
 {
-    GiaTri = c["Demo:Gia"],
-    ChiTiet = ((IConfigurationRoot)c).GetDebugView()
+    Value = c["Demo:Value"],
+    Details = ((IConfigurationRoot)c).GetDebugView()
 });
 ```
 
 **Kết quả:**
 
 ```text
-tu-bien-moi-truong
+from-env-var
 
 Demo:
-  Gia=tu-bien-moi-truong (EnvironmentVariablesConfigurationProvider)
+  Value=from-env-var (EnvironmentVariablesConfigurationProvider)
 ```
 
 Biến môi trường thắng, và `GetDebugView()` ghi rõ provider nào đã thắng trong dấu ngoặc.
@@ -424,7 +424,7 @@ Nếu bước 3 bị cắt ngắn, mọi request đang xử lý tại thời đi
    {
        while (!stoppingToken.IsCancellationRequested)
        {
-           await XuLyAsync(stoppingToken);
+           await ProcessAsync(stoppingToken);
        }
        _logger.LogInformation("Tác vụ nền đã dừng gọn");
    }

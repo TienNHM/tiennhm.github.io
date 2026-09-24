@@ -38,7 +38,7 @@ Ba mức xử lý, theo chi phí tăng dần:
 Mức 1 giải quyết phần lớn trường hợp và rẻ nhất. Chỉ lên mức 2 khi truy vấn nặng tới mức **một lần chạy** cũng làm chậm hệ thống — khi đó cache không đủ vì mỗi lần miss vẫn gây tải ([bài 19.6](19.5-systematic-caching-overview.mdx)).
 
 ```sql
--- Muc 2: bang tong hop, job chay moi 15 phut
+-- Mức 2: bảng tổng hợp, job chạy mỗi 15 phút
 CREATE TABLE DashboardSummary (
     TenantId        UNIQUEIDENTIFIER NOT NULL,
     Period          DATE             NOT NULL,
@@ -54,7 +54,7 @@ Truy vấn dashboard giờ đọc **một hàng** thay vì tổng hợp trên h�
 ### 19.10.2 — Tìm kiếm
 
 ```csharp
-// SAI — LIKE voi wildcard dau KHONG dung duoc index
+// SAI — LIKE với wildcard đầu KHÔNG dùng được index
 var leads = await _db.Leads
     .Where(l => l.TenantId == tenantId && l.Name.Contains(keyword))
     .ToListAsync(ct);
@@ -70,7 +70,7 @@ Wildcard ở **đầu** chuỗi khiến index vô dụng, vì index sắp xếp 
 | **Elasticsearch / OpenSearch** | Tìm mờ, xếp hạng, gợi ý | Thêm hạ tầng, phải đồng bộ dữ liệu |
 
 ```csharp
-// Tim theo tien to — DUNG duoc index
+// Tìm theo tiền tố — DÙNG được index
 .Where(l => l.TenantId == tenantId && l.Name.StartsWith(keyword))
 ```
 
@@ -83,13 +83,13 @@ Nếu dùng Elasticsearch, việc đồng bộ nên đi qua outbox hoặc CDC ch
 ```csharp
 // SAI — OFFSET lon rat cham
 .Skip(page * 50).Take(50)
-// Trang 1000: database phai DOC va BO 50.000 hang truoc khi tra ve 50 hang
+// Trang 1000: database phải ĐỌC và BỎ 50.000 hàng trước khi trả về 50 hàng
 ```
 
 `OFFSET` buộc database đọc rồi bỏ mọi hàng phía trước. Trang 1 nhanh, trang 1000 rất chậm — và người dùng nhảy tới trang cuối là chuyện thường khi họ muốn xem bản ghi cũ nhất.
 
 ```csharp
-// DUNG — keyset pagination, thoi gian KHONG doi theo trang
+// ĐÚNG — keyset pagination, thời gian KHÔNG đổi theo trang
 var query = _db.Leads.Where(l => l.TenantId == tenantId);
 
 if (cursor is not null)
@@ -110,7 +110,7 @@ Tie-breaker `ThenByDescending(l => l.Id)` là bắt buộc: nếu hai bản ghi 
 Và luôn đặt **trần** cho `pageSize`:
 
 ```csharp
-var size = Math.Clamp(request.PageSize, 1, 100);   // khong cho ?pageSize=999999
+var size = Math.Clamp(request.PageSize, 1, 100);   // không cho ?pageSize=999999
 ```
 
 ### 19.10.4 — Import hàng loạt
@@ -137,7 +137,7 @@ foreach (var chunk in rows.Chunk(batchSize))
 
     db.Leads.AddRange(chunk.Select(MapToLead));
     await db.SaveChangesAsync(ct);
-    // context bi huy -> change tracker duoc giai phong
+    // context bị huỷ -> change tracker được giải phóng
 }
 ```
 
@@ -150,10 +150,10 @@ Với lượng rất lớn, `SqlBulkCopy` nhanh hơn nhiều — nhưng nó **b�
 ### 19.10.5 — Noisy neighbour
 
 ```
-Tenant "MegaCorp" chay bao cao 12 thang luc 9h sang
+Tenant "MegaCorp" chạy báo cáo 12 tháng lúc 9h sáng
 -> Truy van chiem CPU database trong 40 giay
 -> 200 tenant khac deu cham trong 40 giay do
--> Nguoi bao loi la nhung nguoi KHONG lam gi sai
+-> Người báo lỗi là những người KHÔNG làm gì sai
 ```
 
 Bốn cách giảm nhẹ, theo chi phí tăng dần:

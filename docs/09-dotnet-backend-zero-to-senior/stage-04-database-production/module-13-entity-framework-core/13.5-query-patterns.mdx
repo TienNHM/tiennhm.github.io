@@ -36,7 +36,7 @@ var dtos = customers.Select(c => new CustomerDto(c.Id, c.Name, c.Contacts.Count)
 ```
 
 ```csharp
-// TOT — SQL chi lay dung nhung gi can
+// TỐT — SQL chỉ lấy đúng những gì cần
 var dtos = await db.Customers
     .Select(c => new CustomerDto(c.Id, c.Name, c.Contacts.Count()))
     .ToListAsync(ct);
@@ -58,7 +58,7 @@ Ba lợi ích của projection:
 Điểm 3 hay bị bỏ qua: `Include` **vô tác dụng** khi có `Select`. EF Core bỏ qua nó, và điều này gây bối rối vì code trông như đang eager load.
 
 ```csharp
-// Include bi BO QUA hoan toan
+// Include bị BỎ QUA hoàn toàn
 var dtos = await db.Customers
     .Include(c => c.Contacts)          // vo nghia
     .Select(c => new CustomerDto(c.Id, c.Name))
@@ -90,8 +90,8 @@ var customer = await db.Customers
 EF Core sinh **một** truy vấn với hai `LEFT JOIN`:
 
 ```
-10 contact x 20 lead = 200 DONG cho MOT khach hang
-Moi dong lap lai toan bo cot cua Customers
+10 contact x 20 lead = 200 DÒNG cho MỘT khách hàng
+Mỗi dòng lặp lại toàn bộ cột của Customers
 ```
 
 EF Core khử trùng lặp khi vật chất hoá, nên **kết quả đúng** — nhưng 200 dòng đã đi qua mạng, và cột `Customer.Notes` được lặp lại 200 lần.
@@ -111,7 +111,7 @@ var customer = await db.Customers
 SELECT * FROM Customers WHERE Id = 42;                    -- 1 dong
 SELECT * FROM Contacts WHERE CustomerId = 42;             -- 10 dong
 SELECT * FROM Leads WHERE CustomerId = 42;                -- 20 dong
--- Tong: 31 dong thay vi 200
+-- Tổng: 31 dòng thay vì 200
 ```
 
 | | Single query | Split query |
@@ -154,7 +154,7 @@ Ràng buộc cuối gây ra hành vi khó hiểu: cùng một đoạn code cho k
 ```csharp
 var customer = await db.Customers.FindAsync([id], ct);
 
-// Chi nap contact khi thuc su can
+// Chỉ nạp contact khi thực sự cần
 if (needContacts)
     await db.Entry(customer!).Collection(c => c.Contacts).LoadAsync(ct);
 
@@ -163,7 +163,7 @@ await db.Entry(customer!).Collection(c => c.Leads)
         .Query().Where(l => l.Status == LeadStatus.New)
         .LoadAsync(ct);
 
-// Chi DEM, khong nap
+// Chỉ ĐẾM, không nạp
 var leadCount = await db.Entry(customer!).Collection(c => c.Leads)
                         .Query().CountAsync(ct);
 ```

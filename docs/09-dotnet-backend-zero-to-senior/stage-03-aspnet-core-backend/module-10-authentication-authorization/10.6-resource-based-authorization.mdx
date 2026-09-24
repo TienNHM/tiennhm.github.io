@@ -27,7 +27,7 @@ Sau bài này bạn có thể:
 ### 10.7.1 — Vì sao attribute không đủ
 
 ```csharp
-[Authorize(Roles = "SalesRep")]     // chay TRUOC khi action bat dau
+[Authorize(Roles = "SalesRep")]     // chạy TRƯỚC khi action bắt đầu
 [HttpPut("{id:guid}")]
 public async Task<IActionResult> Update(Guid id, UpdateRequest req, CancellationToken ct)
 {
@@ -43,7 +43,7 @@ Thứ tự bắt buộc phải là: **nạp bản ghi → kiểm tra quyền tr�
 ### 10.7.2 — Lỗ hổng IDOR
 
 ```csharp
-// SAI — chi kiem tra "da dang nhap chua"
+// SAI — chỉ kiểm tra "đã đăng nhập chưa"
 [Authorize]
 [HttpGet("{id:guid}")]
 public async Task<ActionResult<CustomerDto>> GetById(Guid id, CancellationToken ct)
@@ -81,7 +81,7 @@ public sealed class CustomerOwnerHandler
     }
 }
 
-// Con duong thu hai: quan ly cung khu vuc
+// Con đường thứ hai: quản lý cùng khu vực
 public sealed class CustomerTerritoryHandler
     : AuthorizationHandler<SameOwnerRequirement, Customer>
 {
@@ -128,8 +128,8 @@ public async Task<IActionResult> Update(
 ### 10.7.4 — 403 hay 404
 
 ```csharp
-if (!result.Succeeded) return Forbid();       // 403: "co ton tai, ban khong duoc xem"
-if (!result.Succeeded) return NotFound();     // 404: "coi nhu khong ton tai"
+if (!result.Succeeded) return Forbid();       // 403: "có tồn tại, bạn không được xem"
+if (!result.Succeeded) return NotFound();     // 404: "coi như không tồn tại"
 ```
 
 Khác biệt nằm ở **thông tin bạn tiết lộ**. 403 xác nhận bản ghi đó **tồn tại** — kẻ tấn công dò id lần lượt sẽ phân biệt được "id hợp lệ nhưng không thuộc về tôi" với "id không tồn tại", và từ đó suy ra quy mô dữ liệu, tốc độ tăng trưởng, hoặc tồn tại của một khách hàng cụ thể.
@@ -148,7 +148,7 @@ Nhất quán trong toàn API, và ghi rõ lựa chọn trong tài liệu để n
 Sai lầm hay gặp là áp cách làm của một bản ghi lên cả danh sách:
 
 ```csharp
-// SAI — nap TAT CA roi loc trong bo nho
+// SAI — nạp TẤT CẢ rồi lọc trong bộ nhớ
 var all = await _db.Customers.ToListAsync(ct);
 
 var visible = new List<Customer>();

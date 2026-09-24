@@ -44,18 +44,18 @@ Nguyên tắc: **đo trước**. Bật log SQL ([bài 13.2](13.1-ef-core-overvie
 ### 13.8.2 — `ExecuteUpdate` và `ExecuteDelete`
 
 ```csharp
-// CACH CU — nap, sua, luu
+// CÁCH CŨ — nạp, sửa, lưu
 var leads = await db.Leads
     .Where(l => l.Status == LeadStatus.New && l.CreatedAt < cutoff)
     .ToListAsync(ct);                       // nap 50.000 entity
 
 foreach (var l in leads) l.Status = LeadStatus.Lost;
 
-await db.SaveChangesAsync(ct);              // 50.000 lenh UPDATE
+await db.SaveChangesAsync(ct);              // 50.000 lệnh UPDATE
 ```
 
 ```csharp
-// EF Core 7+ — MOT cau lenh
+// EF Core 7+ — MỘT câu lệnh
 await db.Leads
     .Where(l => l.Status == LeadStatus.New && l.CreatedAt < cutoff)
     .ExecuteUpdateAsync(s => s
@@ -108,7 +108,7 @@ Và chúng **thực thi ngay lập tức**, không chờ `SaveChanges`. Muốn n
 ### 13.8.3 — Chèn hàng loạt
 
 ```csharp
-// CHAM — 10.000 lenh INSERT rieng
+// CHẬM — 10.000 lệnh INSERT riêng
 foreach (var lead in newLeads) db.Leads.Add(lead);
 await db.SaveChangesAsync(ct);
 ```
@@ -128,7 +128,7 @@ await db.BulkInsertAsync(newLeads, cancellationToken: ct);
 ```
 
 ```csharp
-// Hoac SqlBulkCopy truc tiep — nhanh nhat
+// Hoặc SqlBulkCopy trực tiếp — nhanh nhất
 using var bulk = new SqlBulkCopy(connection)
 {
     DestinationTableName = "Leads",
@@ -188,7 +188,7 @@ Ràng buộc 2 và 3 khiến `AddDbContextPool` **không dùng được** với 
 ### 13.8.5 — SQL thuần khi cần
 
 ```csharp
-// EF Core 8+: FromSql — noi suy nhung THAM SO HOA tu dong
+// EF Core 8+: FromSql — nội suy nhưng THAM SỐ HOÁ tự động
 var top = await db.Customers
     .FromSql($"""
         SELECT c.*
@@ -227,7 +227,7 @@ Hoặc dùng Dapper — nó tự nhiên hơn cho truy vấn không map về enti
 ### 13.8.6 — Đo đúng cách
 
 ```csharp
-// 1. Log SQL kem thoi gian
+// 1. Log SQL kèm thời gian
 options.LogTo(Console.WriteLine, LogLevel.Information);
 
 // 2. Xem SQL cua mot truy van cu the

@@ -26,12 +26,12 @@ Sau bài này bạn có thể:
 ### 3.14.1 — Tình huống
 
 ```
-An:   tao migration "ThemCotSoDienThoaiVaoLead"
-Binh: tao migration "ThemBangGhiChu"
-Ca hai cung xuat phat tu main, lam song song trong 2 ngay
+An:   tạo migration "AddPhoneNumberToLead"
+Bình: tạo migration "AddNoteTable"
+Cả hai cùng xuất phát từ main, làm song song trong 2 ngày
 
-An merge truoc  -> OK
-Binh merge sau  -> CONFLICT trong AppDbContextModelSnapshot.cs
+An merge trước  -> OK
+Bình merge sau  -> CONFLICT trong AppDbContextModelSnapshot.cs
 ```
 
 ```csharp
@@ -43,7 +43,7 @@ Binh merge sau  -> CONFLICT trong AppDbContextModelSnapshot.cs
     b.Property<string>("Note")
         .HasMaxLength(2000)
         .HasColumnType("nvarchar(2000)");
->>>>>>> feature/them-bang-ghi-chu
+>>>>>>> feature/note-table
 ```
 
 Nhìn thì có vẻ dễ: giữ cả hai đoạn là xong.
@@ -53,9 +53,9 @@ Nhìn thì có vẻ dễ: giữ cả hai đoạn là xong.
 `ModelSnapshot.cs` **không phải code bạn viết** — nó là **ảnh chụp trạng thái hiện tại** của mô hình dữ liệu, do EF Core sinh ra để so sánh khi tạo migration tiếp theo.
 
 ```
-EF Core tao migration bang cach:
-  So sanh (model trong code)  vs  (ModelSnapshot.cs)
-  -> Sinh ra cac lenh de dua database tu snapshot ve model moi
+EF Core tạo migration bằng cách:
+  So sánh (model trong code)  vs  (ModelSnapshot.cs)
+  -> Sinh ra các lệnh để đưa database từ snapshot về model mới
 ```
 
 Nếu snapshot bị ghép tay sai — thiếu một thuộc tính, sai thứ tự index, sót một ràng buộc — thì migration **tiếp theo** sẽ sinh ra lệnh sai. Và vì snapshot vẫn biên dịch được, không có gì cảnh báo bạn.
@@ -63,10 +63,10 @@ Nếu snapshot bị ghép tay sai — thiếu một thuộc tính, sai thứ t�
 Hậu quả điển hình:
 
 ```
-Migration tiep theo sinh ra:
-  ALTER TABLE Leads ADD PhoneNumber nvarchar(20)   <- cot DA TON TAI
+Migration tiếp theo sinh ra:
+  ALTER TABLE Leads ADD PhoneNumber nvarchar(20)   <- cột ĐÃ TỒN TẠI
 
-Chay tren production -> loi "Column names in each table must be unique"
+Chạy trên production -> lỗi "Column names in each table must be unique"
 ```
 
 Hoặc tệ hơn theo hướng ngược lại: snapshot thừa một cột mà database không có, nên EF Core sinh lệnh `DROP COLUMN` cho một cột đang chứa dữ liệu thật.
@@ -78,10 +78,10 @@ Hoặc tệ hơn theo hướng ngược lại: snapshot thừa một cột mà d
 **Bước 1 — bỏ migration của mình:**
 
 ```bash
-# Huy merge dang do
+# Huỷ merge đang dở
 git merge --abort
 
-# Xoa migration cua minh (chua ai dung, an toan)
+# Xoá migration của mình (chưa ai dùng, an toàn)
 dotnet ef migrations remove
 ```
 
@@ -92,21 +92,21 @@ dotnet ef migrations remove
 ```bash
 git checkout main
 git pull
-git checkout feature/them-bang-ghi-chu
-git rebase main          # gio khong con conflict o snapshot nua
+git checkout feature/note-table
+git rebase main          # giờ không còn conflict ở snapshot nữa
 ```
 
 **Bước 3 — sinh lại migration:**
 
 ```bash
-dotnet ef migrations add ThemBangGhiChu
+dotnet ef migrations add AddNoteTable
 ```
 
 EF Core so sánh model hiện tại (đã có cả thay đổi của An và của Bình) với snapshot mới nhất, rồi sinh migration **chỉ chứa phần của Bình**. Snapshot được cập nhật đúng.
 
 ```bash
-# Luon kiem tra file sinh ra truoc khi commit
-cat Migrations/*_ThemBangGhiChu.cs
+# Luôn kiểm tra file sinh ra trước khi commit
+cat Migrations/*_AddNoteTable.cs
 ```
 
 Đọc nó và xác nhận nó **chỉ** chứa những gì bạn mong đợi. Nếu thấy lệnh động tới bảng hay cột không liên quan, có gì đó sai.
@@ -116,13 +116,13 @@ cat Migrations/*_ThemBangGhiChu.cs
 Ba bước trên chỉ áp dụng khi migration **chưa** được áp dụng ở đâu. Nếu nó đã chạy trên môi trường nào đó, `migrations remove` là sai — nó sẽ khiến lịch sử migration trong database lệch với mã nguồn.
 
 ```bash
-# Kiem tra migration nao da duoc ap dung
+# Kiểm tra migration nào đã được áp dụng
 dotnet ef migrations list
 ```
 
 ```
-20260920103012_ThemCotSoDienThoaiVaoLead (Applied)
-20260921141522_ThemBangGhiChu            (Pending)      <- chua ap dung, xoa duoc
+20260920103012_AddPhoneNumberToLead (Applied)
+20260921141522_AddNoteTable         (Pending)      <- chưa áp dụng, xoá được
 ```
 
 Nếu migration của bạn đã `Applied` trên staging hoặc production, cách xử lý là **thêm một migration mới** sửa phần khác biệt, không xoá cái cũ ([bài 13.5](../../stage-04-database-production/module-13-entity-framework-core/13.4-migrations.mdx)).
@@ -132,9 +132,9 @@ Nếu migration của bạn đã `Applied` trên staging hoặc production, các
 **1. Merge `main` thường xuyên.** Conflict tỷ lệ với thời gian nhánh tồn tại:
 
 ```bash
-# Moi sang, truoc khi bat dau lam
+# Mỗi sáng, trước khi bắt đầu làm
 git checkout main && git pull
-git checkout feature/cua-toi && git rebase main
+git checkout feature/my-branch && git rebase main
 ```
 
 Nhánh sống 2 ngày hiếm khi có conflict nghiêm trọng; nhánh sống 3 tuần thì gần như chắc chắn có.

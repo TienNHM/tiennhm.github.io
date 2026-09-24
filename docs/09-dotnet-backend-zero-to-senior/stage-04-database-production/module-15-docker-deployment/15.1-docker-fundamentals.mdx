@@ -27,9 +27,9 @@ Sau bài này bạn có thể:
 ### 15.2.1 — Container là một tiến trình
 
 ```bash
-# Tren HOST, container chi la mot tien trinh binh thuong
+# Trên HOST, container chỉ là một tiến trình bình thường
 ps aux | grep dotnet
-# => ban THAY no trong danh sach tien trinh cua host
+# => bạn THẤY nó trong danh sách tiến trình của host
 ```
 
 Container dùng ba cơ chế của kernel Linux:
@@ -67,7 +67,7 @@ Mỗi lệnh tạo một layer. Layer **được chia sẻ** giữa các image: 
 **Cache theo layer** là thứ quyết định tốc độ build:
 
 ```dockerfile
-# CHAM — doi mot dong code la restore LAI toan bo package
+# CHẬM — đổi một dòng code là restore LẠI toàn bộ package
 COPY . .
 RUN dotnet restore
 RUN dotnet publish -c Release -o /app/publish
@@ -126,7 +126,7 @@ Cần lưu trữ bền thì dùng **volume**:
 # Named volume — Docker quan ly
 docker run -v crm-data:/var/lib/postgresql/data postgres:17
 
-# Bind mount — thu muc cua host
+# Bind mount — thư mục của host
 docker run -v /host/path:/container/path myapp
 ```
 
@@ -149,10 +149,10 @@ docker run --memory=512m --cpus=1.5 myapp
 .NET **đọc được** giới hạn cgroup và điều chỉnh theo:
 
 ```bash
-# Gioi han heap cua GC theo % bo nho container
+# Giới hạn heap của GC theo % bộ nhớ container
 DOTNET_GCHeapHardLimitPercent=75
 
-# Hoac gia tri tuyet doi (hex, byte)
+# Hoặc giá trị tuyệt đối (hex, byte)
 DOTNET_GCHeapHardLimit=0x18000000
 ```
 
@@ -192,13 +192,13 @@ docker run -d -p 8080:8080 --name crm-api \
 # Chan doan
 docker logs crm-api -f --tail 100
 docker exec -it crm-api /bin/sh          # vao ben trong
-docker inspect crm-api                    # cau hinh day du
-docker stats crm-api                      # tai nguyen theo thoi gian thuc
+docker inspect crm-api                    # cấu hình đầy đủ
+docker stats crm-api                      # tài nguyên theo thời gian thực
 
 # Don dep
-docker system df                          # xem dung luong
-docker image prune -a                     # xoa image khong dung
-docker system prune -a --volumes          # CAN THAN — xoa ca volume
+docker system df                          # xem dung lượng
+docker image prune -a                     # xoá image không dùng
+docker system prune -a --volumes          # CẨN THẬN — xoá cả volume
 ```
 
 `--restart=unless-stopped` cho container tự khởi động lại sau crash và sau khi host reboot — cần thiết cho triển khai đơn giản không có orchestrator.
@@ -208,10 +208,10 @@ docker system prune -a --volumes          # CAN THAN — xoa ca volume
 **Gắn thẻ bằng `latest` là sai** ở production:
 
 ```bash
-# SAI — khong biet dang chay phien ban nao
+# SAI — không biết đang chạy phiên bản nào
 docker run myrepo/crm-api:latest
 
-# DUNG — thay ro rang, rollback duoc
+# ĐÚNG — thấy rõ ràng, rollback được
 docker run myrepo/crm-api:1.2.3
 docker run myrepo/crm-api:sha-a1b2c3d
 ```

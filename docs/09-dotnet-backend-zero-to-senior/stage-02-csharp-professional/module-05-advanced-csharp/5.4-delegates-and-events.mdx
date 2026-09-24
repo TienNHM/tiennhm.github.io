@@ -250,27 +250,27 @@ Tạo một service `Singleton` có event, và một class ngắn hạn đăng k
 ```csharp
 public class Publisher
 {
-    public event EventHandler? Doi;
-    public int SoHandler => Doi?.GetInvocationList().Length ?? 0;
+    public event EventHandler? Notified;
+    public int HandlerCount => Notified?.GetInvocationList().Length ?? 0;
 }
 
 public class Subscriber
 {
-    private readonly byte[] _rac = new byte[10_000];   // cho dễ thấy trên biểu đồ
-    public Subscriber(Publisher p) => p.Doi += OnDoi;
-    private void OnDoi(object? s, EventArgs e) { }
+    private readonly byte[] _payload = new byte[10_000];   // cho dễ thấy trên biểu đồ
+    public Subscriber(Publisher p) => p.Notified += OnNotified;
+    private void OnNotified(object? s, EventArgs e) { }
 }
 
 var pub = new Publisher();
-var truoc = GC.GetTotalMemory(true);
+var before = GC.GetTotalMemory(true);
 
 for (int i = 0; i < 100_000; i++)
 {
     var s = new Subscriber(pub);     // tạo rồi bỏ, không giữ biến nào
 }
 
-var sau = GC.GetTotalMemory(true);   // true = ép thu gom rác trước khi đo
-Console.WriteLine($"tăng {(sau - truoc) / 1024 / 1024} MB, handler còn lại = {pub.SoHandler}");
+var after = GC.GetTotalMemory(true);  // true = ép thu gom rác trước khi đo
+Console.WriteLine($"tăng {(after - before) / 1024 / 1024} MB, handler còn lại = {pub.HandlerCount}");
 ```
 
 **Kết quả đo thật trên .NET 9:**
@@ -284,7 +284,7 @@ sau 100k subscriber không gỡ: tăng 965 MB, handler còn lại = 100000
 **Hướng của tham chiếu — đây là điểm mấu chốt.** Trực giác nói rằng subscriber tham chiếu tới publisher, nên bỏ subscriber đi là xong. Thực tế **ngược lại**:
 
 ```text
-publisher.Doi  ──giữ──>  delegate  ──giữ──>  subscriber
+publisher.Notified ──giữ──>  delegate  ──giữ──>  subscriber
 ```
 
 Event là một delegate, và delegate giữ tham chiếu tới **đối tượng chứa phương thức** được gắn vào. Vì vậy `publisher` giữ `subscriber` sống, chứ không phải chiều ngược lại.
@@ -297,17 +297,17 @@ Khi `publisher` là `Singleton` — sống suốt vòng đời ứng dụng — 
 public sealed class Subscriber : IDisposable
 {
     private readonly Publisher _pub;
-    private readonly byte[] _rac = new byte[10_000];
+    private readonly byte[] _payload = new byte[10_000];
 
     public Subscriber(Publisher p)
     {
         _pub = p;
-        _pub.Doi += OnDoi;
+        _pub.Notified += OnDoi;
     }
 
-    private void OnDoi(object? s, EventArgs e) { }
+    private void OnNotified(object? s, EventArgs e) { }
 
-    public void Dispose() => _pub.Doi -= OnDoi;   // GỠ đăng ký
+    public void Dispose() => _pub.Notified -= OnDoi;   // GỠ đăng ký
 }
 
 for (int i = 0; i < 100_000; i++)
@@ -316,7 +316,7 @@ for (int i = 0; i < 100_000; i++)
 }
 ```
 
-Đo lại: bộ nhớ trở về gần mức ban đầu, `SoHandler` bằng 0.
+Đo lại: bộ nhớ trở về gần mức ban đầu, `HandlerCount` bằng 0.
 
 **Vì sao đây là lỗi nghiêm trọng trong ASP.NET Core.** Tình huống điển hình: một service `Singleton` phát sự kiện, và một service `Scoped` — sống một request — đăng ký vào nó. Mỗi request để lại một đối tượng không bao giờ được dọn. Sau vài triệu request, ứng dụng hết bộ nhớ.
 
@@ -354,11 +354,11 @@ Mở file bằng Visual Studio hoặc PerfView và nhìn cột "đường tới 
 ```csharp
 var pub = new Publisher();
 
-pub.Doi += (s, e) => { };
-Console.WriteLine($"trước khi gỡ: {pub.SoHandler} handler");
+pub.Notified += (s, e) => { };
+Console.WriteLine($"trước khi gỡ: {pub.HandlerCount} handler");
 
-pub.Doi -= (s, e) => { };          // lambda viết lại y hệt
-Console.WriteLine($"sau khi gỡ:   {pub.SoHandler} handler");
+pub.Notified -= (s, e) => { };          // lambda viết lại y hệt
+Console.WriteLine($"sau khi gỡ bằng lambda viết lại y hệt: {pub.HandlerCount} handler");
 ```
 
 **Kết quả đo thật trên .NET 9:**
@@ -377,12 +377,12 @@ Handler **vẫn còn**. Lệnh `-=` không làm gì cả, và **không có cản
 ```csharp
 // Cách 1 — giữ tham chiếu tới delegate
 EventHandler handler = (s, e) => { };
-pub.Doi += handler;
-pub.Doi -= handler;              // hoạt động
+pub.Notified += handler;
+pub.Notified -= handler;              // hoạt động
 
 // Cách 2 — dùng phương thức có tên
-pub.Doi += OnDoi;
-pub.Doi -= OnDoi;                // hoạt động — cùng đối tượng, cùng phương thức
+pub.Notified += OnDoi;
+pub.Notified -= OnDoi;                // hoạt động — cùng đối tượng, cùng phương thức
 
 // Cách 3 — bọc trong một đối tượng IDisposable
 public sealed class DangKy : IDisposable
@@ -392,7 +392,7 @@ public sealed class DangKy : IDisposable
     public void Dispose() => _go();
 }
 
-var dk = new DangKy(() => pub.Doi -= handler);
+var dk = new DangKy(() => pub.Notified -= handler);
 ```
 
 **Vì sao lỗi này khó phát hiện.** Nó có đủ ba đặc điểm tệ nhất:
@@ -406,7 +406,7 @@ var dk = new DangKy(() => pub.Doi -= handler);
 **Kiểm tra trong lúc phát triển:**
 
 ```csharp
-Debug.Assert(pub.SoHandler == 0, $"Còn {pub.SoHandler} handler chưa gỡ");
+Debug.Assert(pub.HandlerCount == 0, $"Còn {pub.HandlerCount} handler chưa gỡ");
 ```
 
 Đặt câu này ở cuối vòng đời của thành phần phát sự kiện. Nó không tốn gì ở bản Release và bắt được lỗi ngay khi nó xuất hiện.

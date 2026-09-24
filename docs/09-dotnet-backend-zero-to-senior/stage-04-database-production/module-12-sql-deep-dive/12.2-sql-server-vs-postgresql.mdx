@@ -31,8 +31,8 @@ Sau bài này bạn có thể:
 ```
 UPDATE customers SET status = 'Churned' WHERE customer_id = 42;
 
-Truoc: [row v1: Active]
-Sau:   [row v1: Active — CHET] [row v2: Churned — song]
+Trước: [row v1: Active]
+Sau:   [row v1: Active — CHẾT] [row v2: Churned — sống]
 ```
 
 Hệ quả tích cực: **người đọc không bao giờ chặn người ghi, và ngược lại**. Một `SELECT` dài 10 phút không cản trở `UPDATE` nào — nó chỉ đọc ảnh chụp tại thời điểm bắt đầu.
@@ -41,7 +41,7 @@ Hệ quả tiêu cực: **dòng chết tích luỹ**. Bảng cập nhật thư�
 
 ```sql
 ALTER TABLE leads SET (
-    autovacuum_vacuum_scale_factor = 0.05,    -- mac dinh 0.2
+    autovacuum_vacuum_scale_factor = 0.05,    -- mặc định 0.2
     autovacuum_analyze_scale_factor = 0.02
 );
 ```
@@ -59,11 +59,11 @@ ALTER DATABASE CrmDb SET READ_COMMITTED_SNAPSHOT ON;
 ### 12.3.2 — Collation: bẫy khi chuyển đổi
 
 ```sql
--- SQL Server, collation mac dinh (vi du SQL_Latin1_General_CP1_CI_AS)
+-- SQL Server, collation mặc định (ví dụ SQL_Latin1_General_CP1_CI_AS)
 SELECT * FROM Users WHERE Email = 'A@B.COM';   -- TIM THAY 'a@b.com'
 
 -- PostgreSQL
-SELECT * FROM users WHERE email = 'A@B.COM';   -- KHONG tim thay 'a@b.com'
+SELECT * FROM users WHERE email = 'A@B.COM';   -- KHÔNG tìm thấy 'a@b.com'
 ```
 
 `CI` trong tên collation của SQL Server là **case-insensitive**. PostgreSQL thì **luôn phân biệt hoa thường** với `text` và `varchar`.
@@ -73,14 +73,14 @@ SELECT * FROM users WHERE email = 'A@B.COM';   -- KHONG tim thay 'a@b.com'
 Ba cách xử lý trong PostgreSQL:
 
 ```sql
--- 1. Chuan hoa khi ghi (tot nhat)
+-- 1. Chuẩn hoá khi ghi (tốt nhất)
 email TEXT NOT NULL CHECK (email = lower(email))
 
 -- 2. citext extension
 CREATE EXTENSION citext;
 ALTER TABLE users ALTER COLUMN email TYPE citext;
 
--- 3. Index tren bieu thuc
+-- 3. Index trên biểu thức
 CREATE UNIQUE INDEX uq_users_email_lower ON users (lower(email));
 SELECT * FROM users WHERE lower(email) = lower($1);
 ```
@@ -98,13 +98,13 @@ CREATE DATABASE crm LC_COLLATE = 'vi_VN.UTF-8' LC_CTYPE = 'vi_VN.UTF-8';
 ### 12.3.3 — Định danh và kiểu dữ liệu
 
 ```sql
--- PostgreSQL TU CHUYEN ve chu thuong neu khong co nhay kep
+-- PostgreSQL TỰ CHUYỂN về chữ thường nếu không có nháy kép
 CREATE TABLE Customers (CustomerId INT);     -- thanh customers(customerid)
 
 SELECT CustomerId FROM Customers;            -- OK
-SELECT "CustomerId" FROM "Customers";        -- LOI — khong ton tai
+SELECT "CustomerId" FROM "Customers";        -- LỖI — không tồn tại
 
--- Dung nhay kep khi tao thi phai dung mai mai
+-- Dùng nháy kép khi tạo thì phải dùng mãi mãi
 CREATE TABLE "Customers" ("CustomerId" INT);
 SELECT customerid FROM customers;            -- LOI
 ```
@@ -131,7 +131,7 @@ Quy ước PostgreSQL là `snake_case` **không nháy kép**. EF Core có `UseSn
 ### 12.3.4 — JSON: khác biệt thực chất
 
 ```sql
--- SQL SERVER: chi la chuoi, khong index duoc truc tiep
+-- SQL SERVER: chỉ là chuỗi, không index được trực tiếp
 ALTER TABLE Leads ADD Metadata NVARCHAR(MAX) NULL
     CONSTRAINT CK_Leads_Metadata CHECK (ISJSON(Metadata) = 1);
 
@@ -150,12 +150,12 @@ CREATE INDEX IX_Leads_UtmSource ON Leads(UtmSource);
 Nghĩa là bạn phải biết **trước** sẽ truy vấn theo trường nào — mất phần lớn tính linh hoạt.
 
 ```sql
--- POSTGRESQL: jsonb la kieu du lieu that, index duoc TOAN BO
+-- POSTGRESQL: jsonb là kiểu dữ liệu thật, index được TOÀN BỘ
 ALTER TABLE leads ADD COLUMN metadata JSONB;
 
 CREATE INDEX idx_leads_metadata ON leads USING GIN (metadata);
 
--- Bat ky truong nao cung dung duoc index
+-- Bất kỳ trường nào cũng dùng được index
 SELECT lead_id, metadata->>'utmSource'
 FROM leads
 WHERE metadata @> '{"utmSource": "google"}';

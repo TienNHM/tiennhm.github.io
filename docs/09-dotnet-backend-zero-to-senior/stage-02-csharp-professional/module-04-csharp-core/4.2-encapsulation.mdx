@@ -232,18 +232,18 @@ public class Order
     public List<OrderLine> Lines { get; } = new();
     public decimal Total => Lines.Sum(l => l.Amount);
 
-    public void ThemDong(OrderLine dong)
+    public void AddLine(OrderLine line)
     {
         if (Lines.Count >= 100)
             throw new InvalidOperationException("Đơn hàng tối đa 100 dòng");
-        if (dong.Amount <= 0)
+        if (line.Amount <= 0)
             throw new ArgumentException("Số tiền phải dương");
-        Lines.Add(dong);
+        Lines.Add(line);
     }
 }
 ```
 
-Lớp này **trông như** được bảo vệ: `Lines` chỉ có `get`, và `ThemDong` kiểm tra hai quy tắc. Nhưng:
+Lớp này **trông như** được bảo vệ: `Lines` chỉ có `get`, và `AddLine` kiểm tra hai quy tắc. Nhưng:
 
 ```csharp
 var order = new Order();
@@ -266,16 +266,16 @@ public class Order
     public IReadOnlyList<OrderLine> Lines => _lines;
     public decimal Total => _lines.Sum(l => l.Amount);
 
-    public void ThemDong(OrderLine dong)
+    public void AddLine(OrderLine line)
     {
         if (_lines.Count >= 100)
             throw new InvalidOperationException("Đơn hàng tối đa 100 dòng");
-        if (dong.Amount <= 0)
+        if (line.Amount <= 0)
             throw new ArgumentException("Số tiền phải dương");
-        _lines.Add(dong);
+        _lines.Add(line);
     }
 
-    public void XoaDong(int index) { /* kèm quy tắc riêng */ }
+    public void RemoveLine(int index) { /* kèm quy tắc riêng */ }
 }
 ```
 
@@ -331,7 +331,7 @@ grep -rn "HasUnpaidOrders\|ChuaThanhToan\|Any(o => !o.IsPaid)" --include=*.cs .
 ```csharp
 // CustomerController.cs
 [HttpDelete("{id}")]
-public async Task<IActionResult> Xoa(int id)
+public async Task<IActionResult> Delete(int id)
 {
     var c = await _db.Customers.Include(x => x.Orders).FirstAsync(x => x.Id == id);
     if (c.Orders.Any(o => !o.IsPaid))                  // chỗ 1
@@ -362,11 +362,11 @@ public class Customer
     private readonly List<Order> _orders = new();
     public IReadOnlyList<Order> Orders => _orders;
 
-    public bool CoTheXoa => !_orders.Any(o => !o.IsPaid);
+    public bool CanBeDeleted => !_orders.Any(o => !o.IsPaid);
 
-    public void ChuanBiXoa()
+    public void MarkForDeletion()
     {
-        if (!CoTheXoa)
+        if (!CanBeDeleted)
             throw new DomainException("Không thể xoá khách hàng còn đơn chưa thanh toán");
         // ... đánh dấu xoá
     }
@@ -376,8 +376,8 @@ public class Customer
 Mọi nơi gọi:
 
 ```csharp
-if (!customer.CoTheXoa) return BadRequest("Còn đơn chưa thanh toán");
-// hoặc mạnh hơn: customer.ChuanBiXoa();  -> tự ném nếu vi phạm
+if (!customer.CanBeDeleted) return BadRequest("Còn đơn chưa thanh toán");
+// hoặc mạnh hơn: customer.MarkForDeletion();  -> tự ném nếu vi phạm
 ```
 
 **Bốn chỗ xuống một.**
@@ -397,7 +397,7 @@ Dòng thứ hai quan trọng nhất. Khi quy tắc nằm trên entity, người 
 
 ```csharp
 if (!customer.Orders.Any(o => !o.IsPaid))   // đọc xong phải tự dịch ra ý nghĩa
-if (customer.CoTheXoa)                      // ý nghĩa nằm ngay trong tên
+if (customer.CanBeDeleted)                      // ý nghĩa nằm ngay trong tên
 ```
 
 Cách thứ hai còn cho phép đổi cách cài đặt mà không đụng tới bất kỳ nơi gọi nào — ví dụ sau này quy tắc thêm điều kiện "và không có hợp đồng đang hiệu lực".
@@ -426,14 +426,14 @@ public class Order
     public decimal Total { get; set; }        // phải đồng bộ thủ công
     public int LineCount { get; set; }        // cũng vậy
 
-    public void ThemDong(OrderLine d)
+    public void AddLine(OrderLine d)
     {
         Lines.Add(d);
         Total += d.Amount;      // nhớ cập nhật
         LineCount++;            // nhớ cập nhật
     }
 
-    public void XoaDong(OrderLine d)
+    public void RemoveLine(OrderLine d)
     {
         Lines.Remove(d);
         Total -= d.Amount;      // nhớ cập nhật
@@ -453,12 +453,12 @@ public class Order
     public decimal Total => _lines.Sum(l => l.Amount);   // luôn đúng
     public int LineCount => _lines.Count;                // luôn đúng
 
-    public void ThemDong(OrderLine d) => _lines.Add(d);
-    public void XoaDong(OrderLine d) => _lines.Remove(d);
+    public void AddLine(OrderLine d) => _lines.Add(d);
+    public void RemoveLine(OrderLine d) => _lines.Remove(d);
 }
 ```
 
-**Lỗi ở `XoaDong` biến mất — không phải vì được sửa, mà vì không còn chỗ để nó tồn tại.** Đây là dạng cải thiện tốt nhất: loại bỏ khả năng mắc lỗi thay vì loại bỏ một lỗi cụ thể.
+**Lỗi ở `RemoveLine` biến mất — không phải vì được sửa, mà vì không còn chỗ để nó tồn tại.** Đây là dạng cải thiện tốt nhất: loại bỏ khả năng mắc lỗi thay vì loại bỏ một lỗi cụ thể.
 
 **Nguyên tắc:** *dữ liệu suy ra được thì đừng lưu*. Mỗi giá trị lưu độc lập mà lẽ ra phải suy ra được là một **nguồn sự thật thứ hai**, và hai nguồn sự thật thì sớm muộn sẽ lệch nhau.
 

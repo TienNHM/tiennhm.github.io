@@ -27,16 +27,16 @@ Sau bài này bạn có thể:
 ### 15.6.1 — Làm cứng server
 
 ```bash
-# 1. Cap nhat va tao user khong phai root
+# 1. Cập nhật và tạo user không phải root
 sudo apt update && sudo apt upgrade -y
 sudo adduser deploy && sudo usermod -aG sudo,docker deploy
 
-# 2. Copy khoa SSH tu may cua ban
+# 2. Copy khoá SSH từ máy của bạn
 ssh-copy-id deploy@<ip>
 ```
 
 ```bash
-# 3. Tat dang nhap bang mat khau — /etc/ssh/sshd_config
+# 3. Tắt đăng nhập bằng mật khẩu — /etc/ssh/sshd_config
 PermitRootLogin no
 PasswordAuthentication no
 PubkeyAuthentication yes
@@ -51,7 +51,7 @@ Mở một phiên SSH **mới** và xác nhận đăng nhập được **trướ
 Vì sao bắt buộc: một server có IP công khai bắt đầu nhận **hàng nghìn lượt dò mật khẩu SSH mỗi ngày** trong vòng vài phút sau khi bật. Khoá SSH loại bỏ hoàn toàn nhóm tấn công đó.
 
 ```bash
-# 4. Tuong lua — MAC DINH chan, chi mo cai can
+# 4. Tường lửa — MẶC ĐỊNH chặn, chỉ mở cái cần
 sudo ufw default deny incoming
 sudo ufw default allow outgoing
 sudo ufw allow OpenSSH
@@ -63,7 +63,7 @@ sudo ufw enable
 sudo apt install -y fail2ban
 sudo systemctl enable --now fail2ban
 
-# 6. Cap nhat bao mat tu dong
+# 6. Cập nhật bảo mật tự động
 sudo apt install -y unattended-upgrades
 sudo dpkg-reconfigure -plow unattended-upgrades
 ```
@@ -88,7 +88,7 @@ server {
         proxy_pass http://127.0.0.1:8080;
         proxy_http_version 1.1;
 
-        # BAT BUOC cho WebSocket va SignalR
+        # BẮT BUỘC cho WebSocket và SignalR
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
 
@@ -98,7 +98,7 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
 
-        proxy_read_timeout 3600s;      # khong cat ket noi dai
+        proxy_read_timeout 3600s;      # không cắt kết nối dài
         proxy_buffering off;           # cho streaming response
     }
 }
@@ -126,7 +126,7 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 });
 
 var app = builder.Build();
-app.UseForwardedHeaders();        // TRUOC moi middleware khac
+app.UseForwardedHeaders();        // TRƯỚC mọi middleware khác
 ```
 
 `KnownProxies` là phần bảo mật: không giới hạn, bất kỳ ai cũng gửi `X-Forwarded-For` giả để vượt rate limit theo IP hoặc giả mạo địa chỉ trong log ([bài viết về forward header](/blog/forward-http-header-an-toan-aspnet-core)).
@@ -137,7 +137,7 @@ app.UseForwardedHeaders();        // TRUOC moi middleware khac
 sudo apt install -y certbot python3-certbot-nginx
 sudo certbot --nginx -d api.example.com
 
-# Kiem tra gia han tu dong
+# Kiểm tra gia hạn tự động
 sudo systemctl status certbot.timer
 sudo certbot renew --dry-run
 ```
@@ -167,29 +167,29 @@ set -euo pipefail
 TAG="${1:?Usage: deploy.sh <tag>}"
 cd /opt/crm
 
-# 1. Luu lai tag hien tai de rollback
+# 1. Lưu lại tag hiện tại để rollback
 CURRENT=$(grep '^TAG=' .env | cut -d= -f2)
 echo "Dang chay: $CURRENT -> trien khai: $TAG"
 
-# 2. Keo image TRUOC khi dung gi
+# 2. Kéo image TRƯỚC khi dừng gì
 docker compose pull
 
-# 3. Doi tag va khoi dong
+# 3. Đổi tag và khởi động
 sed -i "s/^TAG=.*/TAG=$TAG/" .env
 docker compose -f compose.yaml -f compose.prod.yaml up -d
 
 # 4. Cho healthy
 for i in {1..30}; do
     if curl -fsS http://127.0.0.1:8080/health/ready > /dev/null; then
-        echo "Trien khai thanh cong: $TAG"
+        echo "Triển khai thành công: $TAG"
         docker image prune -f
         exit 0
     fi
     sleep 2
 done
 
-# 5. That bai -> ROLLBACK
-echo "Health check that bai, rollback ve $CURRENT"
+# 5. Thất bại -> ROLLBACK
+echo "Health check thất bại, rollback về $CURRENT"
 sed -i "s/^TAG=.*/TAG=$CURRENT/" .env
 docker compose -f compose.yaml -f compose.prod.yaml up -d
 exit 1
@@ -235,7 +235,7 @@ logging:
 **2. Hết bộ nhớ.** Container bị OOM kill ([bài 15.2](15.1-docker-fundamentals.mdx)).
 
 ```bash
-# Kiem tra da tung bi OOM chua
+# Kiểm tra đã từng bị OOM chưa
 dmesg | grep -i "killed process"
 docker inspect crm-api | grep -i oomkilled
 ```
@@ -255,10 +255,10 @@ Giám sát tối thiểu với một script cron:
 ```bash
 #!/usr/bin/env bash
 DISK=$(df / | awk 'NR==2 {print $5}' | tr -d '%')
-[ "$DISK" -gt 80 ] && curl -s "$WEBHOOK" -d "Canh bao: dia $DISK%"
+[ "$DISK" -gt 80 ] && curl -s "$WEBHOOK" -d "Cảnh báo: đĩa $DISK%"
 
 docker compose ps --format json | jq -r 'select(.State != "running") | .Name' | while read -r name; do
-    curl -s "$WEBHOOK" -d "Canh bao: container $name khong chay"
+    curl -s "$WEBHOOK" -d "Cảnh báo: container $name không chạy"
 done
 ```
 
@@ -267,7 +267,7 @@ Không cần hệ thống giám sát phức tạp — một cảnh báo khi đĩ
 **Sao lưu** là thứ không có lựa chọn:
 
 ```bash
-# Sao luu database hang ngay, giu 7 ban
+# Sao lưu database hàng ngày, giữ 7 bản
 0 2 * * * docker compose exec -T sqlserver /opt/mssql-tools18/bin/sqlcmd \
     -S localhost -U sa -P "$SA_PASSWORD" -C \
     -Q "BACKUP DATABASE CrmDb TO DISK='/var/opt/mssql/backup/crm.bak' WITH INIT, COMPRESSION"

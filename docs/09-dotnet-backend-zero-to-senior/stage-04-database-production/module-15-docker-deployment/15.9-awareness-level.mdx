@@ -53,7 +53,7 @@ spec:
     type: RollingUpdate
     rollingUpdate:
       maxSurge: 1
-      maxUnavailable: 0          # KHONG giam so pod khoe trong luc deploy
+      maxUnavailable: 0          # KHÔNG giảm số pod khoẻ trong lúc deploy
   selector:
     matchLabels: { app: crm-api }
   template:
@@ -71,7 +71,7 @@ spec:
             requests:            # scheduler dung de chon node
               memory: "256Mi"
               cpu: "100m"
-            limits:              # TRAN cung
+            limits:              # TRẦN cứng
               memory: "512Mi"
               cpu: "1000m"
 
@@ -124,7 +124,7 @@ Với .NET, thêm hai điều:
 ```yaml
 resources:
   requests: { memory: "256Mi", cpu: "100m" }
-  limits:   { memory: "512Mi" }        # KHONG dat cpu limit
+  limits:   { memory: "512Mi" }        # KHÔNG đặt cpu limit
 ```
 
 Bỏ `cpu limit` là lựa chọn có chủ đích được nhiều đội dùng: pod được dùng CPU rảnh của node khi cần, và `requests` vẫn đảm bảo phần tối thiểu. Giữ `memory limit` vì bộ nhớ không chia sẻ được như CPU.
@@ -162,7 +162,7 @@ Vì chúng song song, có một khoảng ngắn pod **đã nhận SIGTERM nhưng
 lifecycle:
   preStop:
     exec:
-      command: ["sleep", "5"]     # cho kube-proxy kip cap nhat
+      command: ["sleep", "5"]     # chờ kube-proxy kịp cập nhật
 ```
 
 `preStop` chạy **trước** SIGTERM, cho hệ thống mạng thời gian ngừng gửi traffic tới pod này. Đây là mẹo được dùng rộng rãi và giải quyết đúng lớp lỗi "lác đác 502 mỗi lần deploy".

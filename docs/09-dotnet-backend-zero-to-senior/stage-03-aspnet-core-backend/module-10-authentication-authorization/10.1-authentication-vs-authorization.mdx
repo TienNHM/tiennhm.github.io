@@ -49,9 +49,9 @@ sequenceDiagram
     participant Z as UseAuthorization
     participant E as Endpoint
     C->>A: GET /customers + Bearer token
-    A->>A: xac thuc chu ky, han, issuer
+    A->>A: xác thực chữ ký, hạn, issuer
     A->>A: tao ClaimsPrincipal -> HttpContext.User
-    A->>Z: chuyen tiep
+    A->>Z: chuyển tiếp
     Z->>Z: doc metadata cua endpoint (Authorize)
     Z->>Z: danh gia policy tren User
     alt du quyen
@@ -77,17 +77,17 @@ Cả hai phải nằm **sau** `UseRouting()`, vì `UseAuthorization()` cần bi�
 ### 10.2.3 — Ba tầng danh tính
 
 ```csharp
-// 1. Claim — MOT mau thong tin: kieu + gia tri
+// 1. Claim — MỘT mẩu thông tin: kiểu + giá trị
 var email     = new Claim(ClaimTypes.Email, "a.nguyen@crm.com");
 var role      = new Claim(ClaimTypes.Role, "SalesRep");
-var territory = new Claim("territory", "HCM");          // kieu tu dinh nghia
+var territory = new Claim("territory", "HCM");          // kiểu tự định nghĩa
 
-// 2. ClaimsIdentity — tap claim tu MOT nguon xac thuc
+// 2. ClaimsIdentity — tập claim từ MỘT nguồn xác thực
 var identity = new ClaimsIdentity(
     claims: [email, role, territory],
-    authenticationType: "Bearer");        // co gia tri -> IsAuthenticated = true
+    authenticationType: "Bearer");        // có giá trị -> IsAuthenticated = true
 
-// 3. ClaimsPrincipal — MOT NGUOI, co the co nhieu identity
+// 3. ClaimsPrincipal — MỘT NGƯỜI, có thể có nhiều identity
 var principal = new ClaimsPrincipal(identity);
 ```
 
@@ -102,7 +102,7 @@ Chi tiết quan trọng ở dòng `authenticationType`: **`ClaimsIdentity` khôn
 [Authorize]
 public ActionResult<ProfileDto> GetMyProfile()
 {
-    // FindFirstValue tra null neu khong co — KHONG nem
+    // FindFirstValue trả null nếu không có — KHÔNG ném
     var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
     if (userId is null) return Unauthorized();
 
@@ -146,7 +146,7 @@ public interface ICurrentUser
 public sealed class CurrentUser(IHttpContextAccessor accessor) : ICurrentUser
 {
     private ClaimsPrincipal User => accessor.HttpContext?.User
-        ?? throw new InvalidOperationException("Khong co HttpContext");
+        ?? throw new InvalidOperationException("Không có HttpContext");
 
     public string Id => User.FindFirstValue(ClaimTypes.NameIdentifier)
         ?? throw new UnauthorizedAccessException();

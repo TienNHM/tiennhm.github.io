@@ -26,31 +26,31 @@ Sau bài này bạn có thể:
 ### 4.13.1 — Bug
 
 ```csharp
-public class DiaChi
+public class Address
 {
-    public string SoNha { get; set; }
-    public string Duong { get; set; }
-    public string Quan { get; set; }
+    public string HouseNumber { get; set; }
+    public string Street { get; set; }
+    public string District { get; set; }
 }
 
-var dc1 = new DiaChi { SoNha = "12", Duong = "Nguyễn Huệ", Quan = "1" };
-var dc2 = new DiaChi { SoNha = "12", Duong = "Nguyễn Huệ", Quan = "1" };
+var a1 = new Address { HouseNumber = "12", Street = "Nguyễn Huệ", District = "1" };
+var a2 = new Address { HouseNumber = "12", Street = "Nguyễn Huệ", District = "1" };
 
-Console.WriteLine(dc1 == dc2);          // False  (!!)
-Console.WriteLine(dc1.Equals(dc2));     // False  (!!)
+Console.WriteLine(a1 == a2);          // False  (!!)
+Console.WriteLine(a1.Equals(a2));     // False  (!!)
 
-var danhSach = new List<DiaChi> { dc1 };
-Console.WriteLine(danhSach.Contains(dc2));   // False — du du lieu giong het
+var list = new List<Address> { a1 };
+Console.WriteLine(list.Contains(a2));        // False — dù dữ liệu giống hệt
 ```
 
 Trong code thật, bug này biểu hiện như sau:
 
 ```csharp
-// Kiem tra dia chi giao hang da ton tai chua
-if (!khachHang.DanhSachDiaChi.Contains(diaChiMoi))
-    khachHang.DanhSachDiaChi.Add(diaChiMoi);
+// Kiểm tra địa chỉ giao hàng đã tồn tại chưa
+if (!customer.Addresses.Contains(newAddress))
+    customer.Addresses.Add(newAddress);
 
-// Ket qua: danh sach day dia chi TRUNG NHAU
+// Kết quả: danh sách đầy địa chỉ TRÙNG NHAU
 ```
 
 ### 4.13.2 — Vì sao
@@ -58,13 +58,13 @@ if (!khachHang.DanhSachDiaChi.Contains(diaChiMoi))
 Với `class`, C# so sánh **tham chiếu** — tức hai biến có trỏ vào **cùng một ô nhớ** hay không.
 
 ```csharp
-var dc1 = new DiaChi { ... };    // tao doi tuong o dia chi A
-var dc2 = new DiaChi { ... };    // tao doi tuong o dia chi B  (KHAC)
+var a1 = new Address { ... };    // tạo đối tượng ở ô nhớ A
+var a2 = new Address { ... };    // tạo đối tượng ở ô nhớ B  (KHÁC)
 
-dc1 == dc2      // so sanh A voi B -> False
+a1 == a2      // so sánh A với B -> False
 
-var dc3 = dc1;  // dc3 tro vao CUNG dia chi A
-dc1 == dc3      // True
+var a3 = a1;  // a3 trỏ vào CÙNG ô nhớ A
+a1 == a3      // True
 ```
 
 Mặc định này **đúng** cho phần lớn trường hợp: hai khách hàng cùng tên không phải cùng một người. Nhưng với những thứ chỉ **mang giá trị** — địa chỉ, số tiền, khoảng thời gian — thì so sánh theo nội dung mới đúng.
@@ -72,19 +72,19 @@ Mặc định này **đúng** cho phần lớn trường hợp: hai khách hàng
 ### 4.13.3 — Sửa bằng record
 
 ```csharp
-public record DiaChi(string SoNha, string Duong, string Quan);
+public record Address(string HouseNumber, string Street, string District);
 
-var dc1 = new DiaChi("12", "Nguyễn Huệ", "1");
-var dc2 = new DiaChi("12", "Nguyễn Huệ", "1");
+var a1 = new Address("12", "Nguyễn Huệ", "1");
+var a2 = new Address("12", "Nguyễn Huệ", "1");
 
-Console.WriteLine(dc1 == dc2);               // True
-Console.WriteLine(danhSach.Contains(dc2));   // True
+Console.WriteLine(a1 == a2);               // True
+Console.WriteLine(danhSach.Contains(a2));   // True
 ```
 
 Một từ khoá. Trình biên dịch tự sinh `Equals`, `GetHashCode`, `ToString`, toán tử `==` và `!=`, cùng phương thức `with` để tạo bản sao có sửa đổi ([bài 4.8](4.7-records-and-value-objects.mdx)).
 
 ```csharp
-var dcMoi = dc1 with { Quan = "3" };    // ban sao, chi doi Quan
+var dcMoi = a1 with { District = "3" };    // ban sao, chi doi District
 ```
 
 `record` cũng **bất biến** mặc định — sau khi tạo không đổi được thuộc tính. Đây là điều bạn muốn với value object: nếu địa chỉ thay đổi thì đó là một địa chỉ **khác**, không phải cùng địa chỉ đã bị sửa.
@@ -94,27 +94,27 @@ var dcMoi = dc1 with { Quan = "3" };    // ban sao, chi doi Quan
 Nếu vì lý do nào đó bạn không dùng được `record` và phải tự ghi đè:
 
 ```csharp
-// SAI — ghi de Equals nhung QUEN GetHashCode
-public class DiaChi
+// SAI — ghi đè Equals nhưng QUÊN GetHashCode
+public class Address
 {
-    public string SoNha { get; set; }
-    public string Duong { get; set; }
+    public string HouseNumber { get; set; }
+    public string Street { get; set; }
 
     public override bool Equals(object? obj)
-        => obj is DiaChi other && SoNha == other.SoNha && Duong == other.Duong;
+        => obj is Address other && HouseNumber == other.HouseNumber && Street == other.Street;
 
-    // GetHashCode: KHONG ghi de -> van dung mac dinh theo tham chieu
+    // GetHashCode: KHÔNG ghi đè -> vẫn dùng mặc định theo tham chiếu
 }
 ```
 
 Hậu quả, và nó **rất khó chẩn đoán**:
 
 ```csharp
-var tap = new HashSet<DiaChi>();
-tap.Add(dc1);
+var set = new HashSet<Address>();
+set.Add(a1);
 
-Console.WriteLine(dc1.Equals(dc2));   // True
-Console.WriteLine(tap.Contains(dc2)); // False  (!!)
+Console.WriteLine(a1.Equals(a2));   // True
+Console.WriteLine(set.Contains(a2)); // False  (!!)
 ```
 
 `HashSet` và `Dictionary` tìm phần tử theo **hai bước**: trước hết dùng `GetHashCode` để xác định "ngăn" chứa nó, sau đó mới dùng `Equals` trong ngăn đó. Nếu `GetHashCode` khác nhau, chúng rơi vào hai ngăn khác nhau và `Equals` **không bao giờ được gọi**.
@@ -122,7 +122,7 @@ Console.WriteLine(tap.Contains(dc2)); // False  (!!)
 **Quy tắc bắt buộc:** ghi đè `Equals` thì **phải** ghi đè `GetHashCode`, và hai cái phải dùng **cùng bộ thuộc tính**.
 
 ```csharp
-public override int GetHashCode() => HashCode.Combine(SoNha, Duong);
+public override int GetHashCode() => HashCode.Combine(HouseNumber, Street);
 ```
 
 `HashCode.Combine` xử lý đúng cả trường hợp `null` và phân bố giá trị tốt — không tự viết bằng cách nhân số nguyên tố nữa.
@@ -132,17 +132,17 @@ Trình biên dịch **có** cảnh báo về việc này (CS0659), nên đừng 
 ### 4.13.5 — Cái bẫy thứ hai: thuộc tính thay đổi được
 
 ```csharp
-// NGUY HIEM — thuoc tinh dung de bam lai doi duoc
-public class DiaChi
+// NGUY HIỂM — thuộc tính dùng để băm lại đổi được
+public class Address
 {
-    public string Duong { get; set; }      // set duoc!
-    public override int GetHashCode() => HashCode.Combine(Duong);
+    public string Street { get; set; }      // set được!
+    public override int GetHashCode() => HashCode.Combine(Street);
 }
 
-var tap = new HashSet<DiaChi> { dc };
-dc.Duong = "Lê Lợi";                        // doi SAU khi da them vao tap
+var set = new HashSet<Address> { a };
+a.Street = "Lê Lợi";                         // đổi SAU khi đã thêm vào tập
 
-tap.Contains(dc);        // False — du dc DANG nam trong tap!
+set.Contains(a);         // False — dù a ĐANG nằm trong tập!
 ```
 
 Đối tượng vẫn ở trong `HashSet`, nhưng nó nằm ở ngăn tương ứng với mã băm **cũ**. Tìm theo mã băm mới không tới đúng ngăn đó.
@@ -161,17 +161,17 @@ tap.Contains(dc);        // False — du dc DANG nam trong tap!
 **Quy tắc chọn:**
 
 - Có **định danh** riêng, hai đối tượng cùng dữ liệu vẫn là hai thứ khác nhau → **`class`**. Ví dụ: `Customer`, `Order`, `Lead`.
-- Chỉ **mang giá trị**, cùng dữ liệu nghĩa là cùng một thứ → **`record`**. Ví dụ: `DiaChi`, `Money`, `DateRange`.
+- Chỉ **mang giá trị**, cùng dữ liệu nghĩa là cùng một thứ → **`record`**. Ví dụ: `Address`, `Money`, `DateRange`.
 - Rất nhỏ (dưới 16 byte) và tạo rất nhiều lần → **`struct`** hoặc `readonly record struct`.
 
 ```csharp
-// Thuc the — co dinh danh
+// Thực thể — có định danh
 public class Customer { public CustomerId Id { get; init; } /* ... */ }
 
-// Value object — chi mang gia tri
+// Value object — chỉ mang giá trị
 public record Money(decimal Amount, string Currency);
 
-// Value object nho, dung nhieu
+// Value object nhỏ, dùng nhiều
 public readonly record struct LeadId(Guid Value);
 ```
 

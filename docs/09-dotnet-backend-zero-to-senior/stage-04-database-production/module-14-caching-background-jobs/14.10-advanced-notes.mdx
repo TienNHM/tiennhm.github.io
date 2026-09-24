@@ -30,28 +30,28 @@ Sau bài này bạn có thể:
 ```csharp
 var db = _redis.GetDatabase();
 
-// SORTED SET — bang xep hang, MOT lenh
+// SORTED SET — bảng xếp hạng, MỘT lệnh
 await db.SortedSetAddAsync("xephang:doanhso", nhanVienId, doanhSo);
 
 var top10 = await db.SortedSetRangeByRankWithScoresAsync(
     "xephang:doanhso", 0, 9, Order.Descending);
 
-// Thu hang cua mot nguoi — cung MOT lenh
+// Thứ hạng của một người — cũng MỘT lệnh
 var thuHang = await db.SortedSetRankAsync("xephang:doanhso", nhanVienId, Order.Descending);
 ```
 
 Làm bằng `GET`/`SET`: đọc cả danh sách, sắp xếp trong ứng dụng, ghi lại — ba lượt đi về, và **race condition** nếu hai request cùng cập nhật.
 
 ```csharp
-// HASH — cap nhat MOT truong ma khong doc-sua-ghi ca object
+// HASH — cập nhật MỘT trường mà không đọc-sửa-ghi cả object
 await db.HashSetAsync($"lead:{id}", "status", "Won");
 var status = await db.HashGetAsync($"lead:{id}", "status");
 
-// SET — kiem tra thanh vien, phep giao hop
+// SET — kiểm tra thành viên, phép giao hợp
 await db.SetAddAsync($"quyen:{userId}", "leads.write");
 var coQuyen = await db.SetContainsAsync($"quyen:{userId}", "leads.write");
 
-// HYPERLOGLOG — dem so luong DUY NHAT, chi ton 12 KB cho hang trieu phan tu
+// HYPERLOGLOG — đếm số lượng DUY NHẤT, chỉ tốn 12 KB cho hàng triệu phần tử
 await db.HyperLogLogAddAsync("luotxem:2026-09-24", sessionId);
 var soNguoiDuyNhat = await db.HyperLogLogLengthAsync("luotxem:2026-09-24");
 ```
@@ -117,8 +117,8 @@ Hàng thứ hai là giới hạn quyết định: **restart là mất message**.
 ```csharp
 builder.Services.AddQuartz(q =>
 {
-    q.ScheduleJob<BaoCaoThangJob>(trigger => trigger
-        .WithCronSchedule("0 0 8 1 * ?",           // 8h sang ngay 1 moi thang
+    q.ScheduleJob<MonthlyReportJob>(trigger => trigger
+        .WithCronSchedule("0 0 8 1 * ?",           // 8h sáng ngày 1 mỗi tháng
             x => x.InTimeZone(TimeZoneInfo.FindSystemTimeZoneById("Asia/Ho_Chi_Minh")))
         .WithDescription("Báo cáo tháng"));
 });
@@ -171,18 +171,18 @@ Làm nóng **ngay lúc khởi động** cũng quan trọng: instance mới khôn
 **Điều kiện kích hoạt:** ghi rất nhiều, và trễ vài giây chấp nhận được.
 
 ```csharp
-// Ghi vao cache NGAY, day xuong database sau
-public async Task CapNhatLuotXemAsync(Guid leadId, CancellationToken ct)
+// Ghi vào cache NGAY, đẩy xuống database sau
+public async Task IncrementViewCountAsync(Guid leadId, CancellationToken ct)
 {
-    await _redis.GetDatabase().HashIncrementAsync("luotxem", leadId.ToString());
-    // KHONG cham database
+    await _redis.GetDatabase().HashIncrementAsync("lead:views", leadId.ToString());
+    // KHÔNG chạm database
 }
 
-// Job day xuong database moi phut
-public async Task DayXuongDatabaseAsync(CancellationToken ct)
+// Job đẩy xuống database mỗi phút
+public async Task FlushToDatabaseAsync(CancellationToken ct)
 {
     var db = _redis.GetDatabase();
-    var entries = await db.HashGetAllAsync("luotxem");
+    var entries = await db.HashGetAllAsync("lead:views");
 
     foreach (var entry in entries)
     {
@@ -192,7 +192,7 @@ public async Task DayXuongDatabaseAsync(CancellationToken ct)
                 l => l.LuotXem, l => l.LuotXem + (int)entry.Value), ct);
     }
 
-    await db.KeyDeleteAsync("luotxem");
+    await db.KeyDeleteAsync("lead:views");
 }
 ```
 

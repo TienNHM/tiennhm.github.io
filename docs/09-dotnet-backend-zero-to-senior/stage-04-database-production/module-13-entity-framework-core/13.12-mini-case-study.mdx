@@ -26,10 +26,10 @@ Sau bài này bạn có thể:
 ### 13.13.1 — Sự cố
 
 ```csharp
-// Doi ten thuoc tinh cho nhat quan
+// Đổi tên thuộc tính cho nhất quán
 public class Customer
 {
-    public string PhoneNumber { get; set; }    // truoc
+    public string PhoneNumber { get; set; }    // trước
     public string Phone { get; set; }          // sau
 }
 ```
@@ -51,8 +51,8 @@ protected override void Up(MigrationBuilder migrationBuilder)
 
 ```
 Chay tren production:
-  DROP COLUMN PhoneNumber   -> 18.000 so dien thoai BIEN MAT
-  ADD COLUMN Phone          -> cot moi, toan NULL
+  DROP COLUMN PhoneNumber   -> 18.000 số điện thoại BIẾN MẤT
+  ADD COLUMN Phone          -> cột mới, toàn NULL
 ```
 
 Không có exception nào. Migration chạy **thành công**.
@@ -62,7 +62,7 @@ Không có exception nào. Migration chạy **thành công**.
 ### 13.13.2 — Cách đúng: RenameColumn
 
 ```csharp
-// Sua thu cong file migration
+// Sửa thủ công file migration
 protected override void Up(MigrationBuilder migrationBuilder)
 {
     migrationBuilder.RenameColumn(
@@ -96,13 +96,13 @@ protected override void Down(MigrationBuilder migrationBuilder)
 Hai loại cuối tinh vi hơn:
 
 ```csharp
-// Thu hep kieu — SQL Server CAT du lieu dai hon, khong bao loi
+// Thu hẹp kiểu — SQL Server CẮT dữ liệu dài hơn, không báo lỗi
 migrationBuilder.AlterColumn<string>(
     name: "Note", table: "Leads", maxLength: 50, oldMaxLength: 2000);
 ```
 
 ```csharp
-// Sang NOT NULL — that bai neu co hang NULL, nen phai xu ly TRUOC
+// Sang NOT NULL — thất bại nếu có hàng NULL, nên phải xử lý TRƯỚC
 migrationBuilder.Sql("UPDATE Leads SET Status = 'New' WHERE Status IS NULL");
 migrationBuilder.AlterColumn<string>(
     name: "Status", table: "Leads", nullable: false, oldNullable: true);
@@ -133,8 +133,8 @@ dotnet ef migrations script MigrationTruoc MigrationMoi --output review.sql
 **Bước 3 — thử trên bản sao production:**
 
 ```bash
-# Khoi phuc backup production vao moi truong staging
-# Chay script, do thoi gian, kiem tra du lieu
+# Khôi phục backup production vào môi trường staging
+# Chạy script, đo thời gian, kiểm tra dữ liệu
 sqlcmd -S staging -d CrmStaging -i review.sql
 ```
 
@@ -145,18 +145,18 @@ Bước này bắt được hai thứ mà môi trường phát triển không ba
 Với bảng lớn đang phục vụ, đổi tên cột trong một bước vẫn gây gián đoạn: code cũ và code mới không cùng chạy được. Dùng **expand-contract**:
 
 ```
-Giai doan 1 — MO RONG (tuong thich nguoc):
-  1. Them cot Phone (nullable)
+Giai đoạn 1 — MỞ RỘNG (tương thích ngược):
+  1. Thêm cột Phone (nullable)
   2. Trien khai code GHI vao CA HAI cot, DOC tu PhoneNumber
-  3. Chay script chep du lieu: UPDATE Customers SET Phone = PhoneNumber
+  3. Chạy script chép dữ liệu: UPDATE Customers SET Phone = PhoneNumber
 
-Giai doan 2 — CHUYEN:
+Giai đoạn 2 — CHUYỂN:
   4. Trien khai code DOC tu Phone, van ghi ca hai
-  5. Theo doi vai ngay, xac nhan khong co van de
+  5. Theo dõi vài ngày, xác nhận không có vấn đề
 
 Giai doan 3 — THU HEP:
   6. Trien khai code chi dung Phone
-  7. Xoa cot PhoneNumber
+  7. Xoá cột PhoneNumber
 ```
 
 Mỗi bước **tương thích ngược**, nên có thể triển khai dần và quay lại bất cứ lúc nào.
@@ -179,16 +179,16 @@ Cùng nguyên tắc áp dụng cho việc đổi kiểu cột, tách bảng, ho�
 **Nếu phát hiện trong vài phút:**
 
 ```sql
--- SQL Server: khoi phuc toi thoi diem TRUOC migration
+-- SQL Server: khôi phục tới thời điểm TRƯỚC migration
 RESTORE DATABASE CrmProduction_Temp
 FROM DISABK = 'backup.bak'
 WITH MOVE ..., NORECOVERY;
 
 RESTORE LOG CrmProduction_Temp
 FROM DISK = 'log.trn'
-WITH STOPAT = '2026-09-24 14:29:00', RECOVERY;   -- ngay TRUOC migration
+WITH STOPAT = '2026-09-24 14:29:00', RECOVERY;   -- ngay TRƯỚC migration
 
--- Roi chep du lieu cot bi mat sang database that
+-- Rồi chép dữ liệu cột bị mất sang database thật
 ```
 
 Khôi phục vào database **tạm** rồi chép dữ liệu sang — không khôi phục đè lên production, vì bạn sẽ mất mọi giao dịch từ sau thời điểm đó.

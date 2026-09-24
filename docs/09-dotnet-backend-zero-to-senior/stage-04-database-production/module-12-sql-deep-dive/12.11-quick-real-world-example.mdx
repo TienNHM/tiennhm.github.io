@@ -26,11 +26,11 @@ Sau bài này bạn có thể:
 ### 12.12.1 — Nguyên tắc chung
 
 ```
-Index la mot cau truc DA SAP XEP theo gia tri cot.
-Database dung duoc no khi biet phai TIM O DAU.
+Index là một cấu trúc ĐÃ SẮP XẾP theo giá trị cột.
+Database dùng được nó khi biết phải TÌM Ở ĐÂU.
 
-Neu cot bi BOC trong mot ham, database KHONG biet ket qua ham
-se roi vao vi tri nao trong index -> phai tinh ham cho MOI HANG
+Nếu cột bị BỌC trong một hàm, database KHÔNG biết kết quả hàm
+sẽ rơi vào vị trí nào trong index -> phải tính hàm cho MỌI HÀNG
 -> quet toan bang.
 ```
 
@@ -39,7 +39,7 @@ Nguyên tắc: **cột phải đứng một mình ở một vế của phép so 
 ### 12.12.2 — Cách 1: bọc cột trong hàm
 
 ```sql
--- KHONG dung index tren CreatedAt
+-- KHÔNG dùng index trên CreatedAt
 SELECT * FROM Leads WHERE YEAR(CreatedAt) = 2026;
 SELECT * FROM Leads WHERE CAST(CreatedAt AS DATE) = '2026-09-24';
 SELECT * FROM Leads WHERE UPPER(Email) = 'AN@COMPANY.COM';
@@ -47,7 +47,7 @@ SELECT * FROM Leads WHERE UPPER(Email) = 'AN@COMPANY.COM';
 -- DUNG index
 SELECT * FROM Leads WHERE CreatedAt >= '2026-01-01' AND CreatedAt < '2027-01-01';
 SELECT * FROM Leads WHERE CreatedAt >= '2026-09-24' AND CreatedAt < '2026-09-25';
-SELECT * FROM Leads WHERE Email = 'an@company.com';   -- collation thuong khong phan biet hoa thuong
+SELECT * FROM Leads WHERE Email = 'an@company.com';   -- collation thường không phân biệt hoa thường
 ```
 
 Mẫu chung để viết lại: đổi từ "hàm của cột bằng giá trị" sang **khoảng giá trị** trên chính cột đó.
@@ -57,15 +57,15 @@ Với ngày tháng, dùng `>= đầu khoảng AND < đầu khoảng tiếp theo`
 ### 12.12.3 — Cách 2: ép kiểu ngầm (nguy hiểm nhất)
 
 ```sql
--- Cot MaKhachHang la VARCHAR(20), tham so la NVARCHAR
-SELECT * FROM Customers WHERE MaKhachHang = N'KH001';
+-- Cột CustomerCode là VARCHAR(20), tham số là NVARCHAR
+SELECT * FROM Customers WHERE CustomerCode = N'KH001';
 ```
 
 Đây là cách **khó phát hiện nhất** vì truy vấn trông hoàn toàn bình thường. Nhưng execution plan cho thấy:
 
 ```
-|--Index Scan(OBJECT:([IX_Customers_Ma]),
-              WHERE:(CONVERT_IMPLICIT(nvarchar(20),[MaKhachHang])=[@1]))
+|--Index Scan(OBJECT:([IX_Customers_Code]),
+              WHERE:(CONVERT_IMPLICIT(nvarchar(20),[CustomerCode])=[@1]))
 ```
 
 `CONVERT_IMPLICIT` áp lên **cột**, không phải lên tham số — nên nó chính là "bọc cột trong hàm" ở dạng ẩn.
@@ -75,13 +75,13 @@ Lý do SQL Server chuyển cột thay vì chuyển tham số: `NVARCHAR` có **�
 Trong .NET, đây là nguyên nhân rất phổ biến vì `string` của C# ánh xạ mặc định sang `NVARCHAR`:
 
 ```csharp
-// EF Core sinh tham so NVARCHAR — neu cot la VARCHAR thi ep kieu ngam
-var kh = await _db.Customers.FirstOrDefaultAsync(c => c.MaKhachHang == ma, ct);
+// EF Core sinh tham số NVARCHAR — nếu cột là VARCHAR thì ép kiểu ngầm
+var customer = await _db.Customers.FirstOrDefaultAsync(c => c.CustomerCode == code, ct);
 ```
 
 ```csharp
-// Sua: khai bao dung kieu cot
-b.Property(c => c.MaKhachHang).HasColumnType("varchar(20)");
+// Sửa: khai báo đúng kiểu cột
+b.Property(c => c.CustomerCode).HasColumnType("varchar(20)");
 ```
 
 **Cách phát hiện:** tìm `CONVERT_IMPLICIT` trong execution plan. Mỗi lần thấy nó áp lên một cột là một index bị vô hiệu hoá.
@@ -89,7 +89,7 @@ b.Property(c => c.MaKhachHang).HasColumnType("varchar(20)");
 ### 12.12.4 — Cách 3: wildcard ở đầu chuỗi
 
 ```sql
--- KHONG dung index — khong biet bat dau tim tu dau
+-- KHÔNG dùng index — không biết bắt đầu tìm từ đâu
 SELECT * FROM Leads WHERE Name LIKE '%nguyen%';
 
 -- DUNG index — biet tien to
@@ -106,7 +106,7 @@ Khi nghiệp vụ **bắt buộc** tìm giữa chuỗi, có ba lựa chọn: ful
 -- Kho dung index — moi nhanh can index khac nhau
 SELECT * FROM Leads WHERE Email = 'a@b.com' OR Phone = '0901234567';
 
--- Viet lai bang UNION — moi nhanh dung index rieng
+-- Viết lại bằng UNION — mỗi nhánh dùng index riêng
 SELECT * FROM Leads WHERE Email = 'a@b.com'
 UNION
 SELECT * FROM Leads WHERE Phone = '0901234567';
@@ -119,9 +119,9 @@ Dùng `UNION` (loại trùng) hay `UNION ALL` (giữ trùng) tuỳ nghiệp vụ
 **Lưu ý:** `OR` trên **cùng một cột** thì không sao, database xử lý được:
 
 ```sql
--- On — cung mot cot
+-- Ổn — cùng một cột
 SELECT * FROM Leads WHERE Status = 'New' OR Status = 'Contacted';
-SELECT * FROM Leads WHERE Status IN ('New', 'Contacted');      -- tuong duong
+SELECT * FROM Leads WHERE Status IN ('New', 'Contacted');      -- tương đương
 ```
 
 ### 12.12.6 — Cách 5: thứ tự cột sai trong index ghép
@@ -131,11 +131,11 @@ CREATE INDEX IX_Leads_Tenant_Status ON Leads (TenantId, Status);
 ```
 
 ```sql
--- DUNG duoc index — co TenantId (cot dau)
+-- DÙNG được index — có TenantId (cột đầu)
 SELECT * FROM Leads WHERE TenantId = 'acme';
 SELECT * FROM Leads WHERE TenantId = 'acme' AND Status = 'New';
 
--- KHONG dung duoc — thieu cot dau
+-- KHÔNG dùng được — thiếu cột đầu
 SELECT * FROM Leads WHERE Status = 'New';
 ```
 
@@ -166,7 +166,7 @@ Với EF Core, xem SQL sinh ra trước:
 
 ```csharp
 var sql = _db.Leads.Where(l => l.CreatedAt.Year == 2026).ToQueryString();
-// SELECT ... WHERE DATEPART(year, [l].[CreatedAt]) = 2026     <- ham tren cot!
+// SELECT ... WHERE DATEPART(year, [l].[CreatedAt]) = 2026     <- hàm trên cột!
 ```
 
 ```csharp

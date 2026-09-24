@@ -63,17 +63,17 @@ Cả hai đều đảm bảo thứ tự trong **một phạm vi hẹp**, và ph�
 
 ```
 Queue: [M1, M2, M3]
-Consumer A lay M1 (xu ly 500ms)
-Consumer B lay M2 (xu ly  10ms)  <-- M2 xong TRUOC M1
+Consumer A lấy M1 (xử lý 500ms)
+Consumer B lấy M2 (xử lý  10ms)  <-- M2 xong TRƯỚC M1
 ```
 
 **Kafka** giữ thứ tự trong **một partition**. Message cùng key luôn vào cùng partition:
 
 ```csharp
-// Cung LeadId -> cung partition -> dung thu tu
+// Cùng LeadId -> cùng partition -> đúng thứ tự
 await producer.ProduceAsync("leads", new Message<string, string>
 {
-    Key   = lead.Id.ToString(),        // KEY quyet dinh partition
+    Key   = lead.Id.ToString(),        // KEY quyết định partition
     Value = JsonSerializer.Serialize(evt)
 });
 ```
@@ -107,8 +107,8 @@ Giới hạn quan trọng: **số consumer hữu ích trong một group không v
 **RabbitMQ — prefetch.** Mặc định, RabbitMQ đẩy message cho consumer **không giới hạn**:
 
 ```csharp
-// SAI: mot consumer cham om het message, consumer khac ngoi khong
-// (khong dat prefetch)
+// SAI: một consumer chậm ôm hết message, consumer khác ngồi không
+// (không đặt prefetch)
 
 // DUNG: moi consumer giu toi da 10 message chua ACK
 await channel.BasicQosAsync(prefetchSize: 0, prefetchCount: 10, global: false);

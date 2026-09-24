@@ -28,7 +28,7 @@ Sau bài này bạn có thể:
 
 ```
 IMemoryCache:      ~100 nano giay   (doc thang tu heap)
-Redis cung mang:   ~0,5-1 mili giay (mang + serialize + deserialize)
+Redis cùng mạng:   ~0,5-1 mili giây (mạng + serialize + deserialize)
 Truy van database: ~2-50 mili giay
 ```
 
@@ -47,7 +47,7 @@ Nguyên tắc: **cache vào Redis những thứ đắt để tạo ra, không ph
 builder.Services.AddStackExchangeRedisCache(options =>
 {
     options.Configuration = builder.Configuration.GetConnectionString("Redis");
-    options.InstanceName = "crm:";            // tien to cho MOI khoa
+    options.InstanceName = "crm:";            // tiền tố cho MỌI khoá
 });
 ```
 
@@ -61,10 +61,10 @@ options.ConfigurationOptions = new ConfigurationOptions
     EndPoints = { "redis-1:6379", "redis-2:6379" },
     Password = redisPassword,
     Ssl = true,
-    AbortOnConnectFail = false,           // KHOI DONG duoc khi Redis chua san sang
+    AbortOnConnectFail = false,           // KHỞI ĐỘNG được khi Redis chưa sẵn sàng
     ConnectRetry = 5,
     ConnectTimeout = 5000,
-    SyncTimeout = 1000,                   // that bai NHANH, dung cho lau
+    SyncTimeout = 1000,                   // thất bại NHANH, đừng chờ lâu
     DefaultDatabase = 0,
 };
 ```
@@ -119,7 +119,7 @@ Luôn bọc deserialize trong `try/catch`:
 try { return JsonSerializer.Deserialize<T>(bytes, Options); }
 catch (JsonException ex)
 {
-    logger.LogWarning(ex, "Cache hong cho {Key}, bo qua", key);
+    logger.LogWarning(ex, "Cache hỏng cho {Key}, bỏ qua", key);
     await cache.RemoveAsync(key, ct);
     return default;                        // coi nhu cache miss
 }
@@ -162,7 +162,7 @@ var cached = await _cache.GetAsync<CustomerDto>(key, ct);
 ```
 
 ```csharp
-// DUNG — cache la toi uu, khong phai phu thuoc bat buoc
+// ĐÚNG — cache là tối ưu, không phải phụ thuộc bắt buộc
 public async Task<CustomerDto?> GetAsync(int id, CancellationToken ct)
 {
     var key = CacheKeys.Customer(_tenant.Id, id);
@@ -174,7 +174,7 @@ public async Task<CustomerDto?> GetAsync(int id, CancellationToken ct)
     }
     catch (RedisConnectionException ex)
     {
-        _logger.LogWarning(ex, "Redis khong kha dung, doc thang database");
+        _logger.LogWarning(ex, "Redis không khả dụng, đọc thẳng database");
     }
 
     var customer = await LoadFromDatabaseAsync(id, ct);
@@ -182,7 +182,7 @@ public async Task<CustomerDto?> GetAsync(int id, CancellationToken ct)
     if (customer is not null)
     {
         try { await _cache.SetAsync(key, customer, TimeSpan.FromMinutes(5), ct); }
-        catch (RedisConnectionException) { /* bo qua — khong quan trong */ }
+        catch (RedisConnectionException) { /* bỏ qua — không quan trọng */ }
     }
 
     return customer;
@@ -219,7 +219,7 @@ builder.Services.AddHealthChecks()
 builder.Services.AddSingleton<IConnectionMultiplexer>(
     _ => ConnectionMultiplexer.Connect(redisConnection));
 
-// Bo dem nguyen tu — khong lam duoc voi IDistributedCache
+// Bộ đếm nguyên tử — không làm được với IDistributedCache
 var db = _redis.GetDatabase();
 var count = await db.StringIncrementAsync($"views:{postId}");
 
@@ -238,15 +238,15 @@ Ví dụ thứ hai giải quyết đúng giới hạn của rate limiter in-memo
 ### 14.4.7 — Lệnh không bao giờ chạy trên production
 
 ```
-KEYS *              -> quet TOAN BO keyspace, CHAN Redis (don luong)
-FLUSHALL            -> xoa moi thu
+KEYS *              -> quét TOÀN BỘ keyspace, CHẶN Redis (đơn luồng)
+FLUSHALL            -> xoá mọi thứ
 DEBUG SLEEP         -> chan Redis
 ```
 
 Redis chạy **đơn luồng** cho lệnh, nên một `KEYS *` trên 10 triệu khoá **chặn mọi lệnh khác** trong nhiều giây. Đây là một trong những cách phổ biến nhất để vô tình gây sự cố.
 
 ```csharp
-// DUNG — SCAN duyet theo lo, khong chan
+// ĐÚNG — SCAN duyệt theo lô, không chặn
 var server = _redis.GetServer(_redis.GetEndPoints()[0]);
 
 await foreach (var key in server.KeysAsync(pattern: "crm:v2:t1:customer:*", pageSize: 250))
@@ -259,7 +259,7 @@ Nhưng `SCAN` vẫn **chậm** với keyspace lớn. Cách tốt hơn là **duy 
 // Khi cache
 await db.SetAddAsync($"tag:customer:{customerId}", cacheKey);
 
-// Khi can xoa ca nhom
+// Khi cần xoá cả nhóm
 var keys = await db.SetMembersAsync($"tag:customer:{customerId}");
 await db.KeyDeleteAsync(keys.Select(k => (RedisKey)k.ToString()).ToArray());
 await db.KeyDeleteAsync($"tag:customer:{customerId}");

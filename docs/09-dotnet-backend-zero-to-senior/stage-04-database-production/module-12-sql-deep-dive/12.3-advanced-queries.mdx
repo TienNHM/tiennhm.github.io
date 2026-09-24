@@ -27,7 +27,7 @@ Sau bài này bạn có thể:
 ### 12.4.1 — Bẫy `LEFT JOIN` với `WHERE`
 
 ```sql
--- MONG MUON: moi lead, kem ten nhan vien neu co, nhung chi nhan vien dang lam
+-- MONG MUỐN: mọi lead, kèm tên nhân viên nếu có, nhưng chỉ nhân viên đang làm
 SELECT l.LeadId, l.CompanyName, u.FullName
 FROM   Leads l
 LEFT JOIN Users u ON l.AssignedToUserId = u.UserId
@@ -37,7 +37,7 @@ WHERE  u.IsActive = 1;                          -- SAI
 Truy vấn này **không** trả lead chưa gán. Với lead đó, `u.IsActive` là `NULL`, và `NULL = 1` cho `UNKNOWN` — dòng bị loại. `LEFT JOIN` vừa biến thành `INNER JOIN`.
 
 ```sql
--- DUNG: dieu kien ve bang ben phai nam trong ON
+-- ĐÚNG: điều kiện về bảng bên phải nằm trong ON
 SELECT l.LeadId, l.CompanyName, u.FullName
 FROM   Leads l
 LEFT JOIN Users u ON l.AssignedToUserId = u.UserId AND u.IsActive = 1;
@@ -59,9 +59,9 @@ WHERE  u.UserId IS NULL;                        -- anti-join, CO CHU DICH
 Một bẫy `NULL` liên quan:
 
 ```sql
--- SAI — NOT IN voi NULL trong tap con tra ve RONG
+-- SAI — NOT IN với NULL trong tập con trả về RỖNG
 SELECT * FROM Users
-WHERE UserId NOT IN (SELECT AssignedToUserId FROM Leads);   -- co NULL -> khong ra gi
+WHERE UserId NOT IN (SELECT AssignedToUserId FROM Leads);   -- có NULL -> không ra gì
 
 -- DUNG
 SELECT * FROM Users u
@@ -90,15 +90,15 @@ CTE làm truy vấn **dễ đọc** — đó là giá trị chính. Nhưng hai h
 **1. CTE không vật chất hoá kết quả.** Trong SQL Server, nó thường được **nội tuyến** vào truy vấn chính như một subquery. Tham chiếu CTE **hai lần** có thể khiến nó **thực thi hai lần**:
 
 ```sql
-WITH Expensive AS (SELECT ... FROM BigTable WHERE <tinh toan nang>)
+WITH Expensive AS (SELECT ... FROM BigTable WHERE <tính toán nặng>)
 SELECT * FROM Expensive a JOIN Expensive b ON ...;   -- co the chay HAI LAN
 ```
 
 Cần vật chất hoá thật thì dùng bảng tạm:
 
 ```sql
-SELECT ... INTO #Expensive FROM BigTable WHERE <tinh toan nang>;
-CREATE INDEX IX_Tmp ON #Expensive(Key);       -- bang tam con INDEX duoc
+SELECT ... INTO #Expensive FROM BigTable WHERE <tính toán nặng>;
+CREATE INDEX IX_Tmp ON #Expensive(Key);       -- bảng tạm còn INDEX được
 SELECT * FROM #Expensive a JOIN #Expensive b ON ...;
 ```
 
@@ -129,10 +129,10 @@ SELECT * FROM OrgChart OPTION (MAXRECURSION 100);
 Khác biệt cốt lõi với `GROUP BY`: window function **giữ nguyên số dòng**, còn `GROUP BY` gộp chúng lại.
 
 ```sql
--- GROUP BY: 6 dong (mot dong moi trang thai)
+-- GROUP BY: 6 dòng (một dòng mỗi trạng thái)
 SELECT Status, COUNT(*) FROM Leads GROUP BY Status;
 
--- Window: MOI dong, kem tong so cua trang thai do
+-- Window: MỌI dòng, kèm tổng số của trạng thái đó
 SELECT LeadId, CompanyName, Status,
        COUNT(*) OVER (PARTITION BY Status) AS TotalInStatus
 FROM   Leads;
@@ -146,7 +146,7 @@ ROW_NUMBER() OVER (PARTITION BY Status ORDER BY EstimatedValue DESC)   -- 1,2,3,
 RANK()       OVER (ORDER BY TotalWon DESC)                             -- 1,2,2,4
 DENSE_RANK() OVER (ORDER BY TotalWon DESC)                             -- 1,2,2,3
 
--- 2. So sanh voi dong truoc/sau
+-- 2. So sánh với dòng trước/sau
 LAG(Revenue)  OVER (ORDER BY MonthStart)
 LEAD(Revenue) OVER (ORDER BY MonthStart)
 
@@ -160,10 +160,10 @@ AVG(Revenue) OVER (ORDER BY MonthStart ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)
 **`ROWS` so với `RANGE`** là chi tiết hay bị bỏ qua và gây sai kết quả:
 
 ```sql
--- ROWS: dem theo DONG vat ly
+-- ROWS: đếm theo DÒNG vật lý
 SUM(x) OVER (ORDER BY d ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)
 
--- RANGE: gop moi dong co CUNG GIA TRI ORDER BY
+-- RANGE: gộp mọi dòng có CÙNG GIÁ TRỊ ORDER BY
 SUM(x) OVER (ORDER BY d RANGE BETWEEN 2 PRECEDING AND CURRENT ROW)
 ```
 
@@ -172,7 +172,7 @@ Với `ORDER BY` có giá trị trùng, `RANGE` gộp tất cả dòng trùng v�
 ### 12.4.4 — Lọc theo kết quả window function
 
 ```sql
--- SAI — khong bien dich duoc
+-- SAI — không biên dịch được
 SELECT LeadId, ROW_NUMBER() OVER (PARTITION BY Status ORDER BY CreatedAt DESC) AS rn
 FROM   Leads
 WHERE  rn <= 3;
@@ -207,7 +207,7 @@ WHERE  rn <= 3;
 `APPLY` (SQL Server) và `LATERAL` (PostgreSQL) cho phép subquery **tham chiếu tới cột của bảng bên trái** — điều mà `JOIN` thường không làm được.
 
 ```sql
--- SQL Server: 3 contact moi nhat cua MOI customer
+-- SQL Server: 3 contact mới nhất của MỖI customer
 SELECT c.CustomerId, c.CompanyName, ct.FirstName, ct.LastName
 FROM   Customers c
 CROSS APPLY (

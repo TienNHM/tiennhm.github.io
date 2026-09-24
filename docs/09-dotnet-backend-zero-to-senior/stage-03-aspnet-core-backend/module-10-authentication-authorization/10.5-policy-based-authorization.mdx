@@ -37,7 +37,7 @@ builder.Services.AddAuthorization(options =>
 
     options.AddPolicy("NorthernManager", p =>
         p.RequireRole(CrmRoles.Manager)
-         .RequireClaim("territory", "HN", "HP", "QN"));      // gia tri nam trong tap
+         .RequireClaim("territory", "HN", "HP", "QN"));      // giá trị nằm trong tập
 
     options.AddPolicy("SeniorSales", p =>
         p.RequireAssertion(ctx =>
@@ -63,7 +63,7 @@ Chú ý cách các `Require*` kết hợp: chúng là **AND**. `NorthernManager`
 ### 10.6.2 — Requirement và handler
 
 ```csharp
-// 1. Requirement — mang THAM SO, khong mang logic
+// 1. Requirement — mang THAM SỐ, không mang logic
 public sealed class MinimumExperienceRequirement(int years) : IAuthorizationRequirement
 {
     public int Years { get; } = years;
@@ -80,7 +80,7 @@ public sealed class MinimumExperienceHandler(ILogger<MinimumExperienceHandler> l
         var claim = context.User.FindFirst("hire_date");
 
         if (claim is null || !DateTime.TryParse(claim.Value, out var hireDate))
-            return Task.CompletedTask;          // khong Succeed, cung khong Fail
+            return Task.CompletedTask;          // không Succeed, cũng không Fail
 
         var years = (DateTime.UtcNow - hireDate).TotalDays / 365.25;
 
@@ -134,8 +134,8 @@ options.AddPolicy("SeniorNorthernManager", p =>
 builder.Services.AddSingleton<IAuthorizationHandler, OwnerHandler>();
 builder.Services.AddSingleton<IAuthorizationHandler, ManagerHandler>();
 builder.Services.AddSingleton<IAuthorizationHandler, AdminHandler>();
-// Ca ba cung xu ly SameOwnerRequirement
-// => CHI CAN MOT cai Succeed la qua
+// Cả ba cùng xử lý SameOwnerRequirement
+// => CHỈ CẦN MỘT cái Succeed là qua
 ```
 
 Đây là mẫu thiết kế rất hữu ích: mỗi handler là **một con đường được phép**, độc lập nhau. Thêm một con đường mới là thêm một handler, không sửa handler cũ — đúng tinh thần Open/Closed.
@@ -143,7 +143,7 @@ builder.Services.AddSingleton<IAuthorizationHandler, AdminHandler>();
 **Quy tắc 3: `Fail()` là quyết định cuối cùng.**
 
 ```csharp
-context.Fail();    // KHONG Succeed nao sau do ghi de duoc
+context.Fail();    // KHÔNG Succeed nào sau đó ghi đè được
 ```
 
 Khác hẳn với "không làm gì": không làm gì nghĩa là "tôi không cho phép, nhưng handler khác có thể"; `Fail()` nghĩa là "**cấm**, bất kể ai nói gì".
@@ -156,7 +156,7 @@ public sealed class SuspendedAccountHandler : AuthorizationHandler<IAuthorizatio
         AuthorizationHandlerContext context, IAuthorizationRequirement requirement)
     {
         if (context.User.HasClaim("account_status", "suspended"))
-            context.Fail();       // tai khoan bi khoa -> khong con duong nao
+            context.Fail();       // tài khoản bị khoá -> không còn đường nào
 
         return Task.CompletedTask;
     }
@@ -174,7 +174,7 @@ Với quyền có tham số, khai từng policy một là không khả thi:
 ```csharp
 options.AddPolicy("Permission:customer.read", ...);
 options.AddPolicy("Permission:customer.create", ...);
-// ... 200 dong nua
+// ... 200 dòng nữa
 ```
 
 `IAuthorizationPolicyProvider` sinh policy **khi cần**:

@@ -28,13 +28,13 @@ Sau bài này bạn có thể:
 
 ```mermaid
 flowchart LR
-    A[Nhan viec] --> B[Dong bo main]
-    B --> C[Tao nhanh]
-    C --> D[Lam + commit nho]
-    D --> E[Dong bo lai main]
-    E --> F[Push + mo PR]
+    A[Nhận việc] --> B[Đồng bộ main]
+    B --> C[Tạo nhánh]
+    C --> D[Làm + commit nhỏ]
+    D --> E[Đồng bộ lại main]
+    E --> F[Push + mở PR]
     F --> G[CI + review]
-    G --> H[Merge + xoa nhanh]
+    G --> H[Merge + xoá nhánh]
 ```
 
 ```bash
@@ -42,20 +42,20 @@ flowchart LR
 git checkout main && git pull
 
 # 2. Nhánh cho đúng một việc
-git checkout -b feature/CRM-142-bao-cao-doanh-thu
+git checkout -b feature/CRM-142-revenue-report
 
 # 3. Làm việc, commit nhỏ và thường xuyên
-git add -p && git commit -m "feat: them truy van doanh thu theo chi nhanh"
+git add -p && git commit -m "feat: add revenue query by branch"
 
 # 4. Trước khi mở PR, đồng bộ lại
 git fetch origin && git rebase origin/main
 
 # 5. Đẩy lên và mở PR
-git push -u origin feature/CRM-142-bao-cao-doanh-thu
+git push -u origin feature/CRM-142-revenue-report
 
 # 6. Sau khi merge, dọn
 git checkout main && git pull
-git branch -d feature/CRM-142-bao-cao-doanh-thu
+git branch -d feature/CRM-142-revenue-report
 git fetch --prune
 ```
 
@@ -65,8 +65,8 @@ Bước 4 là bước hay bị bỏ nhất, và là bước tiết kiệm nhiề
 
 ```mermaid
 flowchart TD
-    M[main - chi chua ban da phat hanh] --> R[release/x.y]
-    D[develop - tich hop] --> R
+    M[main — chỉ chứa bản đã phát hành] --> R[release/x.y]
+    D[develop — tích hợp] --> R
     F1[feature/a] --> D
     F2[feature/b] --> D
     R --> M
@@ -86,10 +86,10 @@ Git Flow ra đời năm 2010, cho bối cảnh phát hành theo bản. Chính t�
 
 ```mermaid
 flowchart LR
-    F1[feature - song 1 ngay] --> M[main]
-    F2[feature - song 1 ngay] --> M
-    F3[feature - song 1 ngay] --> M
-    M --> P[Deploy tu dong]
+    F1[feature — sống 1 ngày] --> M[main]
+    F2[feature — sống 1 ngày] --> M
+    F3[feature — sống 1 ngày] --> M
+    M --> P[Deploy tự động]
 ```
 
 Một nhánh chính. Nhánh tính năng **sống dưới một ngày**. Merge vào `main` liên tục. `main` luôn ở trạng thái deploy được.
@@ -121,18 +121,18 @@ Production đang hỏng. Đây là lúc **không nên** nghĩ ra quy trình.
 ```bash
 # 1. Tách từ TRẠNG THÁI ĐANG CHẠY, không phải từ develop
 git checkout main && git pull
-git checkout -b hotfix/don-hang-tong-tien-am
+git checkout -b hotfix/negative-order-total
 
 # 2. Sửa NHỎ NHẤT CÓ THỂ — chỉ chặn máu, không tái cấu trúc
-git commit -am "fix: chan don hang co tong tien am"
+git commit -am "fix: reject orders with negative total"
 
 # 3. Vẫn mở PR, vẫn để CI chạy
-git push -u origin hotfix/don-hang-tong-tien-am
+git push -u origin hotfix/negative-order-total
 
 # 4. Merge và deploy
 
 # 5. Gộp ngược về nhánh phát triển nếu mô hình có nhánh đó
-git checkout develop && git merge hotfix/don-hang-tong-tien-am
+git checkout develop && git merge hotfix/negative-order-total
 ```
 
 Bốn nguyên tắc, và mỗi cái đều từng bị vi phạm với hậu quả thật:
@@ -205,10 +205,10 @@ git for-each-ref --sort=committerdate \
 **Lời giải — output điển hình:**
 
 ```text
-origin/fix/hotfix-tong-tien       2 days ago     An
-origin/feat/bao-cao-doanh-thu     9 days ago     Bình
-origin/feat/tich-hop-thanh-toan   5 weeks ago    Cường
-origin/refactor/tach-service      3 months ago   Dũng
+origin/fix/order-total-hotfix     2 days ago     An
+origin/feat/revenue-report        9 days ago     Bình
+origin/feat/payment-integration   5 weeks ago    Cường
+origin/refactor/split-service     3 months ago   Dũng
 origin/feat/dashboard-v2          7 months ago   (đã nghỉ việc)
 ```
 

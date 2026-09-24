@@ -9,7 +9,7 @@ import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 # 10.5 — 4. Role-based Authorization
 
 <SummaryBox>
-Phân quyền theo vai trò là mô hình đơn giản nhất và đủ cho phần lớn hệ thống ở giai đoạn đầu. Có ba quy tắc về cách `[Authorize]` kết hợp mà rất nhiều người hiểu sai: liệt kê nhiều vai trò trong **một** attribute là **OR** (`Roles = "Admin,Manager"` — chỉ cần một trong hai); **xếp chồng** nhiều attribute là **AND** (phải thoả mọi cái); và **`[AllowAnonymous]` luôn thắng** mọi `[Authorize]`, ở mọi cấp, kể cả policy toàn cục. Giới hạn của mô hình này xuất hiện khi bạn bắt đầu thêm vai trò kiểu `ManagerMienBac` — đó là dấu hiệu cần chuyển sang policy hoặc permission.
+Phân quyền theo vai trò là mô hình đơn giản nhất và đủ cho phần lớn hệ thống ở giai đoạn đầu. Có ba quy tắc về cách `[Authorize]` kết hợp mà rất nhiều người hiểu sai: liệt kê nhiều vai trò trong **một** attribute là **OR** (`Roles = "Admin,Manager"` — chỉ cần một trong hai); **xếp chồng** nhiều attribute là **AND** (phải thoả mọi cái); và **`[AllowAnonymous]` luôn thắng** mọi `[Authorize]`, ở mọi cấp, kể cả policy toàn cục. Giới hạn của mô hình này xuất hiện khi bạn bắt đầu thêm vai trò kiểu `ManagerNorthRegion` — đó là dấu hiệu cần chuyển sang policy hoặc permission.
 </SummaryBox>
 
 ## Mục tiêu bài học
@@ -30,7 +30,7 @@ public static class CrmRoles
 {
     public const string Admin    = "Admin";       // toan quyen
     public const string Manager  = "Manager";     // quan ly team, duyet deal
-    public const string SalesRep = "SalesRep";    // ban hang, du lieu cua minh
+    public const string SalesRep = "SalesRep";    // bán hàng, dữ liệu của mình
     public const string ReadOnly = "ReadOnly";    // chi xem
 
     public static readonly string[] All = [Admin, Manager, SalesRep, ReadOnly];
@@ -57,12 +57,12 @@ public IActionResult ApproveBudget();
 Quy tắc này áp dụng ở **mọi cấp**: attribute trên controller và attribute trên action cũng kết hợp theo **AND**.
 
 ```csharp
-[Authorize(Roles = "SalesRep,Manager")]          // phai la mot trong hai
+[Authorize(Roles = "SalesRep,Manager")]          // phải là một trong hai
 public class DealsController : ControllerBase
 {
-    [Authorize(Roles = "Manager")]               // VA phai la Manager
+    [Authorize(Roles = "Manager")]               // VÀ phải là Manager
     [HttpPost("{id:guid}/approve")]
-    public IActionResult Approve(Guid id);       // => chi Manager qua duoc
+    public IActionResult Approve(Guid id);       // => chỉ Manager qua được
 }
 ```
 
@@ -118,7 +118,7 @@ Nhớ thêm `[AllowAnonymous]` cho những endpoint thật sự công khai: đă
 await _userManager.CreateAsync(user, password);
 await _userManager.AddToRoleAsync(user, CrmRoles.SalesRep);
 
-// Nhieu vai tro
+// Nhiều vai trò
 await _userManager.AddToRolesAsync(user, [CrmRoles.SalesRep, CrmRoles.ReadOnly]);
 ```
 
@@ -144,10 +144,10 @@ Dấu hiệu rõ nhất là **tên vai trò bắt đầu mã hoá thông tin**:
 ```
 Admin
 Manager
-ManagerMienBac          <- bat dau co van de
+ManagerNorthRegion          <- bắt đầu có vấn đề
 ManagerMienNam
 SalesRepMienBac
-SalesRepMienNamCapCao   <- da qua tre
+SalesRepSouthSenior   <- da qua tre
 ```
 
 Số vai trò nhân lên theo tích của các chiều: *vai trò × khu vực × cấp bậc*. Mỗi khu vực mới là thêm một loạt vai trò, và mọi `[Authorize(Roles = ...)]` phải sửa.
@@ -215,7 +215,7 @@ Cách tiến hoá thực dụng: giữ vai trò cho phân loại thô, và **đ�
     },
     {
       question: "Dấu hiệu nào cho thấy vai trò không còn đủ?",
-      answer: "Tên vai trò bắt đầu mã hoá thông tin, ví dụ ManagerMienBac hay SalesRepMienNamCapCao. Khi đó số vai trò nhân lên theo tích của các chiều và mỗi khu vực mới là thêm một loạt vai trò. Vấn đề gốc là vai trò trả lời bạn là ai trong tổ chức chứ không trả lời bạn được làm gì với bản ghi này."
+      answer: "Tên vai trò bắt đầu mã hoá thông tin, ví dụ ManagerNorthRegion hay SalesRepSouthSenior. Khi đó số vai trò nhân lên theo tích của các chiều và mỗi khu vực mới là thêm một loạt vai trò. Vấn đề gốc là vai trò trả lời bạn là ai trong tổ chức chứ không trả lời bạn được làm gì với bản ghi này."
     }
   ]}
 />

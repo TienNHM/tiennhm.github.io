@@ -46,7 +46,7 @@ public class BankTransfer : Payment
 {
     public BankTransfer(decimal amount) : base(amount) { }
     public override decimal CalculateFee() => 11_000m;
-    public override string Describe() => $"Chuyen khoan {Amount:n0}";
+    public override string Describe() => $"Chuyển khoản {Amount:n0}";
 }
 ```
 
@@ -239,78 +239,78 @@ Thiết kế cho kế thừa là việc tốn công: phải nghĩ xem lớp con 
 
 #### Bài 1 — Tự dựng vi phạm Liskov
 
-Cài đặt `HinhChuNhat` và `HinhVuong` như mục 4.4.3, viết một hàm kiểm tra dùng cả hai kiểu. Ghi lại kết quả. Sau đó thiết kế lại để không vi phạm.
+Cài đặt `Rectangle` và `Square` như mục 4.4.3, viết một hàm kiểm tra dùng cả hai kiểu. Ghi lại kết quả. Sau đó thiết kế lại để không vi phạm.
 
 **Tiêu chí hoàn thành:** bạn chỉ ra được **dòng nào** trong hàm kiểm tra bộc lộ vi phạm, và vì sao trình biên dịch không bắt được.
 
 <details>
 <summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
 
-**Gợi ý.** Nguyên tắc Liskov nói: ở bất kỳ chỗ nào dùng lớp cha, thay bằng lớp con thì chương trình vẫn phải đúng. Hãy viết một hàm chỉ biết `HinhChuNhat` và đưa `HinhVuong` vào.
+**Gợi ý.** Nguyên tắc Liskov nói: ở bất kỳ chỗ nào dùng lớp cha, thay bằng lớp con thì chương trình vẫn phải đúng. Hãy viết một hàm chỉ biết `Rectangle` và đưa `Square` vào.
 
 **Lời giải — cài đặt:**
 
 ```csharp
-public class HinhChuNhat
+public class Rectangle
 {
-    public virtual int Rong { get; set; }
-    public virtual int Cao  { get; set; }
-    public int DienTich => Rong * Cao;
+    public virtual int Width { get; set; }
+    public virtual int Height  { get; set; }
+    public int Area => Width * Height;
 }
 
-public class HinhVuong : HinhChuNhat
+public class Square : Rectangle
 {
-    public override int Rong
+    public override int Width
     {
-        get => base.Rong;
-        set { base.Rong = value; base.Cao = value; }   // giữ bất biến "vuông"
+        get => base.Width;
+        set { base.Width = value; base.Height = value; }   // giữ bất biến "vuông"
     }
-    public override int Cao
+    public override int Height
     {
-        get => base.Cao;
-        set { base.Rong = value; base.Cao = value; }
+        get => base.Height;
+        set { base.Width = value; base.Height = value; }
     }
 }
 ```
 
-Hàm kiểm tra chỉ biết `HinhChuNhat`:
+Hàm kiểm tra chỉ biết `Rectangle`:
 
 ```csharp
-void KiemTra(HinhChuNhat h)
+void Check(Rectangle h)
 {
-    h.Rong = 5;
-    h.Cao  = 4;
-    Console.WriteLine($"{h.GetType().Name,-12} -> diện tích = {h.DienTich} (kỳ vọng 20)");
+    h.Width = 5;
+    h.Height  = 4;
+    Console.WriteLine($"{h.GetType().Name,-12} -> diện tích = {h.Area} (kỳ vọng 20)");
 }
 
-KiemTra(new HinhChuNhat());
-KiemTra(new HinhVuong());
+Check(new Rectangle());
+Check(new Square());
 ```
 
 **Kết quả chạy thật trên .NET 9:**
 
 ```text
-HinhChuNhat  -> diện tích = 20 (kỳ vọng 20)
-HinhVuong    -> diện tích = 16 (kỳ vọng 20)
+Rectangle    -> diện tích = 20 (kỳ vọng 20)
+Square       -> diện tích = 16 (kỳ vọng 20)
 ```
 
-**Dòng bộc lộ vi phạm là `h.Cao = 4`.** Với `HinhChuNhat`, nó chỉ đặt chiều cao. Với `HinhVuong`, nó **âm thầm đặt lại cả chiều rộng** về 4, phá vỡ giả định mà hàm `KiemTra` đã ngầm dựa vào: *đặt chiều cao thì chiều rộng không đổi*.
+**Dòng bộc lộ vi phạm là `h.Height = 4`.** Với `Rectangle`, nó chỉ đặt chiều cao. Với `Square`, nó **âm thầm đặt lại cả chiều rộng** về 4, phá vỡ giả định mà hàm `Check` đã ngầm dựa vào: *đặt chiều cao thì chiều rộng không đổi*.
 
-**Vì sao trình biên dịch không bắt được.** Liskov là ràng buộc về **hành vi**, không phải về **chữ ký**. `HinhVuong` cài đặt đúng mọi thành viên của `HinhChuNhat` với đúng kiểu, nên về mặt kiểu nó hoàn toàn hợp lệ. Thứ nó vi phạm là một **hợp đồng ngầm** không được viết ra ở đâu cả — và trình biên dịch không có cách nào biết về những hợp đồng ngầm.
+**Vì sao trình biên dịch không bắt được.** Liskov là ràng buộc về **hành vi**, không phải về **chữ ký**. `Square` cài đặt đúng mọi thành viên của `Rectangle` với đúng kiểu, nên về mặt kiểu nó hoàn toàn hợp lệ. Thứ nó vi phạm là một **hợp đồng ngầm** không được viết ra ở đâu cả — và trình biên dịch không có cách nào biết về những hợp đồng ngầm.
 
-**Đây là lý do "hình vuông là hình chữ nhật" sai trong lập trình.** Trong toán học, mệnh đề đó đúng vì hình vuông là một **giá trị bất biến**. Trong lập trình, `HinhChuNhat` có **hành vi thay đổi được** — và chính hành vi ấy mới là thứ phải kế thừa được, không phải quan hệ tập hợp.
+**Đây là lý do "hình vuông là hình chữ nhật" sai trong lập trình.** Trong toán học, mệnh đề đó đúng vì hình vuông là một **giá trị bất biến**. Trong lập trình, `Rectangle` có **hành vi thay đổi được** — và chính hành vi ấy mới là thứ phải kế thừa được, không phải quan hệ tập hợp.
 
 **Ba cách thiết kế lại:**
 
 ```csharp
 // Cách 1 — bất biến: không có setter thì không có mâu thuẫn
-public record HinhChuNhat(int Rong, int Cao) { public int DienTich => Rong * Cao; }
-public record HinhVuong(int Canh) { public int DienTich => Canh * Canh; }
+public record Rectangle(int Width, int Height) { public int Area => Width * Height; }
+public record Square(int Side) { public int Area => Side * Side; }
 
 // Cách 2 — chung interface, không kế thừa lẫn nhau
-public interface ICoHinh { int DienTich { get; } }
-public class HinhChuNhat : ICoHinh { /* ... */ }
-public class HinhVuong  : ICoHinh { /* ... */ }
+public interface IShape { int Area { get; } }
+public class Rectangle : IShape { /* ... */ }
+public class Square  : IShape { /* ... */ }
 
 // Cách 3 — bỏ hẳn quan hệ, hai kiểu riêng biệt
 ```
@@ -343,55 +343,55 @@ Cài đặt ví dụ ở mục 4.4.4 và chạy. Ghi lại ngoại lệ đầy �
 ```csharp
 public class Base
 {
-    public Base() { Console.WriteLine("  [Base ctor] gọi Khoi()"); Khoi(); }
-    protected virtual void Khoi() { }
+    public Base() { Console.WriteLine("  [Base ctor] gọi Init()"); Init(); }
+    protected virtual void Init() { }
 }
 
 // Biến thể A — field initializer
-public class ConA : Base
+public class DerivedA : Base
 {
-    private readonly List<string> _ds = new();
-    protected override void Khoi() { _ds.Add("x"); Console.WriteLine("  [ConA.Khoi] OK, _ds có " + _ds.Count); }
+    private readonly List<string> _items = new();
+    protected override void Init() { _items.Add("x"); Console.WriteLine("  [DerivedA.Init] OK, _items có " + _items.Count); }
 }
 
 // Biến thể B — gán trong thân constructor
-public class ConB : Base
+public class DerivedB : Base
 {
-    private readonly List<string> _ds;
-    public ConB() { _ds = new List<string>(); Console.WriteLine("  [ConB ctor] đã gán _ds"); }
-    protected override void Khoi() { _ds.Add("x"); }
+    private readonly List<string> _items;
+    public DerivedB() { _items = new List<string>(); Console.WriteLine("  [DerivedB ctor] đã gán _items"); }
+    protected override void Init() { _items.Add("x"); }
 }
 ```
 
 **Kết quả chạy thật trên .NET 9:**
 
 ```text
-ConA (field initializer):
-  [Base ctor] gọi Khoi()
-  [ConA.Khoi] OK, _ds có 1
+DerivedA (field initializer):
+  [Base ctor] gọi Init()
+  [DerivedA.Init] OK, _items có 1
 
-ConB (gán trong thân ctor):
-  [Base ctor] gọi Khoi()
+DerivedB (gán trong thân ctor):
+  [Base ctor] gọi Init()
   NÉM NullReferenceException: Object reference not set to an instance of an object.
   stack:
-    at ConB.Khoi() in Program.cs:line 12
+    at DerivedB.Init() in Program.cs:line 12
     at Base..ctor() in Program.cs:line 2
-    at ConB..ctor() in Program.cs:line 11
+    at DerivedB..ctor() in Program.cs:line 11
     at P.Main() in Program.cs:line 18
 ```
 
-**Đọc dấu vết ngăn xếp từ dưới lên** cho thấy chính xác thứ tự: `ConB..ctor()` gọi `Base..ctor()`, và `Base..ctor()` gọi `ConB.Khoi()` — **trước khi** thân `ConB..ctor()` kịp chạy dòng gán `_ds`.
+**Đọc dấu vết ngăn xếp từ dưới lên** cho thấy chính xác thứ tự: `DerivedB..ctor()` gọi `Base..ctor()`, và `Base..ctor()` gọi `DerivedB.Init()` — **trước khi** thân `DerivedB..ctor()` kịp chạy dòng gán `_items`.
 
 **Thứ tự khởi tạo đầy đủ trong C#:**
 
 ```text
-1. Field initializer của LỚP CON        <- ConA an toàn nhờ bước này
+1. Field initializer của LỚP CON        <- DerivedA an toàn nhờ bước này
 2. Constructor của LỚP CHA chạy
    -> tại đây lời gọi virtual đã đi tới lớp con
-3. Thân constructor của LỚP CON         <- ConB gán _ds ở đây, quá muộn
+3. Thân constructor của LỚP CON         <- DerivedB gán _items ở đây, quá muộn
 ```
 
-**Vì sao ConA không lỗi.** Field initializer nằm ở bước 1, chạy trước cả constructor lớp cha, nên `_ds` đã sẵn sàng khi `Khoi()` được gọi. Đây chính là chi tiết khiến bẫy này **khó phát hiện**: cùng một mẫu thiết kế, đổi cách khai báo field là hành vi đổi hoàn toàn. Code chạy tốt suốt nhiều tháng, rồi ai đó chuyển một field từ initializer sang gán trong constructor vì cần tham số, và lỗi xuất hiện.
+**Vì sao DerivedA không lỗi.** Field initializer nằm ở bước 1, chạy trước cả constructor lớp cha, nên `_items` đã sẵn sàng khi `Init()` được gọi. Đây chính là chi tiết khiến bẫy này **khó phát hiện**: cùng một mẫu thiết kế, đổi cách khai báo field là hành vi đổi hoàn toàn. Code chạy tốt suốt nhiều tháng, rồi ai đó chuyển một field từ initializer sang gán trong constructor vì cần tham số, và lỗi xuất hiện.
 
 **Quy tắc.** **Không bao giờ gọi phương thức `virtual` trong constructor.** Bộ phân tích mã của .NET có cảnh báo riêng cho việc này, mã `CA2214` — bật nó lên:
 
@@ -406,19 +406,19 @@ ConB (gán trong thân ctor):
 
 ```csharp
 // Cách 1 — phương thức khởi tạo tách rời, gọi sau khi đã dựng xong
-var doiTuong = new ConB();
-doiTuong.KhoiTao();
+var obj = new DerivedB();
+obj.Setup();
 
 // Cách 2 — phương thức nhà máy tĩnh
-public static ConB Tao()
+public static DerivedB Create()
 {
-    var x = new ConB();
-    x.Khoi();
+    var x = new DerivedB();
+    x.Init();
     return x;
 }
 
 // Cách 3 — sealed, để không ai override được
-public sealed class ConB : Base { }
+public sealed class DerivedB : Base { }
 ```
 
 Cách 3 đáng chú ý: `sealed` làm cho lời gọi `virtual` trong constructor trở nên vô hại, vì không còn lớp con nào để gọi tới. Đây là một lý do thực tế để đánh dấu `sealed` cho các lớp không định cho kế thừa — và cũng giúp trình biên dịch tối ưu tốt hơn.
@@ -453,7 +453,7 @@ public class CrmApiClient : HttpClient
         DefaultRequestHeaders.Add("X-App", "CRM");
     }
 
-    public async Task<Customer?> LayKhachHangAsync(int id, CancellationToken ct)
+    public async Task<Customer?> GetCustomerAsync(int id, CancellationToken ct)
     {
         var res = await GetAsync($"customers/{id}", ct);
         if (res.StatusCode == HttpStatusCode.NotFound) return null;
@@ -474,7 +474,7 @@ Ba vấn đề:
 ```csharp
 public interface ICrmApiClient
 {
-    Task<Customer?> LayKhachHangAsync(int id, CancellationToken ct);
+    Task<Customer?> GetCustomerAsync(int id, CancellationToken ct);
 }
 
 public class CrmApiClient : ICrmApiClient
@@ -483,7 +483,7 @@ public class CrmApiClient : ICrmApiClient
 
     public CrmApiClient(HttpClient http) => _http = http;
 
-    public async Task<Customer?> LayKhachHangAsync(int id, CancellationToken ct)
+    public async Task<Customer?> GetCustomerAsync(int id, CancellationToken ct)
     {
         var res = await _http.GetAsync($"customers/{id}", ct);
         if (res.StatusCode == HttpStatusCode.NotFound) return null;
@@ -511,14 +511,14 @@ var handler = new FakeHttpMessageHandler(/* ... khoảng 30 dòng ... */);
 var client = new CrmApiClient();   // không tiêm được handler vào, phải dùng reflection
 
 // Với bản composition — kiểm thử lớp GỌI nó không cần gì cả
-var apiGia = Substitute.For<ICrmApiClient>();
-apiGia.LayKhachHangAsync(42, Arg.Any<CancellationToken>())
+var fakeApi = Substitute.For<ICrmApiClient>();
+fakeApi.GetCustomerAsync(42, Arg.Any<CancellationToken>())
       .Returns(new Customer("An", "an@x.com"));
 
-var service = new CustomerService(apiGia);
-var kq = await service.HienThiAsync(42, default);
+var service = new CustomerService(fakeApi);
+var result = await service.GetDisplayNameAsync(42, default);
 
-Assert.Equal("An", kq.Name);
+Assert.Equal("An", result.Name);
 ```
 
 **Bảng so sánh:**

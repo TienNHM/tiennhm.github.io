@@ -37,18 +37,18 @@ public sealed class GlobalExceptionHandler(
     {
         var (status, title) = exception switch
         {
-            NotFoundException            => (StatusCodes.Status404NotFound, "Khong tim thay"),
-            DomainValidationException    => (StatusCodes.Status422UnprocessableEntity, "Du lieu khong hop le"),
-            ConflictException            => (StatusCodes.Status409Conflict, "Xung dot trang thai"),
-            UnauthorizedAccessException  => (StatusCodes.Status403Forbidden, "Khong du quyen"),
-            _                            => (StatusCodes.Status500InternalServerError, "Loi he thong")
+            NotFoundException            => (StatusCodes.Status404NotFound, "Không tìm thấy"),
+            DomainValidationException    => (StatusCodes.Status422UnprocessableEntity, "Dữ liệu không hợp lệ"),
+            ConflictException            => (StatusCodes.Status409Conflict, "Xung đột trạng thái"),
+            UnauthorizedAccessException  => (StatusCodes.Status403Forbidden, "Không đủ quyền"),
+            _                            => (StatusCodes.Status500InternalServerError, "Lỗi hệ thống")
         };
 
-        // Loi cua he thong moi la su co; loi nghiep vu chi la canh bao
+        // Lỗi của hệ thống mới là sự cố; lỗi nghiệp vụ chỉ là cảnh báo
         if (status >= 500)
-            logger.LogError(exception, "Loi chua xu ly tai {Path}", context.Request.Path);
+            logger.LogError(exception, "Lỗi chưa xử lý tại {Path}", context.Request.Path);
         else
-            logger.LogWarning(exception, "Loi nghiep vu tai {Path}", context.Request.Path);
+            logger.LogWarning(exception, "Lỗi nghiệp vụ tại {Path}", context.Request.Path);
 
         context.Response.StatusCode = status;
 
@@ -87,9 +87,9 @@ Ba chi tiết đáng chú ý:
 ### 8.9.2 — Chuỗi nhiều handler
 
 ```csharp
-builder.Services.AddExceptionHandler<ValidationExceptionHandler>();  // chay truoc
+builder.Services.AddExceptionHandler<ValidationExceptionHandler>();  // chạy trước
 builder.Services.AddExceptionHandler<DatabaseExceptionHandler>();
-builder.Services.AddExceptionHandler<GlobalExceptionHandler>();      // bat tat ca
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();      // bắt tất cả
 ```
 
 Chúng chạy **theo thứ tự đăng ký**, và dừng ở handler đầu tiên trả `true`. Trả `false` nghĩa là "không phải việc của tôi, chuyển tiếp".
@@ -99,7 +99,7 @@ public sealed class ValidationExceptionHandler(IProblemDetailsService pds) : IEx
 {
     public async ValueTask<bool> TryHandleAsync(HttpContext ctx, Exception ex, CancellationToken ct)
     {
-        if (ex is not DomainValidationException v) return false;   // nhuong cho handler sau
+        if (ex is not DomainValidationException v) return false;   // nhường cho handler sau
 
         ctx.Response.StatusCode = StatusCodes.Status422UnprocessableEntity;
 
@@ -109,7 +109,7 @@ public sealed class ValidationExceptionHandler(IProblemDetailsService pds) : IEx
             ProblemDetails = new ValidationProblemDetails(v.Errors)
             {
                 Status = StatusCodes.Status422UnprocessableEntity,
-                Title = "Du lieu khong hop le"
+                Title = "Dữ liệu không hợp lệ"
             }
         });
     }
@@ -124,7 +124,7 @@ Handler bắt-tất-cả phải đăng ký **cuối cùng**. Nếu **không** ha
 public abstract class DomainException(string message) : Exception(message);
 
 public sealed class NotFoundException(string entity, object id)
-    : DomainException($"Khong tim thay {entity} voi id '{id}'")
+    : DomainException($"Không tìm thấy {entity} với id '{id}'")
 {
     public string Entity { get; } = entity;
     public object Id { get; } = id;
@@ -133,7 +133,7 @@ public sealed class NotFoundException(string entity, object id)
 public sealed class ConflictException(string message) : DomainException(message);
 
 public sealed class DomainValidationException(IDictionary<string, string[]> errors)
-    : DomainException("Du lieu khong hop le")
+    : DomainException("Dữ liệu không hợp lệ")
 {
     public IReadOnlyDictionary<string, string[]> Errors { get; } = errors.AsReadOnly();
 }
@@ -505,13 +505,13 @@ Chênh lệch ở phân vị 99 lớn hơn ở trung vị — vì ném ngoại l
 **Mẫu `Result<T>` giữ được cả hai:**
 
 ```csharp
-var kq = await _service.LayAsync(id, ct);
+var result = await _service.GetAsync(id, ct);
 
-return kq.Loai switch
+return result.Kind switch
 {
-    LoaiKetQua.ThanhCong    => Results.Ok(kq.Value),
-    LoaiKetQua.KhongTimThay => Results.NotFound(),
-    LoaiKetQua.ViPhamQuyTac => Results.BadRequest(kq.Loi),
+    ResultKind.Success       => Results.Ok(result.Value),
+    ResultKind.NotFound      => Results.NotFound(),
+    ResultKind.RuleViolation => Results.BadRequest(result.Error),
     _ => Results.StatusCode(500)
 };
 ```

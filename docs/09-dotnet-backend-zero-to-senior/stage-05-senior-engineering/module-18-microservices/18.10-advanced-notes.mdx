@@ -48,7 +48,7 @@ Linkerd nhẹ hơn Istio đáng kể và là lựa chọn hợp lý hơn nếu b
 [Dapr](https://dapr.io/) cung cấp các "building block" qua HTTP/gRPC sidecar: pub/sub, state store, service invocation, secrets, bindings.
 
 ```csharp
-// Publish khong can biet dang dung RabbitMQ hay Kafka hay Azure Service Bus
+// Publish không cần biết đang dùng RabbitMQ hay Kafka hay Azure Service Bus
 await _daprClient.PublishEventAsync("pubsub", "lead-converted", evt, ct);
 ```
 
@@ -69,7 +69,7 @@ public interface ILeadGrain : IGrainWithGuidKey
     Task ConvertAsync();
 }
 
-// Moi lead la mot grain — khong bao gio co hai luong cung sua mot lead
+// Mỗi lead là một grain — không bao giờ có hai luồng cùng sửa một lead
 var grain = _client.GetGrain<ILeadGrain>(leadId);
 await grain.ConvertAsync();
 ```
@@ -109,7 +109,7 @@ Một lệnh `dotnet run` dựng toàn bộ, kèm dashboard hiển thị log, tr
 **Bulkhead** — cô lập tài nguyên để một phụ thuộc chết không kéo sập cả service:
 
 ```csharp
-// Gioi han so lenh goi dong thoi toi moi phu thuoc
+// Giới hạn số lệnh gọi đồng thời tới mỗi phụ thuộc
 builder.Services.AddHttpClient<BillingClient>()
     .AddStandardResilienceHandler(o =>
     {
@@ -122,14 +122,14 @@ Không có bulkhead, một service chậm sẽ chiếm hết connection pool và
 **Anti-corruption layer** — ngăn mô hình của hệ thống ngoài rò rỉ vào domain của bạn:
 
 ```csharp
-// Tang ACL: dich tu mo hinh cua doi tac sang mo hinh CUA BAN
+// Tầng ACL: dịch từ mô hình của đối tác sang mô hình CỦA BẠN
 public sealed class PartnerCrmAdapter(IPartnerApi api) : ICustomerSource
 {
     public async Task<Customer> GetAsync(CustomerId id, CancellationToken ct)
     {
         var external = await api.FetchClientRecordAsync(id.Value, ct);
 
-        // Doi ten truong, doi don vi, chuan hoa — TAI DAY, khong lan vao domain
+        // Đổi tên trường, đổi đơn vị, chuẩn hoá — TẠI ĐÂY, không lẫn vào domain
         return new Customer(
             new CustomerId(external.client_ref),
             external.company_title,

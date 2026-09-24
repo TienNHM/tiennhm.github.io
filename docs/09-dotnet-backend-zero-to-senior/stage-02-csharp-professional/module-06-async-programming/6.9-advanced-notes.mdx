@@ -28,34 +28,34 @@ Sau bài này bạn có thể:
 **Điều kiện kích hoạt:** ngay khi có logic phụ thuộc thời gian.
 
 ```csharp
-// Kho test — thoi gian khong kiem soat duoc
-public bool DaHetHan() => DateTime.UtcNow > ExpiresAtUtc;
+// Khó test — thời gian không kiểm soát được
+public bool IsExpired() => DateTime.UtcNow > ExpiresAtUtc;
 
-// Test phai Thread.Sleep — cham va khong dang tin
+// Test phải Thread.Sleep — chậm và không đáng tin
 ```
 
 ```csharp
-// Tiem TimeProvider
+// Tiêm TimeProvider
 public sealed class TokenService(TimeProvider timeProvider)
 {
-    public bool DaHetHan(Token token)
+    public bool IsExpired(Token token)
         => timeProvider.GetUtcNow() > token.ExpiresAtUtc;
 }
 
-// Dang ky
+// Đăng ký
 builder.Services.AddSingleton(TimeProvider.System);
 ```
 
 ```csharp
-// Test — kiem soat thoi gian hoan toan, chay tuc thi
+// Test — kiểm soát thời gian hoàn toàn, chạy tức thì
 var fakeTime = new FakeTimeProvider(new DateTimeOffset(2026, 3, 15, 10, 0, 0, TimeSpan.Zero));
 var service = new TokenService(fakeTime);
 
 var token = new Token { ExpiresAtUtc = fakeTime.GetUtcNow().AddMinutes(15) };
-Assert.False(service.DaHetHan(token));
+Assert.False(service.IsExpired(token));
 
-fakeTime.Advance(TimeSpan.FromMinutes(16));      // "tua" thoi gian
-Assert.True(service.DaHetHan(token));
+fakeTime.Advance(TimeSpan.FromMinutes(16));      // "tua" thời gian
+Assert.True(service.IsExpired(token));
 ```
 
 Gói `Microsoft.Extensions.TimeProvider.Testing` cung cấp `FakeTimeProvider`. Test chạy trong **micro giây** thay vì 16 phút, và nó kiểm tra chính xác mốc hết hạn thay vì xấp xỉ.
@@ -67,11 +67,11 @@ Gói `Microsoft.Extensions.TimeProvider.Testing` cung cấp `FakeTimeProvider`. 
 **Điều kiện kích hoạt:** phương thức async được gọi **rất nhiều lần** và **thường trả về đồng bộ**.
 
 ```csharp
-// Truong hop dien hinh: cache hit thi khong can async that
+// Trường hợp điển hình: cache hit thì không cần async thật
 public async ValueTask<Lead?> GetAsync(LeadId id, CancellationToken ct)
 {
     if (_cache.TryGetValue(id, out Lead? cached))
-        return cached;                      // tra ve NGAY, khong cap phat Task
+        return cached;                      // trả về NGAY, không cấp phát Task
 
     return await _db.Leads.FindAsync([id], ct);
 }
@@ -82,15 +82,15 @@ public async ValueTask<Lead?> GetAsync(LeadId id, CancellationToken ct)
 **Ba luật bắt buộc khi dùng `ValueTask`:**
 
 ```csharp
-// 1. Chi await MOT lan
+// 1. Chỉ await MỘT lần
 var vt = GetAsync(id, ct);
 var a = await vt;
-var b = await vt;        // HANH VI KHONG XAC DINH
+var b = await vt;        // HÀNH VI KHÔNG XÁC ĐỊNH
 
-// 2. KHONG goi .Result hay .GetAwaiter().GetResult()
-var lead = GetAsync(id, ct).Result;       // co the sai
+// 2. KHÔNG gọi .Result hay .GetAwaiter().GetResult()
+var lead = GetAsync(id, ct).Result;       // có thể sai
 
-// 3. Muon dung nhieu lan thi chuyen sang Task
+// 3. Muốn dùng nhiều lần thì chuyển sang Task
 var task = GetAsync(id, ct).AsTask();
 var a = await task;
 var b = await task;      // OK
@@ -107,21 +107,21 @@ Lý do: `ValueTask` có thể **tái sử dụng** đối tượng nội bộ sa
 **Điều kiện kích hoạt:** vòng lặp chạy định kỳ trong `BackgroundService`.
 
 ```csharp
-// Cach cu — do tre TICH LUY
+// Cách cũ — độ trễ TÍCH LUỸ
 while (!ct.IsCancellationRequested)
 {
-    await XuLyAsync(ct);                    // ton 2 giay
+    await ProcessAsync(ct);                 // tốn 2 giây
     await Task.Delay(TimeSpan.FromSeconds(5), ct);
-    // Chu ky thuc te: 7 giay, khong phai 5
+    // Chu kỳ thực tế: 7 giây, không phải 5
 }
 
-// PeriodicTimer — chu ky ON DINH
+// PeriodicTimer — chu kỳ ỔN ĐỊNH
 using var timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
 
 while (await timer.WaitForNextTickAsync(ct))
 {
-    await XuLyAsync(ct);
-    // Chu ky: 5 giay, bat ke XuLyAsync ton bao lau
+    await ProcessAsync(ct);
+    // Chu kỳ: 5 giây, bất kể ProcessAsync tốn bao lâu
 }
 ```
 
@@ -142,7 +142,7 @@ public sealed class MessagePublisher : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        await _connection.CloseAsync();     // dong ket noi la thao tac I/O
+        await _connection.CloseAsync();     // đóng kết nối là thao tác I/O
         await _connection.DisposeAsync();
     }
 }
@@ -170,10 +170,10 @@ public async Task<Lead> GetAsync(LeadId id)
 ```
 
 ```
-Tro thanh mot struct co:
-  - Truong luu trang thai hien tai (dang o diem dung nao)
-  - Truong luu bien cuc bo (lead, activities)
-  - Phuong thuc MoveNext() chay tiep tu diem dung
+Trở thành một struct có:
+  - Trường lưu trạng thái hiện tại (đang ở điểm dừng nào)
+  - Trường lưu biến cục bộ (lead, activities)
+  - Phương thức MoveNext() chạy tiếp từ điểm dừng
 ```
 
 Hai hệ quả thực tế:
@@ -183,8 +183,8 @@ Hai hệ quả thực tế:
 **2. Mỗi `await` có chi phí nhỏ.** Không đáng kể trong code nghiệp vụ, nhưng trong vòng lặp chạy hàng triệu lần thì đo được. Nếu một phương thức `async` **không bao giờ** thực sự chờ, cân nhắc bỏ `async` và trả về `Task.FromResult`:
 
 ```csharp
-// Khong can async — khong co await nao
-public Task<int> LaySoLuongAsync() => Task.FromResult(_cache.Count);
+// Không cần async — không có await nào
+public Task<int> GetCountAsync() => Task.FromResult(_cache.Count);
 ```
 
 ### 6.10.6 — Những chủ đề khác

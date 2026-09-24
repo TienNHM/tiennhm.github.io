@@ -58,7 +58,7 @@ public class CustomerService
 [Fact]
 public async Task CreateAsync_ShouldAddCustomer()
 {
-    var service = new CustomerService();   // ket noi SQL that + gui email that
+    var service = new CustomerService();   // kết nối SQL thật + gửi email thật
     await service.CreateAsync(new Customer("An", "an@example.com"));
 }
 ```
@@ -128,16 +128,16 @@ public class CustomerService
 
 ```mermaid
 flowchart TB
-    subgraph Truoc["Truoc: lop tu tao"]
+    subgraph Truoc["Trước: lớp tự tạo"]
         A[CustomerService] -->|new| B[SmtpEmailService]
         A -->|new| C[SqlCustomerRepository]
     end
-    subgraph Sau["Sau: container cung cap"]
-        D[CustomerService] -->|phu thuoc| E[IEmailService]
-        D -->|phu thuoc| F[ICustomerRepository]
-        G[Composition Root] -.tao va tiem.-> D
-        G -.chon.-> E
-        G -.chon.-> F
+    subgraph Sau["Sau: container cung cấp"]
+        D[CustomerService] -->|phụ thuộc| E[IEmailService]
+        D -->|phụ thuộc| F[ICustomerRepository]
+        G[Composition Root] -."tạo và tiêm".-> D
+        G -."chọn".-> E
+        G -."chọn".-> F
     end
 ```
 
@@ -197,7 +197,7 @@ Lấy đoạn `CustomerService` đầu bài, viết một unit test kiểm tra r
 ```csharp
 public class CustomerService
 {
-    public void TaoKhachHang(string ten, string email)
+    public void CreateCustomer(string name, string email)
     {
         if (!email.Contains('@')) throw new ArgumentException("Email sai");
 
@@ -207,7 +207,7 @@ public class CustomerService
         var smtp = new SmtpClient("smtp.company.com");
         smtp.Send("noreply@company.com", email, "Chào mừng", "...");
 
-        File.AppendAllText(@"C:\logs\customers.txt", $"{DateTime.Now}: {ten}\n");
+        File.AppendAllText(@"C:\logs\customers.txt", $"{DateTime.Now}: {name}\n");
     }
 }
 ```
@@ -216,10 +216,10 @@ public class CustomerService
 
 ```csharp
 [Fact]
-public void TaoKhachHang_GuiEmailChaoMung()
+public void CreateCustomer_SendsWelcomeEmail()
 {
     var svc = new CustomerService();
-    svc.TaoKhachHang("An", "an@company.com");
+    svc.CreateCustomer("An", "an@company.com");
 
     // Assert gì? Không có cách nào quan sát email đã được gửi.
 }
@@ -253,31 +253,31 @@ public class CustomerService(
     IEmailSender mail,
     ILogger<CustomerService> log)
 {
-    public async Task<Result<Customer>> TaoKhachHangAsync(
-        string ten, string email, CancellationToken ct)
+    public async Task<Result<Customer>> CreateCustomerAsync(
+        string name, string email, CancellationToken ct)
     {
-        var kh = Customer.Tao(ten, email);
-        if (kh.IsFailure) return kh;
+        var customer = Customer.Create(name, email);
+        if (customer.IsFailure) return customer;
 
-        await repo.ThemAsync(kh.Value, ct);
-        await mail.GuiChaoMungAsync(kh.Value.Email, ct);
-        log.LogInformation("Đã tạo khách hàng {Id}", kh.Value.Id);
-        return kh;
+        await repo.AddAsync(customer.Value, ct);
+        await mail.SendWelcomeAsync(customer.Value.Email, ct);
+        log.LogInformation("Đã tạo khách hàng {Id}", customer.Value.Id);
+        return customer;
     }
 }
 ```
 
 ```csharp
 [Fact]
-public async Task TaoKhachHang_GuiEmailChaoMung()
+public async Task CreateCustomer_SendsWelcomeEmail()
 {
     var repo = Substitute.For<ICustomerRepository>();
     var mail = Substitute.For<IEmailSender>();
     var svc  = new CustomerService(repo, mail, NullLogger<CustomerService>.Instance);
 
-    await svc.TaoKhachHangAsync("An", "an@company.com", default);
+    await svc.CreateCustomerAsync("An", "an@company.com", default);
 
-    await mail.Received(1).GuiChaoMungAsync(
+    await mail.Received(1).SendWelcomeAsync(
         Arg.Is<Email>(e => e.Value == "an@company.com"), Arg.Any<CancellationToken>());
 }
 ```
@@ -376,15 +376,15 @@ Viết một hàm dùng `DateTime.Now` để quyết định có áp dụng khuy
 **Lời giải — trước:**
 
 ```csharp
-public class KhuyenMaiService
+public class PromotionService
 {
-    public decimal TinhGiam(decimal soTien)
+    public decimal CalculateDiscount(decimal amount)
     {
-        var homNay = DateTime.Now;
-        var ngayCuoiThang = DateTime.DaysInMonth(homNay.Year, homNay.Month);
+        var today = DateTime.Now;
+        var lastDayOfMonth = DateTime.DaysInMonth(today.Year, today.Month);
 
-        return homNay.Day == ngayCuoiThang
-            ? soTien * 0.10m      // khuyến mãi ngày cuối tháng
+        return today.Day == lastDayOfMonth
+            ? amount * 0.10m      // khuyến mãi ngày cuối tháng
             : 0m;
     }
 }
@@ -394,10 +394,10 @@ public class KhuyenMaiService
 
 ```csharp
 [Fact]
-public void NgayCuoiThang_Giam10PhanTram()
+public void LastDayOfMonth_Gives10PercentOff()
 {
-    var svc = new KhuyenMaiService();
-    Assert.Equal(100_000m, svc.TinhGiam(1_000_000m));
+    var svc = new PromotionService();
+    Assert.Equal(100_000m, svc.CalculateDiscount(1_000_000m));
 }
 ```
 
@@ -406,14 +406,14 @@ Bài kiểm thử này **chỉ đúng vào ngày cuối tháng**. Ba mươi ngà
 **Sau:**
 
 ```csharp
-public class KhuyenMaiService(TimeProvider time)
+public class PromotionService(TimeProvider time)
 {
-    public decimal TinhGiam(decimal soTien)
+    public decimal CalculateDiscount(decimal amount)
     {
-        var homNay = time.GetLocalNow();
-        var ngayCuoiThang = DateTime.DaysInMonth(homNay.Year, homNay.Month);
+        var today = time.GetLocalNow();
+        var lastDayOfMonth = DateTime.DaysInMonth(today.Year, today.Month);
 
-        return homNay.Day == ngayCuoiThang ? soTien * 0.10m : 0m;
+        return today.Day == lastDayOfMonth ? amount * 0.10m : 0m;
     }
 }
 ```
@@ -434,12 +434,12 @@ builder.Services.AddSingleton(TimeProvider.System);
 [InlineData(2024, 2, 29, true)]    // cuối tháng 2, NĂM NHUẬN
 [InlineData(2024, 2, 28, false)]   // áp chót năm nhuận — KHÔNG phải cuối tháng
 [InlineData(2026, 4, 30, true)]    // tháng 30 ngày
-public void KiemTraNgayCuoiThang(int nam, int thang, int ngay, bool coGiam)
+public void LastDayOfMonthCases(int year, int month, int day, bool hasDiscount)
 {
-    var time = new FakeTimeProvider(new DateTimeOffset(nam, thang, ngay, 12, 0, 0, TimeSpan.Zero));
-    var svc = new KhuyenMaiService(time);
+    var time = new FakeTimeProvider(new DateTimeOffset(year, month, day, 12, 0, 0, TimeSpan.Zero));
+    var svc = new PromotionService(time);
 
-    Assert.Equal(coGiam ? 100_000m : 0m, svc.TinhGiam(1_000_000m));
+    Assert.Equal(hasDiscount ? 100_000m : 0m, svc.CalculateDiscount(1_000_000m));
 }
 ```
 

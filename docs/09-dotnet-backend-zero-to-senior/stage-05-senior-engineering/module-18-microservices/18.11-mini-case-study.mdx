@@ -29,10 +29,10 @@ Sau bài này bạn có thể:
 
 ```
 Gio cao diem (9h va 14h):
-  - Module Notification gui ~50.000 email/gio (nhac lich, canh bao deal)
+  - Module Notification gửi ~50.000 email/giờ (nhắc lịch, cảnh báo deal)
   - CPU cua ca ung dung leo len 85%
   - API nghiep vu cham theo: p99 tu 300ms len 2,1 giay
-  - Phai scale ca 4 instance len 12 -> ton tien cho phan KHONG can scale
+  - Phải scale cả 4 instance lên 12 -> tốn tiền cho phần KHÔNG cần scale
 ```
 
 **Mục tiêu:** Notification scale độc lập, API nghiệp vụ không bị ảnh hưởng.
@@ -71,7 +71,7 @@ Modules/Notification/
   Notification.Domain/
   Notification.Application/
   Notification.Infrastructure/
-  Notification.Contracts/        <- chi project nay duoc module khac dung
+  Notification.Contracts/        <- chỉ project này được module khác dùng
 ```
 
 Bước này phát hiện ra 14 chỗ code khác gọi thẳng vào nội bộ Notification — con số mà không ai ngờ. Sửa chúng **trong monolith** rẻ hơn rất nhiều so với sửa sau khi đã tách ra mạng ([bài 18.2](18.1-khi-nao-khong-nen-microservices.mdx)).
@@ -89,7 +89,7 @@ Bước này phát hiện ra 14 chỗ code khác gọi thẳng vào nội bộ N
 ```csharp
 // Code ban dau — dual write
 await _db.SaveChangesAsync(ct);
-await _bus.Publish(new SendNotificationCommand(...), ct);   // co the that bai
+await _bus.Publish(new SendNotificationCommand(...), ct);   // có thể thất bại
 ```
 
 Trong một đợt deploy, tiến trình bị dừng giữa hai lệnh. 340 thông báo **không bao giờ** được gửi, và không có dấu vết nào trong log — vì về mặt monolith, mọi thứ đã thành công.
@@ -100,7 +100,7 @@ Trong một đợt deploy, tiến trình bị dừng giữa hai lệnh. 340 thô
 
 ```csharp
 _db.OutboxMessages.Add(OutboxMessage.From(new SendNotificationCommand(...)));
-await _db.SaveChangesAsync(ct);        // MOT transaction cho ca hai
+await _db.SaveChangesAsync(ct);        // MỘT transaction cho cả hai
 ```
 
 **Bài học:** outbox phải có **trước** khi bắt đầu tách, không phải thêm vào khi đã mất dữ liệu ([bài 17.4](../module-17-distributed-systems/17.3-outbox-pattern-applied.mdx)).
@@ -121,7 +121,7 @@ try
 }
 catch (DbUpdateException ex) when (ex.IsUniqueViolation())
 {
-    return;                                // ben kia da gui
+    return;                                // bên kia đã gửi
 }
 
 await _emailSender.SendAsync(notification, ct);
@@ -136,7 +136,7 @@ await _emailSender.SendAsync(notification, ct);
 Nguyên nhân: service mới cần tên và email người nhận, nên nó **gọi ngược về monolith**:
 
 ```csharp
-// Moi thong bao = mot loi goi HTTP toi monolith
+// Mỗi thông báo = một lời gọi HTTP tới monolith
 var user = await _monolithClient.GetUserAsync(notification.UserId, ct);
 await _emailSender.SendAsync(user.Email, ...);
 ```

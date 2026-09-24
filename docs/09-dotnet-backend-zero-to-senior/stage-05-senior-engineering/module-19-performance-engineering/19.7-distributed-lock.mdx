@@ -28,12 +28,12 @@ Sau bài này bạn có thể:
 
 ```
 t=0   Process A lay khoa, TTL 30 giay
-t=5   A bat dau xu ly
+t=5   A bắt đầu xử lý
 t=10  A bi GC pause / mang cham / VM bi dung tam
-t=35  Khoa HET HAN (A khong biet — no dang bi dung)
-t=36  Process B lay duoc khoa, bat dau xu ly
-t=40  A tinh day, TIN rang minh van giu khoa, tiep tuc xu ly
-      => A va B CUNG chay doan duoc bao ve
+t=35  Khoá HẾT HẠN (A không biết — nó đang bị dừng)
+t=36  Process B lấy được khoá, bắt đầu xử lý
+t=40  A tỉnh dậy, TIN rằng mình vẫn giữ khoá, tiếp tục xử lý
+      => A và B CÙNG chạy đoạn được bảo vệ
 ```
 
 Đây không phải bug của Redis hay của thư viện. Đó là hệ quả của một sự thật: **không có cách nào phân biệt tiến trình chết với tiến trình chậm** trong hệ phân tán. TTL phải tồn tại (nếu không, một tiến trình chết sẽ giữ khoá vĩnh viễn), và TTL tồn tại nghĩa là khoá có thể hết hạn trong lúc chủ sở hữu vẫn đang làm việc.
@@ -56,7 +56,7 @@ public sealed class RedisLock(IConnectionMultiplexer redis)
         string key, TimeSpan ttl, CancellationToken ct)
     {
         var db = redis.GetDatabase();
-        var token = Guid.NewGuid().ToString();       // dinh danh CHU SO HUU
+        var token = Guid.NewGuid().ToString();       // định danh CHỦ SỞ HỮU
 
         // SET key token NX EX ttl — nguyen tu
         var acquired = await db.StringSetAsync(
@@ -67,7 +67,7 @@ public sealed class RedisLock(IConnectionMultiplexer redis)
 
     private sealed class LockHandle(IDatabase db, string key, string token) : IAsyncDisposable
     {
-        // Lua script: CHI xoa neu token khop — nguyen tu
+        // Lua script: CHỈ xoá nếu token khớp — nguyên tử
         private const string ReleaseScript = """
             if redis.call('GET', KEYS[1]) == ARGV[1] then
                 return redis.call('DEL', KEYS[1])
@@ -87,10 +87,10 @@ Hai chi tiết quyết định tính đúng đắn của cài đặt này:
 **Token sở hữu.** Không có nó, bạn có thể xoá khoá của người khác:
 
 ```csharp
-// SAI — xoa khoa ma KHONG kiem tra chu so huu
+// SAI — xoá khoá mà KHÔNG kiểm tra chủ sở hữu
 await db.KeyDeleteAsync($"lock:{key}");
-// Neu khoa cua ban da het han va B da lay duoc,
-// lenh nay xoa khoa CUA B -> C cung vao duoc -> ba process cung chay
+// Nếu khoá của bạn đã hết hạn và B đã lấy được,
+// lệnh này xoá khoá CỦA B -> C cũng vào được -> ba process cùng chạy
 ```
 
 **Lua script cho việc giải phóng.** Kiểm tra rồi xoá bằng hai lệnh riêng có race condition: khoá có thể hết hạn **giữa** lệnh `GET` và lệnh `DEL`. Lua script chạy nguyên tử trên Redis nên không có khoảng đó.
@@ -128,7 +128,7 @@ public async Task<bool> TryAcquireAsync(string resource, TimeSpan timeout, Cance
             """)
         .FirstAsync(ct);
 
-    return result >= 0;        // 0 = lay duoc ngay, 1 = lay duoc sau khi cho
+    return result >= 0;        // 0 = lấy được ngay, 1 = lấy được sau khi chờ
 }
 ```
 
@@ -173,7 +173,7 @@ Trước khi dùng khoá, kiểm tra xem bài toán có thuộc ba loại sau kh
 **1. Phân vùng theo key.** Mỗi worker xử lý một tập key cố định, nên không bao giờ có hai worker chạm cùng một bản ghi.
 
 ```csharp
-// Worker i chi xu ly cac ban ghi co hash chia het cho tong so worker
+// Worker i chỉ xử lý các bản ghi có hash chia hết cho tổng số worker
 var myPartition = GetHash(record.Id) % totalWorkers;
 if (myPartition != _workerIndex) continue;
 ```
@@ -183,7 +183,7 @@ if (myPartition != _workerIndex) continue;
 **2. `SKIP LOCKED` — để database làm việc khoá.**
 
 ```sql
--- Moi worker lay mot bo hang KHAC NHAU, khong worker nao cho ai
+-- Mỗi worker lấy một bộ hàng KHÁC NHAU, không worker nào chờ ai
 SELECT * FROM Jobs
 WHERE Status = 'Pending'
 ORDER BY CreatedAt
@@ -196,7 +196,7 @@ FOR UPDATE SKIP LOCKED;
 **3. Idempotency + unique constraint.**
 
 ```csharp
-// Chay trung khong sao — database dam bao chi mot ban ghi ton tai
+// Chạy trùng không sao — database đảm bảo chỉ một bản ghi tồn tại
 try
 {
     _db.MonthlyReports.Add(new MonthlyReport { Period = period, Data = data });
@@ -204,7 +204,7 @@ try
 }
 catch (DbUpdateException ex) when (ex.IsUniqueViolation())
 {
-    return;     // instance khac da tao — khong phai loi
+    return;     // instance khác đã tạo — không phải lỗi
 }
 ```
 
