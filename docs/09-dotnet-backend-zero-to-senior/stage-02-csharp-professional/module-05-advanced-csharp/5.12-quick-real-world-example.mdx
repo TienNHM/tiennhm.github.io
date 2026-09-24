@@ -1,40 +1,261 @@
 ---
 title: "5.12 — Ví dụ thực tế nhanh"
-description: "Ví dụ thực tế ngắn cho Module 5 — Advanced csharp: áp dụng kiến thức vừa học vào một tình huống CRM/.NET backend cụ thể."
+description: "Event handler giữ sống một service suốt vòng đời ứng dụng: rò rỉ bộ nhớ do quên huỷ đăng ký, và ba cách phòng."
 sidebar_position: 12
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
 # 5.12 — Ví dụ thực tế nhanh
 
+<SummaryBox>
+Một rò rỉ bộ nhớ **không có dòng code nào sai**: một service scoped đăng ký vào event của một service singleton, và quên `-=` khi bị huỷ. Kết quả: mọi instance từng được tạo đều **không bao giờ** được thu gom — sau 6 giờ chạy, ứng dụng dùng 2,3 GB thay vì 180 MB. Cơ chế rất dễ bỏ sót: `+=` khiến bên **phát** event giữ một tham chiếu tới bên **nghe**, nên object singleton vô tình giữ sống hàng chục nghìn object scoped, cùng với mọi thứ chúng tham chiếu — kể cả `DbContext` và connection. Bài này chỉ cách nhận ra, ba cách phòng, và vì sao trong ASP.NET Core thường có lựa chọn tốt hơn hẳn: **đừng dùng event .NET để nối các service**.
+</SummaryBox>
+
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Giải thích vì sao event gây rò rỉ bộ nhớ.
+- Nhận ra rò rỉ kiểu này từ số liệu.
+- Huỷ đăng ký đúng cách với `IDisposable`.
+- Chọn cơ chế phù hợp thay cho event .NET.
 
 ## Nội dung bài học
 
-- Một tình huống áp dụng trực tiếp trong dự án.
-- Một lỗi thường gặp khi triển khai ngoài thực tế.
-- Một câu tự kiểm tra để xác nhận bạn hiểu đúng bản chất.
+### 5.12.1 — Code gây rò rỉ
+
+```csharp
+// Singleton — song suot vong doi ung dung
+public class BoTheoDoiTonKho
+{
+    public event EventHandler<TonKhoThayDoiEventArgs>? TonKhoThayDoi;
+
+    public void CapNhat(ProductId id, int soLuong)
+        => TonKhoThayDoi?.Invoke(this, new TonKhoThayDoiEventArgs(id, soLuong));
+}
+
+// Scoped — tao MOI cho moi request HTTP
+public class DichVuThongBao
+{
+    private readonly AppDbContext _db;
+
+    public DichVuThongBao(BoTheoDoiTonKho theoDoi, AppDbContext db)
+    {
+        _db = db;
+        theoDoi.TonKhoThayDoi += XuLyTonKhoThayDoi;      // DANG KY
+        // ... va KHONG BAO GIO huy dang ky
+    }
+
+    private void XuLyTonKhoThayDoi(object? sender, TonKhoThayDoiEventArgs e)
+        => _db.ThongBaos.Add(new ThongBao($"Tồn kho {e.ProductId} còn {e.SoLuong}"));
+}
+```
+
+Mỗi request HTTP tạo một `DichVuThongBao` mới và đăng ký thêm một handler. Không cái nào được gỡ ra.
+
+### 5.12.2 — Vì sao rò rỉ
+
+```
+BoTheoDoiTonKho (singleton, song mai)
+  └─ event TonKhoThayDoi
+       ├─ handler cua DichVuThongBao #1   -> giu DichVuThongBao #1
+       ├─ handler cua DichVuThongBao #2   -> giu DichVuThongBao #2
+       ├─ ... 50.000 handler nua
+       └─ moi DichVuThongBao lai giu mot AppDbContext
+```
+
+`+=` tạo một **delegate** trỏ tới phương thức của một instance cụ thể. Delegate đó giữ tham chiếu tới instance — nên **bên phát event giữ sống bên nghe**.
+
+Vì `BoTheoDoiTonKho` là singleton và sống mãi, mọi `DichVuThongBao` từng được tạo đều không thể thu gom, cùng với `AppDbContext` của chúng, và cùng với connection mà `DbContext` đang giữ.
+
+Số liệu thực tế:
+
+```
+Sau 1 gio:   180 MB,   ~2.000 handler
+Sau 3 gio:   890 MB,  ~24.000 handler
+Sau 6 gio:  2.300 MB, ~51.000 handler  -> OOM
+```
+
+Và một hệ quả tệ hơn cả bộ nhớ: mỗi lần tồn kho thay đổi, **51.000 handler cùng chạy**, mỗi cái cố ghi vào một `DbContext` đã bị `Dispose` từ lâu — sinh ra hàng nghìn exception mỗi giây.
+
+### 5.12.3 — Nhận ra từ số liệu
+
+```bash
+dotnet-counters monitor -p 1 --counters System.Runtime
+```
+
+```
+GC Heap Size (MB)                 2,341        <- tang deu, khong bao gio giam
+Gen 2 GC Count / 1 sec                4        <- cao bat thuong
+Exception Count / 1 sec           1,204        <- rat cao
+```
+
+Chữ ký của rò rỉ bộ nhớ: **heap tăng đều và không giảm sau Gen 2 GC**. Nếu bộ nhớ tăng rồi giảm theo chu kỳ, đó là hoạt động bình thường; nếu chỉ tăng, có thứ gì đó đang bị giữ ([bài 19.4](../../stage-05-senior-engineering/module-19-performance-engineering/19.4-dotnet-server-profiling.mdx)).
+
+Xác nhận bằng cách so hai ảnh chụp bộ nhớ:
+
+```bash
+dotnet-gcdump collect -p 1 -o truoc.gcdump
+# ... de chay them 30 phut ...
+dotnet-gcdump collect -p 1 -o sau.gcdump
+```
+
+So sánh sẽ thấy số instance của `DichVuThongBao` tăng tuyến tính theo số request — trong khi nó là scoped và đáng lẽ phải bị thu gom sau mỗi request.
+
+### 5.12.4 — Ba cách sửa
+
+**Cách 1 — huỷ đăng ký qua `IDisposable`:**
+
+```csharp
+public class DichVuThongBao : IDisposable
+{
+    private readonly BoTheoDoiTonKho _theoDoi;
+
+    public DichVuThongBao(BoTheoDoiTonKho theoDoi, AppDbContext db)
+    {
+        _theoDoi = theoDoi;
+        _theoDoi.TonKhoThayDoi += XuLyTonKhoThayDoi;
+    }
+
+    public void Dispose()
+        => _theoDoi.TonKhoThayDoi -= XuLyTonKhoThayDoi;      // GO RA
+}
+```
+
+DI container tự gọi `Dispose` cho service scoped khi request kết thúc, nên chỉ cần cài `IDisposable` là đủ.
+
+**Quan trọng:** `-=` chỉ hoạt động nếu bạn gỡ **đúng** delegate đã thêm. Lambda thì không:
+
+```csharp
+// SAI — hai lambda nay la HAI delegate khac nhau
+theoDoi.TonKhoThayDoi += (s, e) => XuLy(e);
+theoDoi.TonKhoThayDoi -= (s, e) => XuLy(e);      // KHONG go duoc gi
+```
+
+Phải dùng tham chiếu phương thức, hoặc lưu lambda vào một biến:
+
+```csharp
+private readonly EventHandler<TonKhoThayDoiEventArgs> _handler;
+// ...
+_handler = (s, e) => XuLy(e);
+theoDoi.TonKhoThayDoi += _handler;
+// ...
+theoDoi.TonKhoThayDoi -= _handler;      // gio go duoc
+```
+
+**Cách 2 — đảo chiều phụ thuộc.** Thay vì service scoped đăng ký vào singleton, để singleton **hỏi** DI container khi cần:
+
+```csharp
+public class BoTheoDoiTonKho(IServiceScopeFactory scopeFactory)
+{
+    public async Task CapNhatAsync(ProductId id, int soLuong, CancellationToken ct)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var thongBao = scope.ServiceProvider.GetRequiredService<DichVuThongBao>();
+
+        await thongBao.XuLyAsync(id, soLuong, ct);
+        // scope bi huy -> khong giu gi ca
+    }
+}
+```
+
+Không có đăng ký nào để quên gỡ. Đây là cách **an toàn nhất** khi singleton cần dùng service scoped ([bài 7.5](../module-07-dependency-injection/7.5-service-lifetimes.mdx)).
+
+**Cách 3 — dùng cơ chế khác.** Trong ASP.NET Core, phần lớn trường hợp dùng event .NET giữa các service có lựa chọn tốt hơn:
+
+```csharp
+// Trong mot tien trinh — domain event qua MediatR
+await _mediator.Publish(new TonKhoThayDoiEvent(id, soLuong), ct);
+
+// Xuyen tien trinh — message qua broker
+await _publisher.PublishAsync(new StockChangedIntegrationEvent(id, soLuong), ct);
+```
+
+Cả hai đều không tạo tham chiếu kéo dài: handler được DI container tạo khi cần và huỷ ngay sau đó ([bài 16.9](../../stage-05-senior-engineering/module-16-clean-architecture/16.9-in-process.mdx)).
+
+### 5.12.5 — Khi nào event .NET vẫn đúng
+
+Event không xấu — nó chỉ không hợp với mô hình DI có vòng đời khác nhau. Nó vẫn đúng khi:
+
+| Tình huống | Vì sao an toàn |
+|---|---|
+| Hai object cùng vòng đời | Cùng sống, cùng chết — không ai giữ ai lâu hơn |
+| Bên nghe sống lâu hơn bên phát | Bên phát chết trước, không giữ gì |
+| Trong một object, giữa các thành phần nội bộ | Phạm vi hẹp, kiểm soát được |
+
+Ví dụ hợp lệ: một `BackgroundService` (singleton) đăng ký vào event của một singleton khác — cả hai sống suốt vòng đời ứng dụng.
+
+**Quy tắc:** nếu bên nghe có vòng đời **ngắn hơn** bên phát, bạn **phải** huỷ đăng ký. Không có ngoại lệ.
+
+### 5.12.6 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát rò rỉ do event"
+  items={[
+    { text: "Mọi chỗ dùng += đều có chỗ dùng -= tương ứng." },
+    { text: "Service scoped đăng ký vào singleton đều cài IDisposable." },
+    { text: "Không dùng lambda trực tiếp trong += nếu cần gỡ sau này." },
+    { text: "Đã cân nhắc đảo chiều bằng IServiceScopeFactory." },
+    { text: "Ưu tiên MediatR hoặc message bus thay cho event .NET giữa các service." },
+    { text: "Có giám sát GC Heap Size và cảnh báo khi nó chỉ tăng." },
+    { text: "Đã so hai ảnh chụp gcdump nếu nghi ngờ rò rỉ." },
+  ]}
+/>
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **Tái hiện rò rỉ.** Tạo một singleton có event và một scoped đăng ký vào đó. Gọi endpoint 10.000 lần và theo dõi `GC Heap Size`.
+
+2. **Chứng minh lambda không gỡ được.** Đăng ký bằng lambda, gỡ bằng lambda giống hệt, rồi đếm số handler còn lại.
+
+3. **Đảo chiều.** Viết lại ví dụ bằng `IServiceScopeFactory` và xác nhận bộ nhớ ổn định.
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "Vì sao đăng ký event gây rò rỉ bộ nhớ?",
+      answer: "Vì += tạo một delegate trỏ tới phương thức của một instance cụ thể, và delegate đó giữ tham chiếu tới instance. Nên bên phát event giữ sống bên nghe, cùng với mọi thứ bên nghe tham chiếu."
+    },
+    {
+      question: "Hệ quả nào tệ hơn cả việc tốn bộ nhớ?",
+      answer: "Mỗi lần event kích hoạt, tất cả handler đã tích luỹ đều chạy, mỗi cái cố dùng một DbContext đã bị huỷ từ lâu, sinh ra hàng nghìn exception mỗi giây."
+    },
+    {
+      question: "Chữ ký của rò rỉ bộ nhớ trong số liệu là gì?",
+      answer: "GC Heap Size tăng đều và không giảm sau Gen 2 GC. Nếu bộ nhớ tăng rồi giảm theo chu kỳ thì đó là hoạt động bình thường; nếu chỉ tăng thì có thứ gì đó đang bị giữ."
+    },
+    {
+      question: "Vì sao không gỡ được lambda bằng -= ?",
+      answer: "Vì hai biểu thức lambda giống hệt nhau về mặt văn bản vẫn tạo ra hai delegate khác nhau. Phải dùng tham chiếu phương thức, hoặc lưu lambda vào một biến rồi dùng chính biến đó để gỡ."
+    },
+    {
+      question: "Cách an toàn nhất khi singleton cần dùng service scoped là gì?",
+      answer: "Đảo chiều bằng IServiceScopeFactory: singleton tạo một scope khi cần, lấy service ra dùng, rồi huỷ scope. Không có đăng ký nào để quên gỡ."
+    },
+    {
+      question: "Khi nào event .NET vẫn là lựa chọn đúng?",
+      answer: "Khi hai đối tượng cùng vòng đời, hoặc bên nghe sống lâu hơn bên phát, hoặc trong phạm vi nội bộ một đối tượng. Quy tắc là nếu bên nghe có vòng đời ngắn hơn bên phát thì bắt buộc phải huỷ đăng ký."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **`+=` khiến bên phát giữ sống bên nghe.** Đó là toàn bộ cơ chế của rò rỉ này.
+2. **Lambda không gỡ được bằng `-=`** — phải giữ tham chiếu tới chính delegate đó.
+3. **Trong ASP.NET Core, thường có lựa chọn tốt hơn event .NET** giữa các service.
+
+## Tham khảo
+
+- [Events trong C#](https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/events/)
+- [Dependency injection trong .NET](https://learn.microsoft.com/en-us/dotnet/core/extensions/dependency-injection)
+- [Hướng dẫn dependency injection](https://learn.microsoft.com/en-us/dotnet/core/extensions/dependency-injection-guidelines)
+- [dotnet-gcdump](https://learn.microsoft.com/en-us/dotnet/core/diagnostics/dotnet-gcdump)
 
 ## Điều hướng
 
