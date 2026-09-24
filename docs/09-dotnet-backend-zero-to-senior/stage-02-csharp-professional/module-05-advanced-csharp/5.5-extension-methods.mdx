@@ -183,7 +183,7 @@ Phép thử đơn giản: *"Người đọc code này có đoán được phươ
 
 #### Bài 1 — Chứng minh độ ưu tiên: class luôn thắng
 
-Tạo một class có phương thức `MoTa()` và một extension cùng tên. Gọi và ghi kết quả. Sau đó xoá phương thức trong class và gọi lại.
+Tạo một class có phương thức `Describe()` và một extension cùng tên. Gọi và ghi kết quả. Sau đó xoá phương thức trong class và gọi lại.
 
 **Tiêu chí hoàn thành:** bạn nêu được hậu quả của quy tắc này khi nâng cấp một thư viện.
 
@@ -197,22 +197,22 @@ Tạo một class có phương thức `MoTa()` và một extension cùng tên. G
 ```csharp
 public class Customer
 {
-    public string MoTa() => "từ class";
+    public string Describe() => "từ class";
 }
 
 public static class CustomerExtensions
 {
-    public static string MoTa(this Customer c) => "từ extension";
+    public static string Describe(this Customer c) => "từ extension";
 }
 
 var c = new Customer();
-Console.WriteLine(c.MoTa());     // "từ class"
+Console.WriteLine(c.Describe());     // "từ class"
 ```
 
 Xoá phương thức trong class, giữ nguyên extension:
 
 ```csharp
-Console.WriteLine(c.MoTa());     // "từ extension"
+Console.WriteLine(c.Describe());     // "từ extension"
 ```
 
 **Không có cảnh báo nào ở cả hai trường hợp.** Trình biên dịch lặng lẽ chọn, và bạn không biết nó đã chọn cái nào nếu không đọc kỹ.
@@ -223,14 +223,14 @@ Console.WriteLine(c.MoTa());     // "từ extension"
 // Thư viện version 1.0 chưa có phương thức này
 public static class SdkExtensions
 {
-    public static async Task<T?> LayAsync<T>(this ISdkClient c, string id)
+    public static async Task<T?> GetAsync<T>(this ISdkClient c, string id)
         => /* cài đặt riêng của bạn, có xử lý lỗi và retry */;
 }
 ```
 
-Nâng thư viện lên 2.0, và bản mới **thêm** một phương thức `LayAsync` vào chính `ISdkClient`. Kể từ lúc đó:
+Nâng thư viện lên 2.0, và bản mới **thêm** một phương thức `GetAsync` vào chính `ISdkClient`. Kể từ lúc đó:
 
-- Mọi lời gọi `client.LayAsync(...)` **âm thầm chuyển sang** dùng bản của thư viện.
+- Mọi lời gọi `client.GetAsync(...)` **âm thầm chuyển sang** dùng bản của thư viện.
 - Extension của bạn — với phần xử lý lỗi và thử lại — **không bao giờ được gọi nữa**.
 - Code vẫn biên dịch sạch. Không cảnh báo, không lỗi.
 - Hành vi đổi: có thể khác về xử lý lỗi, khác về giá trị trả về khi không tìm thấy, khác về việc có thử lại hay không.
@@ -239,7 +239,7 @@ Nâng thư viện lên 2.0, và bản mới **thêm** một phương thức `Lay
 
 **Ba cách phòng:**
 
-1. **Đặt tên extension khác với tên có thể xuất hiện trong thư viện.** Thêm tiền tố của dự án, ví dụ `CrmLayAsync`. Xấu hơn nhưng an toàn.
+1. **Đặt tên extension khác với tên có thể xuất hiện trong thư viện.** Thêm tiền tố của dự án, ví dụ `CrmGetAsync`. Xấu hơn nhưng an toàn.
 2. **Viết một bài kiểm thử khẳng định hành vi**, không chỉ khẳng định kết quả. Nếu extension của bạn có thử lại, hãy kiểm thử rằng nó thử lại thật.
 3. **Đọc ghi chú phát hành khi nâng phiên bản chính.** Phương thức mới thêm vào interface là thay đổi đáng chú ý, dù về mặt kỹ thuật nó không phá vỡ biên dịch.
 
@@ -287,31 +287,31 @@ Ngoại lệ ở `DoDai` **không** phát sinh tại `x.DoDai()` mà phát sinh 
 **Ứng dụng hữu ích — viết API dễ chịu hơn:**
 
 ```csharp
-public static bool CoGiaTri(this string? s) => !string.IsNullOrWhiteSpace(s);
+public static bool HasValue(this string? s) => !string.IsNullOrWhiteSpace(s);
 
-public static IReadOnlyList<T> HoacRong<T>(this IEnumerable<T>? nguon)
-    => nguon?.ToList() ?? [];
+public static IReadOnlyList<T> OrEmpty<T>(this IEnumerable<T>? source)
+    => source?.ToList() ?? [];
 
 // Dùng được mà không cần kiểm tra null trước
-if (customer.GhiChu.CoGiaTri()) { }
-foreach (var x in danhSachCoTheNull.HoacRong()) { }
+if (customer.Note.HasValue()) { }
+foreach (var x in maybeNullList.OrEmpty()) { }
 ```
 
-**Cái bẫy — người đọc không biết nó an toàn.** Nhìn `customer.GhiChu.CoGiaTri()`, không ai đoán được đây là extension chấp nhận `null`. Họ sẽ tưởng `GhiChu` chắc chắn khác `null` và viết `customer.GhiChu.Trim()` ngay dòng dưới — dòng đó thì ném thật.
+**Cái bẫy — người đọc không biết nó an toàn.** Nhìn `customer.Note.HasValue()`, không ai đoán được đây là extension chấp nhận `null`. Họ sẽ tưởng `Note` chắc chắn khác `null` và viết `customer.Note.Trim()` ngay dòng dưới — dòng đó thì ném thật.
 
 Vì vậy hãy **đánh dấu rõ ràng** bằng kiểu tham số và bằng thuộc tính:
 
 ```csharp
-public static bool CoGiaTri([NotNullWhen(true)] this string? s)
+public static bool HasValue([NotNullWhen(true)] this string? s)
     => !string.IsNullOrWhiteSpace(s);
 ```
 
 `[NotNullWhen(true)]` nói với trình biên dịch: khi hàm trả `true` thì `s` chắc chắn khác `null`. Nhờ vậy:
 
 ```csharp
-if (customer.GhiChu.CoGiaTri())
+if (customer.Note.HasValue())
 {
-    var x = customer.GhiChu.Trim();   // không còn cảnh báo — trình biên dịch đã biết
+    var x = customer.Note.Trim();   // không còn cảnh báo — trình biên dịch đã biết
 }
 ```
 

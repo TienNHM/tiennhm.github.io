@@ -361,14 +361,14 @@ public class Repo
     private CrmDbContext? _db;
 
     [MemberNotNull(nameof(_db))]
-    private void DamBaoKhoiTao()
+    private void EnsureInitialized()
     {
         _db ??= new CrmDbContext();
     }
 
-    public async Task<Customer?> LayAsync(int id, CancellationToken ct)
+    public async Task<Customer?> GetAsync(int id, CancellationToken ct)
     {
-        DamBaoKhoiTao();
+        EnsureInitialized();
         return await _db.Customers.FindAsync([id], ct);   // không cảnh báo
     }
 }

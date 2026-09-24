@@ -253,43 +253,43 @@ git log --since="2 years ago" -p --  '*PaymentMethod*.cs' | grep '^+.*= [0-9]*,'
 **Lời giải — trước:**
 
 ```csharp
-public decimal TinhPhi(LoaiThanhToan loai, decimal soTien) => loai switch
+public decimal CalculateFee(PaymentType type, decimal amount) => type switch
 {
-    LoaiThanhToan.TheTinDung => soTien * 0.025m,
-    LoaiThanhToan.ChuyenKhoan => 11_000m,
-    LoaiThanhToan.ViDienTu => soTien * 0.015m,
-    LoaiThanhToan.TienMat => 0m,
-    _ => throw new ArgumentOutOfRangeException(nameof(loai))
+    PaymentType.CreditCard => amount * 0.025m,
+    PaymentType.BankTransfer => 11_000m,
+    PaymentType.EWallet => amount * 0.015m,
+    PaymentType.Cash => 0m,
+    _ => throw new ArgumentOutOfRangeException(nameof(type))
 };
 ```
 
 **Sau — mẫu chiến lược:**
 
 ```csharp
-public interface IPhiThanhToan
+public interface IPaymentFee
 {
-    LoaiThanhToan Loai { get; }
-    decimal Tinh(decimal soTien);
+    PaymentType Type { get; }
+    decimal Calculate(decimal amount);
 }
 
-public class PhiTheTinDung : IPhiThanhToan
+public class CreditCardFee : IPaymentFee
 {
-    public LoaiThanhToan Loai => LoaiThanhToan.TheTinDung;
-    public decimal Tinh(decimal soTien) => soTien * 0.025m;
+    public PaymentType Type => PaymentType.CreditCard;
+    public decimal Calculate(decimal amount) => amount * 0.025m;
 }
 // ... ba lớp nữa
 
-public class BoTinhPhi
+public class FeeCalculator
 {
-    private readonly IReadOnlyDictionary<LoaiThanhToan, IPhiThanhToan> _map;
+    private readonly IReadOnlyDictionary<PaymentType, IPaymentFee> _map;
 
-    public BoTinhPhi(IEnumerable<IPhiThanhToan> cacChienLuoc) =>
-        _map = cacChienLuoc.ToDictionary(x => x.Loai);
+    public FeeCalculator(IEnumerable<IPaymentFee> strategies) =>
+        _map = strategies.ToDictionary(x => x.Type);
 
-    public decimal Tinh(LoaiThanhToan loai, decimal soTien) =>
-        _map.TryGetValue(loai, out var c)
-            ? c.Tinh(soTien)
-            : throw new ArgumentOutOfRangeException(nameof(loai));
+    public decimal Calculate(PaymentType type, decimal amount) =>
+        _map.TryGetValue(type, out var fee)
+            ? fee.Calculate(amount)
+            : throw new ArgumentOutOfRangeException(nameof(type));
 }
 ```
 
@@ -315,8 +315,8 @@ public class BoTinhPhi
 **Điểm dễ bỏ sót về đăng ký.** Với mẫu chiến lược, đừng quên rằng thêm một lớp thôi chưa đủ — phải đăng ký nó vào DI. Quên đăng ký thì `TryGetValue` trả `false` và ném ngoại lệ **lúc chạy**, thay vì lỗi biên dịch như `switch` vét cạn ở [bài 4.9](../module-04-csharp-core/4.8-pattern-matching.mdx). Có thể giảm rủi ro bằng cách quét assembly tự động:
 
 ```csharp
-services.Scan(scan => scan.FromAssemblyOf<IPhiThanhToan>()
-    .AddClasses(c => c.AssignableTo<IPhiThanhToan>())
+services.Scan(scan => scan.FromAssemblyOf<IPaymentFee>()
+    .AddClasses(c => c.AssignableTo<IPaymentFee>())
     .AsImplementedInterfaces()
     .WithSingletonLifetime());
 ```
@@ -360,8 +360,8 @@ public class LeadService : ILeadService
     private readonly ILeadRepository _repo;
     public LeadService(ILeadRepository repo) => _repo = repo;
 
-    public Task<Lead> TaoAsync(Lead lead, CancellationToken ct)
-        => _repo.ThemAsync(lead, ct);       // chuyển tiếp, không thêm gì
+    public Task<Lead> CreateAsync(Lead lead, CancellationToken ct)
+        => _repo.AddAsync(lead, ct);       // chuyển tiếp, không thêm gì
 }
 ```
 
@@ -378,26 +378,26 @@ Một lớp **chỉ chuyển tiếp lời gọi** không phải một trách nhi
 
 ```csharp
 // CreateLead.cs — một tính năng, một file
-public record CreateLeadRequest(string Ten, string Email, decimal GiaTri);
+public record CreateLeadRequest(string Name, string Email, decimal Value);
 
 public class CreateLeadValidator : AbstractValidator<CreateLeadRequest>
 {
     public CreateLeadValidator()
     {
-        RuleFor(x => x.Ten).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
         RuleFor(x => x.Email).NotEmpty().EmailAddress();
     }
 }
 
 public class CreateLeadHandler(ILeadRepository repo)
 {
-    public async Task<Result<LeadDto>> XuLyAsync(CreateLeadRequest req, CancellationToken ct)
+    public async Task<Result<LeadDto>> HandleAsync(CreateLeadRequest req, CancellationToken ct)
     {
-        var lead = Lead.Tao(req.Ten, new Email(req.Email), req.GiaTri);
-        if (lead.IsFailure) return Result<LeadDto>.That(lead.Loi!);
+        var lead = Lead.Create(req.Name, new Email(req.Email), req.Value);
+        if (lead.IsFailure) return Result<LeadDto>.Fail(lead.Error!);
 
-        await repo.ThemAsync(lead.Value, ct);
-        return Result<LeadDto>.Ok(LeadDto.Tu(lead.Value));
+        await repo.AddAsync(lead.Value, ct);
+        return Result<LeadDto>.Ok(LeadDto.From(lead.Value));
     }
 }
 ```

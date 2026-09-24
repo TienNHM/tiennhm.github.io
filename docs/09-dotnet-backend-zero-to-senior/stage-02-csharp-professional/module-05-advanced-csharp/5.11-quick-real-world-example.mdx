@@ -26,48 +26,48 @@ Sau bài này bạn có thể:
 ### 5.12.1 — Code gây rò rỉ
 
 ```csharp
-// Singleton — song suot vong doi ung dung
-public class BoTheoDoiTonKho
+// Singleton — sống suốt vòng đời ứng dụng
+public class StockTracker
 {
-    public event EventHandler<TonKhoThayDoiEventArgs>? TonKhoThayDoi;
+    public event EventHandler<StockChangedEventArgs>? StockChanged;
 
-    public void CapNhat(ProductId id, int soLuong)
-        => TonKhoThayDoi?.Invoke(this, new TonKhoThayDoiEventArgs(id, soLuong));
+    public void Update(ProductId id, int quantity)
+        => StockChanged?.Invoke(this, new StockChangedEventArgs(id, quantity));
 }
 
-// Scoped — tao MOI cho moi request HTTP
-public class DichVuThongBao
+// Scoped — tạo MỚI cho mỗi request HTTP
+public class NotificationService
 {
     private readonly AppDbContext _db;
 
-    public DichVuThongBao(BoTheoDoiTonKho theoDoi, AppDbContext db)
+    public NotificationService(StockTracker tracker, AppDbContext db)
     {
         _db = db;
-        theoDoi.TonKhoThayDoi += XuLyTonKhoThayDoi;      // DANG KY
-        // ... va KHONG BAO GIO huy dang ky
+        tracker.StockChanged += OnStockChanged;      // ĐĂNG KÝ
+        // ... và KHÔNG BAO GIỜ huỷ đăng ký
     }
 
-    private void XuLyTonKhoThayDoi(object? sender, TonKhoThayDoiEventArgs e)
-        => _db.ThongBaos.Add(new ThongBao($"Tồn kho {e.ProductId} còn {e.SoLuong}"));
+    private void OnStockChanged(object? sender, StockChangedEventArgs e)
+        => _db.Notifications.Add(new Notification($"Tồn kho {e.ProductId} còn {e.Quantity}"));
 }
 ```
 
-Mỗi request HTTP tạo một `DichVuThongBao` mới và đăng ký thêm một handler. Không cái nào được gỡ ra.
+Mỗi request HTTP tạo một `NotificationService` mới và đăng ký thêm một handler. Không cái nào được gỡ ra.
 
 ### 5.12.2 — Vì sao rò rỉ
 
 ```
-BoTheoDoiTonKho (singleton, song mai)
-  └─ event TonKhoThayDoi
-       ├─ handler cua DichVuThongBao #1   -> giu DichVuThongBao #1
-       ├─ handler cua DichVuThongBao #2   -> giu DichVuThongBao #2
+StockTracker (singleton, song mai)
+  └─ event StockChanged
+       ├─ handler cua NotificationService #1   -> giu NotificationService #1
+       ├─ handler cua NotificationService #2   -> giu NotificationService #2
        ├─ ... 50.000 handler nua
-       └─ moi DichVuThongBao lai giu mot AppDbContext
+       └─ moi NotificationService lai giu mot AppDbContext
 ```
 
 `+=` tạo một **delegate** trỏ tới phương thức của một instance cụ thể. Delegate đó giữ tham chiếu tới instance — nên **bên phát event giữ sống bên nghe**.
 
-Vì `BoTheoDoiTonKho` là singleton và sống mãi, mọi `DichVuThongBao` từng được tạo đều không thể thu gom, cùng với `AppDbContext` của chúng, và cùng với connection mà `DbContext` đang giữ.
+Vì `StockTracker` là singleton và sống mãi, mọi `NotificationService` từng được tạo đều không thể thu gom, cùng với `AppDbContext` của chúng, và cùng với connection mà `DbContext` đang giữ.
 
 Số liệu thực tế:
 
@@ -86,9 +86,9 @@ dotnet-counters monitor -p 1 --counters System.Runtime
 ```
 
 ```
-GC Heap Size (MB)                 2,341        <- tang deu, khong bao gio giam
-Gen 2 GC Count / 1 sec                4        <- cao bat thuong
-Exception Count / 1 sec           1,204        <- rat cao
+GC Heap Size (MB)                 2,341        <- tăng đều, không bao giờ giảm
+Gen 2 GC Count / 1 sec                4        <- cao bất thường
+Exception Count / 1 sec           1,204        <- rất cao
 ```
 
 Chữ ký của rò rỉ bộ nhớ: **heap tăng đều và không giảm sau Gen 2 GC**. Nếu bộ nhớ tăng rồi giảm theo chu kỳ, đó là hoạt động bình thường; nếu chỉ tăng, có thứ gì đó đang bị giữ ([bài 19.4](../../stage-05-senior-engineering/module-19-performance-engineering/19.3-dotnet-server-profiling.mdx)).
@@ -96,30 +96,30 @@ Chữ ký của rò rỉ bộ nhớ: **heap tăng đều và không giảm sau G
 Xác nhận bằng cách so hai ảnh chụp bộ nhớ:
 
 ```bash
-dotnet-gcdump collect -p 1 -o truoc.gcdump
-# ... de chay them 30 phut ...
-dotnet-gcdump collect -p 1 -o sau.gcdump
+dotnet-gcdump collect -p 1 -o before.gcdump
+# ... để chạy thêm 30 phút ...
+dotnet-gcdump collect -p 1 -o after.gcdump
 ```
 
-So sánh sẽ thấy số instance của `DichVuThongBao` tăng tuyến tính theo số request — trong khi nó là scoped và đáng lẽ phải bị thu gom sau mỗi request.
+So sánh sẽ thấy số instance của `NotificationService` tăng tuyến tính theo số request — trong khi nó là scoped và đáng lẽ phải bị thu gom sau mỗi request.
 
 ### 5.12.4 — Ba cách sửa
 
 **Cách 1 — huỷ đăng ký qua `IDisposable`:**
 
 ```csharp
-public class DichVuThongBao : IDisposable
+public class NotificationService : IDisposable
 {
-    private readonly BoTheoDoiTonKho _theoDoi;
+    private readonly StockTracker _tracker;
 
-    public DichVuThongBao(BoTheoDoiTonKho theoDoi, AppDbContext db)
+    public NotificationService(StockTracker tracker, AppDbContext db)
     {
-        _theoDoi = theoDoi;
-        _theoDoi.TonKhoThayDoi += XuLyTonKhoThayDoi;
+        _tracker = tracker;
+        _tracker.StockChanged += OnStockChanged;
     }
 
     public void Dispose()
-        => _theoDoi.TonKhoThayDoi -= XuLyTonKhoThayDoi;      // GO RA
+        => _tracker.StockChanged -= OnStockChanged;      // GỠ RA
 }
 ```
 
@@ -128,34 +128,34 @@ DI container tự gọi `Dispose` cho service scoped khi request kết thúc, n�
 **Quan trọng:** `-=` chỉ hoạt động nếu bạn gỡ **đúng** delegate đã thêm. Lambda thì không:
 
 ```csharp
-// SAI — hai lambda nay la HAI delegate khac nhau
-theoDoi.TonKhoThayDoi += (s, e) => XuLy(e);
-theoDoi.TonKhoThayDoi -= (s, e) => XuLy(e);      // KHONG go duoc gi
+// SAI — hai lambda này là HAI delegate khác nhau
+tracker.StockChanged += (s, e) => Handle(e);
+tracker.StockChanged -= (s, e) => Handle(e);      // KHÔNG gỡ được gì
 ```
 
 Phải dùng tham chiếu phương thức, hoặc lưu lambda vào một biến:
 
 ```csharp
-private readonly EventHandler<TonKhoThayDoiEventArgs> _handler;
+private readonly EventHandler<StockChangedEventArgs> _handler;
 // ...
-_handler = (s, e) => XuLy(e);
-theoDoi.TonKhoThayDoi += _handler;
+_handler = (s, e) => Handle(e);
+tracker.StockChanged += _handler;
 // ...
-theoDoi.TonKhoThayDoi -= _handler;      // gio go duoc
+tracker.StockChanged -= _handler;      // giờ gỡ được
 ```
 
 **Cách 2 — đảo chiều phụ thuộc.** Thay vì service scoped đăng ký vào singleton, để singleton **hỏi** DI container khi cần:
 
 ```csharp
-public class BoTheoDoiTonKho(IServiceScopeFactory scopeFactory)
+public class StockTracker(IServiceScopeFactory scopeFactory)
 {
-    public async Task CapNhatAsync(ProductId id, int soLuong, CancellationToken ct)
+    public async Task UpdateAsync(ProductId id, int quantity, CancellationToken ct)
     {
         using var scope = scopeFactory.CreateScope();
-        var thongBao = scope.ServiceProvider.GetRequiredService<DichVuThongBao>();
+        var notifier = scope.ServiceProvider.GetRequiredService<NotificationService>();
 
-        await thongBao.XuLyAsync(id, soLuong, ct);
-        // scope bi huy -> khong giu gi ca
+        await notifier.HandleAsync(id, quantity, ct);
+        // scope bị huỷ -> không giữ gì cả
     }
 }
 ```
@@ -166,10 +166,10 @@ Không có đăng ký nào để quên gỡ. Đây là cách **an toàn nhất**
 
 ```csharp
 // Trong mot tien trinh — domain event qua MediatR
-await _mediator.Publish(new TonKhoThayDoiEvent(id, soLuong), ct);
+await _mediator.Publish(new StockChangedEvent(id, quantity), ct);
 
 // Xuyen tien trinh — message qua broker
-await _publisher.PublishAsync(new StockChangedIntegrationEvent(id, soLuong), ct);
+await _publisher.PublishAsync(new StockChangedIntegrationEvent(id, quantity), ct);
 ```
 
 Cả hai đều không tạo tham chiếu kéo dài: handler được DI container tạo khi cần và huỷ ngay sau đó ([bài 16.9](../../stage-05-senior-engineering/module-16-clean-architecture/16.8-in-process.mdx)).
