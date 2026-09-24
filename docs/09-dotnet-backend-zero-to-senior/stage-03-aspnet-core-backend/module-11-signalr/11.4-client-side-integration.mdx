@@ -35,7 +35,7 @@ export class NotificationHubClient {
   constructor(private readonly getAccessToken: () => Promise<string>) {
     this.connection = new signalR.HubConnectionBuilder()
       .withUrl("/hubs/notifications", {
-        // Duoc goi MOI LAN ket noi va ket noi lai
+        // Được gọi MỖI LẦN kết nối và kết nối lại
         accessTokenFactory: () => this.getAccessToken(),
       })
       .withAutomaticReconnect({
@@ -77,7 +77,7 @@ this.connection.onreconnected(async connectionId => {
   // BAT BUOC — nhom gan voi ConnectionId CU da bien mat
   await this.connection.invoke("JoinTenantGroup", this.tenantId);
 
-  // BAT BUOC — lay nhung gi da bo lo
+  // BẮT BUỘC — lấy những gì đã bỏ lỡ
   await this.syncMissedNotifications();
 });
 ```

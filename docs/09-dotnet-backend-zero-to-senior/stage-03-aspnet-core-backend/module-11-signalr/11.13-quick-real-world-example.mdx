@@ -26,12 +26,12 @@ Sau bài này bạn có thể:
 ### 11.14.1 — Vấn đề
 
 ```javascript
-// HTTP thong thuong — gui header duoc
+// HTTP thông thường — gửi header được
 fetch('/api/leads', { headers: { Authorization: `Bearer ${token}` } });
 
-// WebSocket — API trinh duyet KHONG cho gui header tuy chinh
+// WebSocket — API trình duyệt KHÔNG cho gửi header tuỳ chỉnh
 new WebSocket('wss://api.company.com/hubs/notifications');
-//            ^^ khong co cho de dat header
+//            ^^ không có chỗ để đặt header
 ```
 
 Đây là hạn chế của **chuẩn WebSocket trong trình duyệt**, không phải của SignalR. Cách giải quyết chuẩn:
@@ -46,7 +46,7 @@ const connection = new signalR.HubConnectionBuilder()
 ```
 
 ```
-Request thuc te:
+Request thực tế:
 GET /hubs/notifications?access_token=eyJhbGciOiJIUzI1NiIs...
 ```
 
@@ -62,7 +62,7 @@ builder.Services.AddAuthentication()
                 var accessToken = context.Request.Query["access_token"];
                 var path = context.HttpContext.Request.Path;
 
-                // CHI cho endpoint hub — khong ap dung cho API thuong
+                // CHỈ cho endpoint hub — không áp dụng cho API thường
                 if (!string.IsNullOrEmpty(accessToken) &&
                     path.StartsWithSegments("/hubs"))
                 {
@@ -98,7 +98,7 @@ Token còn hạn trong log nghĩa là ai đọc được log thì đăng nhập 
 **Sửa — che trong cấu hình proxy:**
 
 ```nginx
-# Nginx — dinh nghia dinh dang log co che access_token
+# Nginx — định nghĩa định dạng log có che access_token
 map $request_uri $loggable_uri {
     ~^(?<prefix>[^?]*)\?.*access_token=[^&]*(?<suffix>.*)$  "$prefix?access_token=***$suffix";
     default $request_uri;
@@ -114,7 +114,7 @@ access_log /var/log/nginx/access.log masked;
 builder.Services.AddHttpLogging(o =>
 {
     o.LoggingFields = HttpLoggingFields.RequestPath | HttpLoggingFields.ResponseStatusCode;
-    // KHONG bao gom RequestQuery
+    // KHÔNG bao gồm RequestQuery
 });
 ```
 
@@ -135,7 +135,7 @@ public sealed class NotificationHub : Hub
             return;
         }
 
-        // Nhom theo tenant — de gui thong bao dung pham vi
+        // Nhóm theo tenant — để gửi thông báo đúng phạm vi
         await Groups.AddToGroupAsync(Context.ConnectionId, $"tenant-{tenantId}");
         await base.OnConnectedAsync();
     }
@@ -160,7 +160,7 @@ Ba điểm quan trọng:
 ### 11.14.4 — Gửi cho đúng người dùng
 
 ```csharp
-// Gui theo user id — SignalR tu tim MOI ket noi cua nguoi do
+// Gửi theo user id — SignalR tự tìm MỌI kết nối của người đó
 await _hubContext.Clients.User(userId.ToString()).SendAsync("NewLead", lead, ct);
 ```
 
@@ -197,7 +197,7 @@ Nếu cần đảm bảo, buộc kết nối lại định kỳ:
 const connection = new signalR.HubConnectionBuilder()
     .withUrl('/hubs/notifications', {
         accessTokenFactory: async () => {
-            // Tu dong lam moi token neu sap het han
+            // Tự động làm mới token nếu sắp hết hạn
             if (isTokenExpiringSoon()) await refreshToken();
             return getAccessToken();
         }

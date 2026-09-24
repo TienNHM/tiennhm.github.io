@@ -31,8 +31,8 @@ await Clients.All.Receive(dto);                          // moi ket noi
 await Clients.Caller.Receive(dto);                       // dung tab vua goi
 await Clients.Others.Receive(dto);                       // tat ca TRU tab vua goi
 await Clients.Client(connectionId).Receive(dto);         // mot ket noi cu the
-await Clients.User(userId).Receive(dto);                 // MOI thiet bi cua mot nguoi
-await Clients.Users([id1, id2]).Receive(dto);            // nhieu nguoi
+await Clients.User(userId).Receive(dto);                 // MỌI thiết bị của một người
+await Clients.Users([id1, id2]).Receive(dto);            // nhiều người
 await Clients.Group("tenant-42").Receive(dto);           // mot nhom
 await Clients.GroupExcept("tenant-42", connectionId).Receive(dto);
 await Clients.OthersInGroup("tenant-42").Receive(dto);   // trong nhom, tru tab goi
@@ -102,7 +102,7 @@ Tên nhóm là chuỗi tự do, nên đặt tên sai là rò rỉ dữ liệu gi
 ```csharp
 public static class GroupNames
 {
-    // LUON co tenant o dau — cach ly cung
+    // LUÔN có tenant ở đầu — cách ly cứng
     public static string Tenant(Guid tenantId) => $"t:{tenantId}";
     public static string Team(Guid tenantId, Guid teamId) => $"t:{tenantId}:team:{teamId}";
     public static string DealRoom(Guid tenantId, Guid dealId) => $"t:{tenantId}:deal:{dealId}";
@@ -123,11 +123,11 @@ Ba nguyên tắc:
 Với "gửi cho một người", bạn có hai lựa chọn:
 
 ```csharp
-// Cach 1 — nhom mot nguoi (tu quan ly)
+// Cách 1 — nhóm một người (tự quản lý)
 await Groups.AddToGroupAsync(Context.ConnectionId, $"user:{userId}");
 await Clients.Group($"user:{userId}").Receive(dto);
 
-// Cach 2 — Clients.User (SignalR tu quan ly)
+// Cách 2 — Clients.User (SignalR tự quản lý)
 await Clients.User(userId).Receive(dto);
 ```
 
@@ -152,10 +152,10 @@ Broadcast tới nhóm lớn có ba loại chi phí:
 Ba cách giảm:
 
 ```csharp
-// 1. Gom nhieu thay doi thanh mot tin
+// 1. Gom nhiều thay đổi thành một tin
 await Clients.Group(g).ReceiveBatch(changes);          // thay vi N lan goi
 
-// 2. Gui tin hieu, client tu lay chi tiet
+// 2. Gửi tín hiệu, client tự lấy chi tiết
 await Clients.Group(g).DataChanged("deals");           // client goi REST
 
 // 3. Gioi han tan suat — toi da 1 tin moi 2 giay cho mot nhom

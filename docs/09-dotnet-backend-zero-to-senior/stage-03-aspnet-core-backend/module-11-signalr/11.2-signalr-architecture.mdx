@@ -80,7 +80,7 @@ SignalR tạo **một instance Hub mới cho mỗi lời gọi từ client** —
 - Hub **không** được lưu tham chiếu tới `Clients` hay `Context` để dùng sau — chúng chỉ hợp lệ trong lời gọi hiện tại.
 
 ```csharp
-// SAI — Context da khong con hop le khi callback chay
+// SAI — Context đã không còn hợp lệ khi callback chạy
 public override Task OnConnectedAsync()
 {
     _timer = new Timer(_ => Clients.Caller.Ping(), null, 0, 5000);
@@ -115,7 +115,7 @@ public class NotificationHub(IServiceScopeFactory scopeFactory) : Hub<INotificat
 
 ```csharp
 await Clients.Caller.Receive(dto);                    // dung tab vua goi
-await Clients.User(userId).Receive(dto);              // MOI thiet bi cua nguoi do
+await Clients.User(userId).Receive(dto);              // MỌI thiết bị của người đó
 await Clients.Group("tenant-123").Receive(dto);       // ca nhom
 await Clients.All.Receive(dto);                       // tat ca — hiem khi dung
 ```
@@ -146,7 +146,7 @@ public class NotificationHub(IPresenceTracker presence) : Hub<INotificationClien
         var userId = Context.UserIdentifier;
         if (userId is null)
         {
-            Context.Abort();                 // khong xac thuc duoc
+            Context.Abort();                 // không xác thực được
             return;
         }
 

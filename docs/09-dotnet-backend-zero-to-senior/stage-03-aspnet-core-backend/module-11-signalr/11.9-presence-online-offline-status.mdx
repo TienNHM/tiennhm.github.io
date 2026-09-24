@@ -70,7 +70,7 @@ public sealed class RedisPresenceTracker(IConnectionMultiplexer redis) : IPresen
         // Khoa mot ket noi — TU HET HAN
         await db.StringSetAsync(ConnKey(userId, connectionId), "1", Ttl);
 
-        // Tap ket noi cua nguoi dung — cung co TTL de khong ro ri
+        // Tập kết nối của người dùng — cũng có TTL để không rò rỉ
         await db.SetAddAsync(UserSet(userId), connectionId);
         await db.KeyExpireAsync(UserSet(userId), Ttl);
     }
@@ -87,7 +87,7 @@ public sealed class RedisPresenceTracker(IConnectionMultiplexer redis) : IPresen
         var db = redis.GetDatabase();
         var connectionIds = await db.SetMembersAsync(UserSet(userId));
 
-        // Kiem tra tung khoa — cai nao het han thi coi nhu khong con
+        // Kiểm tra từng khoá — cái nào hết hạn thì coi như không còn
         foreach (var id in connectionIds)
         {
             if (await db.KeyExistsAsync(ConnKey(userId, id!)))
@@ -146,7 +146,7 @@ public override async Task OnConnectedAsync()
     var wasOffline = !await _presence.IsOnlineAsync(userId, default);
     await _presence.ConnectAsync(userId, Context.ConnectionId, default);
 
-    // CHI bao khi chuyen tu offline sang online
+    // CHỈ báo khi chuyển từ offline sang online
     if (wasOffline)
         await Clients.Group(GroupNames.Tenant(tenantId)).UserPresenceChanged(userId, true);
 
@@ -159,7 +159,7 @@ public override async Task OnDisconnectedAsync(Exception? exception)
 
     await _presence.DisconnectAsync(userId, Context.ConnectionId, default);
 
-    // CHI bao khi KHONG CON ket noi nao
+    // CHỈ báo khi KHÔNG CÒN kết nối nào
     if (!await _presence.IsOnlineAsync(userId, default))
         await Clients.Group(GroupNames.Tenant(tenantId)).UserPresenceChanged(userId, false);
 
@@ -192,7 +192,7 @@ Hai cách giảm:
 // Thay vi bao offline ngay
 await _presence.ScheduleOfflineCheckAsync(userId, TimeSpan.FromSeconds(10), ct);
 
-// Sau 10 giay, kiem tra lai; con online thi bo qua
+// Sau 10 giây, kiểm tra lại; còn online thì bỏ qua
 ```
 
 Cách này còn cải thiện trải nghiệm: người dùng mạng chập chờn không nhấp nháy online/offline liên tục.

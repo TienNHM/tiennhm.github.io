@@ -26,14 +26,14 @@ Sau bài này bạn có thể:
 ### 11.13.1 — Sự cố
 
 ```
-Truoc: 1 instance,  1.200 ket noi  -> thong bao toi 100% nguoi dung
-Sau:   3 instance,  1.200 ket noi  -> thong bao toi ~33% nguoi dung
+Trước: 1 instance,  1.200 kết nối  -> thông báo tới 100% người dùng
+Sau:   3 instance,  1.200 kết nối  -> thông báo tới ~33% người dùng
 
-Log: khong co loi nao. SignalR bao gui thanh cong.
+Log: không có lỗi nào. SignalR báo gửi thành công.
 ```
 
 ```csharp
-// Code gui thong bao
+// Code gửi thông báo
 public async Task ThongBaoLeadMoiAsync(LeadDto lead, CancellationToken ct)
 {
     await _hubContext.Clients.All.SendAsync("LeadCreated", lead, ct);
@@ -42,10 +42,10 @@ public async Task ThongBaoLeadMoiAsync(LeadDto lead, CancellationToken ct)
 
 ```
 Instance A: giu 400 ket noi -> Clients.All = 400 ket noi CUA A
-Instance B: giu 400 ket noi -> khong biet gi ve A
-Instance C: giu 400 ket noi -> khong biet gi ve A va B
+Instance B: giữ 400 kết nối -> không biết gì về A
+Instance C: giữ 400 kết nối -> không biết gì về A và B
 
-Request tao lead roi vao instance A -> chi 400/1.200 nguoi nhan duoc
+Request tạo lead rơi vào instance A -> chỉ 400/1.200 người nhận được
 ```
 
 `Clients.All` hoạt động **đúng như thiết kế** — nó gửi tới tất cả kết nối mà **instance hiện tại** đang giữ. Nó không có cách nào biết về kết nối ở instance khác.
@@ -61,11 +61,11 @@ builder.Services.AddSignalR()
 ```
 
 ```
-Instance A gui thong bao
+Instance A gửi thông báo
   -> Dang len Redis pub/sub
-  -> Instance B va C nhan duoc
-  -> Moi instance gui toi ket noi CUA MINH
-  -> 1.200/1.200 nguoi nhan duoc
+  -> Instance B và C nhận được
+  -> Mỗi instance gửi tới kết nối CỦA MÌNH
+  -> 1.200/1.200 người nhận được
 ```
 
 `ChannelPrefix` cần thiết nếu nhiều ứng dụng dùng chung một Redis — không có nó, thông báo của ứng dụng này sẽ tới client của ứng dụng kia.
@@ -77,10 +77,10 @@ Instance A gui thong bao
 Sau khi thêm backplane, một phần người dùng vẫn chậm — và trong DevTools thấy request `/hubs/notifications` liên tục lặp lại thay vì một kết nối WebSocket duy trì.
 
 ```
-Nginx mac dinh KHONG chuyen tiep header Upgrade
--> WebSocket handshake that bai
--> SignalR tu dong chuyen sang Server-Sent Events hoac Long Polling
--> Van "chay", nhung cham hon nhieu va ton tai nguyen hon nhieu
+Nginx mặc định KHÔNG chuyển tiếp header Upgrade
+-> WebSocket handshake thất bại
+-> SignalR tự động chuyển sang Server-Sent Events hoặc Long Polling
+-> Vẫn "chạy", nhưng chậm hơn nhiều và tốn tài nguyên hơn nhiều
 ```
 
 Đây là đặc tính khiến lỗi khó phát hiện: SignalR **tự động lùi về** cơ chế khác khi WebSocket không dùng được, nên mọi thứ vẫn hoạt động và không có lỗi nào.
@@ -104,9 +104,9 @@ Với YARP, chuyển tiếp WebSocket hoạt động **mặc định** — chỉ
 ### 11.13.4 — Lỗi thứ ba: mất kết nối khi triển khai
 
 ```
-Trien khai phien ban moi -> pod cu bi dung
+Triển khai phiên bản mới -> pod cũ bị dừng
 -> 400 ket noi dut dot ngot
--> Client tu ket noi lai, nhung MAT thong bao trong khoang 2-5 giay
+-> Client tự kết nối lại, nhưng MẤT thông báo trong khoảng 2-5 giây
 ```
 
 SignalR **không** tự gửi lại thông báo bị lỡ — nó không lưu lịch sử. Ba cách xử lý, theo mức độ đảm bảo tăng dần:
@@ -118,7 +118,7 @@ terminationGracePeriodSeconds: 60
 lifecycle:
   preStop:
     exec:
-      command: ["sleep", "15"]    # ngung nhan ket noi moi truoc khi dung
+      command: ["sleep", "15"]    # ngừng nhận kết nối mới trước khi dừng
 ```
 
 `preStop` cho load balancer thời gian gỡ pod khỏi vòng phân phối trước khi tiến trình dừng, nên kết nối mới không rơi vào pod sắp chết.
@@ -127,7 +127,7 @@ lifecycle:
 
 ```typescript
 connection.onreconnected(async (connectionId) => {
-    // Lay nhung gi bi lo trong luc mat ket noi
+    // Lấy những gì bị lỡ trong lúc mất kết nối
     const missed = await fetch(`/api/notifications?since=${lastReceivedAt}`);
     render(await missed.json());
 });
@@ -138,10 +138,10 @@ connection.onreconnected(async (connectionId) => {
 **Cách 3 — lưu thông báo vào database** và dùng SignalR chỉ để **báo có cái mới**:
 
 ```csharp
-// Luu truoc — day moi la nguon su that
+// Lưu trước — đây mới là nguồn sự thật
 var notification = await _notificationService.CreateAsync(userId, content, ct);
 
-// Roi bao — neu khong toi thi client van thay khi tai lai trang
+// Rồi báo — nếu không tới thì client vẫn thấy khi tải lại trang
 await _hubContext.Clients.User(userId).SendAsync("NewNotification", notification.Id, ct);
 ```
 
@@ -164,7 +164,7 @@ Con số tham khảo: mỗi kết nối SignalR tốn khoảng vài chục KB b�
 ### 11.13.6 — Giám sát
 
 ```csharp
-// Chi so quan trong nhat
+// Chỉ số quan trọng nhất
 _meter.CreateObservableGauge("signalr_connections", () => _connectionTracker.Count);
 _meter.CreateCounter<long>("signalr_messages_sent");
 _meter.CreateCounter<long>("signalr_reconnects");
