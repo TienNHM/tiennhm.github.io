@@ -53,7 +53,7 @@ Danh sách sau ưu tiên **tài liệu gốc** (Microsoft Learn, đặc tả h�
 - [.NET documentation — Microsoft Learn](https://learn.microsoft.com/dotnet/)
 - [ASP.NET Core documentation](https://learn.microsoft.com/aspnet/core/)
 - [ASP.NET Core Developer roadmap — roadmap.sh](https://roadmap.sh/aspnet-core)
-- [DevOps for ASP.NET Core](https://learn.microsoft.com/aspnet/core/devops/)
+- [Host và deploy ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/)
 
 ## Từ khóa chỉ mục (semantic hooks)
 
