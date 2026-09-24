@@ -36,13 +36,13 @@ Sau bài này bạn có thể:
 flowchart TB
     subgraph R1["Request 1"]
         T1[Transient A] & T2[Transient B]
-        S1[Scoped - 1 instance]
+        S1[Scoped — 1 instance]
     end
     subgraph R2["Request 2"]
         T3[Transient C]
-        S2[Scoped - instance KHAC]
+        S2[Scoped — instance KHÁC]
     end
-    G[Singleton - MOT instance duy nhat]
+    G[Singleton — MỘT instance duy nhất]
     R1 --> G
     R2 --> G
 ```
@@ -62,8 +62,8 @@ services.AddScoped<CrmDbContext>();                          // giu change track
 services.AddScoped<ICustomerRepository, EfCustomerRepository>();
 services.AddScoped<IUnitOfWork, UnitOfWork>();
 
-services.AddSingleton<ICustomerCache, InMemoryCustomerCache>();  // dung chung
-services.AddTransient<ILeadScorer, RuleBasedLeadScorer>();       // khong trang thai
+services.AddSingleton<ICustomerCache, InMemoryCustomerCache>();  // dùng chung
+services.AddTransient<ILeadScorer, RuleBasedLeadScorer>();       // không trạng thái
 ```
 
 `Scoped` cho `DbContext` và repository không phải quy ước cho đẹp: nó đảm bảo `CustomerRepository` và `LeadRepository` trong **cùng một request** dùng **chung một `DbContext`**, nên `SaveChangesAsync()` ghi cả hai thay đổi trong **một transaction**.
@@ -111,7 +111,7 @@ public class CacheRefresher(IServiceScopeFactory scopeFactory)
         var repo = scope.ServiceProvider.GetRequiredService<ICustomerRepository>();
 
         await repo.RefreshCacheAsync();
-        // scope dispose -> DbContext duoc giai phong dung cach
+        // scope dispose -> DbContext được giải phóng đúng cách
     }
 }
 ```
@@ -127,9 +127,9 @@ Bài [Singleton, Scoped hay Transient? Chọn sai là `DbContext` sống mãi](/
 .NET tự phát hiện captive dependency, nhưng **chỉ khi được bật**:
 
 ```csharp
-// Mac dinh cua CreateBuilder:
-// ValidateScopes  = true  chi khi Environment la Development
-// ValidateOnBuild = true  chi khi Environment la Development
+// Mặc định của CreateBuilder:
+// ValidateScopes  = true  chỉ khi Environment là Development
+// ValidateOnBuild = true  chỉ khi Environment là Development
 ```
 
 Nghĩa là code sai vẫn chạy bình thường ở Development nếu ai đó đặt `ASPNETCORE_ENVIRONMENT=Production` trên máy mình, và **luôn** chạy im lặng trên Production.
@@ -203,7 +203,7 @@ Ba cách xử lý:
 
 ```csharp
 builder.Services.AddDbContext<CrmDbContext>(o => o.UseNpgsql(cs));   // mặc định Scoped
-builder.Services.AddSingleton<BaoCaoService>();                       // nhận CrmDbContext
+builder.Services.AddSingleton<ReportService>();                       // nhận CrmDbContext
 ```
 
 **Ở Development:**
@@ -211,7 +211,7 @@ builder.Services.AddSingleton<BaoCaoService>();                       // nhận 
 ```text
 System.AggregateException: Some services are not able to be constructed
  ---> InvalidOperationException: Cannot consume scoped service 'CrmDbContext'
-      from singleton 'BaoCaoService'.
+      from singleton 'ReportService'.
 ```
 
 Ứng dụng **không khởi động được**. Đây là kết quả tốt nhất có thể.
@@ -250,9 +250,9 @@ Chi phí là vài trăm mili-giây khi khởi động. Đổi lại, cấu hình
 **Cách sửa đúng khi Singleton thật sự cần dữ liệu:**
 
 ```csharp
-public class BaoCaoService(IServiceScopeFactory scopeFactory)
+public class ReportService(IServiceScopeFactory scopeFactory)
 {
-    public async Task<List<Branch>> LayChiNhanhAsync(CancellationToken ct)
+    public async Task<List<Branch>> GetBranchesAsync(CancellationToken ct)
     {
         using var scope = scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CrmDbContext>();
@@ -352,8 +352,8 @@ optionsBuilder.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
 ```csharp
 public class Disp : IDisposable
 {
-    public static int SoLan;
-    public void Dispose() => SoLan++;
+    public static int Count;
+    public void Dispose() => Count++;
 }
 
 var s = new ServiceCollection();
@@ -361,10 +361,10 @@ s.AddTransient<Disp>();
 var p = s.BuildServiceProvider();
 
 for (int i = 0; i < 1000; i++) p.GetRequiredService<Disp>();
-Console.WriteLine($"sau 1000 resolve: Dispose gọi {Disp.SoLan} lần");
+Console.WriteLine($"sau 1000 resolve: Dispose gọi {Disp.Count} lần");
 
 (p as IDisposable)?.Dispose();
-Console.WriteLine($"sau khi dispose provider: Dispose gọi {Disp.SoLan} lần");
+Console.WriteLine($"sau khi dispose provider: Dispose gọi {Disp.Count} lần");
 ```
 
 **Kết quả đo thật trên .NET 9:**
