@@ -178,11 +178,259 @@ Nếu chỉ chọn được vài thứ để làm tốt, hãy theo thứ tự n�
 
 ## Bài tập áp dụng
 
-1. **Hỏi ai yêu cầu thay đổi.** Lấy năm class lớn nhất trong dự án. Với mỗi class, liệt kê các nhóm người có thể yêu cầu sửa nó. Class nào có nhiều hơn một nhóm thì phác thảo cách tách.
+#### Bài 1 — Hỏi "ai yêu cầu thay đổi"
 
-2. **Đo chi phí của OCP.** Lấy một chuỗi `if` theo loại trong dự án. Viết lại theo mẫu chiến lược ở mục 5.2.3. Đếm số file tăng thêm, và trả lời: trong hai năm qua đã thêm bao nhiêu loại mới?
+Lấy năm class lớn nhất trong dự án. Với mỗi class, liệt kê các nhóm người có thể yêu cầu sửa nó. Class nào có nhiều hơn một nhóm thì phác thảo cách tách.
 
-3. **Tìm chỗ chia nhỏ quá mức.** Tìm một luồng nghiệp vụ phải mở từ năm file trở lên mới hiểu được. Thử gộp những phần luôn thay đổi cùng nhau và so sánh độ dễ đọc.
+**Tiêu chí hoàn thành:** bạn tách theo **người yêu cầu**, không theo số dòng, và giữ lại được một class lớn mà bạn kết luận là **không cần tách**.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Bài này mở rộng bài tập ở [bài 4.10](../module-04-csharp-core/4.10-common-mistakes.mdx). Điểm mới ở đây là yêu cầu bạn tìm được **một phản ví dụ**: một class lớn nhưng không nên tách.
+
+**Lời giải — ví dụ class cần tách:**
+
+```text
+InvoiceService.cs — 740 dòng
+
+| Nhóm phương thức       | Ai yêu cầu đổi        | Tần suất |
+|------------------------|-----------------------|----------|
+| Tạo, sửa hoá đơn       | Phòng kế toán         | Trung bình |
+| Tính thuế VAT          | Quy định pháp luật    | Thấp, gấp |
+| Sinh file PDF          | Phòng kế toán         | Thấp |
+| Gửi hoá đơn điện tử    | Nhà cung cấp hoá đơn  | Trung bình |
+| Đối soát ngân hàng     | Phòng tài chính       | Cao |
+
+-> 4 nhóm người khác nhau. Nên tách.
+```
+
+**Ví dụ class lớn nhưng KHÔNG nên tách** — đây mới là phần khó của bài:
+
+```text
+VietnameseTaxCalculator.cs — 620 dòng
+
+Toàn bộ file là các quy tắc tính thuế: VAT theo nhóm hàng, thuế thu nhập
+cá nhân theo bậc, các trường hợp miễn giảm, quy tắc làm tròn.
+
+| Nhóm phương thức | Ai yêu cầu đổi     |
+|------------------|--------------------|
+| Tất cả           | Quy định pháp luật |
+
+-> Chỉ MỘT nguồn thay đổi. Dài nhưng gắn kết.
+```
+
+Tách file này thành `VatCalculator`, `PitCalculator`, `RoundingRules` sẽ **làm tệ đi**: khi luật thuế thay đổi, bạn phải sửa cả ba file thay vì một, và phải mở ba file mới hiểu được một quy tắc.
+
+**Đây là điểm mà SOLID hay bị hiểu nhầm nhất.** Single Responsibility **không** nói "class phải ngắn". Nó nói "class chỉ nên có một lý do để thay đổi". Một class 600 dòng với một nguồn thay đổi tốt hơn ba class 200 dòng luôn phải sửa cùng lúc.
+
+**Ba câu hỏi để quyết định:**
+
+1. **Ai yêu cầu thay đổi?** Nhiều hơn một nhóm người thì cân nhắc tách.
+2. **Các phần có thay đổi cùng lúc không?** Nếu sửa phần A luôn kéo theo sửa phần B, chúng thuộc về nhau — tách ra chỉ tạo thêm chi phí điều phối.
+3. **Tách rồi có ai dùng riêng từng phần không?** Không ai dùng riêng thì việc tách chỉ là chia file.
+
+**Dấu hiệu tách sai.** Nếu sau khi tách, mọi thay đổi đều phải sửa **tất cả** các file vừa tách ra, thì bạn đã chia theo **cấu trúc kỹ thuật** thay vì theo **lý do thay đổi**. Đây chính là điều mà kiến trúc phân lát dọc ở [bài 16.5](../../stage-05-senior-engineering/module-16-clean-architecture/16.5-vertical-slice-architecture.mdx) phản đối: chia theo tầng khiến mỗi tính năng mới phải chạm vào mọi tầng.
+
+</details>
+
+#### Bài 2 — Đo chi phí thật của nguyên tắc Open/Closed
+
+Lấy một chuỗi `if` theo loại trong dự án. Viết lại theo mẫu chiến lược. Đếm số file tăng thêm, và trả lời: **trong hai năm qua đã thêm bao nhiêu loại mới?**
+
+**Tiêu chí hoàn thành:** bạn ra được quyết định dựa trên con số lịch sử, không dựa trên cảm giác.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Câu hỏi cuối là câu quan trọng nhất, và nó trả lời được bằng Git:
+
+```bash
+git log --since="2 years ago" -S "enum PhuongThucThanhToan" --oneline
+git log --since="2 years ago" -p --  '*PaymentMethod*.cs' | grep '^+.*= [0-9]*,' | sort -u
+```
+
+**Lời giải — trước:**
+
+```csharp
+public decimal TinhPhi(LoaiThanhToan loai, decimal soTien) => loai switch
+{
+    LoaiThanhToan.TheTinDung => soTien * 0.025m,
+    LoaiThanhToan.ChuyenKhoan => 11_000m,
+    LoaiThanhToan.ViDienTu => soTien * 0.015m,
+    LoaiThanhToan.TienMat => 0m,
+    _ => throw new ArgumentOutOfRangeException(nameof(loai))
+};
+```
+
+**Sau — mẫu chiến lược:**
+
+```csharp
+public interface IPhiThanhToan
+{
+    LoaiThanhToan Loai { get; }
+    decimal Tinh(decimal soTien);
+}
+
+public class PhiTheTinDung : IPhiThanhToan
+{
+    public LoaiThanhToan Loai => LoaiThanhToan.TheTinDung;
+    public decimal Tinh(decimal soTien) => soTien * 0.025m;
+}
+// ... ba lớp nữa
+
+public class BoTinhPhi
+{
+    private readonly IReadOnlyDictionary<LoaiThanhToan, IPhiThanhToan> _map;
+
+    public BoTinhPhi(IEnumerable<IPhiThanhToan> cacChienLuoc) =>
+        _map = cacChienLuoc.ToDictionary(x => x.Loai);
+
+    public decimal Tinh(LoaiThanhToan loai, decimal soTien) =>
+        _map.TryGetValue(loai, out var c)
+            ? c.Tinh(soTien)
+            : throw new ArgumentOutOfRangeException(nameof(loai));
+}
+```
+
+**Chi phí đo được:**
+
+| | Trước | Sau |
+|---|---|---|
+| Số file | 1 | **7** (1 interface + 4 chiến lược + 1 bộ điều phối + đăng ký DI) |
+| Số dòng tổng | 8 | ~70 |
+| Đọc hiểu toàn bộ logic phí | Mở 1 file | Mở 5 file |
+| Thêm một loại mới | Sửa 1 file | Thêm 1 file, không sửa file cũ |
+
+**Quyết định dựa trên lịch sử Git:**
+
+| Số loại thêm trong 2 năm | Kết luận |
+|---|---|
+| 0 tới 1 | **Giữ `switch`.** Bảy file cho một thay đổi hai năm là chi phí thuần |
+| 2 tới 4 | Ranh giới — cân nhắc thêm yếu tố khác, ví dụ ai là người thêm |
+| Từ 5 trở lên | **Chuyển sang chiến lược.** Chi phí đã được hoàn vốn nhiều lần |
+
+**Một yếu tố quan trọng hơn cả tần suất: ai thêm loại mới.** Nếu chỉ đội của bạn thêm, `switch` hoàn toàn ổn — bạn sửa file đó lúc nào cũng được. Nếu **đội khác** hoặc **bên thứ ba** cần thêm loại mới mà không được sửa code của bạn, thì mẫu chiến lược là bắt buộc, bất kể tần suất. Đây chính là tình huống mà Open/Closed sinh ra để giải quyết.
+
+**Điểm dễ bỏ sót về đăng ký.** Với mẫu chiến lược, đừng quên rằng thêm một lớp thôi chưa đủ — phải đăng ký nó vào DI. Quên đăng ký thì `TryGetValue` trả `false` và ném ngoại lệ **lúc chạy**, thay vì lỗi biên dịch như `switch` vét cạn ở [bài 4.9](../module-04-csharp-core/4.9-pattern-matching.mdx). Có thể giảm rủi ro bằng cách quét assembly tự động:
+
+```csharp
+services.Scan(scan => scan.FromAssemblyOf<IPhiThanhToan>()
+    .AddClasses(c => c.AssignableTo<IPhiThanhToan>())
+    .AsImplementedInterfaces()
+    .WithSingletonLifetime());
+```
+
+**Kết luận thực dụng.** Open/Closed không phải mục tiêu tự thân. Nó là một **khoản đầu tư**: trả trước bằng số file và độ phức tạp, thu về khi có thêm loại mới. Đầu tư khi chưa biết có thu về không thì đó là đầu cơ.
+
+</details>
+
+#### Bài 3 — Tìm chỗ chia nhỏ quá mức
+
+Tìm một luồng nghiệp vụ phải mở từ năm file trở lên mới hiểu được. Thử gộp những phần luôn thay đổi cùng nhau và so sánh độ dễ đọc.
+
+**Tiêu chí hoàn thành:** bạn nêu được tiêu chí phân biệt "tách đúng" với "tách vụn".
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Chọn một tính năng cụ thể, ví dụ "tạo một lead mới", rồi đếm số file phải mở để hiểu trọn vẹn nó từ lúc nhận request tới lúc lưu vào database.
+
+**Lời giải — ví dụ luồng bị chia vụn:**
+
+```text
+Tạo một lead — phải mở 9 file:
+
+1. LeadController.cs           nhận request
+2. CreateLeadRequest.cs        DTO đầu vào
+3. CreateLeadRequestValidator.cs
+4. ILeadService.cs             interface, 1 cài đặt
+5. LeadService.cs              gọi thẳng repository, không có logic gì thêm
+6. ILeadRepository.cs          interface, 1 cài đặt
+7. LeadRepository.cs           gọi thẳng DbContext
+8. LeadMapper.cs               ánh xạ DTO sang entity
+9. LeadDto.cs                  DTO đầu ra
+```
+
+Trong đó `LeadService` chỉ có:
+
+```csharp
+public class LeadService : ILeadService
+{
+    private readonly ILeadRepository _repo;
+    public LeadService(ILeadRepository repo) => _repo = repo;
+
+    public Task<Lead> TaoAsync(Lead lead, CancellationToken ct)
+        => _repo.ThemAsync(lead, ct);       // chuyển tiếp, không thêm gì
+}
+```
+
+Một lớp **chỉ chuyển tiếp lời gọi** không phải một trách nhiệm — nó là một tầng thừa. Cùng nhận xét cho `ILeadService` và `ILeadRepository`: mỗi cái chỉ có một cài đặt và không vượt ranh giới hạ tầng nào ngoài cái mà `DbContext` đã đại diện.
+
+**Sau khi gộp — 4 file:**
+
+```text
+1. CreateLead.cs        gộp request, validator, handler vào một file
+2. Lead.cs              entity, đã chứa quy tắc nghiệp vụ
+3. LeadDto.cs           DTO đầu ra
+4. ILeadRepository.cs + EfLeadRepository.cs   giữ, vì vượt ranh giới hạ tầng
+```
+
+```csharp
+// CreateLead.cs — một tính năng, một file
+public record CreateLeadRequest(string Ten, string Email, decimal GiaTri);
+
+public class CreateLeadValidator : AbstractValidator<CreateLeadRequest>
+{
+    public CreateLeadValidator()
+    {
+        RuleFor(x => x.Ten).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.Email).NotEmpty().EmailAddress();
+    }
+}
+
+public class CreateLeadHandler(ILeadRepository repo)
+{
+    public async Task<Result<LeadDto>> XuLyAsync(CreateLeadRequest req, CancellationToken ct)
+    {
+        var lead = Lead.Tao(req.Ten, new Email(req.Email), req.GiaTri);
+        if (lead.IsFailure) return Result<LeadDto>.That(lead.Loi!);
+
+        await repo.ThemAsync(lead.Value, ct);
+        return Result<LeadDto>.Ok(LeadDto.Tu(lead.Value));
+    }
+}
+```
+
+**Tiêu chí phân biệt tách đúng với tách vụn:**
+
+| | Tách đúng | Tách vụn |
+|---|---|---|
+| Mỗi phần có thay đổi độc lập không | Có | Không — luôn sửa cùng lúc |
+| Có nhiều hơn một cài đặt, hoặc sẽ có | Có | Không |
+| Có vượt ranh giới hạ tầng không | Có | Không |
+| Có ai dùng riêng từng phần không | Có | Không |
+
+**Phép thử một câu:** *khi thêm một trường vào lead, tôi phải sửa mấy file?* Với cấu trúc 9 file, câu trả lời là 6. Với cấu trúc 4 file, là 2. Con số đó đo trực tiếp chi phí của việc chia vụn.
+
+**Vì sao chia vụn lại phổ biến.** Nó **trông giống** code sạch. Mỗi file ngắn, mỗi lớp một việc, có interface đầy đủ — mọi dấu hiệu bề mặt của một kiến trúc tốt. Nhưng SOLID nói về **lý do thay đổi**, không nói về số file. Bốn lớp luôn thay đổi cùng nhau là **một** trách nhiệm được trải ra bốn file.
+
+**Hướng tổ chức thay thế.** Nhóm code theo **tính năng** thay vì theo **tầng kỹ thuật**:
+
+```text
+Features/
+├── Leads/
+│   ├── CreateLead.cs
+│   ├── UpdateLead.cs
+│   └── GetLeadById.cs
+└── Orders/
+    ├── CreateOrder.cs
+    └── ApproveOrder.cs
+```
+
+Thêm một tính năng là thêm một file, ở một chỗ. Đây là kiến trúc phân lát dọc, chủ đề của [bài 16.5](../../stage-05-senior-engineering/module-16-clean-architecture/16.5-vertical-slice-architecture.mdx).
+
+</details>
 
 ## Tự kiểm tra
 

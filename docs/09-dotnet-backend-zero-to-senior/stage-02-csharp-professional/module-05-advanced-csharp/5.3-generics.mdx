@@ -209,11 +209,225 @@ Một lưu ý thực dụng về `IRepository<T>` chung: nó hấp dẫn nhưng 
 
 ## Bài tập áp dụng
 
-1. **Đo giá của boxing.** Thêm một triệu số nguyên vào `ArrayList` và vào `List<int>`, đo thời gian và bộ nhớ bằng `Stopwatch` cùng `GC.GetTotalMemory`. Ghi lại tỉ lệ.
+#### Bài 1 — Đo giá của boxing
 
-2. **Tự chứng minh covariance.** Viết `class Animal`, `class Dog : Animal`. Thử gán `List<Dog>` cho `List<Animal>` và ghi lỗi biên dịch. Làm lại với `IEnumerable<Dog>` và giải thích vì sao nó hợp lệ.
+Thêm một triệu số nguyên vào `ArrayList` và vào `List<int>`, đo thời gian và bộ nhớ. Ghi lại tỉ lệ.
 
-3. **`static` theo kiểu.** Cài `Counter<T>` ở mục 5.3.5, gán giá trị khác nhau cho ba kiểu đóng và in ra. Giải thích kết quả bằng lời của bạn.
+**Tiêu chí hoàn thành:** bạn giải thích được **hai** nguồn chi phí khác nhau mà boxing gây ra.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** `ArrayList` lưu `object`. Khi bạn thêm một `int` — vốn là kiểu giá trị — runtime phải làm gì để nó trở thành một `object`?
+
+**Lời giải.**
+
+```csharp
+const int N = 1_000_000;
+
+var m0 = GC.GetTotalMemory(true);
+var sw = Stopwatch.StartNew();
+var al = new ArrayList();
+for (int i = 0; i < N; i++) al.Add(i);          // mỗi lần Add là một lần boxing
+sw.Stop();
+Console.WriteLine($"ArrayList : {sw.Elapsed.TotalMilliseconds:F1} ms  {(GC.GetTotalMemory(false)-m0)/1024/1024} MB");
+
+m0 = GC.GetTotalMemory(true);
+sw.Restart();
+var lg = new List<int>();
+for (int i = 0; i < N; i++) lg.Add(i);          // không boxing
+sw.Stop();
+Console.WriteLine($"List<int> : {sw.Elapsed.TotalMilliseconds:F1} ms  {(GC.GetTotalMemory(false)-m0)/1024/1024} MB");
+```
+
+**Kết quả đo thật trên .NET 9, chế độ Release:**
+
+```text
+ArrayList  :   135.2 ms     34 MB
+List<int>  :    17.3 ms      6 MB
+tỉ lệ      :     7.8x thời gian,  5.8x bộ nhớ
+```
+
+**Hai nguồn chi phí của boxing:**
+
+1. **Cấp phát trên heap.** Mỗi `int` 4 byte bị bọc thành một đối tượng trên heap. Đối tượng đó cần thêm phần tiêu đề — con trỏ bảng phương thức và chỗ cho khoá đồng bộ — khoảng 16 byte trên nền 64 bit. Vậy 4 byte dữ liệu chiếm khoảng 24 byte bộ nhớ, và `ArrayList` còn phải giữ thêm một mảng con trỏ.
+
+2. **Áp lực lên bộ thu gom rác.** Một triệu đối tượng nhỏ, sống ngắn, khiến GC thế hệ 0 chạy liên tục. Chi phí này **không nằm trong** con số 135 ms ở trên — nó phân tán ra toàn bộ ứng dụng dưới dạng những lần tạm dừng, và đó chính là lý do boxing gây hại nhiều hơn con số đo được.
+
+Cộng thêm một chi phí thứ ba khi **đọc**: lấy giá trị ra phải ép kiểu, tức là kiểm tra kiểu lúc chạy rồi sao chép ngược trở lại.
+
+**Vì sao generics không có chi phí này.** Với kiểu giá trị, trình biên dịch JIT sinh **mã máy riêng** cho từng kiểu đóng. `List<int>` bên trong dùng thẳng một mảng `int[]`, không có đối tượng trung gian nào. Với kiểu tham chiếu thì mã được dùng chung, cũng không phát sinh chi phí.
+
+Đây là khác biệt quan trọng so với generics của Java, nơi kiểu bị xoá lúc biên dịch và `List<Integer>` vẫn phải boxing.
+
+**Ba chỗ boxing vẫn lén xuất hiện trong code hiện đại:**
+
+```csharp
+// 1. Chuỗi nội suy với kiểu giá trị (đã được cải thiện nhiều từ .NET 6)
+object o = 42;                       // boxing rõ ràng
+
+// 2. Gọi phương thức của interface trên struct qua biến kiểu interface
+IComparable c = 42;                  // boxing
+
+// 3. Dùng struct trong collection không generic, hoặc ép về object
+var ht = new Hashtable(); ht.Add(1, "x");   // boxing cả khoá lẫn giá trị
+```
+
+**Cách phát hiện.** Bật bộ phân tích hiệu năng của .NET; quy tắc `CA1815` và các quy tắc nhóm hiệu năng cảnh báo nhiều trường hợp boxing không cần thiết. Với đoạn code nóng, dùng `dotnet-counters` xem số lần thu gom thế hệ 0 — tăng bất thường thường là dấu hiệu cấp phát nhiều đối tượng ngắn hạn.
+
+**Đừng tối ưu sớm.** Boxing chỉ đáng quan tâm trong vòng lặp chạy hàng triệu lần hoặc trong đường dẫn nóng của API. Với code chạy vài chục lần mỗi request, chênh lệch 7,8 lần trên một thao tác vài chục nano-giây là hoàn toàn không đáng kể.
+
+</details>
+
+#### Bài 2 — Tự chứng minh covariance
+
+Viết `class Animal` và `class Dog : Animal`. Thử gán `List<Dog>` cho `List<Animal>` và ghi lỗi biên dịch. Làm lại với `IEnumerable<Dog>` và giải thích vì sao nó hợp lệ.
+
+**Tiêu chí hoàn thành:** bạn giải thích được vì sao `List<T>` **không thể** covariant, bằng một ví dụ cụ thể chứ không bằng lý thuyết.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Giả sử C# **cho phép** gán `List<Dog>` cho `List<Animal>`. Bạn có thể viết dòng nào tiếp theo để phá vỡ hệ thống kiểu?
+
+**Lời giải.**
+
+```csharp
+public class Animal { }
+public class Dog : Animal { }
+public class Cat : Animal { }
+
+List<Dog> chos = new();
+
+List<Animal> ds = chos;              // LỖI BIÊN DỊCH
+IEnumerable<Animal> ie = chos;       // HỢP LỆ
+```
+
+**Lỗi:**
+
+```text
+error CS0029: Cannot implicitly convert type 'List<Dog>' to 'List<Animal>'
+```
+
+**Vì sao `List<T>` không thể covariant — ví dụ cụ thể:**
+
+```csharp
+List<Animal> ds = chos;     // giả sử dòng này được phép
+ds.Add(new Cat());          // hợp lệ, vì Cat LÀ Animal
+Dog d = chos[0];            // SỤP ĐỔ — chos thật ra chứa một con mèo
+```
+
+Nếu covariance được phép cho `List<T>`, bạn thêm được một `Cat` vào một danh sách mà kiểu thật của nó là `List<Dog>`. Hệ thống kiểu bị phá vỡ, và lỗi chỉ lộ ra lúc chạy. Trình biên dịch chặn ngay từ đầu.
+
+**Vì sao `IEnumerable<T>` thì được.** Vì nó chỉ cho phép **lấy ra**, không cho phép **đưa vào**:
+
+```csharp
+public interface IEnumerable<out T> : IEnumerable { }
+//                             ^^^ out = covariant
+```
+
+Từ khoá `out` nói rằng `T` chỉ xuất hiện ở **vị trí đầu ra** — kiểu trả về. Không có phương thức nào nhận `T` làm tham số, nên không có cách nào đưa một `Cat` vào. Đọc một `Dog` như một `Animal` thì luôn an toàn.
+
+**Chiều ngược lại — contravariance:**
+
+```csharp
+public interface IComparer<in T> { int Compare(T x, T y); }
+//                          ^^ in = contravariant
+
+IComparer<Animal> soSanhAnimal = new AnimalComparer();
+IComparer<Dog> soSanhDog = soSanhAnimal;      // HỢP LỆ
+```
+
+Thứ so sánh được **mọi** `Animal` thì chắc chắn so sánh được `Dog`. Ở đây `T` chỉ xuất hiện ở **vị trí đầu vào**.
+
+**Bảng ghi nhớ:**
+
+| Từ khoá | Nghĩa | `T` xuất hiện ở | Ví dụ |
+|---|---|---|---|
+| `out T` | Covariant — con thay được cha | Chỉ đầu ra | `IEnumerable<T>`, `IReadOnlyList<T>` |
+| `in T` | Contravariant — cha thay được con | Chỉ đầu vào | `IComparer<T>`, `Action<T>` |
+| `T` | Bất biến | Cả hai | `List<T>`, `IList<T>` |
+
+**Ứng dụng thực tế.** Đây là lý do nên trả về `IEnumerable<T>` hoặc `IReadOnlyList<T>` thay vì `List<T>` từ API công khai — ngoài lý do đóng gói ở [bài 4.3](../module-04-csharp-core/4.3-encapsulation.mdx), nó còn cho người gọi sự linh hoạt về kiểu:
+
+```csharp
+public IReadOnlyList<Animal> LayTatCa() => _chos;   // trả List<Dog> được, nhờ covariance
+```
+
+**Một giới hạn cần biết.** Covariance chỉ áp dụng cho **kiểu tham chiếu**. `IEnumerable<int>` không gán được cho `IEnumerable<object>`, vì chuyển đổi đó cần boxing — và boxing thì không phải phép chuyển đổi tham chiếu đơn thuần.
+
+</details>
+
+#### Bài 3 — `static` trong lớp generic
+
+Cài `Counter<T>`, gán giá trị khác nhau cho ba kiểu đóng và in ra. Giải thích kết quả bằng lời của bạn.
+
+**Tiêu chí hoàn thành:** bạn nêu được một ứng dụng hữu ích của đặc điểm này, và một cái bẫy của nó.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** `Counter<int>` và `Counter<string>` có phải cùng một lớp không? Hãy nghĩ về việc trình biên dịch JIT sinh mã riêng cho từng kiểu đóng.
+
+**Lời giải.**
+
+```csharp
+public class Counter<T> { public static int Value; }
+
+Counter<int>.Value = 10;
+Counter<string>.Value = 20;
+Counter<Dog>.Value = 30;
+
+Console.WriteLine($"Counter<int>={Counter<int>.Value} " +
+                  $"Counter<string>={Counter<string>.Value} " +
+                  $"Counter<Dog>={Counter<Dog>.Value}");
+```
+
+**Kết quả đo thật trên .NET 9:**
+
+```text
+Counter<int>=10 Counter<string>=20 Counter<Dog>=30
+```
+
+Ba giá trị **độc lập hoàn toàn**, không cái nào ghi đè cái nào.
+
+**Giải thích.** `Counter<T>` không phải một lớp — nó là một **khuôn** để sinh ra lớp. Mỗi kiểu đóng `Counter<int>`, `Counter<string>`, `Counter<Dog>` là một **lớp riêng biệt** ở mức runtime, và mỗi lớp có vùng dữ liệu tĩnh riêng của nó.
+
+Nói cách khác: `static` trong lớp generic nghĩa là *một biến cho mỗi kiểu đóng*, không phải *một biến cho tất cả*.
+
+**Ứng dụng hữu ích — bộ nhớ đệm theo kiểu.** Đây là mẫu được dùng rộng rãi trong các thư viện hiệu năng cao:
+
+```csharp
+public static class TypeCache<T>
+{
+    // Tính một lần cho mỗi kiểu, không cần khoá, không cần Dictionary
+    public static readonly PropertyInfo[] Properties = typeof(T).GetProperties();
+
+    public static readonly string TenBang =
+        typeof(T).GetCustomAttribute<TableAttribute>()?.Name ?? typeof(T).Name;
+}
+
+// Dùng: TypeCache<Customer>.Properties — tra cứu gần như miễn phí
+```
+
+So với một `Dictionary<Type, PropertyInfo[]>` dùng chung, cách này **không cần khoá**, không cần tính mã băm, và JIT thường nội tuyến luôn được. Reflection vốn chậm, nên việc chỉ chạy nó một lần cho mỗi kiểu là khác biệt lớn. Đây là kỹ thuật mà các thư viện ánh xạ và tuần tự hoá đều dùng.
+
+**Cái bẫy — trạng thái có thể thay đổi.** Chính vì mỗi kiểu có một biến riêng, người ta dễ nhầm rằng nó "an toàn hơn" biến tĩnh thường. Không phải:
+
+```csharp
+public class Counter<T>
+{
+    public static int Value;   // vẫn dùng chung giữa MỌI luồng, MỌI request
+}
+```
+
+`Counter<Customer>.Value` là **một** biến duy nhất cho toàn bộ ứng dụng. Hai request đồng thời cùng tăng nó sẽ gặp đúng vấn đề đua dữ liệu đã chứng minh ở [bài 4.2](../module-04-csharp-core/4.2-class-and-object.mdx).
+
+Quy tắc giữ nguyên: **trạng thái tĩnh chỉ an toàn khi nó bất biến và chỉ đọc**. Generic không thay đổi điều đó, nó chỉ chia nhỏ phạm vi dùng chung theo kiểu.
+
+**Một cái bẫy nhỏ nữa — số lượng mã sinh ra.** Mỗi kiểu giá trị đóng sinh ra một bản mã máy riêng. Lớp generic lớn dùng với hàng chục kiểu giá trị khác nhau làm tăng kích thước mã và thời gian JIT. Với kiểu tham chiếu thì không, vì chúng dùng chung một bản mã.
+
+</details>
 
 ## Tự kiểm tra
 

@@ -198,11 +198,265 @@ var stats = await _db.Orders
 
 ## Bài tập áp dụng
 
-1. **Đo giá của `ToList()` sai chỗ.** Với một bảng vài chục nghìn dòng, viết hai phiên bản của cùng một truy vấn: một đặt `ToList()` trước `Where`, một đặt sau. Bật log SQL của EF Core và so sánh câu lệnh sinh ra cùng thời gian chạy.
+#### Bài 1 — Đo giá của `ToList()` đặt sai chỗ
 
-2. **Đếm số lần chạy.** Tạo một `IEnumerable` với `Where` có `Console.WriteLine` bên trong. Gọi `Count()`, `First()` rồi `foreach`. Đếm số dòng in ra và giải thích.
+Với một bảng vài chục nghìn dòng, viết hai phiên bản của cùng một truy vấn: một đặt `ToList()` **trước** `Where`, một đặt **sau**. Bật log SQL của EF Core và so sánh câu lệnh sinh ra cùng thời gian chạy.
 
-3. **`Single` so với `First`.** Bật log SQL, chạy `SingleOrDefault` và `FirstOrDefault` trên cùng một điều kiện. So sánh câu SQL sinh ra — đặc biệt mệnh đề `TOP`.
+**Tiêu chí hoàn thành:** bạn có hai câu SQL khác hẳn nhau và giải thích được `ToList()` đã làm gì.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Bật log SQL:
+
+```csharp
+optionsBuilder.LogTo(Console.WriteLine, LogLevel.Information);
+```
+
+`ToList()` là **điểm chuyển** từ `IQueryable` sang `IEnumerable`. Mọi thứ viết sau nó chạy trong bộ nhớ ứng dụng.
+
+**Lời giải — bản sai:**
+
+```csharp
+var kq = db.Customers
+    .ToList()                             // <- SQL chạy ngay TẠI ĐÂY
+    .Where(c => c.Revenue > 50_000_000m)  // lọc trong bộ nhớ
+    .Take(20)
+    .ToList();
+```
+
+SQL sinh ra:
+
+```sql
+SELECT c."Id", c."Name", c."Email", c."Revenue", c."CreatedAt", ...
+FROM "Customers" AS c
+```
+
+**Không có `WHERE`, không có `LIMIT`.** Toàn bộ bảng được truyền về ứng dụng, rồi mới lọc.
+
+**Bản đúng:**
+
+```csharp
+var kq = await db.Customers
+    .Where(c => c.Revenue > 50_000_000m)  // vẫn là IQueryable
+    .Take(20)
+    .ToListAsync(ct);                     // SQL chạy tại đây
+```
+
+SQL sinh ra:
+
+```sql
+SELECT c."Id", c."Name", c."Email", c."Revenue", c."CreatedAt", ...
+FROM "Customers" AS c
+WHERE c."Revenue" > 50000000.0
+LIMIT 20
+```
+
+**So sánh trên bảng 50.000 dòng, trong đó 300 dòng thoả điều kiện:**
+
+| | `ToList()` trước | `ToList()` sau |
+|---|---|---|
+| Số dòng truyền qua mạng | 50.000 | 20 |
+| Database làm việc lọc | Không | Có, dùng được chỉ mục |
+| Bộ nhớ ứng dụng | Toàn bộ bảng | 20 đối tượng |
+| Thời gian | Hàng trăm mili-giây tới vài giây | Vài mili-giây |
+
+**Vì sao đây là lỗi phổ biến.** Hai đoạn code trông gần như giống hệt nhau và **cho cùng một kết quả**. Với 100 dòng dữ liệu thử, cả hai đều chạy trong chớp mắt. Chênh lệch chỉ xuất hiện khi dữ liệu lớn lên — tức là trên production, sáu tháng sau.
+
+**Ba dấu hiệu nhận ra trong code review:**
+
+```csharp
+// 1. ToList() rồi mới Where
+db.Customers.ToList().Where(...)
+
+// 2. AsEnumerable() ở giữa chuỗi
+db.Customers.AsEnumerable().Where(...)
+
+// 3. Gọi một phương thức C# mà EF Core không dịch được sang SQL
+db.Customers.Where(c => TinhDiem(c) > 50)   // EF Core buộc phải tải hết về
+```
+
+Dạng thứ ba nguy hiểm nhất, vì nó không có `ToList()` nào để nhìn thấy. Từ EF Core 3.0, trường hợp này **ném ngoại lệ** thay vì âm thầm chuyển sang đánh giá trong bộ nhớ — một thay đổi rất đáng hoan nghênh:
+
+```text
+System.InvalidOperationException: The LINQ expression '...' could not be
+translated. Either rewrite the query in a form that can be translated, or
+switch to client evaluation explicitly by inserting a call to 'AsEnumerable'.
+```
+
+**Cách phòng có hệ thống.** Đặt quy ước: **chỉ gọi `ToListAsync` ở cuối chuỗi truy vấn, đúng một lần**. Và trong quá trình phát triển, bật log SQL rồi thỉnh thoảng đọc nó — cách nhanh nhất để phát hiện những truy vấn không như bạn tưởng. [Module 13](../../stage-04-database-production/module-13-entity-framework-core/) trình bày đầy đủ, còn bài [Vì sao EF Core bắn 201 query cho 1 màn hình danh sách?](/blog/ef-core-n-plus-1-query) đo chi phí của một biến thể khác cùng họ.
+
+</details>
+
+#### Bài 2 — Đếm số lần truy vấn thật sự chạy
+
+Tạo một `IEnumerable` với `Where` có bộ đếm bên trong. Gọi `Count()`, `First()` rồi `foreach`. Đếm số lần và giải thích.
+
+**Tiêu chí hoàn thành:** bạn dự đoán đúng con số **trước khi** chạy, kể cả con số của `First()`.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** `Where` không chạy gì khi được khai báo — nó chỉ dựng một mô tả. Mỗi thao tác **kết thúc** như `Count`, `First`, `ToList` hay `foreach` đều duyệt lại nguồn từ đầu. Riêng `First` có một đặc điểm riêng: nó dừng ngay khi tìm thấy.
+
+**Lời giải.**
+
+```csharp
+var nguon = Enumerable.Range(1, 5);
+int dem = 0;
+var q = nguon.Where(x => { dem++; return x % 2 == 1; });
+
+Console.WriteLine($"sau khi khai báo Where : {dem} lần");
+var c = q.Count();
+Console.WriteLine($"sau Count()            : {dem} lần (kết quả {c})");
+var f = q.First();
+Console.WriteLine($"sau First()            : {dem} lần (kết quả {f})");
+foreach (var _ in q) { }
+Console.WriteLine($"sau foreach            : {dem} lần");
+```
+
+**Kết quả đo thật trên .NET 9:**
+
+```text
+sau khi khai báo Where : 0 lần
+sau Count()            : 5 lần (kết quả 3)
+sau First()            : 6 lần (kết quả 1)
+sau foreach            : 11 lần
+```
+
+**Giải thích từng bước:**
+
+| Thao tác | Số lần tăng thêm | Vì sao |
+|---|---|---|
+| Khai báo `Where` | **0** | Chỉ dựng mô tả, chưa chạy gì |
+| `Count()` | +5 | Phải duyệt hết để đếm |
+| `First()` | **+1** | Dừng ngay ở phần tử đầu tiên thoả điều kiện |
+| `foreach` | +5 | Duyệt lại từ đầu |
+
+**Con số của `First()` là phần đáng chú ý nhất.** Nhiều người đoán +5, nhưng `First()` dừng lại ngay khi tìm được — ở đây phần tử đầu tiên là 1, vốn đã lẻ, nên chỉ cần một lần gọi. Đây là biểu hiện của việc đánh giá trễ: các toán tử LINQ kéo dữ liệu **theo nhu cầu**, không đẩy toàn bộ qua đường ống.
+
+**Hậu quả thực tế của việc duyệt nhiều lần:**
+
+```csharp
+var khachVip = db.Customers.Where(c => c.Revenue > 50_000_000m);   // IQueryable
+
+if (khachVip.Any())                            // SQL lần 1
+{
+    Console.WriteLine($"Có {khachVip.Count()}");// SQL lần 2
+    foreach (var k in khachVip) { }            // SQL lần 3
+}
+```
+
+**Ba lần truy vấn database** cho một việc. Tệ hơn: nếu dữ liệu thay đổi giữa các lần, ba lần cho ba kết quả khác nhau — dẫn tới lỗi rất khó tái hiện.
+
+**Sửa bằng cách hiện thực hoá một lần:**
+
+```csharp
+var khachVip = await db.Customers
+    .Where(c => c.Revenue > 50_000_000m)
+    .ToListAsync(ct);                         // SQL đúng một lần
+
+if (khachVip.Count > 0)
+{
+    Console.WriteLine($"Có {khachVip.Count}");
+    foreach (var k in khachVip) { }
+}
+```
+
+Kiểm chứng: sau `ToList()`, dùng lại danh sách bao nhiêu lần cũng không làm bộ đếm tăng thêm.
+
+```text
+sau ToList() 1 lần      : 5 lần
+dùng lại list 3 lần nữa : 5 lần (không tăng)
+```
+
+**Quy tắc thực dụng.** Đánh giá trễ có lợi khi bạn đang **xây dựng** truy vấn qua nhiều bước và chỉ chạy một lần ở cuối. Nó có hại khi bạn **dùng lại** cùng một truy vấn nhiều lần. Ranh giới rất đơn giản:
+
+> Truy vấn dùng **một lần** → giữ trễ. Truy vấn dùng **nhiều lần** → `ToList()` một lần rồi dùng danh sách.
+
+**Một mẹo giúp đọc code dễ hơn.** Đặt tên biến theo trạng thái của nó: `khachVipQuery` cho `IQueryable`, `khachVipList` cho danh sách đã hiện thực hoá. Người đọc biết ngay cái nào chạm database.
+
+</details>
+
+#### Bài 3 — `Single` so với `First`
+
+Bật log SQL, chạy `SingleOrDefault` và `FirstOrDefault` trên cùng một điều kiện. So sánh câu SQL sinh ra, đặc biệt mệnh đề giới hạn số dòng.
+
+**Tiêu chí hoàn thành:** bạn nêu được vì sao `Single` lấy về **hai** dòng, và khi nào nên chấp nhận chi phí đó.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** `Single` hứa rằng có **đúng một** kết quả và ném ngoại lệ nếu có nhiều hơn. Để kiểm tra lời hứa đó, nó cần bằng chứng gì?
+
+**Lời giải — SQL sinh ra:**
+
+```csharp
+var a = await db.Customers.FirstOrDefaultAsync(c => c.Email == email, ct);
+```
+
+```sql
+SELECT c."Id", c."Name", c."Email", ...
+FROM "Customers" AS c
+WHERE c."Email" = @email
+LIMIT 1
+```
+
+```csharp
+var b = await db.Customers.SingleOrDefaultAsync(c => c.Email == email, ct);
+```
+
+```sql
+SELECT c."Id", c."Name", c."Email", ...
+FROM "Customers" AS c
+WHERE c."Email" = @email
+LIMIT 2
+```
+
+**`LIMIT 2` chứ không phải `LIMIT 1`.** `Single` phải lấy về dòng thứ hai để biết có nên ném ngoại lệ hay không. Nếu chỉ lấy một dòng, nó không có cách nào phát hiện trường hợp trùng.
+
+**Bốn biến thể và ngữ nghĩa:**
+
+| Phương thức | Không có kết quả | Có nhiều hơn một | `LIMIT` |
+|---|---|---|---|
+| `First()` | **Ném ngoại lệ** | Trả cái đầu tiên | 1 |
+| `FirstOrDefault()` | Trả `null` | Trả cái đầu tiên | 1 |
+| `Single()` | **Ném ngoại lệ** | **Ném ngoại lệ** | 2 |
+| `SingleOrDefault()` | Trả `null` | **Ném ngoại lệ** | 2 |
+
+**Khi nào chấp nhận chi phí của `Single`.** Chi phí là một dòng dữ liệu thừa — gần như không đáng kể. Đổi lại bạn nhận được một **bài kiểm tra tính toàn vẹn dữ liệu chạy liên tục trên production**:
+
+```csharp
+// Email lẽ ra là duy nhất — nếu không, đó là dữ liệu hỏng và cần biết ngay
+var kh = await db.Customers.SingleOrDefaultAsync(c => c.Email == email, ct);
+```
+
+Nếu một ngày có hai khách hàng cùng email — do lỗi nhập liệu, do di chuyển dữ liệu, do thiếu ràng buộc duy nhất — `Single` **ném ngoại lệ ngay**. Với `First`, hệ thống lặng lẽ chọn một trong hai, và sai lệch tích tụ trong nhiều tháng trước khi ai đó phát hiện.
+
+**Quy tắc chọn:**
+
+| Tình huống | Dùng |
+|---|---|
+| Lọc theo khoá chính hoặc cột có ràng buộc duy nhất | `SingleOrDefault` |
+| Lấy bản ghi mới nhất, cũ nhất, hoặc bất kỳ một trong nhiều | `FirstOrDefault` kèm `OrderBy` |
+| Chắc chắn phải có kết quả, không có là lỗi lập trình | `Single` hoặc `First` (bản ném ngoại lệ) |
+| Không chắc có hay không, và không có là bình thường | Bản `OrDefault` |
+
+**Một điều bắt buộc với `First`.** Luôn kèm `OrderBy`. Không có nó, database **không bảo đảm thứ tự** — cùng một truy vấn có thể trả về dòng khác nhau ở hai lần chạy, tuỳ vào kế hoạch thực thi và trạng thái dữ liệu:
+
+```csharp
+// KHÔNG TẤT ĐỊNH — "đầu tiên" theo thứ tự nào?
+var don = await db.Orders.Where(o => o.CustomerId == id).FirstOrDefaultAsync(ct);
+
+// TẤT ĐỊNH
+var don = await db.Orders.Where(o => o.CustomerId == id)
+                         .OrderByDescending(o => o.CreatedAt)
+                         .FirstOrDefaultAsync(ct);
+```
+
+**Và quan trọng hơn cả.** `Single` là lưới an toàn ở tầng ứng dụng, không thay thế được **ràng buộc duy nhất trong database**. Ràng buộc ở database chặn dữ liệu trùng ngay khi ghi; `Single` chỉ phát hiện nó khi đọc, tức là sau khi dữ liệu hỏng đã tồn tại. Hãy có cả hai.
+
+</details>
 
 ## Tự kiểm tra
 

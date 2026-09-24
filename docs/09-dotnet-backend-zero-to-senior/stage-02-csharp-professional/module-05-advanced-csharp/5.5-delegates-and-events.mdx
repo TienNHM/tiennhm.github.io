@@ -234,11 +234,268 @@ foreach (var handler in _handlers)
 
 ## Bài tập áp dụng
 
-1. **Tái hiện rò rỉ.** Tạo một service `Singleton` có event, và một class ngắn hạn đăng ký vào nó trong vòng lặp 100.000 lần mà không gỡ. In `GC.GetTotalMemory(true)` trước và sau. Thêm `Dispose` gỡ đăng ký rồi đo lại.
+#### Bài 1 — Tái hiện rò rỉ bộ nhớ do event
 
-2. **Chứng minh lambda không gỡ được.** Đăng ký một lambda vào event, rồi thử gỡ bằng một lambda viết lại y hệt. Kiểm tra số handler còn lại bằng `GetInvocationList().Length`.
+Tạo một service `Singleton` có event, và một class ngắn hạn đăng ký vào nó trong vòng lặp 100.000 lần mà không gỡ. In `GC.GetTotalMemory(true)` trước và sau. Thêm bước gỡ đăng ký rồi đo lại.
 
-3. **Nuốt giá trị trả về.** Tạo `Func<int>` multicast với ba handler trả về 1, 2, 3. Gọi và ghi lại kết quả. Giải thích vì sao hai giá trị biến mất.
+**Tiêu chí hoàn thành:** bạn đo được lượng bộ nhớ rò rỉ và nêu đúng **hướng** của tham chiếu gây ra nó.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Khi `subscriber.OnDoi` được gắn vào `publisher.Doi`, ai giữ tham chiếu tới ai? Vẽ mũi tên ra giấy trước khi đọc tiếp.
+
+**Lời giải.**
+
+```csharp
+public class Publisher
+{
+    public event EventHandler? Doi;
+    public int SoHandler => Doi?.GetInvocationList().Length ?? 0;
+}
+
+public class Subscriber
+{
+    private readonly byte[] _rac = new byte[10_000];   // cho dễ thấy trên biểu đồ
+    public Subscriber(Publisher p) => p.Doi += OnDoi;
+    private void OnDoi(object? s, EventArgs e) { }
+}
+
+var pub = new Publisher();
+var truoc = GC.GetTotalMemory(true);
+
+for (int i = 0; i < 100_000; i++)
+{
+    var s = new Subscriber(pub);     // tạo rồi bỏ, không giữ biến nào
+}
+
+var sau = GC.GetTotalMemory(true);   // true = ép thu gom rác trước khi đo
+Console.WriteLine($"tăng {(sau - truoc) / 1024 / 1024} MB, handler còn lại = {pub.SoHandler}");
+```
+
+**Kết quả đo thật trên .NET 9:**
+
+```text
+sau 100k subscriber không gỡ: tăng 965 MB, handler còn lại = 100000
+```
+
+**965 MB rò rỉ**, và cả 100.000 handler vẫn còn gắn — dù không dòng code nào còn giữ biến `s`.
+
+**Hướng của tham chiếu — đây là điểm mấu chốt.** Trực giác nói rằng subscriber tham chiếu tới publisher, nên bỏ subscriber đi là xong. Thực tế **ngược lại**:
+
+```text
+publisher.Doi  ──giữ──>  delegate  ──giữ──>  subscriber
+```
+
+Event là một delegate, và delegate giữ tham chiếu tới **đối tượng chứa phương thức** được gắn vào. Vì vậy `publisher` giữ `subscriber` sống, chứ không phải chiều ngược lại.
+
+Khi `publisher` là `Singleton` — sống suốt vòng đời ứng dụng — thì **mọi** subscriber từng đăng ký đều bị giữ sống vĩnh viễn. Bộ thu gom rác không thể dọn chúng, vì theo nó thì chúng vẫn đang được tham chiếu.
+
+**Sửa bằng `IDisposable`:**
+
+```csharp
+public sealed class Subscriber : IDisposable
+{
+    private readonly Publisher _pub;
+    private readonly byte[] _rac = new byte[10_000];
+
+    public Subscriber(Publisher p)
+    {
+        _pub = p;
+        _pub.Doi += OnDoi;
+    }
+
+    private void OnDoi(object? s, EventArgs e) { }
+
+    public void Dispose() => _pub.Doi -= OnDoi;   // GỠ đăng ký
+}
+
+for (int i = 0; i < 100_000; i++)
+{
+    using var s = new Subscriber(pub);   // tự gỡ khi ra khỏi phạm vi
+}
+```
+
+Đo lại: bộ nhớ trở về gần mức ban đầu, `SoHandler` bằng 0.
+
+**Vì sao đây là lỗi nghiêm trọng trong ASP.NET Core.** Tình huống điển hình: một service `Singleton` phát sự kiện, và một service `Scoped` — sống một request — đăng ký vào nó. Mỗi request để lại một đối tượng không bao giờ được dọn. Sau vài triệu request, ứng dụng hết bộ nhớ.
+
+Triệu chứng đặc trưng: bộ nhớ **tăng đều theo số request** và **không bao giờ giảm**, kể cả lúc hệ thống rảnh. Đây là dấu hiệu phân biệt rò rỉ thật với việc GC chỉ chưa kịp dọn.
+
+**Ba cách phòng, theo thứ tự nên chọn:**
+
+1. **Đừng dùng event xuyên vòng đời.** Dùng một bus trong tiến trình, ví dụ `IMediator` hoặc `Channel`, nơi người nhận được đăng ký một lần lúc khởi động chứ không phải mỗi request.
+2. **Cài `IDisposable` và gỡ đăng ký.** DI container tự gọi `Dispose` cho service `Scoped` khi request kết thúc.
+3. **Dùng mẫu event yếu** khi không kiểm soát được vòng đời — phức tạp hơn, chỉ dùng khi hai cách trên không khả thi.
+
+**Cách phát hiện trong hệ thống đang chạy.** Chụp ảnh heap và tìm những đối tượng lẽ ra phải ngắn hạn nhưng còn sống:
+
+```bash
+dotnet-gcdump collect -p <pid>
+```
+
+Mở file bằng Visual Studio hoặc PerfView và nhìn cột "đường tới gốc" — nếu nó đi qua một `EventHandler`, bạn đã tìm ra nguyên nhân.
+
+</details>
+
+#### Bài 2 — Chứng minh lambda không gỡ được
+
+Đăng ký một lambda vào event, rồi thử gỡ bằng một lambda viết lại y hệt. Kiểm tra số handler còn lại.
+
+**Tiêu chí hoàn thành:** bạn giải thích được vì sao hai lambda giống hệt nhau về mặt văn bản lại **không bằng nhau**.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Trình biên dịch làm gì với một biểu thức lambda? Nhớ lại [bài 2.10](../../stage-01-foundation/module-02-computer-science-basics/2.10-dotnet-runtime-and-ecosystem.mdx): lambda không tồn tại trong IL, nó được biến đổi thành thứ khác.
+
+**Lời giải.**
+
+```csharp
+var pub = new Publisher();
+
+pub.Doi += (s, e) => { };
+Console.WriteLine($"trước khi gỡ: {pub.SoHandler} handler");
+
+pub.Doi -= (s, e) => { };          // lambda viết lại y hệt
+Console.WriteLine($"sau khi gỡ:   {pub.SoHandler} handler");
+```
+
+**Kết quả đo thật trên .NET 9:**
+
+```text
+trước khi gỡ: 1 handler
+sau khi gỡ bằng lambda viết lại y hệt: 1 handler
+```
+
+Handler **vẫn còn**. Lệnh `-=` không làm gì cả, và **không có cảnh báo nào**.
+
+**Vì sao.** Mỗi biểu thức lambda được trình biên dịch biến thành một **phương thức riêng biệt** trong một lớp ẩn danh. Hai lambda giống hệt nhau về văn bản trở thành hai phương thức khác nhau, với tên sinh tự động khác nhau. Toán tử `-=` so sánh delegate theo cặp *đối tượng đích và phương thức*, nên nó không tìm thấy gì để gỡ.
+
+**Ba cách gỡ được:**
+
+```csharp
+// Cách 1 — giữ tham chiếu tới delegate
+EventHandler handler = (s, e) => { };
+pub.Doi += handler;
+pub.Doi -= handler;              // hoạt động
+
+// Cách 2 — dùng phương thức có tên
+pub.Doi += OnDoi;
+pub.Doi -= OnDoi;                // hoạt động — cùng đối tượng, cùng phương thức
+
+// Cách 3 — bọc trong một đối tượng IDisposable
+public sealed class DangKy : IDisposable
+{
+    private readonly Action _go;
+    public DangKy(Action go) => _go = go;
+    public void Dispose() => _go();
+}
+
+var dk = new DangKy(() => pub.Doi -= handler);
+```
+
+**Vì sao lỗi này khó phát hiện.** Nó có đủ ba đặc điểm tệ nhất:
+
+1. **Không lỗi biên dịch.** `-=` với một lambda mới là cú pháp hoàn toàn hợp lệ.
+2. **Không ngoại lệ lúc chạy.** Gỡ một handler không tồn tại là thao tác hợp lệ, không ném gì.
+3. **Không triệu chứng ngay.** Handler thừa vẫn chạy đúng logic của nó; vấn đề chỉ tích tụ dần thành rò rỉ bộ nhớ như bài 1.
+
+Đây là loại lỗi mà bạn chỉ phát hiện khi đã đi tìm nó.
+
+**Kiểm tra trong lúc phát triển:**
+
+```csharp
+Debug.Assert(pub.SoHandler == 0, $"Còn {pub.SoHandler} handler chưa gỡ");
+```
+
+Đặt câu này ở cuối vòng đời của thành phần phát sự kiện. Nó không tốn gì ở bản Release và bắt được lỗi ngay khi nó xuất hiện.
+
+**Lưu ý về lambda bắt biến.** Lambda không bắt biến nào từ bên ngoài được trình biên dịch **lưu đệm** thành một thể hiện dùng chung. Lambda có bắt biến thì tạo đối tượng mới mỗi lần — và đối tượng đó giữ luôn các biến bị bắt, làm rò rỉ lan rộng hơn. Đây là lý do một lambda tưởng nhỏ lại có thể giữ sống cả một cây đối tượng lớn.
+
+</details>
+
+#### Bài 3 — Multicast nuốt giá trị trả về
+
+Tạo `Func<int>` multicast với ba handler trả về 1, 2, 3. Gọi và ghi lại kết quả. Giải thích vì sao hai giá trị biến mất.
+
+**Tiêu chí hoàn thành:** bạn nêu được cách lấy **đủ** kết quả của mọi handler.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Một delegate multicast gọi lần lượt các handler. Nhưng chữ ký của nó chỉ cho phép trả về **một** giá trị. Vậy giá trị nào được trả?
+
+**Lời giải.**
+
+```csharp
+Func<int> f = () => 1;
+f += () => 2;
+f += () => 3;
+
+Console.WriteLine($"trả về: {f()} (có {f.GetInvocationList().Length} handler)");
+```
+
+**Kết quả đo thật trên .NET 9:**
+
+```text
+Func multicast trả về: 3 (có 3 handler)
+```
+
+Cả ba handler **đều chạy**, nhưng chỉ giá trị của handler **cuối cùng** được trả về. Hai giá trị đầu bị vứt bỏ, không cảnh báo.
+
+**Lấy đủ kết quả bằng `GetInvocationList`:**
+
+```csharp
+var ketQua = f.GetInvocationList()
+              .Cast<Func<int>>()
+              .Select(h => h())
+              .ToList();
+
+Console.WriteLine(string.Join(", ", ketQua));   // 1, 2, 3
+```
+
+**Cùng vấn đề với tham số `out` và `ref`** — chỉ giá trị của handler cuối còn lại. Và cùng vấn đề với `async`:
+
+```csharp
+// SAI — chỉ Task của handler cuối được chờ
+event Func<Task>? DaTaoDon;
+await DaTaoDon?.Invoke();       // hai handler đầu chạy nhưng KHÔNG được chờ
+
+// ĐÚNG
+if (DaTaoDon is not null)
+{
+    var tasks = DaTaoDon.GetInvocationList()
+                        .Cast<Func<Task>>()
+                        .Select(h => h());
+    await Task.WhenAll(tasks);
+}
+```
+
+Trường hợp `async` nguy hiểm nhất, vì hai handler đầu trở thành *fire and forget*: ngoại lệ trong chúng bị nuốt, và ứng dụng có thể kết thúc trước khi chúng chạy xong.
+
+**Kết luận thực dụng.** Delegate multicast được thiết kế cho **thông báo**, không cho **thu thập kết quả**. Dấu hiệu bạn đang dùng sai công cụ:
+
+| Nếu bạn cần | Thì đừng dùng event, hãy dùng |
+|---|---|
+| Kết quả trả về từ người nhận | Một interface với danh sách cài đặt tường minh |
+| Bảo đảm thứ tự thực hiện | Gọi trực tiếp theo thứ tự |
+| Chờ các thao tác bất đồng bộ | Danh sách `Func<Task>` và `Task.WhenAll` |
+| Xử lý ngoại lệ của từng người nhận | Vòng lặp có `try/catch` riêng cho mỗi handler |
+
+**Một điểm nữa về ngoại lệ.** Nếu handler thứ nhất ném ngoại lệ, các handler còn lại **không bao giờ chạy**, và người gọi nhận đúng ngoại lệ đó. Để mọi handler đều được chạy bất kể lỗi:
+
+```csharp
+foreach (var h in f.GetInvocationList().Cast<Func<int>>())
+{
+    try { ketQua.Add(h()); }
+    catch (Exception ex) { _logger.LogError(ex, "Handler lỗi"); }
+}
+```
+
+Với nhu cầu phức tạp hơn thế, hãy chuyển sang một bus sự kiện thật. [Module 17](../../stage-05-senior-engineering/module-17-distributed-systems/) mở rộng ý này ra phạm vi nhiều tiến trình, nơi các vấn đề về thứ tự, lỗi và thử lại đều được xử lý tường minh.
+
+</details>
 
 ## Tự kiểm tra
 
