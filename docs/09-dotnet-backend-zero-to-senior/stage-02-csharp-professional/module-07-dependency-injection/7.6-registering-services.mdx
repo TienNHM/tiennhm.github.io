@@ -1,99 +1,242 @@
 ---
 title: "7.6 — 4. Registering Services"
-description: "Registering Services: Đăng ký cơ bản; Factory Registration; Open Generic Registration; Named Service Workaround."
+description: "Đăng ký service: factory, open generic, nhiều implementation cùng interface, decorator, TryAdd và bẫy resolve service từ trong factory."
 sidebar_position: 6
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
 # 7.6 — 4. Registering Services
 
+<SummaryBox>
+Sáu cách đăng ký, mỗi cách cho một tình huống. Cách cơ bản (`AddScoped<IFoo, Foo>()`) phủ 90% trường hợp; phần còn lại là nơi mọi người vấp. **Factory registration** cho khởi tạo cần logic — và ở đây có bẫy: `sp` bạn nhận được là provider của **scope đang xin**, nên resolve một service `Scoped` bên trong factory của một `Singleton` là captive dependency, chỉ khác là container **không phát hiện được**. **Open generic** cho phép một dòng đăng ký phục vụ mọi `IRepository<T>`. Và **nhiều implementation cùng interface** là tính năng, không phải lỗi: container sẽ tiêm cả tập vào `IEnumerable<IFoo>`.
+</SummaryBox>
+
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Chọn đúng dạng đăng ký cho từng tình huống khởi tạo.
+- Viết factory registration mà không tạo captive dependency ẩn.
+- Đăng ký open generic và biết giới hạn của nó.
+- Tiêm một tập implementation qua `IEnumerable<T>`.
+- Viết decorator bằng container .NET thuần.
 
 ## Nội dung bài học
 
 ### 7.6.1 — Đăng ký cơ bản
 
 ```csharp
-// Interface + Implementation (thường dùng nhất)
+// Interface + implementation — 90% truong hop
 services.AddScoped<ICustomerRepository, EfCustomerRepository>();
-services.AddScoped<ILeadRepository, EfLeadRepository>();
 services.AddSingleton<IEmailService, SmtpEmailService>();
-services.AddTransient<ILeadScorer, MlLeadScorer>();
+services.AddTransient<ILeadScorer, RuleBasedLeadScorer>();
 
-// Chỉ đăng ký concrete class (không có interface)
+// Chi lop cu the, khong interface
 services.AddScoped<CustomerService>();
+
+// Instance co san — CHU Y: container KHONG Dispose cai nay
+services.AddSingleton<IClock>(new SystemClock());
 ```
 
-### 7.6.2 — Factory Registration
+Dòng cuối có một điểm dễ bỏ sót: khi bạn đưa vào một instance đã tạo, container **không** coi mình là chủ sở hữu, nên nó **không gọi `Dispose`**. Với đối tượng giữ tài nguyên, dùng dạng factory thay thế.
 
-Dùng khi cần logic khởi tạo phức tạp:
+`AddScoped<CustomerService>()` không cần interface — container dựng được mọi lớp cụ thể miễn là giải được constructor. Đừng tạo interface chỉ để có interface: nếu một interface chỉ có đúng một implementation và bạn không mock nó trong test, nó chỉ là một lớp gián tiếp thừa.
+
+### 7.6.2 — Factory registration và cái bẫy trong đó
 
 ```csharp
 services.AddSingleton<IEmailService>(sp =>
 {
-    var config = sp.GetRequiredService<IOptions<EmailSettings>>().Value;
-    return new SmtpEmailService(config.Host, config.Port, config.UseSsl);
+    var settings = sp.GetRequiredService<IOptions<EmailSettings>>().Value;
+    return new SmtpEmailService(settings.Host, settings.Port, settings.UseSsl);
 });
 ```
 
-### 7.6.3 — Open Generic Registration
+Dùng khi việc dựng cần logic: đọc cấu hình, chọn implementation theo môi trường, hoặc gọi một factory của thư viện bên thứ ba.
+
+**Cái bẫy:**
 
 ```csharp
-// Đăng ký một lần cho tất cả generic type
+services.AddSingleton<IReportService>(sp =>
+{
+    var repo = sp.GetRequiredService<ICustomerRepository>();   // Scoped!
+    return new ReportService(repo);                            // CAPTIVE
+});
+```
+
+`sp` trong factory là provider của scope đang xin. Với `Singleton`, lần xin đầu tiên có thể đến từ một request, nên bạn lấy được một `Scoped` thật — và giam nó vĩnh viễn ([bài 7.5](7.5-service-lifetimes.mdx)).
+
+Nguy hiểm hơn constructor injection ở chỗ: `ValidateScopes` **bắt được** captive dependency qua constructor, nhưng **không bắt được** qua factory, vì nó không nhìn vào bên trong lambda.
+
+```csharp
+// DUNG — tiem scope factory, tao scope khi dung
+services.AddSingleton<IReportService>(sp =>
+    new ReportService(sp.GetRequiredService<IServiceScopeFactory>()));
+```
+
+Quy tắc: **trong factory của một `Singleton`, chỉ resolve `Singleton`.**
+
+### 7.6.3 — Open generic
+
+```csharp
 services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
-
-// .NET tự resolve IRepository<Customer>, IRepository<Lead>, ...
 ```
 
-### 7.6.4 — Named Service Workaround
+Một dòng phục vụ mọi `IRepository<Customer>`, `IRepository<Lead>`, `IRepository<Order>`… Container ghép kiểu tại thời điểm resolve. Đây là cách `ILogger<T>` hoạt động.
 
-.NET DI không hỗ trợ named service trực tiếp (dùng Keyed Services ở .NET 8). Trước .NET 8, dùng delegate/factory:
+Đăng ký cụ thể **thắng** open generic cho đúng kiểu đó:
 
 ```csharp
-// Đăng ký nhiều implementation bằng Func factory
-services.AddScoped<SmtpEmailService>();
-services.AddScoped<SendGridEmailService>();
-services.AddScoped<Func<string, IEmailService>>(sp => key => key switch
-{
-    "smtp"     => sp.GetRequiredService<SmtpEmailService>(),
-    "sendgrid" => sp.GetRequiredService<SendGridEmailService>(),
-    _          => throw new ArgumentException($"Unknown email provider: {key}")
-});
+services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
+services.AddScoped<IRepository<Customer>, CachedCustomerRepository>();  // rieng Customer
+```
 
-// Sử dụng
-public class NotificationService
-{
-    private readonly IEmailService _emailService;
+Hai giới hạn: không dùng được với generic có ràng buộc mà container không kiểm tra được, và không có cú pháp generic cho nó — phải viết `typeof`.
 
-    public NotificationService(Func<string, IEmailService> emailFactory)
+### 7.6.4 — Nhiều implementation cho một interface
+
+Đây là **tính năng**, không phải xung đột:
+
+```csharp
+services.AddScoped<IValidator<Customer>, EmailValidator>();
+services.AddScoped<IValidator<Customer>, PhoneValidator>();
+services.AddScoped<IValidator<Customer>, TaxCodeValidator>();
+```
+
+```csharp
+public class CustomerService(IEnumerable<IValidator<Customer>> validators)
+{
+    public async Task<Customer> CreateAsync(Customer customer, CancellationToken ct)
     {
-        _emailService = emailFactory("sendgrid");
+        foreach (var v in validators)          // ca ba, dung thu tu dang ky
+            await v.ValidateAsync(customer, ct);
+        ...
     }
 }
 ```
 
----
+Thêm một luật kiểm tra mới = thêm một dòng đăng ký, **không sửa `CustomerService`**. Đây chính là Open/Closed trong thực tế.
+
+Nhớ hai điều từ [bài 7.3](7.3-ioc-container-and-di-container.mdx): `GetRequiredService<IValidator<Customer>>()` chỉ trả về cái **cuối cùng**, còn `IEnumerable<>` trả về **tất cả** theo thứ tự đăng ký.
+
+### 7.6.5 — `TryAdd` và `Replace`
+
+```csharp
+services.TryAddScoped<IEmailService, SmtpEmailService>();            // chi them neu chua co
+services.TryAddEnumerable(
+    ServiceDescriptor.Scoped<IValidator<Customer>, EmailValidator>()); // khong them trung
+
+services.Replace(ServiceDescriptor.Scoped<IEmailService, FakeEmailService>()); // thay the
+```
+
+- **`TryAdd`**: thư viện nên luôn dùng, để ứng dụng đè lên được lựa chọn mặc định.
+- **`TryAddEnumerable`**: khi một `AddXxx()` bị gọi hai lần, `Add` thường sẽ nhân đôi và validator chạy hai lần. `TryAddEnumerable` so cả `ServiceType` lẫn `ImplementationType` nên không trùng.
+- **`Replace`**: rất hữu ích trong integration test để thay hạ tầng thật bằng fake.
+
+### 7.6.6 — Decorator bằng container .NET thuần
+
+Container .NET không có decorator sẵn, nhưng làm được bằng factory:
+
+```csharp
+services.AddScoped<EfCustomerRepository>();                 // lop that
+
+services.AddScoped<ICustomerRepository>(sp =>
+    new CachedCustomerRepository(
+        sp.GetRequiredService<EfCustomerRepository>(),      // inner
+        sp.GetRequiredService<IMemoryCache>()));
+```
+
+Lớp thật được đăng ký bằng **kiểu cụ thể**, còn interface trỏ tới lớp bọc. `CachedCustomerRepository` cài `ICustomerRepository` và nhận `EfCustomerRepository` làm inner.
+
+Cách này đọc được nhưng dài dòng khi bạn có nhiều lớp cần bọc. Khi đó **Scrutor** cho bạn một dòng:
+
+```csharp
+services.AddScoped<ICustomerRepository, EfCustomerRepository>();
+services.Decorate<ICustomerRepository, CachedCustomerRepository>();
+```
+
+### 7.6.7 — Tóm tắt
+
+| Dạng | Khi dùng |
+|---|---|
+| `Add<IFoo, Foo>()` | Mặc định |
+| `Add<Foo>()` | Lớp cụ thể không cần interface |
+| `Add<IFoo>(sp => ...)` | Khởi tạo cần logic — **chỉ resolve Singleton nếu đăng ký Singleton** |
+| `Add(typeof(IFoo<>), typeof(Foo<>))` | Open generic |
+| Đăng ký nhiều lần | Tiêm cả tập qua `IEnumerable<IFoo>` |
+| `TryAdd` / `TryAddEnumerable` | Trong thư viện, để không đè lựa chọn của ứng dụng |
+| `Replace` | Integration test |
+
+### 7.6.8 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát đăng ký service"
+  items={[
+    { text: "Không factory Singleton nào resolve service Scoped từ sp." },
+    { text: "Không có interface nào chỉ tồn tại để có interface." },
+    { text: "Instance tự new và đăng ký không phải là thứ cần Dispose." },
+    { text: "Open generic đăng ký một lần, không lặp cho từng kiểu cụ thể." },
+    { text: "Nhóm luật kiểm tra hay handler được tiêm qua IEnumerable, không switch-case." },
+    { text: "Thư viện nội bộ dùng TryAdd thay vì Add." },
+    { text: "Extension method AddXxx() an toàn khi bị gọi hai lần." },
+    { text: "Integration test dùng Replace thay vì đăng ký chồng lên." },
+  ]}
+/>
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **Captive dependency mà validator không bắt.** Viết một factory `AddSingleton<IFoo>(sp => new Foo(sp.GetRequiredService<IScopedBar>()))`, bật `ValidateScopes`, chạy và xác nhận nó **không** báo lỗi. Ghi lại ý nghĩa của điều đó với code review.
+
+2. **Đăng ký nhân đôi.** Viết một extension `AddMyFeature()` dùng `Add` cho một `IValidator`, gọi nó hai lần, và đếm số lần validator chạy. Sửa bằng `TryAddEnumerable` và đếm lại.
+
+3. **Decorator hai tầng.** Bọc một repository bằng caching rồi bọc tiếp bằng logging, sao cho thứ tự là logging → caching → thật. Viết bằng container .NET thuần, rồi viết lại bằng Scrutor và so sánh.
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "Factory registration có bẫy gì?",
+      answer: "Tham số sp trong factory là provider của scope đang xin, nên resolve một service Scoped bên trong factory của một Singleton sẽ giam service đó vĩnh viễn. Nguy hiểm hơn constructor injection ở chỗ ValidateScopes không nhìn vào bên trong lambda nên không phát hiện được. Quy tắc là trong factory của Singleton chỉ resolve Singleton."
+    },
+    {
+      question: "Đăng ký instance có sẵn khác gì đăng ký kiểu?",
+      answer: "Khi bạn đưa vào một instance đã tạo, container không coi mình là chủ sở hữu nên không gọi Dispose cho nó. Với đối tượng giữ tài nguyên thì nên dùng dạng factory để container quản lý vòng đời."
+    },
+    {
+      question: "Open generic đăng ký thế nào và có giới hạn gì?",
+      answer: "Dùng Add với typeof của interface mở và typeof của implementation mở, một dòng phục vụ mọi kiểu cụ thể. Đăng ký cụ thể sẽ thắng open generic cho đúng kiểu đó. Giới hạn là không có cú pháp generic nên phải viết typeof, và không dùng được với ràng buộc mà container không kiểm tra được."
+    },
+    {
+      question: "Đăng ký nhiều implementation cho cùng một interface để làm gì?",
+      answer: "Để tiêm cả tập vào IEnumerable của interface đó, ví dụ một nhóm luật kiểm tra hay nhóm handler. Thêm một luật mới chỉ cần thêm một dòng đăng ký mà không sửa lớp sử dụng, đúng tinh thần Open/Closed. Lưu ý GetRequiredService chỉ trả về đăng ký cuối cùng còn IEnumerable trả về tất cả."
+    },
+    {
+      question: "TryAdd và TryAddEnumerable khác nhau ra sao?",
+      answer: "TryAdd chỉ thêm nếu chưa có đăng ký nào cho ServiceType đó, dùng trong thư viện để ứng dụng đè lên được. TryAddEnumerable so cả ServiceType lẫn ImplementationType nên tránh nhân đôi khi một extension AddXxx bị gọi hai lần, tránh việc validator chạy hai lần."
+    },
+    {
+      question: "Làm decorator bằng container .NET thuần thế nào?",
+      answer: "Đăng ký lớp thật bằng kiểu cụ thể, rồi đăng ký interface bằng một factory tạo lớp bọc và truyền lớp thật vào làm inner. Cách này đọc được nhưng dài dòng khi có nhiều lớp cần bọc, khi đó Scrutor cho phép viết gọn bằng phương thức Decorate."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **Factory của `Singleton` chỉ được resolve `Singleton`** — và không công cụ nào kiểm tra hộ bạn.
+2. **Nhiều implementation là tính năng**: tiêm qua `IEnumerable<T>` thay cho `switch-case`.
+3. **Thư viện dùng `TryAdd`**, ứng dụng dùng `Add`, test dùng `Replace`.
+
+## Tham khảo
+
+- [Dependency injection in .NET](https://learn.microsoft.com/en-us/dotnet/core/extensions/dependency-injection)
+- [Use dependency injection in .NET](https://learn.microsoft.com/en-us/dotnet/core/extensions/dependency-injection-usage)
+- [ServiceCollectionDescriptorExtensions](https://learn.microsoft.com/en-us/dotnet/api/microsoft.extensions.dependencyinjection.extensions.servicecollectiondescriptorextensions)
+- [Dependency injection guidelines](https://learn.microsoft.com/en-us/dotnet/core/extensions/dependency-injection-guidelines)
 
 ## Điều hướng
 

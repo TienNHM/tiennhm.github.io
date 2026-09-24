@@ -1,112 +1,247 @@
 ---
 title: "7.10 — 8. Anti-patterns"
-description: "Anti-patterns: Service Locator (tại sao xấu); Ambient Context; Over-injection — dấu hiệu God Service."
+description: "Service locator, ambient context, over-injection, interface một implementation, tiêm IServiceProvider: sáu lỗi DI hay gặp và cách sửa từng cái."
 sidebar_position: 10
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
 # 7.10 — 8. Anti-patterns
 
+<SummaryBox>
+Sáu lỗi, và điểm chung của chúng là **giấu phụ thuộc đi**. **Service locator** tiêm `IServiceProvider` rồi tự đi lấy, khiến constructor không còn nói thật. **Ambient context** dùng `static` mutable, nên hai request song song ghi đè lẫn nhau. **Over-injection** không phải lỗi của DI mà là DI đang tố cáo một lớp làm quá nhiều việc. Còn **interface chỉ có một implementation và không ai mock** thì chỉ là một lớp gián tiếp khiến "Go to Definition" luôn dẫn tới đúng cái interface rỗng đó.
+</SummaryBox>
+
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Nhận ra service locator kể cả khi nó được nguỵ trang.
+- Giải thích vì sao `static` mutable hỏng trong môi trường đa luồng.
+- Sửa over-injection bằng tách lớp thay vì gom facade.
+- Quyết định có nên tạo interface cho một lớp hay không.
+- Rà một pull request DI với danh sách cụ thể.
 
 ## Nội dung bài học
 
-### 7.10.1 — Service Locator (tại sao xấu)
+### 7.10.1 — Service locator
 
 ```csharp
-// BAD: Service Locator anti-pattern
-public class CustomerService
+// SAI
+public class CustomerService(IServiceProvider sp)
 {
-    private readonly IServiceProvider _sp;
-
-    public CustomerService(IServiceProvider sp)
+    public async Task ProcessAsync(Guid id, CancellationToken ct)
     {
-        _sp = sp; // Inject container vào service — đây là vấn đề
-    }
-
-    public async Task ProcessAsync(Guid id)
-    {
-        // Dependencies ẩn — không thấy từ constructor
-        var repo  = _sp.GetRequiredService<ICustomerRepository>();
-        var email = _sp.GetRequiredService<IEmailService>();
-        // ...
+        var repo  = sp.GetRequiredService<ICustomerRepository>();
+        var email = sp.GetRequiredService<IEmailService>();
+        var audit = sp.GetRequiredService<IAuditLog>();
+        ...
     }
 }
-
-// VẤN ĐỀ:
-// 1. Dependencies không rõ ràng — phải đọc body method mới biết cần gì
-// 2. Unit test khó — phải mock IServiceProvider thay vì mock từng service
-// 3. Vi phạm Explicit Dependencies Principle
 ```
 
-### 7.10.2 — Ambient Context
+Ba vấn đề:
+
+1. **Constructor nói dối.** Nó khai là cần một `IServiceProvider`; thật ra nó cần ba service. Muốn biết thì phải đọc hết thân mọi phương thức.
+2. **Test khó và giòn.** Phải mock `IServiceProvider` và dạy nó trả về đúng ba kiểu. Thêm một phụ thuộc là bài test cũ gãy dù hành vi không đổi.
+3. **Lỗi chuyển từ lúc khởi động sang lúc chạy.** Thiếu đăng ký thì `ValidateOnBuild` không bắt được, và bạn nhận exception ở giữa một nghiệp vụ.
+
+Nó thường được nguỵ trang:
 
 ```csharp
-// BAD: static context ẩn
+public static class ServiceLocator          // van la service locator
+{
+    public static IServiceProvider Current { get; set; } = null!;
+    public static T Get<T>() where T : notnull => Current.GetRequiredService<T>();
+}
+```
+
+Chỉ có **ba chỗ** được phép chạm vào `IServiceProvider`:
+
+- **Composition root** — `Program.cs`, nơi dựng scope cho migration.
+- **`BackgroundService`** qua `IServiceScopeFactory` ([bài 7.5](7.5-service-lifetimes.mdx)).
+- **Factory hẹp resolve đúng một kiểu đã biết**, như ở [bài 7.9](7.9-keyed-services.mdx).
+
+Ngoài ba chỗ đó, sửa bằng constructor injection.
+
+### 7.10.2 — Ambient context
+
+```csharp
+// SAI
 public static class CurrentTenant
 {
-    public static string? Id { get; set; } // Global mutable state!
-}
-
-// ĐÚNG: inject ITenantContext qua constructor
-public interface ITenantContext
-{
-    string TenantId { get; }
+    public static string? Id { get; set; }
 }
 ```
 
-### 7.10.3 — Over-injection — dấu hiệu God Service
+Trong ứng dụng web, `static` mutable là **trạng thái chia sẻ giữa mọi request đồng thời**. Request A đặt `Id = "acme"`, request B đặt `Id = "globex"` ngay sau đó, và request A đọc lại thì thấy `"globex"` — nó vừa truy vấn dữ liệu của khách hàng khác.
+
+Lỗi này gần như **không xuất hiện khi test thủ công** (một người dùng tại một thời điểm) và xuất hiện ngay khi có tải. Đó là kiểu lỗi tệ nhất.
 
 ```csharp
-// BAD: constructor quá nhiều params — dấu hiệu vi phạm SRP
-public class CustomerService
+// DUNG
+public interface ITenantContext { string TenantId { get; } }
+
+public sealed class HttpTenantContext(IHttpContextAccessor accessor) : ITenantContext
 {
-    public CustomerService(
-        ICustomerRepository customerRepo,
-        ILeadRepository leadRepo,
-        IOrderRepository orderRepo,
-        IEmailService emailService,
-        ISmsService smsService,
-        IPushService pushService,
-        ILeadScorer leadScorer,
-        IReportGenerator reportGenerator,
-        IExportService exportService,
-        ICacheService cacheService,
-        ILogger<CustomerService> logger)  // 11 params → God Service!
-    { ... }
+    public string TenantId =>
+        accessor.HttpContext?.User.FindFirst("tenant_id")?.Value
+        ?? throw new InvalidOperationException("Khong xac dinh duoc tenant");
 }
 
-// ĐÚNG: tách thành các service nhỏ hơn
-// CustomerService chỉ xử lý customer CRUD
-// LeadManagementService xử lý lead lifecycle
-// CustomerNotificationService xử lý notification
-// CustomerReportService xử lý report và export
+services.AddHttpContextAccessor();
+services.AddScoped<ITenantContext, HttpTenantContext>();
 ```
 
-> **Quy tắc**: Nếu constructor có hơn 4-5 dependency, hãy xem lại xem service đó có đang làm quá nhiều việc không.
+Cùng họ với lỗi này: `DateTime.Now` (dùng `TimeProvider`), `Random.Shared` trong logic cần lặp lại được, và `Thread.CurrentPrincipal`.
 
----
+`AsyncLocal<T>` **không** phải ngoại lệ được miễn trừ: nó an toàn hơn `static` vì bám theo luồng thực thi async, nhưng vẫn là phụ thuộc ẩn. Nó chỉ hợp cho hạ tầng cắt ngang như tracing, nơi việc truyền qua mọi chữ ký hàm là bất khả thi.
+
+### 7.10.3 — Over-injection
+
+```csharp
+public class CustomerService(
+    ICustomerRepository customerRepo,
+    ILeadRepository leadRepo,
+    IOrderRepository orderRepo,
+    IEmailService email,
+    ISmsService sms,
+    IPushService push,
+    ILeadScorer scorer,
+    IReportGenerator reports,
+    IExportService export,
+    ICacheService cache,
+    ILogger<CustomerService> logger)
+{ }
+```
+
+**DI không gây ra vấn đề này — nó chỉ làm cho vấn đề nhìn thấy được.** Trước khi có DI, lớp này cũng làm 11 việc, chỉ là 11 lời gọi `new` nằm rải rác trong thân phương thức.
+
+Cách sửa **đúng** là tách theo trách nhiệm:
+
+```csharp
+public class CustomerService(ICustomerRepository repo, ILogger<CustomerService> logger);
+public class CustomerNotificationService(IEmailService email, ISmsService sms, IPushService push);
+public class LeadManagementService(ILeadRepository repo, ILeadScorer scorer);
+public class CustomerReportService(IReportGenerator reports, IExportService export);
+```
+
+Cách sửa **sai** là gom lại cho gọn mắt:
+
+```csharp
+// SAI — chi giau bot, khong giam phu thuoc
+public class CustomerService(INotificationFacade notifications, IDataFacade data) { }
+```
+
+Facade chỉ chuyển 11 phụ thuộc xuống một tầng. Lớp vẫn làm 11 việc, chỉ là constructor không còn tố cáo nữa.
+
+Ngưỡng thực dụng: **quá 5 phụ thuộc thì dừng lại xem xét**. Đó là tín hiệu, không phải luật — `ILogger` gần như luôn có mặt và không tính, còn một handler điều phối thật sự có thể cần 6 thứ.
+
+### 7.10.4 — Interface chỉ để có interface
+
+```csharp
+public interface ICustomerMapper { CustomerDto Map(Customer c); }
+public class CustomerMapper : ICustomerMapper { ... }       // duy nhat, khong ai mock
+```
+
+Nếu một interface có **đúng một** implementation, **không ai mock nó** trong test, và bạn không thấy trước một implementation thứ hai — thì nó chỉ là chi phí: thêm một file, thêm một dòng đăng ký, và "Go to Definition" luôn dẫn tới một khai báo rỗng.
+
+Ba lý do chính đáng để tạo interface:
+
+1. **Cần mock trong test** — thường vì lớp có I/O.
+2. **Có nhiều implementation thật** — ngay bây giờ, không phải "có thể sau này".
+3. **Ranh giới kiến trúc** — layer application định nghĩa interface, infrastructure hiện thực nó ([Module 16 — Clean Architecture](../../stage-05-senior-engineering/module-16-clean-architecture/)).
+
+Hàm ánh xạ thuần, hàm tính toán thuần, extension method: đăng ký lớp cụ thể là đủ, hoặc thậm chí `static`.
+
+### 7.10.5 — Hai lỗi còn lại
+
+**Container leak sang domain.** Entity và value object không được biết gì về `IServiceProvider` hay `[FromKeyedServices]`. Domain phải dựng được bằng `new` trong một unit test không có container nào.
+
+**Tự `new` service dù đã có DI.**
+
+```csharp
+public class OrderService(ICustomerRepository repo)
+{
+    public async Task ProcessAsync(Order order, CancellationToken ct)
+    {
+        var email = new SmtpEmailService("smtp.company.com", 587);  // bo qua ca he thong DI
+        ...
+    }
+}
+```
+
+Chỗ này thường xuất hiện khi ai đó thêm tính năng gấp. Nó mang lại đầy đủ năm vấn đề ở [bài 7.2](7.2-di-problem-scope.mdx), chỉ khác là bây giờ chúng nằm lẫn giữa code đã làm đúng.
+
+### 7.10.6 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát anti-pattern DI"
+  items={[
+    { text: "Không có lớp nghiệp vụ nào tiêm IServiceProvider." },
+    { text: "Không có lớp static nào giữ trạng thái thay đổi được." },
+    { text: "Thông tin theo request lấy qua service Scoped, không qua static." },
+    { text: "Không có constructor nào quá 5 phụ thuộc mà chưa được xem xét." },
+    { text: "Không có facade nào được tạo chỉ để giảm số tham số constructor." },
+    { text: "Mọi interface đều có lý do: cần mock, có nhiều implementation, hoặc là ranh giới kiến trúc." },
+    { text: "Entity và value object không biết gì về container." },
+    { text: "Không còn new nào tới service có I/O bên trong lớp đã dùng DI." },
+  ]}
+/>
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **Tái hiện lỗi ambient context.** Dùng một lớp `static` giữ tenant id, bắn 50 request đồng thời với 2 tenant khác nhau, và đếm số request đọc sai tenant. Chuyển sang `ITenantContext` scoped và đếm lại.
+
+2. **So sánh chi phí test.** Viết bài test cho một lớp dùng service locator và cho cùng lớp đó sau khi chuyển sang constructor injection. So sánh số dòng setup và ghi lại chuyện gì xảy ra với bài test cũ khi bạn thêm một phụ thuộc.
+
+3. **Tách God Service.** Lấy lớp 11 phụ thuộc ở mục 7.10.3, tách theo trách nhiệm, và ghi lại số phụ thuộc của từng lớp mới. Thử luôn cách facade và giải thích vì sao nó không giải quyết được gì.
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "Vì sao service locator là anti-pattern?",
+      answer: "Ba lý do. Constructor nói dối, nó khai là cần một IServiceProvider trong khi thật ra cần nhiều service cụ thể. Test khó và giòn vì phải mock IServiceProvider, và thêm một phụ thuộc là bài test cũ gãy dù hành vi không đổi. Và lỗi thiếu đăng ký chuyển từ lúc khởi động sang giữa một nghiệp vụ."
+    },
+    {
+      question: "Những chỗ nào được phép chạm vào IServiceProvider?",
+      answer: "Ba chỗ: composition root trong Program.cs nơi dựng scope cho migration, BackgroundService qua IServiceScopeFactory, và factory hẹp resolve đúng một kiểu đã biết như khi chọn keyed service theo dữ liệu lúc chạy. Ngoài ba chỗ đó thì dùng constructor injection."
+    },
+    {
+      question: "Ambient context sai ở đâu?",
+      answer: "Trong ứng dụng web, static mutable là trạng thái chia sẻ giữa mọi request đồng thời, nên request này ghi đè giá trị của request kia và bạn truy vấn nhầm dữ liệu của khách hàng khác. Lỗi này gần như không xuất hiện khi test thủ công và xuất hiện ngay khi có tải."
+    },
+    {
+      question: "AsyncLocal có phải ngoại lệ không?",
+      answer: "Không hẳn. Nó an toàn hơn static vì bám theo luồng thực thi async, nhưng vẫn là phụ thuộc ẩn. Nó chỉ hợp cho hạ tầng cắt ngang như tracing, nơi việc truyền qua mọi chữ ký hàm là bất khả thi."
+    },
+    {
+      question: "Constructor có 11 phụ thuộc thì sửa thế nào?",
+      answer: "Tách lớp theo trách nhiệm. Cách sai là gom lại sau một facade, vì facade chỉ chuyển 11 phụ thuộc xuống một tầng: lớp vẫn làm 11 việc, chỉ là constructor không còn tố cáo nữa. DI không gây ra vấn đề này, nó chỉ làm cho vấn đề nhìn thấy được."
+    },
+    {
+      question: "Khi nào nên tạo interface cho một lớp?",
+      answer: "Ba lý do chính đáng: cần mock trong test, thường vì lớp có I/O; có nhiều implementation thật ngay bây giờ chứ không phải có thể sau này; hoặc nó là ranh giới kiến trúc giữa layer application và infrastructure. Ngoài ra, một interface có đúng một implementation mà không ai mock chỉ là một lớp gián tiếp tốn chi phí."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **Tiêm `IServiceProvider` là giấu phụ thuộc** — chỉ đúng ở ba chỗ đã liệt kê.
+2. **`static` mutable trong web là bug chờ có tải.** Thông tin theo request thuộc về service `Scoped`.
+3. **Constructor dài là triệu chứng, không phải bệnh.** Tách lớp, đừng gom facade.
+
+## Tham khảo
+
+- [Dependency injection guidelines](https://learn.microsoft.com/en-us/dotnet/core/extensions/dependency-injection-guidelines)
+- [Dependency injection in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/dependency-injection)
+- [Architectural principles — Explicit dependencies](https://learn.microsoft.com/en-us/dotnet/architecture/modern-web-apps-azure/architectural-principles)
+- [Access HttpContext in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/http-context)
 
 ## Điều hướng
 
