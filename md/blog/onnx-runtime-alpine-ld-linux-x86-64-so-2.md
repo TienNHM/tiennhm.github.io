@@ -258,3 +258,4 @@ Bản sửa cuối cùng là một dòng. Phần đáng giá không phải dòng
 ## Bài liên quan
 
 - [Module 15 — Docker + Deployment](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-15-docker-deployment) — Container hóa và triển khai: Dockerfile multi-stage, compose, health checks, reverse proxy — pipeline production-like cho .NET.
+- [2.9 — 7. Hosting và Cloud cơ bản](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-01-foundation/module-02-computer-science-basics/2.9-hosting-and-cloud-co-ban) — Từ máy chủ vật lý tới serverless: bạn đang đổi quyền kiểm soát lấy sự tiện lợi.
