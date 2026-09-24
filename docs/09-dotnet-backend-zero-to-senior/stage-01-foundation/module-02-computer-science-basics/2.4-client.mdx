@@ -153,11 +153,134 @@ Không có phương án đúng tuyệt đối. Nhưng chú ý dòng SEO: nội d
 
 ## Bài tập áp dụng
 
-1. **Bỏ qua giao diện.** Lấy một chức năng trong dự án chỉ dành cho admin. Đăng nhập bằng tài khoản thường, lấy token, rồi gọi thẳng endpoint đó bằng `curl`. Nếu nó chạy, bạn vừa tìm ra một lỗ hổng thật.
+#### Bài 1 — Bỏ qua giao diện
 
-2. **Chứng minh tính stateless.** Gọi một API cần đăng nhập hai lần: một lần có header `Authorization`, một lần không. Quan sát mã trạng thái. Giải thích vì sao máy chủ không "nhớ" bạn giữa hai lần gọi.
+Lấy một chức năng trong dự án chỉ dành cho quản trị viên. Đăng nhập bằng tài khoản **thường**, lấy token, rồi gọi thẳng endpoint đó bằng `curl`.
 
-3. **Phân loại thay đổi API.** Lấy năm thay đổi gần nhất trong API của bạn và xếp vào bảng ở mục 2.4.4. Với những thay đổi phá vỡ tương thích, trả lời: ứng dụng di động phiên bản cũ có còn chạy được không?
+**Tiêu chí hoàn thành:** endpoint trả về `403`. Nếu nó trả về `200`, bạn vừa tìm ra một lỗ hổng thật và cần báo ngay.
+
+:::warning Chỉ làm trên hệ thống bạn có quyền
+Bài này là kiểm thử bảo mật trên chính dự án của bạn hoặc môi trường thử nghiệm. Đừng chạy nó lên hệ thống của người khác khi chưa được cho phép bằng văn bản.
+:::
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Giao diện ẩn một nút đi **không** làm endpoint biến mất. Trình duyệt chỉ là một client; `curl` là một client khác, và máy chủ không phân biệt được hai thứ đó.
+
+Lấy token bằng cách đăng nhập rồi mở DevTools, tab Network, tìm header `Authorization` trong một request bất kỳ.
+
+**Lời giải.**
+
+```bash
+# 1. Đăng nhập bằng tài khoản thường
+TOKEN=$(curl -s -X POST https://localhost:5001/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"nhanvien@company.com","password":"..."}' | jq -r .accessToken)
+
+# 2. Gọi endpoint chỉ dành cho quản trị viên
+curl -i -X DELETE https://localhost:5001/api/v1/users/42 \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**Ba kết quả có thể xảy ra:**
+
+| Mã trả về | Nghĩa là | Cần làm gì |
+|---|---|---|
+| `403 Forbidden` | Đúng — server kiểm tra quyền ở tầng API | Không làm gì |
+| `401 Unauthorized` | Token bị từ chối, nhưng kiểm tra chưa chắc đúng chỗ | Xác nhận lại bằng token hợp lệ |
+| `200 OK` | **Lỗ hổng** — kiểm tra quyền chỉ nằm ở giao diện | Sửa ngay, và rà toàn bộ endpoint khác |
+
+**Vì sao lỗi này phổ biến hơn người ta tưởng.** Lập trình viên frontend ẩn nút "Xoá" với người không phải quản trị viên, thấy chức năng hoạt động đúng, và coi như xong. Không ai nghĩ rằng phần kiểm tra ở backend là **bắt buộc riêng**, vì trong quá trình thử nghiệm không có cách nào gọi tới endpoint đó mà không qua nút.
+
+Lỗ hổng dạng này nằm trong nhóm **Broken Access Control**, đứng đầu bảng [OWASP Top 10](https://owasp.org/Top10/) năm 2021.
+
+**Hai biến thể cần kiểm tra thêm:**
+
+1. **Truy cập tài nguyên của người khác.** Đăng nhập bằng tài khoản A rồi gọi `GET /api/v1/orders/{id}` với `id` của đơn hàng thuộc về tài khoản B. Nếu trả về dữ liệu, đó là lỗi phân quyền theo tài nguyên — [bài 10.7](../../stage-03-aspnet-core-backend/module-10-authentication-authorization/10.7-resource-based-authorization.mdx) xử lý đúng vấn đề này.
+2. **Gửi trường không được phép sửa.** Gọi `PATCH /api/v1/users/me` kèm `{"role":"Admin"}`. Nếu server nhận cả trường `role`, người dùng tự nâng quyền cho mình. Cách phòng là dùng DTO chỉ chứa các trường được phép, thay vì gắn thẳng vào thực thể.
+
+**Quy tắc rút ra.** Giao diện là **trải nghiệm người dùng**, không phải **cơ chế bảo mật**. Mọi kiểm tra quyền phải có ở phía máy chủ, kể cả khi giao diện đã kiểm rồi.
+
+</details>
+
+#### Bài 2 — Chứng minh tính phi trạng thái
+
+Gọi một API cần đăng nhập hai lần: một lần có header `Authorization`, một lần không. Quan sát mã trạng thái. Giải thích vì sao máy chủ không "nhớ" bạn giữa hai lần gọi.
+
+**Tiêu chí hoàn thành:** bạn nêu được nơi trạng thái đăng nhập thật sự được lưu, và vì sao thiết kế như vậy lại cần thiết để mở rộng hệ thống.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Nếu máy chủ thật sự "nhớ" bạn, thì thông tin đó nằm ở đâu? Và nếu hệ thống có ba máy chủ đứng sau một bộ cân bằng tải, điều gì xảy ra khi lần gọi thứ hai rơi vào máy khác?
+
+**Lời giải.**
+
+```bash
+# Lần 1 — có token
+curl -s -o /dev/null -w "%{http_code}\n" https://localhost:5001/api/v1/customers \
+  -H "Authorization: Bearer $TOKEN"
+# 200
+
+# Lần 2 — cùng endpoint, bỏ token
+curl -s -o /dev/null -w "%{http_code}\n" https://localhost:5001/api/v1/customers
+# 401
+```
+
+**Vì sao.** HTTP là giao thức **phi trạng thái**: mỗi request được xử lý độc lập, và máy chủ không giữ thông tin gì về các request trước đó. Danh tính người gọi **không** nằm trên máy chủ mà nằm trong chính request — cụ thể là trong header `Authorization`. Bỏ header đi thì request trở thành ẩn danh, bất kể một giây trước bạn vừa gọi thành công.
+
+**Vì sao thiết kế này cần thiết.** Giả sử máy chủ ghi nhớ phiên đăng nhập trong bộ nhớ của nó. Ba hệ quả:
+
+1. **Không mở rộng theo chiều ngang được.** Thêm máy chủ thứ hai thì người dùng đăng nhập ở máy A sẽ bị coi là ẩn danh khi request rơi vào máy B. Phải thêm cơ chế dính phiên hoặc kho phiên dùng chung — cả hai đều là phức tạp thêm.
+2. **Khởi động lại là mất hết.** Mỗi lần triển khai phiên bản mới, toàn bộ người dùng bị đăng xuất.
+3. **Bộ nhớ tăng theo số người dùng đồng thời**, tạo ra một giới hạn khó dự đoán.
+
+Token tự chứa thông tin giải quyết cả ba: mọi máy chủ đều xác minh được token bằng khoá chung mà không cần tra cứu ở đâu, nên thêm máy chủ chỉ là thêm máy chủ.
+
+**Cái giá của phi trạng thái.** Không có gì miễn phí. Vì máy chủ không lưu phiên, nó cũng **không thu hồi được token đã cấp**. Một token bị lộ vẫn dùng được tới khi hết hạn. Đó là lý do token truy cập nên có thời gian sống ngắn, thường 5 tới 15 phút, và đi kèm cơ chế làm mới — chủ đề của [bài 10.4](../../stage-03-aspnet-core-backend/module-10-authentication-authorization/10.4-refresh-token.mdx).
+
+**Phân biệt với cookie.** Cookie cũng được gửi kèm mỗi request, nên về bản chất vẫn là phi trạng thái ở tầng HTTP. Khác biệt nằm ở chỗ **trình duyệt tự động gửi** cookie, còn header `Authorization` thì code phải chủ động thêm. Chính tính tự động đó sinh ra lớp tấn công giả mạo yêu cầu liên trang, và là lý do API dùng token thường ít bị ảnh hưởng hơn.
+
+</details>
+
+#### Bài 3 — Phân loại thay đổi API
+
+Lấy năm thay đổi gần nhất trong API của bạn và xếp vào bảng ở mục 2.4.4. Với những thay đổi phá vỡ tương thích, trả lời: ứng dụng di động phiên bản cũ có còn chạy được không?
+
+**Tiêu chí hoàn thành:** bạn phân loại đúng, và nhận ra ít nhất một thay đổi tưởng vô hại nhưng thực ra phá vỡ tương thích.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Tiêu chí phân loại chỉ có một câu: *một client viết theo phiên bản cũ, không sửa gì, có còn chạy đúng không?* Nếu câu trả lời là không thì đó là thay đổi phá vỡ, bất kể nó nhỏ tới đâu.
+
+Điểm mấu chốt cần nhớ: ứng dụng web thì bạn triển khai phiên bản mới là mọi người dùng nhận ngay. **Ứng dụng di động thì không** — người dùng phải tự cập nhật, và một phần đáng kể sẽ không cập nhật trong nhiều tháng.
+
+**Lời giải — bảng phân loại:**
+
+| Thay đổi | Phá vỡ? | Vì sao |
+|---|---|---|
+| Thêm một trường vào phản hồi | Không | Client cũ bỏ qua trường nó không biết |
+| Thêm một tham số truy vấn **tuỳ chọn** | Không | Không gửi thì dùng giá trị mặc định |
+| Thêm một endpoint mới | Không | Client cũ không gọi tới |
+| **Đổi tên một trường** | **Có** | Client cũ đọc tên cũ và nhận `null` |
+| **Đổi kiểu dữ liệu của một trường** | **Có** | Chuỗi thành số làm hỏng phần giải mã |
+| **Thêm một trường bắt buộc vào request** | **Có** | Client cũ không gửi, nhận `400` |
+| **Thắt chặt quy tắc xác thực** | **Có** | Dữ liệu trước đây hợp lệ nay bị từ chối |
+| **Đổi mã trạng thái trả về** | **Có** | Client cũ xử lý nhánh lỗi khác đi |
+
+**Ba thay đổi hay bị đánh giá nhầm là vô hại:**
+
+1. **Thắt chặt xác thực.** Thêm giới hạn "số điện thoại tối đa 15 ký tự" nghe như một cải thiện chất lượng dữ liệu. Nhưng mọi client đang gửi số dài hơn bỗng nhận `400`, và họ không hề biết trước.
+2. **Đổi `200` thành `204` cho phản hồi rỗng.** Đúng hơn về mặt ngữ nghĩa, nhưng client nào đang cố đọc thân phản hồi sẽ hỏng.
+3. **Bỏ một trường không ai dùng.** Vấn đề là bạn không có cách nào chắc chắn không ai dùng. Với ứng dụng di động, "không ai dùng" chỉ có nghĩa là *không ai bạn biết*.
+
+**Trả lời câu hỏi của đề.** Với ứng dụng di động, một thay đổi phá vỡ khiến các phiên bản cũ ngừng hoạt động cho tới khi người dùng cập nhật. Dữ liệu thực tế cho thấy quá trình này kéo dài nhiều tháng, và một phần người dùng không bao giờ cập nhật. Vì vậy quy tắc là **không bao giờ thay đổi phá vỡ trên một phiên bản API đang phục vụ**; thay vào đó phát hành `v2` và giữ `v1` chạy song song.
+
+[Bài 9.3 — API Versioning](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.3-api-versioning.mdx) trình bày cách chạy song song hai phiên bản, và cách báo hiệu ngừng hỗ trợ bằng header `Sunset` để client biết trước thay vì bị cắt đột ngột.
+
+</details>
 
 ## Tự kiểm tra
 
