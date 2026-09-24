@@ -1,122 +1,346 @@
 ---
 title: "9.9 — 8. API Testing"
-description: "API Testing — bài học thuộc Module 9 — Web api professional trong lộ trình .NET backend từ zero đến senior."
+description: "WebApplicationFactory, vì sao InMemory provider nói dối, Testcontainers, cô lập dữ liệu giữa các test, và cách bỏ qua xác thực trong integration test."
 sidebar_position: 9
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
 # 9.9 — 8. API Testing
 
+<SummaryBox>
+`WebApplicationFactory` dựng **toàn bộ ứng dụng trong bộ nhớ** và cho bạn một `HttpClient` gọi vào nó — không mở cổng, không cần chạy server, nhưng **đi qua đầy đủ** pipeline: routing, model binding, validation, filter, middleware. Đó là điểm ngọt giữa unit test và test end-to-end. Cạm bẫy lớn nhất là **`UseInMemoryDatabase`**: nó không phải database quan hệ, nó **không có ràng buộc, không có transaction thật, không dịch SQL**, nên test xanh trong khi production đỏ. Nếu code chạm tới database, hãy test trên **database thật** bằng Testcontainers.
+</SummaryBox>
+
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Dựng `WebApplicationFactory` và thay thế service cho môi trường test.
+- Liệt kê những gì InMemory provider không phát hiện được.
+- Chạy test trên database thật bằng Testcontainers.
+- Cô lập dữ liệu giữa các test.
+- Bỏ qua xác thực trong test mà không tắt phân quyền.
 
 ## Nội dung bài học
 
-### 9.9.1 — 8.1 WebApplicationFactory setup
+### 9.9.1 — Ba tầng test
+
+| Tầng | Test cái gì | Tốc độ | Số lượng |
+|---|---|---|---|
+| **Unit** | Một lớp, mọi phụ thuộc là mock | Mili giây | Nhiều |
+| **Integration** | API qua `WebApplicationFactory` | Chục–trăm mili giây | Vừa |
+| **End-to-end** | Hệ thống thật đã triển khai | Giây | Ít |
+
+Integration test là tầng **đáng đầu tư nhất** cho một Web API, vì nó bắt được đúng những lỗi mà unit test bỏ sót: sai route, binding không như mong đợi, validation không chạy, thứ tự middleware sai, DI thiếu đăng ký, serialization JSON khác dự kiến.
+
+### 9.9.2 — `WebApplicationFactory`
 
 ```csharp
-// CrmApiFactory.cs
-public class CrmApiFactory : WebApplicationFactory<Program>
+public sealed class CrmApiFactory : WebApplicationFactory<Program>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.ConfigureServices(services =>
-        {
-            // Thay DB thật bằng in-memory
-            var descriptor = services.SingleOrDefault(d =>
-                d.ServiceType == typeof(DbContextOptions<CrmDbContext>));
-            if (descriptor != null) services.Remove(descriptor);
+        builder.UseEnvironment("Testing");
 
-            services.AddDbContext<CrmDbContext>(options =>
-                options.UseInMemoryDatabase("TestDb_" + Guid.NewGuid()));
+        builder.ConfigureTestServices(services =>
+        {
+            // Thay dich vu ben ngoai bang fake
+            services.RemoveAll<IEmailService>();
+            services.AddSingleton<IEmailService, FakeEmailService>();
+
+            services.RemoveAll<IPaymentGateway>();
+            services.AddSingleton<IPaymentGateway, FakePaymentGateway>();
         });
     }
 }
 ```
 
-### 9.9.2 — 8.2 Integration test Customer API
+`ConfigureTestServices` chạy **sau** mọi đăng ký của `Program.cs`, nên nó đè lên được. `ConfigureServices` chạy **trước** và sẽ bị `Program.cs` ghi đè — một lỗi tốn nhiều thời gian để phát hiện.
+
+`RemoveAll<T>()` sạch hơn tìm `ServiceDescriptor` thủ công, nhất là khi một interface được đăng ký nhiều lần.
+
+Nếu `Program.cs` dùng top-level statements, thêm dòng này vào cuối để lớp `Program` hiển thị với test project:
 
 ```csharp
-public class CustomerApiTests : IClassFixture<CrmApiFactory>
+public partial class Program;
+```
+
+### 9.9.3 — `UseInMemoryDatabase` nói dối
+
+Đây là lời khuyên phổ biến nhất và cũng gây hại nhất trong testing .NET:
+
+```csharp
+services.AddDbContext<CrmDbContext>(o => o.UseInMemoryDatabase("Test"));
+```
+
+InMemory provider **không phải** database quan hệ. Nó là một `Dictionary` biết LINQ. Những gì nó **không** phát hiện:
+
+| Không phát hiện | Hậu quả trên production |
+|---|---|
+| Ràng buộc unique | Trùng email lọt qua test, nổ khi chạy thật |
+| Khoá ngoại | Xoá bản ghi còn tham chiếu vẫn qua |
+| `NOT NULL`, độ dài cột | Chuỗi 500 ký tự vào cột `nvarchar(200)` |
+| Truy vấn không dịch được sang SQL | Test xanh, production ném `InvalidOperationException` |
+| Phân biệt hoa thường | `Contains` phân biệt hoa thường trong test, không phân biệt trong SQL Server |
+| Transaction và concurrency thật | Optimistic concurrency không bao giờ được test |
+| Kiểu dữ liệu, độ chính xác `decimal` | Làm tròn khác nhau |
+
+Dòng thứ tư nguy hiểm nhất: EF Core dịch **khác nhau** cho mỗi provider. Một truy vấn chạy tốt với InMemory có thể không dịch được sang SQL và ném exception lúc chạy — đúng thứ mà test lẽ ra phải bắt.
+
+Chính tài liệu EF Core cũng khuyến cáo **không** dùng InMemory để test. Dùng nó chỉ cho những test **không chạm database thật sự**, ví dụ kiểm tra validation của controller.
+
+### 9.9.4 — Testcontainers: database thật
+
+```bash
+dotnet add package Testcontainers.MsSql
+dotnet add package Respawn
+```
+
+```csharp
+public sealed class CrmApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
-    private readonly HttpClient _client;
+    private readonly MsSqlContainer _db = new MsSqlBuilder()
+        .WithImage("mcr.microsoft.com/mssql/server:2022-latest")
+        .Build();
 
-    public CustomerApiTests(CrmApiFactory factory)
+    public async Task InitializeAsync()
     {
-        _client = factory.CreateClient();
+        await _db.StartAsync();
+
+        using var scope = Services.CreateScope();
+        var ctx = scope.ServiceProvider.GetRequiredService<CrmDbContext>();
+        await ctx.Database.MigrateAsync();          // chay migration THAT
     }
 
-    [Fact]
-    public async Task GetCustomers_ReturnsPagedResult()
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        var response = await _client.GetAsync("/api/v1/customers?page=1&pageSize=10");
-        response.EnsureSuccessStatusCode();
-
-        var result = await response.Content
-            .ReadFromJsonAsync<PagedResponse<CustomerDto>>();
-
-        Assert.NotNull(result);
-        Assert.NotNull(result.Pagination);
-        Assert.True(result.Pagination.PageSize <= 10);
+        builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<DbContextOptions<CrmDbContext>>();
+            services.AddDbContext<CrmDbContext>(o =>
+                o.UseSqlServer(_db.GetConnectionString()));
+        });
     }
 
+    public new async Task DisposeAsync() => await _db.DisposeAsync();
+}
+```
+
+Testcontainers khởi động một container SQL Server thật, chạy migration thật, và huỷ nó khi xong. Chi phí: vài giây cho lần khởi động đầu tiên.
+
+Lợi ích vượt xa chi phí đó: **migration được test**, ràng buộc được test, truy vấn được dịch thật sự. Một migration lỗi bị phát hiện trong CI thay vì lúc deploy.
+
+Chia sẻ container cho cả một tập test bằng `ICollectionFixture` để không khởi động lại mỗi lớp test:
+
+```csharp
+[CollectionDefinition("api")]
+public sealed class ApiCollection : ICollectionFixture<CrmApiFactory>;
+
+[Collection("api")]
+public sealed class CustomerApiTests(CrmApiFactory factory) { }
+```
+
+### 9.9.5 — Cô lập dữ liệu giữa các test
+
+Test dùng chung một database sẽ ảnh hưởng lẫn nhau: một test tạo 5 khách hàng, test đếm ở lớp khác thất bại — và chỉ thất bại khi chạy **cùng nhau**, không khi chạy riêng.
+
+**Respawn** đặt lại database về trạng thái sạch giữa các test:
+
+```csharp
+public sealed class CustomerApiTests(CrmApiFactory factory)
+    : IClassFixture<CrmApiFactory>, IAsyncLifetime
+{
+    private readonly HttpClient _client = factory.CreateClient();
+
+    public async Task InitializeAsync() => await factory.ResetDatabaseAsync();
+    public Task DisposeAsync() => Task.CompletedTask;
+
     [Fact]
-    public async Task CreateCustomer_WithInvalidEmail_Returns422()
+    public async Task Create_WithDuplicateEmail_Returns409()
     {
-        var payload = new { name = "Test", email = "not-valid-email" };
-        var response = await _client.PostAsJsonAsync("/api/v1/customers", payload);
+        var request = new CreateCustomerRequest
+            { Name = "Nguyen Van A", Email = "a@example.com" };
 
-        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
-    }
+        var first  = await _client.PostAsJsonAsync("/api/v1/customers", request);
+        var second = await _client.PostAsJsonAsync("/api/v1/customers", request);
 
-    [Fact]
-    public async Task GetCustomer_NotFound_Returns404()
-    {
-        var response = await _client.GetAsync("/api/v1/customers/99999");
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task GetCustomers_WithSearch_ReturnsFilteredResult()
-    {
-        // Arrange: seed data
-        var createResp = await _client.PostAsJsonAsync("/api/v1/customers",
-            new { name = "Nguyễn Văn A", email = "a@crm.vn", status = "active" });
-        createResp.EnsureSuccessStatusCode();
-
-        // Act
-        var response = await _client.GetAsync("/api/v1/customers?search=Nguyễn");
-        var result = await response.Content.ReadFromJsonAsync<PagedResponse<CustomerDto>>();
-
-        // Assert
-        Assert.True(result!.Data.Any(c => c.Name.Contains("Nguyễn")));
+        Assert.Equal(HttpStatusCode.Created, first.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
     }
 }
 ```
 
-> **Postman collection:** Export collection JSON từ Postman và commit vào `tests/postman/` để QA và onboarding nhanh. Sử dụng environment variables (`{{baseUrl}}`, `{{token}}`) để chạy trên nhiều môi trường.
+Bài test này là ví dụ đúng cho lý do dùng database thật: với InMemory, **cả hai** request đều trả 201 vì không có ràng buộc unique — test xanh, production hỏng.
 
----
+Hai cách cô lập khác: mỗi test một transaction rồi rollback (nhanh hơn nhưng không test được code tự quản transaction), hoặc mỗi test một database riêng (sạch nhất nhưng chậm).
+
+### 9.9.6 — Xác thực trong test
+
+Đừng tắt `[Authorize]` — nếu tắt, bạn **không** test được phân quyền, và đó chính là thứ cần test nhất.
+
+Thay vào đó, thêm một authentication scheme cho môi trường test:
+
+```csharp
+public sealed class TestAuthHandler(
+    IOptionsMonitor<AuthenticationSchemeOptions> options,
+    ILoggerFactory logger, UrlEncoder encoder)
+    : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
+{
+    protected override Task<AuthenticateResult> HandleAuthenticateAsync()
+    {
+        // Doc vai tro tu header de moi test tu chon danh tinh
+        var roles = Context.Request.Headers["X-Test-Roles"].ToString()
+            .Split(',', StringSplitOptions.RemoveEmptyEntries);
+
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, "test-user-id"),
+            new(ClaimTypes.Name, "test@example.com")
+        };
+        claims.AddRange(roles.Select(r => new Claim(ClaimTypes.Role, r)));
+
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, "Test"));
+        return Task.FromResult(AuthenticateResult.Success(
+            new AuthenticationTicket(principal, "Test")));
+    }
+}
+```
+
+```csharp
+builder.ConfigureTestServices(services =>
+{
+    services.AddAuthentication("Test")
+        .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>("Test", _ => { });
+});
+```
+
+```csharp
+_client.DefaultRequestHeaders.Add("X-Test-Roles", "Admin");
+var response = await _client.DeleteAsync($"/api/v1/customers/{id}");
+Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+
+_client.DefaultRequestHeaders.Remove("X-Test-Roles");
+var forbidden = await _client.DeleteAsync($"/api/v1/customers/{id}");
+Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
+```
+
+Phân quyền vẫn chạy đầy đủ; chỉ phần lấy danh tính bị thay. Nhờ đó bạn test được cả đường thành công lẫn đường bị từ chối.
+
+:::warning Đừng để lọt sang production
+`TestAuthHandler` chỉ được đăng ký trong `ConfigureTestServices` của test project. Đừng bao giờ đặt nó trong `Program.cs` sau một câu `if` về môi trường — một biến môi trường đặt nhầm là một API không xác thực.
+:::
+
+### 9.9.7 — Test những gì unit test không thấy
+
+```csharp
+[Fact]
+public async Task Create_WithInvalidEmail_Returns400WithProblemDetails()
+{
+    var response = await _client.PostAsJsonAsync("/api/v1/customers",
+        new { name = "Test", email = "khong-phai-email" });
+
+    Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+    var problem = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>();
+    Assert.Contains("email", problem!.Errors.Keys, StringComparer.OrdinalIgnoreCase);
+}
+
+[Fact]
+public async Task GetAll_WithOversizedPageSize_ClampsToMaximum()
+{
+    var response = await _client.GetAsync("/api/v1/customers?pageSize=999999");
+    var result = await response.Content.ReadFromJsonAsync<PagedResponse<CustomerDto>>();
+
+    Assert.True(result!.Pagination.PageSize <= 100);
+}
+
+[Fact]
+public async Task Create_ReturnsLocationHeader()
+{
+    var response = await _client.PostAsJsonAsync("/api/v1/customers", ValidRequest);
+
+    Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+    Assert.NotNull(response.Headers.Location);
+
+    var follow = await _client.GetAsync(response.Headers.Location);
+    Assert.Equal(HttpStatusCode.OK, follow.StatusCode);      // URL tra ve phai dung
+}
+```
+
+Bài test thứ ba đáng chú ý: nó kiểm tra rằng URL trong header `Location` **thật sự gọi được**. Đây là lỗi hay gặp khi đổi route mà quên sửa `CreatedAtRoute`, và không unit test nào bắt được.
+
+### 9.9.8 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát API testing"
+  items={[
+    { text: "Dùng ConfigureTestServices, không phải ConfigureServices." },
+    { text: "Không dùng UseInMemoryDatabase cho test chạm tới database." },
+    { text: "Test database dùng Testcontainers với cùng loại database như production." },
+    { text: "Migration được chạy trong test, không phải EnsureCreated." },
+    { text: "Dữ liệu được đặt lại giữa các test để chúng không ảnh hưởng nhau." },
+    { text: "Container được chia sẻ qua ICollectionFixture để không khởi động lại mỗi lớp." },
+    { text: "[Authorize] không bị tắt; dùng authentication scheme riêng cho test." },
+    { text: "TestAuthHandler không xuất hiện ở đâu trong Program.cs." },
+    { text: "Có test cho cả đường bị từ chối, không chỉ đường thành công." },
+    { text: "Có test kiểm tra header Location của 201 thật sự gọi được." },
+  ]}
+/>
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **InMemory nói dối.** Viết test kiểm tra ràng buộc unique trên email. Chạy với `UseInMemoryDatabase` và xác nhận nó **xanh** dù code sai. Chuyển sang Testcontainers và xác nhận nó bắt được lỗi.
+
+2. **Test ảnh hưởng nhau.** Viết hai lớp test cùng tạo dữ liệu và một test đếm tổng số bản ghi. Chạy riêng từng lớp (xanh) rồi chạy cùng nhau (đỏ). Thêm Respawn và kiểm chứng lại.
+
+3. **`Location` sai.** Đổi tên route của `GetById` mà không sửa `CreatedAtRoute`, và xác nhận test theo header `Location` bắt được lỗi trong khi unit test của controller vẫn xanh.
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "WebApplicationFactory cho bạn điều gì?",
+      answer: "Nó dựng toàn bộ ứng dụng trong bộ nhớ và cho một HttpClient gọi vào, không mở cổng nhưng đi qua đầy đủ pipeline gồm routing, model binding, validation, filter và middleware. Đó là điểm ngọt giữa unit test và test end-to-end, bắt được đúng những lỗi unit test bỏ sót."
+    },
+    {
+      question: "ConfigureTestServices khác ConfigureServices thế nào?",
+      answer: "ConfigureTestServices chạy sau mọi đăng ký của Program.cs nên nó đè lên được. ConfigureServices chạy trước và sẽ bị Program.cs ghi đè, đây là lỗi tốn nhiều thời gian để phát hiện vì dịch vụ thật vẫn được dùng dù bạn nghĩ đã thay bằng fake."
+    },
+    {
+      question: "Vì sao không nên dùng UseInMemoryDatabase?",
+      answer: "Vì nó không phải database quan hệ mà là một Dictionary biết LINQ. Nó không có ràng buộc unique, không có khoá ngoại, không kiểm tra độ dài cột, không dịch SQL, và phân biệt hoa thường khác với SQL Server. Nguy hiểm nhất là truy vấn chạy tốt với nó có thể không dịch được sang SQL và ném exception trên production."
+    },
+    {
+      question: "Testcontainers mang lại gì?",
+      answer: "Nó khởi động một container database thật, chạy migration thật, và huỷ khi xong. Chi phí là vài giây khởi động, đổi lại migration được test, ràng buộc được test và truy vấn được dịch thật sự. Một migration lỗi bị phát hiện trong CI thay vì lúc deploy."
+    },
+    {
+      question: "Vì sao phải cô lập dữ liệu giữa các test?",
+      answer: "Vì test dùng chung database sẽ ảnh hưởng lẫn nhau, và kiểu lỗi đó chỉ xuất hiện khi chạy cùng nhau chứ không khi chạy riêng, rất khó chẩn đoán. Có thể dùng Respawn để đặt lại database, hoặc mỗi test một transaction rồi rollback, hoặc mỗi test một database riêng."
+    },
+    {
+      question: "Xử lý xác thực trong integration test thế nào?",
+      answer: "Đừng tắt Authorize, vì tắt là mất luôn khả năng test phân quyền. Thay vào đó đăng ký một authentication scheme riêng cho test, đọc vai trò từ một header để mỗi test tự chọn danh tính. Phân quyền vẫn chạy đầy đủ, chỉ phần lấy danh tính bị thay, nên test được cả đường thành công lẫn đường bị từ chối."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **Integration test là tầng đáng đầu tư nhất cho Web API** — nó bắt lỗi route, binding, middleware và DI.
+2. **InMemory provider làm test xanh trong khi production đỏ.** Dùng Testcontainers.
+3. **Đừng tắt `[Authorize]`** — thay authentication scheme để test được cả đường bị từ chối.
+
+## Tham khảo
+
+- [Integration tests in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/test/integration-tests)
+- [Testing EF Core applications](https://learn.microsoft.com/en-us/ef/core/testing/)
+- [Testing against your production database system](https://learn.microsoft.com/en-us/ef/core/testing/testing-with-the-database)
+- [Testcontainers for .NET](https://dotnet.testcontainers.org/)
 
 ## Điều hướng
 
