@@ -17636,11 +17636,11 @@ email = 42;        // Lỗi biên dịch: không gán int cho string được
 
 [code mermaid]
 flowchart LR
-    subgraph VT[Kieu gia tri - int, double, bool, DateTime, struct]
-        A[a = 5] -->|b = a| B[b = 5 - ban sao rieng]
+    subgraph VT[Kiểu giá trị — int, double, bool, DateTime, struct]
+        A[a = 5] -->|b = a| B[b = 5 — bản sao riêng]
     end
-    subgraph RT[Kieu tham chieu - class, string, array, List]
-        C[c tro toi Object#35;1] -->|d = c| D[d tro toi cung Object#35;1]
+    subgraph RT[Kiểu tham chiếu — class, string, array, List]
+        C[c trỏ tới Object#35;1] -->|d = c| D[d trỏ tới cùng Object#35;1]
     end
 [/code]
 
@@ -17760,7 +17760,7 @@ foreach (var customer in customers)               // 5.000 khách
 Đếm số phép so sánh:
 
 [code]
-5.000 khach x 200.000 don = 1.000.000.000 phep so sanh
+5.000 khách x 200.000 đơn = 1.000.000.000 phép so sánh
 [/code]
 
 Một tỷ phép so sánh — đó là 40 giây.
@@ -17770,8 +17770,8 @@ Một tỷ phép so sánh — đó là 40 giây.
 ### 1.11.2 — Vì sao tăng 10 lần dữ liệu lại chậm 100 lần
 
 [code]
-500 khach   x  20.000 don  =      10.000.000  ->  0,4 giay
-5.000 khach x 200.000 don  =   1.000.000.000  -> 40 giay
+500 khách   x  20.000 đơn  =      10.000.000  ->  0,4 giây
+5.000 khách x 200.000 đơn  =   1.000.000.000  -> 40 giây
 [/code]
 
 Dữ liệu tăng 10 lần ở cả hai chiều, nhưng số phép so sánh tăng 100 lần — vì 10 × 10 = 100. Đây là đặc trưng của độ phức tạp O(n²) (bài 1.8).
@@ -17803,8 +17803,8 @@ foreach (var customer in customers)               // 5.000 lần
 [/code]
 
 [code]
-200.000 + 5.000 = 205.000 thao tac    ->  0,4 giay
-(truoc: 1.000.000.000                 -> 40 giay)
+200.000 + 5.000 = 205.000 thao tác    ->  0,4 giây
+(trước: 1.000.000.000                 -> 40 giây)
 [/code]
 
 Nhanh hơn gần 5.000 lần, và code cũng không dài hơn bao nhiêu.
@@ -18008,7 +18008,7 @@ Dictionary<string, int> CountWordFrequency(string sentence)
 }
 
 // Test
-var frequency = CountWordFrequency("crm giup quan ly khach hang crm rat huu ich");
+var frequency = CountWordFrequency("crm giúp quản lý khách hàng crm rất hữu ích");
 foreach (var pair in frequency)
     Console.WriteLine($"{pair.Key}: {pair.Value} lần");
 [/code]
@@ -18020,10 +18020,10 @@ Xây dựng chương trình quản lý lead đơn giản:
 [code csharp]
 // Yêu cầu:
 // 1. Tạo Dictionary<string, decimal> lưu tên lead và doanh thu ước tính
-// 2. Hàm ThemLead(string ten, decimal doanhThu)
-// 3. Hàm XemTatCaLead() — in ra bảng gồm tên, doanh thu, và phân loại (Hot/Warm/Cold)
-// 4. Hàm TongDoanhThu() — trả về tổng doanh thu của tất cả lead
-// 5. Hàm LocTheoLoai(string loai) — trả về danh sách lead theo loại
+// 2. Hàm AddLead(string name, decimal revenue)
+// 3. Hàm ListAllLeads() — in ra bảng gồm tên, doanh thu, và phân loại (Hot/Warm/Cold)
+// 4. Hàm TotalRevenue() — trả về tổng doanh thu của tất cả lead
+// 5. Hàm FilterByTier(string tier) — trả về danh sách lead theo phân loại
 
 // Tiêu chí phân loại:
 // Hot:  >= 100,000,000 VND
@@ -18157,11 +18157,11 @@ Bốn tầng thụt lề, và phần logic thật nằm ở tầng sâu nhất.
 
 [code mermaid]
 flowchart TD
-    A[Vao ham] --> B{Du lieu khong hop le?}
-    B -->|Co| C[Tra ve ngay]
-    B -->|Khong| D{Dieu kien tiep theo sai?}
-    D -->|Co| C
-    D -->|Khong| E[Logic chinh - khong thut le]
+    A[Vào hàm] --> B{Dữ liệu không hợp lệ?}
+    B -->|Có| C[Trả về ngay]
+    B -->|Không| D{Điều kiện tiếp theo sai?}
+    D -->|Có| C
+    D -->|Không| E[Logic chính — không thụt lề]
 [/code]
 
 [code csharp]
@@ -18314,12 +18314,12 @@ Sau bài này bạn có thể:
 
 [code mermaid]
 flowchart TD
-    A[Can lap] --> B{Biet truoc so lan lap?}
-    B -->|Co, va can chi so| C[for]
-    B -->|Co, chi can tung phan tu| D[foreach]
-    B -->|Khong| E{Phai chay it nhat 1 lan?}
-    E -->|Co| F[do-while]
-    E -->|Khong| G[while]
+    A[Cần lặp] --> B{Biết trước số lần lặp?}
+    B -->|Có, và cần chỉ số| C[for]
+    B -->|Có, chỉ cần từng phần tử| D[foreach]
+    B -->|Không| E{Phải chạy ít nhất 1 lần?}
+    E -->|Có| F[do-while]
+    E -->|Không| G[while]
 [/code]
 
 [code csharp]
@@ -18686,13 +18686,13 @@ Sau bài này bạn có thể:
 
 [code mermaid]
 flowchart TD
-    A[Can luu nhieu phan tu] --> B{Thao tac chinh la gi?}
-    B -->|Duyet tuan tu, so luong co dinh| C[array]
-    B -->|Them/xoa o cuoi, duyet| D[List]
-    B -->|Tra theo khoa| E[Dictionary]
-    B -->|Kiem tra da ton tai chua| F[HashSet]
-    B -->|Vao truoc ra truoc| G[Queue]
-    B -->|Vao sau ra truoc| H[Stack]
+    A[Cần lưu nhiều phần tử] --> B{Thao tác chính là gì?}
+    B -->|Duyệt tuần tự, số lượng cố định| C[array]
+    B -->|Thêm/xoá ở cuối, duyệt| D[List]
+    B -->|Tra theo khoá| E[Dictionary]
+    B -->|Kiểm tra đã tồn tại chưa| F[HashSet]
+    B -->|Vào trước ra trước| G[Queue]
+    B -->|Vào sau ra trước| H[Stack]
 [/code]
 
 | Cấu trúc | Truy cập theo chỉ số | Tìm theo giá trị | Thêm vào cuối | Dùng khi |
@@ -19089,9 +19089,9 @@ Mỗi lần so sánh loại bỏ một nửa không gian còn lại. Một tri�
 
 [code mermaid]
 flowchart LR
-    A[Tim 1 dong trong bang 10 trieu dong] --> B{Co index tren cot loc?}
-    B -->|Khong| C[Full table scan - O n - quet 10 trieu dong]
-    B -->|Co| D[Index seek - O log n - khoang 24 buoc]
+    A[Tìm 1 dòng trong bảng 10 triệu dòng] --> B{Có index trên cột lọc?}
+    B -->|Không| C[Full table scan — O n — quét 10 triệu dòng]
+    B -->|Có| D[Index seek — O log n — khoảng 24 bước]
 [/code]
 
 Không có index, database phải quét toàn bảng: `O(n)`. Có index — thường là cây B-tree — nó tra như tìm nhị phân: `O(log n)`.
@@ -19341,8 +19341,8 @@ Nghe rõ ràng, nhưng có ba chỗ mơ hồ cần hỏi lại trước khi vi�
 Chỗ mơ hồ thứ hai là quan trọng nhất. Với doanh số 600 triệu:
 
 [code]
-Cach 1 (luy tien - phan vuot):  100tr x 2% + 400tr x 5% + 100tr x 8% = 30 trieu
-Cach 2 (toan bo theo bac):      600tr x 8%                           = 48 trieu
+Cách 1 (luỹ tiến — phần vượt):  100tr x 2% + 400tr x 5% + 100tr x 8% = 30 triệu
+Cách 2 (toàn bộ theo bậc):      600tr x 8%                           = 48 triệu
 [/code]
 
 Chênh 18 triệu cho một nhân viên. Đoán sai ở đây là sai tiền thật, và lỗi sẽ chỉ bị phát hiện khi có người thắc mắc bảng lương.
@@ -19617,26 +19617,26 @@ Nếu chỉ có 2 giờ: 2.5 và 2.8. Hai bài này chiếm phần lớn công v
 Cách học không hiệu quả:
 
 [code]
-Hoc thuoc: "DNS la he thong phan giai ten mien thanh dia chi IP"
--> Nho duoc vai ngay, roi quen
+Học thuộc: "DNS là hệ thống phân giải tên miền thành địa chỉ IP"
+-> Nhớ được vài ngày, rồi quên
 [/code]
 
 Cách học hiệu quả:
 
 [code]
-1. Mo terminal, go:  nslookup google.com
-2. Thay ket qua tra ve mot dia chi IP
-3. Go dia chi IP do vao trinh duyet — van ra Google
-4. "A, DNS la de khoi phai nho day so nay"
--> Hieu, va khong quen
+1. Mở terminal, gõ:  nslookup google.com
+2. Thấy kết quả trả về một địa chỉ IP
+3. Gõ địa chỉ IP đó vào trình duyệt — vẫn ra Google
+4. "À, DNS là để khỏi phải nhớ dãy số này"
+-> Hiểu, và không quên
 [/code]
 
 Với mỗi khái niệm trong module, tìm một cách tự tay thử nó. Vài lệnh đáng biết ngay:
 
 [code bash]
-nslookup crm.company.com          # DNS tra ve IP nao
-curl -i https://example.com       # Xem day du header phan hoi
-ping google.com                   # Do do tre mang
+nslookup crm.company.com          # DNS trả về IP nào
+curl -i https://example.com       # Xem đầy đủ header phản hồi
+ping google.com                   # Đo độ trễ mạng
 [/code]
 
 Và công cụ quan trọng nhất: DevTools của trình duyệt, tab Network. Mọi thứ trong module này đều quan sát được ở đó — request, header, mã trạng thái, thời gian từng chặng.
@@ -19714,7 +19714,7 @@ ETag: "a3f8b2c1"
 GET /api/products/123
 If-None-Match: "a3f8b2c1"
 
-HTTP/1.1 304 Not Modified          <- KHONG co body, tiet kiem bang thong
+HTTP/1.1 304 Not Modified          <- KHÔNG có body, tiết kiệm băng thông
 [/code]
 
 Hai cơ chế bổ sung nhau:
@@ -19729,9 +19729,9 @@ Hai cơ chế bổ sung nhau:
 Chỉ thị quan trọng nhất cần phân biệt:
 
 [code http]
-Cache-Control: public          # CDN va proxy duoc phep cache
-Cache-Control: private         # CHI trinh duyet cua nguoi dung
-Cache-Control: no-store        # KHONG duoc luu o dau ca
+Cache-Control: public          # CDN và proxy được phép cache
+Cache-Control: private         # CHỈ trình duyệt của người dùng
+Cache-Control: no-store        # KHÔNG được lưu ở đâu cả
 [/code]
 
 Nhầm `private` thành `public` cho dữ liệu riêng của người dùng là lỗ hổng thật: CDN có thể phục vụ dữ liệu của người này cho người khác.
@@ -19762,13 +19762,13 @@ Ba khái niệm đủ để bắt đầu: image (bản đóng gói), container (
 Vấn đề HTTP/2 giải quyết:
 
 [code]
-HTTP/1.1: moi ket noi TCP xu ly MOT request tai mot thoi diem
-          -> trinh duyet mo 6 ket noi song song
-          -> tai trang co 50 file phai cho theo dot
+HTTP/1.1: mỗi kết nối TCP xử lý MỘT request tại một thời điểm
+          -> trình duyệt mở 6 kết nối song song
+          -> tải trang có 50 file phải chờ theo đợt
 
-HTTP/2:   MOT ket noi, NHIEU request song song (multiplexing)
-          + nen header
-          + server day truoc tai nguyen
+HTTP/2:   MỘT kết nối, NHIỀU request song song (multiplexing)
+          + nén header
+          + server đẩy trước tài nguyên
 [/code]
 
 Điểm hay bị hiểu nhầm: lợi ích của HTTP/2 chủ yếu dành cho trang web có nhiều tài nguyên nhỏ (ảnh, CSS, JavaScript). Với một API trả về JSON theo từng request riêng lẻ, vấn đề "50 file phải chờ theo đợt" không tồn tại, nên cải thiện là không đáng kể.
@@ -19784,8 +19784,8 @@ gRPC dùng HTTP/2 làm nền, và đó là nơi bạn gặp nó rõ nhất (bài
 Ưu tiên trung bình. Cần khi có tính năng thời gian thực.
 
 [code]
-HTTP:       Client hoi -> Server tra loi -> ket thuc
-WebSocket:  Ket noi MO lien tuc, CA HAI ben gui bat cu luc nao
+HTTP:       Client hỏi -> Server trả lời -> kết thúc
+WebSocket:  Kết nối MỞ liên tục, CẢ HAI bên gửi bất cứ lúc nào
 [/code]
 
 Cần khi: chat, thông báo đẩy, bảng giá cập nhật liên tục, hiển thị ai đang online.
@@ -19866,14 +19866,14 @@ Sau bài này bạn có thể:
 ### 2.12.1 — Triệu chứng
 
 [code]
-Nguoi dung: "Toi dang nhap duoc, nhung bam vao bat ky menu nao
-             deu bi day ve trang dang nhap."
+Người dùng: "Tôi đăng nhập được, nhưng bấm vào bất kỳ menu nào
+             đều bị đẩy về trang đăng nhập."
 
-Kiem tra ban dau:
-  - POST /api/auth/login  -> 200 OK, tra ve token
+Kiểm tra ban đầu:
+  - POST /api/auth/login  -> 200 OK, trả về token
   - GET  /api/leads       -> 401 Unauthorized
-  - Xay ra voi MOI nguoi dung
-  - Moi bat dau sang nay, hom qua van binh thuong
+  - Xảy ra với MỌI người dùng
+  - Mới bắt đầu sáng nay, hôm qua vẫn bình thường
 [/code]
 
 Hai thông tin trong phần cuối đã thu hẹp phạm vi rất nhiều: mọi người dùng nghĩa là không phải vấn đề tài khoản cá nhân; mới bắt đầu hôm nay nghĩa là có gì đó vừa thay đổi.
@@ -19899,7 +19899,7 @@ Mở DevTools, tab Network, xem request `GET /api/leads`:
 Request URL:     https://crm.company.com/api/leads
 Status Code:     401 Unauthorized
 Request Headers:
-  Authorization: Bearer eyJhbGciOiJIUzI1NiIs...     <- token CO gui di
+  Authorization: Bearer eyJhbGciOiJIUzI1NiIs...     <- token CÓ gửi đi
 [/code]
 
 Hai kết luận ngay:
@@ -19912,7 +19912,7 @@ Hai kết luận ngay:
 ### 2.12.4 — Chặng 3: request có tới backend không?
 
 [code bash]
-# Gui request truc tiep, bo qua trinh duyet
+# Gửi request trực tiếp, bỏ qua trình duyệt
 curl -i https://crm.company.com/api/leads \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
 [/code]
@@ -19941,10 +19941,10 @@ echo "eyJzdWIiOiIxMjMiLCJleHAiOjE3NjQ5NDY1OTF9" | base64 -d
 [/code]
 
 [code bash]
-# Doi timestamp sang thoi gian doc duoc
+# Đổi timestamp sang thời gian đọc được
 date -u -d @1764946591    # exp: 02:03:11 UTC
-date -u -d @1764945691    # iat: 01:48:11 UTC  (cap luc nay)
-date -u                   # BAY GIO: 02:15:33 UTC   <-- !!
+date -u -d @1764945691    # iat: 01:48:11 UTC  (cấp lúc này)
+date -u                   # BÂY GIỜ: 02:15:33 UTC   <-- !!
 [/code]
 
 Token được cấp lúc `01:48:11` với hạn 15 phút, tức hết hạn lúc `02:03:11`. Nhưng "bây giờ" theo đồng hồ máy là `02:15:33` — muộn hơn 12 phút so với lúc token còn hạn.
@@ -19958,8 +19958,8 @@ timedatectl status
 [code]
                Local time: Wed 2026-09-24 02:15:33 UTC
           Time zone: UTC (UTC, +0000)
-System clock synchronized: no                    <-- KHONG dong bo
-              NTP service: inactive              <-- NTP DA TAT
+System clock synchronized: no                    <-- KHÔNG đồng bộ
+              NTP service: inactive              <-- NTP ĐÃ TẮT
 [/code]
 
 Nguyên nhân gốc: dịch vụ NTP bị tắt trong một đợt cập nhật hệ thống đêm qua. Đồng hồ server trôi dần, và tới sáng nay nó lệch đủ để mọi token vừa cấp đã bị coi là hết hạn.
@@ -19969,10 +19969,10 @@ Nguyên nhân gốc: dịch vụ NTP bị tắt trong một đợt cập nhật 
 JWT chứa `exp` là một mốc thời gian tuyệt đối (số giây từ 1970). Bên cấp và bên kiểm tra đều so nó với đồng hồ của mình. Nếu hai đồng hồ lệch nhau, kết luận sẽ khác nhau.
 
 [code]
-Server cap token:    dung dong ho A -> exp = A + 15 phut
-Server kiem tra:     dung dong ho B
+Server cấp token:    dùng đồng hồ A -> exp = A + 15 phút
+Server kiểm tra:     dùng đồng hồ B
 
-Neu B nhanh hon A 20 phut -> token vua cap da "het han"
+Nếu B nhanh hơn A 20 phút -> token vừa cấp đã "hết hạn"
 [/code]
 
 Trong ca này, cả hai là cùng một server — nhưng đồng hồ trôi giữa lúc cấp và lúc kiểm tra, và độ trôi lớn hơn khoảng `ClockSkew` mặc định.
@@ -19982,7 +19982,7 @@ Sửa:
 [code bash]
 sudo timedatectl set-ntp true
 sudo systemctl restart systemd-timesyncd
-timedatectl status | grep synchronized      # xac nhan: yes
+timedatectl status | grep synchronized      # xác nhận: yes
 [/code]
 
 Vấn đề biến mất ngay, không cần deploy lại gì.
@@ -20054,15 +20054,15 @@ Thông điệp nói thẳng thiếu gì. Ba biến thể khác bạn sẽ gặp:
 
 [code]
 ... does not have HTTP ok status.
-    -> Server tra ve loi cho request preflight (OPTIONS)
+    -> Server trả về lỗi cho request preflight (OPTIONS)
 
 ... The value of the 'Access-Control-Allow-Origin' header is not equal to
     the supplied origin.
-    -> Co header nhung SAI gia tri origin
+    -> Có header nhưng SAI giá trị origin
 
 ... Request header field authorization is not allowed by
     Access-Control-Allow-Headers.
-    -> Thieu khai bao header 'authorization' duoc phep
+    -> Thiếu khai báo header 'authorization' được phép
 [/code]
 
 Mỗi biến thể chỉ ra một chỗ sửa khác nhau. Đọc kỹ tiết kiệm rất nhiều thời gian (CORS trên MDN (https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS)).
@@ -20070,16 +20070,16 @@ Mỗi biến thể chỉ ra một chỗ sửa khác nhau. Đọc kỹ tiết ki�
 ### 2.13.2 — Hiểu lầm lớn nhất
 
 [code]
-Hieu SAI:  "Server tu choi request cua toi."
-Thuc te:   Server DA NHAN request, DA XU LY, DA TRA VE phan hoi.
-           TRINH DUYET tu choi dua phan hoi do cho JavaScript.
+Hiểu SAI:  "Server từ chối request của tôi."
+Thực tế:   Server ĐÃ NHẬN request, ĐÃ XỬ LÝ, ĐÃ TRẢ VỀ phản hồi.
+           TRÌNH DUYỆT từ chối đưa phản hồi đó cho JavaScript.
 [/code]
 
 Bằng chứng: chạy cùng request bằng `curl` sẽ thành công.
 
 [code bash]
 curl -i https://api.company.com/leads -H "Origin: https://crm.company.com"
-# 200 OK — du lieu tra ve binh thuong
+# 200 OK — dữ liệu trả về bình thường
 [/code]
 
 `curl` không phải trình duyệt nên không thực thi chính sách CORS.
@@ -20102,7 +20102,7 @@ Với một số request, trình duyệt gửi trước một request `OPTIONS` 
                   Access-Control-Allow-Headers: authorization, content-type
                   Access-Control-Max-Age: 3600
 
-3. Trinh duyet -> POST /api/leads   (gio moi gui request that)
+3. Trình duyệt -> POST /api/leads   (giờ mới gửi request thật)
 [/code]
 
 Khi nào có preflight: khi request dùng method khác `GET`/`HEAD`/`POST`, hoặc có header tuỳ chỉnh (như `Authorization`), hoặc `Content-Type` là `application/json`.
@@ -20120,17 +20120,17 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins(
                   "https://crm.company.com",
-                  "http://localhost:5173")        // moi truong phat trien
+                  "http://localhost:5173")        // môi trường phát triển
               .AllowAnyHeader()
               .AllowAnyMethod()
-              .AllowCredentials()                 // neu dung cookie
+              .AllowCredentials()                 // nếu dùng cookie
               .SetPreflightMaxAge(TimeSpan.FromHours(1));
     });
 });
 
 var app = builder.Build();
 
-app.UseCors("CrmFrontend");     // PHAI truoc UseAuthentication va MapControllers
+app.UseCors("CrmFrontend");     // PHẢI trước UseAuthentication và MapControllers
 [/code]
 
 ### 2.13.5 — Ba cấu hình sai thường gặp
@@ -20138,7 +20138,7 @@ app.UseCors("CrmFrontend");     // PHAI truoc UseAuthentication va MapController
 Sai 1 — `UseCors` đặt sai vị trí.
 
 [code csharp]
-// SAI — CORS chay SAU khi request da bi tu choi vi chua xac thuc
+// SAI — CORS chạy SAU khi request đã bị từ chối vì chưa xác thực
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseCors("CrmFrontend");     // qua muon
@@ -20150,7 +20150,7 @@ Middleware chạy theo thứ tự đăng ký. Request `OPTIONS` của preflight 
 Sai 2 — `AllowAnyOrigin` cùng `AllowCredentials`.
 
 [code csharp]
-// KHONG HOAT DONG — dac ta cam to hop nay
+// KHÔNG HOẠT ĐỘNG — đặc tả cấm tổ hợp này
 policy.AllowAnyOrigin().AllowCredentials();
 [/code]
 
@@ -20384,10 +20384,10 @@ Sau bài này bạn có thể:
 
 [code mermaid]
 sequenceDiagram
-    participant B as Trinh duyet
+    participant B as Trình duyệt
     participant D as DNS resolver
-    participant S as May chu
-    B->>D: crm.company.com la IP nao?
+    participant S as Máy chủ
+    B->>D: crm.company.com là IP nào?
     D-->>B: 203.0.113.10
     B->>S: TCP SYN
     S-->>B: SYN-ACK
@@ -20538,10 +20538,10 @@ Sau bài này bạn có thể:
 sequenceDiagram
     participant C as Client
     participant S as Server
-    C->>S: Toi can danh sach khach hang
+    C->>S: Tôi cần danh sách khách hàng
     S-->>C: 200 OK + JSON
-    Note over S: Server KHONG the tu gui gi<br/>khi chua duoc hoi
-    C->>S: Co gi moi khong?
+    Note over S: Server KHÔNG thể tự gửi gì<br/>khi chưa được hỏi
+    C->>S: Có gì mới không?
     S-->>C: 204 No Content
 [/code]
 
@@ -20616,7 +20616,7 @@ Lỗ hổng sinh ra từ việc tin `id` mà client gửi lên có tên riêng: 
 flowchart TD
     W[Web SPA] --> A[API]
     M[Mobile app] --> A
-    P[Cong thanh toan] --> A
+    P[Cổng thanh toán] --> A
     I[Job noi bo] --> A
     A --> DB[(Database)]
 [/code]
@@ -20744,11 +20744,11 @@ Idempotency-Key: 7c9e6679-7425-40de-944b-e07fc1f90ae7
 
 [code mermaid]
 flowchart TD
-    A[Status code] --> B[1xx - Thong tin]
-    A --> C[2xx - Thanh cong]
-    A --> D[3xx - Chuyen huong]
-    A --> E[4xx - Loi o phia CLIENT]
-    A --> F[5xx - Loi o phia SERVER]
+    A[Status code] --> B[1xx — Thông tin]
+    A --> C[2xx — Thành công]
+    A --> D[3xx — Chuyển hướng]
+    A --> E[4xx — Lỗi ở phía CLIENT]
+    A --> F[5xx — Lỗi ở phía SERVER]
 [/code]
 
 Ranh giới `4xx`/`5xx` quyết định ai phải đi sửa: `4xx` là "bạn gửi sai", `5xx` là "tôi hỏng". Đặt sai nhóm là đổ lỗi nhầm người, và làm hỏng mọi cảnh báo dựng trên tỉ lệ lỗi `5xx`.
@@ -21051,10 +21051,10 @@ DBMS tồn tại để giải quyết đúng bốn thứ này.
 
 [code mermaid]
 flowchart LR
-    A[A - Atomicity<br/>Tron ven] --> E[Giao dich]
-    C[C - Consistency<br/>Nhat quan] --> E
-    I[I - Isolation<br/>Cach ly] --> E
-    D[D - Durability<br/>Ben vung] --> E
+    A[A — Atomicity<br/>Trọn vẹn] --> E[Giao dịch]
+    C[C — Consistency<br/>Nhất quán] --> E
+    I[I — Isolation<br/>Cách ly] --> E
+    D[D — Durability<br/>Bền vững] --> E
 [/code]
 
 Atomicity — trọn vẹn hoặc không gì cả. Chuyển 1 triệu từ tài khoản A sang B gồm hai bước: trừ A, cộng B. Nếu hỏng giữa chừng, không được phép để tiền bốc hơi. Giao dịch hoặc xong cả hai, hoặc quay về như chưa làm gì.
@@ -21160,11 +21160,11 @@ Sau bài này bạn có thể:
 
 [code mermaid]
 flowchart LR
-    A[Request den] --> B{Authentication<br/>Ban la ai?}
-    B -->|Khong biet| C[401 Unauthorized]
-    B -->|Da biet| D{Authorization<br/>Ban duoc lam gi?}
-    D -->|Khong du quyen| E[403 Forbidden]
-    D -->|Duoc| F[Xu ly request]
+    A[Request đến] --> B{Authentication<br/>Bạn là ai?}
+    B -->|Không biết| C[401 Unauthorized]
+    B -->|Đã biết| D{Authorization<br/>Bạn được làm gì?}
+    D -->|Không đủ quyền| E[403 Forbidden]
+    D -->|Được| F[Xử lý request]
 [/code]
 
 | | Authentication | Authorization |
@@ -21304,12 +21304,12 @@ Sau bài này bạn có thể:
 
 [code mermaid]
 flowchart LR
-    A[May chu vat ly] --> B[VPS]
+    A[Máy chủ vật lý] --> B[VPS]
     B --> C[Container]
     C --> D[PaaS]
     D --> E[Serverless]
-    A -.- F[Kiem soat nhieu<br/>Trach nhiem nhieu]
-    E -.- G[Tien loi nhieu<br/>Rang buoc nhieu]
+    A -.- F[Kiểm soát nhiều<br/>Trách nhiệm nhiều]
+    E -.- G[Tiện lợi nhiều<br/>Ràng buộc nhiều]
 [/code]
 
 | Mô hình | Bạn lo | Nhà cung cấp lo | Hợp khi |
@@ -21437,9 +21437,9 @@ Sau bài này bạn có thể:
 
 [code mermaid]
 flowchart LR
-    A[Ma nguon C#] -->|Roslyn| B[IL trong file .dll]
-    B -->|JIT luc chay| C[Ma may cho CPU hien tai]
-    B -->|AOT luc build| D[Ma may dong goi san]
+    A[Mã nguồn C#] -->|Roslyn| B[IL trong file .dll]
+    B -->|JIT lúc chạy| C[Mã máy cho CPU hiện tại]
+    B -->|AOT lúc build| D[Mã máy đóng gói sẵn]
 [/code]
 
 Bước 1 — biên dịch. `dotnet build` dùng Roslyn dịch C# thành IL (Intermediate Language), đóng vào file `.dll`. IL không phụ thuộc CPU hay hệ điều hành.
@@ -21606,8 +21606,8 @@ Trước khi có hệ thống quản lý phiên bản, người ta làm thế n�
 bao-cao.docx
 bao-cao-v2.docx
 bao-cao-v2-final.docx
-bao-cao-v2-final-THAT-SU-CUOI.docx
-bao-cao-v2-final-sua-theo-sep.docx
+báo-cáo-v2-final-THẬT-SỰ-CUỐI.docx
+báo-cáo-v2-final-sửa-theo-sếp.docx
 [/code]
 
 Bốn vấn đề không giải quyết được bằng cách đặt tên file:
@@ -21629,8 +21629,8 @@ Nghe có vẻ tốn chỗ, nhưng không: file nào không đổi thì commit m�
 
 [code mermaid]
 flowchart LR
-    C1[Commit A<br/>file1 v1<br/>file2 v1] --> C2[Commit B<br/>file1 v1 - tro lai<br/>file2 v2]
-    C2 --> C3[Commit C<br/>file1 v2<br/>file2 v2 - tro lai]
+    C1[Commit A<br/>file1 v1<br/>file2 v1] --> C2[Commit B<br/>file1 v1 — trỏ lại<br/>file2 v2]
+    C2 --> C3[Commit C<br/>file1 v2<br/>file2 v2 — trỏ lại]
 [/code]
 
 Hệ quả thực tế: chuyển sang một commit bất kỳ đều nhanh như nhau, vì Git chỉ việc lấy ảnh chụp đó ra, không phải dựng lại từ chuỗi bản vá.
@@ -21661,8 +21661,8 @@ Và đó cũng là lý do bài sau nói rằng gần như mọi sai lầm đều
 
 [code mermaid]
 flowchart LR
-    W[Working directory<br/>file ban dang sua] -->|git add| S[Staging area<br/>chon phan se commit]
-    S -->|git commit| R[Repository<br/>lich su vinh vien]
+    W[Working directory<br/>file bạn đang sửa] -->|git add| S[Staging area<br/>chọn phần sẽ commit]
+    S -->|git commit| R[Repository<br/>lịch sử vĩnh viễn]
     R -->|git checkout| W
 [/code]
 
@@ -21784,18 +21784,19 @@ Sau bài này bạn có thể:
 [/code]
 
 [code]
-feat(orders): them bao cao doanh thu theo chi nhanh
+feat(orders): add revenue report grouped by branch
 
-Bao cao cu chi gop toan cong ty, khong tach duoc theo chi nhanh nen
-khong dung de danh gia hieu qua tung noi. Truy van gom theo branch_id
-va dung index da co tren (branch_id, created_at).
+The old report aggregated the whole company and could not be split by
+branch, so it was useless for judging each location. The new query
+groups by branch_id and reuses the existing (branch_id, created_at)
+index.
 
 Closes #142
 [/code]
 
 Bốn quy tắc cho dòng đầu:
 
-1. Thể mệnh lệnh — `them`, không phải `da them`.
+1. Thể mệnh lệnh — `add`, không phải `added`.
 2. Dưới 72 ký tự.
 3. Không viết hoa chữ đầu mô tả, không chấm cuối câu.
 4. Phạm vi trong ngoặc là tuỳ chọn, nên là tên module hoặc vùng chức năng.
@@ -21822,17 +21823,17 @@ Ranh giới hay gây tranh cãi nhất là `refactor` và `fix`. Tiêu chí dứ
 Hai cách đánh dấu, cả hai đều làm công cụ tăng số MAJOR:
 
 [code]
-feat(api)!: doi dinh dang tra ve cua endpoint /orders
+feat(api)!: change response format of the /orders endpoint
 
-Truong `total` doi tu number sang string de tranh mat chinh xac voi
-so nguyen lon trong JavaScript.
+The `total` field changes from number to string to avoid precision
+loss on large integers in JavaScript.
 [/code]
 
 [code]
-feat(api): doi dinh dang tra ve cua endpoint /orders
+feat(api): change response format of the /orders endpoint
 
-BREAKING CHANGE: truong `total` doi tu number sang string.
-Client doc truong nay phai parse lai.
+BREAKING CHANGE: the `total` field changes from number to string.
+Clients reading this field must parse it again.
 [/code]
 
 Dấu `!` gọn hơn; footer `BREAKING CHANGE:` cho phép mô tả dài và hướng dẫn di trú. Với thay đổi lớn, dùng footer.
@@ -21843,9 +21844,9 @@ Lưu ý: `fix!` cũng là breaking change. Sửa một lỗi theo cách làm đ�
 
 [code mermaid]
 flowchart LR
-    A[Commit theo quy uoc] --> B[Sinh CHANGELOG]
-    A --> C[Tang so phien ban tu dong]
-    A --> D[Loc lich su theo loai]
+    A[Commit theo quy ước] --> B[Sinh CHANGELOG]
+    A --> C[Tăng số phiên bản tự động]
+    A --> D[Lọc lịch sử theo loại]
 [/code]
 
 1. Changelog tự động. Công cụ đọc lịch sử và nhóm theo loại:
@@ -21854,10 +21855,10 @@ flowchart LR
 ## 1.3.0 (2026-09-24)
 
 ### Features
-* **orders:** them bao cao doanh thu theo chi nhanh (a1b2c3d)
+* **orders:** add revenue report grouped by branch (a1b2c3d)
 
 ### Bug Fixes
-* **orders:** chan don hang co tong tien am (e4f5g6h)
+* **orders:** reject orders with negative total (e4f5g6h)
 [/code]
 
 2. Tăng phiên bản tự động. Có `feat` từ lần phát hành trước → tăng minor. Chỉ có `fix` → tăng patch. Có breaking change → tăng major. Không ai phải quyết định thủ công, và không ai quên.
@@ -21942,10 +21943,6 @@ Tiêu chí hoàn thành: bạn có tỉ lệ cụ thể, và nhận ra rằng co
 
 Gợi ý. Lấy danh sách rồi phân loại:
 
-[code bash]
-git log --oneline -30 --no-merges
-[/code]
-
 [… phần còn lại đã lược bớt]
 
 ============================================================================
@@ -21980,14 +21977,14 @@ Tình huống: "tính năng này hoạt động tháng trước, giờ hỏng, v
 
 [code bash]
 git bisect start
-git bisect bad                    # commit hien tai co loi
-git bisect good v1.2.0            # phien ban nay chay tot
+git bisect bad                    # commit hiện tại có lỗi
+git bisect good v1.2.0            # phiên bản này chạy tốt
 
-# Git tu checkout commit o giua -> ban kiem tra -> tra loi
+# Git tự checkout commit ở giữa -> bạn kiểm tra -> trả lời
 git bisect good        # hoac: git bisect bad
-# ... lap lai ...
+# ... lặp lại ...
 
-# Ket qua:
+# Kết quả:
 # a3f8b2c1 is the first bad commit
 git bisect reset
 [/code]
@@ -22014,18 +22011,18 @@ git rebase -i main
 [/code]
 
 [code]
-pick a3f8b2c them entity Lead
-pick 7c1d9e4 sua loi chinh ta
-pick 2f9a8b3 them validation
-pick 8e2c4d1 sua loi chinh ta lan 2
-pick 1a7f3e9 quen file
+pick a3f8b2c add Lead entity
+pick 7c1d9e4 fix typo
+pick 2f9a8b3 add validation
+pick 8e2c4d1 fix typo again
+pick 1a7f3e9 forgot a file
 
-# Doi thanh:
-pick   a3f8b2c them entity Lead
-squash 7c1d9e4 sua loi chinh ta
-pick   2f9a8b3 them validation
-squash 8e2c4d1 sua loi chinh ta lan 2
-squash 1a7f3e9 quen file
+# Đổi thành:
+pick   a3f8b2c add Lead entity
+squash 7c1d9e4 fix typo
+pick   2f9a8b3 add validation
+squash 8e2c4d1 fix typo again
+squash 1a7f3e9 forgot a file
 [/code]
 
 Năm commit lộn xộn thành hai commit có ý nghĩa. Người review đọc được, và `git bisect` sau này cũng chính xác hơn.
@@ -22045,7 +22042,7 @@ Các lệnh dùng nhiều nhất:
 ### 3.12.3 — Khi nào KHÔNG được rebase
 
 [code bash]
-# NGUY HIEM — nhanh nay da push va nguoi khac dang dung
+# NGUY HIỂM — nhánh này đã push và người khác đang dùng
 git checkout main
 git rebase feature/abc
 git push --force
@@ -22075,13 +22072,13 @@ Nó từ chối push nếu remote có commit mới mà bạn chưa thấy — t�
 Tình huống: đang làm dở một tính năng, có bug production cần sửa ngay.
 
 [code bash]
-# Cach thong thuong: stash, checkout, sua, checkout lai, stash pop
-# -> de quen stash, va mat trang thai build
+# Cách thông thường: stash, checkout, sửa, checkout lại, stash pop
+# -> dễ quên stash, và mất trạng thái build
 
-# Worktree: mo mot THU MUC khac cho cung repo
+# Worktree: mở một THƯ MỤC khác cho cùng repo
 git worktree add ../crm-hotfix main
 cd ../crm-hotfix
-# sua bug, commit, push — thu muc goc KHONG bi dung toi
+# sửa bug, commit, push — thư mục gốc KHÔNG bị đụng tới
 
 cd ../crm
 git worktree remove ../crm-hotfix
@@ -22097,7 +22094,7 @@ Lợi ích cụ thể: thư mục gốc giữ nguyên mọi thứ — file đang
 # .git/hooks/pre-commit
 #!/bin/bash
 dotnet format --verify-no-changes || {
-    echo "Code chua dung dinh dang. Chay: dotnet format"
+    echo "Code chưa đúng định dạng. Chạy: dotnet format"
     exit 1
 }
 [/code]
@@ -22105,7 +22102,7 @@ dotnet format --verify-no-changes || {
 Hạn chế lớn: hook nằm trong `.git/` nên không được commit và không tự chia sẻ cho cả đội. Giải pháp:
 
 [code bash]
-# Dat hook trong thu muc duoc commit
+# Đặt hook trong thư mục được commit
 git config core.hooksPath .githooks
 [/code]
 
@@ -22122,15 +22119,15 @@ Lưu ý: hook chạy ở máy lập trình viên và bỏ qua được bằng `-
 | Trunk-based | Đội trưởng thành, CI mạnh | Thấp nhưng đòi hỏi kỷ luật |
 
 [code]
-GitHub Flow (don gian nhat, du cho phan lon du an):
+GitHub Flow (đơn giản nhất, đủ cho phần lớn dự án):
   main  ──●──●──●──●──
            \      /
    feature  ●──●─┘
 
-  1. Tach nhanh tu main
-  2. Commit, push, mo PR
-  3. Review, merge vao main
-  4. Trien khai tu main
+  1. Tách nhánh từ main
+  2. Commit, push, mở PR
+  3. Review, merge vào main
+  4. Triển khai từ main
 [/code]
 
 Git Flow có `develop`, `release`, `hotfix`, `feature` — mạnh nhưng nặng nề. Nó phù hợp với phần mềm phát hành theo phiên bản (v1.0, v1.1). Với ứng dụng web triển khai liên tục, nó thường là chi phí thuần.
@@ -22168,11 +22165,11 @@ Sau bài này bạn có thể:
 ### 3.13.1 — Tình huống
 
 [code]
-14:32  Lap trinh vien moi commit "them cau hinh moi truong"
+14:32  Lập trình viên mới commit "chore: add environment config"
 14:33  git push origin main
-14:35  Nhan email tu GitHub: "Possible valid secrets found in your repository"
-14:36  Kiem tra: appsettings.json chua chuoi ket noi SQL Server production
-       kem tai khoan sa va mat khau
+14:35  Nhận email từ GitHub: "Possible valid secrets found in your repository"
+14:36  Kiểm tra: appsettings.json chứa chuỗi kết nối SQL Server production
+       kèm tài khoản sa và mật khẩu
 [/code]
 
 Repository là public. Bí mật đã ở trên mạng 3 phút.
@@ -22180,9 +22177,9 @@ Repository là public. Bí mật đã ở trên mạng 3 phút.
 Phản ứng đầu tiên của hầu hết mọi người — và là phản ứng sai:
 
 [code bash]
-# SAI — lam viec nay dau tien
+# SAI — làm việc này đầu tiên
 git rm --cached appsettings.json
-git commit -m "xoa file cau hinh"
+git commit -m "chore: remove config file"
 git push
 [/code]
 
@@ -22203,7 +22200,7 @@ Nếu bí mật là khoá API, thu hồi khoá đó ở nhà cung cấp. Nếu l
 Bước 2 — kiểm tra xem đã bị dùng chưa.
 
 [code sql]
--- SQL Server: xem cac ket noi gan day
+-- SQL Server: xem các kết nối gần đây
 SELECT login_name, host_name, program_name, login_time
 FROM sys.dm_exec_sessions
 WHERE login_name = 'sa'
@@ -22215,7 +22212,7 @@ Tìm kết nối từ địa chỉ IP lạ. Nếu có, phạm vi sự cố rộn
 Bước 3 — xoá file khỏi lịch sử.
 
 [code bash]
-# git-filter-repo — cong cu duoc khuyen nghi hien nay
+# git-filter-repo — công cụ được khuyến nghị hiện nay
 pip install git-filter-repo
 git filter-repo --path appsettings.json --invert-paths
 
@@ -22234,12 +22231,12 @@ Bước 5 — kiểm tra fork. Nếu repository đã bị fork, các fork đó v
 ### 3.13.3 — Vì sao xoá commit không đủ
 
 [code]
-14:33  Push commit chua bi mat
-14:33  GitHub ghi vao event log (cong khai qua API)
-14:33  Cac dich vu quet bi mat tu dong doc thay
-14:34  Bot thu ket noi bang thong tin vua lay duoc
-14:35  Ban nhan canh bao
-14:40  Ban xoa commit  <- MUON 7 phut
+14:33  Push commit chứa bí mật
+14:33  GitHub ghi vào event log (công khai qua API)
+14:33  Các dịch vụ quét bí mật tự động đọc thấy
+14:34  Bot thử kết nối bằng thông tin vừa lấy được
+14:35  Bạn nhận cảnh báo
+14:40  Bạn xoá commit  <- MUỘN 7 phút
 [/code]
 
 Các bot quét GitHub public hoạt động liên tục và phản ứng trong vòng vài giây. Khoảng thời gian từ lúc push tới lúc bạn phát hiện, dù chỉ vài phút, là quá đủ.
@@ -22271,8 +22268,8 @@ Lớp 2 — pre-commit hook chặn tại máy:
 # .git/hooks/pre-commit
 #!/bin/bash
 if git diff --cached | grep -qiE "(password|secret|api[_-]?key|connectionstring)\s*[:=]\s*['\"][^'\"]{8,}"; then
-    echo "CANH BAO: co the chua bi mat trong thay doi nay"
-    echo "Kiem tra lai, hoac dung --no-verify neu chac chan an toan"
+    echo "CẢNH BÁO: có thể chứa bí mật trong thay đổi này"
+    echo "Kiểm tra lại, hoặc dùng --no-verify nếu chắc chắn an toàn"
     exit 1
 fi
 [/code]
@@ -22282,15 +22279,15 @@ Dùng Gitleaks (https://github.com/gitleaks/gitleaks) sẽ tốt hơn hook tự 
 Lớp 3 — quản lý bí mật đúng cách:
 
 [code bash]
-# Moi truong phat trien: user secrets — luu NGOAI thu muc du an
+# Môi trường phát triển: user secrets — lưu NGOÀI thư mục dự án
 dotnet user-secrets init
 dotnet user-secrets set "ConnectionStrings:Default" "Server=localhost;..."
 [/code]
 
 [code csharp]
-// Production: bien moi truong hoac vault
+// Production: biến môi trường hoặc vault
 var connectionString = builder.Configuration.GetConnectionString("Default");
-// Doc tu bien moi truong ConnectionStrings__Default
+// Đọc từ biến môi trường ConnectionStrings__Default
 [/code]
 
 Với `user-secrets`, bí mật nằm ở thư mục người dùng — không thể vô tình commit được, vì nó không nằm trong cây thư mục dự án (bài 15.5).
@@ -22300,12 +22297,12 @@ Với `user-secrets`, bí mật nằm ở thư mục người dùng — không t
 Mất commit sau `git reset --hard`:
 
 [code bash]
-# Tuong da mat, nhung reflog con giu
+# Tưởng đã mất, nhưng reflog còn giữ
 git reflog
 # a3f8b2c HEAD@{0}: reset: moving to HEAD~3
-# 7c1d9e4 HEAD@{1}: commit: them tinh nang bao cao   <- commit "da mat"
+# 7c1d9e4 HEAD@{1}: commit: feat: add revenue report   <- commit "đã mất"
 
-git reset --hard 7c1d9e4      # khoi phuc
+git reset --hard 7c1d9e4      # khôi phục
 [/code]
 
 `git reflog` ghi lại mọi lần `HEAD` di chuyển và giữ khoảng 90 ngày. Gần như mọi thứ "mất" trong Git đều tìm lại được ở đây.
@@ -22313,9 +22310,9 @@ git reset --hard 7c1d9e4      # khoi phuc
 Commit nhầm vào `main`:
 
 [code bash]
-git branch feature/bao-cao        # tao nhanh tai commit hien tai
-git reset --hard origin/main      # dua main ve trang thai tren remote
-git checkout feature/bao-cao      # tiep tuc lam tren nhanh dung
+git branch feature/revenue-report # tạo nhánh tại commit hiện tại
+git reset --hard origin/main      # đưa main về trạng thái trên remote
+git checkout feature/revenue-report # tiếp tục làm trên nhánh đúng
 [/code]
 
 Thứ tự quan trọng: tạo nhánh trước, reset sau. Ngược lại là mất công việc thật.
@@ -22355,12 +22352,12 @@ Sau bài này bạn có thể:
 ### 3.14.1 — Tình huống
 
 [code]
-An:   tao migration "ThemCotSoDienThoaiVaoLead"
-Binh: tao migration "ThemBangGhiChu"
-Ca hai cung xuat phat tu main, lam song song trong 2 ngay
+An:   tạo migration "AddPhoneNumberToLead"
+Bình: tạo migration "AddNoteTable"
+Cả hai cùng xuất phát từ main, làm song song trong 2 ngày
 
-An merge truoc  -> OK
-Binh merge sau  -> CONFLICT trong AppDbContextModelSnapshot.cs
+An merge trước  -> OK
+Bình merge sau  -> CONFLICT trong AppDbContextModelSnapshot.cs
 [/code]
 
 [code csharp]
@@ -22372,7 +22369,7 @@ Binh merge sau  -> CONFLICT trong AppDbContextModelSnapshot.cs
     b.Property<string>("Note")
         .HasMaxLength(2000)
         .HasColumnType("nvarchar(2000)");
->>>>>>> feature/them-bang-ghi-chu
+>>>>>>> feature/note-table
 [/code]
 
 Nhìn thì có vẻ dễ: giữ cả hai đoạn là xong.
@@ -22382,9 +22379,9 @@ Nhìn thì có vẻ dễ: giữ cả hai đoạn là xong.
 `ModelSnapshot.cs` không phải code bạn viết — nó là ảnh chụp trạng thái hiện tại của mô hình dữ liệu, do EF Core sinh ra để so sánh khi tạo migration tiếp theo.
 
 [code]
-EF Core tao migration bang cach:
-  So sanh (model trong code)  vs  (ModelSnapshot.cs)
-  -> Sinh ra cac lenh de dua database tu snapshot ve model moi
+EF Core tạo migration bằng cách:
+  So sánh (model trong code)  vs  (ModelSnapshot.cs)
+  -> Sinh ra các lệnh để đưa database từ snapshot về model mới
 [/code]
 
 Nếu snapshot bị ghép tay sai — thiếu một thuộc tính, sai thứ tự index, sót một ràng buộc — thì migration tiếp theo sẽ sinh ra lệnh sai. Và vì snapshot vẫn biên dịch được, không có gì cảnh báo bạn.
@@ -22392,10 +22389,10 @@ Nếu snapshot bị ghép tay sai — thiếu một thuộc tính, sai thứ t�
 Hậu quả điển hình:
 
 [code]
-Migration tiep theo sinh ra:
-  ALTER TABLE Leads ADD PhoneNumber nvarchar(20)   <- cot DA TON TAI
+Migration tiếp theo sinh ra:
+  ALTER TABLE Leads ADD PhoneNumber nvarchar(20)   <- cột ĐÃ TỒN TẠI
 
-Chay tren production -> loi "Column names in each table must be unique"
+Chạy trên production -> lỗi "Column names in each table must be unique"
 [/code]
 
 Hoặc tệ hơn theo hướng ngược lại: snapshot thừa một cột mà database không có, nên EF Core sinh lệnh `DROP COLUMN` cho một cột đang chứa dữ liệu thật.
@@ -22407,10 +22404,10 @@ Hoặc tệ hơn theo hướng ngược lại: snapshot thừa một cột mà d
 Bước 1 — bỏ migration của mình:
 
 [code bash]
-# Huy merge dang do
+# Huỷ merge đang dở
 git merge --abort
 
-# Xoa migration cua minh (chua ai dung, an toan)
+# Xoá migration của mình (chưa ai dùng, an toàn)
 dotnet ef migrations remove
 [/code]
 
@@ -22421,21 +22418,21 @@ Bước 2 — lấy bản mới nhất:
 [code bash]
 git checkout main
 git pull
-git checkout feature/them-bang-ghi-chu
-git rebase main          # gio khong con conflict o snapshot nua
+git checkout feature/note-table
+git rebase main          # giờ không còn conflict ở snapshot nữa
 [/code]
 
 Bước 3 — sinh lại migration:
 
 [code bash]
-dotnet ef migrations add ThemBangGhiChu
+dotnet ef migrations add AddNoteTable
 [/code]
 
 EF Core so sánh model hiện tại (đã có cả thay đổi của An và của Bình) với snapshot mới nhất, rồi sinh migration chỉ chứa phần của Bình. Snapshot được cập nhật đúng.
 
 [code bash]
-# Luon kiem tra file sinh ra truoc khi commit
-cat Migrations/*_ThemBangGhiChu.cs
+# Luôn kiểm tra file sinh ra trước khi commit
+cat Migrations/*_AddNoteTable.cs
 [/code]
 
 Đọc nó và xác nhận nó chỉ chứa những gì bạn mong đợi. Nếu thấy lệnh động tới bảng hay cột không liên quan, có gì đó sai.
@@ -22445,13 +22442,13 @@ cat Migrations/*_ThemBangGhiChu.cs
 Ba bước trên chỉ áp dụng khi migration chưa được áp dụng ở đâu. Nếu nó đã chạy trên môi trường nào đó, `migrations remove` là sai — nó sẽ khiến lịch sử migration trong database lệch với mã nguồn.
 
 [code bash]
-# Kiem tra migration nao da duoc ap dung
+# Kiểm tra migration nào đã được áp dụng
 dotnet ef migrations list
 [/code]
 
 [code]
-20260920103012_ThemCotSoDienThoaiVaoLead (Applied)
-20260921141522_ThemBangGhiChu            (Pending)      <- chua ap dung, xoa duoc
+20260920103012_AddPhoneNumberToLead (Applied)
+20260921141522_AddNoteTable         (Pending)      <- chưa áp dụng, xoá được
 [/code]
 
 Nếu migration của bạn đã `Applied` trên staging hoặc production, cách xử lý là thêm một migration mới sửa phần khác biệt, không xoá cái cũ (bài 13.5).
@@ -22461,9 +22458,9 @@ Nếu migration của bạn đã `Applied` trên staging hoặc production, các
 1. Merge `main` thường xuyên. Conflict tỷ lệ với thời gian nhánh tồn tại:
 
 [code bash]
-# Moi sang, truoc khi bat dau lam
+# Mỗi sáng, trước khi bắt đầu làm
 git checkout main && git pull
-git checkout feature/cua-toi && git rebase main
+git checkout feature/my-branch && git rebase main
 [/code]
 
 Nhánh sống 2 ngày hiếm khi có conflict nghiêm trọng; nhánh sống 3 tuần thì gần như chắc chắn có.
@@ -22724,7 +22721,7 @@ Hai giá trị này được ghi vào từng commit, vĩnh viễn. Đặt sai th
 Nếu bạn dùng chung một máy cho công việc và dự án cá nhân, ghi đè theo từng kho:
 
 [code bash]
-cd ~/projects/du-an-ca-nhan
+cd ~/projects/my-project
 git config user.email "toi@gmail.com"     # không có --global
 [/code]
 
@@ -22821,7 +22818,7 @@ Và một điểm hay bị vấp: `.gitignore` chỉ có tác dụng với file 
 [code bash]
 # Gỡ khỏi theo dõi nhưng giữ lại trên đĩa
 git rm --cached appsettings.Development.json
-git commit -m "chore: ngung theo doi cau hinh cuc bo"
+git commit -m "chore: untrack local development config"
 [/code]
 
 ### 3.3.5 — Lỡ commit bí mật thì làm gì
@@ -22830,11 +22827,11 @@ git commit -m "chore: ngung theo doi cau hinh cuc bo"
 
 [code mermaid]
 flowchart TD
-    A[Lo commit mot bi mat] --> B{Da push chua?}
-    B -->|Chua| C[git reset hoac amend<br/>roi commit lai]
-    B -->|Roi| D[COI NHU DA LO<br/>THU HOI bi mat ngay]
-    D --> E[Tao khoa moi]
-    E --> F[Don lich su - tuy chon]
+    A[Lỡ commit một bí mật] --> B{Đã push chưa?}
+    B -->|Chưa| C[git reset hoặc amend<br/>rồi commit lại]
+    B -->|Rồi| D[COI NHƯ ĐÃ LỘ<br/>THU HỒI bí mật ngay]
+    D --> E[Tạo khoá mới]
+    E --> F[Dọn lịch sử — tuỳ chọn]
 [/code]
 
 > Bí mật đã được đẩy lên thì coi như đã lộ. Việc đầu tiên và bắt buộc là thu hồi nó, không phải xoá commit.
@@ -22853,7 +22850,7 @@ Nếu chưa push, mọi thứ đơn giản hơn nhiều:
 [code bash]
 git reset --soft HEAD~1     # bỏ commit, giữ nguyên thay đổi trong staging
 # xoá bí mật khỏi file, thêm vào .gitignore
-git commit -m "feat: them cau hinh"
+git commit -m "feat: add config file without secrets"
 [/code]
 
 ### 3.3.6 — Vài cấu hình đáng bật
@@ -22915,8 +22912,8 @@ Sau bài này bạn có thể:
 [code bash]
 git reflog
 # a1b2c3d HEAD@{0}: reset: moving to HEAD~3
-# 9f8e7d6 HEAD@{1}: commit: feat: them bao cao doanh thu   ← tưởng đã mất
-# 5c4b3a2 HEAD@{2}: commit: fix: sua loi lam tron
+# 9f8e7d6 HEAD@{1}: commit: feat: add revenue report   ← tưởng đã mất
+# 5c4b3a2 HEAD@{2}: commit: fix: correct rounding error
 [/code]
 
 `reflog` ghi lại mọi lần `HEAD` di chuyển trên máy bạn: commit, checkout, reset, rebase, merge. Mặc định giữ 90 ngày.
@@ -22926,7 +22923,7 @@ Quay về bất kỳ điểm nào trong đó:
 [code bash]
 git reset --hard 9f8e7d6        # về đúng trạng thái commit đó
 # hoặc an toàn hơn:
-git branch cuu-ho 9f8e7d6       # tạo nhánh mới trỏ vào, không đụng nhánh hiện tại
+git branch rescue/lost-commit 9f8e7d6       # tạo nhánh mới trỏ vào, không đụng nhánh hiện tại
 [/code]
 
 Cách thứ hai nên là phản xạ: tạo nhánh trước, xem xét sau. Nó không phá gì cả.
@@ -22937,10 +22934,10 @@ Lưu ý quan trọng: `reflog` là cục bộ. Nó không được đẩy lên, 
 
 [code mermaid]
 flowchart TD
-    A[Thao tac Git] --> B{Da commit chua?}
-    B -->|Roi| C[Cuu duoc bang reflog<br/>trong 90 ngay]
-    B -->|Chua| D{Lenh nao?}
-    D -->|reset --hard| E[MAT — khong cuu duoc]
+    A[Thao tác Git] --> B{Đã commit chưa?}
+    B -->|Rồi| C[Cứu được bằng reflog<br/>trong 90 ngày]
+    B -->|Chưa| D{Lệnh nào?}
+    D -->|reset --hard| E[MẤT — không cứu được]
     D -->|clean -fd| E
     D -->|checkout -- file| E
 [/code]
@@ -23024,10 +23021,10 @@ Tình huống quen thuộc: đang làm dở một tính năng thì có lỗi kh�
 
 [code bash]
 # Cách 1 — stash: cất tạm thay đổi
-git stash push -m "dang lam bao cao"
-git checkout -b hotfix/loi-khan-cap
+git stash push -m "wip: revenue report"
+git checkout -b hotfix/urgent-bug
 # ... sửa, commit, push ...
-git checkout feature/bao-cao
+git checkout feature/revenue-report
 git stash pop                 # lấy lại thay đổi
 [/code]
 
@@ -23039,7 +23036,7 @@ Ba điều cần biết về `stash`:
 
 [code bash]
 # Cách 2 — worktree: hai thư mục, hai nhánh, cùng một kho
-git worktree add ../hotfix hotfix/loi-khan-cap
+git worktree add ../hotfix hotfix/urgent-bug
 cd ../hotfix                  # thư mục riêng, nhánh riêng
 # ... sửa xong ...
 cd -
@@ -23100,12 +23097,12 @@ Sau bài này bạn có thể:
 
 [code mermaid]
 flowchart LR
-    A[Sua code] --> B[git status]
+    A[Sửa code] --> B[git status]
     B --> C[git add]
     C --> D[git commit]
-    D --> E{Con viec khac?}
-    E -->|Co| A
-    E -->|Khong| F[git push]
+    D --> E{Còn việc khác?}
+    E -->|Có| A
+    E -->|Không| F[git push]
 [/code]
 
 [code bash]
@@ -23113,7 +23110,7 @@ git status                       # đang có gì thay đổi?
 git diff                         # cụ thể đổi những dòng nào?
 git add src/OrderService.cs      # chọn phần sẽ commit
 git diff --staged                # kiểm tra lại đúng thứ mình định commit
-git commit -m "fix: chan don hang co tong tien am"
+git commit -m "fix: reject orders with negative total"
 git push
 [/code]
 
@@ -23135,13 +23132,13 @@ git commit -m "update"
 
 # TỐT — ba commit, mỗi cái hoàn tác riêng được
 git add src/OrderValidator.cs
-git commit -m "fix: chan don hang co tong tien am"
+git commit -m "fix: reject orders with negative total"
 
 git add src/ReportService.cs
-git commit -m "feat: them bao cao doanh thu theo chi nhanh"
+git commit -m "feat: add revenue report by branch"
 
 git add src/Utils.cs
-git commit -m "refactor: doi ten bien cho ro nghia"
+git commit -m "refactor: rename variables for clarity"
 [/code]
 
 Hai quy tắc phụ đi kèm:
@@ -23171,13 +23168,14 @@ Phần cái gì đã nằm trong `git diff`. Message nên dùng chỗ của nó 
 [code]
 ❌ "fix bug"
 ❌ "update code"
-❌ "sua theo yeu cau cua sep"
+❌ "changes requested by the boss"
 
-✅ "fix: chan don hang co tong tien am
+✅ "fix: reject orders with negative total
 
-Khach hang nhap so luong am o form dat hang lam tong tien ra so am,
-va he thong van tao don. Them kiem tra o tang domain thay vi o
-controller, vi con co luong tao don tu API va tu job nhap lieu."
+A negative quantity in the order form produced a negative total and
+the system still created the order. The check now lives in the domain
+layer rather than the controller, because orders are also created from
+the API and from the data-import job."
 [/code]
 
 Cấu trúc một message đầy đủ:
@@ -23291,7 +23289,7 @@ cat .git/refs/heads/main
 Đó là toàn bộ một nhánh. Tạo nhánh mới nghĩa là ghi thêm một file như vậy:
 
 [code bash]
-git branch feature/bao-cao      # tạo con trỏ mới tại commit hiện tại
+git branch feature/revenue-report      # tạo con trỏ mới tại commit hiện tại
 [/code]
 
 Không có gì được sao chép. Đây là khác biệt lớn so với SVN, nơi tạo nhánh là chép cả cây thư mục — và cũng là lý do trong SVN người ta ngại tạo nhánh, còn trong Git thì tạo thoải mái.
@@ -23302,7 +23300,7 @@ Không có gì được sao chép. Đây là khác biệt lớn so với SVN, n�
 flowchart LR
     C1[commit A] --> C2[commit B] --> C3[commit C]
     C3 -.- M[main]
-    C2 -.- F[feature/bao-cao]
+    C2 -.- F[feature/revenue-report]
     M -.- H[HEAD]
 [/code]
 
@@ -23311,16 +23309,16 @@ Khi bạn commit, Git tạo commit mới rồi dịch con trỏ nhánh sang đó
 ### 3.6.2 — Đặt tên nhánh
 
 [code]
-feature/bao-cao-doanh-thu      # tính năng mới
-fix/don-hang-tong-tien-am      # sửa lỗi
-hotfix/loi-thanh-toan          # sửa khẩn cấp trên production
-refactor/tach-order-service    # tái cấu trúc
-chore/nang-cap-efcore-9        # việc vặt, phụ thuộc
+feature/revenue-report         # tính năng mới
+fix/negative-order-total       # sửa lỗi
+hotfix/payment-failure         # sửa khẩn cấp trên production
+refactor/split-order-service   # tái cấu trúc
+chore/upgrade-efcore-9         # việc vặt, phụ thuộc
 [/code]
 
-Quy ước: `<loại>/<mô-tả-ngắn-bằng-gạch-nối>`. Không dấu, không khoảng trắng.
+Quy ước: `<loại>/<mô-tả-ngắn-bằng-gạch-nối>`, viết bằng tiếng Anh, không dấu, không khoảng trắng.
 
-Nếu đội dùng công cụ quản lý việc, gắn thêm mã issue: `feature/CRM-142-bao-cao-doanh-thu`. Nhờ đó nhìn tên nhánh là biết nó thuộc yêu cầu nào.
+Nếu đội dùng công cụ quản lý việc, gắn thêm mã issue: `feature/CRM-142-revenue-report`. Nhờ đó nhìn tên nhánh là biết nó thuộc yêu cầu nào.
 
 ### 3.6.3 — Merge: hai hình dạng
 
@@ -23352,8 +23350,8 @@ Sau:    A --- B --- C --- F --- M (main)
 
 [code bash]
 git checkout main
-git merge feature/bao-cao              # tự chọn kiểu phù hợp
-git merge --no-ff feature/bao-cao      # luôn tạo merge commit, kể cả khi ff được
+git merge feature/revenue-report              # tự chọn kiểu phù hợp
+git merge --no-ff feature/revenue-report      # luôn tạo merge commit, kể cả khi ff được
 [/code]
 
 `--no-ff` đáng dùng khi bạn muốn lịch sử giữ lại dấu vết của từng tính năng — nhìn đồ thị là thấy rõ nhánh nào gom vào lúc nào. Nhiều đội đặt nó làm mặc định cho nhánh tính năng.
@@ -23373,7 +23371,7 @@ Sau:    A --- B --- C --- F (main)
 Chú ý `D'` và `E'` có dấu phẩy: chúng là commit mới, mã băm khác, dù nội dung thay đổi giống hệt. Đúng như bài 3.2 đã nói — commit không sửa được, chỉ tạo mới.
 
 [code bash]
-git checkout feature/bao-cao
+git checkout feature/revenue-report
 git rebase main
 [/code]
 
@@ -23411,13 +23409,13 @@ git rebase -i main      # interactive: gộp, sửa message, bỏ commit rác
 git branch --merged
 
 # Xoá nhánh đã merge (an toàn: Git từ chối nếu chưa merge)
-git branch -d feature/bao-cao
+git branch -d feature/revenue-report
 
 # Xoá cưỡng bức, kể cả chưa merge — CẨN THẬN
-git branch -D feature/bao-cao
+git branch -D feature/revenue-report
 
 # Xoá nhánh trên remote
-git push origin --delete feature/bao-cao
+git push origin --delete feature/revenue-report
 
 # Dọn các nhánh theo dõi đã bị xoá trên remote
 git fetch --prune
@@ -23438,8 +23436,6 @@ Tiêu chí hoàn thành: bạn nói được vì sao tạo một nhánh trong kh
   Gợi ý và lời giải — Bài 1
 
 Gợi ý. Mở file bằng `cat` và đếm xem nó có bao nhiêu ký tự. Con số đó nói lên tất cả.
-
-Lời giải — output thật:
 
 [… phần còn lại đã lược bớt]
 
@@ -23472,19 +23468,19 @@ Sau bài này bạn có thể:
 
 [code mermaid]
 flowchart LR
-    A[Tao nhanh] --> B[Commit + push]
-    B --> C[Mo PR]
-    C --> D[CI chay tu dong]
-    D --> E[Nguoi khac review]
-    E -->|Yeu cau sua| B
-    E -->|Duyet| F[Merge]
-    F --> G[Xoa nhanh]
+    A[Tạo nhánh] --> B[Commit + push]
+    B --> C[Mở PR]
+    C --> D[CI chạy tự động]
+    D --> E[Người khác review]
+    E -->|Yêu cầu sửa| B
+    E -->|Duyệt| F[Merge]
+    F --> G[Xoá nhánh]
 [/code]
 
 [code bash]
-git checkout -b feature/bao-cao-doanh-thu
+git checkout -b feature/revenue-report
 # ... làm việc, commit ...
-git push -u origin feature/bao-cao-doanh-thu
+git push -u origin feature/revenue-report
 # GitHub in ra một đường dẫn tạo PR ngay trong output của lệnh push
 [/code]
 
@@ -23648,9 +23644,9 @@ Sau bài này bạn có thể:
 
 [code mermaid]
 flowchart TD
-    A[git merge] --> B{Hai nhanh co sua<br/>cung vung cua cung file?}
-    B -->|Khong| C[Merge tu dong thanh cong]
-    B -->|Co| D[XUNG DOT<br/>Git dung lai va hoi ban]
+    A[git merge] --> B{Hai nhánh có sửa<br/>cùng vùng của cùng file?}
+    B -->|Không| C[Merge tự động thành công]
+    B -->|Có| D[XUNG ĐỘT<br/>Git dừng lại và hỏi bạn]
 [/code]
 
 Git hợp nhánh theo từng khối dòng. Nếu hai nhánh sửa hai vùng cách xa nhau trong cùng một file, nó gộp được. Chỉ khi hai bên đụng vào cùng một vùng thì nó mới dừng.
@@ -23814,13 +23810,13 @@ Sau bài này bạn có thể:
 
 [code mermaid]
 flowchart LR
-    A[Nhan viec] --> B[Dong bo main]
-    B --> C[Tao nhanh]
-    C --> D[Lam + commit nho]
-    D --> E[Dong bo lai main]
-    E --> F[Push + mo PR]
+    A[Nhận việc] --> B[Đồng bộ main]
+    B --> C[Tạo nhánh]
+    C --> D[Làm + commit nhỏ]
+    D --> E[Đồng bộ lại main]
+    E --> F[Push + mở PR]
     F --> G[CI + review]
-    G --> H[Merge + xoa nhanh]
+    G --> H[Merge + xoá nhánh]
 [/code]
 
 [code bash]
@@ -23828,20 +23824,20 @@ flowchart LR
 git checkout main && git pull
 
 # 2. Nhánh cho đúng một việc
-git checkout -b feature/CRM-142-bao-cao-doanh-thu
+git checkout -b feature/CRM-142-revenue-report
 
 # 3. Làm việc, commit nhỏ và thường xuyên
-git add -p && git commit -m "feat: them truy van doanh thu theo chi nhanh"
+git add -p && git commit -m "feat: add revenue query by branch"
 
 # 4. Trước khi mở PR, đồng bộ lại
 git fetch origin && git rebase origin/main
 
 # 5. Đẩy lên và mở PR
-git push -u origin feature/CRM-142-bao-cao-doanh-thu
+git push -u origin feature/CRM-142-revenue-report
 
 # 6. Sau khi merge, dọn
 git checkout main && git pull
-git branch -d feature/CRM-142-bao-cao-doanh-thu
+git branch -d feature/CRM-142-revenue-report
 git fetch --prune
 [/code]
 
@@ -23851,8 +23847,8 @@ Bước 4 là bước hay bị bỏ nhất, và là bước tiết kiệm nhiề
 
 [code mermaid]
 flowchart TD
-    M[main - chi chua ban da phat hanh] --> R[release/x.y]
-    D[develop - tich hop] --> R
+    M[main — chỉ chứa bản đã phát hành] --> R[release/x.y]
+    D[develop — tích hợp] --> R
     F1[feature/a] --> D
     F2[feature/b] --> D
     R --> M
@@ -23872,10 +23868,10 @@ Git Flow ra đời năm 2010, cho bối cảnh phát hành theo bản. Chính t�
 
 [code mermaid]
 flowchart LR
-    F1[feature - song 1 ngay] --> M[main]
-    F2[feature - song 1 ngay] --> M
-    F3[feature - song 1 ngay] --> M
-    M --> P[Deploy tu dong]
+    F1[feature — sống 1 ngày] --> M[main]
+    F2[feature — sống 1 ngày] --> M
+    F3[feature — sống 1 ngày] --> M
+    M --> P[Deploy tự động]
 [/code]
 
 Một nhánh chính. Nhánh tính năng sống dưới một ngày. Merge vào `main` liên tục. `main` luôn ở trạng thái deploy được.
@@ -23907,18 +23903,18 @@ Production đang hỏng. Đây là lúc không nên nghĩ ra quy trình.
 [code bash]
 # 1. Tách từ TRẠNG THÁI ĐANG CHẠY, không phải từ develop
 git checkout main && git pull
-git checkout -b hotfix/don-hang-tong-tien-am
+git checkout -b hotfix/negative-order-total
 
 # 2. Sửa NHỎ NHẤT CÓ THỂ — chỉ chặn máu, không tái cấu trúc
-git commit -am "fix: chan don hang co tong tien am"
+git commit -am "fix: reject orders with negative total"
 
 # 3. Vẫn mở PR, vẫn để CI chạy
-git push -u origin hotfix/don-hang-tong-tien-am
+git push -u origin hotfix/negative-order-total
 
 # 4. Merge và deploy
 
 # 5. Gộp ngược về nhánh phát triển nếu mô hình có nhánh đó
-git checkout develop && git merge hotfix/don-hang-tong-tien-am
+git checkout develop && git merge hotfix/negative-order-total
 [/code]
 
 Bốn nguyên tắc, và mỗi cái đều từng bị vi phạm với hậu quả thật:
@@ -23988,10 +23984,10 @@ Sau bài này bạn có thể:
 
 [code mermaid]
 flowchart LR
-    A[1 - Tai hien<br/>on dinh] --> B[2 - Khoanh vung]
-    B --> C[3 - Tim nguyen nhan goc]
-    C --> D[4 - Sua]
-    D --> E[5 - Viet test<br/>chong tai dien]
+    A[1 — Tái hiện<br/>ổn định] --> B[2 — Khoanh vùng]
+    B --> C[3 — Tìm nguyên nhân gốc]
+    C --> D[4 — Sửa]
+    D --> E[5 — Viết test<br/>chống tái diễn]
 [/code]
 
 Bước 1 quan trọng nhất và hay bị bỏ qua nhất. Không tái hiện được thì không xác nhận được là đã sửa. Bạn sẽ đổi một thứ, thấy lỗi biến mất, và không bao giờ biết đó là do bản sửa hay do may mắn.
@@ -24069,10 +24065,10 @@ Trên production bạn không dừng tiến trình được. Log là thứ thay 
 
 [code csharp]
 // Không truy vấn được — chuỗi phẳng
-_logger.LogInformation($"Xu ly don {order.Id} cho khach {customerId}");
+_logger.LogInformation($"Xử lý đơn {order.Id} cho khách {customerId}");
 
 // Truy vấn được — tham số có tên
-_logger.LogInformation("Xu ly don {OrderId} cho khach {CustomerId}",
+_logger.LogInformation("Xử lý đơn {OrderId} cho khách {CustomerId}",
     order.Id, customerId);
 [/code]
 
@@ -24372,18 +24368,18 @@ Sau bài này bạn có thể:
 ### 4.11.1 — required members: dùng ngay
 
 [code csharp]
-// Truoc — khong co gi buoc phai gan Name
+// Trước — không có gì buộc phải gán Name
 public class Lead
 {
-    public string Name { get; set; }        // canh bao: co the null
+    public string Name { get; set; }        // cảnh báo: có thể null
     public string Email { get; set; }
 }
 
-var lead = new Lead();                       // bien dich duoc, Name la null
+var lead = new Lead();                       // biên dịch được, Name là null
 [/code]
 
 [code csharp]
-// Sau — trinh bien dich BUOC phai gan
+// Sau — trình biên dịch BUỘC phải gán
 public class Lead
 {
     public required string Name { get; init; }
@@ -24402,7 +24398,7 @@ Kết hợp với `init` cho đối tượng chỉ đọc sau khi tạo — đú
 ### 4.11.2 — Primary constructor: dùng ngay
 
 [code csharp]
-// Truoc — ba lan lap lai moi ten
+// Trước — ba lần lặp lại mỗi tên
 public class LeadService
 {
     private readonly ILeadRepository _repository;
@@ -24439,18 +24435,18 @@ Với `record`, primary constructor sinh luôn thuộc tính public — khác v�
 ### 4.11.3 — Collection expression: dùng ngay
 
 [code csharp]
-// Truoc
-List<string> ten = new List<string> { "An", "Bình" };
-int[] so = new int[] { 1, 2, 3 };
+// Trước
+List<string> names = new List<string> { "An", "Bình" };
+int[] numbers = new int[] { 1, 2, 3 };
 private readonly List<Activity> _activities = new();
 
-// Sau — cu phap thong nhat cho moi kieu collection
-List<string> ten = ["An", "Bình"];
-int[] so = [1, 2, 3];
+// Sau — cú pháp thống nhất cho mọi kiểu collection
+List<string> names = ["An", "Bình"];
+int[] numbers = [1, 2, 3];
 private readonly List<Activity> _activities = [];
 
-// Ghep bang spread
-int[] tatCa = [..so, 4, 5];
+// Ghép bằng spread
+int[] all = [..numbers, 4, 5];
 [/code]
 
 Ngắn hơn và — quan trọng hơn — thống nhất cho `List`, mảng, `Span` và `ImmutableArray`. Trước đây mỗi kiểu có cú pháp khởi tạo riêng.
@@ -24469,16 +24465,16 @@ public sealed class ExcelExporter : IDisposable
 
     public void Dispose()
     {
-        if (_disposed) return;               // an toan khi goi nhieu lan
+        if (_disposed) return;               // an toàn khi gọi nhiều lần
         _stream.Dispose();
         _disposed = true;
     }
 }
 
-// Su dung — using dam bao Dispose duoc goi KE CA khi co exception
-using var exporter = new ExcelExporter("bao-cao.xlsx");
+// Sử dụng — using đảm bảo Dispose được gọi KỂ CẢ khi có exception
+using var exporter = new ExcelExporter("revenue-report.xlsx");
 exporter.Export(data);
-// Dispose tu dong goi o cuoi pham vi
+// Dispose tự động gọi ở cuối phạm vi
 [/code]
 
 Vì sao quên `using` nguy hiểm: không có lỗi nào được báo. Chương trình chạy bình thường, chỉ là tài nguyên không được trả lại. Trong ứng dụng web, biểu hiện là sau vài giờ chạy, mọi request bắt đầu timeout vì connection pool đã cạn — và nguyên nhân rất khó lần ra từ triệu chứng đó.
@@ -24513,8 +24509,8 @@ public readonly record struct LeadId(Guid Value) : IParsable<LeadId>
     public static LeadId Parse(string s) => new(Guid.Parse(s));
 }
 
-// Gio goi duoc phuong thuc tinh qua generic
-T ParseTu<T>(string s) where T : IParsable<T> => T.Parse(s);
+// Giờ gọi được phương thức tĩnh qua generic
+T ParseFrom<T>(string s) where T : IParsable<T> => T.Parse(s);
 [/code]
 
 Trước .NET 7, không có cách nào ràng buộc "kiểu này phải có phương thức tĩnh tên `Parse`". Tính năng này làm được, và nó là nền tảng cho generic math trong .NET.
@@ -24552,12 +24548,12 @@ Sau bài này bạn có thể:
 ### 4.12.1 — Đề bài
 
 [code]
-CRM ban ba loai san pham:
-  - Hang vat ly:  co can nang, kich thuoc, ton kho, phi van chuyen
-  - Dich vu:      co thoi luong, nguoi thuc hien, khong co ton kho
-  - Goi dang ky:  co chu ky thanh toan, ngay bat dau, tu gia han
+CRM bán ba loại sản phẩm:
+  - Hàng vật lý:  có cân nặng, kích thước, tồn kho, phí vận chuyển
+  - Dịch vụ:      có thời lượng, người thực hiện, không có tồn kho
+  - Gói đăng ký:  có chu kỳ thanh toán, ngày bắt đầu, tự gia hạn
 
-Yeu cau chung: ma san pham, ten, gia, thue suat, trang thai kinh doanh
+Yêu cầu chung: mã sản phẩm, tên, giá, thuế suất, trạng thái kinh doanh
 [/code]
 
 ### 4.12.2 — Thiết kế 1: kế thừa
@@ -24608,7 +24604,7 @@ Thiết kế này tốt — trong hai tháng.
 Yêu cầu tháng thứ ba: "Bán máy in kèm gói mực hàng tháng. Nó là hàng vật lý (giao hàng, tồn kho) và cũng là gói đăng ký (thu tiền hàng tháng)."
 
 [code csharp]
-// Khong hop le trong C# — khong the ke thua HAI lop
+// Không hợp lệ trong C# — không thể kế thừa HAI lớp
 public class PhysicalSubscriptionProduct : PhysicalProduct, SubscriptionProduct
 [/code]
 
@@ -24639,7 +24635,7 @@ public sealed class Product
     public decimal TaxRate { get; private set; }
     public bool IsActive { get; private set; }
 
-    // Kha nang — co the co, co the khong
+    // Khả năng — có thể có, có thể không
     public ShippingInfo? Shipping { get; private set; }
     public SubscriptionInfo? Subscription { get; private set; }
     public ServiceInfo? Service { get; private set; }
@@ -24661,7 +24657,7 @@ public sealed class Product
         => Subscription = new SubscriptionInfo(cycle, autoRenew);
 }
 
-// Value object — bat bien, so sanh theo gia tri
+// Value object — bất biến, so sánh theo giá trị
 public sealed record ShippingInfo(decimal WeightKg, Dimensions Size)
 {
     public Money CalculateCost(int quantity)
@@ -24731,31 +24727,31 @@ Sau bài này bạn có thể:
 ### 4.13.1 — Bug
 
 [code csharp]
-public class DiaChi
+public class Address
 {
-    public string SoNha { get; set; }
-    public string Duong { get; set; }
-    public string Quan { get; set; }
+    public string HouseNumber { get; set; }
+    public string Street { get; set; }
+    public string District { get; set; }
 }
 
-var dc1 = new DiaChi { SoNha = "12", Duong = "Nguyễn Huệ", Quan = "1" };
-var dc2 = new DiaChi { SoNha = "12", Duong = "Nguyễn Huệ", Quan = "1" };
+var a1 = new Address { HouseNumber = "12", Street = "Nguyễn Huệ", District = "1" };
+var a2 = new Address { HouseNumber = "12", Street = "Nguyễn Huệ", District = "1" };
 
-Console.WriteLine(dc1 == dc2);          // False  (!!)
-Console.WriteLine(dc1.Equals(dc2));     // False  (!!)
+Console.WriteLine(a1 == a2);          // False  (!!)
+Console.WriteLine(a1.Equals(a2));     // False  (!!)
 
-var danhSach = new List<DiaChi> { dc1 };
-Console.WriteLine(danhSach.Contains(dc2));   // False — du du lieu giong het
+var list = new List<Address> { a1 };
+Console.WriteLine(list.Contains(a2));        // False — dù dữ liệu giống hệt
 [/code]
 
 Trong code thật, bug này biểu hiện như sau:
 
 [code csharp]
-// Kiem tra dia chi giao hang da ton tai chua
-if (!khachHang.DanhSachDiaChi.Contains(diaChiMoi))
-    khachHang.DanhSachDiaChi.Add(diaChiMoi);
+// Kiểm tra địa chỉ giao hàng đã tồn tại chưa
+if (!customer.Addresses.Contains(newAddress))
+    customer.Addresses.Add(newAddress);
 
-// Ket qua: danh sach day dia chi TRUNG NHAU
+// Kết quả: danh sách đầy địa chỉ TRÙNG NHAU
 [/code]
 
 ### 4.13.2 — Vì sao
@@ -24763,13 +24759,13 @@ if (!khachHang.DanhSachDiaChi.Contains(diaChiMoi))
 Với `class`, C# so sánh tham chiếu — tức hai biến có trỏ vào cùng một ô nhớ hay không.
 
 [code csharp]
-var dc1 = new DiaChi { ... };    // tao doi tuong o dia chi A
-var dc2 = new DiaChi { ... };    // tao doi tuong o dia chi B  (KHAC)
+var a1 = new Address { ... };    // tạo đối tượng ở ô nhớ A
+var a2 = new Address { ... };    // tạo đối tượng ở ô nhớ B  (KHÁC)
 
-dc1 == dc2      // so sanh A voi B -> False
+a1 == a2      // so sánh A với B -> False
 
-var dc3 = dc1;  // dc3 tro vao CUNG dia chi A
-dc1 == dc3      // True
+var a3 = a1;  // a3 trỏ vào CÙNG ô nhớ A
+a1 == a3      // True
 [/code]
 
 Mặc định này đúng cho phần lớn trường hợp: hai khách hàng cùng tên không phải cùng một người. Nhưng với những thứ chỉ mang giá trị — địa chỉ, số tiền, khoảng thời gian — thì so sánh theo nội dung mới đúng.
@@ -24777,19 +24773,19 @@ Mặc định này đúng cho phần lớn trường hợp: hai khách hàng cù
 ### 4.13.3 — Sửa bằng record
 
 [code csharp]
-public record DiaChi(string SoNha, string Duong, string Quan);
+public record Address(string HouseNumber, string Street, string District);
 
-var dc1 = new DiaChi("12", "Nguyễn Huệ", "1");
-var dc2 = new DiaChi("12", "Nguyễn Huệ", "1");
+var a1 = new Address("12", "Nguyễn Huệ", "1");
+var a2 = new Address("12", "Nguyễn Huệ", "1");
 
-Console.WriteLine(dc1 == dc2);               // True
-Console.WriteLine(danhSach.Contains(dc2));   // True
+Console.WriteLine(a1 == a2);               // True
+Console.WriteLine(danhSach.Contains(a2));   // True
 [/code]
 
 Một từ khoá. Trình biên dịch tự sinh `Equals`, `GetHashCode`, `ToString`, toán tử `==` và `!=`, cùng phương thức `with` để tạo bản sao có sửa đổi (bài 4.8).
 
 [code csharp]
-var dcMoi = dc1 with { Quan = "3" };    // ban sao, chi doi Quan
+var dcMoi = a1 with { District = "3" };    // ban sao, chi doi District
 [/code]
 
 `record` cũng bất biến mặc định — sau khi tạo không đổi được thuộc tính. Đây là điều bạn muốn với value object: nếu địa chỉ thay đổi thì đó là một địa chỉ khác, không phải cùng địa chỉ đã bị sửa.
@@ -24799,27 +24795,27 @@ var dcMoi = dc1 with { Quan = "3" };    // ban sao, chi doi Quan
 Nếu vì lý do nào đó bạn không dùng được `record` và phải tự ghi đè:
 
 [code csharp]
-// SAI — ghi de Equals nhung QUEN GetHashCode
-public class DiaChi
+// SAI — ghi đè Equals nhưng QUÊN GetHashCode
+public class Address
 {
-    public string SoNha { get; set; }
-    public string Duong { get; set; }
+    public string HouseNumber { get; set; }
+    public string Street { get; set; }
 
     public override bool Equals(object? obj)
-        => obj is DiaChi other && SoNha == other.SoNha && Duong == other.Duong;
+        => obj is Address other && HouseNumber == other.HouseNumber && Street == other.Street;
 
-    // GetHashCode: KHONG ghi de -> van dung mac dinh theo tham chieu
+    // GetHashCode: KHÔNG ghi đè -> vẫn dùng mặc định theo tham chiếu
 }
 [/code]
 
 Hậu quả, và nó rất khó chẩn đoán:
 
 [code csharp]
-var tap = new HashSet<DiaChi>();
-tap.Add(dc1);
+var set = new HashSet<Address>();
+set.Add(a1);
 
-Console.WriteLine(dc1.Equals(dc2));   // True
-Console.WriteLine(tap.Contains(dc2)); // False  (!!)
+Console.WriteLine(a1.Equals(a2));   // True
+Console.WriteLine(set.Contains(a2)); // False  (!!)
 [/code]
 
 `HashSet` và `Dictionary` tìm phần tử theo hai bước: trước hết dùng `GetHashCode` để xác định "ngăn" chứa nó, sau đó mới dùng `Equals` trong ngăn đó. Nếu `GetHashCode` khác nhau, chúng rơi vào hai ngăn khác nhau và `Equals` không bao giờ được gọi.
@@ -24827,7 +24823,7 @@ Console.WriteLine(tap.Contains(dc2)); // False  (!!)
 Quy tắc bắt buộc: ghi đè `Equals` thì phải ghi đè `GetHashCode`, và hai cái phải dùng cùng bộ thuộc tính.
 
 [code csharp]
-public override int GetHashCode() => HashCode.Combine(SoNha, Duong);
+public override int GetHashCode() => HashCode.Combine(HouseNumber, Street);
 [/code]
 
 `HashCode.Combine` xử lý đúng cả trường hợp `null` và phân bố giá trị tốt — không tự viết bằng cách nhân số nguyên tố nữa.
@@ -24837,17 +24833,17 @@ Trình biên dịch có cảnh báo về việc này (CS0659), nên đừng bỏ
 ### 4.13.5 — Cái bẫy thứ hai: thuộc tính thay đổi được
 
 [code csharp]
-// NGUY HIEM — thuoc tinh dung de bam lai doi duoc
-public class DiaChi
+// NGUY HIỂM — thuộc tính dùng để băm lại đổi được
+public class Address
 {
-    public string Duong { get; set; }      // set duoc!
-    public override int GetHashCode() => HashCode.Combine(Duong);
+    public string Street { get; set; }      // set được!
+    public override int GetHashCode() => HashCode.Combine(Street);
 }
 
-var tap = new HashSet<DiaChi> { dc };
-dc.Duong = "Lê Lợi";                        // doi SAU khi da them vao tap
+var set = new HashSet<Address> { a };
+a.Street = "Lê Lợi";                         // đổi SAU khi đã thêm vào tập
 
-tap.Contains(dc);        // False — du dc DANG nam trong tap!
+set.Contains(a);         // False — dù a ĐANG nằm trong tập!
 [/code]
 
 Đối tượng vẫn ở trong `HashSet`, nhưng nó nằm ở ngăn tương ứng với mã băm cũ. Tìm theo mã băm mới không tới đúng ngăn đó.
@@ -24866,19 +24862,15 @@ tap.Contains(dc);        // False — du dc DANG nam trong tap!
 Quy tắc chọn:
 
 - Có định danh riêng, hai đối tượng cùng dữ liệu vẫn là hai thứ khác nhau → `class`. Ví dụ: `Customer`, `Order`, `Lead`.
-- Chỉ mang giá trị, cùng dữ liệu nghĩa là cùng một thứ → `record`. Ví dụ: `DiaChi`, `Money`, `DateRange`.
+- Chỉ mang giá trị, cùng dữ liệu nghĩa là cùng một thứ → `record`. Ví dụ: `Address`, `Money`, `DateRange`.
 - Rất nhỏ (dưới 16 byte) và tạo rất nhiều lần → `struct` hoặc `readonly record struct`.
 
 [code csharp]
-// Thuc the — co dinh danh
+// Thực thể — có định danh
 public class Customer { public CustomerId Id { get; init; } /* ... */ }
 
-// Value object — chi mang gia tri
+// Value object — chỉ mang giá trị
 public record Money(decimal Amount, string Currency);
-
-// Value object nho, dung nhieu
-public readonly record struct LeadId(Guid Value);
-[/code]
 
 [… phần còn lại đã lược bớt]
 
@@ -25258,7 +25250,7 @@ public class BankTransfer : Payment
 {
     public BankTransfer(decimal amount) : base(amount) { }
     public override decimal CalculateFee() => 11_000m;
-    public override string Describe() => $"Chuyen khoan {Amount:n0}";
+    public override string Describe() => $"Chuyển khoản {Amount:n0}";
 }
 [/code]
 
@@ -25461,13 +25453,13 @@ public class OrderRepository : IOrderReader, IOrderWriter, IDisposable { }
 
 [code mermaid]
 flowchart TD
-    subgraph Truoc[Truoc - nghiep vu phu thuoc ha tang]
+    subgraph Truoc[Trước — nghiệp vụ phụ thuộc hạ tầng]
         A1[OrderService] --> B1[SqlOrderRepository]
         B1 --> C1[(Database)]
     end
-    subgraph Sau[Sau - ha tang phu thuoc nghiep vu]
+    subgraph Sau[Sau — hạ tầng phụ thuộc nghiệp vụ]
         A2[OrderService] --> I[IOrderRepository]
-        B2[SqlOrderRepository] -.cai dat.-> I
+        B2[SqlOrderRepository] -."cài đặt".-> I
         B2 --> C2[(Database)]
     end
 [/code]
@@ -26688,31 +26680,31 @@ Sau bài này bạn có thể:
 ### 5.11.1 — Code ban đầu
 
 [code csharp]
-public decimal TinhGiamGia(DonHang don, LoaiKhuyenMai loai)
+public decimal CalculateDiscount(Order order, PromotionType type)
 {
-    switch (loai)
+    switch (type)
     {
-        case LoaiKhuyenMai.PhanTram:
-            return don.TongTien * 0.1m;
+        case PromotionType.Percentage:
+            return order.Total * 0.1m;
 
-        case LoaiKhuyenMai.SoTienCoDinh:
+        case PromotionType.FixedAmount:
             return 50_000m;
 
-        case LoaiKhuyenMai.MuaHaiTangMot:
-            return don.ChiTiet.Max(c => c.DonGia);
+        case PromotionType.BuyTwoGetOne:
+            return order.Lines.Max(l => l.UnitPrice);
 
-        case LoaiKhuyenMai.KhachThanThiet:
-            return don.KhachHang.Hang switch
+        case PromotionType.Loyalty:
+            return order.Customer.Tier switch
             {
-                "Vàng" => don.TongTien * 0.15m,
-                "Bạc" => don.TongTien * 0.1m,
+                "Vàng" => order.Total * 0.15m,
+                "Bạc" => order.Total * 0.1m,
                 _ => 0m
             };
 
-        case LoaiKhuyenMai.MienPhiVanChuyen:
-            return don.PhiVanChuyen;
+        case PromotionType.FreeShipping:
+            return order.ShippingFee;
 
-        // ... 3 case nua
+        // ... 3 case nữa
         default:
             return 0m;
     }
@@ -26722,10 +26714,10 @@ public decimal TinhGiamGia(DonHang don, LoaiKhuyenMai loai)
 Ba vấn đề đo được:
 
 [code]
-- Moi chuong trinh khuyen mai moi:  sua hang so nay (da 8 lan trong 6 thang)
-- Do dai:                           187 dong
-- Do phu thuoc cua lop chua no:     7 dependency (vi moi loai can thu khac nhau)
-- So test cho ham nay:              1 test file, 340 dong, 24 truong hop
+- Mỗi chương trình khuyến mãi mới:  sửa hàm này (đã 8 lần trong 6 tháng)
+- Độ dài:                           187 dòng
+- Độ phụ thuộc của lớp chứa nó:     7 dependency (vì mỗi loại cần thứ khác nhau)
+- Số test cho hàm này:              1 test file, 340 dòng, 24 trường hợp
 [/code]
 
 Vấn đề lớn nhất không phải độ dài mà là mỗi thay đổi đều chạm vào code đang chạy đúng. Thêm một khuyến mãi mới có thể làm hỏng bảy cái cũ.
@@ -26735,74 +26727,74 @@ Vấn đề lớn nhất không phải độ dài mà là mỗi thay đổi đ�
 Mở cho mở rộng, đóng cho sửa đổi: thêm hành vi mới bằng cách thêm code, không phải sửa code cũ.
 
 [code csharp]
-public interface IChienLuocGiamGia
+public interface IDiscountStrategy
 {
-    LoaiKhuyenMai Loai { get; }
-    bool ApDungDuoc(DonHang don);
-    Money TinhGiamGia(DonHang don);
+    PromotionType Type { get; }
+    bool AppliesTo(Order order);
+    Money CalculateDiscount(Order order);
 }
 [/code]
 
 [code csharp]
-public sealed class GiamGiaPhanTram(IOptions<CauHinhKhuyenMai> options) : IChienLuocGiamGia
+public sealed class PercentageDiscount(IOptions<PromotionOptions> options) : IDiscountStrategy
 {
-    public LoaiKhuyenMai Loai => LoaiKhuyenMai.PhanTram;
+    public PromotionType Type => PromotionType.Percentage;
 
-    public bool ApDungDuoc(DonHang don)
-        => don.TongTien.Amount >= options.Value.NguongToiThieu;
+    public bool AppliesTo(Order order)
+        => order.Total.Amount >= options.Value.MinimumThreshold;
 
-    public Money TinhGiamGia(DonHang don)
-        => don.TongTien * options.Value.TyLePhanTram;
+    public Money CalculateDiscount(Order order)
+        => order.Total * options.Value.Percentage;
 }
 
-public sealed class GiamGiaKhachThanThiet(IBangHangKhachHang bangHang) : IChienLuocGiamGia
+public sealed class LoyaltyDiscount(ICustomerTierTable tierTable) : IDiscountStrategy
 {
-    public LoaiKhuyenMai Loai => LoaiKhuyenMai.KhachThanThiet;
+    public PromotionType Type => PromotionType.Loyalty;
 
-    public bool ApDungDuoc(DonHang don) => don.KhachHang.Hang is not null;
+    public bool AppliesTo(Order order) => order.Customer.Tier is not null;
 
-    public Money TinhGiamGia(DonHang don)
-        => don.TongTien * bangHang.LayTyLe(don.KhachHang.Hang!);
+    public Money CalculateDiscount(Order order)
+        => order.Total * tierTable.GetRate(order.Customer.Tier!);
 }
 [/code]
 
-Mỗi lớp chỉ có một lý do để thay đổi — đúng nguyên tắc trách nhiệm đơn nhất. `GiamGiaPhanTram` chỉ đổi khi quy tắc phần trăm đổi, và nó chỉ cần đúng một dependency thay vì bảy.
+Mỗi lớp chỉ có một lý do để thay đổi — đúng nguyên tắc trách nhiệm đơn nhất. `PercentageDiscount` chỉ đổi khi quy tắc phần trăm đổi, và nó chỉ cần đúng một dependency thay vì bảy.
 
 ### 5.11.3 — Chọn chiến lược
 
 [code csharp]
-public sealed class DichVuGiamGia(IEnumerable<IChienLuocGiamGia> chienLuocs)
+public sealed class DiscountService(IEnumerable<IDiscountStrategy> strategies)
 {
-    public Money TinhGiamGia(DonHang don, LoaiKhuyenMai loai)
+    public Money CalculateDiscount(Order order, PromotionType type)
     {
-        var chienLuoc = chienLuocs.FirstOrDefault(c => c.Loai == loai);
+        var strategy = strategies.FirstOrDefault(s => s.Type == type);
 
-        if (chienLuoc is null || !chienLuoc.ApDungDuoc(don))
+        if (strategy is null || !strategy.AppliesTo(order))
             return Money.Zero;
 
-        return chienLuoc.TinhGiamGia(don);
+        return strategy.CalculateDiscount(order);
     }
 
-    // Chon chuong trinh co loi nhat cho khach — TRUOC DAY khong lam duoc
-    public Money TinhGiamGiaTotNhat(DonHang don)
-        => chienLuocs
-            .Where(c => c.ApDungDuoc(don))
-            .Select(c => c.TinhGiamGia(don))
+    // Chọn chương trình có lợi nhất cho khách — TRƯỚC ĐÂY không làm được
+    public Money CalculateBestDiscount(Order order)
+        => strategies
+            .Where(s => s.AppliesTo(order))
+            .Select(s => s.CalculateDiscount(order))
             .DefaultIfEmpty(Money.Zero)
             .Max();
 }
 [/code]
 
 [code csharp]
-// Dang ky — them chien luoc moi chi can them MOT dong
-builder.Services.AddScoped<IChienLuocGiamGia, GiamGiaPhanTram>();
-builder.Services.AddScoped<IChienLuocGiamGia, GiamGiaSoTienCoDinh>();
-builder.Services.AddScoped<IChienLuocGiamGia, GiamGiaKhachThanThiet>();
+// Đăng ký — thêm chiến lược mới chỉ cần thêm MỘT dòng
+builder.Services.AddScoped<IDiscountStrategy, PercentageDiscount>();
+builder.Services.AddScoped<IDiscountStrategy, FixedAmountDiscount>();
+builder.Services.AddScoped<IDiscountStrategy, LoyaltyDiscount>();
 [/code]
 
 .NET DI tự gom mọi đăng ký cùng interface thành `IEnumerable ` khi bạn yêu cầu (bài 7.6).
 
-Phương thức `TinhGiamGiaTotNhat` đáng chú ý: với `switch` cũ, viết được nó nghĩa là phải lặp qua mọi giá trị enum và gọi lại hàm 8 lần. Với thiết kế mới, nó là ba dòng LINQ — một khả năng mới xuất hiện nhờ cấu trúc, không phải nhờ viết thêm logic.
+Phương thức `CalculateBestDiscount` đáng chú ý: với `switch` cũ, viết được nó nghĩa là phải lặp qua mọi giá trị enum và gọi lại hàm 8 lần. Với thiết kế mới, nó là ba dòng LINQ — một khả năng mới xuất hiện nhờ cấu trúc, không phải nhờ viết thêm logic.
 
 ### 5.11.4 — Kết quả
 
@@ -26814,24 +26806,24 @@ Phương thức `TinhGiamGiaTotNhat` đáng chú ý: với `switch` cũ, viết 
 | Test cho một chiến lược | Phải dựng 7 dependency | 1–2 dependency |
 | Chọn khuyến mãi tốt nhất | Không làm được | 3 dòng LINQ |
 
-Hàng thứ tư là lợi ích lớn nhất trong thực tế: test của `GiamGiaPhanTram` không còn quan tâm tới bảng hạng khách hàng hay phí vận chuyển.
+Hàng thứ tư là lợi ích lớn nhất trong thực tế: test của `PercentageDiscount` không còn quan tâm tới bảng hạng khách hàng hay phí vận chuyển.
 
 ### 5.11.5 — Khi SOLID bị lạm dụng
 
 Cùng bài toán, áp dụng máy móc có thể ra thế này:
 
 [code csharp]
-// LAM DUNG
-public interface IChienLuocGiamGia { }
-public interface IChienLuocGiamGiaCoDieuKien : IChienLuocGiamGia { }
-public interface INhaMayChienLuocGiamGia { }
-public interface IBoDieuPhoiGiamGia { }
-public interface IXacThucGiamGia { }
-public interface IBoDinhDangGiamGia { }
-public interface IGhiNhatKyGiamGia { }
-public abstract class ChienLuocGiamGiaCoSo { }
-public class BoDieuPhoiGiamGiaMacDinh : IBoDieuPhoiGiamGia { }
-// ... 15 lop cho viec ma 20 dong switch lam duoc
+// LẠM DỤNG
+public interface IDiscountStrategy { }
+public interface IConditionalDiscountStrategy : IDiscountStrategy { }
+public interface IDiscountStrategyFactory { }
+public interface IDiscountCoordinator { }
+public interface IDiscountValidator { }
+public interface IDiscountFormatter { }
+public interface IDiscountLogger { }
+public abstract class DiscountStrategyBase { }
+public class DefaultDiscountCoordinator : IDiscountCoordinator { }
+// ... 15 lớp cho việc mà 20 dòng switch làm được
 [/code]
 
 Đây không phải thiết kế tốt hơn — nó là chi phí thuần. Người đọc phải nhảy qua 6 file để hiểu một phép tính.
@@ -26875,48 +26867,48 @@ Sau bài này bạn có thể:
 ### 5.12.1 — Code gây rò rỉ
 
 [code csharp]
-// Singleton — song suot vong doi ung dung
-public class BoTheoDoiTonKho
+// Singleton — sống suốt vòng đời ứng dụng
+public class StockTracker
 {
-    public event EventHandler<TonKhoThayDoiEventArgs>? TonKhoThayDoi;
+    public event EventHandler<StockChangedEventArgs>? StockChanged;
 
-    public void CapNhat(ProductId id, int soLuong)
-        => TonKhoThayDoi?.Invoke(this, new TonKhoThayDoiEventArgs(id, soLuong));
+    public void Update(ProductId id, int quantity)
+        => StockChanged?.Invoke(this, new StockChangedEventArgs(id, quantity));
 }
 
-// Scoped — tao MOI cho moi request HTTP
-public class DichVuThongBao
+// Scoped — tạo MỚI cho mỗi request HTTP
+public class NotificationService
 {
     private readonly AppDbContext _db;
 
-    public DichVuThongBao(BoTheoDoiTonKho theoDoi, AppDbContext db)
+    public NotificationService(StockTracker tracker, AppDbContext db)
     {
         _db = db;
-        theoDoi.TonKhoThayDoi += XuLyTonKhoThayDoi;      // DANG KY
-        // ... va KHONG BAO GIO huy dang ky
+        tracker.StockChanged += OnStockChanged;      // ĐĂNG KÝ
+        // ... và KHÔNG BAO GIỜ huỷ đăng ký
     }
 
-    private void XuLyTonKhoThayDoi(object? sender, TonKhoThayDoiEventArgs e)
-        => _db.ThongBaos.Add(new ThongBao($"Tồn kho {e.ProductId} còn {e.SoLuong}"));
+    private void OnStockChanged(object? sender, StockChangedEventArgs e)
+        => _db.Notifications.Add(new Notification($"Tồn kho {e.ProductId} còn {e.Quantity}"));
 }
 [/code]
 
-Mỗi request HTTP tạo một `DichVuThongBao` mới và đăng ký thêm một handler. Không cái nào được gỡ ra.
+Mỗi request HTTP tạo một `NotificationService` mới và đăng ký thêm một handler. Không cái nào được gỡ ra.
 
 ### 5.12.2 — Vì sao rò rỉ
 
 [code]
-BoTheoDoiTonKho (singleton, song mai)
-  └─ event TonKhoThayDoi
-       ├─ handler cua DichVuThongBao #1   -> giu DichVuThongBao #1
-       ├─ handler cua DichVuThongBao #2   -> giu DichVuThongBao #2
+StockTracker (singleton, song mai)
+  └─ event StockChanged
+       ├─ handler cua NotificationService #1   -> giu NotificationService #1
+       ├─ handler cua NotificationService #2   -> giu NotificationService #2
        ├─ ... 50.000 handler nua
-       └─ moi DichVuThongBao lai giu mot AppDbContext
+       └─ moi NotificationService lai giu mot AppDbContext
 [/code]
 
 `+=` tạo một delegate trỏ tới phương thức của một instance cụ thể. Delegate đó giữ tham chiếu tới instance — nên bên phát event giữ sống bên nghe.
 
-Vì `BoTheoDoiTonKho` là singleton và sống mãi, mọi `DichVuThongBao` từng được tạo đều không thể thu gom, cùng với `AppDbContext` của chúng, và cùng với connection mà `DbContext` đang giữ.
+Vì `StockTracker` là singleton và sống mãi, mọi `NotificationService` từng được tạo đều không thể thu gom, cùng với `AppDbContext` của chúng, và cùng với connection mà `DbContext` đang giữ.
 
 Số liệu thực tế:
 
@@ -26935,9 +26927,9 @@ dotnet-counters monitor -p 1 --counters System.Runtime
 [/code]
 
 [code]
-GC Heap Size (MB)                 2,341        <- tang deu, khong bao gio giam
-Gen 2 GC Count / 1 sec                4        <- cao bat thuong
-Exception Count / 1 sec           1,204        <- rat cao
+GC Heap Size (MB)                 2,341        <- tăng đều, không bao giờ giảm
+Gen 2 GC Count / 1 sec                4        <- cao bất thường
+Exception Count / 1 sec           1,204        <- rất cao
 [/code]
 
 Chữ ký của rò rỉ bộ nhớ: heap tăng đều và không giảm sau Gen 2 GC. Nếu bộ nhớ tăng rồi giảm theo chu kỳ, đó là hoạt động bình thường; nếu chỉ tăng, có thứ gì đó đang bị giữ (bài 19.4).
@@ -26945,30 +26937,30 @@ Chữ ký của rò rỉ bộ nhớ: heap tăng đều và không giảm sau Gen
 Xác nhận bằng cách so hai ảnh chụp bộ nhớ:
 
 [code bash]
-dotnet-gcdump collect -p 1 -o truoc.gcdump
-# ... de chay them 30 phut ...
-dotnet-gcdump collect -p 1 -o sau.gcdump
+dotnet-gcdump collect -p 1 -o before.gcdump
+# ... để chạy thêm 30 phút ...
+dotnet-gcdump collect -p 1 -o after.gcdump
 [/code]
 
-So sánh sẽ thấy số instance của `DichVuThongBao` tăng tuyến tính theo số request — trong khi nó là scoped và đáng lẽ phải bị thu gom sau mỗi request.
+So sánh sẽ thấy số instance của `NotificationService` tăng tuyến tính theo số request — trong khi nó là scoped và đáng lẽ phải bị thu gom sau mỗi request.
 
 ### 5.12.4 — Ba cách sửa
 
 Cách 1 — huỷ đăng ký qua `IDisposable`:
 
 [code csharp]
-public class DichVuThongBao : IDisposable
+public class NotificationService : IDisposable
 {
-    private readonly BoTheoDoiTonKho _theoDoi;
+    private readonly StockTracker _tracker;
 
-    public DichVuThongBao(BoTheoDoiTonKho theoDoi, AppDbContext db)
+    public NotificationService(StockTracker tracker, AppDbContext db)
     {
-        _theoDoi = theoDoi;
-        _theoDoi.TonKhoThayDoi += XuLyTonKhoThayDoi;
+        _tracker = tracker;
+        _tracker.StockChanged += OnStockChanged;
     }
 
     public void Dispose()
-        => _theoDoi.TonKhoThayDoi -= XuLyTonKhoThayDoi;      // GO RA
+        => _tracker.StockChanged -= OnStockChanged;      // GỠ RA
 }
 [/code]
 
@@ -26977,34 +26969,34 @@ DI container tự gọi `Dispose` cho service scoped khi request kết thúc, n�
 Quan trọng: `-=` chỉ hoạt động nếu bạn gỡ đúng delegate đã thêm. Lambda thì không:
 
 [code csharp]
-// SAI — hai lambda nay la HAI delegate khac nhau
-theoDoi.TonKhoThayDoi += (s, e) => XuLy(e);
-theoDoi.TonKhoThayDoi -= (s, e) => XuLy(e);      // KHONG go duoc gi
+// SAI — hai lambda này là HAI delegate khác nhau
+tracker.StockChanged += (s, e) => Handle(e);
+tracker.StockChanged -= (s, e) => Handle(e);      // KHÔNG gỡ được gì
 [/code]
 
 Phải dùng tham chiếu phương thức, hoặc lưu lambda vào một biến:
 
 [code csharp]
-private readonly EventHandler<TonKhoThayDoiEventArgs> _handler;
+private readonly EventHandler<StockChangedEventArgs> _handler;
 // ...
-_handler = (s, e) => XuLy(e);
-theoDoi.TonKhoThayDoi += _handler;
+_handler = (s, e) => Handle(e);
+tracker.StockChanged += _handler;
 // ...
-theoDoi.TonKhoThayDoi -= _handler;      // gio go duoc
+tracker.StockChanged -= _handler;      // giờ gỡ được
 [/code]
 
 Cách 2 — đảo chiều phụ thuộc. Thay vì service scoped đăng ký vào singleton, để singleton hỏi DI container khi cần:
 
 [code csharp]
-public class BoTheoDoiTonKho(IServiceScopeFactory scopeFactory)
+public class StockTracker(IServiceScopeFactory scopeFactory)
 {
-    public async Task CapNhatAsync(ProductId id, int soLuong, CancellationToken ct)
+    public async Task UpdateAsync(ProductId id, int quantity, CancellationToken ct)
     {
         using var scope = scopeFactory.CreateScope();
-        var thongBao = scope.ServiceProvider.GetRequiredService<DichVuThongBao>();
+        var notifier = scope.ServiceProvider.GetRequiredService<NotificationService>();
 
-        await thongBao.XuLyAsync(id, soLuong, ct);
-        // scope bi huy -> khong giu gi ca
+        await notifier.HandleAsync(id, quantity, ct);
+        // scope bị huỷ -> không giữ gì cả
     }
 }
 [/code]
@@ -27014,11 +27006,11 @@ Không có đăng ký nào để quên gỡ. Đây là cách an toàn nhất khi
 Cách 3 — dùng cơ chế khác. Trong ASP.NET Core, phần lớn trường hợp dùng event .NET giữa các service có lựa chọn tốt hơn:
 
 [code csharp]
-// Trong mot tien trinh — domain event qua MediatR
-await _mediator.Publish(new TonKhoThayDoiEvent(id, soLuong), ct);
+// Trong một tiến trình — domain event qua MediatR
+await _mediator.Publish(new StockChangedEvent(id, quantity), ct);
 
 // Xuyen tien trinh — message qua broker
-await _publisher.PublishAsync(new StockChangedIntegrationEvent(id, soLuong), ct);
+await _publisher.PublishAsync(new StockChangedIntegrationEvent(id, quantity), ct);
 [/code]
 
 Cả hai đều không tạo tham chiếu kéo dài: handler được DI container tạo khi cần và huỷ ngay sau đó (bài 16.9).
@@ -28437,7 +28429,7 @@ Gợi ý. Tên trường của tuple chỉ tồn tại lúc biên dịch. Ở m�
 Lời giải.
 
 [code csharp]
-static (decimal Total, int Count) Thong() => (100m, 3);
+static (decimal Total, int Count) GetStats() => (100m, 3);
 
 [… phần còn lại đã lược bớt]
 
@@ -28470,22 +28462,22 @@ Sau bài này bạn có thể:
 Điều kiện kích hoạt: xử lý tập dữ liệu có thể rất lớn.
 
 [code csharp]
-// Nap HET vao bo nho — 200.000 ban ghi = OOM
-public async Task<List<Lead>> LayTatCaAsync(CancellationToken ct)
+// Nạp HẾT vào bộ nhớ — 200.000 bản ghi = OOM
+public async Task<List<Lead>> GetAllAsync(CancellationToken ct)
     => await _db.Leads.ToListAsync(ct);
 
-// Stream tung ban ghi — bo nho la HANG SO
-public async IAsyncEnumerable<Lead> LayTatCaAsync(
+// Stream từng bản ghi — bộ nhớ là HẰNG SỐ
+public async IAsyncEnumerable<Lead> GetAllAsync(
     [EnumeratorCancellation] CancellationToken ct = default)
 {
     await foreach (var lead in _db.Leads.AsAsyncEnumerable().WithCancellation(ct))
         yield return lead;
 }
 
-// Su dung
-await foreach (var lead in _service.LayTatCaAsync(ct))
+// Sử dụng
+await foreach (var lead in _service.GetAllAsync(ct))
 {
-    await XuLyAsync(lead, ct);
+    await ProcessAsync(lead, ct);
 }
 [/code]
 
@@ -28532,20 +28524,20 @@ Source generator khác biệt với reflection ở một điểm quan trọng: n
 Điều kiện kích hoạt: bạn dùng nó hàng ngày qua EF Core; chỉ cần tự viết khi xây thư viện.
 
 [code csharp]
-// Delegate — code DA BIEN DICH, chi chay duoc
-Func<Lead, bool> ham = l => l.Value > 1000;
+// Delegate — code ĐÃ BIÊN DỊCH, chỉ chạy được
+Func<Lead, bool> predicate = l => l.Value > 1000;
 
-// Expression tree — CAU TRUC DU LIEU mo ta code, DOC va PHAN TICH duoc
-Expression<Func<Lead, bool>> bieuThuc = l => l.Value > 1000;
+// Expression tree — CẤU TRÚC DỮ LIỆU mô tả code, ĐỌC và PHÂN TÍCH được
+Expression<Func<Lead, bool>> expression = l => l.Value > 1000;
 
-Console.WriteLine(bieuThuc.Body);          // (l.Value > 1000)
-Console.WriteLine(bieuThuc.Body.NodeType); // GreaterThan
+Console.WriteLine(expression.Body);          // (l.Value > 1000)
+Console.WriteLine(expression.Body.NodeType); // GreaterThan
 [/code]
 
 Đây chính là lý do EF Core dịch được LINQ sang SQL:
 
 [code csharp]
-// EF Core DOC cay bieu thuc va sinh SQL
+// EF Core ĐỌC cây biểu thức và sinh SQL
 _db.Leads.Where(l => l.Value > 1000)
 // -> SELECT * FROM Leads WHERE Value > 1000
 [/code]
@@ -28553,8 +28545,8 @@ _db.Leads.Where(l => l.Value > 1000)
 Và cũng giải thích một lỗi rất hay gặp:
 
 [code csharp]
-// Ham C# — EF Core KHONG doc duoc ben trong
-_db.Leads.Where(l => KiemTraHopLe(l))
+// Hàm C# — EF Core KHÔNG đọc được bên trong
+_db.Leads.Where(l => IsValid(l))
 // -> InvalidOperationException: could not be translated
 [/code]
 
@@ -28567,11 +28559,11 @@ Hiểu điều này giúp bạn đọc được thông báo lỗi "could not be 
 Điều kiện kích hoạt: hot path đã đo được là tốn cấp phát; hoặc bạn viết thư viện.
 
 [code csharp]
-// Cap phat: Substring tao chuoi MOI
-string ma = input.Substring(0, 3);
+// Cấp phát: Substring tạo chuỗi MỚI
+string code = input.Substring(0, 3);
 
-// Khong cap phat: Span tro vao bo nho SAN CO
-ReadOnlySpan<char> ma = input.AsSpan(0, 3);
+// Không cấp phát: Span trỏ vào bộ nhớ SẴN CÓ
+ReadOnlySpan<char> code = input.AsSpan(0, 3);
 [/code]
 
 `Span ` là một "cửa sổ" nhìn vào vùng nhớ có sẵn, không sao chép gì. Với code chạy hàng triệu lần, khác biệt về số lần cấp phát là đáng kể.
@@ -28588,25 +28580,25 @@ Thực tế: bạn dùng nó gián tiếp liên tục. `int.Parse(ReadOnlySpan )
 Điều kiện kích hoạt: thiết kế interface generic dùng lại nhiều nơi.
 
 [code csharp]
-// Covariance (out) — dung duoc kieu CU THE HON o dau ra
-IEnumerable<Lead> leads = danhSachLead;
-IEnumerable<object> objects = leads;         // OK vi IEnumerable<out T>
+// Covariance (out) — dùng được kiểu CỤ THỂ HƠN ở đầu ra
+IEnumerable<Lead> leads = leadList;
+IEnumerable<object> objects = leads;         // OK vì IEnumerable<out T>
 
-// Contravariance (in) — dung duoc kieu TONG QUAT HON o dau vao
-Action<object> xuLyObject = o => Console.WriteLine(o);
-Action<Lead> xuLyLead = xuLyObject;          // OK vi Action<in T>
+// Contravariance (in) — dùng được kiểu TỔNG QUÁT HƠN ở đầu vào
+Action<object> handleObject = o => Console.WriteLine(o);
+Action<Lead> handleLead = handleObject;      // OK vì Action<in T>
 [/code]
 
 [code csharp]
-// Trong thiet ke cua ban
-public interface IReadOnlyRepository<out T>          // chi TRA VE T
+// Trong thiết kế của bạn
+public interface IReadOnlyRepository<out T>          // chỉ TRẢ VỀ T
 {
     Task<T?> GetByIdAsync(Guid id, CancellationToken ct);
 }
 
-// Gio dung duoc:
-IReadOnlyRepository<Lead> repoLead = ...;
-IReadOnlyRepository<IEntity> repoEntity = repoLead;   // hop le
+// Giờ dùng được:
+IReadOnlyRepository<Lead> leadRepo = ...;
+IReadOnlyRepository<IEntity> entityRepo = leadRepo;   // hợp lệ
 [/code]
 
 [… phần còn lại đã lược bớt]
@@ -28687,14 +28679,14 @@ public async Task<Order?> GetOrderAsync(int id, CancellationToken ct)
 sequenceDiagram
     participant T as Thread
     participant D as Database
-    Note over T: DONG BO
+    Note over T: ĐỒNG BỘ
     T->>D: SELECT
-    Note over T: dung cho 50ms - lang phi
-    D-->>T: ket qua
-    Note over T: BAT DONG BO
+    Note over T: đứng chờ 50ms — lãng phí
+    D-->>T: kết quả
+    Note over T: BẤT ĐỒNG BỘ
     T->>D: SELECT
-    Note over T: tra ve pool, phuc vu request khac
-    D-->>T: ket qua - mot thread bat ky tiep tuc
+    Note over T: trả về pool, phục vụ request khác
+    D-->>T: kết quả — một thread bất kỳ tiếp tục
 [/code]
 
 Cả hai đều mất 50ms cho một request. Khác biệt chỉ xuất hiện khi có nhiều request cùng lúc.
@@ -28831,24 +28823,24 @@ Sau bài này bạn có thể:
 ### 6.11.1 — Code ban đầu
 
 [code csharp]
-public async Task<SyncResult> DongBoKhachHangAsync(CancellationToken ct)
+public async Task<SyncResult> SyncCustomersAsync(CancellationToken ct)
 {
-    var khachHangs = await _db.Customers.Where(c => c.NeedsSync).ToListAsync(ct);
+    var customers = await _db.Customers.Where(c => c.NeedsSync).ToListAsync(ct);
 
-    foreach (var kh in khachHangs)              // 500 khach hang
+    foreach (var customer in customers)         // 500 khách hàng
     {
-        var ketQua = await _ketToanClient.DongBoAsync(kh, ct);   // ~950ms moi lan
-        kh.LastSyncedUtc = DateTime.UtcNow;
+        var result = await _accountingClient.SyncAsync(customer, ct);   // ~950ms mỗi lần
+        customer.LastSyncedUtc = DateTime.UtcNow;
     }
 
     await _db.SaveChangesAsync(ct);
-    return SyncResult.Success(khachHangs.Count);
+    return SyncResult.Success(customers.Count);
 }
 [/code]
 
 [code]
-500 khach x 950ms = 475 giay = ~8 phut
-Timeout cua gateway: 300 giay  -> that bai truoc khi xong
+500 khách x 950ms = 475 giây = ~8 phút
+Timeout của gateway: 300 giây  -> thất bại trước khi xong
 [/code]
 
 Code này dùng `async/await` đúng cú pháp. Vấn đề không phải ở cú pháp mà ở cấu trúc: `await` bên trong `foreach` nghĩa là mỗi vòng lặp chờ xong rồi mới bắt đầu vòng sau.
@@ -28858,12 +28850,12 @@ Code này dùng `async/await` đúng cú pháp. Vấn đề không phải ở c�
 ### 6.11.2 — Thử 1: song song tối đa
 
 [code csharp]
-var tasks = khachHangs.Select(kh => _ketToanClient.DongBoAsync(kh, ct));
-var ketQuas = await Task.WhenAll(tasks);        // 500 loi goi CUNG LUC
+var tasks = customers.Select(c => _accountingClient.SyncAsync(c, ct));
+var results = await Task.WhenAll(tasks);        // 500 lời gọi CÙNG LÚC
 [/code]
 
 [code]
-Thoi gian: 8 phut -> 1,2 giay
+Thời gian: 8 phút -> 1,2 giây
 [/code]
 
 Nhưng chạy trên môi trường thật thì hỏng ngay, theo ba cách.
@@ -28880,7 +28872,7 @@ Hệ thống kế toán cho tối đa 20 request đồng thời. 500 request cù
 Bẫy 2 — `DbContext` không an toàn đa luồng:
 
 [code csharp]
-// Neu trong DongBoAsync co truy van database
+// Nếu trong SyncAsync có truy vấn database
 InvalidOperationException: A second operation was started on this context
 instance before a previous operation completed.
 [/code]
@@ -28891,8 +28883,8 @@ Bẫy 3 — một lỗi làm hỏng tất cả:
 
 [code csharp]
 await Task.WhenAll(tasks);
-// Neu 1 task nem exception -> WhenAll nem exception
-// -> 499 ket qua thanh cong bi mat, khong biet cai nao da xong
+// Nếu 1 task ném exception -> WhenAll ném exception
+// -> 499 kết quả thành công bị mất, không biết cái nào đã xong
 [/code]
 
 Tệ hơn: `Task.WhenAll` chỉ ném exception đầu tiên trong `AggregateException`, nên bạn còn không biết có bao nhiêu cái thất bại.
@@ -28900,47 +28892,47 @@ Tệ hơn: `Task.WhenAll` chỉ ném exception đầu tiên trong `AggregateExce
 ### 6.11.3 — Giải pháp: song song có giới hạn
 
 [code csharp]
-public async Task<SyncResult> DongBoKhachHangAsync(CancellationToken ct)
+public async Task<SyncResult> SyncCustomersAsync(CancellationToken ct)
 {
-    var khachHangs = await _db.Customers
+    var customers = await _db.Customers
         .Where(c => c.NeedsSync)
         .AsNoTracking()
         .ToListAsync(ct);
 
-    var thanhCong = new ConcurrentBag<Guid>();
-    var thatBai = new ConcurrentBag<(Guid Id, string LyDo)>();
+    var succeeded = new ConcurrentBag<Guid>();
+    var failed = new ConcurrentBag<(Guid Id, string Reason)>();
 
     await Parallel.ForEachAsync(
-        khachHangs,
+        customers,
         new ParallelOptions
         {
-            MaxDegreeOfParallelism = 10,        // toi da 10 luc mot lan
+            MaxDegreeOfParallelism = 10,        // tối đa 10 lúc một lần
             CancellationToken = ct
         },
-        async (kh, token) =>
+        async (customer, token) =>
         {
             try
             {
-                await _ketToanClient.DongBoAsync(kh, token);
-                thanhCong.Add(kh.Id);
+                await _accountingClient.SyncAsync(customer, token);
+                succeeded.Add(customer.Id);
             }
             catch (Exception ex)
             {
-                // MOT loi KHONG lam hong cac cai khac
-                thatBai.Add((kh.Id, ex.Message));
-                _logger.LogWarning(ex, "Đồng bộ thất bại cho khách {Id}", kh.Id);
+                // MỘT lỗi KHÔNG làm hỏng các cái khác
+                failed.Add((customer.Id, ex.Message));
+                _logger.LogWarning(ex, "Đồng bộ thất bại cho khách {Id}", customer.Id);
             }
         });
 
-    // Cap nhat database SAU khi xong, tren MOT luong
-    await CapNhatTrangThaiAsync(thanhCong, ct);
+    // Cập nhật database SAU khi xong, trên MỘT luồng
+    await UpdateSyncStatusAsync(succeeded, ct);
 
-    return new SyncResult(thanhCong.Count, thatBai.ToList());
+    return new SyncResult(succeeded.Count, failed.ToList());
 }
 [/code]
 
 [code]
-Thoi gian: 500 / 10 x 950ms = ~48 giay
+Thời gian: 500 / 10 x 950ms = ~48 giây
 [/code]
 
 Bốn thay đổi giải quyết cả ba cái bẫy:
@@ -28959,22 +28951,22 @@ Bốn thay đổi giải quyết cả ba cái bẫy:
 Khi cần kiểm soát chi tiết hơn `Parallel.ForEachAsync`:
 
 [code csharp]
-var semaphore = new SemaphoreSlim(10);      // toi da 10 dong thoi
+var semaphore = new SemaphoreSlim(10);      // tối đa 10 đồng thời
 
-var tasks = khachHangs.Select(async kh =>
+var tasks = customers.Select(async customer =>
 {
     await semaphore.WaitAsync(ct);
     try
     {
-        return await _ketToanClient.DongBoAsync(kh, ct);
+        return await _accountingClient.SyncAsync(customer, ct);
     }
     finally
     {
-        semaphore.Release();                // PHAI o finally
+        semaphore.Release();                // PHẢI ở finally
     }
 });
 
-var ketQuas = await Task.WhenAll(tasks);
+var results = await Task.WhenAll(tasks);
 [/code]
 
 `Release()` trong `finally` là bắt buộc: nếu một exception thoát ra mà không `Release`, semaphore mất dần số lượt cho phép và cuối cùng mọi task đều treo vĩnh viễn.
@@ -28993,10 +28985,10 @@ Dùng `Parallel.ForEachAsync` làm mặc định.
 Không có con số đúng cho mọi trường hợp. Cách tìm:
 
 [code]
-1. Bat dau tu 4
-2. Do thong luong va ty le loi
-3. Tang gap doi, do lai
-4. Dung khi: ty le loi tang, HOAC thong luong khong tang nua
+1. Bắt đầu từ 4
+2. Đo thông lượng và tỷ lệ lỗi
+3. Tăng gấp đôi, đo lại
+4. Dừng khi: tỷ lệ lỗi tăng, HOẶC thông lượng không tăng nữa
 [/code]
 
 Ba giới hạn cần cân nhắc cùng lúc:
@@ -29030,15 +29022,15 @@ Sau bài này bạn có thể:
 ### 6.12.1 — Triệu chứng
 
 [code]
-Gio cao diem, 200 request/giay:
-  p50 cua MOI endpoint:   4.200ms   (binh thuong: 80ms)
+Giờ cao điểm, 200 request/giây:
+  p50 của MỌI endpoint:   4.200ms   (bình thường: 80ms)
   p99:                   14.000ms
-  Ty le loi:             18% (timeout)
+  Tỷ lệ lỗi:             18% (timeout)
 
-  CPU:                        8%     <- RAT THAP
-  Bo nho:                   340 MB   <- binh thuong
-  CPU database:              12%     <- nhan roi
-  Do tre database:            3ms    <- nhanh
+  CPU:                        8%     <- RẤT THẤP
+  Bộ nhớ:                   340 MB   <- bình thường
+  CPU database:              12%     <- nhàn rỗi
+  Độ trễ database:            3ms    <- nhanh
 [/code]
 
 Mọi thành phần đều khoẻ, nhưng hệ thống không dùng được. Đây là chữ ký của đang chờ, không phải của thiếu tài nguyên tính toán.
@@ -29051,8 +29043,8 @@ dotnet-counters monitor -p 1 --counters System.Runtime
 
 [code]
 ThreadPool Thread Count            112
-ThreadPool Queue Length          1,847        <- 1.847 viec DANG XEP HANG
-ThreadPool Completed Work Items    ~12/s      <- chi xong 12 viec moi giay
+ThreadPool Queue Length          1,847        <- 1.847 việc ĐANG XẾP HÀNG
+ThreadPool Completed Work Items    ~12/s      <- chỉ xong 12 việc mỗi giây
 CPU Usage (%)                        8
 [/code]
 
@@ -29074,15 +29066,15 @@ Một dòng. Trong một endpoint xuất báo cáo được gọi khoảng 20 l�
 ### 6.12.3 — Cơ chế
 
 [code]
-Thread pool co N thread (mac dinh ~ so core, tang rat cham)
+Thread pool có N thread (mặc định ~ số core, tăng rất chậm)
 
-1. Request bao cao goi .Result
-2. Thread bi CHIEM, KHONG tra ve pool, cho I/O 3 giay
-3. Them mot request bao cao -> chiem them mot thread
-4. Pool tang them thread — nhung chi 1-2 thread MOI GIAY
-5. Request thuong den nhanh hon toc do tang thread
-6. Queue dai ra -> MOI endpoint cham, ke ca endpoint khong co loi
-7. CPU van 8% vi moi thread deu dang CHO, khong tinh toan
+1. Request báo cáo gọi .Result
+2. Thread bị CHIẾM, KHÔNG trả về pool, chờ I/O 3 giây
+3. Thêm một request báo cáo -> chiếm thêm một thread
+4. Pool tăng thêm thread — nhưng chỉ 1-2 thread MỖI GIÂY
+5. Request thường đến nhanh hơn tốc độ tăng thread
+6. Queue dài ra -> MỌI endpoint chậm, kể cả endpoint không có lỗi
+7. CPU vẫn 8% vì mọi thread đều đang CHỜ, không tính toán
 [/code]
 
 Bước 6 là điều khiến sự cố khó chẩn đoán: endpoint gây lỗi không phải endpoint biểu hiện triệu chứng. Người báo lỗi nói "màn hình danh sách khách hàng chậm", còn thủ phạm nằm ở màn hình báo cáo mà gần như không ai dùng.
@@ -29092,11 +29084,11 @@ Vì sao thread pool tăng chậm là có chủ đích: tạo thread tốn kém (
 ### 6.12.4 — Sửa
 
 [code csharp]
-// TRUOC
+// TRƯỚC
 [HttpGet("export")]
 public IActionResult Export([FromQuery] ReportRequest request)
 {
-    var data = _reportService.GenerateAsync(request).Result;     // chiem thread
+    var data = _reportService.GenerateAsync(request).Result;     // chiếm thread
     return File(data, "application/pdf");
 }
 
@@ -29119,10 +29111,10 @@ Ty le loi:                 18% -> 0,02%
 Nguyên tắc: async phải đi suốt chuỗi. Một mắt xích đồng bộ ở giữa phá hỏng cả chuỗi:
 
 [code csharp]
-// SAI — van chan, du ham ngoai la async
+// SAI — vẫn chặn, dù hàm ngoài là async
 public async Task<byte[]> GenerateAsync(ReportRequest r, CancellationToken ct)
 {
-    var data = _repository.GetDataAsync(r, ct).Result;      // <- van chan o day
+    var data = _repository.GetDataAsync(r, ct).Result;      // <- vẫn chặn ở đây
     return Render(data);
 }
 [/code]
@@ -29132,7 +29124,7 @@ public async Task<byte[]> GenerateAsync(ReportRequest r, CancellationToken ct)
 Khi chưa sửa kịp và hệ thống đang cháy:
 
 [code csharp]
-// KHONG phai cach sua — chi mua them thoi gian
+// KHÔNG phải cách sửa — chỉ mua thêm thời gian
 ThreadPool.SetMinThreads(workerThreads: 200, completionPortThreads: 200);
 [/code]
 
@@ -29169,10 +29161,10 @@ grep -rn "Task.Run(async" --include=*.cs src/
 [/code]
 
 [code csharp]
-// SAI — chiem HAI thread thay vi khong chiem cai nao
+// SAI — chiếm HAI thread thay vì không chiếm cái nào
 await Task.Run(async () => await _service.DoAsync());
 
-// DUNG
+// ĐÚNG
 await _service.DoAsync();
 [/code]
 
@@ -29184,7 +29176,7 @@ await _service.DoAsync();
 <!-- .editorconfig -->
 dotnet_diagnostic.VSTHRD002.severity = error    <- sync-over-async
 dotnet_diagnostic.VSTHRD100.severity = error    <- async void
-dotnet_diagnostic.VSTHRD103.severity = error    <- goi ban dong bo khi co ban async
+dotnet_diagnostic.VSTHRD103.severity = error    <- gọi bản đồng bộ khi có bản async
 [/code]
 
 [… phần còn lại đã lược bớt]
@@ -29608,11 +29600,11 @@ sequenceDiagram
     participant T as Thread request
     participant C as SynchronizationContext
     participant IO as HTTP call
-    T->>T: goi .Result - block va giu context
-    T->>IO: gui request
-    IO-->>C: phan hoi ve, dang ky continuation
-    C--xT: can dung thread nay de chay tiep
-    Note over T,C: Thread cho Task<br/>Task cho thread<br/>DEADLOCK
+    T->>T: gọi .Result — block và giữ context
+    T->>IO: gửi request
+    IO-->>C: phản hồi về, đăng ký continuation
+    C--xT: cần dùng thread này để chạy tiếp
+    Note over T,C: Thread chờ Task<br/>Task chờ thread<br/>DEADLOCK
 [/code]
 
 1. `.Result` block thread request. Thread này đang giữ `AspNetSynchronizationContext`.
@@ -29631,7 +29623,7 @@ Bài Gọi `.Result` khi nào thì deadlock, khi nào thì không? đi sâu vào
 private async Task<string> GetDataAsync()
 {
     return await _http.GetStringAsync("https://api.example.com")
-                      .ConfigureAwait(false);   // khong quay ve context
+                      .ConfigureAwait(false);   // không quay về context
 }
 [/code]
 
@@ -29678,8 +29670,8 @@ Với WPF/WinForms, bỏ `ConfigureAwait(false)` sai chỗ cho bạn `InvalidOpe
 [code csharp]
 await task.ConfigureAwait(ConfigureAwaitOptions.None);                 // = ConfigureAwait(false)
 await task.ConfigureAwait(ConfigureAwaitOptions.ContinueOnCapturedContext); // = ConfigureAwait(true)
-await task.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);     // khong nem lai exception
-await task.ConfigureAwait(ConfigureAwaitOptions.ForceYielding);        // luon yield, khong bao gio dong bo
+await task.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);     // không ném lại exception
+await task.ConfigureAwait(ConfigureAwaitOptions.ForceYielding);        // luôn yield, không bao giờ đồng bộ
 [/code]
 
 `SuppressThrowing` hữu ích khi bạn chỉ muốn chờ xong mà không quan tâm kết quả, thay cho `try { await t; } catch { }`.
@@ -29895,11 +29887,11 @@ Chú ý dòng cuối: dùng `await customerTask` chứ không dùng `customerTas
 [code csharp]
 try
 {
-    await Task.WhenAll(task1, task2, task3);   // ca 3 cung loi
+    await Task.WhenAll(task1, task2, task3);   // cả 3 cùng lỗi
 }
 catch (Exception ex)
 {
-    // ex la exception cua task DAU TIEN loi. Hai cai kia bien mat.
+    // ex là exception của task ĐẦU TIÊN lỗi. Hai cái kia biến mất.
 }
 [/code]
 
@@ -29914,9 +29906,9 @@ try
 }
 catch
 {
-    // all.Exception la AggregateException chua DAY DU
+    // all.Exception là AggregateException chứa ĐẦY ĐỦ
     foreach (var inner in all.Exception!.InnerExceptions)
-        _logger.LogError(inner, "Task that bai");
+        _logger.LogError(inner, "Task thất bại");
 
     throw;
 }
@@ -29929,7 +29921,7 @@ Quy tắc: gán `WhenAll` vào một biến nếu bạn cần log lỗi. Còn n�
 Cái bẫy phổ biến nhất khi mới dùng `WhenAll`:
 
 [code csharp]
-// SAI — cung mot DbContext, no se nem InvalidOperationException
+// SAI — cùng một DbContext, nó sẽ ném InvalidOperationException
 var t1 = _db.Customers.ToListAsync(ct);
 var t2 = _db.Orders.ToListAsync(ct);
 await Task.WhenAll(t1, t2);
@@ -30004,14 +29996,14 @@ catch (OperationCanceledException) when (!ct.IsCancellationRequested) { return n
 ### 6.6.5 — Ba cách chạy một danh sách, và khi nào dùng cái nào
 
 [code csharp]
-// 1. TUAN TU — 1000 muc x 100ms = 100 giay. Cham nhung an toan.
+// 1. TUẦN TỰ — 1000 mục x 100ms = 100 giây. Chậm nhưng an toàn.
 foreach (var c in customers)
     await ProcessAsync(c, ct);
 
-// 2. WhenAll KHONG GIOI HAN — 1000 ket noi cung luc. De sap DB.
+// 2. WhenAll KHÔNG GIỚI HẠN — 1000 kết nối cùng lúc. Dễ sập DB.
 await Task.WhenAll(customers.Select(c => ProcessAsync(c, ct)));
 
-// 3. Parallel.ForEachAsync (.NET 6+) — toi da 10 cung luc. Dung nhat.
+// 3. Parallel.ForEachAsync (.NET 6+) — tối đa 10 cùng lúc. Dùng nhất.
 await Parallel.ForEachAsync(
     customers,
     new ParallelOptions { MaxDegreeOfParallelism = 10, CancellationToken = ct },
@@ -30050,11 +30042,11 @@ Sau bài này bạn có thể:
 ### 6.7.1 — `IAsyncEnumerable `: trả dần thay vì nạp hết
 
 [code csharp]
-// TRA HET: 500.000 ban ghi nam trong RAM truoc khi ghi duoc dong dau tien
+// TRẢ HẾT: 500.000 bản ghi nằm trong RAM trước khi ghi được dòng đầu tiên
 public async Task<List<Customer>> GetAllAsync(CancellationToken ct)
     => await _db.Customers.Where(c => c.IsActive).ToListAsync(ct);
 
-// TRA DAN: moi luc chi giu mot ban ghi
+// TRẢ DẦN: mỗi lúc chỉ giữ một bản ghi
 public IAsyncEnumerable<Customer> StreamAsync(CancellationToken ct)
     => _db.Customers.Where(c => c.IsActive).AsAsyncEnumerable();
 [/code]
@@ -30119,7 +30111,7 @@ public sealed class ReportEngine
         int templateId, ITemplateRepository repo, IRenderer renderer, CancellationToken ct = default)
     {
         var template = await repo.LoadAsync(templateId, ct)
-            ?? throw new InvalidOperationException($"Khong tim thay template {templateId}");
+            ?? throw new InvalidOperationException($"Không tìm thấy template {templateId}");
 
         return new ReportEngine(template, renderer);
     }
@@ -30145,12 +30137,12 @@ public sealed class MessageProcessor : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        await _connection.CloseAsync();     // dong ket noi co I/O
+        await _connection.CloseAsync();     // đóng kết nối có I/O
         await _connection.DisposeAsync();
     }
 }
 
-// Su dung
+// Sử dụng
 await using var processor = new MessageProcessor(connection);
 [/code]
 
@@ -30227,11 +30219,11 @@ Cách chữa là `async` lên tới tận trên cùng. Cơ chế deadlock đã m
 ### 6.8.2 — Bẫy 2: async-over-sync (`Task.Run` bọc I/O đồng bộ)
 
 [code csharp]
-// SAI — van chiem mot thread, chi la thread khac
+// SAI — vẫn chiếm một thread, chỉ là thread khác
 public Task<string> ReadAsync(string path)
     => Task.Run(() => File.ReadAllText(path));
 
-// DUNG — I/O bat dong bo that
+// ĐÚNG — I/O bất đồng bộ thật
 public Task<string> ReadAsync(string path, CancellationToken ct = default)
     => File.ReadAllTextAsync(path, ct);
 [/code]
@@ -30246,7 +30238,7 @@ public Task<string> ReadAsync(string path, CancellationToken ct = default)
 [HttpGet]
 public async Task<IActionResult> Get()
 {
-    var result = await Task.Run(() => HeavyCalculation());   // khong giup gi
+    var result = await Task.Run(() => HeavyCalculation());   // không giúp gì
     return Ok(result);
 }
 [/code]
@@ -30293,22 +30285,22 @@ Và `Where(async c => await IsValidAsync(c))` thì không biên dịch được,
 ### 6.8.6 — Bẫy 6: `List ` không thread-safe
 
 [code csharp]
-// SAI — List<T> khong thread-safe
+// SAI — List<T> không thread-safe
 var results = new List<Order>();
 
 await Parallel.ForEachAsync(ids, ct, async (id, token) =>
 {
-    results.Add(await LoadAsync(id, token));   // mat phan tu, hoac nem ngau nhien
+    results.Add(await LoadAsync(id, token));   // mất phần tử, hoặc ném ngẫu nhiên
 });
 [/code]
 
 `List .Add` đọc `_size`, ghi vào mảng, rồi tăng `_size`. Hai task chạy xen kẽ giữa ba bước đó thì một phần tử bị ghi đè — im lặng, không exception. Đôi khi nó ném `IndexOutOfRangeException` từ bên trong `List`, và đó lại là may mắn vì ít nhất bạn biết.
 
 [code csharp]
-// DUNG 1 — collection thread-safe
+// ĐÚNG 1 — collection thread-safe
 var results = new ConcurrentBag<Order>();
 
-// DUNG 2 — khong chia se state, gom lai o cuoi (thich hon)
+// ĐÚNG 2 — không chia sẻ state, gom lại ở cuối (thích hơn)
 var results = await Task.WhenAll(ids.Select(id => LoadAsync(id, ct)));
 [/code]
 
@@ -30319,7 +30311,7 @@ Cách 2 tốt hơn: không có trạng thái chia sẻ thì không có vấn đ�
 [code csharp]
 lock (_gate)
 {
-    await DoAsync();      // KHONG BIEN DICH DUOC
+    await DoAsync();      // KHÔNG BIÊN DỊCH ĐƯỢC
 }
 [/code]
 
@@ -30379,10 +30371,10 @@ Producer trả lời ngay; consumer xử lý theo nhịp của nó; và khi hàn
 ### 6.9.2 — Bounded và unbounded
 
 [code csharp]
-// UNBOUNDED — khong gioi han. Producer khong bao gio bi chan.
+// UNBOUNDED — không giới hạn. Producer không bao giờ bị chặn.
 var unbounded = Channel.CreateUnbounded<Job>();
 
-// BOUNDED — toi da 1000. Day thi WriteAsync cho.
+// BOUNDED — tối đa 1000. Đầy thì WriteAsync chờ.
 var bounded = Channel.CreateBounded<Job>(new BoundedChannelOptions(1000)
 {
     FullMode = BoundedChannelFullMode.Wait
@@ -30408,8 +30400,8 @@ Có hai tuỳ chọn tối ưu đáng bật khi bạn chắc chắn về mô hì
 new BoundedChannelOptions(1000)
 {
     FullMode = BoundedChannelFullMode.Wait,
-    SingleReader = true,    // chi mot consumer
-    SingleWriter = false,   // nhieu request cung ghi
+    SingleReader = true,    // chỉ một consumer
+    SingleWriter = false,   // nhiều request cùng ghi
 }
 [/code]
 
@@ -30450,7 +30442,7 @@ Có cả bản không chờ, dùng khi bạn không muốn producer bị chặn:
 
 [code csharp]
 if (!_channel.Writer.TryWrite(job))
-    _logger.LogWarning("Hang doi day, bo qua job {Id}", job.Id);
+    _logger.LogWarning("Hàng đợi đầy, bỏ qua job {Id}", job.Id);
 [/code]
 
 ### 6.9.4 — Consumer phải là `BackgroundService`, không phải `IHostedService.StartAsync`
@@ -30458,7 +30450,7 @@ if (!_channel.Writer.TryWrite(job))
 Đây là lỗi hay gặp nhất trong bài này:
 
 [code csharp]
-// SAI — StartAsync khong bao gio tra ve, ung dung khong bao gio khoi dong xong
+// SAI — StartAsync không bao giờ trả về, ứng dụng không bao giờ khởi động xong
 public async Task StartAsync(CancellationToken ct)
 {
     await foreach (var job in _queue.ReadAllAsync(ct))
@@ -30494,8 +30486,8 @@ public sealed class JobProcessor : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Job {Id} that bai", job.Id);
-                // KHONG throw — mot job hong khong duoc lam chet consumer
+                _logger.LogError(ex, "Job {Id} thất bại", job.Id);
+                // KHÔNG throw — một job hỏng không được làm chết consumer
             }
         }
     }
@@ -30535,34 +30527,34 @@ Sau bài này bạn có thể:
 Điều kiện kích hoạt: ngay khi có logic phụ thuộc thời gian.
 
 [code csharp]
-// Kho test — thoi gian khong kiem soat duoc
-public bool DaHetHan() => DateTime.UtcNow > ExpiresAtUtc;
+// Khó test — thời gian không kiểm soát được
+public bool IsExpired() => DateTime.UtcNow > ExpiresAtUtc;
 
-// Test phai Thread.Sleep — cham va khong dang tin
+// Test phải Thread.Sleep — chậm và không đáng tin
 [/code]
 
 [code csharp]
-// Tiem TimeProvider
+// Tiêm TimeProvider
 public sealed class TokenService(TimeProvider timeProvider)
 {
-    public bool DaHetHan(Token token)
+    public bool IsExpired(Token token)
         => timeProvider.GetUtcNow() > token.ExpiresAtUtc;
 }
 
-// Dang ky
+// Đăng ký
 builder.Services.AddSingleton(TimeProvider.System);
 [/code]
 
 [code csharp]
-// Test — kiem soat thoi gian hoan toan, chay tuc thi
+// Test — kiểm soát thời gian hoàn toàn, chạy tức thì
 var fakeTime = new FakeTimeProvider(new DateTimeOffset(2026, 3, 15, 10, 0, 0, TimeSpan.Zero));
 var service = new TokenService(fakeTime);
 
 var token = new Token { ExpiresAtUtc = fakeTime.GetUtcNow().AddMinutes(15) };
-Assert.False(service.DaHetHan(token));
+Assert.False(service.IsExpired(token));
 
-fakeTime.Advance(TimeSpan.FromMinutes(16));      // "tua" thoi gian
-Assert.True(service.DaHetHan(token));
+fakeTime.Advance(TimeSpan.FromMinutes(16));      // "tua" thời gian
+Assert.True(service.IsExpired(token));
 [/code]
 
 Gói `Microsoft.Extensions.TimeProvider.Testing` cung cấp `FakeTimeProvider`. Test chạy trong micro giây thay vì 16 phút, và nó kiểm tra chính xác mốc hết hạn thay vì xấp xỉ.
@@ -30574,11 +30566,11 @@ Gói `Microsoft.Extensions.TimeProvider.Testing` cung cấp `FakeTimeProvider`. 
 Điều kiện kích hoạt: phương thức async được gọi rất nhiều lần và thường trả về đồng bộ.
 
 [code csharp]
-// Truong hop dien hinh: cache hit thi khong can async that
+// Trường hợp điển hình: cache hit thì không cần async thật
 public async ValueTask<Lead?> GetAsync(LeadId id, CancellationToken ct)
 {
     if (_cache.TryGetValue(id, out Lead? cached))
-        return cached;                      // tra ve NGAY, khong cap phat Task
+        return cached;                      // trả về NGAY, không cấp phát Task
 
     return await _db.Leads.FindAsync([id], ct);
 }
@@ -30589,15 +30581,15 @@ public async ValueTask<Lead?> GetAsync(LeadId id, CancellationToken ct)
 Ba luật bắt buộc khi dùng `ValueTask`:
 
 [code csharp]
-// 1. Chi await MOT lan
+// 1. Chỉ await MỘT lần
 var vt = GetAsync(id, ct);
 var a = await vt;
-var b = await vt;        // HANH VI KHONG XAC DINH
+var b = await vt;        // HÀNH VI KHÔNG XÁC ĐỊNH
 
-// 2. KHONG goi .Result hay .GetAwaiter().GetResult()
-var lead = GetAsync(id, ct).Result;       // co the sai
+// 2. KHÔNG gọi .Result hay .GetAwaiter().GetResult()
+var lead = GetAsync(id, ct).Result;       // có thể sai
 
-// 3. Muon dung nhieu lan thi chuyen sang Task
+// 3. Muốn dùng nhiều lần thì chuyển sang Task
 var task = GetAsync(id, ct).AsTask();
 var a = await task;
 var b = await task;      // OK
@@ -30614,21 +30606,21 @@ Khuyến nghị: dùng `Task` làm mặc định. Chỉ chuyển sang `ValueTask
 Điều kiện kích hoạt: vòng lặp chạy định kỳ trong `BackgroundService`.
 
 [code csharp]
-// Cach cu — do tre TICH LUY
+// Cách cũ — độ trễ TÍCH LUỸ
 while (!ct.IsCancellationRequested)
 {
-    await XuLyAsync(ct);                    // ton 2 giay
+    await ProcessAsync(ct);                 // tốn 2 giây
     await Task.Delay(TimeSpan.FromSeconds(5), ct);
-    // Chu ky thuc te: 7 giay, khong phai 5
+    // Chu kỳ thực tế: 7 giây, không phải 5
 }
 
-// PeriodicTimer — chu ky ON DINH
+// PeriodicTimer — chu kỳ ỔN ĐỊNH
 using var timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
 
 while (await timer.WaitForNextTickAsync(ct))
 {
-    await XuLyAsync(ct);
-    // Chu ky: 5 giay, bat ke XuLyAsync ton bao lau
+    await ProcessAsync(ct);
+    // Chu kỳ: 5 giây, bất kể ProcessAsync tốn bao lâu
 }
 [/code]
 
@@ -30649,7 +30641,7 @@ public sealed class MessagePublisher : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        await _connection.CloseAsync();     // dong ket noi la thao tac I/O
+        await _connection.CloseAsync();     // đóng kết nối là thao tác I/O
         await _connection.DisposeAsync();
     }
 }
@@ -30677,10 +30669,10 @@ public async Task<Lead> GetAsync(LeadId id)
 [/code]
 
 [code]
-Tro thanh mot struct co:
-  - Truong luu trang thai hien tai (dang o diem dung nao)
-  - Truong luu bien cuc bo (lead, activities)
-  - Phuong thuc MoveNext() chay tiep tu diem dung
+Trở thành một struct có:
+  - Trường lưu trạng thái hiện tại (đang ở điểm dừng nào)
+  - Trường lưu biến cục bộ (lead, activities)
+  - Phương thức MoveNext() chạy tiếp từ điểm dừng
 [/code]
 
 Hai hệ quả thực tế:
@@ -30776,7 +30768,7 @@ public class CustomerService
 [Fact]
 public async Task CreateAsync_ShouldAddCustomer()
 {
-    var service = new CustomerService();   // ket noi SQL that + gui email that
+    var service = new CustomerService();   // kết nối SQL thật + gửi email thật
     await service.CreateAsync(new Customer("An", "an@example.com"));
 }
 [/code]
@@ -30846,16 +30838,16 @@ public class CustomerService
 
 [code mermaid]
 flowchart TB
-    subgraph Truoc["Truoc: lop tu tao"]
+    subgraph Truoc["Trước: lớp tự tạo"]
         A[CustomerService] -->|new| B[SmtpEmailService]
         A -->|new| C[SqlCustomerRepository]
     end
-    subgraph Sau["Sau: container cung cap"]
-        D[CustomerService] -->|phu thuoc| E[IEmailService]
-        D -->|phu thuoc| F[ICustomerRepository]
-        G[Composition Root] -.tao va tiem.-> D
-        G -.chon.-> E
-        G -.chon.-> F
+    subgraph Sau["Sau: container cung cấp"]
+        D[CustomerService] -->|phụ thuộc| E[IEmailService]
+        D -->|phụ thuộc| F[ICustomerRepository]
+        G[Composition Root] -."tạo và tiêm".-> D
+        G -."chọn".-> E
+        G -."chọn".-> F
     end
 [/code]
 
@@ -30909,14 +30901,14 @@ Sau bài này bạn có thể:
 Điều kiện kích hoạt: cần thêm caching, logging, retry hoặc đo lường vào một service có sẵn.
 
 [code csharp]
-// Service goc — KHONG sua gi
+// Service gốc — KHÔNG sửa gì
 public sealed class LeadRepository(AppDbContext db) : ILeadRepository
 {
     public async Task<Lead?> GetByIdAsync(LeadId id, CancellationToken ct)
         => await db.Leads.FindAsync([id], ct);
 }
 
-// Decorator — bao ben ngoai, CUNG interface
+// Decorator — bao bên ngoài, CÙNG interface
 public sealed class CachedLeadRepository(
     ILeadRepository inner,
     IMemoryCache cache) : ILeadRepository
@@ -30943,7 +30935,7 @@ builder.Services.AddScoped<ILeadRepository, LeadRepository>();
 builder.Services.Decorate<ILeadRepository, CachedLeadRepository>();
 builder.Services.Decorate<ILeadRepository, LoggedLeadRepository>();
 
-// Chuoi thuc te: Logged -> Cached -> Repository
+// Chuỗi thực tế: Logged -> Cached -> Repository
 [/code]
 
 Mọi nơi tiêm `ILeadRepository` tự động nhận chuỗi decorator mà không biết và không cần biết.
@@ -30971,7 +30963,7 @@ builder.Services.AddScoped<ILeadRepository>(sp =>
 Điều kiện kích hoạt: cài đặt được chọn dựa trên dữ liệu chỉ biết lúc chạy.
 
 [code csharp]
-// Keyed services (.NET 8+) — cach don gian nhat
+// Keyed services (.NET 8+) — cách đơn giản nhất
 builder.Services.AddKeyedScoped<IPaymentGateway, VnPayGateway>("vnpay");
 builder.Services.AddKeyedScoped<IPaymentGateway, MomoGateway>("momo");
 
@@ -31004,14 +30996,14 @@ Cảnh báo: tiêm `IServiceProvider` trực tiếp vào service nghiệp vụ l
 Điều kiện kích hoạt: `Program.cs` vượt quá khoảng 50 dòng đăng ký.
 
 [code csharp]
-// Program.cs — kho doc khi co 200 dong nhu nay
+// Program.cs — khó đọc khi có 200 dòng như này
 builder.Services.AddScoped<ILeadRepository, LeadRepository>();
 builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
-// ... 198 dong nua
+// ... 198 dòng nữa
 [/code]
 
 [code csharp]
-// Gom theo tinh nang
+// Gom theo tính năng
 namespace Crm.Sales;
 
 public static class SalesModule
@@ -31032,7 +31024,7 @@ public static class SalesModule
 [/code]
 
 [code csharp]
-// Program.cs — doc duoc
+// Program.cs — đọc được
 builder.Services
     .AddSales(builder.Configuration)
     .AddBilling(builder.Configuration)
@@ -31090,12 +31082,12 @@ Sau bài này bạn có thể:
 ### 7.12.1 — Sự cố
 
 [code]
-09:14  Khach hang tenant "acme" bao: thay 3 lead cua cong ty khac
-       trong danh sach cua minh
-09:20  Kiem tra database: du lieu DUNG, moi lead deu co TenantId dung
-09:35  Chay lai truy van bang tay: tra ve DUNG
-09:50  Reproduce tren staging: KHONG tai hien duoc
-10:30  Tai hien duoc khi co HAI nguoi dung khac tenant cung truy cap
+09:14  Khách hàng tenant "acme" báo: thấy 3 lead của công ty khác
+       trong danh sách của mình
+09:20  Kiểm tra database: dữ liệu ĐÚNG, mọi lead đều có TenantId đúng
+09:35  Chạy lại truy vấn bằng tay: trả về ĐÚNG
+09:50  Reproduce trên staging: KHÔNG tái hiện được
+10:30  Tái hiện được khi có HAI người dùng khác tenant cùng truy cập
 [/code]
 
 Bốn đặc điểm khiến nó khó chẩn đoán:
@@ -31108,7 +31100,7 @@ Bốn đặc điểm khiến nó khó chẩn đoán:
 ### 7.12.2 — Nguyên nhân
 
 [code csharp]
-// Scoped — mot instance MOI cho moi request HTTP
+// Scoped — một instance MỚI cho mỗi request HTTP
 public class TenantContext : ITenantContext
 {
     public TenantContext(IHttpContextAccessor accessor)
@@ -31119,7 +31111,7 @@ public class TenantContext : ITenantContext
     public string? TenantId { get; }
 }
 
-// SINGLETON — mot instance duy nhat cho CA UNG DUNG
+// SINGLETON — một instance duy nhất cho CẢ ỨNG DỤNG
 public class CacheService : ICacheService
 {
     private readonly ITenantContext _tenantContext;     // <- SCOPED trong SINGLETON
@@ -31140,15 +31132,15 @@ builder.Services.AddSingleton<ICacheService, CacheService>();     // <- SAI
 
 [code]
 Request #1 (tenant "acme"):
-  -> DI tao CacheService (singleton, tao MOT LAN)
-  -> De tao no, DI tao TenantContext voi TenantId = "acme"
-  -> CacheService GIU tham chieu toi TenantContext do MAI MAI
+  -> DI tạo CacheService (singleton, tạo MỘT LẦN)
+  -> Để tạo nó, DI tạo TenantContext với TenantId = "acme"
+  -> CacheService GIỮ tham chiếu tới TenantContext đó MÃI MÃI
 
 Request #2 (tenant "globex"):
-  -> CacheService da ton tai, KHONG tao lai
-  -> Van dung TenantContext cu -> TenantId = "acme"
-  -> BuildKey tra ve "acme:leads" cho nguoi dung cua globex
-  -> Doc trung cache cua tenant khac -> RO RI DU LIEU
+  -> CacheService đã tồn tại, KHÔNG tạo lại
+  -> Vẫn dùng TenantContext cũ -> TenantId = "acme"
+  -> BuildKey trả về "acme:leads" cho người dùng của globex
+  -> Đọc trúng cache của tenant khác -> RÒ RỈ DỮ LIỆU
 [/code]
 
 Service scoped bị giam trong singleton — đó là tên gọi captive dependency.
@@ -31161,10 +31153,10 @@ Mặc định, .NET DI không kiểm tra vòng đời khi khởi động. Nó ch
 
 [code]
 Singleton  <- Singleton   : OK
-Singleton  <- Scoped      : KHONG bao loi mac dinh — day la BUG
-Singleton  <- Transient   : KHONG bao loi, nhung transient bi giam
+Singleton  <- Scoped      : KHÔNG báo lỗi mặc định — đây là BUG
+Singleton  <- Transient   : KHÔNG báo lỗi, nhưng transient bị giam
 Scoped     <- Singleton   : OK
-Scoped     <- Transient   : OK, transient song bang scope
+Scoped     <- Transient   : OK, transient sống bằng scope
 Transient  <- Scoped      : OK trong scope
 [/code]
 
@@ -31194,7 +31186,7 @@ Cách 2 — truyền tham số thay vì tiêm:
 [code csharp]
 public class CacheService : ICacheService
 {
-    // Khong tiem gi ca — nguoi goi truyen vao
+    // Không tiêm gì cả — người gọi truyền vào
     public string BuildKey(string tenantId, string key) => $"{tenantId}:{key}";
 }
 [/code]
@@ -31204,7 +31196,7 @@ public class CacheService : ICacheService
 Cách 3 — đổi vòng đời của service:
 
 [code csharp]
-builder.Services.AddScoped<ICacheService, CacheService>();     // thay vi Singleton
+builder.Services.AddScoped<ICacheService, CacheService>();     // thay vì Singleton
 [/code]
 
 Chỉ đúng nếu service thật sự không cần là singleton. Nếu nó giữ trạng thái dùng chung (một `ConcurrentDictionary` làm cache trong bộ nhớ chẳng hạn), đổi sang scoped sẽ tạo cache mới mỗi request và mất hết tác dụng.
@@ -31215,8 +31207,8 @@ Chỉ đúng nếu service thật sự không cần là singleton. Nếu nó gi�
 // Program.cs
 builder.Host.UseDefaultServiceProvider((context, options) =>
 {
-    options.ValidateScopes = true;       // phat hien captive dependency
-    options.ValidateOnBuild = true;      // kiem tra NGAY khi khoi dong
+    options.ValidateScopes = true;       // phát hiện captive dependency
+    options.ValidateOnBuild = true;      // kiểm tra NGAY khi khởi động
 });
 [/code]
 
@@ -31292,22 +31284,22 @@ builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection("Email
 | `IOptionsMonitor ` | Singleton | Ngay lập tức | Mọi nơi, kể cả singleton |
 
 [code csharp]
-// IOptions — doc MOT LAN luc khoi dong
+// IOptions — đọc MỘT LẦN lúc khởi động
 public class EmailSender(IOptions<EmailOptions> options)
 {
-    private readonly EmailOptions _config = options.Value;   // co dinh mai mai
+    private readonly EmailOptions _config = options.Value;   // cố định mãi mãi
 }
 
-// IOptionsSnapshot — doc lai moi request
+// IOptionsSnapshot — đọc lại mỗi request
 public class EmailSender(IOptionsSnapshot<EmailOptions> options)
 {
-    public void Send() { var config = options.Value; }       // moi cho request nay
+    public void Send() { var config = options.Value; }       // mới cho request này
 }
 
-// IOptionsMonitor — luon la gia tri moi nhat
+// IOptionsMonitor — luôn là giá trị mới nhất
 public class EmailSender(IOptionsMonitor<EmailOptions> options)
 {
-    public void Send() { var config = options.CurrentValue; } // doc TAI THOI DIEM goi
+    public void Send() { var config = options.CurrentValue; } // đọc TẠI THỜI ĐIỂM gọi
 }
 [/code]
 
@@ -31349,10 +31341,10 @@ InvalidOperationException: Cannot consume scoped service
 Lỗi 3 — mong `IOptionsMonitor` cập nhật từ nguồn không hỗ trợ:
 
 [code csharp]
-// Bien moi truong — KHONG doc lai duoc
+// Biến môi trường — KHÔNG đọc lại được
 builder.Configuration.AddEnvironmentVariables();
 
-// Azure Key Vault — chi doc lai neu bat reload interval
+// Azure Key Vault — chỉ đọc lại nếu bật reload interval
 builder.Configuration.AddAzureKeyVault(uri, credential,
     new AzureKeyVaultConfigurationOptions { ReloadInterval = TimeSpan.FromMinutes(5) });
 [/code]
@@ -31370,11 +31362,11 @@ builder.Configuration.AddAzureKeyVault(uri, credential,
 ### 7.13.3 — Chọn interface nào
 
 [code]
-Cau hinh co doi luc chay khong?
-├─ Khong  -> IOptions<T>          (don gian nhat)
-└─ Co
-   ├─ Dung trong service scoped hoac transient -> IOptionsSnapshot<T>
-   └─ Dung trong singleton                     -> IOptionsMonitor<T>
+Cấu hình có đổi lúc chạy không?
+├─ Không  -> IOptions<T>          (đơn giản nhất)
+└─ Có
+   ├─ Dùng trong service scoped hoặc transient -> IOptionsSnapshot<T>
+   └─ Dùng trong singleton                     -> IOptionsMonitor<T>
 [/code]
 
 Khuyến nghị thực dụng: dùng `IOptions ` làm mặc định. Phần lớn cấu hình — chuỗi kết nối, tên host, tên hàng đợi — không đổi trong lúc chạy, và khởi động lại khi đổi cấu hình là hành vi bình thường, dễ hiểu.
@@ -31386,22 +31378,22 @@ Chỉ dùng `IOptionsMonitor` cho những giá trị thật sự cần đổi n�
 [code csharp]
 public class EmailSender : IDisposable
 {
-    private readonly IDisposable? _dangKy;
+    private readonly IDisposable? _registration;
     private EmailOptions _config;
 
     public EmailSender(IOptionsMonitor<EmailOptions> monitor)
     {
         _config = monitor.CurrentValue;
 
-        _dangKy = monitor.OnChange(config =>
+        _registration = monitor.OnChange(config =>
         {
             _logger.LogInformation("Cấu hình email đã đổi, kết nối lại {Host}", config.SmtpHost);
             _config = config;
-            KetNoiLai(config);
+            Reconnect(config);
         });
     }
 
-    public void Dispose() => _dangKy?.Dispose();     // PHAI huy dang ky
+    public void Dispose() => _registration?.Dispose();     // PHẢI huỷ đăng ký
 }
 [/code]
 
@@ -31412,11 +31404,11 @@ Cảnh báo: `OnChange` có thể được gọi nhiều lần cho một lần t
 [code csharp]
 private string _lastHost = "";
 
-_dangKy = monitor.OnChange(config =>
+_registration = monitor.OnChange(config =>
 {
-    if (config.SmtpHost == _lastHost) return;     // khong doi thi bo qua
+    if (config.SmtpHost == _lastHost) return;     // không đổi thì bỏ qua
     _lastHost = config.SmtpHost;
-    KetNoiLai(config);
+    Reconnect(config);
 });
 [/code]
 
@@ -31606,9 +31598,9 @@ Sau bài này bạn có thể:
 
 [code mermaid]
 flowchart TB
-    A["IoC - NGUYEN TAC<br/>Quyen dieu khien bi dao<br/>Framework goi code cua ban"]
-    B["DI - CACH HIEN THUC<br/>Phu thuoc duoc cung cap tu ben ngoai<br/>qua constructor, property, method"]
-    C["DI Container - CONG CU<br/>Tu dong tao va ghep phu thuoc<br/>Microsoft.Extensions.DependencyInjection"]
+    A["IoC — NGUYÊN TẮC<br/>Quyền điều khiển bị đảo<br/>Framework gọi code của bạn"]
+    B["DI — CÁCH HIỆN THỰC<br/>Phụ thuộc được cung cấp từ bên ngoài<br/>qua constructor, property, method"]
+    C["DI Container — CÔNG CỤ<br/>Tự động tạo và ghép phụ thuộc<br/>Microsoft.Extensions.DependencyInjection"]
     A --> B --> C
 [/code]
 
@@ -31619,7 +31611,7 @@ DI là IoC áp cho một thứ cụ thể: việc lấy phụ thuộc. Thay vì 
 Container chỉ là tiện ích. DI không cần container:
 
 [code csharp]
-// Pure DI — hoan toan khong container
+// Pure DI — hoàn toàn không container
 var repository = new SqlCustomerRepository(connectionString);
 var email      = new SmtpEmailService(smtpHost, smtpPort);
 var service    = new CustomerService(repository, email, logger);
@@ -31794,7 +31786,7 @@ Với lớp do container tạo, việc này thừa: container không bao giờ t
 [code csharp]
 public class ReportGenerator
 {
-    public IReportFormatter? Formatter { get; set; }   // container .NET KHONG tiem cai nay
+    public IReportFormatter? Formatter { get; set; }   // container .NET KHÔNG tiêm cái này
 }
 [/code]
 
@@ -31809,17 +31801,17 @@ Container .NET không hỗ trợ property injection. Autofac có, nhưng cả kh
 Phụ thuộc tuỳ chọn thì làm thế nào? Không dùng property injection. Có ba cách tốt hơn:
 
 [code csharp]
-// 1. Null Object — implementation khong lam gi
+// 1. Null Object — implementation không làm gì
 public sealed class NullReportFormatter : IReportFormatter
 {
     public string Format(ReportData d) => d.ToString();
 }
 services.AddSingleton<IReportFormatter, NullReportFormatter>();
 
-// 2. Constructor cho phep null, ro rang trong chu ky
+// 2. Constructor cho phép null, rõ ràng trong chữ ký
 public class ReportGenerator(IReportFormatter? formatter = null) { }
 
-// 3. Tach thanh hai lop, moi lop mot trach nhiem
+// 3. Tách thành hai lớp, mỗi lớp một trách nhiệm
 [/code]
 
 Cách 1 là tốt nhất: code dùng không cần kiểm tra `null` ở đâu cả.
@@ -31829,7 +31821,7 @@ Cách 1 là tốt nhất: code dùng không cần kiểm tra `null` ở đâu c�
 Method injection là truyền phụ thuộc vào từng lời gọi thay vì vào đối tượng. Nó đúng khi framework tự làm việc đó cho bạn:
 
 [code csharp]
-// 1. Middleware — InvokeAsync duoc tiem theo tung request
+// 1. Middleware — InvokeAsync được tiêm theo từng request
 public class AuditMiddleware(RequestDelegate next)
 {
     public async Task InvokeAsync(HttpContext context, IAuditService audit)
@@ -31903,13 +31895,13 @@ Sau bài này bạn có thể:
 flowchart TB
     subgraph R1["Request 1"]
         T1[Transient A] & T2[Transient B]
-        S1[Scoped - 1 instance]
+        S1[Scoped — 1 instance]
     end
     subgraph R2["Request 2"]
         T3[Transient C]
-        S2[Scoped - instance KHAC]
+        S2[Scoped — instance KHÁC]
     end
-    G[Singleton - MOT instance duy nhat]
+    G[Singleton — MỘT instance duy nhất]
     R1 --> G
     R2 --> G
 [/code]
@@ -31929,8 +31921,8 @@ services.AddScoped<CrmDbContext>();                          // giu change track
 services.AddScoped<ICustomerRepository, EfCustomerRepository>();
 services.AddScoped<IUnitOfWork, UnitOfWork>();
 
-services.AddSingleton<ICustomerCache, InMemoryCustomerCache>();  // dung chung
-services.AddTransient<ILeadScorer, RuleBasedLeadScorer>();       // khong trang thai
+services.AddSingleton<ICustomerCache, InMemoryCustomerCache>();  // dùng chung
+services.AddTransient<ILeadScorer, RuleBasedLeadScorer>();       // không trạng thái
 [/code]
 
 `Scoped` cho `DbContext` và repository không phải quy ước cho đẹp: nó đảm bảo `CustomerRepository` và `LeadRepository` trong cùng một request dùng chung một `DbContext`, nên `SaveChangesAsync()` ghi cả hai thay đổi trong một transaction.
@@ -31978,7 +31970,7 @@ public class CacheRefresher(IServiceScopeFactory scopeFactory)
         var repo = scope.ServiceProvider.GetRequiredService<ICustomerRepository>();
 
         await repo.RefreshCacheAsync();
-        // scope dispose -> DbContext duoc giai phong dung cach
+        // scope dispose -> DbContext được giải phóng đúng cách
     }
 }
 [/code]
@@ -31993,9 +31985,9 @@ Bài Singleton, Scoped hay Transient? Chọn sai là `DbContext` sống mãi đi
 .NET tự phát hiện captive dependency, nhưng chỉ khi được bật:
 
 [code csharp]
-// Mac dinh cua CreateBuilder:
-// ValidateScopes  = true  chi khi Environment la Development
-// ValidateOnBuild = true  chi khi Environment la Development
+// Mặc định của CreateBuilder:
+// ValidateScopes  = true  chỉ khi Environment là Development
+// ValidateOnBuild = true  chỉ khi Environment là Development
 [/code]
 
 Nghĩa là code sai vẫn chạy bình thường ở Development nếu ai đó đặt `ASPNETCORE_ENVIRONMENT=Production` trên máy mình, và luôn chạy im lặng trên Production.
@@ -32055,10 +32047,10 @@ services.AddScoped<ICustomerRepository, EfCustomerRepository>();
 services.AddSingleton<IEmailService, SmtpEmailService>();
 services.AddTransient<ILeadScorer, RuleBasedLeadScorer>();
 
-// Chi lop cu the, khong interface
+// Chỉ lớp cụ thể, không interface
 services.AddScoped<CustomerService>();
 
-// Instance co san — CHU Y: container KHONG Dispose cai nay
+// Instance có sẵn — CHÚ Ý: container KHÔNG Dispose cái này
 services.AddSingleton<IClock>(new SystemClock());
 [/code]
 
@@ -32146,9 +32138,9 @@ Nhớ hai điều từ bài 7.3: `GetRequiredService<IValidator >()` chỉ trả
 ### 7.6.5 — `TryAdd` và `Replace`
 
 [code csharp]
-services.TryAddScoped<IEmailService, SmtpEmailService>();            // chi them neu chua co
+services.TryAddScoped<IEmailService, SmtpEmailService>();            // chỉ thêm nếu chưa có
 services.TryAddEnumerable(
-    ServiceDescriptor.Scoped<IValidator<Customer>, EmailValidator>()); // khong them trung
+    ServiceDescriptor.Scoped<IValidator<Customer>, EmailValidator>()); // không thêm trùng
 
 services.Replace(ServiceDescriptor.Scoped<IEmailService, FakeEmailService>()); // thay the
 [/code]
@@ -32206,14 +32198,14 @@ Sau bài này bạn có thể:
 [code csharp]
 var builder = WebApplication.CreateBuilder(args);
 
-// ===== GIAI DOAN 1: DANG KY =====
+// ===== GIAI ĐOẠN 1: ĐĂNG KÝ =====
 builder.Services.AddControllers();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddApplication();
 
-var app = builder.Build();      // <-- RANH GIOI. Container duoc dong bang.
+var app = builder.Build();      // <-- RANH GIỚI. Container được đóng băng.
 
-// ===== GIAI DOAN 2: PIPELINE =====
+// ===== GIAI ĐOẠN 2: PIPELINE =====
 if (app.Environment.IsDevelopment())
     app.UseSwagger().UseSwaggerUI();
 
@@ -32227,9 +32219,9 @@ app.Run();
 
 [code mermaid]
 flowchart LR
-    A[CreateBuilder] --> B["Giai doan 1<br/>builder.Services.Add..."]
-    B --> C["builder.Build()<br/>dong bang container"]
-    C --> D["Giai doan 2<br/>app.Use... app.Map..."]
+    A[CreateBuilder] --> B["Giai đoạn 1<br/>builder.Services.Add..."]
+    B --> C["builder.Build()<br/>đóng băng container"]
+    C --> D["Giai đoạn 2<br/>app.Use... app.Map..."]
     D --> E["app.Run()"]
 [/code]
 
@@ -32240,7 +32232,7 @@ Sau `Build()`, `builder.Services` vẫn gọi được nhưng không còn tác d
 ### 7.7.2 — Đừng gọi `BuildServiceProvider()` thủ công
 
 [code csharp]
-// SAI — tao mot container THU HAI
+// SAI — tạo một container THỨ HAI
 builder.Services.AddSingleton<ICache, MemoryCache>();
 
 var sp = builder.Services.BuildServiceProvider();   // container #2
@@ -32279,7 +32271,7 @@ public static class InfrastructureServiceCollectionExtensions
 
         services.AddSingleton<IEmailService, SmtpEmailService>();
 
-        return services;      // tra ve de noi chuoi
+        return services;      // trả về để nối chuỗi
     }
 }
 [/code]
@@ -32314,12 +32306,12 @@ Chỗ này thường bị làm quá tay thành `AddCustomerModule()`, `AddLeadMo
 Giai đoạn 2 không phải danh sách bật/tắt — nó là thứ tự thực thi. Mỗi `app.UseXxx()` thêm một lớp vào pipeline, và request đi qua theo đúng thứ tự bạn viết.
 
 [code csharp]
-app.UseExceptionHandler("/error");   // ngoai cung — bat loi cua MOI lop ben trong
+app.UseExceptionHandler("/error");   // ngoài cùng — bắt lỗi của MỌI lớp bên trong
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRouting();
 app.UseCors();
-app.UseAuthentication();             // BAT BUOC truoc Authorization
+app.UseAuthentication();             // BẮT BUỘC trước Authorization
 app.UseAuthorization();
 app.MapControllers();
 [/code]
@@ -32397,7 +32389,7 @@ public sealed class EmailSettings
 services.AddOptions<EmailSettings>()
     .Bind(configuration.GetSection(EmailSettings.SectionName))
     .ValidateDataAnnotations()
-    .ValidateOnStart();          // <-- dong quan trong nhat trong bai
+    .ValidateOnStart();          // <-- dòng quan trọng nhất trong bài
 [/code]
 
 `ValidateOnStart()` chạy validation lúc khởi động chứ không phải lúc `IOptions ` được resolve lần đầu. Không có nó, ứng dụng khởi động bình thường với `Host` rỗng, và bạn phát hiện ra lúc có người bấm nút gửi email — thường là trên production.
@@ -32413,25 +32405,25 @@ services.AddOptions<EmailSettings>()
 | `IOptionsMonitor ` | Singleton | Có, ngay lập tức | Mọi nơi |
 
 [code csharp]
-// IOptions — mac dinh, cho cau hinh khong doi
+// IOptions — mặc định, cho cấu hình không đổi
 public class LeadService(IOptions<CrmSettings> options)
 {
     private readonly CrmSettings _settings = options.Value;
 }
 
-// IOptionsSnapshot — doc lai moi request
+// IOptionsSnapshot — đọc lại mỗi request
 public class PricingService(IOptionsSnapshot<PricingSettings> options)
 {
     public decimal Calculate(decimal amount)
-        => amount * options.Value.TaxRate;     // .Value moi lan goi
+        => amount * options.Value.TaxRate;     // .Value mỗi lần gọi
 }
 
-// IOptionsMonitor — Singleton nhung van thay gia tri moi
+// IOptionsMonitor — Singleton nhưng vẫn thấy giá trị mới
 public class EmailService(IOptionsMonitor<EmailSettings> monitor)
 {
     public Task SendAsync(...)
     {
-        var settings = monitor.CurrentValue;   // luon la ban moi nhat
+        var settings = monitor.CurrentValue;   // luôn là bản mới nhất
         ...
     }
 }
@@ -32461,7 +32453,7 @@ monitor.OnChange(s => _logger.LogInformation("Config doi: {Host}", s.Host));
 services.AddOptions<EmailSettings>()
     .Bind(configuration.GetSection(EmailSettings.SectionName))
     .ValidateDataAnnotations()
-    .Validate(s => !s.UseSsl || s.Port != 25, "SSL khong dung duoc voi port 25")
+    .Validate(s => !s.UseSsl || s.Port != 25, "SSL không dùng được với port 25")
     .ValidateOnStart();
 [/code]
 
@@ -32473,7 +32465,7 @@ public sealed class EmailSettingsValidator(IDnsChecker dns) : IValidateOptions<E
     public ValidateOptionsResult Validate(string? name, EmailSettings options)
     {
         if (!dns.CanResolve(options.Host))
-            return ValidateOptionsResult.Fail($"Khong phan giai duoc host {options.Host}");
+            return ValidateOptionsResult.Fail($"Không phân giải được host {options.Host}");
 
         return ValidateOptionsResult.Success;
     }
@@ -32536,7 +32528,7 @@ services.AddScoped<Func<string, IEmailService>>(sp => key => key switch
 {
     "smtp"     => sp.GetRequiredService<SmtpEmailService>(),
     "sendgrid" => sp.GetRequiredService<SendGridEmailService>(),
-    _          => throw new ArgumentException($"Khong biet provider: {key}")
+    _          => throw new ArgumentException($"Không biết provider: {key}")
 });
 [/code]
 
@@ -32568,7 +32560,7 @@ public class NotificationService(
         }
         catch (EmailServiceException ex)
         {
-            logger.LogWarning(ex, "SendGrid loi, chuyen sang SMTP");
+            logger.LogWarning(ex, "SendGrid lỗi, chuyển sang SMTP");
             await fallback.SendAsync(to, subject, body, ct);
         }
     }
@@ -32661,7 +32653,7 @@ public class PaymentService(IEnumerable<IPaymentStrategy> strategies)
     public Task<PaymentResult> PayAsync(PaymentRequest request, CancellationToken ct)
         => strategies.FirstOrDefault(s => s.CanHandle(request.Method))
                ?.PayAsync(request, ct)
-           ?? throw new NotSupportedException($"Khong ho tro {request.Method}");
+           ?? throw new NotSupportedException($"Không hỗ trợ {request.Method}");
 }
 [/code]
 
@@ -32758,7 +32750,7 @@ public sealed class HttpTenantContext(IHttpContextAccessor accessor) : ITenantCo
 {
     public string TenantId =>
         accessor.HttpContext?.User.FindFirst("tenant_id")?.Value
-        ?? throw new InvalidOperationException("Khong xac dinh duoc tenant");
+        ?? throw new InvalidOperationException("Không xác định được tenant");
 }
 
 services.AddHttpContextAccessor();
@@ -32801,7 +32793,7 @@ public class CustomerReportService(IReportGenerator reports, IExportService expo
 Cách sửa sai là gom lại cho gọn mắt:
 
 [code csharp]
-// SAI — chi giau bot, khong giam phu thuoc
+// SAI — chỉ giấu bớt, không giảm phụ thuộc
 public class CustomerService(INotificationFacade notifications, IDataFacade data) { }
 [/code]
 
@@ -32813,7 +32805,7 @@ Ngưỡng thực dụng: quá 5 phụ thuộc thì dừng lại xem xét. Đó l
 
 [code csharp]
 public interface ICustomerMapper { CustomerDto Map(Customer c); }
-public class CustomerMapper : ICustomerMapper { ... }       // duy nhat, khong ai mock
+public class CustomerMapper : ICustomerMapper { ... }       // duy nhất, không ai mock
 [/code]
 
 Nếu một interface có đúng một implementation, không ai mock nó trong test, và bạn không thấy trước một implementation thứ hai — thì nó chỉ là chi phí: thêm một file, thêm một dòng đăng ký, và "Go to Definition" luôn dẫn tới một khai báo rỗng.
@@ -33097,7 +33089,7 @@ Lớp `WebApplication` cài đồng thời ba interface: `IHost` (vòng đời),
 
 [code csharp]
 app.Run(async ctx => await ctx.Response.WriteAsync("hi"));   // terminal middleware
-app.Run();                                                    // khoi dong va chan luong
+app.Run();                                                    // khởi động và chặn luồng
 [/code]
 
 ### 8.2.4 — Generic Host
@@ -33154,7 +33146,7 @@ Sau bài này bạn có thể:
 Ưu tiên cao nếu bạn đang bắt đầu dự án mới.
 
 [code csharp]
-// Minimal API — gon, nhung day du tinh nang
+// Minimal API — gọn, nhưng đầy đủ tính năng
 app.MapGet("/api/leads/{id:guid}", async (
     Guid id,
     ISender sender,
@@ -33288,7 +33280,7 @@ builder.Services.AddRateLimiter(options =>
 [code csharp]
 builder.Services.AddResponseCompression(options =>
 {
-    options.EnableForHttps = true;                 // xem canh bao ben duoi
+    options.EnableForHttps = true;                 // xem cảnh báo bên dưới
     options.Providers.Add<BrotliCompressionProvider>();
     options.Providers.Add<GzipCompressionProvider>();
 });
@@ -33332,8 +33324,8 @@ Sau bài này bạn có thể:
 
 [code]
 14:20  Deploy ban dan don dep Program.cs
-14:23  Nguoi dung khong dang nhap duoc: POST /api/auth/login -> 401
-14:24  Health check cua Kubernetes that bai -> pod bi khoi dong lai lien tuc
+14:23  Người dùng không đăng nhập được: POST /api/auth/login -> 401
+14:24  Health check của Kubernetes thất bại -> pod bị khởi động lại liên tục
 14:26  Rollback
 [/code]
 
@@ -33364,9 +33356,9 @@ Request -> [Auth] -> [Authorization] -> [HTTPS] -> [Routing] -> [CORS] -> [Endpo
 
 [code]
 Thu tu SAI:
-  UseAuthorization chay TRUOC UseRouting
-  -> Chua biet endpoint nao -> khong doc duoc [AllowAnonymous]
-  -> Ap dung chinh sach mac dinh cho MOI request -> 401
+  UseAuthorization chạy TRƯỚC UseRouting
+  -> Chưa biết endpoint nào -> không đọc được [AllowAnonymous]
+  -> Áp dụng chính sách mặc định cho MỌI request -> 401
 [/code]
 
 Hai hệ quả phụ cũng đến từ cùng nguyên nhân:
@@ -33379,33 +33371,33 @@ Hai hệ quả phụ cũng đến từ cùng nguyên nhân:
 [code csharp]
 var app = builder.Build();
 
-// 1. Xu ly exception — NGOAI CUNG de bat duoc loi cua moi thu ben trong
+// 1. Xử lý exception — NGOÀI CÙNG để bắt được lỗi của mọi thứ bên trong
 app.UseExceptionHandler("/error");
 
-// 2. HSTS va chuyen huong HTTPS — truoc moi xu ly noi dung
+// 2. HSTS và chuyển hướng HTTPS — trước mọi xử lý nội dung
 app.UseHsts();
 app.UseHttpsRedirection();
 
-// 3. File tinh — truoc routing, de khong ton chi phi dinh tuyen
+// 3. File tĩnh — trước routing, để không tốn chi phí định tuyến
 app.UseStaticFiles();
 
-// 4. Routing — XAC DINH endpoint, moi thu sau day biet endpoint la gi
+// 4. Routing — XÁC ĐỊNH endpoint, mọi thứ sau đây biết endpoint là gì
 app.UseRouting();
 
-// 5. CORS — SAU routing, TRUOC auth (preflight khong mang token)
+// 5. CORS — SAU routing, TRƯỚC auth (preflight không mang token)
 app.UseCors("Default");
 
-// 6. Rate limiting — truoc auth de chan lam dung som
+// 6. Rate limiting — trước auth để chặn lạm dụng sớm
 app.UseRateLimiter();
 
-// 7. Xac thuc roi phan quyen — thu tu nay bat buoc
+// 7. Xác thực rồi phân quyền — thứ tự này bắt buộc
 app.UseAuthentication();
 app.UseAuthorization();
 
-// 8. Middleware tuy chinh — sau auth de biet nguoi dung la ai
+// 8. Middleware tuỳ chỉnh — sau auth để biết người dùng là ai
 app.UseMiddleware<TenantResolutionMiddleware>();
 
-// 9. Endpoint — trong cung
+// 9. Endpoint — trong cùng
 app.MapControllers();
 app.MapHealthChecks("/health/live");
 [/code]
@@ -33435,7 +33427,7 @@ public sealed class TenantResolutionMiddleware(RequestDelegate next)
         if (tenantId is not null)
             tenantContext.SetTenant(tenantId);
 
-        await next(context);        // PHAI goi, neu khong pipeline dung o day
+        await next(context);        // PHẢI gọi, nếu không pipeline dừng ở đây
     }
 }
 [/code]
@@ -33447,7 +33439,7 @@ Ba lỗi hay gặp khi viết middleware:
 2. Ghi vào body sau khi đã gọi `next`.
 
 [code csharp]
-// SAI — response da duoc gui di
+// SAI — response đã được gửi đi
 await next(context);
 await context.Response.WriteAsync("them gi do");
 // InvalidOperationException: Headers are read-only, response has already started
@@ -33459,7 +33451,7 @@ await context.Response.WriteAsync("them gi do");
 // SAI — ITenantContext la scoped
 public TenantResolutionMiddleware(RequestDelegate next, ITenantContext tenantContext)
 
-// DUNG — nhan qua tham so cua InvokeAsync
+// ĐÚNG — nhận qua tham số của InvokeAsync
 public async Task InvokeAsync(HttpContext context, ITenantContext tenantContext)
 [/code]
 
@@ -33476,7 +33468,7 @@ public async Task EndpointCongKhai_KhongDoiXacThuc()
     var response = await client.PostAsJsonAsync("/api/auth/login",
         new { Email = "a@b.com", Password = "sai" });
 
-    // Co the 400 hoac 401 vi sai mat khau — nhung KHONG duoc la 401 vi thieu token
+    // Có thể 400 hoặc 401 vì sai mật khẩu — nhưng KHÔNG được là 401 vì thiếu token
     Assert.NotEqual(HttpStatusCode.Unauthorized, response.StatusCode);
 }
 
@@ -33544,8 +33536,8 @@ Và với người dùng bình thường, nó chỉ là một khối chữ vô n
 ### 8.13.2 — Hai nguyên nhân thường gặp
 
 [code csharp]
-// Nguyen nhan 1 — trang loi cua moi truong phat trien chay tren production
-app.UseDeveloperExceptionPage();     // KHONG bao gio dat vo dieu kien
+// Nguyên nhân 1 — trang lỗi của môi trường phát triển chạy trên production
+app.UseDeveloperExceptionPage();     // KHÔNG bao giờ đặt vô điều kiện
 
 // Dung
 if (app.Environment.IsDevelopment())
@@ -33555,7 +33547,7 @@ else
 [/code]
 
 [code csharp]
-// Nguyen nhan 2 — try/catch rai rac tra ve ex.Message
+// Nguyên nhân 2 — try/catch rải rác trả về ex.Message
 try
 {
     return Ok(await _service.GetAsync(id, ct));
@@ -33580,7 +33572,7 @@ public sealed class GlobalExceptionHandler(
     {
         var traceId = Activity.Current?.Id ?? context.TraceIdentifier;
 
-        // GHI DAY DU vao log — day la noi duy nhat co chi tiet
+        // GHI ĐẦY ĐỦ vào log — đây là nơi duy nhất có chi tiết
         logger.LogError(exception,
             "Lỗi chưa xử lý. TraceId={TraceId}, Path={Path}",
             traceId, context.Request.Path);
@@ -33592,7 +33584,7 @@ public sealed class GlobalExceptionHandler(
             UnauthorizedAccessException => (StatusCodes.Status403Forbidden, "Không có quyền", "Bạn không có quyền thực hiện thao tác này"),
             OperationCanceledException  => (StatusCodes.Status499ClientClosedRequest, "Đã huỷ", "Yêu cầu đã bị huỷ"),
 
-            // Mac dinh: KHONG lo chi tiet
+            // Mặc định: KHÔNG lộ chi tiết
             _ => (StatusCodes.Status500InternalServerError, "Lỗi hệ thống",
                   env.IsDevelopment()
                       ? exception.ToString()
@@ -33620,7 +33612,7 @@ public sealed class GlobalExceptionHandler(
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 
-app.UseExceptionHandler();      // NGOAI CUNG trong pipeline
+app.UseExceptionHandler();      // NGOÀI CÙNG trong pipeline
 [/code]
 
 Kết quả trên production:
@@ -33890,7 +33882,7 @@ flowchart LR
 [code csharp]
 app.Use(async (context, next) =>
 {
-    // (1) CHIEU DI — truoc khi cac middleware sau chay
+    // (1) CHIỀU ĐI — trước khi các middleware sau chạy
     await next(context);
     // (2) CHIEU VE — sau khi TAT CA middleware sau va endpoint da chay xong
 });
@@ -33904,10 +33896,10 @@ Hai hệ quả trực tiếp:
 ### 8.3.2 — `Use`, `Run`, `Map`
 
 [code csharp]
-// Use — xu ly roi chuyen tiep
+// Use — xử lý rồi chuyển tiếp
 app.Use(async (context, next) => { ...; await next(context); ...; });
 
-// Run — terminal, KHONG goi next. Moi thu sau no khong bao gio chay.
+// Run — terminal, KHÔNG gọi next. Mọi thứ sau nó không bao giờ chạy.
 app.Run(async context => await context.Response.WriteAsync("Hello"));
 
 // Map — re nhanh theo duong dan, nhanh co pipeline rieng
@@ -33943,7 +33935,7 @@ app.Use(async (context, next) =>
     {
         context.Response.StatusCode = 401;
         await context.Response.WriteAsync("Thieu API key");
-        return;                                   // khong goi next -> dung o day
+        return;                                   // không gọi next -> dừng ở đây
     }
     await next(context);
 });
@@ -33962,7 +33954,7 @@ public class AuditMiddleware(RequestDelegate next, ICustomerRepository repo)
 Middleware được dựng một lần lúc khởi động và dùng lại cho mọi request — tức nó là singleton. Tiêm service scoped vào constructor là captive dependency (bài 7.5), và nó sẽ nổ ngay lúc khởi động khi `ValidateScopes` bật.
 
 [code csharp]
-// DUNG — tiem qua tham so cua InvokeAsync, moi request mot instance
+// ĐÚNG — tiêm qua tham số của InvokeAsync, mỗi request một instance
 public class AuditMiddleware(RequestDelegate next, ILogger<AuditMiddleware> logger)
 {
     public async Task InvokeAsync(HttpContext context, ICustomerRepository repo)
@@ -33980,7 +33972,7 @@ Có một lựa chọn khác: cài `IMiddleware` và đăng ký nó `Scoped` —
 ### 8.3.4 — Hai middleware thật sự hữu ích
 
 [code csharp]
-// Do thoi gian — try/finally de luon chay du co exception
+// Đo thời gian — try/finally để luôn chạy dù có exception
 public class RequestTimingMiddleware(RequestDelegate next, ILogger<RequestTimingMiddleware> logger)
 {
     public async Task InvokeAsync(HttpContext context)
@@ -34003,7 +33995,7 @@ public class RequestTimingMiddleware(RequestDelegate next, ILogger<RequestTiming
 `Stopwatch.GetTimestamp()` cộng `GetElapsedTime()` (.NET 7+) không cấp phát gì, khác với `Stopwatch.StartNew()` tạo một object mỗi request.
 
 [code csharp]
-// Correlation ID — noi log cua nhieu he thong lai voi nhau
+// Correlation ID — nối log của nhiều hệ thống lại với nhau
 public class CorrelationIdMiddleware(RequestDelegate next)
 {
     private const string Header = "X-Correlation-ID";
@@ -34015,7 +34007,7 @@ public class CorrelationIdMiddleware(RequestDelegate next)
 
         context.TraceIdentifier = correlationId;
 
-        // PHAI dat header TRUOC khi response bat dau
+        // PHẢI đặt header TRƯỚC khi response bắt đầu
         context.Response.OnStarting(() =>
         {
             context.Response.Headers[Header] = correlationId;
@@ -34062,7 +34054,7 @@ Sau bài này bạn có thể:
 
 [code csharp]
 app.UseRouting();        // buoc 1: CHON endpoint, chua chay
-app.UseAuthorization();  // biet endpoint roi -> doc duoc [Authorize] tren no
+app.UseAuthorization();  // biết endpoint rồi -> đọc được [Authorize] trên nó
 app.MapControllers();    // buoc 2: CHAY endpoint
 [/code]
 
@@ -34072,7 +34064,7 @@ Tách làm hai bước là có chủ đích: middleware nằm giữa có thể �
 app.UseRouting();
 app.Use(async (ctx, next) =>
 {
-    var name = ctx.GetEndpoint()?.DisplayName;   // null neu dat truoc UseRouting
+    var name = ctx.GetEndpoint()?.DisplayName;   // null nếu đặt trước UseRouting
     ...
     await next(ctx);
 });
@@ -34114,7 +34106,7 @@ Ba điểm đáng chú ý:
 Route tuyệt đối (bắt đầu bằng `/`) bỏ qua `[Route]` ở lớp:
 
 [code csharp]
-[HttpGet("/health/customers")]    // KHONG co tien to api/v1
+[HttpGet("/health/customers")]    // KHÔNG có tiền tố api/v1
 [/code]
 
 ### 8.4.3 — Constraint chặn lỗi sớm
@@ -34131,8 +34123,8 @@ Route tuyệt đối (bắt đầu bằng `/`) bỏ qua `[Route]` ở lớp:
 | `required` | `{id:required}` | Không rỗng |
 
 [code csharp]
-[HttpGet("{id:guid}")]           // /customers/abc -> 404, khong vao action
-[HttpGet("page/{n:int:min(1)}")] // ghep nhieu constraint bang dau hai cham
+[HttpGet("{id:guid}")]           // /customers/abc -> 404, không vào action
+[HttpGet("page/{n:int:min(1)}")] // ghép nhiều constraint bằng dấu hai chấm
 [/code]
 
 Điểm quan trọng: constraint sai thì trả 404, không phải 400. Về REST điều đó hợp lý — không có tài nguyên nào ở URL đó. Nhưng nó có nghĩa là client nhận 404 mà không biết mình gõ sai định dạng. Với những chỗ cần thông báo rõ, nhận `string` rồi validate trong action để trả 400 kèm lý do.
@@ -34161,7 +34153,7 @@ Khi hai route cùng điểm, bạn nhận `AmbiguousMatchException` lúc chạy 
 
 [code csharp]
 [HttpGet("{id:int}")]      public IActionResult A(int id);
-[HttpGet("{code:int}")]    public IActionResult B(int code);   // cung diem -> nem
+[HttpGet("{code:int}")]    public IActionResult B(int code);   // cùng điểm -> ném
 [/code]
 
 Gỡ bằng `[HttpGet("...", Order = -1)]` (số nhỏ chạy trước), nhưng tốt hơn là sửa thiết kế route cho không mơ hồ.
@@ -34239,7 +34231,7 @@ public class CustomersController(ICustomerService service) : ControllerBase
 1. Tự động trả 400 khi model không hợp lệ.
 
 [code csharp]
-// KHONG can viet nua
+// KHÔNG cần viết nữa
 if (!ModelState.IsValid) return BadRequest(ModelState);
 [/code]
 
@@ -34257,7 +34249,7 @@ Muốn đổi định dạng lỗi validation:
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
     options.InvalidModelStateResponseFactory = context =>
-        new BadRequestObjectResult(new { /* dinh dang rieng cua ban */ });
+        new BadRequestObjectResult(new { /* định dạng riêng của bạn */ });
 });
 [/code]
 
@@ -34302,7 +34294,7 @@ public record CreateCustomerRequest(string Name, string Email, AddressRequest Ad
 Kiểu đơn giản nhiều tham số thì gom lại:
 
 [code csharp]
-// Thay vi 5 tham so [FromQuery] roi rac
+// Thay vì 5 tham số [FromQuery] rời rạc
 public record PagedRequest(int Page = 1, int PageSize = 20, string? Search = null);
 
 [HttpGet]
@@ -34316,21 +34308,21 @@ public Task<IActionResult> GetAll([FromQuery] PagedRequest request, Cancellation
 ### 8.5.4 — Kiểu trả về
 
 [code csharp]
-// 1. ActionResult<T> — tot nhat cho API
+// 1. ActionResult<T> — tốt nhất cho API
 [HttpGet("{id:guid}")]
 public async Task<ActionResult<CustomerDto>> GetById(Guid id, CancellationToken ct)
 {
     var customer = await service.GetByIdAsync(id, ct);
     if (customer is null) return NotFound();
-    return customer;                              // chuyen ngam sang Ok(customer)
+    return customer;                              // chuyển ngầm sang Ok(customer)
 }
 
-// 2. IActionResult — khi tra nhieu kieu khac nhau
+// 2. IActionResult — khi trả nhiều kiểu khác nhau
 [HttpPost("export")]
 public async Task<IActionResult> Export(CancellationToken ct)
     => File(await service.BuildCsvAsync(ct), "text/csv", "customers.csv");
 
-// 3. Kieu tran — chi khi LUON thanh cong
+// 3. Kiểu trần — chỉ khi LUÔN thành công
 [HttpGet("count")]
 public async Task<int> Count(CancellationToken ct) => await service.CountAsync(ct);
 [/code]
@@ -34471,7 +34463,7 @@ public sealed class FutureDateAttribute : ValidationAttribute
 
     protected override ValidationResult? IsValid(object? value, ValidationContext ctx)
     {
-        if (value is null) return ValidationResult.Success;   // de [Required] lo viec nay
+        if (value is null) return ValidationResult.Success;   // để [Required] lo việc này
 
         if (value is not DateTime date)
             return new ValidationResult($"{ctx.DisplayName} phải là ngày hợp lệ");
@@ -34633,11 +34625,11 @@ Ba cách tránh:
 ### 8.7.4 — Đọc cấu hình
 
 [code csharp]
-// Khong khuyen khich — stringly-typed
+// Không khuyến khích — stringly-typed
 var port = builder.Configuration.GetValue<int>("Email:Smtp:Port");
 var conn = builder.Configuration.GetConnectionString("CrmDb");
 
-// Khuyen khich — options pattern
+// Khuyến khích — options pattern
 builder.Services.AddOptions<CrmSettings>()
     .Bind(builder.Configuration.GetSection(CrmSettings.SectionName))
     .ValidateDataAnnotations()
@@ -34653,7 +34645,7 @@ Tiêm `IConfiguration` vào service là dấu hiệu chưa dùng options pattern
 ### 8.7.5 — Reload
 
 [code json]
-// appsettings.json cua ban duoc theo doi mac dinh
+// appsettings.json của bạn được theo dõi mặc định
 [/code]
 
 `CreateBuilder` bật `reloadOnChange: true` cho file JSON — sửa file là cấu hình đổi, không cần restart. Nhưng:
@@ -34667,7 +34659,7 @@ Nghĩa là: trong triển khai container điển hình, reload gần như không
 ### 8.7.6 — Secret
 
 [code bash]
-# Development — luu ngoai repo, theo UserSecretsId trong .csproj
+# Development — lưu ngoài repo, theo UserSecretsId trong .csproj
 dotnet user-secrets init
 dotnet user-secrets set "ConnectionStrings:CrmDb" "Server=...;Password=..."
 dotnet user-secrets list
@@ -34722,10 +34714,10 @@ Sau bài này bạn có thể:
 ### 8.8.1 — Message template, không phải nội suy chuỗi
 
 [code csharp]
-// SAI — chuoi da nau chin, khong con truong nao
+// SAI — chuỗi đã nấu chín, không còn trường nào
 logger.LogInformation($"Customer {customer.Id} created by {userId}");
 
-// DUNG — CustomerId va UserId la truong truy van duoc
+// ĐÚNG — CustomerId và UserId là trường truy vấn được
 logger.LogInformation("Customer {CustomerId} created by {UserId}",
     customer.Id, userId);
 [/code]
@@ -34751,7 +34743,7 @@ Còn hai lý do nữa:
 Hai quy ước đặt tên: PascalCase cho placeholder, và tiền tố `@` khi muốn Serilog ghi cả đối tượng thay vì gọi `ToString()`:
 
 [code csharp]
-logger.LogInformation("Nhan don hang {@Order}", order);   // ghi ca object
+logger.LogInformation("Nhận đơn hàng {@Order}", order);   // ghi cả object
 [/code]
 
 Cẩn thận với `@`: nó ghi toàn bộ thuộc tính, nên rất dễ đưa dữ liệu nhạy cảm vào log.
@@ -34893,18 +34885,18 @@ public sealed class GlobalExceptionHandler(
     {
         var (status, title) = exception switch
         {
-            NotFoundException            => (StatusCodes.Status404NotFound, "Khong tim thay"),
-            DomainValidationException    => (StatusCodes.Status422UnprocessableEntity, "Du lieu khong hop le"),
-            ConflictException            => (StatusCodes.Status409Conflict, "Xung dot trang thai"),
-            UnauthorizedAccessException  => (StatusCodes.Status403Forbidden, "Khong du quyen"),
-            _                            => (StatusCodes.Status500InternalServerError, "Loi he thong")
+            NotFoundException            => (StatusCodes.Status404NotFound, "Không tìm thấy"),
+            DomainValidationException    => (StatusCodes.Status422UnprocessableEntity, "Dữ liệu không hợp lệ"),
+            ConflictException            => (StatusCodes.Status409Conflict, "Xung đột trạng thái"),
+            UnauthorizedAccessException  => (StatusCodes.Status403Forbidden, "Không đủ quyền"),
+            _                            => (StatusCodes.Status500InternalServerError, "Lỗi hệ thống")
         };
 
-        // Loi cua he thong moi la su co; loi nghiep vu chi la canh bao
+        // Lỗi của hệ thống mới là sự cố; lỗi nghiệp vụ chỉ là cảnh báo
         if (status >= 500)
-            logger.LogError(exception, "Loi chua xu ly tai {Path}", context.Request.Path);
+            logger.LogError(exception, "Lỗi chưa xử lý tại {Path}", context.Request.Path);
         else
-            logger.LogWarning(exception, "Loi nghiep vu tai {Path}", context.Request.Path);
+            logger.LogWarning(exception, "Lỗi nghiệp vụ tại {Path}", context.Request.Path);
 
         context.Response.StatusCode = status;
 
@@ -34943,9 +34935,9 @@ Ba chi tiết đáng chú ý:
 ### 8.9.2 — Chuỗi nhiều handler
 
 [code csharp]
-builder.Services.AddExceptionHandler<ValidationExceptionHandler>();  // chay truoc
+builder.Services.AddExceptionHandler<ValidationExceptionHandler>();  // chạy trước
 builder.Services.AddExceptionHandler<DatabaseExceptionHandler>();
-builder.Services.AddExceptionHandler<GlobalExceptionHandler>();      // bat tat ca
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();      // bắt tất cả
 [/code]
 
 Chúng chạy theo thứ tự đăng ký, và dừng ở handler đầu tiên trả `true`. Trả `false` nghĩa là "không phải việc của tôi, chuyển tiếp".
@@ -34955,7 +34947,7 @@ public sealed class ValidationExceptionHandler(IProblemDetailsService pds) : IEx
 {
     public async ValueTask<bool> TryHandleAsync(HttpContext ctx, Exception ex, CancellationToken ct)
     {
-        if (ex is not DomainValidationException v) return false;   // nhuong cho handler sau
+        if (ex is not DomainValidationException v) return false;   // nhường cho handler sau
 
         ctx.Response.StatusCode = StatusCodes.Status422UnprocessableEntity;
 
@@ -34965,7 +34957,7 @@ public sealed class ValidationExceptionHandler(IProblemDetailsService pds) : IEx
             ProblemDetails = new ValidationProblemDetails(v.Errors)
             {
                 Status = StatusCodes.Status422UnprocessableEntity,
-                Title = "Du lieu khong hop le"
+                Title = "Dữ liệu không hợp lệ"
             }
         });
     }
@@ -34980,7 +34972,7 @@ Handler bắt-tất-cả phải đăng ký cuối cùng. Nếu không handler n�
 public abstract class DomainException(string message) : Exception(message);
 
 public sealed class NotFoundException(string entity, object id)
-    : DomainException($"Khong tim thay {entity} voi id '{id}'")
+    : DomainException($"Không tìm thấy {entity} với id '{id}'")
 {
     public string Entity { get; } = entity;
     public object Id { get; } = id;
@@ -34989,7 +34981,7 @@ public sealed class NotFoundException(string entity, object id)
 public sealed class ConflictException(string message) : DomainException(message);
 
 public sealed class DomainValidationException(IDictionary<string, string[]> errors)
-    : DomainException("Du lieu khong hop le")
+    : DomainException("Dữ liệu không hợp lệ")
 {
     public IReadOnlyDictionary<string, string[]> Errors { get; } = errors.AsReadOnly();
 }
@@ -35070,17 +35062,17 @@ Quy tắc: liveness không kiểm tra gì bên ngoài tiến trình.
 
 [code csharp]
 builder.Services.AddHealthChecks()
-    // Liveness — khong cham gi ben ngoai
+    // Liveness — không chạm gì bên ngoài
     .AddCheck("self", () => HealthCheckResult.Healthy(), tags: ["live"])
 
-    // Readiness — phu thuoc bat buoc
+    // Readiness — phụ thuộc bắt buộc
     .AddSqlServer(
         connectionString: builder.Configuration.GetConnectionString("CrmDb")!,
         name: "database",
         failureStatus: HealthStatus.Unhealthy,
         tags: ["ready"])
 
-    // Phu thuoc khong bat buoc -> Degraded, KHONG phai Unhealthy
+    // Phụ thuộc không bắt buộc -> Degraded, KHÔNG phải Unhealthy
     .AddRedis(
         builder.Configuration.GetConnectionString("Redis")!,
         name: "cache",
@@ -35122,22 +35114,22 @@ public sealed class PaymentGatewayHealthCheck(IHttpClientFactory factory) : IHea
         try
         {
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            cts.CancelAfter(TimeSpan.FromSeconds(3));          // BAT BUOC co timeout
+            cts.CancelAfter(TimeSpan.FromSeconds(3));          // BẮT BUỘC có timeout
 
             var client = factory.CreateClient("payment");
             var response = await client.GetAsync("/ping", cts.Token);
 
             return response.IsSuccessStatusCode
                 ? HealthCheckResult.Healthy()
-                : HealthCheckResult.Degraded($"Gateway tra ve {(int)response.StatusCode}");
+                : HealthCheckResult.Degraded($"Gateway trả về {(int)response.StatusCode}");
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
-            return HealthCheckResult.Degraded("Gateway khong phan hoi trong 3 giay");
+            return HealthCheckResult.Degraded("Gateway không phản hồi trong 3 giây");
         }
         catch (Exception ex)
         {
-            return HealthCheckResult.Unhealthy("Khong ket noi duoc gateway", ex);
+            return HealthCheckResult.Unhealthy("Không kết nối được gateway", ex);
         }
     }
 }
@@ -35170,7 +35162,7 @@ static Task WriteJsonResponse(HttpContext context, HealthReport report)
             name = e.Key,
             status = e.Value.Status.ToString(),
             duration = e.Value.Duration.TotalMilliseconds
-            // KHONG tra e.Value.Description hay Exception ra ngoai
+            // KHÔNG trả e.Value.Description hay Exception ra ngoài
         })
     });
 }
@@ -35252,7 +35244,7 @@ Trạng thái phải nằm ở client (token JWT) hoặc ở kho dùng chung (Re
 ### 9.2.2 — URL định danh tài nguyên
 
 [code]
-# DUNG — danh tu so nhieu, dong tu nam o HTTP method
+# ĐÚNG — danh từ số nhiều, động từ nằm ở HTTP method
 GET    /api/v1/customers
 GET    /api/v1/customers/{id}
 POST   /api/v1/customers
@@ -35261,7 +35253,7 @@ PATCH  /api/v1/customers/{id}
 DELETE /api/v1/customers/{id}
 GET    /api/v1/customers/{id}/contacts
 
-# SAI — dong tu trong URL
+# SAI — động từ trong URL
 POST   /api/v1/getCustomers
 POST   /api/v1/deleteCustomer
 POST   /api/v1/customers/create
@@ -35272,11 +35264,11 @@ Quy ước: danh từ số nhiều, chữ thường, phân tách bằng dấu g�
 Còn những hành động không phải CRUD? Ví dụ "duyệt đơn hàng", "gửi lại email xác nhận". Có hai cách chấp nhận được:
 
 [code]
-# 1. Coi hanh dong nhu mot tai nguyen con
+# 1. Coi hành động như một tài nguyên con
 POST /api/v1/orders/{id}/approval
 POST /api/v1/orders/{id}/cancellation
 
-# 2. Doi trang thai bang PATCH
+# 2. Đổi trạng thái bằng PATCH
 PATCH /api/v1/orders/{id}   {"status": "approved"}
 [/code]
 
@@ -35301,9 +35293,9 @@ Cách 1 rõ hơn khi hành động có tác dụng phụ (gửi email, trừ kho
 
 [code]
 Client --POST /orders--> [timeout]
-                          ^ request DA toi server, don hang DA tao,
-                            chi co response bi mat
-Client --POST /orders--> tao them mot don hang nua
+                          ^ request ĐÃ tới server, đơn hàng ĐÃ tạo,
+                            chỉ có response bị mất
+Client --POST /orders--> tạo thêm một đơn hàng nữa
 [/code]
 
 Hệ quả thiết kế:
@@ -35346,11 +35338,11 @@ Client sinh khoá một lần rồi dùng lại cho mọi lần retry của cùn
 ### 9.2.5 — PUT hay PATCH
 
 [code http]
-# PUT — thay the TOAN BO. Truong khong gui se bi XOA.
+# PUT — thay thế TOÀN BỘ. Trường không gửi sẽ bị XOÁ.
 PUT /api/v1/customers/{id}
 { "name": "Nguyen Van A", "email": "a@example.com", "phone": null }
 
-# PATCH — chi sua truong duoc gui
+# PATCH — chỉ sửa trường được gửi
 PATCH /api/v1/customers/{id}
 { "phone": "0901234567" }
 [/code]
@@ -35431,18 +35423,18 @@ Thiếu `Produces`, công cụ sinh không biết kiểu trả về và cho ra `
 Webhook nghe đơn giản — gọi một URL do đối tác cung cấp — nhưng làm đúng cần năm thứ:
 
 [code csharp]
-public async Task GuiWebhookAsync(WebhookEvent evt, CancellationToken ct)
+public async Task SendWebhookAsync(WebhookEvent evt, CancellationToken ct)
 {
     var payload = JsonSerializer.Serialize(evt);
     var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
-    // 1. KY — de doi tac xac minh la ban gui
+    // 1. KÝ — để đối tác xác minh là bạn gửi
     var signature = ComputeHmac($"{timestamp}.{payload}", _secret);
 
     var request = new HttpRequestMessage(HttpMethod.Post, _endpoint)
     {
         Content = new StringContent(payload, Encoding.UTF8, "application/json")
-    };
+    request.Headers.Add("X-Event-Id", evt.Id.ToString());   // 2. để đối tác chống trùng
     request.Headers.Add("X-Signature", $"t={timestamp},v1={signature}");
     request.Headers.Add("X-Event-Id", evt.Id.ToString());   // 2. de doi tac chong trung
 
@@ -35528,15 +35520,6 @@ Khuyến nghị thực dụng:
 
 ### 9.11.5 — HATEOAS và những chủ đề khác
 
-| Chủ đề | Nội dung | Ưu tiên |
-|---|---|---|
-| Sinh client từ OpenAPI | Hợp đồng kiểm tra lúc biên dịch | Cao |
-| Output caching | Cache phản hồi ở server | Cao |
-| Webhook | Thông báo ra ngoài | Trung bình |
-| Server-Sent Events | Đẩy một chiều, đơn giản hơn WebSocket | Trung bình |
-| HATEOAS | Nhúng link điều hướng vào phản hồi | Thấp |
-| JSON:API, OData | Chuẩn định dạng có sẵn | Thấp |
-
 [… phần còn lại đã lược bớt]
 
 ============================================================================
@@ -35566,10 +35549,10 @@ Sau bài này bạn có thể:
 ### 9.12.1 — Sự cố
 
 [code csharp]
-// Truoc
+// Trước
 public record LeadDto(int CustomerId, string Name, decimal Value);
 
-// Sau — doi sang Guid cho nhat quan voi phan con lai
+// Sau — đổi sang Guid cho nhất quán với phần còn lại
 public record LeadDto(Guid CustomerId, string Name, decimal Value);
 [/code]
 
@@ -35577,16 +35560,16 @@ public record LeadDto(Guid CustomerId, string Name, decimal Value);
 // Client mobile mong doi
 { "customerId": 4821, "name": "Công ty ABC", "value": 5000000 }
 
-// Nhan duoc
+// Nhận được
 { "customerId": "8f3a1b2c-...", "name": "Công ty ABC", "value": 5000000 }
 [/code]
 
 [code]
 14:30  Deploy
 14:34  Crash report tang vot: JsonParseException tren Android va iOS
-14:40  12.000 nguoi dung khong mo duoc app
-14:45  Rollback backend — nhung nhung nguoi da mo app trong 15 phut do
-       van co du lieu hong trong cache cuc bo
+14:40  12.000 người dùng không mở được app
+14:45  Rollback backend — nhưng những người đã mở app trong 15 phút đó
+       vẫn có dữ liệu hỏng trong cache cục bộ
 [/code]
 
 Web app không bị ảnh hưởng vì nó dùng JavaScript (không kiểu chặt) và người dùng chỉ cần refresh. Mobile thì không: bản vá phải qua kiểm duyệt cửa hàng, và kể cả sau đó người dùng phải chủ động cập nhật.
@@ -35596,13 +35579,13 @@ Web app không bị ảnh hưởng vì nó dùng JavaScript (không kiểu chặ
 An toàn — không phá client cũ:
 
 [code csharp]
-// Them truong MOI (client cu bo qua truong khong biet)
+// Thêm trường MỚI (client cũ bỏ qua trường không biết)
 public record LeadDto(Guid Id, string Name, decimal Value, string? Source = null);
 
 // Them endpoint moi
 app.MapGet("/api/leads/{id}/history", ...);
 
-// Them gia tri enum moi — CHI khi client xu ly duoc gia tri la
+// Thêm giá trị enum mới — CHỈ khi client xử lý được giá trị lạ
 // Noi long rang buoc: bat buoc -> tuy chon
 [/code]
 
@@ -35674,20 +35657,20 @@ Sai lầm phổ biến khi versioning: chép toàn bộ tầng service cho mỗi
 SAI:
   LeadServiceV1.cs   (500 dong)
   LeadServiceV2.cs   (500 dong, khac 20 dong)
-  -> sua bug phai sua hai cho
+  -> sửa bug phải sửa hai chỗ
 [/code]
 
 Cách đúng: chỉ tầng DTO có phiên bản, logic nghiệp vụ dùng chung.
 
 [code csharp]
-// Mot service duy nhat, tra ve model NGHIEP VU
+// Một service duy nhất, trả về model NGHIỆP VỤ
 public async Task<Lead> GetAsync(LeadId id, CancellationToken ct);
 
-// Hai DTO — chi khac cach TRINH BAY
+// Hai DTO — chỉ khác cách TRÌNH BÀY
 public record LeadDtoV1(int CustomerId, string Name, decimal Value)
 {
     public static LeadDtoV1 From(Lead lead) => new(
-        CustomerId: lead.LegacyCustomerId,      // giu cot cu de tuong thich
+        CustomerId: lead.LegacyCustomerId,      // giữ cột cũ để tương thích
         Name: lead.Name,
         Value: lead.Value.Amount);
 }
@@ -35711,7 +35694,7 @@ Quy tắc: phiên bản hoá ranh giới, không phiên bản hoá logic. Nếu 
 - name: Sinh tai lieu OpenAPI
   run: dotnet run --project src/Crm.Api -- --generate-openapi > openapi-new.json
 
-- name: So sanh voi ban da phat hanh
+- name: So sánh với bản đã phát hành
   run: |
     npx @redocly/cli diff openapi-baseline.json openapi-new.json \
       --fail-on breaking
@@ -35751,13 +35734,13 @@ Sau bài này bạn có thể:
 
 [code]
 10:02:31  POST /api/orders  { items: [...], total: 5.000.000 }
-10:02:31  -> Server bat dau xu ly (goi cong thanh toan, ton 4 giay)
-10:02:34  Nguoi dung sot ruot, bam lai
+10:02:31  -> Server bắt đầu xử lý (gọi cổng thanh toán, tốn 4 giây)
+10:02:34  Người dùng sốt ruột, bấm lại
 10:02:34  POST /api/orders  { items: [...], total: 5.000.000 }   <- request THU HAI
-10:02:35  -> Don hang #1 tao xong
-10:02:39  -> Don hang #2 tao xong
+10:02:35  -> Đơn hàng #1 tạo xong
+10:02:39  -> Đơn hàng #2 tạo xong
 
-Ket qua: 2 don hang, 2 lan tru tien
+Kết quả: 2 đơn hàng, 2 lần trừ tiền
 [/code]
 
 Bốn nguyên nhân khiến request bị gửi hai lần, và chỉ nguyên nhân đầu sửa được ở frontend:
@@ -35786,8 +35769,8 @@ Content-Type: application/json
 Bấm lại nút không sinh khoá mới — client dùng lại khoá của lần đầu. Server thấy khoá đã xử lý thì trả về kết quả cũ thay vì tạo đơn mới.
 
 [code]
-Request #1 voi key K  -> Xu ly -> Luu ket qua -> Tra 201 + don hang #1
-Request #2 voi key K  -> Thay K da co    -> Tra 201 + don hang #1 (KET QUA CU)
+Request #1 với key K  -> Xử lý -> Lưu kết quả -> Trả 201 + đơn hàng #1
+Request #2 với key K  -> Thấy K đã có    -> Trả 201 + đơn hàng #1 (KẾT QUẢ CŨ)
 [/code]
 
 Điểm quan trọng: request thứ hai trả về thành công với kết quả cũ, không phải lỗi. Với client, hai lần gọi trông như nhau — đó chính là ý nghĩa của idempotent.
@@ -35811,7 +35794,7 @@ public sealed class IdempotencyFilter(AppDbContext db) : IAsyncActionFilter
 
         var ct = context.HttpContext.RequestAborted;
 
-        // Da xu ly chua?
+        // Đã xử lý chưa?
         var daXuLy = await db.IdempotencyRecords
             .AsNoTracking()
             .FirstOrDefaultAsync(r => r.Key == key, ct);
@@ -35825,12 +35808,12 @@ public sealed class IdempotencyFilter(AppDbContext db) : IAsyncActionFilter
                 ContentType = "application/json",
                 StatusCode = daXuLy.StatusCode
             };
-            return;                                  // KHONG chay action
+            return;                                  // KHÔNG chạy action
         }
 
         var executed = await next();                 // chay action that
 
-        // Luu ket qua — UNIQUE INDEX tren Key
+        // Lưu kết quả — UNIQUE INDEX trên Key
         if (executed.Result is ObjectResult { StatusCode: >= 200 and < 300 } result)
         {
             db.IdempotencyRecords.Add(new IdempotencyRecord
@@ -35844,7 +35827,7 @@ public sealed class IdempotencyFilter(AppDbContext db) : IAsyncActionFilter
             try { await db.SaveChangesAsync(ct); }
             catch (DbUpdateException ex) when (ex.IsUniqueViolation())
             {
-                // Request trung da luu truoc — khong sao
+                // Request trùng đã lưu trước — không sao
             }
         }
     }
@@ -35862,10 +35845,10 @@ public async Task<IActionResult> Create(CreateOrderRequest request, Cancellation
 Đoạn code trên vẫn có một khoảng hở:
 
 [code]
-t=0ms   Request #1: kiem tra key -> chua co
-t=1ms   Request #2: kiem tra key -> chua co      <- CA HAI deu thay chua co
-t=2ms   Request #1: tao don hang
-t=3ms   Request #2: tao don hang                 <- VAN TRUNG
+t=0ms   Request #1: kiểm tra key -> chưa có
+t=1ms   Request #2: kiểm tra key -> chưa có      <- CẢ HAI đều thấy chưa có
+t=2ms   Request #1: tạo đơn hàng
+t=3ms   Request #2: tạo đơn hàng                 <- VẪN TRÙNG
 [/code]
 
 Đây đúng là race condition của mẫu "kiểm tra trước rồi ghi" (bài 17.3).
@@ -35873,7 +35856,7 @@ t=3ms   Request #2: tao don hang                 <- VAN TRUNG
 Sửa: giành chỗ trước khi xử lý.
 
 [code csharp]
-// Ghi ban ghi "dang xu ly" NGAY, truoc khi chay action
+// Ghi bản ghi "đang xử lý" NGAY, trước khi chạy action
 try
 {
     db.IdempotencyRecords.Add(new IdempotencyRecord
@@ -35886,7 +35869,7 @@ try
 }
 catch (DbUpdateException ex) when (ex.IsUniqueViolation())
 {
-    // Request khac dang xu ly cung key
+    // Request khác đang xử lý cùng key
     context.Result = new ObjectResult(new ProblemDetails
     {
         Status = StatusCodes.Status409Conflict,
@@ -35897,7 +35880,7 @@ catch (DbUpdateException ex) when (ex.IsUniqueViolation())
 }
 
 var executed = await next();
-// ... cap nhat ban ghi thanh Completed kem ket qua
+// ... cập nhật bản ghi thành Completed kèm kết quả
 [/code]
 
 Unique constraint của database là thứ duy nhất đảm bảo tính nguyên tử ở đây — một câu `if` luôn có khoảng hở.
@@ -36184,8 +36167,8 @@ Cạm bẫy lớn nhất là nhân đôi cả tầng nghiệp vụ:
 
 [code]
 Controllers/V1/CustomersController.cs
-Services/V1/CustomerService.cs          <- nhan doi
-Repositories/V1/CustomerRepository.cs   <- nhan doi
+Services/V1/CustomerService.cs          <- nhân đôi
+Repositories/V1/CustomerRepository.cs   <- nhân đôi
 [/code]
 
 Sửa một bug là phải sửa ở hai nơi, và chắc chắn có lúc bạn quên một nơi.
@@ -36197,7 +36180,7 @@ Controllers/V1/CustomersController.cs   -> CustomerServiceChung
 Controllers/V2/CustomersController.cs   -> CustomerServiceChung
 Contracts/V1/CustomerDto.cs
 Contracts/V2/CustomerDto.cs
-Services/CustomerService.cs             <- MOT ban duy nhat
+Services/CustomerService.cs             <- MỘT bản duy nhất
 [/code]
 
 [… phần còn lại đã lược bớt]
@@ -36246,7 +36229,7 @@ Với dự án đang chạy, Swashbuckle vẫn là lựa chọn an toàn nhất:
 [code xml]
 <PropertyGroup>
   <GenerateDocumentationFile>true</GenerateDocumentationFile>
-  <NoWarn>$(NoWarn);1591</NoWarn>   <!-- tat canh bao thieu XML comment -->
+  <NoWarn>$(NoWarn);1591</NoWarn>   <!-- tắt cảnh báo thiếu XML comment -->
 </PropertyGroup>
 [/code]
 
@@ -36257,7 +36240,7 @@ builder.Services.AddSwaggerGen(options =>
     {
         Title = "CRM API",
         Version = "v1",
-        Description = "API quan ly khach hang va lien he",
+        Description = "API quản lý khách hàng và liên hệ",
         Contact = new OpenApiContact { Name = "Team Backend", Email = "backend@example.com" }
     });
 
@@ -36270,7 +36253,7 @@ builder.Services.AddSwaggerGen(options =>
         Type = SecuritySchemeType.Http,
         Scheme = "bearer",
         BearerFormat = "JWT",
-        Description = "Nhap JWT token (khong can tien to 'Bearer')"
+        Description = "Nhập JWT token (không cần tiền tố 'Bearer')"
     });
 
     options.AddSecurityRequirement(new OpenApiSecurityRequirement
@@ -36448,11 +36431,11 @@ Database phải đọc 100.020 dòng rồi vứt đi 100.000 dòng đầu. Trang
 Vấn đề 2: bỏ sót và trùng lặp.
 
 [code]
-t=0   Nguoi dung xem trang 1 (ban ghi 1-20, moi nhat truoc)
-t=1   Co 5 ban ghi MOI duoc tao
-t=2   Nguoi dung bam trang 2 -> OFFSET 20
-      => 5 ban ghi cuoi cua trang 1 cu bi day xuong va hien LAI o trang 2
-      => 5 ban ghi khac bi BO SOT hoan toan
+t=0   Người dùng xem trang 1 (bản ghi 1-20, mới nhất trước)
+t=1   Có 5 bản ghi MỚI được tạo
+t=2   Người dùng bấm trang 2 -> OFFSET 20
+      => 5 bản ghi cuối của trang 1 cũ bị đẩy xuống và hiện LẠI ở trang 2
+      => 5 bản ghi khác bị BỎ SÓT hoàn toàn
 [/code]
 
 Với danh sách người dùng lướt thì đây là phiền toái. Với job đồng bộ dữ liệu duyệt hết mọi trang thì đây là mất dữ liệu im lặng — và rất khó phát hiện.
@@ -36483,7 +36466,7 @@ public async Task<CursorResponse<CustomerDto>> GetPageAsync(
 
     var items = await query
         .OrderByDescending(c => c.CreatedAt).ThenByDescending(c => c.Id)
-        .Take(pageSize + 1)                                    // lay du 1 de biet con nua khong
+        .Take(pageSize + 1)                                    // lấy dư 1 để biết còn nữa không
         .Select(c => new CustomerDto(c.Id, c.Name, c.Email, c.CreatedAt))
         .ToListAsync(ct);
 
@@ -36603,19 +36586,19 @@ public async Task<Result<string>> SaveAvatarAsync(
     if (!Signatures.TryGetValue(ext, out var expected))
         return Result.Fail("Chi ho tro JPG, PNG, PDF");
 
-    // 3. Magic number phai khop — day moi la kiem tra that
+    // 3. Magic number phải khớp — đây mới là kiểm tra thật
     await using var stream = file.OpenReadStream();
     var header = new byte[8];
     var read = await stream.ReadAsync(header, ct);
     stream.Position = 0;
 
     if (!expected.Any(sig => read >= sig.Length && header.Take(sig.Length).SequenceEqual(sig)))
-        return Result.Fail("Noi dung file khong khop phan mo rong");
+        return Result.Fail("Nội dung file không khớp phần mở rộng");
 
-    // 4. SINH ten moi — khong bao gio dung ten goc
+    // 4. SINH tên mới — không bao giờ dùng tên gốc
     var safeName = $"{customerId}-{Guid.NewGuid():N}{ext}";
 
-    // 5. Luu NGOAI wwwroot
+    // 5. Lưu NGOÀI wwwroot
     var path = Path.Combine(_options.UploadRoot, "avatars", safeName);
     Directory.CreateDirectory(Path.GetDirectoryName(path)!);
 
@@ -36665,7 +36648,7 @@ builder.Services.Configure<FormOptions>(o =>
     o.MultipartHeadersLengthLimit = 8 * 1024;
 });
 
-// 3. Muc Kestrel — mac dinh 30MB cho toan bo body
+// 3. Mức Kestrel — mặc định 30MB cho toàn bộ body
 builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = 10 * 1024 * 1024);
 [/code]
 
@@ -36724,9 +36707,9 @@ Sau bài này bạn có thể:
 [code mermaid]
 flowchart TB
     A["Fixed Window<br/>Dem reset moi N giay<br/>Don gian - co burst o ranh gioi"]
-    B["Sliding Window<br/>Chia cua so thanh doan<br/>Muot hon - ton bo nho hon"]
-    C["Token Bucket<br/>Token nap dan, moi request tieu 1<br/>Cho phep burst co kiem soat"]
-    D["Concurrency<br/>Gioi han SO REQUEST DONG THOI<br/>Khong lien quan thoi gian"]
+    B["Sliding Window<br/>Chia cửa sổ thành đoạn<br/>Mượt hơn — tốn bộ nhớ hơn"]
+    C["Token Bucket<br/>Token nạp dần, mỗi request tiêu 1<br/>Cho phép burst có kiểm soát"]
+    D["Concurrency<br/>Giới hạn SỐ REQUEST ĐỒNG THỜI<br/>Không liên quan thời gian"]
 [/code]
 
 Fixed window — đơn giản nhất, và có một khuyết điểm cụ thể:
@@ -36866,7 +36849,7 @@ options.OnRejected = async (context, ct) =>
     await context.HttpContext.Response.WriteAsJsonAsync(new ProblemDetails
     {
         Status = StatusCodes.Status429TooManyRequests,
-        Title = "Qua nhieu yeu cau",
+        Title = "Quá nhiều yêu cầu",
         Detail = "Bạn đã vượt hạn mức. Vui lòng thử lại sau.",
         Extensions = { ["traceId"] = context.HttpContext.TraceIdentifier }
     }, ct);
@@ -36931,16 +36914,16 @@ Rồi hy vọng ai đó ở giữa tôn trọng nó. Và nó tự vô hiệu khi
 
 [code csharp]
 builder.Services.AddResponseCaching();
-app.UseResponseCaching();     // dat TRUOC UseOutputCache neu dung ca hai
+app.UseResponseCaching();     // đặt TRƯỚC UseOutputCache nếu dùng cả hai
 [/code]
 
 [code csharp]
-// Du lieu cong khai, it thay doi
+// Dữ liệu công khai, ít thay đổi
 [HttpGet("countries")]
 [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any)]
 public ActionResult<IEnumerable<CountryDto>> GetCountries();
 
-// Du lieu rieng tu — KHONG cache o dau ca
+// Dữ liệu riêng tư — KHÔNG cache ở đâu cả
 [HttpGet("me")]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 public ActionResult<ProfileDto> GetProfile();
@@ -36957,7 +36940,7 @@ public ActionResult<ProfileDto> GetProfile();
 Quy tắc sống còn: dữ liệu gắn với người dùng thì `Location = Client`, không bao giờ `Any`. Một CDN cache response `public` chứa thông tin cá nhân sẽ trả nó cho người tiếp theo hỏi cùng URL.
 
 [code csharp]
-// SAI — CDN se phuc vu du lieu cua nguoi nay cho nguoi khac
+// SAI — CDN sẽ phục vụ dữ liệu của người này cho người khác
 [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any)]
 [Authorize]
 public ActionResult<CustomerDto> GetMyCustomer();
@@ -36979,11 +36962,11 @@ builder.Services.AddOutputCache(options =>
 
     options.AddPolicy("per-user", b => b
         .Expire(TimeSpan.FromMinutes(5))
-        .SetVaryByHeader("Authorization")     // moi token mot ban sao
+        .SetVaryByHeader("Authorization")     // mỗi token một bản sao
         .Tag("customers"));
 });
 
-app.UseOutputCache();     // sau UseRouting, truoc MapControllers
+app.UseOutputCache();     // sau UseRouting, trước MapControllers
 [/code]
 
 [code csharp]
@@ -37091,7 +37074,7 @@ public sealed class CrmApiFactory : WebApplicationFactory<Program>
 
         builder.ConfigureTestServices(services =>
         {
-            // Thay dich vu ben ngoai bang fake
+            // Thay dịch vụ bên ngoài bằng fake
             services.RemoveAll<IEmailService>();
             services.AddSingleton<IEmailService, FakeEmailService>();
 
@@ -37357,8 +37340,8 @@ Từ .NET 6, `BackgroundServiceExceptionBehavior.StopHost` là mặc định —
 
 [code]
 3 pod, moi pod chay DailyDigestWorker
-=> 3 email digest gui toi cung mot nguoi
-=> Hoac 3 job don dep cung xoa mot tap du lieu
+=> 3 email digest gửi tới cùng một người
+=> Hoặc 3 job dọn dẹp cùng xoá một tập dữ liệu
 [/code]
 
 [… phần còn lại đã lược bớt]
@@ -37443,9 +37426,9 @@ sequenceDiagram
     participant Z as UseAuthorization
     participant E as Endpoint
     C->>A: GET /customers + Bearer token
-    A->>A: xac thuc chu ky, han, issuer
+    A->>A: xác thực chữ ký, hạn, issuer
     A->>A: tao ClaimsPrincipal -> HttpContext.User
-    A->>Z: chuyen tiep
+    A->>Z: chuyển tiếp
     Z->>Z: doc metadata cua endpoint (Authorize)
     Z->>Z: danh gia policy tren User
     alt du quyen
@@ -37471,17 +37454,17 @@ Cả hai phải nằm sau `UseRouting()`, vì `UseAuthorization()` cần biết 
 ### 10.2.3 — Ba tầng danh tính
 
 [code csharp]
-// 1. Claim — MOT mau thong tin: kieu + gia tri
+// 1. Claim — MỘT mẩu thông tin: kiểu + giá trị
 var email     = new Claim(ClaimTypes.Email, "a.nguyen@crm.com");
 var role      = new Claim(ClaimTypes.Role, "SalesRep");
-var territory = new Claim("territory", "HCM");          // kieu tu dinh nghia
+var territory = new Claim("territory", "HCM");          // kiểu tự định nghĩa
 
-// 2. ClaimsIdentity — tap claim tu MOT nguon xac thuc
+// 2. ClaimsIdentity — tập claim từ MỘT nguồn xác thực
 var identity = new ClaimsIdentity(
     claims: [email, role, territory],
-    authenticationType: "Bearer");        // co gia tri -> IsAuthenticated = true
+    authenticationType: "Bearer");        // có giá trị -> IsAuthenticated = true
 
-// 3. ClaimsPrincipal — MOT NGUOI, co the co nhieu identity
+// 3. ClaimsPrincipal — MỘT NGƯỜI, có thể có nhiều identity
 var principal = new ClaimsPrincipal(identity);
 [/code]
 
@@ -37496,7 +37479,7 @@ Vì sao cần nhiều identity? Vì một người có thể được xác thự
 [Authorize]
 public ActionResult<ProfileDto> GetMyProfile()
 {
-    // FindFirstValue tra null neu khong co — KHONG nem
+    // FindFirstValue trả null nếu không có — KHÔNG ném
     var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
     if (userId is null) return Unauthorized();
 
@@ -37540,7 +37523,7 @@ public interface ICurrentUser
 public sealed class CurrentUser(IHttpContextAccessor accessor) : ICurrentUser
 {
     private ClaimsPrincipal User => accessor.HttpContext?.User
-        ?? throw new InvalidOperationException("Khong co HttpContext");
+        ?? throw new InvalidOperationException("Không có HttpContext");
 
 [… phần còn lại đã lược bớt]
 
@@ -37687,7 +37670,7 @@ builder.WebHost.ConfigureKestrel(o => o.AddServerHeader = false);
 ### 10.11.4 — CORS
 
 [code csharp]
-// SAI — khong the chay, va cach "sua" no con te hon
+// SAI — không thể chạy, và cách "sửa" nó còn tệ hơn
 policy.AllowAnyOrigin().AllowCredentials();   // nem exception luc khoi dong
 [/code]
 
@@ -37696,14 +37679,14 @@ Trình duyệt cấm kết hợp `Access-Control-Allow-Origin: *` với `Access-
 Cách "sửa" mà nhiều người tìm thấy trên mạng là phản chiếu origin của request:
 
 [code csharp]
-// RAT NGUY HIEM — chap nhan MOI origin
+// RẤT NGUY HIỂM — chấp nhận MỌI origin
 policy.SetIsOriginAllowed(_ => true).AllowCredentials();
 [/code]
 
 Nó "hoạt động" — và nó tắt hoàn toàn cơ chế bảo vệ same-origin. Bất kỳ trang web nào cũng gọi được API của bạn kèm cookie của người dùng.
 
 [code csharp]
-// DUNG — danh sach trang, doc tu cau hinh
+// ĐÚNG — danh sách trắng, đọc từ cấu hình
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("app", policy => policy
@@ -37714,7 +37697,7 @@ builder.Services.AddCors(options =>
         .SetPreflightMaxAge(TimeSpan.FromMinutes(10)));
 });
 
-app.UseCors("app");     // TRUOC UseAuthorization
+app.UseCors("app");     // TRƯỚC UseAuthorization
 [/code]
 
 Nhớ cái bẫy mảng cấu hình ở bài 8.7: khai `Cors:Origins` ở cả `appsettings.json` lẫn file môi trường sẽ hợp nhất theo chỉ số, nên một origin lẽ ra đã bị xoá vẫn được chấp nhận trên production.
@@ -37752,16 +37735,16 @@ Sau bài này bạn có thể:
 ASP.NET Core dùng Data Protection API để mã hoá cookie xác thực, token chống CSRF và dữ liệu tạm. Mặc định, mỗi instance sinh khoá riêng:
 
 [code]
-Instance A ma hoa cookie bang khoa A
-Nguoi dung request tiep theo -> load balancer chuyen sang Instance B
-Instance B khong giai ma duoc cookie do -> coi nhu chua dang nhap
--> Nguoi dung bi DANG XUAT ngau nhien
+Instance A mã hoá cookie bằng khoá A
+Người dùng request tiếp theo -> load balancer chuyển sang Instance B
+Instance B không giải mã được cookie đó -> coi như chưa đăng nhập
+-> Người dùng bị ĐĂNG XUẤT ngẫu nhiên
 [/code]
 
 Triệu chứng rất dễ nhận ra khi đã biết, và rất khó lần ra khi chưa biết: người dùng bị đăng xuất ngẫu nhiên, và tần suất tăng theo số instance.
 
 [code csharp]
-// Luu khoa dung chung
+// Lưu khoá dùng chung
 builder.Services.AddDataProtection()
     .PersistKeysToStackExchangeRedis(redis, "DataProtection-Keys")
     .SetApplicationName("CrmApi");        // PHAI giong nhau moi instance
@@ -37779,23 +37762,23 @@ PKCE giải quyết một lỗ hổng cụ thể của authorization code flow:
 
 [code]
 1. App mo trinh duyet toi identity provider
-2. Nguoi dung dang nhap
-3. Provider chuyen huong ve app kem MOT MA (authorization code)
+2. Người dùng đăng nhập
+3. Provider chuyển hướng về app kèm MỘT MÃ (authorization code)
 4. App doi ma do lay token
 
-Lo hong: buoc 3 di qua he dieu hanh. Mot app doc hai dang ky
-cung URL scheme co the CHAN duoc ma do va doi lay token.
+Lỗ hổng: bước 3 đi qua hệ điều hành. Một app độc hại đăng ký
+cùng URL scheme có thể CHẶN được mã đó và đổi lấy token.
 [/code]
 
 PKCE vá lỗ hổng đó:
 
 [code]
-1. App sinh mot chuoi ngau nhien (code_verifier), giu BI MAT
-2. Gui ban bam cua no (code_challenge) kem yeu cau dang nhap
-3. Khi doi ma lay token, app gui kem code_verifier goc
-4. Provider bam lai va so sanh
+1. App sinh một chuỗi ngẫu nhiên (code_verifier), giữ BÍ MẬT
+2. Gửi bản băm của nó (code_challenge) kèm yêu cầu đăng nhập
+3. Khi đổi mã lấy token, app gửi kèm code_verifier gốc
+4. Provider băm lại và so sánh
 
-App doc hai chan duoc ma nhung KHONG co code_verifier -> khong doi duoc token.
+App độc hại chặn được mã nhưng KHÔNG có code_verifier -> không đổi được token.
 [/code]
 
 [code csharp]
@@ -37803,7 +37786,7 @@ builder.Services.AddAuthentication()
     .AddOpenIdConnect(options =>
     {
         options.ResponseType = "code";
-        options.UsePkce = true;              // BAT BUOC cho SPA va mobile
+        options.UsePkce = true;              // BẮT BUỘC cho SPA và mobile
         options.SaveTokens = true;
     });
 [/code]
@@ -37902,152 +37885,6 @@ Sau bài này bạn có thể:
 ## Nội dung bài học
 
 ### 10.13.1 — Sự cố
-
-[code]
-Ngay 1, 09:00  Nhan vien nghi viec
-Ngay 1, 09:15  Admin vo hieu hoa tai khoan (IsActive = false)
-Ngay 1, 09:15  Access token hien tai con han 12 phut
-Ngay 1, 09:27  Access token het han
-Ngay 1, 09:27  Client tu dong goi /refresh -> NHAN TOKEN MOI  (!!)
-...
-Ngay 5, 14:30  Goi DELETE /api/customers/bulk -> xoa 340 ban ghi
-[/code]
-
-[code csharp]
-// Code refresh — thieu MOT buoc kiem tra
-public async Task<TokenPair> RefreshAsync(string refreshToken, CancellationToken ct)
-{
-    var stored = await _db.RefreshTokens
-        .FirstOrDefaultAsync(t => t.Token == refreshToken, ct);
-
-    if (stored is null || stored.ExpiresUtc < DateTime.UtcNow)
-        throw new UnauthorizedAccessException();
-
-    // THIEU: kiem tra tai khoan con hoat dong khong
-
-    return GenerateTokenPair(stored.UserId);
-}
-[/code]
-
-Vô hiệu hoá tài khoản chỉ ảnh hưởng luồng đăng nhập. Luồng refresh không kiểm tra gì về trạng thái tài khoản, nên nó tiếp tục cấp token mới mỗi 15 phút suốt 30 ngày.
-
-### 10.13.2 — Sửa: kiểm tra lại khi refresh
-
-[code csharp]
-public async Task<TokenPair> RefreshAsync(string refreshToken, CancellationToken ct)
-{
-    var stored = await _db.RefreshTokens
-        .Include(t => t.User)
-        .FirstOrDefaultAsync(t => t.Token == refreshToken, ct);
-
-    if (stored is null || stored.ExpiresUtc < DateTime.UtcNow || stored.RevokedUtc is not null)
-        throw new UnauthorizedAccessException("Refresh token không hợp lệ");
-
-    // KIEM TRA LAI trang thai tai khoan
-    if (!stored.User.IsActive)
-    {
-        await ThuHoiToanBoTokenAsync(stored.UserId, "Tài khoản đã bị vô hiệu hoá", ct);
-        throw new UnauthorizedAccessException("Tài khoản đã bị vô hiệu hoá");
-    }
-
-    if (stored.User.SecurityStamp != stored.SecurityStamp)
-    {
-        // Mat khau hoac quyen da doi ke tu khi cap token
-        await ThuHoiToanBoTokenAsync(stored.UserId, "Thông tin bảo mật đã thay đổi", ct);
-        throw new UnauthorizedAccessException("Vui lòng đăng nhập lại");
-    }
-
-    return await XoayTokenAsync(stored, ct);
-}
-[/code]
-
-`SecurityStamp` là một giá trị thay đổi mỗi khi có thay đổi ảnh hưởng bảo mật: đổi mật khẩu, đổi vai trò, bật xác thực hai lớp. So sánh nó khi refresh khiến mọi token cũ tự vô hiệu sau những thay đổi đó — không cần danh sách chặn riêng.
-
-[code csharp]
-// Khi doi mat khau hoac quyen
-user.SecurityStamp = Guid.NewGuid().ToString();
-await _db.SaveChangesAsync(ct);
-// Moi refresh token cu gio deu khong dung duoc
-[/code]
-
-### 10.13.3 — Refresh token rotation
-
-Mỗi lần refresh, cấp refresh token mới và vô hiệu cái cũ:
-
-[code csharp]
-private async Task<TokenPair> XoayTokenAsync(RefreshToken cu, CancellationToken ct)
-{
-    var moi = new RefreshToken
-    {
-        Token = TaoTokenNgauNhien(),
-        UserId = cu.UserId,
-        SecurityStamp = cu.User.SecurityStamp,
-        ExpiresUtc = DateTime.UtcNow.AddDays(30),
-        CreatedUtc = DateTime.UtcNow
-    };
-
-    cu.RevokedUtc = DateTime.UtcNow;
-    cu.ReplacedByToken = moi.Token;        // LUU chuoi thay the
-
-    _db.RefreshTokens.Add(moi);
-    await _db.SaveChangesAsync(ct);
-
-    return new TokenPair(TaoAccessToken(cu.User), moi.Token);
-}
-[/code]
-
-Lợi ích thứ nhất: token bị đánh cắp chỉ dùng được tới lần refresh tiếp theo của người dùng thật.
-
-Lợi ích thứ hai quan trọng hơn: nó phát hiện được việc token bị đánh cắp.
-
-[code csharp]
-// Neu ai do dung refresh token DA BI XOAY
-if (stored.RevokedUtc is not null)
-{
-    // Token nay da duoc dung roi -> co nguoi dang dung token danh cap
-    _logger.LogWarning(
-        "Phát hiện dùng lại refresh token đã xoay. UserId={UserId}, IP={Ip}",
-        stored.UserId, context.Connection.RemoteIpAddress);
-
-    // THU HOI TOAN BO chuoi token cua nguoi dung nay
-    await ThuHoiToanBoTokenAsync(stored.UserId, "Phát hiện dùng lại token", ct);
-
-    throw new UnauthorizedAccessException("Phiên đăng nhập không hợp lệ");
-}
-[/code]
-
-Cơ chế phát hiện:
-
-[code]
-1. Ke tan cong lay duoc refresh token R1
-2. Nguoi dung that refresh:  R1 -> R2, R1 bi xoay
-3. Ke tan cong dung R1       -> R1 DA BI XOAY
-   -> He thong biet co ai do dung token cu -> THU HOI HET
-4. Ca hai ben phai dang nhap lai — nguoi dung that bi phien mot chut,
-   nhung ke tan cong mat quyen truy cap
-[/code]
-
-Đây là điểm mạnh nhất của rotation: không chỉ giới hạn thiệt hại mà còn biến việc đánh cắp thành một sự kiện quan sát được.
-
-### 10.13.4 — Vòng đời token
-
-| Token | Thời hạn khuyến nghị | Lưu ở đâu |
-|---|---|---|
-| Access token | 5–15 phút | Bộ nhớ (không `localStorage`) |
-| Refresh token | 7–30 ngày | Cookie `HttpOnly` `Secure` `SameSite=Strict` |
-
-[code csharp]
-Response.Cookies.Append("refresh_token", token, new CookieOptions
-{
-    HttpOnly = true,                        // JavaScript KHONG doc duoc
-    Secure = true,                          // chi qua HTTPS
-    SameSite = SameSiteMode.Strict,         // chong CSRF
-    Expires = DateTimeOffset.UtcNow.AddDays(30),
-    Path = "/api/auth"                      // chi gui toi endpoint auth
-});
-[/code]
-
-Vì sao không lưu token trong `localStorage`: bất kỳ mã JavaScript nào trên trang cũng đọc được nó, kể cả mã chèn vào qua XSS hoặc qua một thư viện bên thứ ba bị xâm nhập. Cookie `HttpOnly` thì JavaScript không đọc được.
 
 [… phần còn lại đã lược bớt]
 
