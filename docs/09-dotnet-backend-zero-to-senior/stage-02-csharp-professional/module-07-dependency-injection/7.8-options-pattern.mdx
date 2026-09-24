@@ -216,11 +216,294 @@ Xem [Module 15 — Docker và Deployment](../../stage-04-database-production/mod
 
 ## Bài tập áp dụng
 
-1. **Thấy giá trị của `ValidateOnStart`.** Xoá `Host` khỏi `appsettings.json` và chạy ứng dụng **có** rồi **không có** `ValidateOnStart()`. Ghi lại thời điểm và nội dung lỗi trong mỗi trường hợp.
+#### Bài 1 — Thấy giá trị của `ValidateOnStart`
 
-2. **Captive options.** Tiêm `IOptionsSnapshot<T>` vào một Singleton, sửa `appsettings.json` khi ứng dụng đang chạy và xác nhận giá trị **không** đổi. Chuyển sang `IOptionsMonitor<T>` và xác nhận nó đổi.
+Xoá một mục cấu hình bắt buộc khỏi `appsettings.json` rồi chạy ứng dụng **có** và **không có** `ValidateOnStart()`. Ghi lại thời điểm và nội dung lỗi trong mỗi trường hợp.
 
-3. **`OnChange` bắn hai lần.** Đăng ký một callback ghi log, sửa file cấu hình bằng VS Code và đếm số dòng log. Viết cơ chế chống trùng và kiểm chứng lại.
+**Tiêu chí hoàn thành:** bạn nêu được vì sao "hỏng lúc khởi động" tốt hơn "hỏng lúc chạy", kể cả khi cả hai đều là hỏng.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Không có `ValidateOnStart`, việc xác thực chỉ diễn ra khi `IOptions<T>` được **lấy ra lần đầu** — tức là khi có request chạm tới đường dẫn dùng nó.
+
+**Lời giải — cấu hình:**
+
+```csharp
+public class SmtpOptions
+{
+    public const string Section = "Smtp";
+
+    [Required(ErrorMessage = "Smtp:Host là bắt buộc")]
+    public string Host { get; init; } = "";
+
+    [Range(1, 65535)]
+    public int Port { get; init; }
+
+    [Required, EmailAddress]
+    public string FromAddress { get; init; } = "";
+}
+```
+
+**Không có `ValidateOnStart`:**
+
+```csharp
+builder.Services.AddOptions<SmtpOptions>()
+    .Bind(builder.Configuration.GetSection(SmtpOptions.Section))
+    .ValidateDataAnnotations();
+```
+
+```text
+info: Now listening on: http://localhost:5000     <- ỨNG DỤNG KHỞI ĐỘNG BÌNH THƯỜNG
+
+... 3 giờ sau, khi có người dùng đăng ký tài khoản ...
+
+fail: Microsoft.AspNetCore.Diagnostics[1]
+      OptionsValidationException: DataAnnotation validation failed for
+      'SmtpOptions' members: 'Host' with the error: 'Smtp:Host là bắt buộc'.
+```
+
+**Có `ValidateOnStart`:**
+
+```csharp
+builder.Services.AddOptions<SmtpOptions>()
+    .Bind(builder.Configuration.GetSection(SmtpOptions.Section))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+```
+
+```text
+Unhandled exception. OptionsValidationException: DataAnnotation validation failed
+for 'SmtpOptions' members: 'Host' with the error: 'Smtp:Host là bắt buộc'.
+
+(ứng dụng KHÔNG khởi động)
+```
+
+**Vì sao "hỏng lúc khởi động" tốt hơn — bốn lý do:**
+
+1. **Không có phiên bản hỏng nào nhận lưu lượng.** Với triển khai luân phiên, thể hiện mới không qua được health check nên không được đưa vào vòng phục vụ, và thể hiện cũ vẫn chạy. Người dùng **không hề bị ảnh hưởng**.
+2. **Lỗi xuất hiện ngay trong log triển khai**, nơi người vừa bấm nút đang nhìn — chứ không phải ba giờ sau trong một biển log.
+3. **Thông báo nói rõ thiếu gì.** Không phải đi truy ngược từ một `NullReferenceException` ở tầng sâu.
+4. **Không có trạng thái dở dang.** Ứng dụng chưa từng phục vụ request nào, nên không có dữ liệu nửa vời để dọn.
+
+Nguyên tắc chung: **hỏng nhanh, hỏng sớm, hỏng ồn ào**. Một ứng dụng khởi động được với cấu hình sai là một quả bom hẹn giờ.
+
+**Xác thực phức tạp hơn `DataAnnotations`:**
+
+```csharp
+builder.Services.AddOptions<SmtpOptions>()
+    .Bind(builder.Configuration.GetSection(SmtpOptions.Section))
+    .ValidateDataAnnotations()
+    .Validate(o => o.Port != 25 || o.UseTls == false,
+              "Cổng 25 không dùng được với TLS")
+    .ValidateOnStart();
+```
+
+Hoặc tách thành một lớp riêng khi logic dài:
+
+```csharp
+public class SmtpOptionsValidator : IValidateOptions<SmtpOptions>
+{
+    public ValidateOptionsResult Validate(string? name, SmtpOptions o)
+    {
+        var loi = new List<string>();
+        if (o.Port == 465 && !o.UseTls) loi.Add("Cổng 465 yêu cầu TLS");
+        if (o.Timeout < TimeSpan.FromSeconds(1)) loi.Add("Timeout quá ngắn");
+
+        return loi.Count > 0 ? ValidateOptionsResult.Fail(loi) : ValidateOptionsResult.Success;
+    }
+}
+
+builder.Services.AddSingleton<IValidateOptions<SmtpOptions>, SmtpOptionsValidator>();
+```
+
+**Một lưu ý.** `ValidateOnStart` chỉ chạy khi host khởi động **đầy đủ**. Nếu bạn lấy `IOptions<T>` ra trong `Program.cs` **trước** `app.Run()`, việc xác thực có thể chạy sớm hơn ở đó — và đó cũng là kết quả tốt.
+
+</details>
+
+#### Bài 2 — Captive options
+
+Tiêm `IOptionsSnapshot<T>` vào một `Singleton`, sửa `appsettings.json` khi ứng dụng đang chạy và xác nhận giá trị **không** đổi. Chuyển sang `IOptionsMonitor<T>` và xác nhận nó đổi.
+
+**Tiêu chí hoàn thành:** bạn nêu đúng vòng đời của cả ba interface options.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** `IOptionsSnapshot<T>` được đăng ký là **`Scoped`**. Tiêm một `Scoped` vào một `Singleton` chính là captive dependency ở [bài 7.5](7.5-service-lifetimes.mdx).
+
+**Lời giải.**
+
+```csharp
+// SAI — IOptionsSnapshot là Scoped, bị giam trong Singleton
+public class EmailSender(IOptionsSnapshot<SmtpOptions> opts) : IEmailSender
+{
+    public Task GuiAsync(...) => Gui(opts.Value.Host, ...);
+}
+builder.Services.AddSingleton<IEmailSender, EmailSender>();
+```
+
+Với `ValidateScopes` bật, ứng dụng **không khởi động được**:
+
+```text
+InvalidOperationException: Cannot consume scoped service
+'IOptionsSnapshot`1[SmtpOptions]' from singleton 'IEmailSender'.
+```
+
+Nếu tắt kiểm tra, ứng dụng chạy nhưng `opts.Value` **đóng băng** ở giá trị đọc được lần đầu. Sửa `appsettings.json` không có tác dụng gì.
+
+**Đúng:**
+
+```csharp
+public class EmailSender(IOptionsMonitor<SmtpOptions> opts) : IEmailSender
+{
+    public Task GuiAsync(...) => Gui(opts.CurrentValue.Host, ...);   // đọc CurrentValue mỗi lần
+}
+```
+
+Sửa file cấu hình, gọi lại, giá trị đã đổi.
+
+**Bảng ba interface:**
+
+| Interface | Vòng đời | Đọc lại khi file đổi | Hỗ trợ named options | Dùng cho |
+|---|---|---|---|---|
+| `IOptions<T>` | `Singleton` | **Không** | Không | Cấu hình không bao giờ đổi lúc chạy |
+| `IOptionsSnapshot<T>` | **`Scoped`** | Có, mỗi request một lần | Có | Service `Scoped` và `Transient` |
+| `IOptionsMonitor<T>` | `Singleton` | **Có**, ngay lập tức | Có | **Service `Singleton`** |
+
+**Ba điểm dễ sai:**
+
+1. **`IOptions<T>` không bao giờ đọc lại.** Nó đọc một lần lúc khởi tạo và giữ mãi. Đây là lựa chọn đúng cho chuỗi kết nối database — thứ mà đổi lúc chạy cũng không có tác dụng, vì nhóm kết nối đã được tạo.
+
+2. **Phải đọc `CurrentValue` mỗi lần, không lưu lại:**
+
+   ```csharp
+   // SAI — mất hết tác dụng của Monitor
+   public class EmailSender(IOptionsMonitor<SmtpOptions> opts) : IEmailSender
+   {
+       private readonly SmtpOptions _o = opts.CurrentValue;   // đóng băng ngay
+   }
+
+   // ĐÚNG
+   public class EmailSender(IOptionsMonitor<SmtpOptions> opts) : IEmailSender
+   {
+       public Task GuiAsync(...) => Gui(opts.CurrentValue.Host, ...);
+   }
+   ```
+
+3. **`IOptionsSnapshot<T>` tính lại một lần cho mỗi phạm vi.** Trong cùng một request, đọc `Value` nhiều lần cho cùng một giá trị — đó là điều bạn muốn, vì nó bảo đảm mọi phần của request nhìn thấy cùng một cấu hình.
+
+**Chọn cái nào — quy tắc thực dụng:**
+
+```text
+Service Singleton              -> IOptionsMonitor<T>
+Service Scoped hoặc Transient  -> IOptionsSnapshot<T>
+Cấu hình chắc chắn không đổi   -> IOptions<T>
+```
+
+**Một cảnh báo về cấu hình đổi lúc chạy.** Nghe hấp dẫn nhưng nó khiến hệ thống khó suy luận: hai request liên tiếp có thể chạy với hai cấu hình khác nhau, và việc tái hiện một sự cố trở nên khó hơn. Với phần lớn cấu hình, **triển khai lại** là cách đổi rõ ràng và an toàn hơn. Hãy dành khả năng đổi nóng cho những thứ thật sự cần nó, như công tắc bật tắt tính năng.
+
+</details>
+
+#### Bài 3 — `OnChange` bắn nhiều lần
+
+Đăng ký một callback ghi log, sửa file cấu hình bằng trình soạn thảo và đếm số dòng log. Viết cơ chế chống trùng và kiểm chứng lại.
+
+**Tiêu chí hoàn thành:** bạn giải thích được vì sao một lần lưu file lại sinh nhiều sự kiện.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Vấn đề không nằm ở .NET mà ở **cách trình soạn thảo lưu file**. Hãy tìm hiểu xem VS Code làm gì khi bạn nhấn lưu.
+
+**Lời giải.**
+
+```csharp
+public class SmtpWatcher : IDisposable
+{
+    private readonly IDisposable? _dangKy;
+
+    public SmtpWatcher(IOptionsMonitor<SmtpOptions> opts, ILogger<SmtpWatcher> log)
+    {
+        _dangKy = opts.OnChange(o => log.LogInformation("Cấu hình SMTP đổi: {Host}", o.Host));
+    }
+
+    public void Dispose() => _dangKy?.Dispose();
+}
+```
+
+Sửa `appsettings.json` một lần và lưu:
+
+```text
+info: Cấu hình SMTP đổi: smtp.moi.com
+info: Cấu hình SMTP đổi: smtp.moi.com
+info: Cấu hình SMTP đổi: smtp.moi.com
+```
+
+**Ba lần cho một lần lưu.**
+
+**Vì sao.** Nhiều trình soạn thảo không ghi đè file trực tiếp mà thực hiện một chuỗi thao tác để bảo đảm an toàn:
+
+```text
+1. Ghi nội dung mới vào file tạm
+2. Xoá file gốc            -> FileSystemWatcher bắn sự kiện Deleted
+3. Đổi tên file tạm        -> bắn sự kiện Created
+4. Cập nhật thời gian sửa  -> bắn sự kiện Changed
+```
+
+`FileSystemWatcher` bên dưới `IConfiguration` thấy cả ba và kích hoạt `OnChange` mỗi lần. Số lần chính xác **phụ thuộc vào trình soạn thảo và hệ điều hành** — nên đừng viết code dựa trên một con số cụ thể.
+
+**Hậu quả thực tế.** Nếu callback làm việc nặng — tạo lại nhóm kết nối, gọi API, khởi động lại một dịch vụ nền — nó chạy ba lần. Với thao tác không idempotent, đó là ba lần tác dụng phụ.
+
+**Chống trùng bằng cách hoãn:**
+
+```csharp
+public sealed class SmtpWatcher : IDisposable
+{
+    private readonly IDisposable? _dangKy;
+    private readonly Timer _timer;
+    private SmtpOptions? _choXuLy;
+
+    public SmtpWatcher(IOptionsMonitor<SmtpOptions> opts, ILogger<SmtpWatcher> log)
+    {
+        _timer = new Timer(_ =>
+        {
+            var o = Interlocked.Exchange(ref _choXuLy, null);
+            if (o is not null) log.LogInformation("Cấu hình SMTP đổi: {Host}", o.Host);
+        });
+
+        _dangKy = opts.OnChange(o =>
+        {
+            _choXuLy = o;
+            _timer.Change(TimeSpan.FromMilliseconds(500), Timeout.InfiniteTimeSpan);
+        });
+    }
+
+    public void Dispose() { _dangKy?.Dispose(); _timer.Dispose(); }
+}
+```
+
+Mỗi sự kiện đặt lại bộ đếm 500 mili-giây. Ba sự kiện liên tiếp chỉ dẫn tới **một** lần xử lý, sau khi đợt thay đổi đã lắng.
+
+**Cách đơn giản hơn nếu callback rẻ.** Bỏ qua trùng lặp và làm cho callback **idempotent** — chạy ba lần cũng cho cùng kết quả như chạy một lần. Đây thường là lựa chọn tốt hơn vì nó không cần thêm cơ chế nào:
+
+```csharp
+opts.OnChange(o => _cache.Set("smtp-host", o.Host));    // chạy mấy lần cũng như nhau
+```
+
+**Ba điều bắt buộc khi dùng `OnChange`:**
+
+1. **Giữ và giải phóng đăng ký.** `OnChange` trả về một `IDisposable`; bỏ nó đi là rò rỉ, đúng kiểu rò rỉ event ở [bài 5.5](../module-05-advanced-csharp/5.5-delegates-and-events.mdx).
+2. **Không ném ngoại lệ trong callback.** Ngoại lệ ở đó có thể làm sập tiến trình, vì nó chạy trên luồng của `FileSystemWatcher` chứ không trong ngữ cảnh request.
+3. **Không làm việc nặng hoặc chờ lâu.** Callback chạy đồng bộ; việc nặng nên được đẩy sang một hàng đợi như [bài 6.9](../module-06-async-programming/6.9-channels-and-producer-consumer.mdx) mô tả.
+
+**Cân nhắc tắt hẳn việc theo dõi file.** Trong môi trường container, cấu hình đổi thường đi kèm với việc triển khai lại pod, nên theo dõi file không có ích mà chỉ thêm rủi ro:
+
+```csharp
+builder.Configuration.AddJsonFile("appsettings.json", optional: false, reloadOnChange: false);
+```
+
+</details>
 
 ## Tự kiểm tra
 
