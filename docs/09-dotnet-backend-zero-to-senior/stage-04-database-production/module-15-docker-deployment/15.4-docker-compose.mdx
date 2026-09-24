@@ -1,167 +1,349 @@
 ---
 title: "15.4 — 3. Docker Compose"
-description: "Docker Compose định nghĩa toàn bộ stack trong một file YAML — \"hợp đồng\" chạy môi trường giống production."
+description: "depends_on không chờ dịch vụ sẵn sàng nếu thiếu healthcheck, mạng nội bộ và tên dịch vụ, override file, và vì sao Compose không dành cho production nhiều máy."
 sidebar_position: 4
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
 # 15.4 — 3. Docker Compose
 
+<SummaryBox>
+Compose biến "cài 5 thứ rồi cấu hình chúng nói chuyện với nhau" thành `docker compose up`. Hai điều quyết định nó chạy đúng hay không. **`depends_on` không chờ dịch vụ sẵn sàng** — nó chỉ chờ container **khởi động**; SQL Server mất 30 giây để sẵn sàng nhận kết nối, nên API khởi động ngay và **chết vì không kết nối được**. Sửa bằng `condition: service_healthy` cộng `healthcheck` thật. Thứ hai: **đừng publish cổng của database ra host** — trong mạng Compose, các container gọi nhau bằng **tên dịch vụ**, và `ports: "1433:1433"` mở database ra toàn mạng của bạn. Và nhớ: **Compose là công cụ một máy**; nhiều máy thì cần Swarm, Kubernetes, hoặc dịch vụ quản lý.
+</SummaryBox>
+
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Viết `compose.yaml` cho stack nhiều dịch vụ.
+- Dùng healthcheck để thứ tự khởi động đúng.
+- Cấu hình mạng và cổng an toàn.
+- Dùng override file cho dev và production.
+- Biết giới hạn của Compose.
 
 ## Nội dung bài học
 
-Docker Compose định nghĩa toàn bộ stack trong một file YAML — "hợp đồng" chạy môi trường giống production.
-
-### 15.4.1 — docker-compose.yml đầy đủ cho CRM Stack
+### 15.4.1 — `depends_on` không đủ
 
 ```yaml
-version: "3.9"
-
+# SAI — API khoi dong khi SQL Server CHUA san sang
 services:
-  # CRM API
-  crm-api:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: crm-api:latest
-    container_name: crm-api
-    restart: unless-stopped
-    ports:
-      - "5000:8080"
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Production
-      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=CrmDb;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True
-      - ConnectionStrings__Redis=redis:6379
-      - Seq__ServerUrl=http://seq:5341
+  api:
+    depends_on:
+      - sqlserver
+```
+
+`depends_on` chỉ đảm bảo container `sqlserver` **được khởi động trước** — không đảm bảo SQL Server **đã sẵn sàng nhận kết nối**. SQL Server mất 20–40 giây để khởi tạo; API khởi động sau 2 giây và **chết** vì không kết nối được.
+
+```yaml
+# DUNG — cho den khi HEALTHY
+services:
+  api:
     depends_on:
       sqlserver:
         condition: service_healthy
       redis:
         condition: service_healthy
-    networks:
-      - crm-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 20s
 
-  # SQL Server
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
-    container_name: crm-sqlserver
-    restart: unless-stopped
-    environment:
-      - ACCEPT_EULA=Y
-      - SA_PASSWORD=${SA_PASSWORD}
-      - MSSQL_PID=Express
-    ports:
-      - "1433:1433"
-    volumes:
-      - sqlserver-data:/var/opt/mssql
-    networks:
-      - crm-network
     healthcheck:
-      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "${SA_PASSWORD}" -C -Q "SELECT 1" || exit 1
-      interval: 15s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
-
-  # Redis
-  redis:
-    image: redis:7-alpine
-    container_name: crm-redis
-    restart: unless-stopped
-    command: redis-server --requirepass ${REDIS_PASSWORD}
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis-data:/data
-    networks:
-      - crm-network
-    healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 3
+      retries: 10
+      start_period: 30s
+```
 
-  # Hangfire Dashboard (standalone worker)
-  hangfire-worker:
-    image: crm-api:latest
-    container_name: crm-hangfire
-    restart: unless-stopped
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Production
-      - RUN_MODE=HangfireWorker
-      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=CrmDb;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True
-    depends_on:
-      crm-api:
-        condition: service_healthy
-    networks:
-      - crm-network
+Hai chi tiết: `$$` để Compose **không** thay biến mà để shell trong container xử lý; và `start_period: 30s` cho SQL Server thời gian khởi tạo mà thất bại **không tính**.
 
-  # Seq - Structured Logging
-  seq:
-    image: datalust/seq:latest
-    container_name: crm-seq
-    restart: unless-stopped
-    environment:
-      - ACCEPT_EULA=Y
-      - SEQ_FIRSTRUN_ADMINPASSWORDHASH=${SEQ_PASSWORD_HASH}
+**Ngay cả vậy, ứng dụng vẫn nên tự chịu lỗi.** Database có thể restart bất cứ lúc nào sau khi API đã lên, nên retry kết nối là bắt buộc ([bài 14.10](../module-14-caching-background-jobs/14.10-idempotency-and-retry.mdx)):
+
+```csharp
+options.UseSqlServer(conn, sql => sql.EnableRetryOnFailure(
+    maxRetryCount: 5, maxRetryDelay: TimeSpan.FromSeconds(10), errorNumbersToAdd: null));
+```
+
+### 15.4.2 — Mạng và cổng
+
+```yaml
+services:
+  api:
     ports:
-      - "5341:80"
-    volumes:
-      - seq-data:/data
-    networks:
-      - crm-network
+      - "8080:8080"           # CHI API mo ra host
+    environment:
+      - ConnectionStrings__Default=Server=sqlserver;Database=Crm;...
+      - ConnectionStrings__Redis=redis:6379
 
-volumes:
-  sqlserver-data:
-  redis-data:
-  seq-data:
+  sqlserver:
+    # KHONG co "ports" — chi truy cap duoc tu trong mang Compose
+
+  redis:
+    # KHONG co "ports"
+```
+
+Compose tạo một mạng mặc định, và các container gọi nhau bằng **tên dịch vụ** — `sqlserver`, `redis`. Không cần biết IP.
+
+**`ports` chỉ cần khi bạn muốn truy cập từ host.** Publish cổng SQL Server nghĩa là:
+
+- Database nghe trên **mọi** giao diện mạng của host.
+- Với máy có IP công khai, đó là database **mở ra Internet**.
+- Tường lửa của host là thứ duy nhất chặn — và nó thường được cấu hình sai.
+
+Cần truy cập từ máy dev thì giới hạn vào localhost:
+
+```yaml
+ports:
+  - "127.0.0.1:1433:1433"     # CHI localhost, khong ra ngoai
+```
+
+Đây là khác biệt quan trọng mà nhiều người không biết: `"1433:1433"` bind vào `0.0.0.0`.
+
+**Tách mạng** khi muốn chặt hơn:
+
+```yaml
+services:
+  api:
+    networks: [frontend, backend]
+  sqlserver:
+    networks: [backend]        # KHONG tiep xuc frontend
 
 networks:
-  crm-network:
-    driver: bridge
+  frontend:
+  backend:
+    internal: true             # khong co truy cap Internet
 ```
 
-Khởi động:
+`internal: true` chặn cả truy cập **ra ngoài** — hữu ích cho database không cần gọi Internet.
+
+### 15.4.3 — Cấu hình và biến môi trường
+
+```yaml
+services:
+  api:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__Default=Server=sqlserver;Database=Crm;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True
+      - ConnectionStrings__Redis=redis:6379
+    env_file:
+      - .env
+```
 
 ```bash
-# Tạo file .env
-cp .env.example .env
-# Sửa SA_PASSWORD, REDIS_PASSWORD, SEQ_PASSWORD_HASH
-
-docker compose up -d
-docker compose logs -f crm-api
-docker compose down -v  # xóa cả volumes khi cleanup
+# .env — KHONG commit
+MSSQL_SA_PASSWORD=Str0ng!Passw0rd
+REDIS_PASSWORD=An0ther!Str0ng
+JWT_SECRET=...
 ```
 
----
+```bash
+# .gitignore
+.env
+```
+
+Nhớ hai dấu gạch dưới cho khoá phân cấp ([bài 8.7](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.7-configuration-system.mdx)).
+
+**`.env` không phải giải pháp secret thật** — nó chỉ giữ giá trị ra khỏi file YAML đã commit. Với production, dùng Docker secret hoặc secret của orchestrator:
+
+```yaml
+services:
+  api:
+    secrets:
+      - db_password
+    environment:
+      - ConnectionStrings__Default=Server=sqlserver;...;Password_File=/run/secrets/db_password
+
+secrets:
+  db_password:
+    file: ./secrets/db_password.txt
+```
+
+Docker secret được mount thành **file** trong `/run/secrets/`, không nằm trong biến môi trường — nên nó không lộ qua `docker inspect` hay `/proc/<pid>/environ`.
+
+Nhưng .NET không tự đọc file secret; bạn phải tự nạp:
+
+```csharp
+var passwordFile = Environment.GetEnvironmentVariable("DB_PASSWORD_FILE");
+if (passwordFile is not null && File.Exists(passwordFile))
+    connectionString = connectionString.Replace("{PASSWORD}", File.ReadAllText(passwordFile).Trim());
+```
+
+### 15.4.4 — Override file
+
+```
+compose.yaml                  # chung cho moi moi truong
+compose.override.yaml         # TU DONG ap khi chay local
+compose.prod.yaml             # ap tuong minh cho production
+```
+
+```yaml
+# compose.yaml — dinh nghia co ban
+services:
+  api:
+    image: myrepo/crm-api:${TAG:-latest}
+    restart: unless-stopped
+```
+
+```yaml
+# compose.override.yaml — chi cho dev, TU DONG duoc doc
+services:
+  api:
+    build: .                            # build tu ma nguon
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+    ports:
+      - "8080:8080"
+  sqlserver:
+    ports:
+      - "127.0.0.1:1433:1433"           # de ket noi bang SSMS
+```
+
+```yaml
+# compose.prod.yaml — ap tuong minh
+services:
+  api:
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+```
+
+```bash
+docker compose up -d                                        # dev (tu dong doc override)
+docker compose -f compose.yaml -f compose.prod.yaml up -d   # production
+```
+
+**`compose.override.yaml` được đọc tự động** khi bạn chạy `docker compose up` không có `-f`. Đó là lý do nó hợp cho cấu hình dev — và cũng là lý do **phải khai `-f` tường minh** ở production, nếu không bạn vô tình áp cấu hình dev.
+
+`logging` với `max-size` là cấu hình hay bị quên: không có nó, file log Docker lớn **vô hạn** và có thể làm đầy đĩa host. Đây là nguyên nhân phổ biến của "server hết dung lượng" sau vài tháng.
+
+### 15.4.5 — Compose ở production
+
+Compose **dùng được** ở production, nhưng chỉ trong một phạm vi hẹp:
+
+| Hợp | Không hợp |
+|---|---|
+| Một máy chủ | Nhiều máy |
+| Chấp nhận downtime khi deploy | Cần zero-downtime |
+| Ít hơn ~10 dịch vụ | Chục dịch vụ trở lên |
+| Không cần tự scale | Cần scale theo tải |
+
+**Deploy với Compose có downtime:**
+
+```bash
+docker compose pull
+docker compose up -d        # container CU dung, container MOI len
+```
+
+Giữa hai bước đó có vài giây API không phục vụ. Với nhiều ứng dụng nội bộ, đó là chấp nhận được.
+
+Muốn giảm downtime, thêm reverse proxy và chạy hai bản:
+
+```yaml
+services:
+  api:
+    deploy:
+      replicas: 2
+```
+
+Nhưng `deploy.replicas` chỉ có tác dụng với **Swarm mode**; với `docker compose up` thường, bạn phải dùng `--scale`:
+
+```bash
+docker compose up -d --scale api=2
+```
+
+Và khi đó **không được publish cổng cố định** — hai container không thể cùng bind cổng 8080. Cần một reverse proxy (Traefik, Nginx, Caddy) làm cân bằng tải phía trước.
+
+**Ba lệnh vận hành cần biết:**
+
+```bash
+docker compose logs -f api --tail 100
+docker compose ps                        # trang thai, ca healthcheck
+docker compose down                      # dung, GIU volume
+docker compose down -v                   # dung, XOA volume — CAN THAN
+```
+
+`docker compose down -v` xoá **mọi dữ liệu** trong volume. Chạy nhầm lệnh này trên máy chủ có database là mất toàn bộ dữ liệu.
+
+### 15.4.6 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát Docker Compose"
+  items={[
+    { text: "depends_on dùng condition service_healthy, không chỉ liệt kê tên." },
+    { text: "Mọi dịch vụ phụ thuộc đều có healthcheck thật với start_period." },
+    { text: "Ứng dụng vẫn có retry kết nối database dù đã có healthcheck." },
+    { text: "Database và cache KHÔNG publish cổng ra host." },
+    { text: "Cổng cần cho dev được bind vào 127.0.0.1, không phải 0.0.0.0." },
+    { text: "File .env nằm trong .gitignore." },
+    { text: "Production dùng Docker secret hoặc secret của orchestrator, không dùng .env." },
+    { text: "Có cấu hình logging với max-size để log không làm đầy đĩa." },
+    { text: "Production chạy với -f tường minh, không dựa vào override tự động." },
+    { text: "Container production có giới hạn bộ nhớ và CPU." },
+    { text: "Biết rõ docker compose down -v sẽ xoá dữ liệu." },
+  ]}
+/>
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **`depends_on` không đủ.** Dựng stack API cộng SQL Server chỉ với `depends_on` dạng danh sách. Chạy `docker compose up` và xác nhận API chết vì không kết nối được. Thêm healthcheck và kiểm chứng.
+
+2. **Cổng mở ra ngoài.** Chạy `docker compose` có `"1433:1433"` trên máy có IP công khai, rồi từ máy khác thử `telnet <ip> 1433`. Đổi sang `127.0.0.1:1433:1433` và kiểm chứng lại.
+
+3. **Log đầy đĩa.** Chạy container ghi log liên tục **không** có `max-size`, và theo dõi kích thước file trong `/var/lib/docker/containers/`.
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "depends_on đảm bảo điều gì?",
+      answer: "Chỉ đảm bảo container phụ thuộc được khởi động trước, không đảm bảo dịch vụ bên trong đã sẵn sàng. SQL Server mất hàng chục giây để nhận kết nối, nên API khởi động ngay sẽ chết. Phải dùng condition service_healthy cộng một healthcheck thật."
+    },
+    {
+      question: "Có healthcheck rồi thì ứng dụng còn cần retry kết nối không?",
+      answer: "Có. Healthcheck chỉ lo thứ tự lúc khởi động, còn database có thể restart bất cứ lúc nào sau khi API đã lên. EnableRetryOnFailure của EF Core xử lý trường hợp đó."
+    },
+    {
+      question: "Vì sao không publish cổng database ra host?",
+      answer: "Trong mạng Compose, các container gọi nhau bằng tên dịch vụ nên không cần publish. Publish khiến database nghe trên mọi giao diện mạng của host, và với máy có IP công khai thì đó là database mở ra Internet. Cần truy cập từ máy dev thì bind vào 127.0.0.1."
+    },
+    {
+      question: "Docker secret khác biến môi trường thế nào?",
+      answer: "Secret được mount thành file trong run/secrets thay vì nằm trong biến môi trường, nên nó không lộ qua docker inspect hay proc environ. Nhưng .NET không tự đọc file secret, bạn phải tự nạp trong code."
+    },
+    {
+      question: "compose.override.yaml hoạt động ra sao?",
+      answer: "Nó được đọc tự động khi chạy docker compose up không có tham số -f, nên hợp cho cấu hình dev. Chính vì vậy ở production phải khai -f tường minh, nếu không bạn vô tình áp cấu hình dev lên môi trường thật."
+    },
+    {
+      question: "Khi nào Compose không còn đủ?",
+      answer: "Khi cần chạy trên nhiều máy, cần zero-downtime, có hàng chục dịch vụ, hoặc cần tự scale theo tải. Compose là công cụ một máy; deploy bằng nó luôn có vài giây downtime trừ khi thêm reverse proxy và chạy nhiều bản."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **`depends_on` không chờ dịch vụ sẵn sàng.** Cần `service_healthy` cộng healthcheck thật.
+2. **Đừng publish cổng database.** Container gọi nhau bằng tên dịch vụ.
+3. **Cấu hình `max-size` cho log**, nếu không nó sẽ làm đầy đĩa host.
+
+## Tham khảo
+
+- [Docker Compose overview](https://docs.docker.com/compose/)
+- [Compose file reference](https://docs.docker.com/reference/compose-file/)
+- [Compose — startup order](https://docs.docker.com/compose/how-tos/startup-order/)
+- [Docker secrets in Compose](https://docs.docker.com/compose/how-tos/use-secrets/)
 
 ## Điều hướng
 
