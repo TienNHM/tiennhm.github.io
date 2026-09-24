@@ -27,13 +27,13 @@ Sau bài này bạn có thể:
 ### 17.3.1 — Mất tin: dual write problem
 
 ```csharp
-// SAI — hai he thong, khong co transaction chung
+// SAI — hai hệ thống, không có transaction chung
 public async Task ConvertLeadAsync(LeadId id, CancellationToken ct)
 {
     lead.Convert(DateTime.UtcNow);
     await _db.SaveChangesAsync(ct);                    // (1) DB commit OK
 
-    // <-- CRASH o day: DB da doi, broker khong biet gi. MAT VINH VIEN.
+    // <-- CRASH ở đây: DB đã đổi, broker không biết gì. MẤT VĨNH VIỄN.
 
     await _bus.PublishAsync(new LeadConvertedEvent(...), ct);   // (2)
 }
@@ -44,9 +44,9 @@ Giữa (1) và (2) có một khoảng thời gian mà process có thể chết: 
 **Đổi thứ tự cũng không cứu:**
 
 ```csharp
-// CUNG SAI — theo huong nguoc lai
+// CŨNG SAI — theo hướng ngược lại
 await _bus.PublishAsync(new LeadConvertedEvent(...), ct);   // (1) publish OK
-// <-- CRASH: Billing tao subscription cho mot lead CHUA he duoc convert
+// <-- CRASH: Billing tạo subscription cho một lead CHƯA hề được convert
 await _db.SaveChangesAsync(ct);                            // (2)
 ```
 
@@ -55,15 +55,15 @@ Giờ bạn mất tính nhất quán theo hướng ngược lại — còn tệ 
 **Try/catch không sửa được:**
 
 ```csharp
-// VAN SAI — chi thu hep cua so, khong dong duoc
+// VẪN SAI — chỉ thu hẹp cửa sổ, không đóng được
 try
 {
     await _bus.PublishAsync(evt, ct);
 }
 catch
 {
-    // rollback DB? SaveChanges da COMMIT roi, khong rollback duoc.
-    // ghi log roi retry? process chet truoc khi retry thi sao?
+    // rollback DB? SaveChanges đã COMMIT rồi, không rollback được.
+    // ghi log rồi retry? process chết trước khi retry thì sao?
 }
 ```
 
@@ -82,11 +82,11 @@ Tình huống làm sinh ra message trùng, đơn giản đến mức khó tin:
 
 ```
 1. Broker giao message cho consumer
-2. Consumer xu ly xong  (da ghi DB!)
-3. Consumer gui ACK ve broker
-4. Mang dut TRUOC khi ACK toi noi
-5. Broker khong thay ACK -> giao LAI message
-6. Consumer xu ly LAN HAI cung mot message
+2. Consumer xử lý xong  (đã ghi DB!)
+3. Consumer gửi ACK về broker
+4. Mạng đứt TRƯỚC khi ACK tới nơi
+5. Broker không thấy ACK -> giao LẠI message
+6. Consumer xử lý LẦN HAI cùng một message
 ```
 
 Broker **không có cách nào** phân biệt "consumer chết trước khi xử lý" với "consumer xử lý xong nhưng ACK mất". Nó phải chọn:
@@ -117,7 +117,7 @@ public async Task HandleAsync(LeadConvertedEvent evt, CancellationToken ct)
     }
     catch (DbUpdateException ex) when (ex.IsUniqueViolation())
     {
-        // Da xu ly roi -> coi nhu thanh cong, ACK binh thuong
+        // Đã xử lý rồi -> coi như thành công, ACK bình thường
         _logger.LogInformation("Subscription da ton tai cho {CustomerId}", evt.CustomerId);
     }
 }
@@ -150,18 +150,18 @@ public async Task HandleAsync(LeadConvertedEvent evt, CancellationToken ct)
 
     try
     {
-        // Ghi inbox TRUOC de "gianh cho" message nay
+        // Ghi inbox TRƯỚC để "giành chỗ" message này
         await _db.SaveChangesAsync(ct);
     }
     catch (DbUpdateException ex) when (ex.IsUniqueViolation())
     {
-        return;                                  // da xu ly, bo qua
+        return;                                  // đã xử lý, bỏ qua
     }
 
     await _billing.CreateDraftSubscriptionAsync(evt.CustomerId, ct);
     await _db.SaveChangesAsync(ct);
 
-    await tx.CommitAsync(ct);                    // inbox + nghiep vu commit CUNG NHAU
+    await tx.CommitAsync(ct);                    // inbox + nghiệp vụ commit CÙNG NHAU
 }
 ```
 
@@ -183,7 +183,7 @@ Hai consumer chạy song song (điều bình thường — bạn scale ra nhiề
 
 ```
 Consumer A: AnyAsync -> false
-Consumer B: AnyAsync -> false        <-- ca hai deu thay "chua xu ly"
+Consumer B: AnyAsync -> false        <-- cả hai đều thấy "chưa xử lý"
 Consumer A: ProcessAsync             <-- tao subscription lan 1
 Consumer B: ProcessAsync             <-- tao subscription lan 2
 ```

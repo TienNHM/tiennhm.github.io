@@ -29,9 +29,9 @@ Sau bài này bạn có thể:
 09:14  Doi van hanh restart RabbitMQ de ap ban va bao mat
 09:14  Consumer "billing-invoice" mat ket noi, 3.100 message chua ACK
 09:18  RabbitMQ len lai, GIAO LAI toan bo message chua ACK
-09:19  Consumer xu ly lai -> tao hoa don LAN HAI
-09:41  Ke toan bao: khach hang goi dien phan anh hoa don trung
-10:05  Tat consumer, bat dau dieu tra
+09:19  Consumer xử lý lại -> tạo hoá đơn LẦN HAI
+09:41  Kế toán báo: khách hàng gọi điện phản ánh hoá đơn trùng
+10:05  Tắt consumer, bắt đầu điều tra
 ```
 
 **Quy mô:** 1.247 hoá đơn trùng, 890 triệu đồng, và 43 khách hàng đã bị **trừ tiền tự động** qua thẻ đã lưu.
@@ -54,7 +54,7 @@ HAVING COUNT(*) > 1;
 **Bước 2 — tìm code tạo hoá đơn:**
 
 ```csharp
-// Consumer — dung logic, nhung KHONG idempotent
+// Consumer — đúng logic, nhưng KHÔNG idempotent
 public async Task Consume(ConsumeContext<SubscriptionRenewedEvent> context)
 {
     var evt = context.Message;
@@ -72,12 +72,12 @@ Không có kiểm tra "đã xử lý message này chưa", và bảng `Invoices` 
 **Bước 3 — xác nhận giả thuyết:**
 
 ```sql
--- Hai hoa don cung khach, cung ky, tao cach nhau vai giay
+-- Hai hoá đơn cùng khách, cùng kỳ, tạo cách nhau vài giây
 SELECT Id, CustomerId, Period, Amount, CreatedUtc, SourceMessageId
 FROM Invoices WHERE CustomerId = '...' AND Period = '2026-03';
 
 -- Id-1  ...  2026-03  5.000.000  09:12:03  msg-7f3a...
--- Id-2  ...  2026-03  5.000.000  09:19:41  msg-7f3a...   <-- CUNG message id
+-- Id-2  ...  2026-03  5.000.000  09:19:41  msg-7f3a...   <-- CÙNG message id
 ```
 
 Cột `SourceMessageId` — may mắn đã được ghi để phục vụ log — cho bằng chứng dứt khoát: **cùng một message, xử lý hai lần**.
@@ -97,7 +97,7 @@ UPDATE Invoices
 SET Status = 'VoidedDuplicate',
     VoidedReason = N'Trùng do message được giao lại ngày 15/03/2026',
     VoidedUtc = SYSUTCDATETIME()
-WHERE Id IN (SELECT ...);   -- giu ban ghi cu nhat, void ban ghi sau
+WHERE Id IN (SELECT ...);   -- giữ bản ghi cũ nhất, void bản ghi sau
 ```
 
 Không `DELETE`. Giữ bản ghi để đối soát và để kiểm toán — xoá là mất bằng chứng về chính sự cố này.
@@ -126,7 +126,7 @@ catch (DbUpdateException ex) when (ex.IsUniqueViolation())
 {
     _logger.LogInformation("Hoá đơn đã tồn tại cho {CustomerId} kỳ {Period}",
         evt.CustomerId, evt.Period);
-    return;                       // coi nhu thanh cong, ACK binh thuong
+    return;                       // coi như thành công, ACK bình thường
 }
 ```
 
@@ -140,7 +140,7 @@ try { await _db.SaveChangesAsync(ct); }
 catch (DbUpdateException ex) when (ex.IsUniqueViolation()) { return; }
 
 // ... nghiep vu ...
-await tx.CommitAsync(ct);         // inbox + nghiep vu cung commit
+await tx.CommitAsync(ct);         // inbox + nghiệp vụ cùng commit
 ```
 
 **Thay đổi 3 — idempotency key cho cổng thanh toán.** Đây là thay đổi ngăn thiệt hại **tài chính**, quan trọng hơn cả hai thay đổi trên:
@@ -165,7 +165,7 @@ public async Task Consumer_ShouldCreateOneInvoice_WhenMessageDeliveredTwice()
         Period: "2026-03", Amount: 5_000_000m);
 
     await _consumer.Consume(CreateContext(evt));
-    await _consumer.Consume(CreateContext(evt));      // CUNG message
+    await _consumer.Consume(CreateContext(evt));      // CÙNG message
 
     var count = await _db.Invoices
         .CountAsync(i => i.CustomerId == customerId && i.Period == "2026-03");

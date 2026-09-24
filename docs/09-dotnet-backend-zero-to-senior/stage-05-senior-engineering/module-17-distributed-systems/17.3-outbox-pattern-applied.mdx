@@ -54,7 +54,7 @@ CREATE TABLE OutboxMessages (
     CorrelationId   UNIQUEIDENTIFIER NULL
 );
 
--- Index loc: chi chua hang CHUA xu ly -> nho va nhanh du bang co trieu hang
+-- Index lọc: chỉ chứa hàng CHƯA xử lý -> nhỏ và nhanh dù bảng có triệu hàng
 CREATE NONCLUSTERED INDEX IX_Outbox_Unprocessed
     ON OutboxMessages (OccurredOnUtc)
     WHERE ProcessedOnUtc IS NULL;
@@ -117,7 +117,7 @@ builder.Services.AddDbContext<AppDbContext>((sp, options) =>
 Đây là phần dễ sai nhất. Dispatcher ngây thơ:
 
 ```csharp
-// SAI khi chay 3 instance — ca ba cung doc mot bo message
+// SAI khi chạy 3 instance — cả ba cùng đọc một bộ message
 var messages = await _db.OutboxMessages
     .Where(m => m.ProcessedOnUtc == null)
     .OrderBy(m => m.OccurredOnUtc)
@@ -202,7 +202,7 @@ Hỏi kỹ trước khi làm việc này: **có thật sự cần thứ tự kh�
 Bảng outbox tăng vô hạn nếu không dọn — một hệ thống vừa phải sinh vài triệu hàng mỗi tháng.
 
 ```sql
--- Xoa theo lo de khong khoa bang lau
+-- Xoá theo lô để không khoá bảng lâu
 WHILE 1 = 1
 BEGIN
     DELETE TOP (5000) FROM OutboxMessages
