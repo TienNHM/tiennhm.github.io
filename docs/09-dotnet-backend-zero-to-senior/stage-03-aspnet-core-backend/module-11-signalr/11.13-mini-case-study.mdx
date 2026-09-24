@@ -1,46 +1,255 @@
 ---
 title: "11.13 — Mini case study"
-description: "Bài tập tình huống ngắn cho Module 11 — Signalr: đề bài, ràng buộc đầu vào — đầu ra và đáp án gợi ý, đặt trong bối cảnh CRM/.NET backend."
+description: "Thông báo chỉ tới một nửa người dùng sau khi scale lên 3 instance: backplane, sticky session và ba lỗi khi scale SignalR."
 sidebar_position: 13
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
 # 11.13 — Mini case study
 
+<SummaryBox>
+Tính năng thông báo thời gian thực chạy hoàn hảo suốt 6 tháng với một instance. Ngày scale lên 3 instance, nó **vẫn chạy** — nhưng chỉ khoảng **một phần ba** người dùng nhận được mỗi thông báo. Không có lỗi nào trong log; SignalR báo gửi thành công. Nguyên nhân: mỗi instance chỉ biết những kết nối **của chính nó**, nên `Clients.All` chỉ nghĩa là "tất cả client đang nối vào instance này". Cách sửa là **backplane**, nhưng bài này quan trọng hơn ở **hai lỗi tiếp theo** xuất hiện ngay sau khi thêm backplane: WebSocket không thiết lập được do reverse proxy thiếu cấu hình, và người dùng bị ngắt kết nối mỗi lần triển khai.
+</SummaryBox>
+
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Giải thích vì sao SignalR cần backplane khi scale out.
+- Cấu hình reverse proxy cho WebSocket.
+- Xử lý mất kết nối khi triển khai.
+- Chọn giữa Redis backplane và Azure SignalR Service.
 
 ## Nội dung bài học
 
-### 11.13.1 — Tình huống
+### 11.13.1 — Sự cố
 
-Chọn một tình huống nhỏ nhưng thực tế trong CRM/ERP, xác định rõ đầu vào, ràng buộc, và đầu ra mong muốn.
+```
+Truoc: 1 instance,  1.200 ket noi  -> thong bao toi 100% nguoi dung
+Sau:   3 instance,  1.200 ket noi  -> thong bao toi ~33% nguoi dung
 
-### 11.13.2 — Đáp án gợi ý
+Log: khong co loi nao. SignalR bao gui thanh cong.
+```
 
-- Mô tả quy trình xử lý theo từng bước logic.
-- Giải thích vì sao chọn cách làm đó thay vì phương án khác.
-- Nêu ít nhất một edge case và cách xử lý.
+```csharp
+// Code gui thong bao
+public async Task ThongBaoLeadMoiAsync(LeadDto lead, CancellationToken ct)
+{
+    await _hubContext.Clients.All.SendAsync("LeadCreated", lead, ct);
+}
+```
+
+```
+Instance A: giu 400 ket noi -> Clients.All = 400 ket noi CUA A
+Instance B: giu 400 ket noi -> khong biet gi ve A
+Instance C: giu 400 ket noi -> khong biet gi ve A va B
+
+Request tao lead roi vao instance A -> chi 400/1.200 nguoi nhan duoc
+```
+
+`Clients.All` hoạt động **đúng như thiết kế** — nó gửi tới tất cả kết nối mà **instance hiện tại** đang giữ. Nó không có cách nào biết về kết nối ở instance khác.
+
+### 11.13.2 — Sửa: backplane
+
+```csharp
+builder.Services.AddSignalR()
+    .AddStackExchangeRedis(builder.Configuration.GetConnectionString("Redis")!, options =>
+    {
+        options.Configuration.ChannelPrefix = RedisChannel.Literal("crm-signalr");
+    });
+```
+
+```
+Instance A gui thong bao
+  -> Dang len Redis pub/sub
+  -> Instance B va C nhan duoc
+  -> Moi instance gui toi ket noi CUA MINH
+  -> 1.200/1.200 nguoi nhan duoc
+```
+
+`ChannelPrefix` cần thiết nếu nhiều ứng dụng dùng chung một Redis — không có nó, thông báo của ứng dụng này sẽ tới client của ứng dụng kia.
+
+**Cái giá của backplane:** mỗi thông báo giờ đi qua Redis, nên độ trễ tăng vài mili giây và Redis trở thành một phụ thuộc bắt buộc. Với tính năng thời gian thực thì đó là đánh đổi hợp lý.
+
+### 11.13.3 — Lỗi tiếp theo: WebSocket không thiết lập được
+
+Sau khi thêm backplane, một phần người dùng vẫn chậm — và trong DevTools thấy request `/hubs/notifications` liên tục lặp lại thay vì một kết nối WebSocket duy trì.
+
+```
+Nginx mac dinh KHONG chuyen tiep header Upgrade
+-> WebSocket handshake that bai
+-> SignalR tu dong chuyen sang Server-Sent Events hoac Long Polling
+-> Van "chay", nhung cham hon nhieu va ton tai nguyen hon nhieu
+```
+
+Đây là đặc tính khiến lỗi khó phát hiện: SignalR **tự động lùi về** cơ chế khác khi WebSocket không dùng được, nên mọi thứ vẫn hoạt động và không có lỗi nào.
+
+```nginx
+location /hubs/ {
+    proxy_pass http://backend;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;        # BAT BUOC
+    proxy_set_header Connection "upgrade";         # BAT BUOC
+    proxy_set_header Host $host;
+    proxy_cache off;
+    proxy_read_timeout 100s;                       # dai hon keep-alive cua SignalR
+}
+```
+
+Kiểm tra bằng DevTools: tab Network, lọc `WS`. Nếu thấy một kết nối ở trạng thái `101 Switching Protocols` thì WebSocket đang hoạt động. Nếu thấy nhiều request HTTP lặp lại, nó đang dùng long polling.
+
+Với YARP, chuyển tiếp WebSocket hoạt động **mặc định** — chỉ cần chú ý timeout ([bài 18.4](../../stage-05-senior-engineering/module-18-microservices/18.4-api-gateway-yarp-dotnet.mdx)).
+
+### 11.13.4 — Lỗi thứ ba: mất kết nối khi triển khai
+
+```
+Trien khai phien ban moi -> pod cu bi dung
+-> 400 ket noi dut dot ngot
+-> Client tu ket noi lai, nhung MAT thong bao trong khoang 2-5 giay
+```
+
+SignalR **không** tự gửi lại thông báo bị lỡ — nó không lưu lịch sử. Ba cách xử lý, theo mức độ đảm bảo tăng dần:
+
+**Cách 1 — dừng nhẹ nhàng.** Cho pod thời gian đóng kết nối tử tế:
+
+```yaml
+terminationGracePeriodSeconds: 60
+lifecycle:
+  preStop:
+    exec:
+      command: ["sleep", "15"]    # ngung nhan ket noi moi truoc khi dung
+```
+
+`preStop` cho load balancer thời gian gỡ pod khỏi vòng phân phối trước khi tiến trình dừng, nên kết nối mới không rơi vào pod sắp chết.
+
+**Cách 2 — client tự đồng bộ lại sau khi kết nối lại:**
+
+```typescript
+connection.onreconnected(async (connectionId) => {
+    // Lay nhung gi bi lo trong luc mat ket noi
+    const missed = await fetch(`/api/notifications?since=${lastReceivedAt}`);
+    render(await missed.json());
+});
+```
+
+Đây là cách thực dụng nhất: SignalR lo phần thời gian thực, còn API thường lo phần **đảm bảo không mất**.
+
+**Cách 3 — lưu thông báo vào database** và dùng SignalR chỉ để **báo có cái mới**:
+
+```csharp
+// Luu truoc — day moi la nguon su that
+var notification = await _notificationService.CreateAsync(userId, content, ct);
+
+// Roi bao — neu khong toi thi client van thay khi tai lai trang
+await _hubContext.Clients.User(userId).SendAsync("NewNotification", notification.Id, ct);
+```
+
+Với thông báo quan trọng, cách 3 là **bắt buộc**. SignalR là kênh **tăng tốc**, không phải kênh đảm bảo ([bài 11.9](11.9-notification-center-pattern.mdx)).
+
+### 11.13.5 — Redis backplane hay Azure SignalR Service
+
+| | Redis backplane | Azure SignalR Service |
+|---|---|---|
+| Kết nối giữ ở | **Server của bạn** | **Dịch vụ của Azure** |
+| Giới hạn kết nối | Bộ nhớ và socket của server | Theo gói dịch vụ |
+| Chi phí | Chi phí Redis | Theo số kết nối và tin nhắn |
+| Vận hành | Bạn lo | **Azure lo** |
+| Phù hợp | Vài nghìn kết nối | **Hàng chục nghìn trở lên** |
+
+Điểm quyết định nằm ở hàng đầu: với Azure SignalR Service, kết nối WebSocket **không** giữ ở server ứng dụng của bạn. Điều đó giải phóng bộ nhớ và số socket — và cũng nghĩa là **triển khai không làm đứt kết nối**, vì client nối vào dịch vụ chứ không nối vào pod.
+
+Con số tham khảo: mỗi kết nối SignalR tốn khoảng vài chục KB bộ nhớ trên server. Với 10.000 kết nối đó là vài trăm MB chỉ để **giữ** kết nối, chưa tính xử lý.
+
+### 11.13.6 — Giám sát
+
+```csharp
+// Chi so quan trong nhat
+_meter.CreateObservableGauge("signalr_connections", () => _connectionTracker.Count);
+_meter.CreateCounter<long>("signalr_messages_sent");
+_meter.CreateCounter<long>("signalr_reconnects");
+```
+
+Ba dấu hiệu cần cảnh báo:
+
+| Dấu hiệu | Nghĩa là |
+|---|---|
+| Số kết nối giảm đột ngột | Instance chết hoặc mạng có vấn đề |
+| Số lần kết nối lại tăng cao | Kết nối không ổn định — thường do proxy hoặc timeout |
+| Chênh lệch kết nối giữa các instance | Load balancer phân phối không đều |
+
+Dấu hiệu thứ hai đáng chú ý: nếu client liên tục kết nối lại, có thể `proxy_read_timeout` ngắn hơn chu kỳ keep-alive của SignalR, nên proxy cắt kết nối đều đặn ([bài 18.6](../../stage-05-senior-engineering/module-18-microservices/18.6-observability-three-pillars.mdx)).
+
+### 11.13.7 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát scale SignalR"
+  items={[
+    { text: "Có backplane nếu chạy nhiều hơn một instance." },
+    { text: "ChannelPrefix được đặt nếu dùng chung Redis với ứng dụng khác." },
+    { text: "Reverse proxy chuyển tiếp header Upgrade và Connection." },
+    { text: "proxy_read_timeout dài hơn chu kỳ keep-alive của SignalR." },
+    { text: "Đã xác nhận WebSocket thật sự hoạt động, không lùi về long polling." },
+    { text: "Pod có preStop và terminationGracePeriodSeconds đủ dài." },
+    { text: "Client đồng bộ lại dữ liệu sau khi kết nối lại." },
+    { text: "Thông báo quan trọng được lưu database, SignalR chỉ để báo." },
+    { text: "Có giám sát số kết nối và số lần kết nối lại." },
+  ]}
+/>
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **Tái hiện sự cố.** Chạy hai instance không có backplane, kết nối hai client vào hai instance khác nhau và gửi `Clients.All`.
+
+2. **Kiểm tra WebSocket.** Mở DevTools tab Network lọc `WS` và xác nhận có kết nối `101 Switching Protocols`.
+
+3. **Thử triển khai.** Kết nối một client rồi khởi động lại pod, đo thời gian mất kết nối và kiểm tra client có đồng bộ lại không.
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "Vì sao Clients.All chỉ tới một phần người dùng khi scale out?",
+      answer: "Vì mỗi instance chỉ biết những kết nối của chính nó. Clients.All nghĩa là tất cả client đang nối vào instance hiện tại, không phải toàn hệ thống. Nó hoạt động đúng như thiết kế, chỉ là thiết kế đó cần backplane khi có nhiều instance."
+    },
+    {
+      question: "Backplane hoạt động thế nào?",
+      answer: "Instance gửi thông báo đăng nó lên Redis pub/sub, các instance khác nhận được và gửi tới kết nối của mình. Cái giá là mỗi thông báo đi qua Redis nên độ trễ tăng vài mili giây và Redis thành phụ thuộc bắt buộc."
+    },
+    {
+      question: "Vì sao lỗi thiếu cấu hình WebSocket ở proxy khó phát hiện?",
+      answer: "Vì SignalR tự động lùi về Server-Sent Events hoặc long polling khi WebSocket không thiết lập được. Mọi thứ vẫn chạy và không có lỗi nào, chỉ là chậm hơn và tốn tài nguyên hơn nhiều."
+    },
+    {
+      question: "Làm sao xác nhận WebSocket đang thật sự hoạt động?",
+      answer: "Mở DevTools tab Network lọc WS. Một kết nối ở trạng thái 101 Switching Protocols nghĩa là WebSocket hoạt động. Nhiều request HTTP lặp lại nghĩa là nó đang dùng long polling."
+    },
+    {
+      question: "Vì sao thông báo quan trọng phải lưu database?",
+      answer: "Vì SignalR không lưu lịch sử và không tự gửi lại thông báo bị lỡ khi client mất kết nối. SignalR là kênh tăng tốc, còn nguồn sự thật phải là database mà client đọc lại được."
+    },
+    {
+      question: "Khi nào nên dùng Azure SignalR Service thay vì Redis backplane?",
+      answer: "Khi số kết nối lên tới hàng chục nghìn, vì khi đó bộ nhớ và số socket trên server ứng dụng thành vấn đề. Nó cũng khiến triển khai không làm đứt kết nối, vì client nối vào dịch vụ chứ không nối vào pod."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **`Clients.All` chỉ là tất cả client của instance hiện tại** — backplane là bắt buộc khi scale out.
+2. **WebSocket lùi về long polling một cách im lặng** khi proxy thiếu cấu hình.
+3. **SignalR là kênh tăng tốc, không phải kênh đảm bảo.** Thông báo quan trọng phải có trong database.
+
+## Tham khảo
+
+- [Giới thiệu SignalR](https://learn.microsoft.com/en-us/aspnet/core/signalr/introduction)
+- [Scale SignalR](https://learn.microsoft.com/en-us/aspnet/core/signalr/scale)
+- [ASP.NET Core fundamentals](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/)
+- [Health checks trong ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/health-checks)
 
 ## Điều hướng
 
