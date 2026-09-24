@@ -1,56 +1,297 @@
 ---
 title: "16.4 — 3. Clean Architecture (Uncle Bob) — dependency rule"
-description: "Ý tưởng cốt lõi: Policies (business) không biết gì về chi tiết delivery (Web, SQL, gRPC)."
+description: "Dependency rule và dependency inversion, port và adapter, composition root, và ba cái giá thật khi Domain không được biết gì về hạ tầng."
 sidebar_position: 4
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
 # 16.4 — 3. Clean Architecture (Uncle Bob) — dependency rule
 
+<SummaryBox>
+Clean Architecture rút gọn thành **một quy tắc**: mã nguồn ở vòng trong **không bao giờ** biết gì về vòng ngoài. Cơ chế làm điều đó khả thi là **dependency inversion** — vòng trong định nghĩa **interface** (port), vòng ngoài **cài đặt** nó (adapter), nên mũi tên phụ thuộc bị đảo ngược so với dòng chảy dữ liệu. Nhưng bài này nói cả **cái giá**, thứ các bài giới thiệu thường bỏ qua: thuần khiết hoá Domain nghĩa là **không dùng được `IQueryable` trong nghiệp vụ**, **mọi truy vấn cần một phương thức repository mới**, và **thao tác hàng loạt trở nên vụng về**. Nhiều đội chấp nhận một thoả hiệp có chủ đích: giữ Domain thuần, nhưng cho **Application biết về EF Core** — và với phần lớn dự án, đó là lựa chọn đúng.
+</SummaryBox>
+
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Phát biểu dependency rule và giải thích cơ chế đảo phụ thuộc.
+- Thiết kế port và adapter.
+- Đặt composition root đúng chỗ.
+- Nêu ba cái giá thật và cách thoả hiệp hợp lý.
 
 ## Nội dung bài học
 
-Ý tưởng cốt lõi: **Policies (business) không biết gì về chi tiết delivery** (Web, SQL, gRPC).
+### 16.4.1 — Dependency rule
 
-Thường gom thành các vòng:
+```
+     ┌──────────────────────────────┐
+     │  Frameworks & Drivers        │   ASP.NET Core, EF Core, Serilog
+     │  ┌────────────────────────┐  │
+     │  │  Interface Adapters    │  │   Controller, Repository impl
+     │  │  ┌──────────────────┐  │  │
+     │  │  │  Use Cases       │  │  │   CreateLeadHandler
+     │  │  │  ┌────────────┐  │  │  │
+     │  │  │  │  Entities  │  │  │  │   Lead, Money
+     │  │  │  └────────────┘  │  │  │
+     │  │  └──────────────────┘  │  │
+     │  └────────────────────────┘  │
+     └──────────────────────────────┘
+          Phu thuoc chi huong VAO TRONG
+```
 
-1. **Entities** — luật doanh nghiệp thuần.
-2. **Use cases** — luồng ứng dụng (một chức năng user/system).
-3. **Interface adapters** — presenter, gateway, `DbContext` mapping.
-4. **Frameworks & drivers** — ASP.NET Core, EF, Serilog.
+> **Không thứ gì ở vòng trong được biết tên bất cứ thứ gì ở vòng ngoài.**
 
-Trong .NET thực tế, bạn thường thấy các project:
+Cụ thể với .NET:
 
-- `Domain` — không reference gì ngoài BCL (hoặc rất ít).
-- `Application` — reference `Domain`; định nghĩa interface port (`ILeadRepository`).
-- `Infrastructure` — reference `Application` + `Domain`; implement port.
-- `Api` — reference `Application` + `Infrastructure` (composition root).
+| Vòng trong | Không được biết |
+|---|---|
+| `Lead`, `Money` | `DbContext`, `HttpContext`, `IConfiguration` |
+| `CreateLeadHandler` | `SqlConnection`, `HttpClient`, `ILogger` của Serilog |
 
-**Composition root** (thường `Program.cs`) là nơi **duy nhất** “nối dây” implementation vào interface.
+Chú ý `ILogger`: `Microsoft.Extensions.Logging.ILogger<T>` là **abstraction**, nên dùng ở Application là chấp nhận được. `Serilog.ILogger` là **implementation** — không.
 
----
+Ranh giới không phải "có phải thư viện bên thứ ba không" mà là **"nó có phải chi tiết có thể thay thế không"**.
+
+### 16.4.2 — Dependency inversion làm nó khả thi
+
+Nếu Application cần lưu dữ liệu, mà nó **không được biết** về database — làm sao gọi được?
+
+```csharp
+// Application dinh nghia PORT
+namespace Crm.Application.Abstractions;
+
+public interface ILeadRepository
+{
+    Task<Lead?> GetByIdAsync(LeadId id, CancellationToken ct);
+    Task<bool> EmailExistsAsync(string email, CancellationToken ct);
+    void Add(Lead lead);
+}
+```
+
+```csharp
+// Infrastructure cai dat ADAPTER
+namespace Crm.Infrastructure.Persistence;
+
+internal sealed class EfLeadRepository(CrmDbContext db) : ILeadRepository
+{
+    public Task<Lead?> GetByIdAsync(LeadId id, CancellationToken ct)
+        => db.Leads.FirstOrDefaultAsync(l => l.Id == id, ct);
+
+    public Task<bool> EmailExistsAsync(string email, CancellationToken ct)
+        => db.Leads.AnyAsync(l => l.Email == email, ct);
+
+    public void Add(Lead lead) => db.Leads.Add(lead);
+}
+```
+
+```
+Dong chay DU LIEU:       Application ──► Database
+Dong chay PHU THUOC:     Application ◄── Infrastructure
+```
+
+Mũi tên bị **đảo**. Application định nghĩa thứ nó cần; Infrastructure phải **thích nghi** theo.
+
+Đây chính là chữ **D** trong SOLID, và nó áp dụng cho mọi ranh giới với thế giới bên ngoài:
+
+```csharp
+public interface IEmailSender     { Task SendAsync(EmailMessage message, CancellationToken ct); }
+public interface IPaymentGateway  { Task<PaymentResult> ChargeAsync(PaymentRequest request, CancellationToken ct); }
+public interface IDateTimeProvider { DateTime UtcNow { get; } }
+```
+
+Interface cuối đáng chú ý: `DateTime.UtcNow` cũng là **phụ thuộc vào thế giới bên ngoài**, và nó khiến test không lặp lại được ([bài 7.2](../../stage-02-csharp-professional/module-07-dependency-injection/7.2-di-problem-scope.mdx)). .NET 8 có `TimeProvider` sẵn, nên không cần tự định nghĩa nữa.
+
+### 16.4.3 — Composition root
+
+```csharp
+// Api/Program.cs — noi DUY NHAT noi day
+builder.Services.AddScoped<ILeadRepository, EfLeadRepository>();
+builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
+builder.Services.AddSingleton(TimeProvider.System);
+```
+
+Đây là chỗ duy nhất trong hệ thống biết **cả** interface **lẫn** implementation. Mọi nơi khác chỉ biết interface.
+
+Tổ chức theo layer, đúng mẫu ở [bài 7.7](../../stage-02-csharp-professional/module-07-dependency-injection/7.7-program-cs-and-webapplicationbuilder.mdx):
+
+```csharp
+builder.Services
+    .AddDomain()
+    .AddApplication()
+    .AddInfrastructure(builder.Configuration);
+```
+
+```csharp
+// Infrastructure/DependencyInjection.cs
+public static IServiceCollection AddInfrastructure(
+    this IServiceCollection services, IConfiguration configuration)
+{
+    services.AddDbContext<CrmDbContext>(o =>
+        o.UseSqlServer(configuration.GetConnectionString("Default")));
+
+    services.AddScoped<ILeadRepository, EfLeadRepository>();
+    services.AddScoped<IEmailSender, SmtpEmailSender>();
+
+    return services;
+}
+```
+
+Chú ý `AddApplication()` **không nhận `IConfiguration`** — nếu một ngày nó cần, đó là tín hiệu Application đang biết về hạ tầng.
+
+Đây là loại tín hiệu kiến trúc mà một chữ ký hàm phát ra rõ hơn bất kỳ tài liệu nào.
+
+### 16.4.4 — Ba cái giá thật
+
+Phần này là thứ các bài giới thiệu Clean Architecture thường bỏ qua.
+
+**1. Mất `IQueryable`.**
+
+```csharp
+// Khong lam duoc neu Application khong biet ve EF Core
+var leads = await _db.Leads
+    .Where(l => l.Status == LeadStatus.New)
+    .OrderByDescending(l => l.CreatedAt)
+    .Skip(skip).Take(20)
+    .Select(l => new LeadDto(l.Id, l.Name))
+    .ToListAsync(ct);
+```
+
+Bạn mất projection, `Include`, `AsNoTracking`, phân trang hiệu quả — toàn bộ nội dung [bài 13.6](../../stage-04-database-production/module-13-entity-framework-core/13.6-query-patterns.mdx) và [13.8](../../stage-04-database-production/module-13-entity-framework-core/13.8-performance.mdx).
+
+Cách giữ thuần khiết là cho repository trả về **kết quả hoàn chỉnh**, nghĩa là **mỗi truy vấn mới cần một phương thức mới**:
+
+```csharp
+public interface ILeadRepository
+{
+    Task<PagedResult<LeadSummary>> SearchAsync(LeadSearchCriteria criteria, CancellationToken ct);
+    Task<IReadOnlyList<Lead>> GetStaleAsync(TimeSpan olderThan, CancellationToken ct);
+    // ... va mot phuong thuc nua cho moi man hinh
+}
+```
+
+**2. Thao tác hàng loạt trở nên vụng về.**
+
+`ExecuteUpdateAsync` không diễn đạt được qua một repository thuần khiết, nên cập nhật 50.000 dòng phải nạp entity — chậm gấp hàng chục lần ([bài 13.8](../../stage-04-database-production/module-13-entity-framework-core/13.8-performance.mdx)).
+
+**3. Rất nhiều file cho một thay đổi nhỏ.**
+
+Thêm một trường vào response: sửa entity, sửa DTO, sửa mapping, sửa interface nếu cần, sửa implementation, sửa handler, sửa test. Bảy file cho một cột.
+
+### 16.4.5 — Thoả hiệp hợp lý
+
+Nhận ra rằng **ba cái giá trên hầu như chỉ ảnh hưởng đường ĐỌC**, còn giá trị của dependency rule hầu như chỉ ở đường **GHI** (nơi có quy tắc nghiệp vụ).
+
+Từ đó có ba mức thoả hiệp, theo độ chặt giảm dần:
+
+**Mức 1 — thuần khiết hoàn toàn.** Application không biết gì về EF Core. Đúng chuẩn, và đắt.
+
+**Mức 2 — CQRS nhẹ (được dùng nhiều nhất):**
+
+```csharp
+// Duong GHI — qua repository, bao ve bat bien
+public sealed class ConvertLeadHandler(ILeadRepository leads, IUnitOfWork uow) { ... }
+
+// Duong DOC — dung DbContext THANG, toi uu tu do
+public sealed class LeadQueryService(CrmDbContext db)
+{
+    public Task<PagedResult<LeadSummary>> SearchAsync(...) =>
+        db.Leads.AsNoTracking()
+                .Where(...)
+                .Select(l => new LeadSummary(...))
+                .ToPagedResultAsync(...);
+}
+```
+
+Đường ghi cần trừu tượng vì nó chứa quy tắc; đường đọc cần tự do vì nó chỉ cần nhanh. Đây cũng là kết luận ở [bài 13.10](../../stage-04-database-production/module-13-entity-framework-core/13.10-unit-of-work-and-repository-pattern.mdx).
+
+**Mức 3 — chỉ giữ Domain thuần.** Application tham chiếu EF Core thoải mái; chỉ `Crm.Domain` là không reference gì. Đơn giản nhất, và vẫn giữ được lợi ích lớn nhất: **bất biến nghiệp vụ test được mà không cần database**.
+
+Với phần lớn dự án, **mức 2 hoặc 3 là lựa chọn đúng**. Mức 1 đáng khi bạn thật sự cần thay hạ tầng, hoặc khi domain phức tạp tới mức lợi ích vượt chi phí.
+
+Và nhớ lý do gốc ở [bài 16.2](16.2-vi-sao-crm-to-ra-la-luc-kien-truc-tra-gia.mdx): mục tiêu là **chi phí thay đổi thấp**. Nếu thuần khiết làm chi phí tăng, nó đang đi ngược mục tiêu — dù nó "đúng chuẩn".
+
+### 16.4.6 — Câu hỏi kiểm tra bạn có đang làm đúng
+
+Ba câu, trả lời được cả ba nghĩa là dependency rule đang làm việc của nó:
+
+1. **Test một quy tắc nghiệp vụ mà không dựng database được không?**
+2. **Đọc entity có biết nó dùng ORM nào không?** (Không biết = tốt.)
+3. **Quy tắc nghiệp vụ có đúng một nhà không?**
+
+Nếu cả ba đều "có", cấu trúc project cụ thể **ít quan trọng hơn** bạn nghĩ. Nếu một trong ba là "không", cấu trúc dù đẹp tới đâu cũng chưa giải quyết được vấn đề.
+
+### 16.4.7 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát dependency rule"
+  items={[
+    { text: "Domain không reference EF Core, ASP.NET Core hay thư viện hạ tầng nào." },
+    { text: "Entity không có attribute của EF Core." },
+    { text: "Mọi phụ thuộc ra thế giới bên ngoài đều qua interface do vòng trong định nghĩa." },
+    { text: "Thời gian lấy qua TimeProvider, không gọi DateTime.UtcNow trong nghiệp vụ." },
+    { text: "Composition root là nơi duy nhất nối interface với implementation." },
+    { text: "AddApplication() không nhận IConfiguration." },
+    { text: "Đã chọn có ý thức mức thoả hiệp 1, 2 hay 3 — không mặc định làm theo hình vẽ." },
+    { text: "Đường đọc không bị ép qua repository nếu nó cần tối ưu." },
+    { text: "Trả lời được cả ba câu hỏi kiểm tra ở mục 16.4.6." },
+  ]}
+/>
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **Kiểm tra vòng trong.** Mở một entity bất kỳ và tìm mọi `using`. Đánh dấu cái nào thuộc hạ tầng.
+
+2. **Đếm file cho một cột.** Thêm một trường vào response của một endpoint và đếm số file phải sửa. So sánh với một dự án không phân tầng.
+
+3. **So sánh hai đường.** Cài một truy vấn danh sách có phân trang, một lần qua repository thuần khiết và một lần dùng `DbContext` trực tiếp. So sánh SQL sinh ra và số dòng code.
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "Dependency rule phát biểu thế nào?",
+      answer: "Mã nguồn ở vòng trong không bao giờ được biết tên bất cứ thứ gì ở vòng ngoài. Entity không biết về DbContext hay HttpContext; use case không biết về SqlConnection hay HttpClient. Ranh giới không phải có phải thư viện bên thứ ba hay không, mà là nó có phải chi tiết có thể thay thế không."
+    },
+    {
+      question: "Dependency inversion làm quy tắc đó khả thi thế nào?",
+      answer: "Vòng trong định nghĩa interface, vòng ngoài cài đặt nó. Nhờ vậy dòng chảy dữ liệu đi từ Application xuống database, nhưng dòng chảy phụ thuộc thì ngược lại: Infrastructure phụ thuộc Application chứ không ngược lại."
+    },
+    {
+      question: "Composition root là gì?",
+      answer: "Nơi duy nhất trong hệ thống biết cả interface lẫn implementation, thường là Program.cs. Mọi nơi khác chỉ biết interface. Một tín hiệu tốt là extension method AddApplication không nhận IConfiguration; nếu một ngày nó cần thì đó là dấu hiệu Application đang biết về hạ tầng."
+    },
+    {
+      question: "Ba cái giá thật của việc thuần khiết hoá là gì?",
+      answer: "Mất IQueryable nên mất projection, Include, AsNoTracking và phân trang hiệu quả. Thao tác hàng loạt như ExecuteUpdate không diễn đạt được nên phải nạp entity. Và mỗi thay đổi nhỏ phải sửa nhiều file, ví dụ bảy file cho một cột mới."
+    },
+    {
+      question: "Ba mức thoả hiệp là gì?",
+      answer: "Mức một là thuần khiết hoàn toàn, Application không biết gì về EF Core. Mức hai là CQRS nhẹ, đường ghi qua repository còn đường đọc dùng DbContext trực tiếp. Mức ba là chỉ giữ Domain thuần còn Application dùng EF Core thoải mái. Với phần lớn dự án thì mức hai hoặc ba là đúng."
+    },
+    {
+      question: "Ba câu hỏi kiểm tra dependency rule đang làm việc là gì?",
+      answer: "Test được quy tắc nghiệp vụ mà không dựng database không, đọc entity có biết nó dùng ORM nào không, và quy tắc nghiệp vụ có đúng một nhà không. Trả lời được cả ba thì cấu trúc project cụ thể ít quan trọng hơn bạn nghĩ."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **Vòng trong không biết tên vòng ngoài.** Interface do vòng trong định nghĩa.
+2. **Thuần khiết hoá có giá thật** — mất `IQueryable` là cái đắt nhất.
+3. **Đường ghi cần trừu tượng, đường đọc cần tự do.** Đó là thoả hiệp đúng cho hầu hết dự án.
+
+## Tham khảo
+
+- [Common web application architectures — Clean Architecture](https://learn.microsoft.com/en-us/dotnet/architecture/modern-web-apps-azure/common-web-application-architectures)
+- [Architectural principles — Dependency inversion](https://learn.microsoft.com/en-us/dotnet/architecture/modern-web-apps-azure/architectural-principles)
+- [Design a DDD-oriented microservice](https://learn.microsoft.com/en-us/dotnet/architecture/microservices/microservice-ddd-cqrs-patterns/ddd-oriented-microservice)
+- [Clean Architecture template (ardalis)](https://github.com/ardalis/CleanArchitecture)
 
 ## Điều hướng
 
