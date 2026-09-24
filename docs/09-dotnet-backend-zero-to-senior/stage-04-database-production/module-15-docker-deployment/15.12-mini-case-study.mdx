@@ -44,7 +44,7 @@ dotnet-counters monitor -p 1 --counters System.Runtime
 ```
 
 ```
-GC Heap Size (MB)                 182        <- ON DINH, khong ro ri
+GC Heap Size (MB)                 182        <- ỔN ĐỊNH, không rò rỉ
 Gen 2 GC Count / 1 sec              0.02     <- rat it
 Allocation Rate (B / 1 sec)    12,400,000    <- binh thuong
 ```
@@ -61,14 +61,14 @@ kubectl exec crm-api-7d8f9 -- cat /proc/1/status | grep VmRSS
 ### 15.13.2 — Nguyên nhân
 
 ```
-.NET Server GC (mac dinh cho ASP.NET Core):
+.NET Server GC (mặc định cho ASP.NET Core):
   - Tao MOT heap cho MOI core CPU
-  - May chu vat ly: 32 core -> 32 heap
-  - Moi heap giu vung nho RIENG, va khong tra lai he dieu hanh ngay
-  - Thu gom KHONG thuong xuyen, vi muc tieu la THONG LUONG
+  - Máy chủ vật lý: 32 core -> 32 heap
+  - Mỗi heap giữ vùng nhớ RIÊNG, và không trả lại hệ điều hành ngay
+  - Thu gom KHÔNG thường xuyên, vì mục tiêu là THÔNG LƯỢNG
 
-Container gioi han 2 GB, nhung GC nhin thay 32 core
--> no tinh toan nhu the co rat nhieu bo nho
+Container giới hạn 2 GB, nhưng GC nhìn thấy 32 core
+-> nó tính toán như thể có rất nhiều bộ nhớ
 -> RSS tang toi khi cham 2 GB -> kernel OOM killer
 ```
 
@@ -106,8 +106,8 @@ env:
 
 ```
 RSS: 1,9 GB -> 420 MB
-Thong luong: giam khoang 10-15%
-OOM kill: khong con
+Thông lượng: giảm khoảng 10-15%
+OOM kill: không còn
 ```
 
 **Đánh đổi rõ ràng:** Workstation GC dùng **một** heap, thu gom thường xuyên hơn, nên tốn ít bộ nhớ hơn nhiều nhưng thông lượng thấp hơn một chút.
@@ -146,8 +146,8 @@ resources:
     memory: "512Mi"        # bao dam — Kubernetes dung de xep pod
     cpu: "250m"
   limits:
-    memory: "1Gi"          # tran cung — vuot la bi giet
-    # cpu: KHONG dat — xem giai thich
+    memory: "1Gi"          # trần cứng — vượt là bị giết
+    # cpu: KHÔNG đặt — xem giải thích
 ```
 
 **Vì sao không đặt `limits.cpu`:** khi vượt giới hạn CPU, Kubernetes **không giết** pod mà **bóp** nó (throttling) — ứng dụng chạy chậm đi một cách khó chẩn đoán, vì mọi chỉ số trông bình thường trừ độ trễ. Với ứng dụng có đỉnh tải ngắn, throttling gây hại nhiều hơn lợi.
@@ -157,7 +157,7 @@ resources:
 **Tỷ lệ giữa request và limit:**
 
 ```
-requests.memory: gia tri THUC TE o trang thai on dinh
+requests.memory: giá trị THỰC TẾ ở trạng thái ổn định
 limits.memory:   requests x 1,5 den 2
 ```
 
@@ -166,7 +166,7 @@ limits.memory:   requests x 1,5 den 2
 ### 15.13.6 — Giám sát
 
 ```yaml
-# Canh bao truoc khi bi giet
+# Cảnh báo trước khi bị giết
 - alert: ContainerMemoryGanNguong
   expr: |
     container_memory_working_set_bytes / container_spec_memory_limit_bytes > 0.85
