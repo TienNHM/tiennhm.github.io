@@ -1,122 +1,320 @@
 ---
 title: "9.6 — 5. File Upload và Download"
-description: "File Upload và Download: Upload avatar khách hàng; Multipart form cho đính kèm tài liệu; Streaming download báo cáo."
+description: "Upload an toàn: vì sao không tin ContentType và tên file, kiểm tra magic number, giới hạn kích thước, streaming cho file lớn và presigned URL."
 sidebar_position: 6
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
 # 9.6 — 5. File Upload và Download
 
+<SummaryBox>
+Upload file là nơi tập trung nhiều lỗ hổng nhất trong một Web API, vì **mọi thứ client gửi lên đều do client kiểm soát** — kể cả `ContentType` và tên file. Ba việc bắt buộc: kiểm tra **magic number** thay vì tin header, **sinh tên file mới** thay vì dùng tên gốc (`../../etc/passwd` là một tên file hợp lệ), và **giới hạn kích thước ở nhiều tầng**. Về hiệu năng, `IFormFile` nạp **toàn bộ** file vào bộ nhớ hoặc file tạm trước khi action chạy — với file lớn phải dùng `MultipartReader` để đọc theo luồng. Và với file thật sự lớn, câu trả lời tốt nhất là **không cho file đi qua API của bạn**: dùng presigned URL.
+</SummaryBox>
+
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Liệt kê những gì client kiểm soát và vì sao không tin được.
+- Xác thực kiểu file bằng magic number.
+- Đặt giới hạn kích thước ở đúng các tầng.
+- Stream file lớn mà không nạp vào bộ nhớ.
+- Quyết định khi nào dùng presigned URL.
 
 ## Nội dung bài học
 
-### 9.6.1 — 5.1 Upload avatar khách hàng
+### 9.6.1 — Những gì client kiểm soát
+
+| Thứ | Client sửa được | Hệ quả nếu tin |
+|---|---|---|
+| `file.ContentType` | **Có** | `.exe` khai là `image/png` |
+| `file.FileName` | **Có** | Path traversal, ghi đè file hệ thống |
+| Phần mở rộng | **Có** | `shell.aspx.png` |
+| `file.Length` | Không | Đây là số byte thật |
+| **Nội dung file** | Có | Magic number là thứ duy nhất đáng tin |
+
+`ContentType` chỉ là một dòng trong phần multipart — client tự ghi vào. Kiểm tra nó không phải bảo mật, chỉ là lọc lỗi vô tình.
+
+### 9.6.2 — Upload an toàn
 
 ```csharp
-[HttpPost("{id}/avatar")]
-[RequestSizeLimit(5 * 1024 * 1024)] // 5MB
-[ProducesResponseType(typeof(FileUploadResult), StatusCodes.Status200OK)]
-public async Task<IActionResult> UploadAvatar(int id, IFormFile file)
+private static readonly Dictionary<string, byte[][]> Signatures = new()
 {
-    // Validate
-    var allowedTypes = new[] { "image/jpeg", "image/png", "image/webp" };
-    if (!allowedTypes.Contains(file.ContentType))
-        return BadRequest("Chỉ hỗ trợ JPEG, PNG, WebP.");
+    [".jpg"]  = [[0xFF, 0xD8, 0xFF]],
+    [".jpeg"] = [[0xFF, 0xD8, 0xFF]],
+    [".png"]  = [[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]],
+    [".pdf"]  = [[0x25, 0x50, 0x44, 0x46]],
+};
 
-    if (file.Length > 5 * 1024 * 1024)
-        return BadRequest("File tối đa 5MB.");
+public async Task<Result<string>> SaveAvatarAsync(
+    Guid customerId, IFormFile file, CancellationToken ct)
+{
+    // 1. Kich thuoc
+    if (file.Length is 0 or > 5 * 1024 * 1024)
+        return Result.Fail("File phai tu 1 byte den 5MB");
 
+    // 2. Phan mo rong nam trong whitelist
     var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
-    var fileName = $"avatar-{id}-{Guid.NewGuid()}{ext}";
+    if (!Signatures.TryGetValue(ext, out var expected))
+        return Result.Fail("Chi ho tro JPG, PNG, PDF");
 
-    // Lưu disk (hoặc thay bằng Azure Blob)
-    var uploadPath = Path.Combine(_env.WebRootPath, "uploads", "avatars");
-    Directory.CreateDirectory(uploadPath);
-
-    var fullPath = Path.Combine(uploadPath, fileName);
-    await using var stream = System.IO.File.Create(fullPath);
-    await file.CopyToAsync(stream);
-
-    // Cập nhật DB
-    var customer = await _db.Customers.FindAsync(id)
-        ?? throw new NotFoundException($"Không tìm thấy customer {id}");
-    customer.AvatarUrl = $"/uploads/avatars/{fileName}";
-    await _db.SaveChangesAsync();
-
-    return Ok(new FileUploadResult(fileName, customer.AvatarUrl));
-}
-```
-
-### 9.6.2 — 5.2 Multipart form cho đính kèm tài liệu
-
-```csharp
-[HttpPost("{id}/documents")]
-[DisableRequestSizeLimit]
-public async Task<IActionResult> UploadDocuments(int id, [FromForm] DocumentUploadRequest request)
-{
-    var results = new List<FileUploadResult>();
-    foreach (var file in request.Files)
-    {
-        var result = await _fileService.SaveDocumentAsync(id, file);
-        results.Add(result);
-    }
-    return Ok(results);
-}
-
-public record DocumentUploadRequest
-{
-    public List<IFormFile> Files { get; init; } = [];
-    public string? Description { get; init; }
-}
-```
-
-### 9.6.3 — 5.3 Streaming download báo cáo
-
-```csharp
-[HttpGet("export")]
-public async Task<IActionResult> ExportCustomers([FromQuery] CustomerFilterParams @params)
-{
-    var query = _db.Customers.AsNoTracking();
-    query = _queryService.ApplyFilter(query, @params);
-
-    // Stream CSV để tránh load toàn bộ vào memory
-    var stream = new MemoryStream();
-    await using var writer = new StreamWriter(stream, leaveOpen: true);
-    await writer.WriteLineAsync("Id,Name,Email,Status,CreatedAt");
-
-    await foreach (var c in query.AsAsyncEnumerable())
-        await writer.WriteLineAsync($"{c.Id},{c.Name},{c.Email},{c.Status},{c.CreatedAt:O}");
-
-    await writer.FlushAsync();
+    // 3. Magic number phai khop — day moi la kiem tra that
+    await using var stream = file.OpenReadStream();
+    var header = new byte[8];
+    var read = await stream.ReadAsync(header, ct);
     stream.Position = 0;
 
-    return File(stream, "text/csv", $"customers-{DateTime.UtcNow:yyyyMMdd}.csv");
+    if (!expected.Any(sig => read >= sig.Length && header.Take(sig.Length).SequenceEqual(sig)))
+        return Result.Fail("Noi dung file khong khop phan mo rong");
+
+    // 4. SINH ten moi — khong bao gio dung ten goc
+    var safeName = $"{customerId}-{Guid.NewGuid():N}{ext}";
+
+    // 5. Luu NGOAI wwwroot
+    var path = Path.Combine(_options.UploadRoot, "avatars", safeName);
+    Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+
+    await using var target = File.Create(path);
+    await stream.CopyToAsync(target, ct);
+
+    return Result.Success($"/api/v1/customers/{customerId}/avatar");
 }
 ```
 
----
+Năm bước, và bước 4 với bước 5 là hai bước hay bị bỏ nhất.
+
+**Vì sao phải sinh tên mới:** `Path.Combine(uploadDir, file.FileName)` với `FileName = "../../appsettings.json"` sẽ ghi ra ngoài thư mục upload. `Path.GetFileName()` giúp được phần nào, nhưng vẫn còn vấn đề trùng tên, ký tự đặc biệt và tên dành riêng của Windows (`CON`, `PRN`, `NUL`).
+
+**Vì sao lưu ngoài `wwwroot`:** file trong `wwwroot` được phục vụ **trực tiếp** bởi `UseStaticFiles()`. Một file `.html` upload lên sẽ chạy JavaScript **trên chính tên miền của bạn** — tức XSS lưu trữ, đọc được cookie và token của người dùng khác. Lưu ngoài rồi phục vụ qua một action có kiểm tra quyền:
+
+```csharp
+[HttpGet("{id:guid}/avatar")]
+public async Task<IActionResult> GetAvatar(Guid id, CancellationToken ct)
+{
+    var path = await _files.ResolveAvatarPathAsync(id, ct);
+    if (path is null) return NotFound();
+
+    return PhysicalFile(path, "image/jpeg");
+}
+```
+
+Với file cho người dùng tải về, thêm `Content-Disposition: attachment` để trình duyệt tải xuống thay vì hiển thị:
+
+```csharp
+return PhysicalFile(path, "application/octet-stream", fileDownloadName: originalName);
+```
+
+### 9.6.3 — Giới hạn kích thước ở nhiều tầng
+
+```csharp
+// 1. Tren action
+[HttpPost("{id:guid}/avatar")]
+[RequestSizeLimit(5 * 1024 * 1024)]
+public async Task<IActionResult> UploadAvatar(...);
+
+// 2. Gioi han rieng cho multipart
+builder.Services.Configure<FormOptions>(o =>
+{
+    o.MultipartBodyLengthLimit = 5 * 1024 * 1024;
+    o.ValueLengthLimit = 4 * 1024;
+    o.MultipartHeadersLengthLimit = 8 * 1024;
+});
+
+// 3. Muc Kestrel — mac dinh 30MB cho toan bo body
+builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = 10 * 1024 * 1024);
+```
+
+Ba tầng vì mỗi tầng chặn ở một thời điểm khác nhau. Kestrel chặn **sớm nhất**, trước khi byte nào vào ứng dụng — đó là tầng bảo vệ thật. `[RequestSizeLimit]` chạy sau khi request đã vào pipeline.
+
+Và nhớ reverse proxy có giới hạn riêng: Nginx mặc định `client_max_body_size 1m`. Nếu proxy chặn ở 1MB thì cấu hình 10MB trong ứng dụng vô nghĩa — client nhận 413 từ Nginx và bạn không thấy gì trong log ứng dụng.
+
+`[DisableRequestSizeLimit]` là thứ **không bao giờ** nên dùng trên endpoint công khai: nó cho phép bất kỳ ai gửi một request vô hạn.
+
+### 9.6.4 — File lớn: `IFormFile` không đủ
+
+`IFormFile` **đệm toàn bộ** file trước khi action chạy: dưới 64KB thì trong bộ nhớ, lớn hơn thì ghi ra file tạm trên đĩa. Với 10 người cùng upload 500MB, đó là 5GB I/O đĩa trước khi code của bạn chạy dòng đầu tiên.
+
+Với file lớn, đọc theo luồng bằng `MultipartReader`:
+
+```csharp
+[HttpPost("import")]
+[DisableFormValueModelBinding]                 // tat model binding tu dong
+[RequestSizeLimit(500 * 1024 * 1024)]
+public async Task<IActionResult> Import(CancellationToken ct)
+{
+    var boundary = MediaTypeHeaderValue.Parse(Request.ContentType)
+        .Parameters.First(p => p.Name == "boundary").Value!.Trim('"');
+
+    var reader = new MultipartReader(boundary, Request.Body);
+
+    while (await reader.ReadNextSectionAsync(ct) is { } section)
+    {
+        if (!ContentDispositionHeaderValue.TryParse(
+                section.ContentDisposition, out var disposition)) continue;
+
+        if (disposition.FileName.HasValue)
+        {
+            // Xu ly tung chunk, KHONG bao gio giu ca file trong bo nho
+            await _importer.ProcessStreamAsync(section.Body, ct);
+        }
+    }
+
+    return Accepted();
+}
+```
+
+Bộ nhớ dùng là **hằng số** bất kể file lớn cỡ nào.
+
+Chú ý `Accepted()`: một import 500MB không nên xử lý đồng bộ trong request. Nhận file, đẩy vào hàng đợi, trả 202 kèm một URL để theo dõi tiến độ — xem [bài 9.10](9.10-hosted-service-background-jobs.mdx).
+
+### 9.6.5 — Download theo luồng
+
+Mẫu sai hay gặp:
+
+```csharp
+// SAI — MemoryStream giu ca file trong RAM
+var stream = new MemoryStream();
+await using var writer = new StreamWriter(stream, leaveOpen: true);
+await foreach (var c in query.AsAsyncEnumerable())
+    await writer.WriteLineAsync($"{c.Id},{c.Name}");
+stream.Position = 0;
+return File(stream, "text/csv", "customers.csv");
+```
+
+Với 500.000 khách hàng, `MemoryStream` có thể lên hàng trăm MB — nhân với số request đồng thời. Nó cũng khiến byte đầu tiên chỉ tới client sau khi **toàn bộ** dữ liệu đã được xử lý.
+
+```csharp
+// DUNG — ghi thang vao response
+[HttpGet("export")]
+public async Task Export([FromQuery] CustomerFilterRequest request, CancellationToken ct)
+{
+    Response.ContentType = "text/csv; charset=utf-8";
+    Response.Headers.ContentDisposition =
+        $"attachment; filename=customers-{DateTime.UtcNow:yyyyMMdd}.csv";
+
+    await using var writer = new StreamWriter(Response.Body, leaveOpen: true);
+    await writer.WriteLineAsync("Id,Name,Email,Status,CreatedAt");
+
+    await foreach (var c in _db.Customers.AsNoTracking()
+                       .ApplyFilters(request).AsAsyncEnumerable().WithCancellation(ct))
+    {
+        await writer.WriteLineAsync($"{c.Id},{Escape(c.Name)},{c.Email},{c.Status},{c.CreatedAt:O}");
+    }
+}
+```
+
+Bộ nhớ hằng số, byte đầu tiên ra ngay. Đánh đổi đã nói ở [bài 6.7](../../stage-02-csharp-professional/module-06-async-programming/6.7-async-patterns.mdx): status 200 **đã gửi** trước khi bạn biết có lỗi hay không, nên lỗi giữa chừng cho client một file CSV cụt.
+
+Hàm `Escape` là bắt buộc: một tên chứa dấu phẩy sẽ phá cấu trúc CSV. Và cẩn thận **CSV injection** — giá trị bắt đầu bằng `=`, `+`, `-` hay `@` sẽ được Excel thực thi như công thức.
+
+### 9.6.6 — Tốt nhất: đừng cho file đi qua API
+
+Với file lớn hoặc lưu lượng cao, mẫu tốt nhất là **presigned URL**:
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant A as API
+    participant S as Blob Storage
+    C->>A: POST /uploads/request
+    A->>A: kiem tra quyen, sinh presigned URL
+    A-->>C: URL co han 15 phut
+    C->>S: PUT file TRUC TIEP
+    S-->>C: 200
+    C->>A: POST /uploads/confirm
+    A->>A: xac nhan, luu metadata
+```
+
+```csharp
+[HttpPost("uploads/request")]
+public async Task<ActionResult<UploadTicket>> RequestUpload(
+    UploadRequest request, CancellationToken ct)
+{
+    if (request.SizeBytes > 500 * 1024 * 1024) return BadRequest("File qua lon");
+
+    var blobName = $"{Guid.NewGuid():N}{Path.GetExtension(request.FileName)}";
+    var url = _storage.GenerateUploadUrl(blobName, TimeSpan.FromMinutes(15));
+
+    return Ok(new UploadTicket(url, blobName));
+}
+```
+
+Lợi ích: file **không đi qua** server của bạn, nên không tốn băng thông, không tốn bộ nhớ, và không giới hạn bởi timeout request. Đây là cách S3, Azure Blob và Google Cloud Storage được thiết kế để dùng.
+
+Cái giá: client phức tạp hơn, và bạn phải xác thực nội dung **sau** khi upload xong (thường bằng một background job kiểm tra magic number và quét virus).
+
+### 9.6.7 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát upload và download"
+  items={[
+    { text: "Kiểu file được xác thực bằng magic number, không chỉ bằng ContentType." },
+    { text: "Tên file lưu trữ được sinh mới, không dùng tên client gửi lên." },
+    { text: "File upload lưu ngoài wwwroot." },
+    { text: "Giới hạn kích thước được đặt ở cả Kestrel, FormOptions và action." },
+    { text: "Giới hạn của reverse proxy khớp với giới hạn của ứng dụng." },
+    { text: "Không dùng DisableRequestSizeLimit trên endpoint công khai." },
+    { text: "File lớn dùng MultipartReader, không dùng IFormFile." },
+    { text: "Export dữ liệu lớn ghi thẳng vào Response.Body, không qua MemoryStream." },
+    { text: "Giá trị CSV được escape và chống CSV injection." },
+    { text: "Đã cân nhắc presigned URL cho file lớn." },
+  ]}
+/>
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **Giả mạo `ContentType`.** Đổi tên một file `.html` thành `.png` và gửi với `Content-Type: image/png`. Xác nhận validation dựa trên `ContentType` cho qua. Thêm kiểm tra magic number và kiểm chứng lại.
+
+2. **XSS lưu trữ.** Upload một file HTML có `<script>alert(document.cookie)</script>` vào `wwwroot/uploads`, mở URL đó và xác nhận script chạy trên tên miền của bạn. Chuyển ra ngoài `wwwroot` và kiểm chứng lại.
+
+3. **Đo bộ nhớ.** Export 200.000 bản ghi qua `MemoryStream` và qua `Response.Body`, đo peak working set bằng `dotnet-counters` và ghi lại thời điểm byte đầu tiên tới client.
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "Vì sao không tin ContentType của file upload?",
+      answer: "Vì nó chỉ là một dòng trong phần multipart do client tự ghi vào. Một file thực thi có thể khai là image/png. Kiểm tra nó chỉ lọc được lỗi vô tình chứ không phải bảo mật; thứ duy nhất đáng tin là nội dung file, tức magic number ở những byte đầu."
+    },
+    {
+      question: "Vì sao phải sinh tên file mới?",
+      answer: "Vì tên file do client kiểm soát. Nối thẳng vào đường dẫn với tên kiểu hai chấm chấm gạch chéo sẽ ghi ra ngoài thư mục upload. Ngoài ra còn vấn đề trùng tên, ký tự đặc biệt và tên dành riêng của Windows như CON hay NUL."
+    },
+    {
+      question: "Vì sao không lưu file upload trong wwwroot?",
+      answer: "Vì file trong wwwroot được UseStaticFiles phục vụ trực tiếp. Một file HTML upload lên sẽ chạy JavaScript trên chính tên miền của bạn, tức XSS lưu trữ đọc được cookie và token của người dùng khác. Nên lưu ngoài rồi phục vụ qua một action có kiểm tra quyền."
+    },
+    {
+      question: "Vì sao cần giới hạn kích thước ở nhiều tầng?",
+      answer: "Vì mỗi tầng chặn ở một thời điểm khác nhau. Kestrel chặn sớm nhất, trước khi byte nào vào ứng dụng, nên đó là tầng bảo vệ thật; RequestSizeLimit chạy sau khi request đã vào pipeline. Và reverse proxy có giới hạn riêng, Nginx mặc định chỉ 1MB, nên cấu hình trong ứng dụng vô nghĩa nếu proxy chặn trước."
+    },
+    {
+      question: "IFormFile có vấn đề gì với file lớn?",
+      answer: "Nó đệm toàn bộ file trước khi action chạy: dưới 64KB thì trong bộ nhớ, lớn hơn thì ghi ra file tạm trên đĩa. Với 10 người cùng upload 500MB là 5GB I/O đĩa trước khi code của bạn chạy dòng đầu. File lớn nên dùng MultipartReader để đọc theo luồng với bộ nhớ hằng số."
+    },
+    {
+      question: "Presigned URL giải quyết gì?",
+      answer: "File không đi qua server của bạn nên không tốn băng thông, không tốn bộ nhớ và không bị giới hạn bởi timeout request. Client xin một URL có hạn từ API, upload thẳng lên blob storage, rồi gọi lại API để xác nhận. Cái giá là client phức tạp hơn và phải xác thực nội dung sau khi upload xong."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **Magic number là kiểm tra duy nhất đáng tin.** `ContentType` và tên file đều do client viết.
+2. **Sinh tên mới và lưu ngoài `wwwroot`** — nếu không, upload trở thành XSS lưu trữ.
+3. **File lớn không đi qua `IFormFile`**, và tốt nhất là không đi qua API của bạn.
+
+## Tham khảo
+
+- [Upload files in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/mvc/models/file-uploads)
+- [Kestrel request limits](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/servers/kestrel/options)
+- [Prevent Cross-Site Scripting (XSS)](https://learn.microsoft.com/en-us/aspnet/core/security/cross-site-scripting)
+- [OWASP File Upload Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html)
 
 ## Điều hướng
 

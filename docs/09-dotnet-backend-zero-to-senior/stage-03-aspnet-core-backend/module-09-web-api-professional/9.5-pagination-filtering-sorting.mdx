@@ -1,155 +1,347 @@
 ---
 title: "9.5 — 4. Pagination, Filtering, Sorting"
-description: "Pagination, Filtering, Sorting: Pagination params và response envelope; IQueryable filtering + sorting; Customer list endpoint hoàn chỉnh."
+description: "Offset và cursor pagination khác nhau ra sao, vì sao OFFSET chậm dần và bỏ sót bản ghi, whitelist cho sorting, và chặn giới hạn pageSize."
 sidebar_position: 5
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
 # 9.5 — 4. Pagination, Filtering, Sorting
 
+<SummaryBox>
+Phân trang có hai kiểu và chúng **không thay thế được cho nhau**. **Offset** (`?page=3&pageSize=20`) quen thuộc và cho nhảy tới trang bất kỳ, nhưng có hai khuyết điểm nghiêm trọng: `OFFSET 100000` buộc database **đọc và bỏ** 100.000 dòng, và nếu dữ liệu thay đổi giữa hai lần gọi thì người dùng **bỏ sót hoặc thấy trùng** bản ghi. **Cursor** giải quyết cả hai bằng cách hỏi "cho tôi 20 bản ghi **sau** bản ghi này", nhưng đánh đổi: không có tổng số trang và không nhảy được. Ngoài ra bài này có hai thứ bắt buộc về an toàn: **whitelist cho `sortBy`** và **trần cứng cho `pageSize`**.
+</SummaryBox>
+
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Giải thích vì sao `OFFSET` lớn chậm và vì sao nó bỏ sót bản ghi.
+- Cài cursor pagination với khoá ổn định.
+- Chặn sorting tuỳ ý bằng whitelist.
+- Đặt trần cho `pageSize` và xác thực tham số phân trang.
+- Tránh đếm tổng khi không cần.
 
 ## Nội dung bài học
 
-### 9.5.1 — 4.1 Pagination params và response envelope
+### 9.5.1 — Tham số và vỏ phản hồi
 
 ```csharp
-public record PaginationParams
+public record PaginationRequest
 {
+    private const int MaxPageSize = 100;
+    private int _pageSize = 20;
+
+    [Range(1, int.MaxValue)]
     public int Page { get; init; } = 1;
-    public int PageSize { get; init; } = 20;
+
+    [Range(1, MaxPageSize)]
+    public int PageSize
+    {
+        get => _pageSize;
+        init => _pageSize = value is > 0 and <= MaxPageSize ? value : MaxPageSize;
+    }
+
     public int Skip => (Page - 1) * PageSize;
 }
+```
 
-public record CustomerFilterParams : PaginationParams
-{
-    public string? Search { get; init; }
-    public string? Status { get; init; }       // active, inactive, lead
-    public DateTime? CreatedFrom { get; init; }
-    public DateTime? CreatedTo { get; init; }
-    public string? SortBy { get; init; } = "createdAt";
-    public string? SortDir { get; init; } = "desc"; // asc | desc
-}
+Trần cứng trong setter là **tầng phòng thủ thứ hai** sau `[Range]`. Nếu ai đó gọi endpoint từ code nội bộ mà bỏ qua validation, `pageSize=1000000` vẫn bị chặn.
 
+Đây không phải chuyện lý thuyết: một `pageSize` không giới hạn là cách đơn giản nhất để làm sập API của bạn — một request kéo toàn bộ bảng.
+
+```csharp
 public record PagedResponse<T>
 {
-    public IEnumerable<T> Data { get; init; } = [];
-    public PaginationMeta Pagination { get; init; } = new();
+    public required IReadOnlyList<T> Data { get; init; }
+    public required PaginationMeta Pagination { get; init; }
 }
 
 public record PaginationMeta
 {
-    public int Page { get; init; }
-    public int PageSize { get; init; }
-    public int Total { get; init; }
+    public required int Page { get; init; }
+    public required int PageSize { get; init; }
+    public required int Total { get; init; }
     public int TotalPages => (int)Math.Ceiling((double)Total / PageSize);
     public bool HasNext => Page < TotalPages;
     public bool HasPrev => Page > 1;
 }
 ```
 
-Response envelope:
-```json
-{
-  "data": [ { "id": 1, "name": "Nguyễn Văn A" } ],
-  "pagination": {
-    "page": 1,
-    "pageSize": 20,
-    "total": 150,
-    "totalPages": 8,
-    "hasNext": true,
-    "hasPrev": false
-  }
-}
+### 9.5.2 — Hai vấn đề của offset
+
+**Vấn đề 1: chậm dần theo số trang.**
+
+```sql
+SELECT * FROM Customers ORDER BY CreatedAt DESC
+OFFSET 100000 ROWS FETCH NEXT 20 ROWS ONLY;
 ```
 
-### 9.5.2 — 4.2 IQueryable filtering + sorting
+Database phải **đọc 100.020 dòng** rồi vứt đi 100.000 dòng đầu. Trang 1 mất vài mili giây; trang 5000 mất vài giây. Và chi phí này tăng **tuyến tính** theo số trang.
+
+**Vấn đề 2: bỏ sót và trùng lặp.**
+
+```
+t=0   Nguoi dung xem trang 1 (ban ghi 1-20, moi nhat truoc)
+t=1   Co 5 ban ghi MOI duoc tao
+t=2   Nguoi dung bam trang 2 -> OFFSET 20
+      => 5 ban ghi cuoi cua trang 1 cu bi day xuong va hien LAI o trang 2
+      => 5 ban ghi khac bi BO SOT hoan toan
+```
+
+Với danh sách người dùng lướt thì đây là phiền toái. Với **job đồng bộ dữ liệu** duyệt hết mọi trang thì đây là **mất dữ liệu im lặng** — và rất khó phát hiện.
+
+### 9.5.3 — Cursor pagination
+
+Thay vì "bỏ qua N dòng", hỏi "cho tôi N dòng **sau** dòng này":
+
+```sql
+SELECT TOP 20 * FROM Customers
+WHERE (CreatedAt, Id) < (@lastCreatedAt, @lastId)
+ORDER BY CreatedAt DESC, Id DESC;
+```
 
 ```csharp
-public class CustomerQueryService
+public async Task<CursorResponse<CustomerDto>> GetPageAsync(
+    string? cursor, int pageSize, CancellationToken ct)
 {
-    public IQueryable<Customer> ApplyFilter(IQueryable<Customer> query, CustomerFilterParams p)
+    var query = _db.Customers.AsNoTracking();
+
+    if (cursor is not null)
     {
-        if (!string.IsNullOrWhiteSpace(p.Search))
-            query = query.Where(c => c.Name.Contains(p.Search) || c.Email.Contains(p.Search));
-
-        if (!string.IsNullOrWhiteSpace(p.Status))
-            query = query.Where(c => c.Status == p.Status);
-
-        if (p.CreatedFrom.HasValue)
-            query = query.Where(c => c.CreatedAt >= p.CreatedFrom.Value);
-
-        if (p.CreatedTo.HasValue)
-            query = query.Where(c => c.CreatedAt <= p.CreatedTo.Value);
-
-        // Dynamic sorting
-        query = (p.SortBy?.ToLower(), p.SortDir?.ToLower()) switch
-        {
-            ("name", "asc")        => query.OrderBy(c => c.Name),
-            ("name", "desc")       => query.OrderByDescending(c => c.Name),
-            ("createdat", "asc")   => query.OrderBy(c => c.CreatedAt),
-            _                      => query.OrderByDescending(c => c.CreatedAt)
-        };
-
-        return query;
+        var (lastCreatedAt, lastId) = DecodeCursor(cursor);
+        query = query.Where(c =>
+            c.CreatedAt < lastCreatedAt ||
+            (c.CreatedAt == lastCreatedAt && c.Id < lastId));   // tie-breaker
     }
+
+    var items = await query
+        .OrderByDescending(c => c.CreatedAt).ThenByDescending(c => c.Id)
+        .Take(pageSize + 1)                                    // lay du 1 de biet con nua khong
+        .Select(c => new CustomerDto(c.Id, c.Name, c.Email, c.CreatedAt))
+        .ToListAsync(ct);
+
+    var hasMore = items.Count > pageSize;
+    if (hasMore) items.RemoveAt(pageSize);
+
+    return new CursorResponse<CustomerDto>
+    {
+        Data = items,
+        NextCursor = hasMore ? EncodeCursor(items[^1].CreatedAt, items[^1].Id) : null
+    };
 }
 ```
 
-### 9.5.3 — 4.3 Customer list endpoint hoàn chỉnh
+Ba chi tiết quyết định nó đúng hay sai:
+
+1. **Tie-breaker bắt buộc.** `CreatedAt` không duy nhất — hai bản ghi tạo cùng mili giây sẽ bị bỏ sót hoặc lặp. Luôn thêm `Id` làm khoá phụ, và `ORDER BY` phải khớp chính xác điều kiện `WHERE`.
+2. **`Take(pageSize + 1)`** để biết còn trang sau mà không phải `COUNT` thêm một lần.
+3. **Mã hoá cursor** thành chuỗi mờ (Base64 của JSON) để client coi nó là con trỏ chứ không phải dữ liệu để chỉnh sửa.
+
+| | Offset | Cursor |
+|---|---|---|
+| Nhảy tới trang bất kỳ | **Có** | Không |
+| Tổng số trang | **Có** | Không |
+| Hiệu năng ở trang sâu | Kém dần | **Ổn định** |
+| Nhất quán khi dữ liệu đổi | Không | **Có** |
+| Độ phức tạp | Thấp | Trung bình |
+
+**Chọn thế nào:** giao diện quản trị có thanh số trang → offset. API công khai, cuộn vô hạn, feed, job đồng bộ dữ liệu → cursor.
+
+### 9.5.4 — Filtering trên `IQueryable`
+
+```csharp
+public static IQueryable<Customer> ApplyFilters(
+    this IQueryable<Customer> query, CustomerFilterRequest request)
+{
+    if (!string.IsNullOrWhiteSpace(request.Search))
+        query = query.Where(c => c.Name.Contains(request.Search)
+                              || c.Email.Contains(request.Search));
+
+    if (request.Status is not null)
+        query = query.Where(c => c.Status == request.Status);
+
+    if (request.CreatedFrom is { } from)
+        query = query.Where(c => c.CreatedAt >= from);
+
+    if (request.CreatedTo is { } to)
+        query = query.Where(c => c.CreatedAt < to.AddDays(1));   // bao gom ca ngay do
+
+    return query;
+}
+```
+
+`IQueryable` nghĩa là mọi `Where` được **dịch sang SQL** và gộp vào một câu lệnh. Một `.ToList()` đặt sớm sẽ kéo cả bảng về bộ nhớ rồi lọc trong ứng dụng — xem [Module 5 — Advanced C#](../../stage-02-csharp-professional/module-05-advanced-csharp/).
+
+Hai điểm dễ sai:
+
+- **`Contains` sinh ra `LIKE '%...%'`**, không dùng được index. Với bảng lớn, đó là quét toàn bảng ở mỗi lần gõ phím trong ô tìm kiếm. Giải pháp là full-text search, hoặc tối thiểu yêu cầu độ dài tối thiểu cho từ khoá.
+- **So sánh ngày.** `<= to` với `to` là `2026-09-24 00:00:00` sẽ **loại** mọi bản ghi trong ngày 24. Dùng `< to.AddDays(1)`.
+
+### 9.5.5 — Sorting phải có whitelist
+
+```csharp
+// SAI — cho phep sap xep theo bat ky cot nao
+query = query.OrderBy(request.SortBy);      // Dynamic LINQ
+
+// DUNG — whitelist
+private static readonly Dictionary<string, Expression<Func<Customer, object>>> Sortable =
+    new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["name"]      = c => c.Name,
+        ["email"]     = c => c.Email,
+        ["createdAt"] = c => c.CreatedAt,
+        ["status"]    = c => c.Status,
+    };
+
+public static IQueryable<Customer> ApplySort(
+    this IQueryable<Customer> query, string? sortBy, string? sortDir)
+{
+    var key = Sortable.TryGetValue(sortBy ?? "createdAt", out var expr) ? expr : Sortable["createdAt"];
+    var desc = !string.Equals(sortDir, "asc", StringComparison.OrdinalIgnoreCase);
+
+    query = desc ? query.OrderByDescending(key) : query.OrderBy(key);
+
+    return query.ThenBy(c => c.Id);       // thu tu on dinh
+}
+```
+
+Whitelist giải quyết ba vấn đề cùng lúc:
+
+1. **Không sắp xếp được theo cột không có index** → không ai vô tình gây quét toàn bảng.
+2. **Không lộ cột nội bộ** — client không sắp xếp được theo `PasswordHash` để suy ra thông tin.
+3. **Không nhận chuỗi tuỳ ý** vào biểu thức truy vấn.
+
+`ThenBy(c => c.Id)` là chi tiết nhỏ nhưng quan trọng: không có nó, hai bản ghi cùng giá trị sắp xếp có thứ tự **không xác định**, và chúng có thể đổi chỗ giữa hai lần gọi — gây ra đúng vấn đề bỏ sót như ở mục 9.5.2.
+
+### 9.5.6 — Đừng đếm khi không cần
+
+```csharp
+var total = await query.CountAsync(ct);     // MOT truy van
+var items = await query.Skip(...).Take(...).ToListAsync(ct);   // truy van THU HAI
+```
+
+Mỗi trang là **hai** truy vấn, và `COUNT` với điều kiện lọc phức tạp thường **đắt hơn** truy vấn lấy dữ liệu.
+
+Ba cách giảm:
+
+```csharp
+// 1. Khong tra tong — chi cho biet con trang sau khong
+var items = await query.Skip(skip).Take(pageSize + 1).ToListAsync(ct);
+var hasNext = items.Count > pageSize;
+
+// 2. Cache tong trong thoi gian ngan khi bo loc khong doi
+// 3. Tra tong gan dung khi vuot nguong: "hon 10.000 ket qua"
+```
+
+Google, GitHub và phần lớn API lớn đều làm cách 1 hoặc 3. Người dùng hiếm khi cần biết chính xác có 48.213 kết quả; họ cần biết **có còn trang sau không**.
+
+### 9.5.7 — Endpoint hoàn chỉnh
 
 ```csharp
 [HttpGet]
-[ProducesResponseType(typeof(PagedResponse<CustomerDto>), StatusCodes.Status200OK)]
-public async Task<IActionResult> GetCustomers([FromQuery] CustomerFilterParams @params)
+[ProducesResponseType<PagedResponse<CustomerDto>>(StatusCodes.Status200OK)]
+public async Task<ActionResult<PagedResponse<CustomerDto>>> GetAll(
+    [FromQuery] CustomerFilterRequest request, CancellationToken ct)
 {
-    var query = _db.Customers.AsNoTracking();
-    query = _queryService.ApplyFilter(query, @params);
+    var query = _db.Customers
+        .AsNoTracking()                     // chi doc -> tat change tracker
+        .ApplyFilters(request)
+        .ApplySort(request.SortBy, request.SortDir);
 
-    var total = await query.CountAsync();
+    var total = await query.CountAsync(ct);
+
     var items = await query
-        .Skip(@params.Skip)
-        .Take(@params.PageSize)
+        .Skip(request.Skip)
+        .Take(request.PageSize)
         .Select(c => new CustomerDto(c.Id, c.Name, c.Email, c.Status, c.CreatedAt))
-        .ToListAsync();
+        .ToListAsync(ct);
 
     return Ok(new PagedResponse<CustomerDto>
     {
         Data = items,
         Pagination = new PaginationMeta
         {
-            Page = @params.Page,
-            PageSize = @params.PageSize,
-            Total = total
+            Page = request.Page, PageSize = request.PageSize, Total = total
         }
     });
 }
 ```
 
-> **Cursor pagination** phù hợp hơn offset khi dataset lớn (hàng triệu bản ghi) vì tránh `OFFSET` scan. Sử dụng `cursor` là giá trị cuối của trường sort thay vì số trang.
+Hai chi tiết hiệu năng: `AsNoTracking()` bỏ change tracker cho truy vấn chỉ đọc, và `.Select(...)` **trước** `ToListAsync` khiến SQL chỉ lấy đúng những cột cần — không kéo về `Notes` dài 10KB mà DTO không dùng.
 
----
+Và nhớ [bài về N+1](/blog/ef-core-n-plus-1-query): nếu `CustomerDto` có danh sách con, `Select` lồng nhau là đúng còn truy cập navigation property trong vòng lặp là sai.
+
+### 9.5.8 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát phân trang"
+  items={[
+    { text: "pageSize có trần cứng ở cả validation lẫn trong setter." },
+    { text: "sortBy dùng whitelist, không nhận chuỗi tuỳ ý." },
+    { text: "Mọi sắp xếp đều có tie-breaker theo khoá chính." },
+    { text: "Cursor pagination có tie-breaker và ORDER BY khớp chính xác WHERE." },
+    { text: "Cursor được mã hoá, không lộ giá trị thô." },
+    { text: "Truy vấn chỉ đọc dùng AsNoTracking()." },
+    { text: "Select được đặt trước ToListAsync để SQL chỉ lấy cột cần." },
+    { text: "So sánh khoảng ngày dùng < ngày kế tiếp, không dùng <= ngày cuối." },
+    { text: "Đã cân nhắc bỏ COUNT hoặc trả tổng gần đúng cho bảng lớn." },
+  ]}
+/>
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **Đo `OFFSET`.** Tạo bảng 1 triệu bản ghi, đo thời gian trang 1, trang 100, trang 10.000. Vẽ biểu đồ và so sánh với cursor pagination trên cùng dữ liệu.
+
+2. **Mất bản ghi.** Viết script duyệt hết mọi trang bằng offset trong khi một script khác chèn bản ghi mới liên tục. Đếm số bản ghi thu được so với thực tế. Lặp lại với cursor.
+
+3. **Sắp xếp không ổn định.** Sắp xếp theo một cột có nhiều giá trị trùng, **không** có tie-breaker, gọi cùng một trang 10 lần và so sánh kết quả.
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "Offset pagination có hai vấn đề gì?",
+      answer: "Thứ nhất là chậm dần theo số trang, vì OFFSET 100000 buộc database đọc 100.020 dòng rồi vứt đi 100.000 dòng đầu, và chi phí tăng tuyến tính. Thứ hai là bỏ sót và trùng lặp khi dữ liệu thay đổi giữa hai lần gọi, điều này chỉ phiền toái với người lướt nhưng là mất dữ liệu im lặng với job đồng bộ."
+    },
+    {
+      question: "Cursor pagination hoạt động thế nào?",
+      answer: "Thay vì bỏ qua N dòng, nó hỏi cho tôi N dòng sau dòng này, dùng điều kiện WHERE trên giá trị của bản ghi cuối trang trước. Nhờ đó hiệu năng ổn định ở mọi độ sâu và không bỏ sót khi dữ liệu thay đổi. Đánh đổi là không có tổng số trang và không nhảy tới trang bất kỳ."
+    },
+    {
+      question: "Vì sao cursor pagination cần tie-breaker?",
+      answer: "Vì cột sắp xếp thường không duy nhất, hai bản ghi tạo cùng mili giây sẽ bị bỏ sót hoặc lặp lại. Phải thêm khoá chính làm khoá phụ, và ORDER BY phải khớp chính xác điều kiện WHERE."
+    },
+    {
+      question: "Vì sao sortBy phải có whitelist?",
+      answer: "Ba lý do. Không cho sắp xếp theo cột không có index nên không ai vô tình gây quét toàn bảng. Không lộ cột nội bộ mà client có thể dùng để suy ra thông tin. Và không nhận chuỗi tuỳ ý vào biểu thức truy vấn."
+    },
+    {
+      question: "Vì sao mọi sắp xếp cần tie-breaker theo khoá chính?",
+      answer: "Vì không có nó, hai bản ghi cùng giá trị sắp xếp có thứ tự không xác định và có thể đổi chỗ giữa hai lần gọi, gây ra đúng vấn đề bỏ sót hoặc trùng lặp như offset pagination."
+    },
+    {
+      question: "Có cần luôn trả tổng số bản ghi không?",
+      answer: "Không. Mỗi trang là hai truy vấn, và COUNT với điều kiện lọc phức tạp thường đắt hơn truy vấn lấy dữ liệu. Có thể lấy thừa một bản ghi để biết còn trang sau, cache tổng trong thời gian ngắn, hoặc trả tổng gần đúng khi vượt ngưỡng. Người dùng cần biết có còn trang sau chứ hiếm khi cần con số chính xác."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **`OFFSET` lớn vừa chậm vừa bỏ sót bản ghi.** Job đồng bộ dữ liệu phải dùng cursor.
+2. **Whitelist cho `sortBy` và trần cứng cho `pageSize`** — cả hai đều là vấn đề an toàn.
+3. **Mọi sắp xếp cần tie-breaker theo khoá chính.**
+
+## Tham khảo
+
+- [RESTful web API design — paging](https://learn.microsoft.com/en-us/azure/architecture/best-practices/api-design)
+- [Efficient Querying — EF Core](https://learn.microsoft.com/en-us/ef/core/performance/efficient-querying)
+- [Pagination — EF Core](https://learn.microsoft.com/en-us/ef/core/querying/pagination)
+- [Tracking vs. No-Tracking Queries](https://learn.microsoft.com/en-us/ef/core/querying/tracking)
 
 ## Điều hướng
 
