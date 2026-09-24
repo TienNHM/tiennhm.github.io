@@ -1,80 +1,247 @@
 ---
 title: "4.8 — 7. Records và Value Objects (C# 9+)"
-description: "Records và Value Objects (C# 9+): Nội dung bài học; Khi nào dùng record?; Bài tập áp dụng; Tự kiểm tra; Kết luận."
+description: "Record so sánh theo giá trị chứ không theo tham chiếu, và điều đó thay đổi cách bạn mô hình hoá tiền, địa chỉ, khoảng thời gian. Kèm cái bẫy bất biến nông và khi nào đừng dùng record."
 sidebar_position: 8
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
 # 4.8 — 7. Records và Value Objects (C# 9+)
 
+<SummaryBox>
+`record` đổi **một** thứ so với `class`, nhưng thứ đó kéo theo rất nhiều: nó so sánh **theo giá trị** chứ không theo tham chiếu. Hai object khác nhau trong bộ nhớ mà cùng nội dung sẽ `Equals` nhau, cùng `GetHashCode`, và dùng làm khoá `Dictionary` được ngay. Nhờ đó bạn mô hình hoá được **value object** — tiền, địa chỉ, khoảng thời gian — những thứ mà *danh tính chính là giá trị*. Bài này cũng chỉ ra cái bẫy hay gặp: `record` chỉ bất biến **nông**, nên một `List` bên trong nó vẫn sửa được từ bên ngoài, và hai record có cùng danh sách phần tử vẫn **không** bằng nhau.
+</SummaryBox>
+
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Giải thích record khác class ở điểm nào và điều đó kéo theo gì.
+- Mô hình hoá value object thay vì dùng kiểu nguyên thuỷ trần.
+- Dùng `with` để tạo bản sao có sửa đổi.
+- Nhận ra cái bẫy bất biến nông với collection bên trong record.
+- Chọn giữa `record`, `record struct` và `class`.
 
 ## Nội dung bài học
 
-`record` tạo immutable type với equality so sánh theo giá trị thay vì tham chiếu — lý tưởng cho value objects.
+### 4.8.1 — Một khác biệt, nhiều hệ quả
 
 ```csharp
-// Record — immutable, equality theo giá trị
-public record ContactInfo(string Email, string Phone)
-{
-    // Validation trong constructor thông qua init accessor
-    public string Email { get; init; } = ValidateEmail(Email);
-    public string Phone { get; init; } = Phone
-        ?? throw new ArgumentNullException(nameof(Phone));
+public class  CustomerClass(string Name, string Email);
+public record CustomerRecord(string Name, string Email);
 
-    private static string ValidateEmail(string email)
+var c1 = new CustomerClass("A", "a@x.com");
+var c2 = new CustomerClass("A", "a@x.com");
+Console.WriteLine(c1 == c2);      // False — hai tham chiếu khác nhau
+
+var r1 = new CustomerRecord("A", "a@x.com");
+var r2 = new CustomerRecord("A", "a@x.com");
+Console.WriteLine(r1 == r2);      // True  — cùng giá trị
+```
+
+Trình biên dịch sinh giúp record bốn thứ:
+
+- `Equals` và `GetHashCode` **theo từng thuộc tính**
+- Toán tử `==` và `!=`
+- `ToString()` in ra nội dung: `CustomerRecord { Name = A, Email = a@x.com }`
+- Phương thức `Clone` phục vụ biểu thức `with`
+
+Hai thứ đầu là lý do record dùng làm **khoá `Dictionary`** được ngay, không cần override gì — đúng vấn đề đã nêu ở [bài 1.6](/docs/dotnet-backend-zero-to-senior/stage-01-foundation/module-01-programming-logic/1.6-arrays-and-lists).
+
+### 4.8.2 — Value object: khi danh tính chính là giá trị
+
+```csharp
+// Kiểu nguyên thuỷ trần — trình biên dịch không giúp được gì
+public void Transfer(decimal amount, string fromAccount, string toAccount) { }
+
+Transfer(1000, "ACC-2", "ACC-1");     // đảo thứ tự? gửi sai tiền tệ? không ai biết
+```
+
+```csharp
+// Value object — sai là lỗi biên dịch
+public record Money(decimal Amount, string Currency)
+{
+    public static Money Vnd(decimal amount) => new(amount, "VND");
+
+    public Money Add(Money other)
     {
-        if (string.IsNullOrWhiteSpace(email) || !email.Contains('@'))
-            throw new ArgumentException("Email không hợp lệ.", nameof(email));
-        return email.ToLowerInvariant();
+        if (Currency != other.Currency)
+            throw new InvalidOperationException("Không cộng được hai loại tiền khác nhau.");
+        return this with { Amount = Amount + other.Amount };
     }
 }
 
-// Record struct — stack-allocated, phù hợp khi size nhỏ
-public record struct DateRange(DateTime Start, DateTime End)
-{
-    public int Days => (End - Start).Days;
-    public bool Contains(DateTime date) => date >= Start && date <= End;
-}
+public record AccountNumber(string Value);
 
-// Sử dụng
-var info1 = new ContactInfo("a@test.com", "0901111111");
-var info2 = new ContactInfo("a@test.com", "0901111111");
-Console.WriteLine(info1 == info2);   // True — so sánh theo giá trị
-
-// "With expression" — tạo bản sao với thay đổi
-var updated = info1 with { Phone = "0909999999" };
+public void Transfer(Money amount, AccountNumber from, AccountNumber to) { }
 ```
 
-### 4.8.1 — Khi nào dùng record?
+Bốn thứ có được:
 
-- Value objects trong Domain-Driven Design (địa chỉ, tiền tệ, khoảng thời gian)
-- DTO (Data Transfer Object) không thay đổi sau khi tạo
-- Kết quả trả về từ query (read model)
-- **Không dùng** cho entity có identity và vòng đời riêng
+1. **Không đảo nhầm tham số** — `AccountNumber` và `Money` là hai kiểu khác nhau.
+2. **Quy tắc ở đúng chỗ** — không cộng được VND với USD, và quy tắc đó nằm trong `Money`.
+3. **So sánh đúng nghĩa** — hai `Money(100, "VND")` là bằng nhau.
+4. **Tên nói lên ý nghĩa** — `Money` rõ hơn `decimal`.
 
----
+Đây là cách áp dụng nguyên tắc "làm cho trạng thái sai không biểu diễn được" ở [bài 4.2](4.2-class-and-object.mdx) vào từng tham số.
+
+Dấu hiệu nên tạo value object: một nhóm giá trị **luôn đi cùng nhau** (số tiền và đơn vị tiền tệ), hoặc một kiểu nguyên thuỷ có **quy tắc riêng** (email, mã bưu chính, số tài khoản).
+
+### 4.8.3 — `with`: sao chép có sửa đổi
+
+```csharp
+var original = new Money(1_000_000m, "VND");
+var doubled  = original with { Amount = 2_000_000m };
+
+Console.WriteLine(original.Amount);   // 1000000 — không đổi
+```
+
+`with` tạo **object mới**, chép mọi thuộc tính, rồi ghi đè những thuộc tính bạn liệt kê. Object gốc không bị đụng tới.
+
+Đây là cách làm việc với dữ liệu bất biến: thay vì sửa tại chỗ, bạn tạo phiên bản mới. Hơi tốn bộ nhớ hơn, đổi lại không bao giờ có chuyện một chỗ khác trong hệ thống bị đổi giá trị dưới chân bạn.
+
+### 4.8.4 — Cái bẫy: bất biến chỉ ở mức nông
+
+Đây là phần quan trọng nhất của bài.
+
+```csharp
+public record Order(int Id, List<OrderLine> Lines);
+
+var order = new Order(1, new List<OrderLine>());
+order.Lines.Add(new OrderLine(...));       // CHẠY ĐƯỢC — record không ngăn
+```
+
+`record` làm cho **tham chiếu** tới `Lines` không đổi được, nhưng **nội dung** của list thì vẫn sửa thoải mái. Đúng vấn đề đã nói ở [bài 4.3](4.3-encapsulation.mdx), và `record` không giải quyết nó.
+
+Hệ quả thứ hai còn khó chịu hơn — **phép so sánh cũng hỏng**:
+
+```csharp
+var a = new Order(1, new List<OrderLine> { line });
+var b = new Order(1, new List<OrderLine> { line });
+Console.WriteLine(a == b);     // False!
+```
+
+Vì `List<T>` so sánh theo **tham chiếu**, nên hai list khác nhau dù cùng nội dung vẫn không bằng nhau, kéo theo hai record không bằng nhau. Record chỉ so sánh theo giá trị **nếu mọi thành viên của nó cũng so sánh theo giá trị**.
+
+Cách xử lý:
+
+```csharp
+public record Order
+{
+    public int Id { get; init; }
+    private readonly ImmutableList<OrderLine> _lines;
+
+    public IReadOnlyList<OrderLine> Lines => _lines;
+    // Và tự cài Equals nếu thật sự cần so sánh theo nội dung
+}
+```
+
+Quy tắc thực dụng: **record hợp nhất với dữ liệu phẳng gồm các kiểu bất biến**. Có collection bên trong thì phải xử lý tay.
+
+### 4.8.5 — `record` hay `record struct`
+
+```csharp
+public record        Customer(string Name);       // kiểu tham chiếu
+public record struct Point(int X, int Y);          // kiểu giá trị
+public readonly record struct Money2(decimal Amount, string Currency);  // nên dùng
+```
+
+| | `record` | `record struct` |
+|---|---|---|
+| Loại kiểu | Tham chiếu | Giá trị |
+| Có thể `null` | Có | Không |
+| Phép gán | Chép địa chỉ | **Chép dữ liệu** |
+| Kế thừa | Có | Không |
+| Hợp với | Hầu hết trường hợp | Giá trị nhỏ, tạo rất nhiều |
+
+Khi dùng `record struct`, hãy thêm `readonly` — nếu không nó vẫn thay đổi được và gặp lại mọi vấn đề của `struct` đã nói ở [bài 4.2](4.2-class-and-object.mdx).
+
+### 4.8.6 — Khi nào **đừng** dùng record
+
+Ba trường hợp cụ thể:
+
+**1. Entity của EF Core.** Entity có **danh tính riêng** là khoá chính, không phải nội dung. Hai khách hàng cùng tên vẫn là hai người khác nhau. Ngoài ra EF Core cần property có thể thay đổi để theo dõi trạng thái, nên `init` gây khó.
+
+```csharp
+// SAI về mặt mô hình — Customer là entity, có Id riêng
+public record Customer(int Id, string Name);
+
+// ĐÚNG — entity là class, so sánh theo Id
+public class Customer { public int Id { get; private set; } /* ... */ }
+```
+
+**2. Class có nhiều hành vi.** Record sinh ra để chở dữ liệu. Một class có mười phương thức nghiệp vụ và hai thuộc tính thì không phải record.
+
+**3. Khi cần thay đổi thường xuyên.** Mỗi lần `with` là một object mới. Trong vòng lặp nóng chạy hàng triệu lần, số lần cấp phát đó có thể thành vấn đề — dù với code nghiệp vụ thông thường thì không.
+
+### 4.8.7 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát record và value object"
+  items={[
+    { text: "Nhóm giá trị luôn đi cùng nhau (số tiền + đơn vị) đã gom thành value object." },
+    { text: "Kiểu nguyên thuỷ có quy tắc riêng (email, mã số) đã bọc thành kiểu riêng." },
+    { text: "Không có record nào chứa List hay mảng mà vẫn kỳ vọng so sánh theo nội dung." },
+    { text: "Entity của EF Core là class, không phải record." },
+    { text: "record struct nào cũng có readonly." },
+    { text: "Kiểu dùng làm khoá Dictionary là record, hoặc đã override GetHashCode và Equals." },
+    { text: "Dùng with để tạo bản sao thay vì sửa tại chỗ." },
+  ]}
+/>
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **Chứng minh bẫy collection.** Tạo `record Order(int Id, List<string> Tags)`, tạo hai instance cùng nội dung, so sánh bằng `==`. Ghi lại kết quả. Đổi `List` thành `ImmutableArray` và so sánh lại.
+
+2. **Bọc một kiểu nguyên thuỷ.** Tìm một hàm trong dự án nhận từ ba tham số `string` trở lên. Bọc ít nhất hai trong số đó thành value object và đếm số lỗi biên dịch phát hiện ra ở chỗ gọi.
+
+3. **Record làm khoá.** Tạo `record CustomerKey(int TenantId, int CustomerId)`, dùng làm khoá `Dictionary`, thêm một phần tử rồi tra bằng một object **mới** có cùng giá trị. Làm lại với `class` không override gì và giải thích khác biệt.
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "Record khác class ở điểm nào?",
+      answer: "Điểm cốt lõi là record so sánh theo giá trị chứ không theo tham chiếu. Trình biên dịch sinh giúp Equals và GetHashCode theo từng thuộc tính, toán tử bằng và khác, ToString in ra nội dung, cùng phương thức phục vụ biểu thức with. Nhờ đó record dùng làm khoá Dictionary được ngay mà không cần override gì."
+    },
+    {
+      question: "Value object là gì và khi nào nên tạo?",
+      answer: "Là kiểu mà danh tính chính là giá trị của nó — hai Money cùng số tiền và cùng đơn vị thì là một. Nên tạo khi một nhóm giá trị luôn đi cùng nhau, ví dụ số tiền với đơn vị tiền tệ, hoặc khi một kiểu nguyên thuỷ có quy tắc riêng như email hay số tài khoản."
+    },
+    {
+      question: "Vì sao hai record chứa List cùng nội dung lại không bằng nhau?",
+      answer: "Vì List so sánh theo tham chiếu, nên hai danh sách khác nhau dù cùng phần tử vẫn không bằng nhau, và điều đó kéo theo hai record không bằng nhau. Record chỉ so sánh theo giá trị nếu mọi thành viên của nó cũng so sánh theo giá trị."
+    },
+    {
+      question: "Record có làm cho object bất biến hoàn toàn không?",
+      answer: "Không, nó chỉ bất biến ở mức nông. Tham chiếu tới một List bên trong không đổi được, nhưng nội dung list thì vẫn Add và Clear thoải mái từ bên ngoài. Muốn bất biến thật thì phải dùng ImmutableList hoặc chỉ phơi ra IReadOnlyList."
+    },
+    {
+      question: "Vì sao entity của EF Core không nên là record?",
+      answer: "Vì entity có danh tính riêng là khoá chính chứ không phải nội dung — hai khách hàng cùng tên vẫn là hai người khác nhau, nên so sánh theo giá trị là sai về mặt mô hình. Ngoài ra EF Core cần property thay đổi được để theo dõi trạng thái, nên init gây khó."
+    },
+    {
+      question: "Biểu thức with làm gì?",
+      answer: "Nó tạo một object mới, chép mọi thuộc tính từ object cũ rồi ghi đè những thuộc tính bạn liệt kê. Object gốc không bị đụng tới. Đây là cách làm việc với dữ liệu bất biến: thay vì sửa tại chỗ thì tạo phiên bản mới, nên không bao giờ có chuyện giá trị bị đổi dưới chân một chỗ khác."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **Record so sánh theo giá trị** — đó là toàn bộ khác biệt, và là lý do nó hợp với value object.
+2. **Bất biến của record chỉ ở mức nông.** Một `List` bên trong phá vỡ cả tính bất biến lẫn phép so sánh.
+3. **Entity là `class`, value object là `record`.** Entity có danh tính riêng; value object thì giá trị chính là danh tính.
+
+## Tham khảo
+
+- [Records — C#](https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/types/records)
+- [record type reference](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/builtin-types/record) — `with`, `record struct`, kế thừa
+- [Object-oriented programming in C#](https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/object-oriented/)
+- [Framework design guidelines](https://learn.microsoft.com/en-us/dotnet/standard/design-guidelines/) — chọn giữa kiểu giá trị và kiểu tham chiếu
 
 ## Điều hướng
 
