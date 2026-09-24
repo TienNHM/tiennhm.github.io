@@ -1,106 +1,285 @@
 ---
 title: "12.5 — 4. Indexing"
-description: "Covering index bao gồm tất cả cột mà query cần — loại bỏ key lookup (tra ngược về clustered index):"
+description: "B-tree và index gom cụm, thứ tự cột trong composite index, key lookup và covering index, SARGable, và cái giá của index thừa."
 sidebar_position: 5
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
 # 12.5 — 4. Indexing
 
+<SummaryBox>
+Index là đòn bẩy hiệu năng lớn nhất trong database — và cũng là nơi dễ làm sai nhất. Ba điều quyết định. **Thứ tự cột trong composite index không thể hoán đổi**: index `(Status, CreatedAt)` phục vụ `WHERE Status = 'New'` nhưng **vô dụng** cho `WHERE CreatedAt > ...` đơn thuần. **`SARGable`**: bọc cột trong hàm — `WHERE YEAR(CreatedAt) = 2026` — làm index **hoàn toàn không dùng được**, dù index đó tồn tại. Và **index không miễn phí**: mỗi index làm chậm mọi `INSERT`, `UPDATE`, `DELETE`, chiếm dung lượng, và kéo dài thời gian sao lưu. Nhiều hệ thống chậm vì **thừa** index chứ không phải thiếu.
+</SummaryBox>
+
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Giải thích B-tree và vì sao index tăng tốc tìm kiếm.
+- Chọn đúng thứ tự cột trong composite index.
+- Nhận ra truy vấn không SARGable và sửa nó.
+- Dùng covering index để loại bỏ key lookup.
+- Tìm và xoá index thừa.
 
 ## Nội dung bài học
 
-### 12.5.1 — 4.1 Clustered so với Non-Clustered
+### 12.5.1 — B-tree và index gom cụm
 
-- **Clustered index:** Quyết định thứ tự vật lý lưu trữ dữ liệu trên đĩa. Mỗi bảng chỉ có **một** clustered index. Mặc định là PRIMARY KEY.
-- **Non-clustered index:** Cấu trúc riêng biệt chứa key columns + pointer đến row trong clustered index. Một bảng có thể có nhiều non-clustered index.
+Index là một **B-tree**: cây cân bằng mà mỗi nút chứa nhiều khoá đã sắp xếp. Tìm một giá trị trong 10 triệu dòng chỉ mất **3–4 lần đọc trang** thay vì quét toàn bộ.
 
-```sql
--- Non-clustered index cho filter phổ biến
-CREATE NONCLUSTERED INDEX IX_Leads_Status_CreatedAt
-    ON Leads (Status, CreatedAt DESC);
-
--- Composite index: thứ tự cột quan trọng — cột có selectivity cao đặt trước
--- Query: WHERE Status = 'New' AND CreatedAt > '2024-01-01'
--- Index trên (Status, CreatedAt) phù hợp hơn (CreatedAt, Status)
+```
+                [1000 | 5000]
+               /      |      \
+       [200|500]  [2000|3000]  [7000|9000]
 ```
 
-### 12.5.2 — 4.2 Covering Index
+**Index gom cụm** (clustered) **là chính dữ liệu**, được sắp xếp theo khoá. Mỗi bảng chỉ có **một**, vì dữ liệu chỉ sắp xếp được theo một thứ tự.
 
-Covering index bao gồm tất cả cột mà query cần — loại bỏ key lookup (tra ngược về clustered index):
+**Index không gom cụm** là cấu trúc riêng chứa khoá index cộng một con trỏ về dòng thật. Trong SQL Server, con trỏ đó là **khoá gom cụm** — lý do khoá gom cụm nhỏ lại quan trọng ([bài 12.2](12.2-crm-database-design.mdx)).
+
+Bảng **không** có index gom cụm gọi là heap: dữ liệu nằm lộn xộn, và mọi tra cứu phải qua RID. Gần như luôn nên có index gom cụm.
+
+### 12.5.2 — Thứ tự cột là tất cả
 
 ```sql
--- Query thường gặp trong CRM dashboard
-SELECT LeadId, CompanyName, Status, AssignedToUserId
+CREATE INDEX IX_Leads_Status_CreatedAt ON Leads (Status, CreatedAt DESC);
+```
+
+Hình dung nó như **danh bạ sắp theo (Họ, Tên)**:
+
+| Truy vấn | Dùng được index? |
+|---|---|
+| `WHERE Status = 'New'` | **Có** — seek |
+| `WHERE Status = 'New' AND CreatedAt > '2026-01-01'` | **Có** — seek tốt nhất |
+| `WHERE CreatedAt > '2026-01-01'` | **Không** — như tìm mọi người tên "An" trong danh bạ theo họ |
+| `WHERE Status IN ('New','Contacted') ORDER BY CreatedAt DESC` | Một phần |
+
+Nguyên tắc **leftmost prefix**: index dùng được cho các tiền tố trái liên tục của danh sách cột.
+
+**Đặt cột nào trước?**
+
+1. Cột dùng với **so sánh bằng** (`=`) trước cột dùng với **khoảng** (`>`, `<`, `BETWEEN`).
+2. Trong các cột bằng, đặt cột **lọc mạnh hơn** trước.
+
+```sql
+-- Query: WHERE TenantId = @t AND Status = 'New' AND CreatedAt > @d
+CREATE INDEX IX_Leads_Tenant_Status_Created
+    ON Leads (TenantId, Status, CreatedAt DESC);
+```
+
+Sau một cột dùng khoảng, mọi cột tiếp theo **không** còn dùng để seek — chỉ để lọc trong tập đã tìm được. Đó là lý do cột khoảng phải đứng cuối.
+
+`DESC` trong định nghĩa index quan trọng khi bạn luôn `ORDER BY CreatedAt DESC`: nó cho phép đọc index theo đúng chiều, không cần bước sắp xếp.
+
+### 12.5.3 — SARGable
+
+**SARGable** = Search ARGument able — điều kiện mà database dùng được index để seek.
+
+```sql
+-- KHONG SARGable — ham boc quanh COT
+WHERE YEAR(CreatedAt) = 2026
+WHERE UPPER(Email) = 'A@B.COM'
+WHERE CONVERT(DATE, CreatedAt) = '2026-03-15'
+WHERE CompanyName LIKE '%tech%'          -- wildcard o DAU
+WHERE EstimatedValue + Discount > 1000
+WHERE ISNULL(Status, 'New') = 'New'
+
+-- SARGable — cot dung mot minh
+WHERE CreatedAt >= '2026-01-01' AND CreatedAt < '2027-01-01'
+WHERE Email = 'a@b.com'                  -- chuan hoa chu thuong khi ghi
+WHERE CreatedAt >= '2026-03-15' AND CreatedAt < '2026-03-16'
+WHERE CompanyName LIKE 'tech%'           -- wildcard o CUOI
+WHERE EstimatedValue > 1000 - Discount
+WHERE Status = 'New' OR Status IS NULL
+```
+
+Quy tắc duy nhất cần nhớ: **cột phải đứng một mình ở một vế**. Bọc nó trong hàm là database phải tính hàm đó cho **mọi dòng** trước khi so sánh — tức quét toàn bảng, dù index tồn tại.
+
+Đây là nguyên nhân phổ biến nhất của "tôi đã tạo index rồi mà vẫn chậm".
+
+Cần lọc theo biểu thức thật thì tạo **index trên biểu thức**:
+
+```sql
+-- SQL Server: cot tinh toan
+ALTER TABLE Leads ADD CreatedYear AS YEAR(CreatedAt) PERSISTED;
+CREATE INDEX IX_Leads_CreatedYear ON Leads(CreatedYear);
+
+-- PostgreSQL: index tren bieu thuc, khong can them cot
+CREATE INDEX idx_leads_created_year ON leads (EXTRACT(YEAR FROM created_at));
+```
+
+### 12.5.4 — Key lookup và covering index
+
+```sql
+CREATE INDEX IX_Leads_Status ON Leads (Status);
+
+SELECT LeadId, CompanyName, Status, EstimatedValue
 FROM   Leads
-WHERE  Status = 'New' AND CreatedAt >= DATEADD(DAY, -30, GETUTCDATE());
-
--- Covering index: INCLUDE các cột SELECT
-CREATE NONCLUSTERED INDEX IX_Leads_Status_CreatedAt_Covering
-    ON Leads (Status, CreatedAt DESC)
-    INCLUDE (LeadId, CompanyName, AssignedToUserId);
+WHERE  Status = 'New';
 ```
 
-### 12.5.3 — 4.3 Filtered Index
+Index chỉ chứa `Status` và khoá gom cụm. Để lấy `CompanyName` và `EstimatedValue`, database phải quay về index gom cụm cho **mỗi** dòng — gọi là **key lookup**.
 
-Index chỉ bao gồm subset rows — nhỏ hơn, nhanh hơn cho query có điều kiện cố định:
+Với 10 dòng thì không sao. Với 50.000 dòng, đó là 50.000 lần tra cứu ngẫu nhiên, và optimizer thường **bỏ index** để quét toàn bảng — vì quét tuần tự rẻ hơn.
 
 ```sql
--- Chỉ index lead chưa convert (90% query chỉ quan tâm lead active)
-CREATE NONCLUSTERED INDEX IX_Leads_Active
+-- Covering index — INCLUDE cac cot chi de doc
+CREATE INDEX IX_Leads_Status_Covering
+    ON Leads (Status, CreatedAt DESC)
+    INCLUDE (LeadId, CompanyName, EstimatedValue, AssignedToUserId);
+```
+
+Giờ index chứa **mọi** cột truy vấn cần — không có key lookup nào.
+
+**`INCLUDE` khác cột khoá thế nào?**
+
+| | Cột khoá | Cột `INCLUDE` |
+|---|---|---|
+| Nằm ở | Mọi tầng B-tree | **Chỉ tầng lá** |
+| Dùng để seek / sort | **Có** | Không |
+| Tốn dung lượng | Nhiều hơn | Ít hơn |
+| Giới hạn | 16 cột, 900 byte | Gần như không |
+
+Quy tắc: cột xuất hiện trong `WHERE`, `JOIN`, `ORDER BY` → **cột khoá**. Cột chỉ xuất hiện trong `SELECT` → **`INCLUDE`**.
+
+PostgreSQL có `INCLUDE` từ v11; trước đó phải đưa hết vào cột khoá.
+
+**Đừng covering mọi thứ.** Một index `INCLUDE` 15 cột gần như là bản sao của bảng — nó làm mọi `UPDATE` chậm và chiếm gấp đôi dung lượng.
+
+### 12.5.5 — Filtered index
+
+```sql
+-- 95% truy van chi quan tam lead chua ket thuc
+CREATE INDEX IX_Leads_Active
     ON Leads (AssignedToUserId, CreatedAt DESC)
     WHERE Status NOT IN ('Won', 'Lost');
 ```
 
-### 12.5.4 — 4.4 Index Scan so với Index Seek
+Nếu 80% lead đã `Won`/`Lost`, index này chỉ bằng **1/5** kích thước — nhỏ hơn, nằm gọn trong bộ nhớ, và cập nhật rẻ hơn.
 
-| | Index Seek | Index Scan |
-|---|---|---|
-| Cơ chế | Đi thẳng đến row cần tìm (B-tree traversal) | Đọc toàn bộ index từ đầu đến cuối |
-| Performance | O(log n) | O(n) |
-| Khi xảy ra | Query SARGable, index phù hợp | Non-SARGable, không có index, selectivity thấp |
+Điều kiện `WHERE` của truy vấn phải **khớp hoặc hẹp hơn** điều kiện của index; nếu không optimizer bỏ qua nó.
 
-### 12.5.5 — 4.5 Khi nào Index hurt Performance
-
-- Bảng **write-heavy**: mỗi INSERT/UPDATE/DELETE phải cập nhật tất cả index → overhead lớn
-- **Quá nhiều index** trên một bảng: SQL Server/Postgres phải maintain tất cả
-- Index trên cột **low-cardinality** (ví dụ: cột `IsActive` chỉ có 0/1) thường bị optimizer bỏ qua
-- **Fragmentation** cao: index GUID không sequential → page split liên tục → cần rebuild định kỳ
+Ứng dụng quan trọng nhất là ép duy nhất trên tập con — soft delete ở [bài 12.2](12.2-crm-database-design.mdx):
 
 ```sql
--- SQL Server: kiểm tra fragmentation
-SELECT  object_name(ips.object_id)  AS TableName,
-        i.name                      AS IndexName,
-        ips.avg_fragmentation_in_percent
-FROM    sys.dm_db_index_physical_stats(DB_ID(), NULL, NULL, NULL, 'LIMITED') ips
-JOIN    sys.indexes i ON ips.object_id = i.object_id AND ips.index_id = i.index_id
-WHERE   ips.avg_fragmentation_in_percent > 10
-ORDER   BY ips.avg_fragmentation_in_percent DESC;
+CREATE UNIQUE INDEX UQ_Users_Email_Active
+    ON Users(Email) WHERE DeletedAt IS NULL;
 ```
 
----
+### 12.5.6 — Cái giá của index
+
+Mỗi index thêm vào phải trả:
+
+| Chi phí | Chi tiết |
+|---|---|
+| **Ghi chậm hơn** | Mỗi `INSERT` phải cập nhật **mọi** index |
+| **Dung lượng** | Index có thể lớn hơn bảng khi cộng lại |
+| **Bộ nhớ** | Index chiếm buffer pool, đẩy dữ liệu nóng ra |
+| **Sao lưu, khôi phục** | Lâu hơn |
+| **Khoá** | Cập nhật index mở rộng phạm vi khoá |
+
+Bảng 10 index nghĩa là một `INSERT` thành 11 thao tác ghi. Nhiều hệ thống chậm vì **thừa** index.
+
+**Tìm index không dùng:**
+
+```sql
+-- SQL Server
+SELECT OBJECT_NAME(s.object_id) AS TableName, i.name AS IndexName,
+       s.user_seeks, s.user_scans, s.user_lookups, s.user_updates
+FROM   sys.dm_db_index_usage_stats s
+JOIN   sys.indexes i ON i.object_id = s.object_id AND i.index_id = s.index_id
+WHERE  s.database_id = DB_ID()
+  AND  i.is_primary_key = 0
+  AND  s.user_seeks + s.user_scans + s.user_lookups = 0    -- chua bao gio DOC
+  AND  s.user_updates > 0                                  -- nhung van phai GHI
+ORDER  BY s.user_updates DESC;
+```
+
+Index xuất hiện ở đây là **chi phí thuần**: tốn công duy trì mà không ai dùng.
+
+Lưu ý: thống kê này **reset khi restart** SQL Server, nên phải thu thập ít nhất một chu kỳ nghiệp vụ đầy đủ — đừng xoá index chỉ sau hai ngày, vì có thể nó phục vụ báo cáo cuối tháng.
+
+**Index trùng lặp** cũng đáng tìm: `(A, B)` và `(A)` — cái thứ hai gần như luôn thừa, vì index đầu đã phục vụ mọi truy vấn chỉ dùng `A`.
+
+**Khoá ngoại không có index** là vấn đề ngược lại: SQL Server **không** tự tạo index cho khoá ngoại (khác với PostgreSQL cũng vậy). Mỗi lần xoá dòng cha, database phải quét bảng con để kiểm tra tham chiếu.
+
+```sql
+CREATE INDEX IX_Contacts_CustomerId ON Contacts(CustomerId);
+```
+
+### 12.5.7 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát index"
+  items={[
+    { text: "Mọi bảng đều có index gom cụm, không có heap ngoài ý muốn." },
+    { text: "Thứ tự cột trong composite index: bằng trước, khoảng sau." },
+    { text: "Không có truy vấn nào bọc cột lọc trong hàm." },
+    { text: "Chuỗi cần tìm không phân biệt hoa thường được chuẩn hoá khi ghi." },
+    { text: "Truy vấn nóng có covering index, không còn key lookup lớn." },
+    { text: "Cột chỉ để đọc nằm trong INCLUDE, không nằm ở cột khoá." },
+    { text: "Không có index nào INCLUDE gần như toàn bộ bảng." },
+    { text: "Mọi khoá ngoại đều có index." },
+    { text: "Đã rà index không được dùng qua ít nhất một chu kỳ nghiệp vụ đầy đủ." },
+    { text: "Không có index trùng lặp kiểu (A,B) và (A)." },
+    { text: "Ràng buộc duy nhất trên tập con dùng filtered index." },
+  ]}
+/>
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **SARGable.** Trên bảng 1 triệu dòng có index trên `CreatedAt`, chạy `WHERE YEAR(CreatedAt) = 2026` và `WHERE CreatedAt >= '2026-01-01' AND CreatedAt < '2027-01-01'`. So sánh execution plan và số lần đọc trang.
+
+2. **Key lookup.** Tạo index chỉ trên `Status`, chạy truy vấn `SELECT` nhiều cột với 50.000 dòng khớp, và xem optimizer có dùng index không. Thêm `INCLUDE` và so sánh.
+
+3. **Chi phí ghi.** Đo thời gian chèn 100.000 dòng vào bảng có 1 index, rồi vào bảng giống hệt có 8 index. So sánh.
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "Vì sao thứ tự cột trong composite index quan trọng?",
+      answer: "Vì index chỉ dùng được cho các tiền tố trái liên tục, giống danh bạ sắp theo họ rồi tên: tìm theo họ thì nhanh, tìm theo tên thôi thì phải quét hết. Index trên Status và CreatedAt phục vụ truy vấn lọc theo Status nhưng vô dụng cho truy vấn chỉ lọc theo CreatedAt."
+    },
+    {
+      question: "Đặt cột nào trước trong composite index?",
+      answer: "Cột dùng với so sánh bằng trước cột dùng với khoảng, và trong các cột bằng thì cột lọc mạnh hơn đặt trước. Sau một cột dùng khoảng thì mọi cột tiếp theo không còn dùng để seek nữa, nên cột khoảng phải đứng cuối."
+    },
+    {
+      question: "SARGable nghĩa là gì?",
+      answer: "Là điều kiện mà database dùng được index để seek. Quy tắc duy nhất cần nhớ là cột phải đứng một mình ở một vế; bọc nó trong hàm buộc database tính hàm cho mọi dòng trước khi so sánh, tức quét toàn bảng dù index tồn tại. Đây là nguyên nhân phổ biến nhất của việc đã tạo index rồi mà vẫn chậm."
+    },
+    {
+      question: "Key lookup là gì và vì sao nó thành vấn đề?",
+      answer: "Là việc quay về index gom cụm để lấy những cột không có trong index, cho mỗi dòng khớp. Với vài dòng thì không sao, nhưng với hàng chục nghìn dòng thì optimizer thường bỏ index để quét toàn bảng vì quét tuần tự rẻ hơn tra cứu ngẫu nhiên nhiều lần."
+    },
+    {
+      question: "INCLUDE khác cột khoá thế nào?",
+      answer: "Cột khoá nằm ở mọi tầng B-tree và dùng được để seek và sắp xếp; cột INCLUDE chỉ nằm ở tầng lá, không seek được nhưng tốn ít dung lượng hơn và gần như không giới hạn số cột. Cột trong WHERE, JOIN, ORDER BY thì làm cột khoá; cột chỉ trong SELECT thì INCLUDE."
+    },
+    {
+      question: "Index thừa gây hại thế nào?",
+      answer: "Mỗi INSERT phải cập nhật mọi index nên bảng 10 index biến một lần ghi thành 11 thao tác. Ngoài ra index chiếm dung lượng, chiếm buffer pool đẩy dữ liệu nóng ra, làm sao lưu lâu hơn và mở rộng phạm vi khoá. Nhiều hệ thống chậm vì thừa index chứ không phải thiếu."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **Thứ tự cột quyết định index có dùng được hay không.** Bằng trước, khoảng sau.
+2. **Bọc cột trong hàm là vô hiệu hoá index.** Viết lại điều kiện thành dạng khoảng.
+3. **Index không miễn phí.** Rà và xoá index không ai dùng.
+
+## Tham khảo
+
+- [SQL Server index architecture and design guide](https://learn.microsoft.com/en-us/sql/relational-databases/sql-server-index-design-guide)
+- [Create indexes with included columns](https://learn.microsoft.com/en-us/sql/relational-databases/indexes/create-indexes-with-included-columns)
+- [Create filtered indexes](https://learn.microsoft.com/en-us/sql/relational-databases/indexes/create-filtered-indexes)
+- [PostgreSQL — Indexes](https://www.postgresql.org/docs/current/indexes.html)
 
 ## Điều hướng
 
