@@ -256,4 +256,4 @@ Ba điều đáng nhớ:
 
 - [12.7 — 6. Transactions và Locking](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-12-sql-deep-dive/12.7-transactions-and-locking) — Transactions & Locking trong SQL: ACID, isolation level, deadlock, optimistic/pessimistic concurrency — áp vào chuyển đổi dữ liệu CRM một cách an…
 - [Module 12 — SQL Deep Dive](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-12-sql-deep-dive) — SQL chuyên sâu: indexing, execution plans, transaction isolation, locking — hiệu năng truy vấn cho workload CRM.
-- [16. Transactions - ACID](/docs/database/learn-sql-in-30-days/16-transactions-acid) — Giới thiệu về Transactions trong SQL, cách sử dụng và đảm bảo tính nhất quán dữ liệu với ACID.
+- [27. Database design best practices](/docs/database/learn-sql-in-30-days/27-database-design-best-practices) — Thiết kế cơ sở dữ liệu (Database Design) - Nguyên tắc chuẩn hóa CSDL, khi nào nên phi chuẩn hóa, best practices thiết kế CSDL hiệu quả.
