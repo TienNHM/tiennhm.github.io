@@ -228,11 +228,270 @@ Chi tiết và lý do ở [bài 6.3 — Task và async/await](6.3-task-and-async
 
 ## Bài tập áp dụng
 
-1. **Đo bộ nhớ.** Viết endpoint export CSV 200.000 bản ghi bằng `ToListAsync`, đo peak working set bằng `dotnet-counters`. Chuyển sang `IAsyncEnumerable` và đo lại.
+#### Bài 1 — Đo bộ nhớ khi stream thay vì nạp hết
 
-2. **Tái hiện stampede.** Viết một service có cache 5 giây, bắn 50 request đồng thời bằng `Task.WhenAll` ngay sau khi cache hết hạn, đếm số truy vấn database. Sửa bằng cách cache `Task<T>` và đếm lại.
+Viết endpoint xuất CSV 200.000 bản ghi bằng `ToListAsync`, đo bộ nhớ đỉnh. Chuyển sang `IAsyncEnumerable` và đo lại.
 
-3. **Mất việc khi shutdown.** Gọi `_ = SendEmailAsync(...)` rồi tắt ứng dụng ngay sau đó. Xác nhận email không được gửi. Thay bằng `Channel` + `BackgroundService` và xác nhận nó hoàn thành.
+**Tiêu chí hoàn thành:** bộ nhớ của bản stream gần như **không phụ thuộc** số bản ghi.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Bài này là phiên bản bất đồng bộ của bài `yield return` ở [bài 1.4](../../stage-01-foundation/module-01-programming-logic/1.4-loops.mdx), nơi đã đo được 122 MB so với 4 MB.
+
+**Lời giải — bản nạp hết:**
+
+```csharp
+app.MapGet("/xuat-v1", async (CrmDbContext db, CancellationToken ct) =>
+{
+    var ds = await db.Orders.ToListAsync(ct);          // toàn bộ vào RAM
+    var sb = new StringBuilder();
+    foreach (var o in ds) sb.AppendLine($"{o.Id},{o.Total},{o.CreatedAt:O}");
+    return Results.Text(sb.ToString(), "text/csv");    // NHÂN ĐÔI trong RAM
+});
+```
+
+Bản này giữ **hai** bản sao toàn bộ dữ liệu cùng lúc: danh sách thực thể và chuỗi CSV.
+
+**Bản stream:**
+
+```csharp
+app.MapGet("/xuat-v2", (CrmDbContext db, HttpContext ctx, CancellationToken ct) =>
+{
+    ctx.Response.ContentType = "text/csv";
+    ctx.Response.Headers.ContentDisposition = "attachment; filename=orders.csv";
+    return Results.Stream(async stream =>
+    {
+        await using var w = new StreamWriter(stream);
+        await w.WriteLineAsync("Id,Total,CreatedAt");
+
+        await foreach (var o in db.Orders.AsNoTracking().AsAsyncEnumerable().WithCancellation(ct))
+            await w.WriteLineAsync($"{o.Id},{o.Total},{o.CreatedAt:O}");
+
+        await w.FlushAsync(ct);
+    }, "text/csv");
+});
+```
+
+**Kết quả điển hình với 200.000 bản ghi:**
+
+| | `ToListAsync` | `IAsyncEnumerable` |
+|---|---|---|
+| Bộ nhớ đỉnh tăng thêm | ~250–400 MB | **~5–15 MB** |
+| Thời gian tới byte đầu tiên | Sau khi xong hết | **Gần như tức thì** |
+| Bộ nhớ khi số bản ghi gấp đôi | Gấp đôi | **Gần như không đổi** |
+
+**Ba lợi ích, không chỉ bộ nhớ:**
+
+1. **Thời gian tới byte đầu tiên.** Bản stream bắt đầu gửi dữ liệu ngay, nên trình duyệt hiện hộp thoại tải về trong một giây thay vì chờ 30 giây với màn hình trắng. Đây là khác biệt lớn về trải nghiệm.
+2. **Không sập khi dữ liệu lớn.** Bản nạp hết có một ngưỡng mà vượt qua là tiến trình bị hệ điều hành giết. Bản stream không có ngưỡng đó.
+3. **Huỷ được giữa chừng.** Người dùng đóng tab thì `ct` bị huỷ và vòng lặp dừng ngay, không lãng phí tài nguyên cho phần còn lại.
+
+**Ba điểm bắt buộc khi dùng `IAsyncEnumerable` với EF Core:**
+
+```csharp
+db.Orders
+  .AsNoTracking()               // 1. KHÔNG theo dõi thay đổi
+  .AsAsyncEnumerable()
+  .WithCancellation(ct)         // 2. truyền token
+```
+
+Điểm 1 quan trọng nhất: không có `AsNoTracking()`, bộ theo dõi thay đổi của `DbContext` giữ **mọi** thực thể đã duyệt qua — và bạn quay lại đúng vấn đề bộ nhớ mà mình vừa định tránh.
+
+Điểm 3: **`DbContext` phải sống đủ lâu**. Trong `Results.Stream`, hàm gọi lại chạy sau khi action đã trả về, nên phải chắc rằng phạm vi DI chưa bị đóng. Với Minimal API thì `DbContext` được tiêm vào vẫn còn sống trong suốt response; với một số cấu hình khác thì phải tự tạo phạm vi.
+
+**Khi nào *không* nên stream.** Khi dữ liệu nhỏ và bạn cần xử lý nó nhiều lần — stream chỉ duyệt được một lần, và duyệt lần hai nghĩa là truy vấn lại database. Ngưỡng thực dụng: dưới vài nghìn bản ghi thì `ToListAsync` đơn giản hơn và không có vấn đề gì.
+
+</details>
+
+#### Bài 2 — Tái hiện cache stampede
+
+Viết một service có cache 5 giây, bắn 50 request đồng thời ngay sau khi cache hết hạn, đếm số truy vấn database. Sửa bằng cách cache `Task<T>` và đếm lại.
+
+**Tiêu chí hoàn thành:** số truy vấn giảm từ nhiều xuống **một**, và bạn giải thích được vì sao cache `Task<T>` lại có tác dụng đó.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Vấn đề nằm ở khoảng thời gian **giữa** lúc kiểm tra cache và lúc ghi kết quả vào cache. Trong khoảng đó, mọi request khác đều thấy cache trống.
+
+**Lời giải — bản có stampede:**
+
+```csharp
+public async Task<List<Branch>> LayChiNhanhAsync(CancellationToken ct)
+{
+    if (_cache.TryGetValue("branches", out List<Branch>? ds))
+        return ds!;
+
+    // 50 request cùng tới đây khi cache vừa hết hạn
+    ds = await _db.Branches.ToListAsync(ct);          // 50 truy vấn database
+    _cache.Set("branches", ds, TimeSpan.FromSeconds(5));
+    return ds;
+}
+```
+
+Thử:
+
+```csharp
+await Task.WhenAll(Enumerable.Range(1, 50).Select(_ => svc.LayChiNhanhAsync(ct)));
+// đếm dòng log "Executed DbCommand" -> 50
+```
+
+**Bản sửa — cache `Task<T>` thay vì `T`:**
+
+```csharp
+public Task<List<Branch>> LayChiNhanhAsync(CancellationToken ct)
+{
+    return _cache.GetOrCreate("branches", entry =>
+    {
+        entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(5);
+        return LayTuDbAsync(ct);          // trả về Task, KHÔNG await
+    })!;
+}
+
+private async Task<List<Branch>> LayTuDbAsync(CancellationToken ct)
+    => await _db.Branches.ToListAsync(ct);
+```
+
+Đếm lại: **1 truy vấn**.
+
+**Vì sao cache `Task<T>` lại có tác dụng.** Đây là điểm cốt lõi:
+
+```text
+Cache List<Branch>:
+  Request 1..50 đều kiểm tra cache -> trống
+  -> cả 50 cùng chạy truy vấn
+  -> kết quả chỉ được ghi vào cache SAU KHI truy vấn xong
+
+Cache Task<List<Branch>>:
+  Request 1 kiểm tra cache -> trống
+  -> tạo Task (CHƯA hoàn tất) và ghi NGAY vào cache
+  Request 2..50 kiểm tra cache -> THẤY Task đó
+  -> cả 49 cùng await chung một Task
+  -> chỉ 1 truy vấn
+```
+
+Khác biệt nằm ở chỗ `Task` được ghi vào cache **ngay lập tức**, khi nó còn chưa hoàn tất. Khoảng trống giữa "kiểm tra" và "ghi" biến mất.
+
+**Ba lưu ý quan trọng khi dùng mẫu này:**
+
+1. **Nhớ xoá cache khi Task thất bại.** Nếu không, một `Task` lỗi sẽ được phục vụ cho mọi request trong suốt thời gian sống của mục cache:
+
+   ```csharp
+   var task = LayTuDbAsync(ct);
+   _ = task.ContinueWith(t =>
+   {
+       if (t.IsFaulted) _cache.Remove("branches");
+   }, TaskScheduler.Default);
+   ```
+
+2. **Cẩn thận với `CancellationToken`.** Nếu request đầu tiên bị huỷ, `Task` trong cache bị huỷ theo, và 49 request kia cùng thất bại. Với dữ liệu dùng chung, nên dùng một token riêng không gắn với request nào — hoặc dùng `CancellationToken.None`.
+
+3. **`GetOrCreate` của `IMemoryCache` không hoàn toàn nguyên tử.** Trong trường hợp cực đoan vẫn có thể có hai `Task` được tạo. Để bảo đảm tuyệt đối, dùng `HybridCache` của .NET 9 — nó xử lý sẵn cả stampede lẫn cache nhiều tầng:
+
+   ```csharp
+   var ds = await _hybridCache.GetOrCreateAsync(
+       "branches",
+       async token => await _db.Branches.ToListAsync(token),
+       cancellationToken: ct);
+   ```
+
+**Vì sao stampede nguy hiểm trong thực tế.** Nó xảy ra đúng vào lúc **hệ thống đang bận nhất**: cache hết hạn khi có nhiều truy cập, và toàn bộ lưu lượng đổ thẳng xuống database cùng lúc. Database chậm lại, khiến các truy vấn kéo dài hơn, khiến càng nhiều request tích tụ — một vòng xoáy. [Module 14](../../stage-04-database-production/module-14-caching-background-jobs/) trình bày đầy đủ các chiến lược chống stampede.
+
+</details>
+
+#### Bài 3 — Mất việc khi ứng dụng tắt
+
+Gọi `_ = GuiEmailAsync(...)` rồi tắt ứng dụng ngay sau đó. Xác nhận email không được gửi. Thay bằng `Channel` kèm `BackgroundService` và xác nhận nó hoàn thành.
+
+**Tiêu chí hoàn thành:** bạn nêu được **ba** vấn đề của fire-and-forget, không chỉ vấn đề mất việc.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** `_ = MethodAsync()` nghĩa là "chạy đi, tôi không quan tâm". Câu hỏi là: ai đang giữ tham chiếu tới `Task` đó, và ai sẽ chờ nó xong?
+
+**Lời giải — bản sai:**
+
+```csharp
+app.MapPost("/dang-ky", async (DangKyRequest req, CrmDbContext db, IEmailSender mail, CancellationToken ct) =>
+{
+    var kh = Customer.Tao(req.Ten, new Email(req.Email));
+    db.Customers.Add(kh);
+    await db.SaveChangesAsync(ct);
+
+    _ = mail.GuiChaoMungAsync(kh.Email);     // fire-and-forget
+    return Results.Ok();
+});
+```
+
+Tắt ứng dụng ngay sau khi gọi — email **không được gửi**, và không có log nào cho biết.
+
+**Ba vấn đề, xếp theo mức nghiêm trọng:**
+
+1. **Việc bị mất khi tắt ứng dụng.** Không ai giữ `Task`, nên khi tiến trình kết thúc, công việc dở dang biến mất. Điều này xảy ra ở **mỗi lần triển khai** — và khi tự động mở rộng thu nhỏ số thể hiện.
+
+2. **Ngoại lệ bị nuốt hoàn toàn.** Nếu `GuiChaoMungAsync` ném, không có khối `catch` nào, không có log. Từ .NET 4.5, ngoại lệ không được quan sát **không** làm sập tiến trình nữa — nghĩa là nó thất bại **hoàn toàn im lặng**.
+
+3. **Không có giới hạn và không có thử lại.** Một nghìn request đồng thời sinh ra một nghìn lời gọi email song song, không ai kiểm soát. Máy chủ SMTP chặn, và cũng không ai biết.
+
+**Bản sửa bằng `Channel` kèm `BackgroundService`:**
+
+```csharp
+// 1. Hàng đợi có giới hạn
+public sealed class EmailQueue
+{
+    private readonly Channel<EmailJob> _ch = Channel.CreateBounded<EmailJob>(
+        new BoundedChannelOptions(1000) { FullMode = BoundedChannelFullMode.Wait });
+
+    public ValueTask XepAsync(EmailJob job, CancellationToken ct) => _ch.Writer.WriteAsync(job, ct);
+    public IAsyncEnumerable<EmailJob> DocAsync(CancellationToken ct) => _ch.Reader.ReadAllAsync(ct);
+    public void HoanTat() => _ch.Writer.Complete();
+}
+
+// 2. Consumer chạy nền
+public sealed class EmailWorker(EmailQueue q, IServiceScopeFactory sf, ILogger<EmailWorker> log)
+    : BackgroundService
+{
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        await foreach (var job in q.DocAsync(stoppingToken))
+        {
+            try
+            {
+                using var scope = sf.CreateScope();
+                var mail = scope.ServiceProvider.GetRequiredService<IEmailSender>();
+                await mail.GuiChaoMungAsync(job.Email, stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                log.LogError(ex, "Gửi email thất bại cho {Email}", job.Email);
+                // KHÔNG ném lại — nếu không, một job lỗi giết luôn consumer
+            }
+        }
+    }
+}
+
+// 3. Endpoint chỉ xếp hàng
+_ = q.XepAsync(new EmailJob(kh.Email), ct);
+```
+
+**Bốn điểm quan trọng trong đoạn trên:**
+
+1. **`BackgroundService` chứ không phải `IHostedService.StartAsync`.** Vòng lặp vô hạn trong `StartAsync` sẽ **chặn quá trình khởi động** — ứng dụng không bao giờ bắt đầu nhận request.
+2. **`try/catch` bao quanh thân vòng lặp.** Không có nó, một job lỗi làm thoát vòng lặp và consumer chết vĩnh viễn, dù ứng dụng vẫn chạy bình thường.
+3. **Tạo phạm vi DI riêng cho mỗi job.** `BackgroundService` là `Singleton`, nên không tiêm thẳng service `Scoped` vào được — đúng vấn đề captive dependency ở [Module 7](../module-07-dependency-injection/).
+4. **Hàng đợi có giới hạn với `FullMode.Wait`.** Producer bị chặn khi hàng đầy, tạo áp lực ngược tự nhiên thay vì để bộ nhớ phình vô hạn.
+
+**Giới hạn cần thừa nhận.** Cách này vẫn mất việc nếu tiến trình bị **giết đột ngột**, vì hàng đợi nằm trong bộ nhớ. Muốn bảo đảm thật sự thì cần hàng đợi bền vững — Hangfire, hoặc một message broker — hoặc mẫu hộp thư đi mà [Module 17](../../stage-05-senior-engineering/module-17-distributed-systems/) trình bày.
+
+Nhưng ngay cả bản trong bộ nhớ này cũng đã giải quyết được cả ba vấn đề ban đầu, và nó là bước đi đúng trước khi cần tới hạ tầng nặng hơn.
+
+</details>
 
 ## Tự kiểm tra
 

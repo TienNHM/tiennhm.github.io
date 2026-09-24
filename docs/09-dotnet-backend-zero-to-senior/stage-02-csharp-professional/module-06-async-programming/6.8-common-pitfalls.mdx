@@ -211,11 +211,256 @@ Mệnh đề `when` quan trọng: nó phân biệt **client huỷ** với **time
 
 ## Bài tập áp dụng
 
-1. **Đo async-over-sync.** Viết hai endpoint đọc cùng một file, một dùng `Task.Run(() => File.ReadAllText(...))`, một dùng `File.ReadAllTextAsync`. Bắn 200 request đồng thời và so sánh throughput cùng số thread pool thread qua `dotnet-counters`.
+#### Bài 1 — Đo async-over-sync
 
-2. **Làm mất phần tử.** Dùng `Parallel.ForEachAsync` với 1000 phần tử cùng `Add` vào một `List<T>`. Chạy 10 lần và ghi lại số phần tử cuối cùng của mỗi lần. So sánh với `ConcurrentBag`.
+Viết hai endpoint đọc cùng một file, một dùng `Task.Run(() => File.ReadAllText(...))`, một dùng `File.ReadAllTextAsync`. Bắn 200 request đồng thời và so sánh thông lượng cùng số luồng thread pool.
 
-3. **Rà một PR.** Lấy một pull request async trong repo của bạn (hoặc tự viết một file vi phạm 5 trong 9 bẫy) và dùng danh sách rà soát ở trên. Ghi lại bao nhiêu bẫy bạn tìm ra mà code review thường bỏ sót.
+**Tiêu chí hoàn thành:** bạn nêu được vì sao `Task.Run` bọc I/O đồng bộ **tệ hơn** cả việc gọi đồng bộ thẳng trong ASP.NET Core.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Bài này bổ sung cho bài 2 ở [bài 6.2](6.2-why-async-matters.mdx). Điểm mới: trong ASP.NET Core, luồng mà `Task.Run` mượn đến **từ đâu**?
+
+**Lời giải.**
+
+```csharp
+app.MapGet("/v1", async () =>
+    Results.Text(await Task.Run(() => File.ReadAllText("data.txt"))));
+
+app.MapGet("/v2", async (CancellationToken ct) =>
+    Results.Text(await File.ReadAllTextAsync("data.txt", ct)));
+```
+
+```bash
+bombardier -c 200 -n 2000 http://localhost:5000/v1
+bombardier -c 200 -n 2000 http://localhost:5000/v2
+```
+
+**Kết quả điển hình:**
+
+| | `/v1` `Task.Run` | `/v2` async thật |
+|---|---|---|
+| Thông lượng | Thấp | **Cao hơn nhiều** |
+| Số luồng pool | Tăng dần | Ổn định |
+| `threadpool-queue-length` | Tăng | ~0 |
+| Chi phí thêm | 2 lần chuyển ngữ cảnh mỗi request | 0 |
+
+**Vì sao `Task.Run` tệ hơn cả gọi đồng bộ thẳng trong ASP.NET Core.** Đây là điểm phản trực giác nhất:
+
+```text
+Gọi đồng bộ thẳng:
+  Luồng A (đang xử lý request) bị giam 1 lần I/O
+  -> Tốn: 1 luồng
+
+Task.Run bọc I/O đồng bộ:
+  Luồng A trả về pool tại await
+  Luồng B (MƯỢN TỪ CHÍNH POOL ĐÓ) bị giam 1 lần I/O
+  Xong thì đánh thức lại luồng A
+  -> Tốn: 1 luồng, CỘNG 2 lần chuyển ngữ cảnh, CỘNG chi phí xếp lịch
+```
+
+Cùng số luồng bị giam, nhưng thêm chi phí. Trong ASP.NET Core, `Task.Run` lấy luồng **từ chính thread pool đang phục vụ các request khác** — nên nó không "giải phóng" gì cả, chỉ chuyển gánh nặng từ tay trái sang tay phải rồi trả phí vận chuyển.
+
+Điều này khác với ứng dụng có giao diện, nơi `Task.Run` thật sự có ích vì nó chuyển việc **khỏi luồng UI** — một luồng đặc biệt và duy nhất.
+
+**Bảng phân biệt hai bẫy đối xứng:**
+
+| Bẫy | Biểu hiện | Hậu quả |
+|---|---|---|
+| **sync-over-async** | `.Result`, `.Wait()` | Deadlock hoặc giam luồng |
+| **async-over-sync** | `Task.Run(() => IoDongBo())` | Giam luồng + chi phí thừa, và **che giấu** vấn đề |
+
+Bẫy thứ hai nguy hiểm hơn về mặt phát hiện: chữ ký phương thức có `async Task`, nên nhìn qua tưởng đã đúng. Nó **trông** bất đồng bộ nhưng **không** bất đồng bộ.
+
+**Cách nhận ra async-over-sync trong code review:**
+
+```csharp
+// Dấu hiệu: Task.Run bọc một lời gọi có bản Async sẵn
+await Task.Run(() => File.ReadAllText(p));        // có File.ReadAllTextAsync
+await Task.Run(() => _db.Customers.ToList());     // có ToListAsync
+await Task.Run(() => http.GetString(url));        // có GetStringAsync
+```
+
+Quy tắc: **nếu thư viện có sẵn bản `Async`, luôn dùng bản đó.** `Task.Run` chỉ dành cho công việc CPU không có bản bất đồng bộ nào, vì bản chất nó không thể có.
+
+**Bật cảnh báo tự động:**
+
+```xml
+<WarningsAsErrors>$(WarningsAsErrors);CA1849</WarningsAsErrors>
+```
+
+`CA1849` cảnh báo khi gọi phương thức đồng bộ trong ngữ cảnh async mà có sẵn bản bất đồng bộ.
+
+</details>
+
+#### Bài 2 — Làm mất phần tử với `List<T>`
+
+Dùng `Parallel.ForEachAsync` với 1000 phần tử cùng `Add` vào một `List<T>`. Chạy 10 lần và ghi lại số phần tử của mỗi lần. So sánh với `ConcurrentBag`.
+
+**Tiêu chí hoàn thành:** bạn ghi lại được kết quả của **cả 10 lần** và nhận ra đặc điểm nguy hiểm nhất của lỗi này.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Chạy một lần là không đủ — lỗi đua có tính ngẫu nhiên. Hãy chạy nhiều lần và nhìn vào **sự phân tán** của kết quả.
+
+**Lời giải.**
+
+```csharp
+for (int lan = 1; lan <= 10; lan++)
+{
+    var ds = new List<int>();
+    await Parallel.ForEachAsync(Enumerable.Range(1, 1000), async (i, ct) =>
+    {
+        await Task.Yield();
+        ds.Add(i);                      // KHÔNG an toàn khi truy cập đồng thời
+    });
+    Console.WriteLine($"lần {lan,2}: {ds.Count,4} phần tử");
+}
+```
+
+**Kết quả đo thật trên .NET 9:**
+
+```text
+lần  1:  999 phần tử   <- MẤT
+lần  2:  975 phần tử   <- MẤT
+lần  3:  975 phần tử   <- MẤT
+lần  4:  969 phần tử   <- MẤT
+lần  5:  980 phần tử   <- MẤT
+lần  6:  991 phần tử   <- MẤT
+lần  7:  991 phần tử   <- MẤT
+lần  8:  981 phần tử   <- MẤT
+lần  9:  990 phần tử   <- MẤT
+lần 10:  991 phần tử   <- MẤT
+ConcurrentBag: 1000 phần tử
+```
+
+**Đặc điểm nguy hiểm nhất: không có ngoại lệ nào được ném ra.** Cả 10 lần đều "chạy thành công". Dữ liệu chỉ đơn giản là **biến mất**, và số lượng mất khác nhau mỗi lần — từ 1 tới 31 phần tử.
+
+Hãy hình dung điều này trong một tác vụ đồng bộ dữ liệu: mỗi đêm bạn mất vài bản ghi, số lượng ngẫu nhiên, không có log lỗi nào. Phải mất nhiều tháng mới có người nhận ra, và lúc đó việc truy ngược để biết đã mất những gì là bất khả thi.
+
+**Vì sao mất.** `List<T>.Add` không phải thao tác nguyên tử. Nó gồm ba bước:
+
+```text
+1. Kiểm tra sức chứa, cấp phát mảng mới nếu đầy
+2. _items[_size] = item
+3. _size++
+```
+
+Hai luồng chạy xen kẽ có thể cùng đọc `_size` bằng 500, cùng ghi vào ô 500, rồi cùng tăng lên 501 — một phần tử bị ghi đè, và bộ đếm chỉ tăng một lần thay vì hai.
+
+Tệ hơn: nếu chúng gặp nhau đúng lúc mảng nội bộ đang được cấp phát lại, bạn có thể nhận `IndexOutOfRangeException` hoặc một mảng có phần tử `null` ở giữa. Những trường hợp đó hiếm hơn nhưng khó chẩn đoán hơn.
+
+**Ba cách sửa:**
+
+```csharp
+// 1. ConcurrentBag — đơn giản nhất, không bảo đảm thứ tự
+var bag = new ConcurrentBag<int>();
+await Parallel.ForEachAsync(nguon, async (i, ct) => { await Task.Yield(); bag.Add(i); });
+
+// 2. Thu thập kết quả thay vì ghi vào tập hợp chung — THƯỜNG LÀ TỐT NHẤT
+var kq = await Task.WhenAll(nguon.Select(async i => { await Task.Yield(); return i; }));
+
+// 3. Khoá tường minh — khi buộc phải giữ List
+var ds = new List<int>();
+var khoa = new Lock();
+await Parallel.ForEachAsync(nguon, async (i, ct) =>
+{
+    await Task.Yield();
+    lock (khoa) { ds.Add(i); }
+});
+```
+
+**Cách 2 thường tốt nhất** vì nó loại bỏ hoàn toàn trạng thái chia sẻ — không có gì để tranh chấp thì không có lỗi đua. Nó cũng **giữ nguyên thứ tự**, điều mà `ConcurrentBag` không bảo đảm.
+
+**Bảng chọn kiểu tập hợp an toàn:**
+
+| Nhu cầu | Kiểu |
+|---|---|
+| Thêm vào, không cần thứ tự | `ConcurrentBag<T>` |
+| Tra cứu theo khoá | `ConcurrentDictionary<K,V>` |
+| Hàng đợi vào trước ra trước | `ConcurrentQueue<T>` |
+| Cần giữ thứ tự của nguồn | Thu thập bằng `Task.WhenAll` |
+
+**Một lưu ý về `ConcurrentBag`.** Nó **không** bảo đảm thứ tự, và cũng không nhanh cho mọi tình huống — nó được tối ưu cho trường hợp cùng một luồng vừa thêm vừa lấy. Với việc chỉ thêm rồi đọc một lần ở cuối, `ConcurrentQueue<T>` thường nhanh hơn.
+
+</details>
+
+#### Bài 3 — Rà một pull request bằng danh sách chín bẫy
+
+Lấy một pull request async trong repo của bạn, hoặc tự viết một file vi phạm năm trong chín bẫy, rồi dùng danh sách rà soát. Ghi lại bao nhiêu bẫy bạn tìm ra mà code review thường bỏ sót.
+
+**Tiêu chí hoàn thành:** bạn có một danh sách rà soát dùng được, và biết bẫy nào **công cụ** bắt được còn bẫy nào phải người đọc tự tìm.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Tự viết file vi phạm sẽ hiệu quả hơn là đi tìm — vì bạn kiểm soát được là có đúng năm bẫy, nên kiểm chứng được mình tìm sót bao nhiêu.
+
+**Lời giải — file thử vi phạm sáu bẫy:**
+
+```csharp
+public class BaoCaoService
+{
+    private readonly CrmDbContext _db;
+    private readonly List<string> _ketQua = new();        // bẫy 6
+
+    public async void XuLy()                              // bẫy 4
+    {
+        var kh = _db.Customers.ToList();                  // bẫy 2 (có ToListAsync)
+
+        var ts = kh.Select(async c => await TinhAsync(c)); // bẫy 5 — chưa chạy
+        var tong = ts.Count();                            // chỉ đếm, không await
+
+        await Parallel.ForEachAsync(kh, async (c, ct) =>
+        {
+            var x = await _db.Orders.Where(o => o.CustomerId == c.Id)
+                                    .ToListAsync(ct);     // bẫy 3 — DbContext dùng chung
+            _ketQua.Add(x.Count.ToString());              // bẫy 6
+        });
+
+        var t = GuiEmailAsync();                          // bẫy 8 — không await, không quan sát
+    }
+
+    private decimal TinhTong(Customer c)
+        => _db.Orders.SumAsync(o => o.Total).Result;      // bẫy 1
+}
+```
+
+**Danh sách rà soát, kèm thông tin công cụ có bắt được không:**
+
+| # | Bẫy | Dấu hiệu | Công cụ bắt được? |
+|---|---|---|---|
+| 1 | sync-over-async | `.Result`, `.Wait()`, `.GetAwaiter().GetResult()` | **Có** — `CA1849` |
+| 2 | async-over-sync | `Task.Run` bọc I/O, hoặc gọi bản đồng bộ | **Có** — `CA1849` |
+| 3 | `DbContext` dùng chung | `_db` trong `Parallel` hoặc `WhenAll` | **Không** |
+| 4 | `async void` | chữ ký `async void` không phải event handler | **Có** — `VSTHRD100` |
+| 5 | `Select(async ...)` lười | `IEnumerable<Task>` không được `await` | **Không** |
+| 6 | `List<T>` dùng chung | `.Add` trong ngữ cảnh song song | **Không** |
+| 7 | `lock` quanh `await` | không biên dịch được, nhưng `Monitor` thủ công thì có | Một phần |
+| 8 | Ngoại lệ không quan sát | `Task` bị bỏ, `_ = Method()` | Một phần — `CS4014` |
+| 9 | Thiếu `CancellationToken` | phương thức async không có tham số `ct` | **Không** |
+
+**Bốn bẫy công cụ không bắt được — và đó chính là giá trị của việc rà bằng mắt:** số 3, 5, 6, 9. Cả bốn đều là lỗi **ngữ cảnh**: cùng một dòng code có thể đúng ở chỗ này và sai ở chỗ kia, tuỳ vào việc nó có chạy song song hay không.
+
+**Bẫy số 3 và số 6 là hai bẫy tốn kém nhất**, vì cả hai đều **không ném ngoại lệ** mà chỉ làm hỏng dữ liệu một cách ngẫu nhiên — như bài 2 đã chứng minh.
+
+**Đưa vào quy trình.** Dán danh sách chín dòng trên vào mẫu pull request của đội, phần "người review cần kiểm tra". Kèm theo, bật các quy tắc mà công cụ bắt được:
+
+```xml
+<PropertyGroup>
+  <EnableNETAnalyzers>true</EnableNETAnalyzers>
+  <AnalysisMode>Recommended</AnalysisMode>
+  <WarningsAsErrors>$(WarningsAsErrors);CA1849;CA2007;CS4014</WarningsAsErrors>
+</PropertyGroup>
+```
+
+Cộng thêm gói `Microsoft.VisualStudio.Threading.Analyzers` để có `VSTHRD100` và một loạt quy tắc khác về async.
+
+**Nguyên tắc chung, lặp lại từ [bài 4.7](../module-04-csharp-core/4.7-access-modifiers.mdx).** Cái gì công cụ kiểm được thì để công cụ kiểm; sức chú ý của người review là tài nguyên khan hiếm, hãy dành nó cho bốn bẫy còn lại.
+
+</details>
 
 ## Tự kiểm tra
 
