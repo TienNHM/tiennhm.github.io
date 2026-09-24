@@ -59,7 +59,7 @@ Gateway **không thể** làm việc này — nó không có bảng `Leads`, và
 **Sai lầm cần tránh:** service tin tưởng hoàn toàn vì "request đến từ gateway". Nếu ai đó vào được mạng nội bộ, họ gọi thẳng service và bỏ qua mọi kiểm tra. Service **vẫn phải** xác thực token, chỉ là nó có thể tin rằng gateway đã lọc bớt phần lớn request xấu.
 
 ```csharp
-// Moi service VAN validate token — phong thu nhieu lop
+// Mọi service VẪN validate token — phòng thủ nhiều lớp
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -70,7 +70,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateAudience = true,
             ValidAudience = "crm-api",
             ValidateLifetime = true,
-            ClockSkew = TimeSpan.FromSeconds(30)      // mac dinh 5 PHUT — qua dai
+            ClockSkew = TimeSpan.FromSeconds(30)      // mặc định 5 PHÚT — quá dài
         };
     });
 ```
@@ -82,8 +82,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 JWT **tự chứa**: service kiểm tra chữ ký mà không hỏi ai cả. Đó là điểm mạnh về hiệu năng, và cũng là điểm yếu:
 
 ```
-10:00  Nhan vien nghi viec, admin vo hieu hoa tai khoan
-10:00  Token cu VAN HOP LE — khong ai huy duoc
+10:00  Nhân viên nghỉ việc, admin vô hiệu hoá tài khoản
+10:00  Token cũ VẪN HỢP LỆ — không ai huỷ được
 10:15  Token het han
        => 15 PHUT truy cap sau khi bi vo hieu hoa
 ```
@@ -97,7 +97,7 @@ Ba cách xử lý, chọn theo mức độ nhạy cảm:
 | **Reference token** | Token là mã tra cứu, mọi lần đều hỏi server | Huỷ tức thì, nhưng mất lợi thế tự chứa |
 
 ```csharp
-// Danh sach chan — kiem tra jti trong Redis
+// Danh sách chặn — kiểm tra jti trong Redis
 options.Events = new JwtBearerEvents
 {
     OnTokenValidated = async context =>
@@ -185,7 +185,7 @@ public sealed class TokenForwardingHandler(IHttpContextAccessor accessor) : Dele
 var exchanged = await _identityClient.ExchangeTokenAsync(new TokenExchangeRequest
 {
     SubjectToken = userToken,
-    Audience = "billing-api",              // chi dung duoc cho Billing
+    Audience = "billing-api",              // chỉ dùng được cho Billing
     Scope = "invoices.read"                // chi doc hoa don
 });
 ```
@@ -205,10 +205,10 @@ Token bị lộ giờ chỉ đọc được hoá đơn, không làm được gì
 Với hệ multi-tenant, `tenant_id` phải đi **cùng danh tính**, không bao giờ lấy từ tham số do client gửi:
 
 ```csharp
-// SAI — client tu khai tenant, doi so la doc du lieu tenant khac
+// SAI — client tự khai tenant, đổi số là đọc dữ liệu tenant khác
 var tenantId = Request.Query["tenantId"];
 
-// DUNG — lay tu claim da duoc ky
+// ĐÚNG — lấy từ claim đã được ký
 var tenantId = User.FindFirst("tenant_id")?.Value
     ?? throw new UnauthorizedAccessException("Thiếu tenant_id");
 ```

@@ -54,7 +54,7 @@ builder.Services.AddOpenTelemetry()
     .WithTracing(t => t
         .AddAspNetCoreInstrumentation(o =>
         {
-            // Bo qua health check — chung chiem phan lon trace ma khong co gia tri
+            // Bỏ qua health check — chúng chiếm phần lớn trace mà không có giá trị
             o.Filter = ctx => !ctx.Request.Path.StartsWithSegments("/health");
             o.RecordException = true;
         })
@@ -85,7 +85,7 @@ Bốn chi tiết đáng chú ý:
 builder.Host.UseSerilog((context, services, config) => config
     .ReadFrom.Configuration(context.Configuration)
     .Enrich.FromLogContext()
-    .Enrich.WithSpan()                    // them TraceId va SpanId vao MOI dong log
+    .Enrich.WithSpan()                    // thêm TraceId và SpanId vào MỌI dòng log
     .WriteTo.Console(new CompactJsonFormatter()));
 ```
 
@@ -108,7 +108,7 @@ Từ một trace trong Jaeger, bạn truy vấn `TraceId = "4bf92f..."` và lấ
 Ghi log **có cấu trúc**, không phải chuỗi nối:
 
 ```csharp
-// SAI — khong truy van duoc theo CustomerId
+// SAI — không truy vấn được theo CustomerId
 _logger.LogError($"Không tạo được đơn cho khách {customerId}, tổng {total}");
 
 // DUNG — CustomerId va Total thanh truong co the loc
@@ -122,7 +122,7 @@ Dạng đúng cho phép truy vấn "mọi lỗi của khách hàng X trong 7 ng�
 ```csharp
 var meter = new Meter("Crm.Sales");
 
-// Histogram — ghi PHAN PHOI, tinh duoc phan vi
+// Histogram — ghi PHÂN PHỐI, tính được phân vị
 var orderDuration = meter.CreateHistogram<double>(
     "crm.order.creation.duration",
     unit: "ms",
@@ -138,7 +138,7 @@ Vì sao trung bình vô dụng:
 ```
 1000 request: 990 cai 50ms, 10 cai 5000ms
 Trung binh = 99,5ms   -> bieu do trong "binh thuong"
-p99        = 5000ms   -> 1% nguoi dung doi 5 GIAY
+p99        = 5000ms   -> 1% người dùng đợi 5 GIÂY
 ```
 
 10 người dùng đó gặp trải nghiệm tệ và **họ là những người sẽ gọi điện phàn nàn**. Biểu đồ trung bình không hề cho thấy điều đó.
@@ -157,10 +157,10 @@ Nhóm **nghiệp vụ** hay bị bỏ qua nhưng phát hiện sự cố nhanh nh
 **Cardinality là cái bẫy tốn tiền:**
 
 ```csharp
-// SAI — moi customer mot chuoi metric rieng -> hang trieu chuoi
+// SAI — mỗi customer một chuỗi metric riêng -> hàng triệu chuỗi
 tags: [new("customer.id", customerId.ToString())]
 
-// DUNG — so luong gia tri huu han
+// ĐÚNG — số lượng giá trị hữu hạn
 tags: [new("customer.tier", customer.Tier.ToString())]
 ```
 
@@ -178,7 +178,7 @@ Lưu 100% trace trên hệ thống lớn rất tốn. Ba chiến lược:
 
 ```csharp
 .WithTracing(t => t
-    .SetSampler(new TraceIdRatioBasedSampler(0.1))    // 10% request thanh cong
+    .SetSampler(new TraceIdRatioBasedSampler(0.1))    // 10% request thành công
     .AddAspNetCoreInstrumentation());
 ```
 

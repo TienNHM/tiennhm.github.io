@@ -36,7 +36,7 @@ Sau bài này bạn có thể:
 Hàng cuối là câu hỏi quyết định. "Kiểm tra hạn mức tín dụng trước khi tạo đơn" **phải** đồng bộ — không có câu trả lời thì không tạo đơn được. "Gửi email xác nhận sau khi tạo đơn" **phải** bất đồng bộ — SMTP chết không có nghĩa là đơn hàng phải hỏng theo.
 
 ```csharp
-// Dong bo: can ket qua de quyet dinh
+// Đồng bộ: cần kết quả để quyết định
 var creditCheck = await _billingClient.CheckCreditAsync(customerId, amount, ct);
 if (!creditCheck.Approved)
     return Result.Failure("Vượt hạn mức tín dụng");
@@ -44,7 +44,7 @@ if (!creditCheck.Approved)
 var order = Order.Create(customerId, items);
 _db.Orders.Add(order);
 
-// Bat dong bo: chi thong bao viec da xay ra
+// Bất đồng bộ: chỉ thông báo việc đã xảy ra
 _db.OutboxMessages.Add(OutboxMessage.From(new OrderPlacedEvent(order.Id)));
 await _db.SaveChangesAsync(ct);
 ```
@@ -67,8 +67,8 @@ Không service nào "có vấn đề", nhưng **hệ thống** có. Và đó m�
 
 ```
 Moi service p99 = 100ms
-Chuoi 4 service: p99 KHONG phai 400ms ma te hon nhieu,
-vi xac suat cham it nhat mot chang tang theo do dai chuoi.
+Chuỗi 4 service: p99 KHÔNG phải 400ms mà tệ hơn nhiều,
+vì xác suất chậm ít nhất một chặng tăng theo độ dài chuỗi.
 ```
 
 Ba cách rút ngắn chuỗi, theo thứ tự nên ưu tiên:
@@ -110,7 +110,7 @@ Ba hậu quả, và cái thứ nhất rất khó chẩn đoán:
 Hai cách phá vòng:
 
 ```csharp
-// Cach 1: dao chieu — Inventory PHAT event thay vi GOI nguoc lai Sales
+// Cách 1: đảo chiều — Inventory PHÁT event thay vì GỌI ngược lại Sales
 public sealed class StockReservedConsumer(SalesDbContext db) : IConsumer<StockReservedEvent>
 {
     public async Task Consume(ConsumeContext<StockReservedEvent> context)
@@ -138,7 +138,7 @@ service BillingService {
 
 message CheckCreditRequest {
   string customer_id = 1;
-  int64 amount_minor = 2;        // don vi nho nhat, tranh so thuc
+  int64 amount_minor = 2;        // đơn vị nhỏ nhất, tránh số thực
 }
 
 message CheckCreditResponse {
@@ -159,7 +159,7 @@ Dùng `int64` cho tiền theo **đơn vị nhỏ nhất** thay vì `double`: s�
 
 ```protobuf
 message CheckCreditRequest {
-  reserved 3;                    // da xoa 'legacy_code', KHONG dung lai so nay
+  reserved 3;                    // đã xoá 'legacy_code', KHÔNG dùng lại số này
   reserved "legacy_code";
 
   string customer_id = 1;
@@ -211,7 +211,7 @@ public async Task<CreditCheckResult> CheckCreditAsync(Guid customerId, decimal a
     {
         _logger.LogWarning("Billing không khả dụng, áp dụng chính sách dự phòng");
 
-        // Quyet dinh NGHIEP VU: don nho van cho qua, don lon thi tu choi
+        // Quyết định NGHIỆP VỤ: đơn nhỏ vẫn cho qua, đơn lớn thì từ chối
         return amount <= 1_000_000m
             ? CreditCheckResult.ApprovedByFallback()
             : CreditCheckResult.Unavailable();

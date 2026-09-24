@@ -53,13 +53,13 @@ Không ai thiết kế ra distributed monolith. Nó là kết quả tích luỹ 
 
 ```csharp
 // Duong di toi distributed monolith — tung buoc deu "hop ly"
-// Thang 1: "chi mot loi goi dong bo thoi"
+// Tháng 1: "chỉ một lời gọi đồng bộ thôi"
 var customer = await _customerClient.GetAsync(id, ct);
 
 // Thang 3: "them mot cai nua, tien ma"
 var credit = await _billingClient.CheckCreditAsync(id, ct);
 
-// Thang 6: "cai nay can du lieu ton kho"
+// Tháng 6: "cái này cần dữ liệu tồn kho"
 var stock = await _inventoryClient.CheckStockAsync(items, ct);
 
 // Thang 12: endpoint nay phu thuoc 5 service, p99 = 4 giay,
@@ -73,10 +73,10 @@ Theo thứ tự chi phí tăng dần — luôn thử cách rẻ trước.
 **Cách 1 — Chuyển gọi đồng bộ sang event.** Rẻ nhất, hiệu quả nhất, và thường đủ.
 
 ```csharp
-// TRUOC — Sales phai goi Billing moi lan hien danh sach
+// TRƯỚC — Sales phải gọi Billing mỗi lần hiện danh sách
 var credit = await _billingClient.CheckCreditAsync(customerId, ct);
 
-// SAU — Sales giu ban sao toi thieu, cap nhat qua event
+// SAU — Sales giữ bản sao tối thiểu, cập nhật qua event
 var info = await _db.CustomerBillingInfo
     .FirstOrDefaultAsync(c => c.CustomerId == customerId, ct);
 ```
@@ -86,11 +86,11 @@ Giảm được cả coupling thời gian lẫn độ trễ, và không phải �
 **Cách 2 — Tách database dùng chung.** Tốn công hơn nhưng gỡ được nguyên nhân dai dẳng nhất.
 
 ```sql
--- Buoc 1: tach schema trong CUNG database (chua doi ket noi)
+-- Bước 1: tách schema trong CÙNG database (chưa đổi kết nối)
 ALTER SCHEMA billing TRANSFER dbo.Invoices;
 
--- Buoc 2: tim moi JOIN xuyen schema va thay bang goi API hoac event
--- Buoc 3: tach ra database rieng khi khong con JOIN nao
+-- Bước 2: tìm mọi JOIN xuyên schema và thay bằng gọi API hoặc event
+-- Bước 3: tách ra database riêng khi không còn JOIN nào
 ```
 
 Làm theo ba bước để mỗi bước đều quay lại được, thay vì một lần tách lớn.
@@ -100,8 +100,8 @@ Làm theo ba bước để mỗi bước đều quay lại được, thay vì m�
 **Cách 4 — Gộp service lại.**
 
 ```
-TRUOC: Sales Service + Quote Service + Pricing Service
-       (luon deploy cung nhau, luon goi nhau, chung database)
+TRƯỚC: Sales Service + Quote Service + Pricing Service
+       (luôn deploy cùng nhau, luôn gọi nhau, chung database)
 
 SAU:   Sales Service (co module Quote va Pricing ben trong)
 ```
