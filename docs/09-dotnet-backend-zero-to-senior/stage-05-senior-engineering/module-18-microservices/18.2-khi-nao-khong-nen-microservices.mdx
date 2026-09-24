@@ -1,46 +1,198 @@
 ---
 title: "18.2 — 1. Khi nào *không* nên microservices?"
-description: "Nếu team < 5, chưa có CI/CD ổn định, chưa có observability — modular monolith + bounded context rõ thường nhanh hơn."
+description: "Cái giá phải trả trước khi nhận được lợi ích, ba điều kiện tiên quyết, dấu hiệu đủ đau để tách, và vì sao modular monolith thường là câu trả lời đúng."
 sidebar_position: 2
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
 # 18.2 — 1. Khi nào *không* nên microservices?
 
+<SummaryBox>
+Microservices là một **đánh đổi**, không phải một nâng cấp: bạn trả bằng độ phức tạp vận hành để mua lấy khả năng **triển khai độc lập** và **scale độc lập**. Điểm mấu chốt mà rất nhiều đội bỏ qua: **cái giá phải trả ngay từ ngày đầu**, còn lợi ích chỉ xuất hiện khi hệ thống và đội đã đủ lớn. Martin Fowler gọi đó là [microservice premium](https://martinfowler.com/bliki/MicroservicePremium.html) — một khoản phí cố định mà hệ thống nhỏ **trả nhưng không bao giờ thu lại được**. Ba điều kiện tiên quyết, thiếu bất kỳ cái nào thì microservices sẽ **làm mọi thứ tệ hơn**: CI/CD tự động hoàn toàn, observability xuyên service, và đội đủ lớn để mỗi service có chủ sở hữu rõ ràng. Với phần lớn dự án CRM/ERP ở Việt Nam, câu trả lời đúng là **modular monolith**.
+</SummaryBox>
+
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Nêu chính xác cái giá của microservices và nó đến khi nào.
+- Kiểm tra ba điều kiện tiên quyết trước khi tách service.
+- Nhận ra dấu hiệu hệ thống đã đủ đau để tách.
+- Xây modular monolith có ranh giới thật, không chỉ thư mục.
+- Từ chối microservices một cách có lý lẽ khi bị áp lực.
 
 ## Nội dung bài học
 
-Nếu team < 5, chưa có CI/CD ổn định, chưa có observability — **modular monolith** + bounded context rõ thường nhanh hơn.
+### 18.2.1 — Cái giá đến trước, lợi ích đến sau
 
-**Dấu hiệu đã đủ “đau” để tách**:
+| Việc | Monolith | Microservices |
+|---|---|---|
+| Gọi một hàm ở module khác | Gọi thẳng, có IntelliSense | HTTP/gRPC, serialize, timeout, retry |
+| Debug một luồng | Một stack trace | Trace xuyên 4 service, cần hạ tầng |
+| Transaction nhiều bảng | `SaveChanges` một lần | **Saga hoặc chấp nhận không nhất quán** |
+| Thêm một trường | Sửa một chỗ | Sửa hợp đồng, phối hợp triển khai |
+| Chạy local | F5 | Docker Compose nhiều container |
+| Refactor xuyên ranh giới | IDE làm được | **Gần như không thể tự động** |
 
-- Scale khác nhau theo workload (notification spike so với core API).
-- **Release cadence** khác nhau giữa các phần (billing compliance so với CRM UI API).
-- Team sở hữu rõ ràng theo domain (Conway’s Law).
+Hàng thứ ba là cái giá đắt nhất và hay bị đánh giá thấp nhất. Trong monolith, "tạo customer và ghi audit log" là một transaction. Sau khi tách, nó trở thành một quy trình phân tán cần outbox, idempotency và xử lý lỗi từng bước ([Module 17](../module-17-distributed-systems/)).
 
----
+Hàng cuối cũng đáng sợ không kém: đổi tên một trường trong monolith là một phím tắt; xuyên service là một dự án nhỏ có phối hợp triển khai.
+
+### 18.2.2 — Ba điều kiện tiên quyết
+
+**1. CI/CD tự động hoàn toàn.** Với 8 service, triển khai thủ công là không khả thi. Nếu hôm nay bạn vẫn copy file lên server, microservices sẽ nhân con số đó lên 8 lần.
+
+**2. Observability xuyên service.** Không có distributed tracing, một lỗi "đơn hàng không được tạo" trở thành cuộc điều tra qua 4 hệ thống log rời rạc. Đây là **điều kiện bắt buộc**, không phải thứ làm sau ([bài 18.6](18.6-observability-three-pillars.mdx)).
+
+**3. Đội đủ lớn.** Conway's Law nói kiến trúc hệ thống sẽ phản chiếu cấu trúc giao tiếp của tổ chức. Một đội 4 người chia 8 service nghĩa là mỗi người "sở hữu" 2 service và **không ai thật sự sở hữu cái nào** — khi có sự cố, không ai biết rõ service đó đủ để sửa nhanh.
+
+Con số tham khảo thực dụng: **dưới 8–10 kỹ sư backend thì hầu như không có lý do gì để tách**.
+
+### 18.2.3 — Dấu hiệu đã đủ đau
+
+Tách khi có **vấn đề cụ thể** mà microservices giải quyết, không tách vì "kiến trúc hiện đại":
+
+**Scale khác nhau rõ rệt.** Module gửi thông báo cần 20 instance lúc cao điểm, phần còn lại cần 2. Trong monolith bạn phải scale cả 20 instance cho **toàn bộ** ứng dụng — lãng phí bộ nhớ và kết nối database.
+
+**Nhịp phát hành khác nhau.** Module billing có yêu cầu tuân thủ, mỗi lần đổi phải qua kiểm duyệt 2 tuần. Module CRM UI muốn phát hành hàng ngày. Chung một deployable nghĩa là CRM cũng bị kẹt 2 tuần.
+
+**Yêu cầu công nghệ khác nhau.** Module xử lý ảnh cần thư viện native; module báo cáo cần chạy trên máy nhiều RAM.
+
+**Ranh giới đội rõ ràng.** Hai đội riêng biệt, mỗi đội có backlog riêng, và họ liên tục chặn nhau ở khâu phát hành.
+
+**Không phải lý do chính đáng:** "để dễ scale sau này" (chưa có vấn đề scale), "để code sạch hơn" (modular monolith làm được), "công ty khác làm thế" (họ có 200 kỹ sư).
+
+### 18.2.4 — Modular monolith
+
+Đây là lựa chọn mặc định đúng cho phần lớn hệ thống: **một deployable, nhiều module có ranh giới thật**.
+
+```
+Crm.Api/                      <- MOT deployable
+Modules/
+  Sales/
+    Sales.Domain/
+    Sales.Application/
+    Sales.Infrastructure/
+    Sales.Contracts/          <- CHI project nay duoc module khac tham chieu
+  Billing/
+    Billing.Domain/
+    ...
+    Billing.Contracts/
+```
+
+Quy tắc cốt lõi: **module chỉ được tham chiếu project `Contracts` của module khác**, không bao giờ tham chiếu `Domain` hay `Infrastructure`.
+
+```csharp
+[Fact]
+public void Sales_ShouldNotDependOn_BillingInternals()
+{
+    var result = Types.InAssembly(typeof(SalesModule).Assembly)
+        .ShouldNot()
+        .HaveDependencyOnAny("Billing.Domain", "Billing.Infrastructure", "Billing.Application")
+        .GetResult();
+
+    Assert.True(result.IsSuccessful);
+}
+```
+
+Test này chạy trong CI và **chặn PR** vi phạm ranh giới ([bài 16.11](../module-16-clean-architecture/16.11-anti-patterns-to-avoid.mdx)). Không có nó, ranh giới chỉ là thư mục và sẽ bị phá trong vòng vài tháng.
+
+**Ranh giới dữ liệu cũng cần rõ:**
+
+```csharp
+// Moi module mot schema rieng — chuan bi cho viec tach sau nay
+modelBuilder.Entity<Lead>().ToTable("Leads", schema: "sales");
+modelBuilder.Entity<Invoice>().ToTable("Invoices", schema: "billing");
+```
+
+Cấm `JOIN` xuyên schema. Khi cần dữ liệu module khác, gọi qua `Contracts` — đúng như khi chúng là service riêng.
+
+**Lợi ích lớn nhất:** nếu sau này thật sự cần tách, mỗi module đã là một ứng viên sẵn sàng. Tách một module đã có ranh giới rõ tốn vài tuần; tách một monolith rối tốn vài quý — và thường thất bại giữa chừng.
+
+### 18.2.5 — Khi bị áp lực phải làm microservices
+
+Lập luận có dữ liệu thay vì tranh cãi quan điểm:
+
+| Câu hỏi | Vì sao nó hữu ích |
+|---|---|
+| Service nào cần scale khác phần còn lại, và số liệu đâu? | Buộc chuyển từ cảm tính sang đo đạc |
+| Deploy hiện tại mất bao lâu, bao nhiêu bước thủ công? | Phơi bày điều kiện tiên quyết còn thiếu |
+| Ai trực sự cố cho từng service? | Phơi bày vấn đề nhân lực |
+| Trace một request qua 4 service mất bao lâu? | Phơi bày lỗ hổng observability |
+| Nếu sai, quay lại monolith mất bao lâu? | Buộc tính chi phí đảo ngược |
+
+Đề xuất thay thế thường được chấp nhận: **làm modular monolith trước, tách khi có số liệu chứng minh cần tách**. [Martin Fowler gọi đây là monolith first](https://martinfowler.com/bliki/MonolithFirst.html) và ghi nhận rằng gần như mọi hệ microservices thành công đều bắt đầu từ một monolith được tách dần.
+
+### 18.2.6 — Rà lại code của bạn
+
+<Checklist
+  title="Danh sách rà soát trước khi tách microservices"
+  items={[
+    { text: "Có vấn đề cụ thể mà microservices giải quyết, kèm số liệu." },
+    { text: "CI/CD đã tự động hoàn toàn, không còn bước thủ công." },
+    { text: "Đã có distributed tracing xuyên service trước khi tách." },
+    { text: "Mỗi service dự kiến đều có chủ sở hữu rõ ràng và người trực sự cố." },
+    { text: "Đã cân nhắc modular monolith và nêu được vì sao nó không đủ." },
+    { text: "Module hiện tại chỉ tham chiếu Contracts của nhau, có kiến trúc test chặn." },
+    { text: "Dữ liệu đã tách schema, không JOIN xuyên ranh giới module." },
+    { text: "Đã tính chi phí quay lại nếu quyết định tách là sai." },
+  ]}
+/>
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **Kiểm tra điều kiện tiên quyết.** Với dự án hiện tại, trả lời đủ 5 câu hỏi ở mục 18.2.5 bằng số liệu thật, không bằng ước lượng.
+
+2. **Dựng kiến trúc test ranh giới.** Thêm `NetArchTest.Rules` và viết test chặn một module tham chiếu nội bộ của module khác. Chạy trên dự án thật, đếm số vi phạm hiện có.
+
+3. **Tách schema.** Chọn hai module trong monolith của bạn, chuyển bảng sang hai schema riêng và tìm mọi truy vấn `JOIN` xuyên schema.
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "Vì sao nói microservices premium là khoản phí cố định?",
+      answer: "Vì cái giá về độ phức tạp vận hành phải trả ngay từ ngày đầu, trong khi lợi ích triển khai độc lập và scale độc lập chỉ xuất hiện khi hệ thống và đội đã đủ lớn. Hệ thống nhỏ trả khoản phí đó nhưng không bao giờ thu lại được."
+    },
+    {
+      question: "Ba điều kiện tiên quyết trước khi tách service là gì?",
+      answer: "CI/CD tự động hoàn toàn vì triển khai thủ công không khả thi với nhiều service, observability xuyên service vì không có tracing thì mọi sự cố thành cuộc điều tra qua nhiều hệ thống log rời rạc, và đội đủ lớn để mỗi service có chủ sở hữu thật sự."
+    },
+    {
+      question: "Cái giá nào của microservices hay bị đánh giá thấp nhất?",
+      answer: "Mất transaction xuyên module. Trong monolith, ghi nhiều bảng là một SaveChanges. Sau khi tách, việc đó thành quy trình phân tán cần outbox, idempotency và xử lý lỗi từng bước. Refactor xuyên ranh giới cũng vậy, từ một phím tắt IDE thành một dự án nhỏ."
+    },
+    {
+      question: "Dấu hiệu nào cho thấy đã đủ đau để tách?",
+      answer: "Nhu cầu scale khác nhau rõ rệt giữa các phần, nhịp phát hành khác nhau khiến phần này kẹt vì phần kia, yêu cầu công nghệ khác nhau, hoặc hai đội riêng biệt liên tục chặn nhau ở khâu phát hành. Tất cả đều là vấn đề cụ thể có số liệu."
+    },
+    {
+      question: "Quy tắc cốt lõi của modular monolith là gì?",
+      answer: "Module chỉ được tham chiếu project Contracts của module khác, không bao giờ tham chiếu Domain hay Infrastructure, và ranh giới đó phải được chặn bằng kiến trúc test trong CI. Dữ liệu cũng tách schema riêng và cấm JOIN xuyên schema."
+    },
+    {
+      question: "Vì sao modular monolith giúp việc tách sau này rẻ hơn?",
+      answer: "Vì mỗi module đã là một ứng viên có ranh giới rõ về cả code lẫn dữ liệu. Tách một module như vậy tốn vài tuần, còn tách một monolith rối tốn vài quý và thường thất bại giữa chừng."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **Cái giá đến ngay, lợi ích đến muộn.** Hệ thống nhỏ chỉ trả phí mà không thu lại.
+2. **Thiếu CI/CD hoặc tracing thì microservices làm mọi thứ tệ hơn**, không phải tốt hơn.
+3. **Modular monolith là mặc định đúng** — và là bước chuẩn bị rẻ nhất cho việc tách sau này.
+
+## Tham khảo
+
+- [MicroservicePremium (Martin Fowler)](https://martinfowler.com/bliki/MicroservicePremium.html)
+- [MonolithFirst (Martin Fowler)](https://martinfowler.com/bliki/MonolithFirst.html)
+- [Microservice trade-offs](https://martinfowler.com/articles/microservice-trade-offs.html)
+- [.NET microservices architecture guide](https://learn.microsoft.com/en-us/dotnet/architecture/microservices/)
 
 ## Điều hướng
 
