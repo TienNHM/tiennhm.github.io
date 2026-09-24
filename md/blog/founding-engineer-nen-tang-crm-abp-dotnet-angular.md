@@ -288,6 +288,6 @@ Ai đang ở tuần đầu của một dự án mới thì mình nghĩ tuần đ
 
 ## Bài liên quan
 
-- [Module 15 — Docker + Deployment](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-15-docker-deployment) — Container hóa và triển khai: Dockerfile multi-stage, compose, health checks, reverse proxy — pipeline production-like cho .NET.
 - [Lộ trình .NET Backend: From Zero → Senior (Backend-first)](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/dotnet-backend-zero-to-senior-roadmap) — Curriculum hub: lộ trình .NET backend-first (C#, ASP.NET Core, SQL, EF Core, distributed systems, microservices) với trục nghiệp vụ CRM/ERP — tối ưu…
+- [Module 15 — Docker + Deployment](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-15-docker-deployment) — Container hóa và triển khai: Dockerfile multi-stage, compose, health checks, reverse proxy — pipeline production-like cho .NET.
 - [Module 10 — Authentication + Authorization](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-10-authentication-authorization) — Xác thực & phân quyền ASP.NET Core: JWT, OAuth2/OIDC, cookie, policy-based authorization — mô hình bảo mật đa tenant cho CRM.
