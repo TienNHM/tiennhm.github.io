@@ -27,7 +27,7 @@ Sau bài này bạn có thể:
 ### 16.10.1 — Test hành vi, không test cấu trúc
 
 ```csharp
-// TEST CAU TRUC — gay khi refactor du hanh vi khong doi
+// TEST CẤU TRÚC — gãy khi refactor dù hành vi không đổi
 [Fact]
 public async Task Should_Call_Repository_And_UnitOfWork()
 {
@@ -43,7 +43,7 @@ Test này khẳng định **cách** code được viết. Đổi từ `repo.Add`
 Sau ba lần như vậy, người ta bắt đầu "sửa test cho xanh" thay vì đọc nó. Bộ test mất giá trị.
 
 ```csharp
-// TEST HANH VI — chi quan tam KET QUA
+// TEST HÀNH VI — chỉ quan tâm KẾT QUẢ
 [Fact]
 public async Task CreateLead_WithValidData_ShouldPersistLead()
 {
@@ -81,7 +81,7 @@ Với kiến trúc phân tầng và công cụ hiện đại (Testcontainers, `W
 Hàng thứ hai là khác biệt lớn nhất so với lời khuyên cổ điển.
 
 ```csharp
-// Unit test Domain — nhanh nhat, gia tri cao nhat
+// Unit test Domain — nhanh nhất, giá trị cao nhất
 [Fact]
 public void Convert_WhenLeadIsLost_ShouldThrow()
 {
@@ -134,7 +134,7 @@ Dùng Testcontainers để có database thật ([bài 9.9](../../stage-03-aspnet
 Hai hàng "không" cuối quan trọng: mock một lớp trong cùng assembly nghĩa là bạn đang test **lời gọi giữa hai lớp của mình**, tức test cấu trúc.
 
 ```csharp
-// Mock he thong ngoai — DUNG
+// Mock hệ thống ngoài — ĐÚNG
 var email = Substitute.For<IEmailSender>();
 var clock = new FakeTimeProvider(new DateTimeOffset(2026, 3, 15, 10, 0, 0, TimeSpan.Zero));
 
@@ -159,7 +159,7 @@ public sealed class FakeEmailSender : IEmailSender
     }
 }
 
-// Trong test — doc duoc hon Verify
+// Trong test — đọc được hơn Verify
 Assert.Single(fakeEmail.Sent);
 Assert.Equal("a@example.com", fakeEmail.Sent[0].To);
 ```
@@ -171,7 +171,7 @@ Fake cho phép assert về **kết quả** (email nào đã gửi) thay vì về
 ### 16.10.4 — Coverage nói dối
 
 ```csharp
-// 100% coverage, ZERO gia tri
+// 100% coverage, ZERO giá trị
 [Fact]
 public async Task Handle_ShouldNotThrow()
 {
@@ -223,16 +223,16 @@ Với thời gian có hạn, thứ tự ưu tiên:
 Bốn loại test đáng có **dù không theo tầng nào**, vì chúng bắt lớp lỗi mà test thường bỏ qua:
 
 ```csharp
-// 1. Kien truc — ranh gioi khong bi pha
+// 1. Kiến trúc — ranh giới không bị phá
 [Fact] public void Domain_ShouldNotDependOn_Infrastructure() { ... }
 
 // 2. Dem truy van — chong N+1 ([bai 13.7])
 [Fact] public async Task GetList_ShouldNotCauseNPlusOne() { ... }
 
-// 3. Cach ly tenant — chong ro ri du lieu ([bai 13.11])
+// 3. Cách ly tenant — chống rò rỉ dữ liệu ([bài 13.11])
 [Fact] public async Task TenantB_ShouldNotSee_TenantAData() { ... }
 
-// 4. Hop dong API — chong breaking change ([bai 9.3])
+// 4. Hợp đồng API — chống breaking change ([bài 9.3])
 [Fact] public void OpenApiDocument_ShouldNotHaveBreakingChanges() { ... }
 ```
 

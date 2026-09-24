@@ -42,7 +42,7 @@ public sealed class CrmService(
     public async Task<CustomerDto> CreateCustomerAsync(...) { }
     public async Task SendMonthlyReportAsync(...) { }
     public async Task ExportToExcelAsync(...) { }
-    // ... 40 phuong thuc nua
+    // ... 40 phương thức nữa
 }
 ```
 
@@ -58,7 +58,7 @@ public sealed class CrmService(
 **Cách gỡ — không viết lại:** tách dần theo use case. Mỗi lần chạm vào một phương thức, kéo nó ra thành một handler riêng ([bài 16.7](16.6-mediatr-use-case-pipeline.mdx)), rồi để `CrmService` gọi handler đó. Sau vài tháng `CrmService` rỗng và xoá được.
 
 ```csharp
-// Buoc trung gian — CrmService uy quyen, khong con logic
+// Bước trung gian — CrmService uỷ quyền, không còn logic
 public sealed class CrmService(ISender sender)
 {
     public Task<Result<LeadId>> CreateLeadAsync(CreateLeadRequest r, CancellationToken ct)
@@ -73,7 +73,7 @@ public sealed class CrmService(ISender sender)
 Đây là anti-pattern nguy hiểm nhất vì nó **giả dạng** kiến trúc tốt.
 
 ```csharp
-// ANTI-PATTERN — entity chi la tui chua du lieu
+// ANTI-PATTERN — entity chỉ là túi chứa dữ liệu
 public class Lead
 {
     public Guid Id { get; set; }
@@ -91,7 +91,7 @@ public class LeadService
     {
         var lead = await _repo.GetByIdAsync(id);
         if (lead.Status == "Lost") throw new Exception("Lead da mat");
-        if (lead.Value <= 0) throw new Exception("Gia tri khong hop le");
+        if (lead.Value <= 0) throw new Exception("Giá trị không hợp lệ");
         lead.Status = "Won";
         lead.ConvertedAt = DateTime.Now;
         await _repo.SaveAsync(lead);
@@ -104,7 +104,7 @@ public class LeadService
 Sáu tháng sau, quy tắc đó xuất hiện ở bốn nơi với ba phiên bản khác nhau, và không ai biết phiên bản nào đúng.
 
 ```csharp
-// SUA — quy tac song trong entity, khong the lach
+// SỬA — quy tắc sống trong entity, không thể lách
 public sealed class Lead
 {
     public LeadId Id { get; private set; }
@@ -197,7 +197,7 @@ Gói `NetArchTest.Rules`. Test này chạy trong CI và **chặn PR** vi phạm 
 ### 16.11.4 — Controller điều phối nghiệp vụ
 
 ```csharp
-// ANTI-PATTERN — controller lam viec cua use case
+// ANTI-PATTERN — controller làm việc của use case
 [HttpPost("{id}/convert")]
 public async Task<IActionResult> Convert(Guid id)
 {
@@ -242,7 +242,7 @@ Transaction nằm trong pipeline behavior ([bài 16.7](16.6-mediatr-use-case-pip
 ### 16.11.5 — MediatR cho mọi thứ
 
 ```csharp
-// ANTI-PATTERN — mot lop query chi de goi mot dong EF
+// ANTI-PATTERN — một lớp query chỉ để gọi một dòng EF
 public sealed record GetCountriesQuery : IRequest<List<CountryDto>>;
 
 public sealed class GetCountriesHandler(AppDbContext db)
@@ -258,7 +258,7 @@ Ba file (query, handler, và đăng ký) cho một truy vấn không có quy t�
 **Quy tắc dùng:** MediatR đáng dùng khi bạn cần **pipeline** — validation, transaction, logging, authorization chạy quanh use case. Truy vấn đọc thuần không cần gì trong số đó thì gọi thẳng.
 
 ```csharp
-// Doc thuan — goi thang, ngan gon hon, va khong mat gi
+// Đọc thuần — gọi thẳng, ngắn gọn hơn, và không mất gì
 [HttpGet("countries")]
 public async Task<IReadOnlyList<CountryDto>> GetCountries(CancellationToken ct)
     => await _db.Countries
@@ -284,7 +284,7 @@ Crm.Infrastructure.Identity/
 Crm.Infrastructure.Messaging/
 Crm.Api/
 Crm.Api.Contracts/
-...cho mot ung dung 5 man hinh CRUD, doi 2 nguoi
+...cho một ứng dụng 5 màn hình CRUD, đội 2 người
 ```
 
 Mỗi ranh giới là chi phí: thêm một lần ánh xạ, thêm một file cấu hình DI, thêm một bước khi đọc code, build chậm hơn.

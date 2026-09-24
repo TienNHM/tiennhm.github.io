@@ -155,10 +155,10 @@ builder.Services.AddMediatR(cfg =>
 {
     cfg.RegisterServicesFromAssembly(typeof(CreateLeadCommand).Assembly);
 
-    cfg.AddOpenBehavior(typeof(LoggingBehavior<,>));         // 1 — NGOAI cung
+    cfg.AddOpenBehavior(typeof(LoggingBehavior<,>));         // 1 — NGOÀI cùng
     cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));      // 2
     cfg.AddOpenBehavior(typeof(TransactionBehavior<,>));     // 3
-    cfg.AddOpenBehavior(typeof(PerformanceBehavior<,>));     // 4 — TRONG cung
+    cfg.AddOpenBehavior(typeof(PerformanceBehavior<,>));     // 4 — TRONG cùng
 });
 ```
 
@@ -224,7 +224,7 @@ public void EveryRequest_ShouldHave_Handler()
 ### 16.7.5 — Phương án thay thế
 
 ```csharp
-// 1. Interface thuong + decorator — khong phu thuoc gi
+// 1. Interface thường + decorator — không phụ thuộc gì
 public interface IHandler<TRequest, TResponse>
 {
     Task<TResponse> HandleAsync(TRequest request, CancellationToken ct);
@@ -241,7 +241,7 @@ public sealed class ValidationDecorator<TRequest, TResponse>(
     }
 }
 
-// Dang ky bang Scrutor
+// Đăng ký bằng Scrutor
 services.Scan(s => s.FromAssemblyOf<CreateLeadHandler>()
     .AddClasses(c => c.AssignableTo(typeof(IHandler<,>)))
     .AsImplementedInterfaces().WithScopedLifetime());

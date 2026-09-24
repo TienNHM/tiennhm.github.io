@@ -40,16 +40,16 @@ public class CrmService
         IAuditService audit, INotificationService notifications)
     { /* ... */ }
 
-    // 63 phuong thuc public, 4.217 dong
+    // 63 phương thức public, 4.217 dòng
 }
 ```
 
 Ba hậu quả đo được, không phải cảm tính:
 
 ```
-- Thoi gian chay bo test cua service nay:  8 phut (moi test dung 19 mock)
-- So merge conflict trung binh moi tuan:   11 (ca doi sua cung file)
-- Thoi gian dong bo cua developer moi:     ~3 ngay chi de hieu file nay
+- Thời gian chạy bộ test của service này:  8 phút (mỗi test dựng 19 mock)
+- Số merge conflict trung bình mỗi tuần:   11 (cả đội sửa cùng file)
+- Thời gian đồng bộ của developer mới:     ~3 ngày chỉ để hiểu file này
 ```
 
 ### 16.15.2 — Ba sai lầm trong ba tháng đầu
@@ -73,7 +73,7 @@ Quy tắc duy nhất, viết vào định nghĩa hoàn thành của đội:
 public sealed class ConvertLeadHandler(
     ILeadRepository leads,
     ICustomerRepository customers,
-    IEventPublisher events)              // chi 3 dependency, khong phai 19
+    IEventPublisher events)              // chỉ 3 dependency, không phải 19
     : IRequestHandler<ConvertLeadCommand, Result>
 {
     public async Task<Result> Handle(ConvertLeadCommand request, CancellationToken ct)
@@ -86,7 +86,7 @@ public sealed class ConvertLeadHandler(
 public async Task<Result> ConvertLeadAsync(Guid leadId)
     => await _sender.Send(new ConvertLeadCommand(new LeadId(leadId)));
 
-// Buoc 3: gio moi sua theo yeu cau nghiep vu moi
+// Bước 3: giờ mới sửa theo yêu cầu nghiệp vụ mới
 ```
 
 Ba đặc điểm khiến cách này hoạt động được:
@@ -102,13 +102,13 @@ Bước 2 quan trọng: giữ `CrmService` như một lớp uỷ quyền nghĩa 
 Ba chỉ số, đo hàng tuần và vẽ theo thời gian:
 
 ```bash
-# 1. So dong cua CrmService
+# 1. Số dòng của CrmService
 wc -l src/Crm.Application/Services/CrmService.cs
 
 # 2. So dependency trong constructor
 grep -c "I[A-Z][a-zA-Z]* " CrmService.cs
 
-# 3. So phuong thuc CON logic (chua phai uy quyen thuan)
+# 3. Số phương thức CÒN logic (chưa phải uỷ quyền thuần)
 grep -c "public async Task" CrmService.cs
 ```
 
