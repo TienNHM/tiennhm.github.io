@@ -1,105 +1,261 @@
 ---
 title: "2.5 — 3. HTTP/HTTPS"
-description: "Nhờ vậy frontend biết hiển thị lỗi đúng ô nhập liệu thay vì báo chung chung \"Đã có lỗi xảy ra\"."
+description: "Cấu trúc request và response, ngữ nghĩa của method, chọn đúng status code, và một giới hạn ít ai biết: giá trị header chỉ được chứa ASCII — đủ để một dấu tiếng Việt làm chết lời gọi API."
 sidebar_position: 5
 ---
 
-import { SummaryBox, HiddenContent } from '@site/src/components/SEO';
+import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
 # 2.5 — 3. HTTP/HTTPS
 
+<SummaryBox>
+HTTP là một giao thức văn bản đơn giản tới mức gõ tay được. Nhưng ba chỗ trong nó thường xuyên bị dùng sai. **Method có ngữ nghĩa**: `GET` phải an toàn và `PUT`/`DELETE` phải idempotent — vi phạm thì proxy, trình duyệt và cơ chế retry sẽ làm hỏng dữ liệu của bạn. **Status code nói với máy, không nói với người**: trả `200` kèm `{"error": ...}` là làm mù mọi lớp giám sát. Và **giá trị header chỉ được chứa ASCII** — một dấu tiếng Việt lọt vào là `HttpClient` ném ngoại lệ trước khi request kịp rời máy.
+</SummaryBox>
+
 ## Mục tiêu bài học
 
-- Nắm được ý chính của bài và mối liên hệ với module.
-- Áp dụng được kiến thức vào bối cảnh CRM/.NET backend.
-- Sẵn sàng chuyển sang bài kế tiếp với nền tảng chắc chắn.
+Sau bài này bạn có thể:
+
+- Đọc và tự gõ một request HTTP thô.
+- Giải thích "an toàn" và "idempotent", và nói được method nào có tính chất nào.
+- Chọn đúng status code, đặc biệt phân biệt `401` với `403`, `400` với `422`.
+- Nêu giới hạn ký tự của giá trị header và cách gửi tiếng Việt cho đúng.
+- Chỉ ra HTTPS bảo vệ được gì và không bảo vệ được gì.
 
 ## Nội dung bài học
 
-### 2.5.1 — HTTP Methods
+### 2.5.1 — Một request trông như thế nào
 
-HTTP định nghĩa **method (động từ)** cho từng loại thao tác:
-
-| Method   | Ý nghĩa               | Ví dụ trong CRM                       |
-|----------|-----------------------|---------------------------------------|
-| `GET`    | Lấy dữ liệu           | `GET /api/customers` — xem danh sách  |
-| `POST`   | Tạo mới               | `POST /api/customers` — thêm KH mới   |
-| `PUT`    | Cập nhật toàn bộ      | `PUT /api/customers/5` — sửa KH #5    |
-| `PATCH`  | Cập nhật một phần     | `PATCH /api/customers/5` — đổi email  |
-| `DELETE` | Xóa                   | `DELETE /api/customers/5` — xóa KH    |
-
-### 2.5.2 — HTTP Status Codes
-
-Server luôn trả về một **status code** 3 chữ số:
-
-| Nhóm | Ý nghĩa     | Ví dụ quan trọng                                      |
-|------|-------------|-------------------------------------------------------|
-| 2xx  | Thành công  | `200 OK`, `201 Created`, `204 No Content`             |
-| 3xx  | Chuyển hướng| `301 Moved Permanently`, `302 Found`                  |
-| 4xx  | Lỗi client  | `400 Bad Request`, `401 Unauthorized`, `404 Not Found`, `422 Unprocessable` |
-| 5xx  | Lỗi server  | `500 Internal Server Error`, `503 Service Unavailable` |
-
-> **Trong CRM:** Khi sales nhập sai email khách hàng, API trả `422 Unprocessable Entity` kèm message giải thích. Khi chưa đăng nhập mà gọi API, server trả `401 Unauthorized`.
-
-### 2.5.3 — HTTP Headers và Body
-
-Một HTTP request đầy đủ trông như sau:
-
-```
+```http
 POST /api/customers HTTP/1.1
-Host: crm.company.com
+Host: api.company.com
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
-Content-Length: 87
+Authorization: Bearer eyJhbGciOi...
+Accept-Language: vi-VN
 
-{
-  "name": "Nguyen Van A",
-  "email": "a@example.com",
-  "phone": "0912345678"
-}
+{"name":"Nguyễn Văn A","email":"a@company.com"}
 ```
 
-- **Headers**: Metadata — loại content, token xác thực, ngôn ngữ...
-- **Body**: Dữ liệu thực sự gửi lên (chỉ có với POST, PUT, PATCH)
-- **HTTPS**: Mã hóa toàn bộ traffic bằng TLS — bắt buộc trong production để bảo vệ token và dữ liệu khách hàng
+Bốn phần: **dòng đầu** (method, đường dẫn, phiên bản), **các header**, **một dòng trống**, rồi **phần thân**. Response cũng đúng cấu trúc đó, chỉ khác dòng đầu:
 
-### 2.5.4 — Ví dụ thực tế: tạo khách hàng mới và xử lý lỗi
+```http
+HTTP/1.1 201 Created
+Content-Type: application/json
+Location: /api/customers/42
 
-Giả sử nhân viên sales tạo khách hàng từ giao diện CRM:
+{"id":42,"name":"Nguyễn Văn A"}
+```
 
-1. Frontend gửi `POST /api/customers` kèm JSON.
-2. Nếu dữ liệu hợp lệ, backend trả `201 Created` + `id` khách hàng mới.
-3. Nếu thiếu email hoặc email sai định dạng, backend trả `422 Unprocessable Entity`.
+Dòng trống là bắt buộc — nó báo cho bên nhận biết header đã hết.
 
-Ví dụ response lỗi:
+### 2.5.2 — Method có ngữ nghĩa, không chỉ là cái tên
+
+| Method | An toàn | Idempotent | Nghĩa |
+|---|---|---|---|
+| `GET` | có | có | Đọc, không đổi gì |
+| `HEAD` | có | có | Như `GET` nhưng không lấy thân |
+| `POST` | không | **không** | Tạo mới, hoặc thao tác không xếp được vào đâu |
+| `PUT` | không | có | Thay thế toàn bộ tài nguyên |
+| `PATCH` | không | không | Sửa một phần |
+| `DELETE` | không | có | Xoá |
+
+Hai khái niệm này không phải lý thuyết suông:
+
+- **An toàn** nghĩa là không làm đổi trạng thái. Trình duyệt, proxy và trình thu thập dữ liệu **tự ý gọi `GET`** bất cứ lúc nào. Nếu bạn làm `GET /orders/42/delete` thì một con bot quét link sẽ xoá sạch đơn hàng. Đây là chuyện đã xảy ra với nhiều hệ thống thật.
+- **Idempotent** nghĩa là gọi một lần hay mười lần cho cùng kết quả. Quan trọng vì mạng không đáng tin: client gửi request, mất phản hồi, và **gửi lại**. Với `DELETE` thì vô hại. Với `POST` tạo đơn hàng thì bạn có hai đơn.
+
+Cách xử lý `POST` bị gửi lại: yêu cầu client gửi kèm một khoá idempotency và từ chối khoá đã dùng.
+
+```http
+POST /api/orders
+Idempotency-Key: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+```
+
+### 2.5.3 — Status code: nói với máy, không nói với người
+
+```mermaid
+flowchart TD
+    A[Status code] --> B[1xx - Thong tin]
+    A --> C[2xx - Thanh cong]
+    A --> D[3xx - Chuyen huong]
+    A --> E[4xx - Loi o phia CLIENT]
+    A --> F[5xx - Loi o phia SERVER]
+```
+
+Ranh giới `4xx`/`5xx` quyết định ai phải đi sửa: `4xx` là "bạn gửi sai", `5xx` là "tôi hỏng". Đặt sai nhóm là đổ lỗi nhầm người, và làm hỏng mọi cảnh báo dựng trên tỉ lệ lỗi `5xx`.
+
+Những mã hay dùng nhất:
+
+| Mã | Khi nào |
+|---|---|
+| `200 OK` | Thành công, có thân phản hồi |
+| `201 Created` | Đã tạo — kèm header `Location` |
+| `204 No Content` | Thành công, không có gì để trả |
+| `301` / `308` | Chuyển hướng **vĩnh viễn** |
+| `302` / `307` | Chuyển hướng **tạm thời** |
+| `304 Not Modified` | Client dùng bản cache đi |
+| `400 Bad Request` | Request dị dạng, không parse được |
+| `401 Unauthorized` | **Chưa biết bạn là ai** |
+| `403 Forbidden` | **Biết bạn là ai, nhưng không cho** |
+| `404 Not Found` | Không có tài nguyên này |
+| `409 Conflict` | Xung đột trạng thái, ví dụ email đã tồn tại |
+| `422 Unprocessable Entity` | Cú pháp đúng, **nghiệp vụ sai** |
+| `429 Too Many Requests` | Vượt giới hạn tần suất |
+| `500 Internal Server Error` | Lỗi không lường trước |
+| `502` / `503` / `504` | Gateway lỗi / quá tải / hết giờ chờ |
+
+Hai cặp hay nhầm nhất:
+
+- **`401` và `403`.** `401` nghĩa là "hãy đăng nhập đi" — thiếu hoặc hỏng token. `403` nghĩa là "đã đăng nhập rồi nhưng không đủ quyền". Trả `401` cho một người đã đăng nhập khiến frontend đá họ về trang login một cách vô lý.
+- **`400` và `422`.** `400` là JSON hỏng, không parse nổi. `422` là JSON hợp lệ nhưng `age = -5`.
+
+Và một lỗi nghiêm trọng hơn cả hai: **trả `200` kèm thân báo lỗi**.
 
 ```json
-{
-  "error": "ValidationFailed",
-  "message": "Email is required and must be valid.",
-  "field": "email"
-}
+HTTP/1.1 200 OK
+{"success": false, "message": "Khách hàng không tồn tại"}
 ```
 
-Nhờ vậy frontend biết hiển thị lỗi đúng ô nhập liệu thay vì báo chung chung "Đã có lỗi xảy ra".
+Mọi thứ nằm ngoài code của bạn — dashboard giám sát, cân bằng tải, cơ chế retry, CDN — đều chỉ nhìn status code. Với chúng, response trên là một thành công. Tỉ lệ lỗi của hệ thống sẽ mãi mãi hiển thị 0%.
 
----
+Danh sách đầy đủ: [HTTP response status codes — MDN](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status).
+
+### 2.5.4 — Header, và giới hạn ASCII ít ai biết
+
+```http
+Content-Type: application/json; charset=utf-8
+Authorization: Bearer <token>
+Cache-Control: no-store
+X-Request-Id: 7c9e6679-7425-40de-944b
+```
+
+Đây là chỗ có một cái bẫy thật sự. Theo [RFC 9110](https://www.rfc-editor.org/rfc/rfc9110.html), giá trị header là chuỗi **ký tự US-ASCII in được**. Byte ngoài khoảng đó (`obs-text`) tồn tại trong đặc tả vì lý do lịch sử, nhưng không có cách diễn giải chuẩn.
+
+Hệ quả trong .NET: gán một chuỗi có dấu tiếng Việt vào header và `HttpClient` sẽ nổ **trước khi** request rời máy.
+
+```csharp
+// Nổ ở đây, chưa gửi đi byte nào
+request.Headers.Add("X-City", "Hà Nội");
+```
+
+Cách đúng là mã hoá theo RFC 8187, hoặc chuyển dữ liệu xuống phần thân:
+
+```http
+X-City*: UTF-8''H%C3%A0%20N%E1%BB%99i
+```
+
+Ba bài đi sâu vào đúng chuyện này, từ ba góc khác nhau:
+
+- [HTTP header có chứa được tiếng Việt không?](/blog/http-header-unicode-ascii-dotnet) — phần đặc tả và chỗ .NET vạch ranh giới
+- [Một dấu tiếng Việt làm chết lời gọi API](/blog/cloudflare-header-broke-dotnet-httpclient) — sự cố thật với header `cf-ipcity`
+- [Forward header trong ASP.NET Core](/blog/forward-http-header-an-toan-aspnet-core) — vì sao "forward hết" là một lỗi kiến trúc
+
+### 2.5.5 — Cache: `ETag` và `Cache-Control`
+
+```http
+# Lần đầu
+GET /api/customers/42
+→ 200 OK
+  ETag: "v3"
+  Cache-Control: max-age=60
+
+# Lần sau
+GET /api/customers/42
+If-None-Match: "v3"
+→ 304 Not Modified          ← không có thân, tiết kiệm băng thông
+```
+
+`ETag` là dấu vân tay của nội dung. Client gửi lại dấu đó, máy chủ so sánh, và nếu chưa đổi thì trả `304` rỗng.
+
+`ETag` còn dùng để chống ghi đè lẫn nhau:
+
+```http
+PUT /api/customers/42
+If-Match: "v3"
+→ 412 Precondition Failed    ← ai đó đã sửa trước bạn
+```
+
+### 2.5.6 — HTTPS bảo vệ gì, và không bảo vệ gì
+
+**Có:** nội dung request và response, đường dẫn URL, query string, header, cookie. Người ở giữa chỉ thấy một luồng byte vô nghĩa.
+
+**Không:** tên miền bạn truy cập (lộ qua SNI và DNS), địa chỉ IP, kích thước và thời điểm các gói tin. Và quan trọng nhất — HTTPS **không** kiểm tra máy chủ có đáng tin về mặt nội dung hay không; nó chỉ chứng minh máy chủ đúng là chủ của tên miền đó. Một trang lừa đảo vẫn có ổ khoá xanh.
+
+Thêm một lớp nữa nên bật: `Strict-Transport-Security` buộc trình duyệt chỉ dùng HTTPS cho tên miền này, kể cả khi người dùng gõ `http://`.
+
+```http
+Strict-Transport-Security: max-age=31536000; includeSubDomains
+```
+
+### 2.5.7 — Rà lại API của bạn
+
+<Checklist
+  title="Danh sách rà soát HTTP"
+  items={[
+    { text: "Không có endpoint GET nào làm thay đổi dữ liệu." },
+    { text: "Lỗi luôn trả mã 4xx hoặc 5xx, không bao giờ trả 200 kèm thân báo lỗi." },
+    { text: "Phân biệt đúng 401 (chưa đăng nhập) và 403 (không đủ quyền)." },
+    { text: "Endpoint tạo mới trả 201 kèm header Location." },
+    { text: "Không có giá trị header nào chứa ký tự ngoài ASCII." },
+    { text: "POST tạo tài nguyên có cơ chế idempotency-key để chống gửi lại." },
+    { text: "Đã bật Strict-Transport-Security trên tên miền production." },
+  ]}
+/>
 
 ## Bài tập áp dụng
 
-1. Tóm tắt bài học bằng ngôn ngữ của bạn.
-2. Liên hệ nội dung với một tình huống thực tế trong dự án.
-3. Đề xuất một cải tiến cụ thể sau khi học bài này.
+1. **Gõ HTTP bằng tay.** Dùng `curl -v` gọi một API của bạn và đọc toàn bộ request lẫn response thô. Chỉ ra bốn phần trong mỗi bên. Sau đó thử `curl -X HEAD` và giải thích khác biệt.
+
+2. **Tự tạo lỗi ASCII.** Viết một đoạn C# thêm header có giá trị `"Hà Nội"` rồi gửi bằng `HttpClient`. Ghi lại ngoại lệ đầy đủ. Sau đó mã hoá theo RFC 8187 và xác nhận request đi được.
+
+3. **Soát lại status code.** Liệt kê mười endpoint trong dự án và mã chúng trả về khi thất bại. Đếm xem bao nhiêu cái trả `200` kèm `success: false`, và bao nhiêu cái lẫn lộn `401` với `403`.
 
 ## Tự kiểm tra
 
-- Bạn có thể giải thích lại nội dung chính trong 2 phút không?
-- Bạn có ví dụ áp dụng thực tế chưa?
-- Bạn biết bước tiếp theo cần học/triển khai là gì không?
+<FAQSection
+  items={[
+    {
+      question: "An toàn và idempotent khác nhau thế nào?",
+      answer: "An toàn nghĩa là không làm thay đổi trạng thái, như GET và HEAD — nên trình duyệt và bot tự ý gọi lúc nào cũng được. Idempotent nghĩa là gọi một lần hay nhiều lần đều cho cùng kết quả, như PUT và DELETE — quan trọng vì mạng không đáng tin và client hay gửi lại. POST không có cả hai tính chất, nên tạo tài nguyên bằng POST cần khoá idempotency để chống trùng."
+    },
+    {
+      question: "Vì sao không được để GET làm thay đổi dữ liệu?",
+      answer: "Vì GET được đặc tả là an toàn, nên trình duyệt, proxy, trình thu thập dữ liệu và trình duyệt tăng tốc đều tự ý gọi nó. Một endpoint như GET /orders/42/delete sẽ bị một con bot quét link kích hoạt và xoá dữ liệu mà không ai bấm nút nào."
+    },
+    {
+      question: "401 và 403 khác nhau ở đâu?",
+      answer: "401 Unauthorized nghĩa là máy chủ chưa biết bạn là ai — thiếu token, token hỏng hoặc hết hạn, và cách xử lý là đăng nhập. 403 Forbidden nghĩa là đã biết bạn là ai nhưng tài khoản này không đủ quyền, đăng nhập lại cũng không giúp gì. Trả nhầm 401 cho người đã đăng nhập khiến frontend đá họ về trang login một cách vô lý."
+    },
+    {
+      question: "Vì sao trả 200 kèm success:false lại tệ?",
+      answer: "Vì mọi thứ nằm ngoài code của bạn — dashboard giám sát, cân bằng tải, cơ chế retry, CDN — chỉ nhìn status code chứ không đọc thân phản hồi. Với chúng, response đó là thành công, nên tỉ lệ lỗi của hệ thống sẽ mãi hiển thị 0% dù người dùng đang gặp lỗi liên tục."
+    },
+    {
+      question: "Giá trị header HTTP chứa được tiếng Việt không?",
+      answer: "Không. Theo RFC 9110, giá trị header là chuỗi ký tự US-ASCII in được. Byte ngoài khoảng đó tồn tại trong đặc tả vì lý do lịch sử nhưng không có cách diễn giải chuẩn. Trong .NET, gán chuỗi có dấu vào header khiến HttpClient ném ngoại lệ trước khi request kịp rời máy. Cách đúng là mã hoá theo RFC 8187 hoặc chuyển dữ liệu xuống phần thân."
+    },
+    {
+      question: "HTTPS không bảo vệ được những gì?",
+      answer: "Không giấu được tên miền bạn truy cập, vì nó lộ qua SNI và qua truy vấn DNS. Không giấu địa chỉ IP, kích thước và thời điểm các gói tin. Và nó không nói gì về việc máy chủ có đáng tin về nội dung hay không — chứng chỉ chỉ chứng minh máy chủ là chủ của tên miền, nên một trang lừa đảo vẫn có ổ khoá xanh."
+    }
+  ]}
+/>
 
 ## Kết luận
 
-Hoàn thành bài này giúp bạn có góc nhìn đầy đủ hơn trước khi đi tiếp trong module.
+Ba điều đáng nhớ nhất:
+
+1. **Method là một lời hứa.** `GET` hứa không đổi gì, và cả Internet tin lời hứa đó.
+2. **Status code là cách nói chuyện với máy móc.** Trả `200` cho một lỗi là tự làm mù hệ thống giám sát của chính mình.
+3. **Header chỉ chứa ASCII.** Một dấu tiếng Việt lọt vào là đủ để giết một lời gọi API trước khi nó rời máy.
+
+## Tham khảo
+
+- [HTTP — MDN](https://developer.mozilla.org/en-US/docs/Web/HTTP) — tài liệu tổng quan tốt nhất
+- [HTTP request methods](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods) — bảng an toàn và idempotent
+- [HTTP response status codes](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status) — danh sách đầy đủ
+- [RFC 9110 — HTTP Semantics](https://www.rfc-editor.org/rfc/rfc9110.html) — đặc tả gốc, phần `field-value`
+- [ASP.NET Core Web API](https://learn.microsoft.com/en-us/aspnet/core/web-api/) — trả status code cho đúng trong .NET
 
 ## Điều hướng
 
