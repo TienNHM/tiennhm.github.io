@@ -116,11 +116,620 @@ Sau module này là [Module 19 — Performance Engineering](../module-19-perform
 
 ## Bài tập áp dụng
 
-1. **Tự đánh giá.** Đi qua danh sách rà soát ở trên và quay lại đúng bài cho mục nào chưa tự tin.
+#### Bài 1 — Tự đánh giá
 
-2. **Kiểm tra nền móng.** Nếu đang định tách service, xác nhận outbox và idempotency đã có sẵn. Nếu chưa, đó là việc cần làm trước.
+Đi qua danh sách rà soát ở trên và quay lại đúng bài cho mục nào chưa tự tin.
 
-3. **Viết lập luận.** Soạn một trang trình bày cho đội: nên hay không nên tách, kèm số liệu cho năm câu hỏi ở mục 18.2.5.
+**Tiêu chí hoàn thành:** bạn kiểm chứng bằng **số liệu từ hệ thống thật**, và phân biệt được mục nào là kiến thức, mục nào là điều kiện tiên quyết.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** "Tôi hiểu circuit breaker" và "hệ thống của tôi có circuit breaker hoạt động đúng" là hai chuyện khác nhau.
+
+**Lời giải — kiểm chứng bằng script:**
+
+```bash
+#!/usr/bin/env bash
+# kiem-tra-microservices.sh
+
+echo "=== KIẾN THỨC: có dùng đúng công cụ không? ==="
+
+echo "-- Gateway có health check chủ động?"
+grep -rn "HealthCheck.*Active" --include="*.json" src/*Gateway* 2>/dev/null \
+  || echo "  KHÔNG CÓ — xem bài 18.3"
+
+echo "-- Có circuit breaker?"
+grep -rn "AddCircuitBreaker\|AddStandardResilienceHandler" --include="*.cs" src/ | wc -l
+
+echo "-- Có timeout tường minh cho HttpClient?"
+grep -rn "c.Timeout\s*=" --include="*.cs" src/ | wc -l
+echo "   (so với tổng số HttpClient:)"
+grep -rn "AddHttpClient<" --include="*.cs" src/ | wc -l
+
+echo
+echo "=== ĐIỀU KIỆN TIÊN QUYẾT: hệ thống có sẵn sàng không? ==="
+
+echo "-- Có distributed tracing?"
+grep -rn "AddOpenTelemetry" --include="*.cs" src/ | wc -l
+
+echo "-- Có outbox?"
+grep -rln "Outbox" --include="*.cs" src/ | head -3
+
+echo "-- Consumer idempotent?"
+tong=$(grep -rln "IConsumer<" --include="*.cs" src/ | wc -l)
+co=$(grep -rln "IConsumer<" --include="*.cs" src/ | xargs grep -l "MessageDaXuLy\|DbUpdateException" | wc -l)
+echo "   $co/$tong consumer có khử trùng lặp"
+
+echo "-- Liveness và readiness có tách không?"
+grep -rn "health/live\|health/ready" --include="*.cs" src/ | wc -l
+```
+
+```text
+=== KIẾN THỨC ===
+-- Gateway có health check chủ động?
+  KHÔNG CÓ — xem bài 18.3
+-- Có circuit breaker?
+3
+-- Có timeout tường minh cho HttpClient?
+2
+   (so với tổng số HttpClient:)
+9
+
+=== ĐIỀU KIỆN TIÊN QUYẾT ===
+-- Có distributed tracing?
+0
+-- Có outbox?
+(không có kết quả)
+-- Consumer idempotent?
+   4/12 consumer có khử trùng lặp
+-- Liveness và readiness có tách không?
+0
+```
+
+**Bảy `HttpClient` không có timeout tường minh** — nghĩa là chúng dùng mặc định 100 giây ([bài 17.1](../module-17-distributed-systems/17.1-event-driven-architecture-when-to-use.mdx)).
+
+**Phân biệt kiến thức và điều kiện tiên quyết:**
+
+| | Kiến thức | Điều kiện tiên quyết |
+|---|---|---|
+| Nghĩa | Biết công cụ và cách dùng | **Hệ thống đã sẵn sàng** |
+| Thiếu thì | Học trong vài giờ | **Phải làm trước khi tách service** |
+| Ví dụ | Hiểu circuit breaker, gRPC, saga | Tracing, outbox, CI/CD tự động, idempotency |
+
+```markdown
+## Tự đánh giá — 2026-09-25
+
+### Kiến thức (học được, không chặn)
+| Chủ đề | Mức | Bài |
+|---|:-:|---|
+| Khi nào KHÔNG nên microservices | 4 | 18.1 |
+| Tách theo subdomain | 3 | 18.2 |
+| YARP và gateway | 2 | 18.3 |
+| Chọn REST/gRPC/message | 3 | 18.4 |
+| Ba trụ cột quan sát | 2 | 18.5 |
+| Identity phân tán | 2 | 18.6 |
+| Distributed monolith | 4 | 18.7 |
+
+### Điều kiện tiên quyết (CHẶN việc tách service)
+| Mục | Trạng thái | Ước lượng |
+|---|---|---:|
+| Distributed tracing | **Chưa có** | 1 tuần |
+| Outbox | **Chưa có** | 1 tuần |
+| Consumer idempotent | **4/12** | 2 ngày |
+| CI/CD tự động hoàn toàn | **4 bước thủ công** | 2 tuần |
+| Liveness/readiness tách | **Chưa có** | 1 ngày |
+| Timeout tường minh | **2/9 HttpClient** | 2 giờ |
+
+**Tổng: khoảng 5 tuần trước khi tách service đầu tiên**
+```
+
+**Ba mục quan trọng nhất trong danh sách tiên quyết:**
+
+**1. Distributed tracing — làm TRƯỚC khi tách, không phải sau.**
+
+```text
+Tách service rồi mới thêm tracing
+-> sự cố đầu tiên xảy ra khi chưa có công cụ chẩn đoán
+-> và sự cố đầu tiên trong hệ nhiều dịch vụ thường xảy ra trong tuần đầu
+```
+
+**2. Outbox và idempotency — nền móng của mọi giao tiếp bất đồng bộ.**
+
+```text
+Không có outbox -> mỗi luồng message là một nguồn mất dữ liệu
+Consumer không idempotent -> at-least-once biến thành xử lý trùng
+```
+
+Chi tiết ở [bài 17.7](../module-17-distributed-systems/17.7-outbox-idempotency-demo.mdx).
+
+**3. CI/CD tự động hoàn toàn.**
+
+```text
+4 bước thủ công × 1 service = 13 phút mỗi lần deploy — khó chịu
+4 bước thủ công × 6 service = 78 phút — không khả thi
+```
+
+**Ba câu hỏi ở mức cao — trả lời được là đã nắm chắc:**
+
+**1. Nêu một hệ thống mà microservices là lựa chọn SAI.**
+
+```text
+"Một CRM nội bộ, 500 người dùng, đội 5 người, mọi endpoint có tải tương
+ đương nhau. Tách thành 6 service nghĩa là 6 pipeline, 6 lịch trực, 6
+ database — trong khi vấn đề thật là code rối, và tách service không sửa
+ được điều đó."
+```
+
+**2. Nêu một chỗ bạn cố tình chấp nhận coupling, và vì sao.**
+
+```text
+"Order gọi Pricing đồng bộ. Đây là coupling thời gian thật, và nó làm
+ uptime giảm từ 99,9% xuống 99,8%. Nhưng không tạo đơn mà chưa biết giá
+ thì sai về nghiệp vụ, nên chúng tôi chấp nhận, kèm timeout 2 giây,
+ circuit breaker, và phương án dự phòng dùng bảng giá cache."
+```
+
+**3. Kể một lần bạn quyết định KHÔNG tách, hoặc GỘP lại.**
+
+```text
+"Order và Billing có 82% lần deploy cùng ngày và 6 transaction chung.
+ Chúng tôi gộp lại thành crm-sales, giữ ranh giới module bên trong.
+ p99 giảm một nửa và không còn phải điều phối deploy."
+```
+
+Câu 3 phân biệt rõ nhất người áp dụng máy móc với người hiểu — vì nó đòi hỏi đã từng đo, đã từng sai, và đã từng sửa.
+
+**Và một kiểm chứng cuối, tốn một giờ:**
+
+```text
+Vẽ sơ đồ hệ thống hiện tại, đánh dấu:
+    - mỗi mũi tên là đồng bộ hay bất đồng bộ
+    - mỗi service dùng database nào
+    - chuỗi gọi dài nhất
+    - service nào không có chủ sở hữu rõ ràng
+
+Nếu vẽ được mà không phải mở code -> bạn hiểu hệ thống của mình.
+Nếu không -> đó là thứ đáng làm trước khi thêm bất kỳ service nào.
+```
+
+</details>
+
+---
+
+#### Bài 2 — Kiểm tra nền móng
+
+Nếu đang định tách service, xác nhận outbox và idempotency đã có sẵn. Nếu chưa, đó là việc cần làm trước.
+
+**Tiêu chí hoàn thành:** bạn có danh sách cụ thể với ước lượng, và hiểu vì sao thứ tự "nền móng trước, tách sau" **không đảo ngược được**.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Thêm outbox vào một monolith cần sửa bao nhiêu chỗ? Vào sáu service thì sao?
+
+**Lời giải — kiểm tra bằng test, không bằng grep:**
+
+```csharp
+public class NenMongTruocKhiTachTests
+{
+    [Fact]
+    public void Co_bang_outbox_va_dispatcher()
+    {
+        var coBang = typeof(CrmDbContext).GetProperties()
+            .Any(p => p.Name.Contains("Outbox", StringComparison.OrdinalIgnoreCase));
+
+        var coDispatcher = typeof(Program).Assembly.GetTypes()
+            .Any(t => t.Name.Contains("OutboxDispatcher"));
+
+        coBang.Should().BeTrue("cần bảng outbox trước khi tách service");
+        coDispatcher.Should().BeTrue("cần dispatcher");
+    }
+
+    [Fact]
+    public void Dispatcher_dung_READPAST_hoac_SKIP_LOCKED()
+    {
+        var nguon = File.ReadAllText(TimFile("OutboxDispatcher.cs"));
+
+        nguon.Should().MatchRegex("READPAST|SKIP LOCKED",
+            "dispatcher không có hint sẽ publish trùng khi chạy nhiều instance");
+    }
+
+    [Theory]
+    [MemberData(nameof(MoiConsumer))]
+    public async Task Moi_consumer_phai_idempotent(Type kieuConsumer)
+    {
+        var suKien = TaoSuKienMau(kieuConsumer);
+
+        await fixture.ResetAsync();
+        await GoiConsumerAsync(kieuConsumer, suKien);
+        var sauLan1 = await ChupTrangThaiAsync();
+
+        await GoiConsumerAsync(kieuConsumer, suKien);
+        var sauLan2 = await ChupTrangThaiAsync();
+
+        sauLan2.Should().BeEquivalentTo(sauLan1,
+            "{0} không idempotent", kieuConsumer.Name);
+    }
+
+    [Fact]
+    public void Moi_service_co_tracing()
+    {
+        var coOtel = typeof(Program).Assembly.GetTypes()
+            .SelectMany(t => t.GetMethods())
+            .Any(m => m.Name.Contains("AddOpenTelemetry"));
+
+        coOtel.Should().BeTrue("không có tracing thì không chẩn đoán được hệ phân tán");
+    }
+
+    [Fact]
+    public void Liveness_va_readiness_tach_biet()
+    {
+        var endpoints = LayMoiEndpointHealthCheck();
+
+        endpoints.Should().Contain(e => e.Contains("/health/live"));
+        endpoints.Should().Contain(e => e.Contains("/health/ready"));
+    }
+}
+```
+
+```text
+Passed:  Co_bang_outbox_va_dispatcher — FAILED
+Passed:  Moi_service_co_tracing — FAILED
+Passed:  Liveness_va_readiness_tach_biet — FAILED
+Failed:  8/12 consumer không idempotent
+```
+
+**Danh sách với ước lượng:**
+
+```markdown
+## Nền móng trước khi tách service — 2026-09-25
+
+| # | Mục | Trạng thái | Ước lượng | Chặn? |
+|---|---|---|---:|:-:|
+| 1 | Distributed tracing | Chưa có | 5 ngày | **Có** |
+| 2 | Outbox + dispatcher | Chưa có | 5 ngày | **Có** |
+| 3 | Consumer idempotent | 4/12 | 3 ngày | **Có** |
+| 4 | Liveness/readiness tách | Chưa có | 1 ngày | **Có** |
+| 5 | CI/CD bỏ bước thủ công | 4 bước | 8 ngày | **Có** |
+| 6 | Timeout tường minh | 2/9 | 2 giờ | Không |
+| 7 | Circuit breaker | 3/9 | 1 ngày | Không |
+| 8 | Kiến trúc test ranh giới | Chưa có | 2 ngày | Không |
+
+**Chặn: 22 ngày. Tổng: 25 ngày (~5 tuần)**
+
+### Thứ tự
+1. Tracing (5 ngày) — làm trước, vì mọi thứ sau cần nó để kiểm chứng
+2. Liveness/readiness (1 ngày) — rẻ, hiệu quả ngay
+3. Outbox (5 ngày)
+4. Consumer idempotent (3 ngày) — sau outbox, vì outbox tạo ra trùng lặp
+5. CI/CD (8 ngày) — làm song song với 3 và 4
+6. Phần còn lại
+```
+
+**Vì sao thứ tự "nền móng trước, tách sau" không đảo ngược được** — bốn lý do:
+
+**1. Chi phí nhân lên theo số service.**
+
+```text
+Thêm outbox vào monolith:
+    1 bảng, 1 dispatcher, sửa N chỗ publish
+    -> 5 ngày
+
+Thêm outbox vào 6 service đã tách:
+    6 bảng, 6 dispatcher, 6 pipeline CI/CD, 6 lần deploy
+    -> và phải phối hợp giữa các đội
+    -> 4–6 tuần
+```
+
+**2. Sau khi tách, bạn không còn transaction chung để sửa sai.**
+
+```text
+Monolith, phát hiện consumer không idempotent:
+    -> sửa, deploy, dọn dữ liệu bằng một câu UPDATE
+
+6 service, cùng vấn đề:
+    -> dữ liệu không nhất quán giữa 3 database
+    -> phải viết script đối chiếu
+    -> sửa theo đúng thứ tự
+    -> và hệ thống vẫn chạy, vẫn tạo thêm sai lệch trong lúc sửa
+```
+
+**3. Sự cố đầu tiên đến sớm hơn bạn nghĩ.**
+
+```text
+Tách service xong tuần 1
+Sự cố đầu tiên: tuần 1 hoặc tuần 2 — gần như chắc chắn
+
+Không có tracing -> mất nhiều giờ chẩn đoán
+-> niềm tin của đội vào kiến trúc mới sụp đổ
+-> và việc thêm tracing sau đó bị coi là "chữa cháy", không phải đầu tư
+```
+
+**4. Mẫu code được sao chép nhanh hơn được sửa.**
+
+```text
+Service đầu tiên không có outbox
+-> service thứ hai sao chép cấu trúc
+-> service thứ sáu cũng vậy
+-> sửa cần phối hợp 6 đội
+```
+
+Đây là lý do nghiêm trọng nhất: **nền móng thiếu ở service đầu tiên trở thành chuẩn cho mọi service sau.**
+
+**Và một cách làm giảm rủi ro: tách MỘT service trước.**
+
+```text
+Thay vì tách 6 service cùng lúc:
+    1. Hoàn tất nền móng (5 tuần)
+    2. Tách MỘT service ít phụ thuộc nhất (3–4 tuần)
+    3. Vận hành nó 2–3 tháng, ghi nhận mọi vấn đề
+    4. Đánh giá lại: có nên tách tiếp không?
+```
+
+Bước 4 là bước hay bị bỏ qua. Sau khi vận hành một service riêng ba tháng, nhiều đội phát hiện rằng:
+
+```text
+- Chi phí vận hành cao hơn dự kiến
+- Lợi ích về scale không rõ như tưởng
+- Và modular monolith với ranh giới rõ đã giải quyết phần lớn vấn đề ban đầu
+```
+
+Và đó là một kết luận **hợp lệ**, không phải thất bại — nó tiết kiệm nhiều tháng so với việc tách hết rồi mới nhận ra.
+
+**Đưa kiểm tra nền móng vào definition of done:**
+
+```markdown
+## Definition of Done — tách service mới
+
+Trước khi một service được coi là "xong":
+- [ ] Có OpenTelemetry, trace nối được với service gọi nó
+- [ ] Có outbox nếu publish message
+- [ ] Mọi consumer có test idempotency
+- [ ] Có /health/live và /health/ready tách biệt
+- [ ] Mọi HttpClient có timeout tường minh và circuit breaker
+- [ ] Có chủ sở hữu và người trực được ghi trong runbook
+- [ ] CI/CD tự động hoàn toàn, không bước thủ công
+- [ ] Có runbook cho 3 sự cố dễ xảy ra nhất
+```
+
+Danh sách này biến "nền móng" từ một khái niệm mơ hồ thành một checklist — và nó áp cho **mọi** service, kể cả service thứ sáu.
+
+</details>
+
+---
+
+#### Bài 3 — Viết lập luận cho đội
+
+Soạn một trang trình bày cho đội: nên hay không nên tách, kèm số liệu cho năm câu hỏi ở mục 18.2.5.
+
+**Tiêu chí hoàn thành:** tài liệu của bạn có **số liệu ở mọi khẳng định**, và đưa ra được một đề xuất cụ thể thay vì chỉ nêu vấn đề.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** "Chúng ta chưa sẵn sàng" là một kết luận. Nó không phải một đề xuất.
+
+**Lời giải — cấu trúc một trang:**
+
+```markdown
+# Có nên tách microservices không? — Đề xuất cho đội CRM
+
+**Ngày:** 2026-09-25 · **Người soạn:** <tên> · **Quyết định cần:** đồng ý hoặc phản biện
+
+## Tóm tắt
+
+Đề xuất: **tách DUY NHẤT service Reporting trong quý tới**, giữ phần còn lại
+là modular monolith. Trước đó cần 5 tuần hoàn thiện nền móng.
+
+Lý do: chỉ Reporting có số liệu chứng minh nhu cầu scale khác biệt. Các module
+khác chưa thoả điều kiện tiên quyết, và tách chúng sẽ tạo ra distributed monolith.
+
+---
+
+## 1. Ai cần scale khác phần còn lại?
+
+| Endpoint | Request/ngày | CPU TB | Bộ nhớ |
+|---|---:|---:|---:|
+| /api/leads | 842.104 | 12% | 180 MB |
+| **/api/bao-cao/tong-hop** | **1.204** | **78%** | **2,1 GB** |
+| /api/khach-hang | 412.008 | 8% | 140 MB |
+
+**Reporting dùng 78% CPU cho 0,1% lưu lượng.** Đây là lý do duy nhất có số liệu.
+
+Các module khác có CPU 8–12% và tải tương đương — **không có nhu cầu scale khác biệt.**
+
+---
+
+## 2. Deploy hiện tại thế nào?
+
+- Thời gian trung bình: **18,4 phút** (20 lần gần nhất)
+- Bước thủ công: **4 bước, ~13 phút**
+  1. Chạy migration bằng tay
+  2. Xoá cache Redis bằng tay
+  3. Kiểm tra 3 endpoint bằng mắt
+  4. Báo trong kênh chat
+
+Với 1 service: khó chịu. Với 6 service: **78 phút thủ công mỗi lần deploy.**
+
+---
+
+## 3. Ai trực sự cố?
+
+| Service dự kiến | Chủ sở hữu | Người trực |
+|---|---|---|
+| Reporting | Đội A | An, Bình |
+| Leads | Đội A | An, Bình |
+| Billing | Đội B | Cường |
+| Notification | **Chưa có** | **Chưa có** |
+| Identity | **Chưa có** | **Chưa có** |
+
+**3 người trực cho 5 service.** Đội 6 người vận hành bền vững được khoảng 2 service.
+
+---
+
+## 4. Chẩn đoán một request qua 4 service mất bao lâu?
+
+**Hiện tại: không có distributed tracing.** Ước tính 30–60 phút cho một request,
+và thường không ghép được log của nhiều service.
+
+Với tracing: 3–5 phút.
+
+---
+
+## 5. Nếu sai, quay lại mất bao lâu?
+
+Ước tính quay lại từ 5 service về monolith: **khoảng 9 tuần**
+(gộp code 2, gộp database 3, sửa lời gọi 2, test 2).
+
+Quyết định này khó đảo ngược, nên cần chắc chắn hơn một quyết định
+đảo ngược được trong một ngày.
+
+---
+
+## Chẩn đoán bổ sung: chúng ta có đang đi về distributed monolith không?
+
+| Triệu chứng | Đo được | Ngưỡng |
+|---|---|---|
+| Repo mỗi tính năng | 2,84 | 2 |
+| Chuỗi gọi sâu nhất | 6 service | 3 |
+| Database dùng chung | 3 service | 1 |
+
+**3/6 triệu chứng đã vượt ngưỡng** với chỉ 3 service hiện có.
+
+---
+
+## Đề xuất
+
+### Giai đoạn 1 — Nền móng (5 tuần)
+| Việc | Ngày |
+|---|---:|
+| Distributed tracing | 5 |
+| Outbox + dispatcher | 5 |
+| 8 consumer idempotent | 3 |
+| Tách liveness/readiness | 1 |
+| Bỏ 4 bước deploy thủ công | 8 |
+
+### Giai đoạn 2 — Tách Reporting (3 tuần)
+Chọn Reporting vì: có số liệu scale, **0 phụ thuộc vào** (không ai gọi nó),
+chỉ đọc dữ liệu, và thất bại của nó không ảnh hưởng nghiệp vụ chính.
+
+### Giai đoạn 3 — Đánh giá lại (sau 3 tháng vận hành)
+Đo lại 5 câu hỏi. Quyết định có tách tiếp không **dựa trên số liệu mới**,
+không dựa trên kế hoạch hôm nay.
+
+### Phần còn lại — Modular monolith
+- Giữ ranh giới bằng namespace và kiến trúc test
+- Tách schema database theo module
+- Nếu sau này cần tách, đã có sẵn ranh giới
+
+---
+
+## Rủi ro nếu KHÔNG làm gì
+
+- Chuỗi gọi 6 service với 0 tracing → sự cố tiếp theo mất nhiều giờ chẩn đoán
+- 3 service dùng chung database → không tách được, và không deploy độc lập được
+- 8/12 consumer không idempotent → dữ liệu trùng khi có sự cố broker
+
+**Ba mục này cần xử lý bất kể có tách service hay không.**
+```
+
+**Năm điều làm một tài liệu như thế này được chấp nhận:**
+
+**1. Mọi khẳng định có số liệu.**
+
+```text
+Kém:  "Reporting cần scale riêng"
+Tốt:  "Reporting dùng 78% CPU cho 0,1% lưu lượng"
+```
+
+**2. Có đề xuất cụ thể, không chỉ nêu vấn đề.**
+
+```text
+Kém:  "Chúng ta chưa sẵn sàng cho microservices"
+      -> nghe như từ chối, không có lối đi tiếp
+
+Tốt:  "Tách Reporting trong quý tới, sau 5 tuần nền móng"
+      -> có lối đi, có mốc thời gian
+```
+
+**3. Thừa nhận phần đối phương đúng.**
+
+```text
+Mục 1 CÔNG NHẬN rằng Reporting thật sự cần tách.
+-> tài liệu không phải là "không" tuyệt đối
+-> và điều đó làm phần còn lại đáng tin hơn
+```
+
+**4. Có mục "rủi ro nếu không làm gì".**
+
+Ba mục cuối cần làm **bất kể** quyết định về microservices — nên tài liệu không phải là một cuộc tranh luận thắng thua, mà là một kế hoạch.
+
+**5. Có điểm đánh giá lại.**
+
+```text
+Giai đoạn 3 nói rõ: quyết định tiếp theo dựa trên SỐ LIỆU MỚI,
+không dựa trên kế hoạch hôm nay.
+
+-> không ai phải cam kết với một hướng đi trong hai năm
+-> và nó làm việc đổi hướng sau này trở thành bình thường
+```
+
+**Ba lỗi thường gặp khi trình bày:**
+
+**1. Nói "kiến trúc sai" thay vì đưa số liệu.**
+
+```text
+-> gây phòng thủ
+-> người đã quyết định tách sẽ bảo vệ quyết định đó
+```
+
+**2. Đưa ra một danh sách vấn đề mà không có thứ tự ưu tiên.**
+
+```text
+-> người đọc không biết bắt đầu từ đâu
+-> tài liệu bị lưu vào wiki và quên
+```
+
+**3. Không nói cái giá của đề xuất.**
+
+```text
+5 tuần nền móng là chi phí THẬT, và phải nói rõ.
+Giấu nó đi làm mất tin cậy khi nó lộ ra.
+```
+
+**Và một mẹo về định dạng: đặt tóm tắt ở ĐẦU.**
+
+```text
+Người ra quyết định thường đọc ba dòng đầu và phần đề xuất.
+Nếu kết luận nằm ở cuối trang, nó có thể không được đọc.
+```
+
+**Sau khi trình bày, ghi lại quyết định thành ADR** ([bài 16.11](../module-16-clean-architecture/16.11-roadmap-sh-supplement.mdx)):
+
+```markdown
+# ADR-012: Tách Reporting, giữ phần còn lại là modular monolith
+
+- **Trạng thái:** Đã chấp nhận
+- **Ngày:** 2026-10-02
+- **Người quyết định:** Đội backend CRM + trưởng bộ phận kỹ thuật
+- **Đánh giá lại:** 2027-01-15
+
+## Cách chúng tôi biết quyết định này đúng hay sai
+Sau 3 tháng, đo lại:
+| Chỉ số | Hiện tại | Kỳ vọng |
+|---|---:|---:|
+| p99 endpoint báo cáo | 8,4 s | dưới 3 s |
+| CPU của monolith | 78% | dưới 30% |
+| Thời gian chẩn đoán sự cố | 45 phút | dưới 10 phút |
+
+Nếu ba chỉ số này không cải thiện, việc tách không mang lại giá trị
+và chúng tôi sẽ gộp lại.
+```
+
+Mục cuối là mục quan trọng nhất: nó biến quyết định thành một **giả thuyết có thể kiểm chứng**, thay vì một cam kết không thể rút lại.
+
+</details>
 
 ## Tự kiểm tra
 
