@@ -245,11 +245,299 @@ Sau Module 12, bước tiếp theo là [Module 13 — Entity Framework Core](../
 
 ## Bài tập áp dụng
 
-1. **Viết lại bằng window function.** Lấy một truy vấn báo cáo có subquery và viết lại bằng `OVER`. So sánh thời gian.
+#### Bài 1 — Viết lại subquery tương quan bằng window function
 
-2. **Bật temporal table.** Bật cho một bảng, cập nhật vài lần, rồi truy vấn dữ liệu tại một thời điểm quá khứ.
+Lấy một truy vấn báo cáo có subquery và viết lại bằng `OVER`. So sánh thời gian.
 
-3. **Đo JSON.** Truy vấn theo `JSON_VALUE` không index, rồi thêm computed column `PERSISTED` có index và đo lại `logical reads`.
+**Tiêu chí hoàn thành:** bạn nêu được vì sao subquery tương quan chậm theo **số dòng**, còn window function thì không.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Đếm xem bảng được đọc bao nhiêu lần trong mỗi cách viết.
+
+**Lời giải — bản subquery tương quan:**
+
+```sql
+-- Mỗi dòng kèm tổng doanh số của khu vực chứa nó
+SELECT l.Id, l.Name, l.Value, l.Region,
+       (SELECT SUM(Value) FROM Leads WHERE Region = l.Region) AS RegionTotal,
+       l.Value * 100.0 / (SELECT SUM(Value) FROM Leads WHERE Region = l.Region) AS Pct
+FROM   Leads l;
+```
+
+```text
+CPU time = 28.4 s,  elapsed time = 31.2 s
+Table 'Leads'. logical reads 1,842,000
+```
+
+**Bản window function:**
+
+```sql
+SELECT Id, Name, Value, Region,
+       SUM(Value) OVER (PARTITION BY Region) AS RegionTotal,
+       Value * 100.0 / SUM(Value) OVER (PARTITION BY Region) AS Pct
+FROM   Leads;
+```
+
+```text
+CPU time = 1.9 s,  elapsed time = 2.3 s
+Table 'Leads'. logical reads 8,900
+```
+
+**Nhanh hơn khoảng 13 lần, đọc ít hơn 200 lần.**
+
+**Vì sao subquery tương quan chậm theo số dòng.** Chữ "tương quan" nghĩa là subquery **tham chiếu tới dòng bên ngoài** (`l.Region`). Vì giá trị đó đổi theo từng dòng, subquery phải được đánh giá **lại cho mỗi dòng**:
+
+```text
+Dòng 1 (Region = 'HCM')  -> quét Leads, tính SUM cho HCM
+Dòng 2 (Region = 'HN')   -> quét Leads, tính SUM cho HN
+Dòng 3 (Region = 'HCM')  -> quét Leads LẠI, tính SUM cho HCM LẠI
+...
+```
+
+Với một triệu dòng, đó là một triệu lần đánh giá — và ở đây còn nhân đôi vì subquery xuất hiện hai lần trong `SELECT`. Optimizer đôi khi rút gọn được bằng cách vật chất hoá kết quả trung gian, nhưng không phải lúc nào cũng làm được.
+
+**Vì sao window function không bị vậy.** Nó được tính trong **một lượt đi qua dữ liệu**: SQL Server sắp xếp hoặc băm theo `PARTITION BY`, rồi vừa đi vừa tích luỹ tổng cho từng nhóm. Mỗi dòng được đọc **đúng một lần**, bất kể có bao nhiêu hàm cửa sổ trong câu lệnh.
+
+```text
+Subquery tương quan:  O(số dòng × chi phí một lần quét)
+Window function:      O(số dòng), cộng chi phí sắp xếp nếu cần
+```
+
+**Ba dạng viết lại thường gặp:**
+
+```sql
+-- 1. Tổng theo nhóm, giữ nguyên từng dòng
+SUM(Value) OVER (PARTITION BY Region)
+
+-- 2. So sánh với dòng trước/sau — LAG thay cho self-join
+LAG(Value)  OVER (PARTITION BY CustomerId ORDER BY CreatedAt) AS PrevValue
+LEAD(Value) OVER (PARTITION BY CustomerId ORDER BY CreatedAt) AS NextValue
+
+-- 3. Xếp hạng trong TỪNG khu vực
+ROW_NUMBER() OVER (PARTITION BY Region ORDER BY Value DESC) AS RankInRegion
+```
+
+**Khác biệt then chốt so với `GROUP BY`:**
+
+```sql
+-- GROUP BY: 6 dòng (một dòng mỗi trạng thái)
+SELECT Status, COUNT(*) FROM Leads GROUP BY Status;
+
+-- Window: MỌI dòng, kèm tổng số của trạng thái đó
+SELECT Id, Name, Status, COUNT(*) OVER (PARTITION BY Status) FROM Leads;
+```
+
+`GROUP BY` **gộp** dòng lại; window function **giữ nguyên** từng dòng và thêm một cột tính toán. Đó là lý do bạn không thay thế cái này bằng cái kia — chúng trả lời hai câu hỏi khác nhau.
+
+**Một chi tiết về hiệu năng của window function:** nếu có `ORDER BY` trong `OVER`, SQL Server cần dữ liệu được sắp xếp. Index `(PARTITION BY cols, ORDER BY cols)` giúp bỏ hẳn bước sắp xếp:
+
+```sql
+CREATE INDEX IX_Leads_Region_Value ON Leads(Region, Value DESC);
+```
+
+Không có index đó, bước `Sort` có thể chiếm phần lớn thời gian — và với tập dữ liệu vượt bộ nhớ, nó tràn ra `tempdb`.
+
+</details>
+
+---
+
+#### Bài 2 — Temporal table cho một bảng đang chạy
+
+Bật temporal table cho một bảng, cập nhật vài lần, rồi truy vấn dữ liệu tại một thời điểm quá khứ.
+
+**Tiêu chí hoàn thành:** bạn nêu được điều cần chuẩn bị **trước khi** bật trên một bảng đã có dữ liệu production.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Bật versioning thêm hai cột vào bảng và tạo một bảng lịch sử. Hãy nghĩ xem điều đó ảnh hưởng gì tới một bảng đang có traffic.
+
+**Lời giải — bật cho bảng đã có dữ liệu:**
+
+```sql
+-- Bước 1: thêm hai cột thời gian, cho phép NULL trước
+ALTER TABLE Leads ADD
+    ValidFrom DATETIME2 GENERATED ALWAYS AS ROW START HIDDEN
+        CONSTRAINT DF_Leads_ValidFrom DEFAULT SYSUTCDATETIME(),
+    ValidTo   DATETIME2 GENERATED ALWAYS AS ROW END   HIDDEN
+        CONSTRAINT DF_Leads_ValidTo   DEFAULT CONVERT(DATETIME2, '9999-12-31 23:59:59.9999999'),
+    PERIOD FOR SYSTEM_TIME (ValidFrom, ValidTo);
+
+-- Bước 2: bật versioning
+ALTER TABLE Leads
+    SET (SYSTEM_VERSIONING = ON (HISTORY_TABLE = dbo.LeadsHistory));
+```
+
+```sql
+UPDATE Leads SET Value = 8000000 WHERE Id = 1;
+WAITFOR DELAY '00:00:02';
+UPDATE Leads SET Status = N'Won'  WHERE Id = 1;
+```
+
+```sql
+-- Dữ liệu tại MỘT thời điểm trong quá khứ
+SELECT * FROM Leads FOR SYSTEM_TIME AS OF '2026-09-25 09:14:20' WHERE Id = 1;
+
+-- Toàn bộ lịch sử thay đổi của một hàng
+SELECT Value, Status, ValidFrom, ValidTo
+FROM   Leads FOR SYSTEM_TIME ALL WHERE Id = 1 ORDER BY ValidFrom;
+```
+
+```text
+Value     Status  ValidFrom                ValidTo
+5000000   New     2026-09-25 09:14:18.12   2026-09-25 09:14:20.34
+8000000   New     2026-09-25 09:14:20.34   2026-09-25 09:14:22.56
+8000000   Won     2026-09-25 09:14:22.56   9999-12-31 23:59:59.99
+```
+
+**Bốn thứ phải chuẩn bị trước khi bật trên production:**
+
+**1. Thêm cột là thao tác thay đổi schema — phải chọn thời điểm.** Trên SQL Server bản mới, thêm cột có `DEFAULT` là thao tác metadata nên nhanh; nhưng hãy kiểm chứng trên staging với đúng lượng dữ liệu thật trước.
+
+**2. Ước lượng dung lượng bảng lịch sử.** Mỗi `UPDATE` sinh một dòng lịch sử. Bảng cập nhật 10.000 lần một ngày sẽ sinh 3,6 triệu dòng lịch sử mỗi năm:
+
+```sql
+SELECT COUNT(*) AS updates_per_day FROM ...;     -- ước lượng từ log hoặc audit hiện có
+```
+
+**3. Đặt chính sách giữ lịch sử ngay từ đầu**, đừng để sau:
+
+```sql
+ALTER TABLE Leads SET (SYSTEM_VERSIONING = ON (
+    HISTORY_TABLE = dbo.LeadsHistory,
+    HISTORY_RETENTION_PERIOD = 2 YEARS
+));
+ALTER DATABASE Crm SET TEMPORAL_HISTORY_RETENTION ON;
+```
+
+**4. Biết trước quy trình đổi schema sau này.** Khi cần thêm hay sửa cột, bạn phải tắt versioning, sửa **cả hai** bảng, rồi bật lại:
+
+```sql
+ALTER TABLE Leads SET (SYSTEM_VERSIONING = OFF);
+ALTER TABLE Leads        ADD Source NVARCHAR(50) NULL;
+ALTER TABLE LeadsHistory ADD Source NVARCHAR(50) NULL;
+ALTER TABLE Leads SET (SYSTEM_VERSIONING = ON (HISTORY_TABLE = dbo.LeadsHistory));
+```
+
+Trong khoảng tắt versioning, thay đổi **không được ghi lịch sử**. Với migration tự động qua EF Core, điều này phải được đưa vào script migration một cách tường minh — nếu không, `dotnet ef database update` sẽ thất bại.
+
+**Truy vấn từ EF Core:**
+
+```csharp
+var snapshot = await _db.Leads
+    .TemporalAsOf(new DateTime(2026, 9, 25, 9, 14, 20, DateTimeKind.Utc))
+    .Where(l => l.Id == 1)
+    .ToListAsync(ct);
+```
+
+**Và nhớ rằng `AS OF` nhận thời gian UTC.** Truyền giờ địa phương vào là nhận về trạng thái của bảy tiếng trước hoặc sau — một lỗi rất dễ mắc và rất khó nhận ra, vì kết quả vẫn "hợp lý".
+
+**Khi nào không dùng temporal table:** bảng ghi rất nhiều mà giá trị lịch sử thấp (log, event, session), và bảng mà bạn chỉ cần biết **ai** đã đổi chứ không cần biết **giá trị cũ là gì** — trường hợp đó một bảng audit đơn giản với `UserId` và `Action` phù hợp hơn, vì temporal table **không ghi lại ai thực hiện thay đổi**.
+
+</details>
+
+---
+
+#### Bài 3 — Index cho truy vấn theo trường JSON
+
+Truy vấn theo `JSON_VALUE` không index, rồi thêm computed column `PERSISTED` có index và đo lại `logical reads`.
+
+**Tiêu chí hoàn thành:** bạn nêu được vì sao phải có `PERSISTED`, và giới hạn của cách này so với `jsonb` của PostgreSQL.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Index lưu giá trị đã tính sẵn. Hãy nghĩ xem SQL Server cần gì để chắc rằng giá trị đó không đổi.
+
+**Lời giải — không index:**
+
+```sql
+SET STATISTICS IO ON;
+
+SELECT Id, Name FROM Leads
+WHERE  JSON_VALUE(Metadata, '$.source') = N'web';
+```
+
+```text
+|--Clustered Index Scan(OBJECT:([PK_Leads]),
+              WHERE:(JSON_VALUE([Metadata],'$.source')=N'web'))
+
+Table 'Leads'. logical reads 18,420
+```
+
+**Thêm computed column và index:**
+
+```sql
+ALTER TABLE Leads
+    ADD Source AS JSON_VALUE(Metadata, '$.source') PERSISTED;
+
+CREATE INDEX IX_Leads_Source ON Leads(Source);
+
+SELECT Id, Name FROM Leads WHERE Source = N'web';
+```
+
+```text
+|--Index Seek(OBJECT:([IX_Leads_Source]), SEEK:([Source]=N'web'))
+
+Table 'Leads'. logical reads 94
+```
+
+**Từ 18.420 xuống 94 — gần 200 lần.**
+
+**Vì sao phải có `PERSISTED`.** Không có nó, cột tính toán chỉ là một biểu thức được đánh giá **mỗi lần đọc** — giá trị không được lưu ở đâu cả.
+
+Để tạo index trên một cột, SQL Server cần giá trị đó **ổn định và lưu được**. Và nó chỉ chấp nhận điều đó khi biểu thức là **deterministic** (cùng đầu vào luôn cho cùng đầu ra) và **precise**. `JSON_VALUE` thoả điều kiện, nhưng SQL Server vẫn yêu cầu `PERSISTED` cho các biểu thức trên kiểu `NVARCHAR(MAX)` để đảm bảo giá trị được vật chất hoá cùng dòng.
+
+Thiếu `PERSISTED`:
+
+```text
+Msg 2739: The text, ntext, and image data types are invalid for local variables.
+-- hoặc
+Msg 1904: ... column is not deterministic or not precise.
+```
+
+**Cái giá của `PERSISTED`:** giá trị được lưu thật trong mỗi dòng, nên bảng phình thêm, và mỗi lần `Metadata` đổi thì cột tính toán phải được tính lại và ghi lại.
+
+**Giới hạn so với `jsonb` của PostgreSQL — và đây là điểm chính:**
+
+```sql
+-- PostgreSQL: MỘT index cho MỌI trường
+CREATE INDEX idx_leads_metadata ON leads USING GIN (metadata);
+
+SELECT * FROM leads WHERE metadata @> '{"source":"web"}';
+SELECT * FROM leads WHERE metadata @> '{"score": 42}';
+SELECT * FROM leads WHERE metadata @> '{"campaign":"q4"}';
+-- cả ba đều dùng được index đó
+```
+
+```sql
+-- SQL Server: MỘT cột tính toán + MỘT index cho MỖI trường
+ALTER TABLE Leads ADD Source   AS JSON_VALUE(Metadata, '$.source')   PERSISTED;
+ALTER TABLE Leads ADD Score    AS JSON_VALUE(Metadata, '$.score')    PERSISTED;
+ALTER TABLE Leads ADD Campaign AS JSON_VALUE(Metadata, '$.campaign') PERSISTED;
+CREATE INDEX IX_Leads_Source   ON Leads(Source);
+CREATE INDEX IX_Leads_Score    ON Leads(Score);
+CREATE INDEX IX_Leads_Campaign ON Leads(Campaign);
+```
+
+**Bạn phải biết trước mọi trường sẽ truy vấn** — và điều đó mâu thuẫn với lý do người ta chọn JSON ngay từ đầu. Thêm một trường mới là thêm một cột, một index, và một migration.
+
+Ba index đó còn kéo theo chi phí ghi đo được ở [bài 12.5](12.4-indexing.mdx).
+
+**Kết luận thực dụng:**
+
+| Tình huống | Lựa chọn |
+|---|---|
+| PostgreSQL, dữ liệu thật sự linh hoạt | `jsonb` + GIN index |
+| SQL Server, biết trước vài trường cần lọc | Computed column `PERSISTED` + index |
+| SQL Server, trường luôn tồn tại và luôn lọc | **Làm hẳn một cột bình thường** |
+| Chỉ đọc nguyên khối, không lọc bên trong | `NVARCHAR(MAX)`, không cần index gì |
+
+Dòng thứ ba đáng dừng lại: nếu bạn đang tạo computed column cho một trường **luôn có mặt** trong mọi bản ghi, thì trường đó không thuộc về JSON — nó là một cột, với kiểu dữ liệu rõ ràng, ràng buộc `NOT NULL` và index thường.
+
+</details>
 
 ## Tự kiểm tra
 
