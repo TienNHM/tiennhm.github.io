@@ -230,11 +230,292 @@ Cái giá: mỗi request thêm một lần đọc Redis. Với hầu hết hệ 
 
 ## Bài tập áp dụng
 
-1. **Tái hiện sự cố.** Vô hiệu hoá một tài khoản rồi gọi endpoint refresh với token cũ. Xác nhận nó vẫn cấp token mới nếu thiếu bước kiểm tra.
+#### Bài 1 — Tái hiện: tài khoản đã vô hiệu vẫn tự gia hạn
 
-2. **Cài rotation.** Thêm xoay refresh token, dùng lại token cũ, và xác nhận toàn bộ chuỗi bị thu hồi.
+Vô hiệu hoá một tài khoản rồi gọi endpoint refresh với token cũ. Xác nhận nó vẫn cấp token mới nếu thiếu bước kiểm tra.
 
-3. **Đo cửa sổ rủi ro.** Vô hiệu hoá tài khoản và đo chính xác bao lâu access token cũ còn dùng được.
+**Tiêu chí hoàn thành:** bạn nêu được vì sao thiếu **một** dòng kiểm tra lại biến cửa sổ rủi ro 15 phút thành **vô hạn**.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Vẽ vòng lặp: access token hết hạn sau 15 phút, nhưng cái gì cấp access token mới?
+
+**Lời giải — code thiếu sót:**
+
+```csharp
+public async Task<Result<TokenPair>> RefreshAsync(string refreshToken, CancellationToken ct)
+{
+    var stored = await _db.RefreshTokens
+        .Include(t => t.User)
+        .FirstOrDefaultAsync(t => t.TokenHash == Hash(refreshToken), ct);
+
+    if (stored is null || stored.ExpiresUtc < DateTime.UtcNow)
+        return Result.Fail("Refresh token không hợp lệ");
+
+    // THIẾU: kiểm tra tài khoản còn hoạt động không
+
+    return Result.Success(await IssueAsync(stored.User, ct));
+}
+```
+
+**Tái hiện:**
+
+```sql
+UPDATE AspNetUsers SET IsActive = 0 WHERE Email = 'an@company.com';
+```
+
+```bash
+curl -s -X POST .../auth/refresh -d "{\"refreshToken\":\"$R1\"}" | jq -r '.accessToken' | cut -c1-20
+# eyJhbGciOiJIUzI1NiIs
+```
+
+**Vẫn cấp token mới** cho một tài khoản đã bị vô hiệu.
+
+**Vì sao cửa sổ thành vô hạn — vẽ ra vòng lặp:**
+
+```text
+09:00  Vô hiệu hoá tài khoản
+09:14  Access token cũ hết hạn
+09:14  Client tự động gọi /refresh
+09:14  -> nhận access token MỚI, hạn thêm 15 phút
+09:29  Hết hạn -> refresh -> lại 15 phút
+...     lặp lại mãi mãi
+```
+
+Mỗi lần refresh đặt lại đồng hồ. Không có điểm dừng nào, vì điểm dừng duy nhất — thời hạn của refresh token, thường 30 ngày — cũng được gia hạn nếu bạn rotate.
+
+Đây chính là lý do trong sự cố gốc, người đã nghỉ việc vẫn truy cập được **5 ngày sau** và xoá 340 bản ghi. Không phải vì access token sống 5 ngày, mà vì nó được làm mới 480 lần.
+
+**Hai dòng sửa, đặt ngay sau khi nạp token:**
+
+```csharp
+if (!stored.User.IsActive)
+{
+    await RevokeAllTokensAsync(stored.UserId, "Tài khoản đã bị vô hiệu hoá", ct);
+    return Result.Fail("Phiên đăng nhập không còn hợp lệ");
+}
+
+if (stored.User.SecurityStamp != stored.SecurityStamp)
+{
+    await RevokeAllTokensAsync(stored.UserId, "Thông tin bảo mật đã thay đổi", ct);
+    return Result.Fail("Phiên đăng nhập không còn hợp lệ");
+}
+```
+
+**Thu hồi cả chuỗi chứ không chỉ từ chối lần này.** Chỉ trả `Fail` thì client cứ 15 phút lại thử — log đầy lỗi, và nếu sau này có ai đó kích hoạt lại tài khoản thì phiên cũ sống lại.
+
+**`/refresh` là nơi duy nhất trong hệ thống bắt buộc phải chạm database.** Xác thực access token thì không — đó là lý do JWT nhanh. Nhưng refresh thì **đã** phải tra database để kiểm token, nên thêm hai điều kiện vào cùng truy vấn đó **không tốn gì**:
+
+```csharp
+var stored = await _db.RefreshTokens
+    .Include(t => t.User)
+    .Where(t => t.TokenHash == hash && t.User.IsActive)      // gộp vào WHERE
+    .FirstOrDefaultAsync(ct);
+```
+
+**Danh sách kiểm phải có ở `/refresh`:**
+
+- tài khoản còn hoạt động,
+- `SecurityStamp` khớp (mật khẩu hay quyền chưa đổi),
+- refresh token chưa bị thu hồi,
+- chưa vượt hạn tuyệt đối (`AbsoluteExpiresAt` — **không** gia hạn khi rotate).
+
+Thiếu mục cuối thì phiên đăng nhập kéo dài vô hạn với người dùng thật nữa, không riêng kẻ xấu.
+
+</details>
+
+---
+
+#### Bài 2 — Rotation và phát hiện tái sử dụng
+
+Thêm xoay refresh token, dùng lại token cũ, và xác nhận toàn bộ chuỗi bị thu hồi.
+
+**Tiêu chí hoàn thành:** bạn chỉ ra được rotation phát hiện được **loại tấn công nào** mà bài 1 không phát hiện được.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Bài 1 xử lý trường hợp bạn **biết** tài khoản có vấn đề. Rotation xử lý trường hợp bạn **không biết gì cả**.
+
+**Lời giải — cài rotation:**
+
+```csharp
+private async Task<TokenPair> RotateTokenAsync(RefreshToken current, CancellationToken ct)
+{
+    var next = new RefreshToken
+    {
+        TokenHash = Hash(raw = GenerateRandomToken()),
+        UserId = current.UserId,
+        SecurityStamp = current.User.SecurityStamp,
+        AbsoluteExpiresAt = current.AbsoluteExpiresAt,     // KHÔNG gia hạn trần tuyệt đối
+        ExpiresUtc = DateTime.UtcNow.AddDays(30),
+        CreatedUtc = DateTime.UtcNow
+    };
+
+    current.RevokedUtc = DateTime.UtcNow;
+    current.ReplacedByHash = next.TokenHash;               // nối chuỗi
+
+    _db.RefreshTokens.Add(next);
+    await _db.SaveChangesAsync(ct);
+
+    return new TokenPair(CreateAccessToken(current.User), raw);
+}
+```
+
+**Phát hiện tái sử dụng:**
+
+```csharp
+if (stored.RevokedUtc is not null)
+{
+    var age = DateTime.UtcNow - stored.RevokedUtc.Value;
+
+    if (age < TimeSpan.FromSeconds(10) && stored.ReplacedByHash is not null)
+        return await ReturnExistingReplacementAsync(stored, ct);   // race nhiều tab
+
+    _logger.LogCritical(
+        "Refresh token ĐÃ BỊ HUỶ được dùng lại. User {UserId}, IP {Ip}",
+        stored.UserId, ip);
+
+    await RevokeAllTokensAsync(stored.UserId, "Phát hiện dùng lại token", ct);
+    return Result.Fail("Phiên đăng nhập không hợp lệ, vui lòng đăng nhập lại");
+}
+```
+
+**Kiểm chứng:**
+
+```bash
+R2=$(refresh "$R1")        # R1 -> R2
+R3=$(refresh "$R2")        # R2 -> R3
+
+refresh "$R1"              # dùng lại R1
+# 401
+
+refresh "$R3"              # token hiện tại CŨNG bị huỷ
+# 401
+```
+
+**Loại tấn công rotation phát hiện được — và bài 1 thì không:**
+
+| | Bài 1 (kiểm trạng thái) | Bài 2 (rotation) |
+|---|---|---|
+| Kích hoạt bởi | **Bạn** vô hiệu hoá tài khoản | **Kẻ tấn công** dùng token bị đánh cắp |
+| Giả định | Bạn đã biết có vấn đề | Bạn **không biết gì** |
+| Phát hiện | Không — chỉ thi hành quyết định có sẵn | **Có** — tự phát hiện |
+
+Bài 1 là **thi hành**: ai đó ở bộ phận nhân sự bấm nút vô hiệu hoá, hệ thống làm theo. Nếu không ai bấm, không gì xảy ra.
+
+Rotation là **phát hiện**: token bị đánh cắp qua XSS, qua log lộ, qua máy bị nhiễm — không ai biết, không ai bấm gì. Nhưng khoảnh khắc cả hai bên cùng dùng chuỗi token, hệ thống tự nhận ra và tự cắt.
+
+**Hai cơ chế bù cho nhau, cần cả hai:**
+
+```text
+Bài 1 chặn: người đã nghỉ việc, người bị thu hồi quyền
+Bài 2 chặn: token bị đánh cắp mà không ai biết
+```
+
+**Ba chi tiết làm rotation hoạt động đúng trong thực tế:**
+
+1. **Cửa sổ ân hạn 10 giây** cho race nhiều tab — thiếu nó, người dùng bị đăng xuất khi mở nhiều tab.
+2. **`AbsoluteExpiresAt` không gia hạn** — nếu không, phiên kéo dài vô hạn.
+3. **Lưu hash chứ không lưu token thô** — người đọc được database không dùng được token.
+
+```sql
+CREATE TABLE RefreshTokens (
+    TokenHash         VARBINARY(32)    NOT NULL,   -- SHA-256, KHÔNG lưu plaintext
+    ReplacedByHash    VARBINARY(32)    NULL,       -- liên kết chuỗi rotation
+    AbsoluteExpiresAt DATETIME2(3)     NOT NULL
+);
+```
+
+</details>
+
+---
+
+#### Bài 3 — Đo chính xác cửa sổ rủi ro
+
+Vô hiệu hoá tài khoản và đo chính xác bao lâu access token cũ còn dùng được.
+
+**Tiêu chí hoàn thành:** bạn ra được một con số cụ thể cho hệ thống mình, và chỉ ra được **hai** thành phần tạo nên con số đó.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Một thành phần bạn tự chọn khi phát token. Thành phần kia là một mặc định bạn có thể chưa biết.
+
+**Lời giải — đo:**
+
+```bash
+TOKEN=$(login)
+psql -c "UPDATE \"AspNetUsers\" SET \"IsActive\" = false WHERE \"Email\" = 'an@company.com';"
+START=$(date +%s)
+
+while true; do
+  code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $TOKEN" \
+    https://localhost:5001/api/v1/customers)
+  now=$(date +%s)
+  echo "$((now - START))s -> $code"
+  [ "$code" != "200" ] && break
+  sleep 10
+done
+```
+
+```text
+0s -> 200
+10s -> 200
+...
+880s -> 200
+890s -> 401
+```
+
+**≈ 890 giây, tức khoảng 14 phút 50 giây.**
+
+**Hai thành phần tạo nên con số:**
+
+```text
+Thời gian còn lại của access token khi vô hiệu hoá   (0 đến 15 phút)
+  + ClockSkew mặc định                                (5 phút)
+  = cửa sổ rủi ro tối đa: 20 phút
+```
+
+Lần đo trên rơi vào khoảng giữa nên ra gần 15 phút. Nếu vô hiệu hoá ngay sau khi người dùng vừa đăng nhập, con số sẽ chạm trần 20 phút.
+
+**`ClockSkew` là thành phần hay bị bỏ sót.** Rất nhiều đội tin rằng token 15 phút nghĩa là rủi ro 15 phút, trong khi mặc định của `TokenValidationParameters` cộng thêm 5 phút nữa — tăng 33% so với ý định.
+
+**Ba cách thu hẹp, và cái giá của từng cách:**
+
+| Cách | Cửa sổ | Cái giá |
+|---|---|---|
+| Giữ nguyên | 20 phút | 0 |
+| Token 5 phút + `ClockSkew` 30 giây | **5,5 phút** | Refresh thường xuyên gấp 3 |
+| Đối chiếu `SecurityStamp` mỗi request | **Tức thì** | 1 lần chạm database mỗi request |
+| Danh sách chặn trong Redis | **Tức thì** | 1 lần chạm Redis mỗi request |
+
+```csharp
+// Cách rẻ nhất, không thêm hạ tầng
+expires: DateTime.UtcNow.AddMinutes(5),
+ClockSkew = TimeSpan.FromSeconds(30)
+```
+
+**Khuyến nghị theo mức nhạy cảm:**
+
+- **Hệ thống nội bộ thông thường:** token 5 phút + kiểm trạng thái ở `/refresh` (bài 1). Cửa sổ 5,5 phút là chấp nhận được, và không thêm hạ tầng gì.
+- **Thao tác nhạy cảm** — chuyển tiền, đổi quyền, xoá hàng loạt: thêm danh sách chặn cho **riêng** những endpoint đó, đừng áp cho toàn API.
+
+**Và một điều quan trọng hơn con số:** vô hiệu hoá tài khoản phải **đồng thời** thu hồi refresh token. Nếu không, bài 1 lặp lại — cửa sổ 20 phút trở thành vô hạn, và con số bạn vừa đo mất hết ý nghĩa.
+
+```csharp
+public async Task DeactivateUserAsync(Guid userId, CancellationToken ct)
+{
+    var user = await _db.Users.FindAsync([userId], ct);
+    user!.IsActive = false;
+    await _userManager.UpdateSecurityStampAsync(user);
+    await RevokeAllTokensAsync(userId, "Tài khoản bị vô hiệu hoá", ct);   // BẮT BUỘC
+    await _db.SaveChangesAsync(ct);
+}
+```
+
+</details>
 
 ## Tự kiểm tra
 

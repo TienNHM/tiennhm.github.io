@@ -204,11 +204,310 @@ Sau Module 10, bước tiếp theo là [Module 11 — SignalR](../module-11-sign
 
 ## Bài tập áp dụng
 
-1. **Tái hiện đăng xuất ngẫu nhiên.** Chạy hai instance không dùng khoá chung, đăng nhập rồi gọi API nhiều lần và đếm số lần bị đăng xuất.
+#### Bài 1 — Tái hiện "cứ bị đăng xuất ngẫu nhiên"
 
-2. **Rà lộ dữ liệu.** Tìm mọi endpoint trả thẳng entity và liệt kê các trường nội bộ đang bị lộ.
+Chạy hai instance không dùng khoá Data Protection chung, đăng nhập rồi gọi API nhiều lần và đếm số lần bị đăng xuất.
 
-3. **Thử dò mật khẩu.** Gửi 1.000 request đăng nhập sai liên tiếp và xem hệ thống có chặn không.
+**Tiêu chí hoàn thành:** bạn giải thích được vì sao tỷ lệ lỗi xấp xỉ **(N−1)/N** với N instance, và vì sao lỗi này không xuất hiện khi chạy một instance.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Mỗi instance tự sinh khoá riêng khi khởi động nếu bạn không chỉ định nơi lưu. Cookie mã hoá bằng khoá của instance này thì instance kia không giải mã được.
+
+**Lời giải — dựng lại:**
+
+```bash
+# Hai instance, không cấu hình Data Protection
+dotnet run --urls http://localhost:5001 &
+dotnet run --urls http://localhost:5002 &
+```
+
+```nginx
+upstream crm { server localhost:5001; server localhost:5002; }
+server { listen 8080; location / { proxy_pass http://crm; } }
+```
+
+```bash
+COOKIE=$(curl -s -c - -X POST http://localhost:8080/login -d '...' | grep -o 'auth.*')
+
+for i in $(seq 1 20); do
+  curl -s -o /dev/null -w '%{http_code} ' -b "$COOKIE" http://localhost:8080/api/v1/me
+done
+```
+
+```text
+200 401 200 401 401 200 401 200 200 401 401 200 401 401 200 401 200 401 401 200
+```
+
+**Khoảng một nửa số request bị đăng xuất.**
+
+**Vì sao tỷ lệ là (N−1)/N.** Cookie được mã hoá bằng khoá của **một** instance. Load balancer phân phối đều, nên xác suất request rơi đúng instance đó là `1/N`. Còn lại `(N−1)/N` request rơi vào instance không giải mã được:
+
+| Số instance | Tỷ lệ lỗi |
+|---|---|
+| 1 | **0%** |
+| 2 | 50% |
+| 3 | 67% |
+| 10 | 90% |
+
+**Và đây là câu trả lời cho vế thứ hai:** với một instance, `N=1` nên tỷ lệ lỗi bằng 0. Mọi cookie đều do chính nó mã hoá. Lỗi chỉ xuất hiện đúng lúc bạn mở rộng — thường là lúc tải tăng, tức là lúc tệ nhất.
+
+**Triệu chứng người dùng báo lại rất khó lần:** "thỉnh thoảng bị đăng xuất", "bấm lại thì được". Log ứng dụng không có gì bất thường — với instance nhận request, cookie đó **thật sự** không hợp lệ.
+
+**Cách sửa — khoá dùng chung và `SetApplicationName` giống nhau:**
+
+```csharp
+builder.Services.AddDataProtection()
+    .PersistKeysToStackExchangeRedis(
+        ConnectionMultiplexer.Connect(redisConnectionString), "crm-dp-keys")
+    .SetApplicationName("crm-api");          // PHẢI giống nhau mọi instance
+```
+
+Hoặc dùng thư mục chia sẻ:
+
+```csharp
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo("/var/crm/dp-keys"))
+    .SetApplicationName("crm-api");
+```
+
+**`SetApplicationName` là dòng hay bị quên nhất.** Tên ứng dụng tham gia vào việc phân tách khoá, nên hai instance dùng chung Redis mà khác tên vẫn không giải mã được của nhau — và triệu chứng y hệt như không chia sẻ gì.
+
+**Thứ này ảnh hưởng nhiều hơn bạn nghĩ:**
+
+| Thành phần | Hỏng thế nào khi không chia sẻ khoá |
+|---|---|
+| Cookie xác thực | Đăng xuất ngẫu nhiên |
+| Token chống CSRF | `400` ngẫu nhiên khi gửi form |
+| Token đặt lại mật khẩu | Link trong email khi được khi không |
+| `TempData` | Dữ liệu mất giữa hai lần chuyển hướng |
+
+**JWT không bị ảnh hưởng**, vì nó ký bằng khoá bạn cấu hình tường minh trong `appsettings`, không phải bằng khoá Data Protection tự sinh. Đây là một lý do thực tế khiến JWT dễ mở rộng ngang hơn cookie.
+
+</details>
+
+---
+
+#### Bài 2 — Rà các endpoint trả thẳng entity
+
+Tìm mọi endpoint trả thẳng entity và liệt kê các trường nội bộ đang bị lộ.
+
+**Tiêu chí hoàn thành:** bạn liệt kê được **hai chiều** rò rỉ, không chỉ chiều trả về.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Entity đi ra ngoài là một chiều. Chiều còn lại là dữ liệu từ ngoài đi **vào** entity.
+
+**Lời giải — tìm bằng công cụ:**
+
+```bash
+grep -rnE 'return (Ok|Created\w*)\(\s*(customer|lead|user|order|entity)\b' \
+  --include=*.cs src/ | head -20
+```
+
+Hoặc chính xác hơn, kiểm kiểu trả về:
+
+```bash
+grep -rnE 'Task<ActionResult<(Customer|Lead|AppUser|Order)>>' --include=*.cs src/
+```
+
+**Chiều 1 — rò rỉ khi trả về:**
+
+```csharp
+[HttpGet("{id:guid}")]
+public async Task<ActionResult<AppUser>> GetById(Guid id, CancellationToken ct)
+    => Ok(await _db.Users.FindAsync([id], ct));       // trả thẳng entity
+```
+
+```json
+{
+  "id": "8f3a...",
+  "email": "an@company.com",
+  "passwordHash": "AQAAAAIAAYagAAAAEJ8x...",
+  "securityStamp": "TXIHJQ2RLXQ...",
+  "concurrencyStamp": "a1b2c3d4...",
+  "accessFailedCount": 2,
+  "lockoutEnd": null,
+  "internalNotes": "đang trong diện xem xét",
+  "tenantId": "acme"
+}
+```
+
+| Trường lộ | Rủi ro |
+|---|---|
+| `passwordHash` | Tấn công ngoại tuyến để dò mật khẩu |
+| `securityStamp` | Biết được token nào còn hiệu lực |
+| `internalNotes` | Ghi chú nội bộ về chính người dùng |
+| `tenantId` | Lộ cấu trúc đa tổ chức |
+
+**Chiều 2 — over-posting, và đây là chiều hay bị quên:**
+
+```csharp
+[HttpPut("{id:guid}")]
+public async Task<IActionResult> Update(Guid id, AppUser input, CancellationToken ct)
+{
+    _db.Entry(input).State = EntityState.Modified;    // gắn THẲNG entity từ body
+    await _db.SaveChangesAsync(ct);
+    return NoContent();
+}
+```
+
+```bash
+curl -X PUT .../users/8f3a... -H "Authorization: Bearer $TOKEN_USER" \
+  -d '{"id":"8f3a...","email":"an@company.com","tenantId":"MOT-TENANT-KHAC"}'
+```
+
+Người dùng vừa **tự chuyển mình sang tổ chức khác**. Hoặc tự gán `isSuperAdmin`, tự đặt `lockoutEnd = null` để gỡ khoá.
+
+Model binder gán **mọi** trường có trong JSON. Trường nào bạn không định cho sửa mà vẫn nằm trên entity thì vẫn sửa được.
+
+**Cách sửa — DTO riêng cho từng chiều:**
+
+```csharp
+public sealed record UserDto(Guid Id, string Email, string DisplayName, string[] Roles);
+
+public sealed record UpdateUserRequest(string DisplayName, string? PhoneNumber);
+```
+
+```csharp
+[HttpPut("{id:guid}")]
+public async Task<IActionResult> Update(Guid id, UpdateUserRequest req, CancellationToken ct)
+{
+    var user = await _db.Users.FindAsync([id], ct);
+    if (user is null) return NotFound();
+
+    user.DisplayName = req.DisplayName;       // CHỈ những trường cho phép
+    user.PhoneNumber = req.PhoneNumber;
+
+    await _db.SaveChangesAsync(ct);
+    return NoContent();
+}
+```
+
+DTO đầu vào chỉ có hai trường, nên `tenantId` trong JSON bị **bỏ qua hoàn toàn** — không phải bị từ chối, mà là không tồn tại trong hợp đồng.
+
+**Một bài test kiến trúc chặn cả lớp lỗi:**
+
+```csharp
+[Fact]
+public void KhongControllerNaoTraVeEntity()
+{
+    var entityTypes = typeof(CrmDbContext).Assembly.GetTypes()
+        .Where(t => t.Namespace?.Contains(".Domain.Entities") == true)
+        .ToHashSet();
+
+    var offenders = typeof(Program).Assembly.GetTypes()
+        .Where(t => typeof(ControllerBase).IsAssignableFrom(t))
+        .SelectMany(t => t.GetMethods(BindingFlags.Public | BindingFlags.DeclaredOnly))
+        .Where(m => ReturnsOrAccepts(m, entityTypes))
+        .Select(m => $"{m.DeclaringType!.Name}.{m.Name}")
+        .ToList();
+
+    Assert.Empty(offenders);
+}
+```
+
+Nó kiểm **cả hai chiều** — kiểu trả về và kiểu tham số — nên bắt được cả over-posting.
+
+</details>
+
+---
+
+#### Bài 3 — Một nghìn lần đăng nhập sai
+
+Gửi 1.000 request đăng nhập sai liên tiếp và xem hệ thống có chặn không.
+
+**Tiêu chí hoàn thành:** bạn nêu được vì sao **chỉ** lockout theo tài khoản là chưa đủ, và vì sao **chỉ** rate limit theo IP cũng chưa đủ.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Nghĩ về hai kiểu tấn công đối xứng: một mật khẩu thử trên nhiều tài khoản, và nhiều mật khẩu thử trên một tài khoản.
+
+**Lời giải — thử tải:**
+
+```bash
+for i in $(seq 1 1000); do
+  curl -s -o /dev/null -w '%{http_code}\n' -X POST .../auth/login \
+    -H 'Content-Type: application/json' \
+    -d "{\"email\":\"an@company.com\",\"password\":\"thu-$i\"}"
+done | sort | uniq -c
+```
+
+**Không có bảo vệ nào:**
+
+```text
+   1000 401
+```
+
+**1.000 lần thử trong vài giây, không gì cản.**
+
+**Chỉ có lockout theo tài khoản:**
+
+```text
+      5 401        <- năm lần sai
+    995 401        <- vẫn 401, nhưng do bị khoá
+```
+
+Tài khoản `an@company.com` được bảo vệ. Nhưng:
+
+```bash
+# Kẻ tấn công đổi chiến thuật: MỘT mật khẩu, NHIỀU tài khoản
+for email in $(cat emails.txt); do
+  curl -s -o /dev/null -w '%{http_code}\n' -X POST .../auth/login \
+    -d "{\"email\":\"$email\",\"password\":\"Password123!\"}"
+done
+```
+
+**Không tài khoản nào bị khoá** — mỗi tài khoản chỉ sai đúng một lần. Đây là **password spraying**, và lockout theo tài khoản hoàn toàn mù với nó. Với danh sách 10.000 email và một mật khẩu phổ biến, tỷ lệ trúng thường đủ để có ít nhất vài tài khoản.
+
+**Chỉ có rate limit theo IP:**
+
+```csharp
+options.AddPolicy("login", ctx => RateLimitPartition.GetFixedWindowLimiter(
+    ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+    _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1) }));
+```
+
+```text
+     10 401
+    990 429
+```
+
+Chặn được ca này. Nhưng kẻ tấn công phân tán qua botnet hoặc proxy xoay vòng thì mỗi IP chỉ gửi vài request — dưới ngưỡng, và **không tài khoản nào bị khoá** vì chúng cũng phân tán theo email.
+
+**Câu trả lời cho tiêu chí — hai cơ chế chặn hai trục khác nhau:**
+
+| | Chặn theo | Mù với |
+|---|---|---|
+| Lockout theo tài khoản | Nhiều mật khẩu × **một** tài khoản | Password spraying |
+| Rate limit theo IP | Nhiều request × **một** nguồn | Tấn công phân tán |
+
+Chúng bù cho nhau, nên phải có **cả hai**, cộng thêm một lớp thứ ba nhìn theo chiều tổng thể:
+
+```csharp
+// 3. Chỉ số toàn hệ thống — bắt được tấn công phân tán
+_metrics.LoginFailures.Add(1, new KeyValuePair<string, object?>("reason", "bad-password"));
+```
+
+```text
+CẢNH BÁO khi: tỷ lệ đăng nhập thất bại toàn hệ thống > 30% trong 5 phút
+CẢNH BÁO khi: số email khác nhau bị thử từ một /24 > 50 trong 10 phút
+```
+
+Password spraying phân tán không chạm ngưỡng nào của hai lớp đầu, nhưng nó **đẩy tỷ lệ thất bại chung** lên rất cao — và đó là dấu hiệu duy nhất bạn có.
+
+**Ba biện pháp bổ sung đáng cân nhắc:**
+
+1. **Trễ tăng dần** thay vì khoá cứng: lần sai thứ n chờ `2^n` giây, tối đa 30 giây. Làm tấn công tự động trở nên vô nghĩa mà không khoá được tài khoản của người dùng thật.
+2. **CAPTCHA sau vài lần sai** — chuyển chi phí sang phía tấn công.
+3. **Kiểm tra mật khẩu bị lộ** khi đăng ký, qua API k-anonymity của Have I Been Pwned. Password spraying sống nhờ mật khẩu phổ biến; chặn từ gốc là hiệu quả nhất.
+
+**Và một điều không được quên:** thông báo lỗi phải **giống nhau** cho mọi trường hợp thất bại. "Email không tồn tại" so với "Sai mật khẩu" cho kẻ tấn công biết email nào có thật — biến 10.000 email phỏng đoán thành một danh sách mục tiêu đã lọc.
+
+</details>
 
 ## Tự kiểm tra
 

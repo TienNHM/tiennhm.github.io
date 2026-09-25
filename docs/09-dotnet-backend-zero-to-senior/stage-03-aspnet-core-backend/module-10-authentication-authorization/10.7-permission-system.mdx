@@ -264,11 +264,288 @@ Client ẩn nút chỉ là trải nghiệm. **Server vẫn phải kiểm tra m�
 
 ## Bài tập áp dụng
 
-1. **Bitmask hết chỗ.** Tạo `[Flags] enum` với 64 quyền và thử thêm quyền thứ 65. Sau đó chèn một quyền vào **giữa** enum và quan sát giá trị đã lưu trong database bị hiểu sai thế nào.
+#### Bài 1 — Bitmask hết chỗ, và tệ hơn: chèn vào giữa
 
-2. **Token phình to.** Thêm 200 quyền vào JWT, đo kích thước token và header, rồi gọi qua Nginx với cấu hình mặc định. Ghi lại mã lỗi.
+Tạo `[Flags] enum` với 64 quyền và thử thêm quyền thứ 65. Sau đó chèn một quyền vào **giữa** enum và quan sát giá trị đã lưu trong database bị hiểu sai thế nào.
 
-3. **Cache không được xoá.** Cài cache quyền TTL 5 phút, gỡ một quyền của **vai trò** (không phải của người dùng), và đo bao lâu người dùng mới thật sự mất quyền. Thêm xoá cache theo vai trò và kiểm chứng lại.
+**Tiêu chí hoàn thành:** bạn chỉ ra được **hai** vấn đề độc lập, và nói được cái nào nguy hiểm hơn.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Vấn đề thứ nhất làm code **không biên dịch được**. Vấn đề thứ hai thì biên dịch sạch.
+
+**Lời giải — vấn đề 1: hết bit.**
+
+```csharp
+[Flags]
+public enum Permission : long
+{
+    None            = 0,
+    CustomerView    = 1L << 0,
+    CustomerCreate  = 1L << 1,
+    // ...
+    ReportExport    = 1L << 63,        // bit cuối cùng
+    SomethingNew    = 1L << 64,        // ???
+}
+```
+
+```text
+error CS0221: Constant value '0' cannot be converted to a 'long'
+```
+
+`1L << 64` tràn về `0`, nên quyền mới **bằng `None`** — và `HasFlag` luôn trả `true` cho nó. Trình biên dịch chặn được ca này, nhưng chỉ vì bạn viết tường minh; nếu tính bằng vòng lặp thì nó lọt.
+
+**64 quyền nghe nhiều, nhưng hết rất nhanh:** 8 thực thể × 5 thao tác (xem, tạo, sửa, xoá, xuất) đã là 40. Thêm module thứ chín là chạm trần.
+
+**Vấn đề 2: chèn vào giữa — và đây mới là cái nguy hiểm.**
+
+```csharp
+// Trước
+CustomerView    = 1L << 0,
+CustomerCreate  = 1L << 1,
+CustomerDelete  = 1L << 2,
+
+// Sau — chèn CustomerEdit vào giữa cho "gọn"
+CustomerView    = 1L << 0,
+CustomerEdit    = 1L << 1,        // <- MỚI
+CustomerCreate  = 1L << 2,        // đẩy xuống
+CustomerDelete  = 1L << 3,        // đẩy xuống
+```
+
+**Biên dịch sạch. Không cảnh báo nào.**
+
+Nhưng database đang lưu **số**, không lưu tên:
+
+```sql
+SELECT UserId, Permissions FROM UserPermissions WHERE UserId = '8f3a...';
+-- 6
+```
+
+| | `6` nghĩa là | |
+|---|---|---|
+| **Trước** khi chèn | `1L<<1 \| 1L<<2` | CustomerCreate + CustomerDelete |
+| **Sau** khi chèn | `1L<<1 \| 1L<<2` | CustomerEdit + **CustomerCreate** |
+
+Người dùng **mất quyền xoá** và **được thêm quyền sửa** — không ai yêu cầu, không ai biết. Với vài nghìn bản ghi quyền, đó là một đợt cấp phát lại quyền im lặng trên toàn hệ thống.
+
+**Câu trả lời cho tiêu chí:** vấn đề 2 nguy hiểm hơn hẳn, vì vấn đề 1 chặn bạn ở lúc biên dịch còn vấn đề 2 thì lặng lẽ **đổi nghĩa dữ liệu đã lưu**. Đây đúng loại "đổi ý nghĩa mà không đổi hình dạng" ở [bài 9.3](../module-09-web-api-professional/9.2-api-versioning.mdx), chỉ khác là xảy ra với database thay vì với API.
+
+**Cách làm đúng — lưu mã chuỗi, không lưu bit:**
+
+```sql
+CREATE TABLE Permissions (
+    Code        VARCHAR(100) NOT NULL PRIMARY KEY,   -- 'customer.delete'
+    DisplayName NVARCHAR(200) NOT NULL
+);
+
+CREATE TABLE RolePermissions (
+    RoleId         UNIQUEIDENTIFIER NOT NULL,
+    PermissionCode VARCHAR(100)     NOT NULL,
+    PRIMARY KEY (RoleId, PermissionCode),
+    FOREIGN KEY (PermissionCode) REFERENCES Permissions(Code)
+);
+```
+
+Ba thứ tốt lên cùng lúc: không có trần số lượng, thứ tự khai báo không còn ý nghĩa, và `SELECT` trả về thứ **đọc được**:
+
+```sql
+SELECT PermissionCode FROM RolePermissions WHERE RoleId = '...';
+-- customer.view
+-- customer.create
+```
+
+**Khi nào bitmask vẫn hợp lý:** tập quyền **nhỏ, cố định, không bao giờ chèn giữa** — ví dụ cờ đọc/ghi/thực thi trên một tài nguyên. Ngoài ra thì bảng quan hệ luôn là lựa chọn an toàn hơn.
+
+</details>
+
+---
+
+#### Bài 2 — Nhét quyền vào token và gặp giới hạn header
+
+Thêm 200 quyền vào JWT, đo kích thước token và header, rồi gọi qua Nginx với cấu hình mặc định. Ghi lại mã lỗi.
+
+**Tiêu chí hoàn thành:** ngoài kích thước, bạn nêu được **vấn đề thứ hai** của việc đặt quyền trong token — vấn đề vẫn còn kể cả khi token nhỏ.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Token đã ký thì không sửa được. Hỏi: gỡ quyền của một người lúc 9 giờ thì họ mất quyền lúc mấy giờ?
+
+**Lời giải — kích thước:**
+
+```csharp
+foreach (var code in permissions)              // 200 mã
+    claims.Add(new Claim("permission", code));
+```
+
+```bash
+echo -n "$TOKEN" | wc -c
+# 9847
+```
+
+Header `Authorization` ≈ **9,6 KB**, vượt mặc định 8 KB của Nginx:
+
+```text
+HTTP/1.1 431 Request Header Fields Too Large
+```
+
+Và nó vỡ **theo người dùng**: chỉ tài khoản nhiều quyền mới sinh token lớn, nên quản trị viên không đăng nhập được trong khi người khác bình thường.
+
+**Vấn đề thứ hai — quyền trong token không thu hồi được.**
+
+```text
+09:00  Gỡ quyền customer.delete của An
+09:00  Token của An VẪN chứa claim đó
+09:14  An gọi DELETE /customers/42 -> THÀNH CÔNG
+09:15  Token hết hạn, refresh, quyền mới có hiệu lực
+```
+
+Cửa sổ 15 phút này tồn tại **kể cả khi token chỉ có 3 quyền**. Thu nhỏ token không sửa được nó.
+
+Và nếu endpoint `/refresh` không kiểm tra lại quyền — lỗi ở [bài 10.13](10.12-mini-case-study.mdx) — thì cửa sổ thành **vô hạn**.
+
+**Cách đúng: token mang danh tính, quyền nạp theo request.**
+
+```csharp
+// Token — nhỏ và ổn định
+new Claim(JwtRegisteredClaimNames.Sub, userId),
+new Claim(ClaimTypes.Role, "Manager"),
+new Claim("tenant_id", tenantId),
+```
+
+```csharp
+public sealed class PermissionHandler(IPermissionService permissions)
+    : AuthorizationHandler<PermissionRequirement>
+{
+    protected override async Task HandleRequirementAsync(
+        AuthorizationHandlerContext ctx, PermissionRequirement req)
+    {
+        var userId = ctx.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (userId is null) return;
+
+        var granted = await permissions.GetForUserAsync(userId);
+        if (granted.Contains(req.Permission)) ctx.Succeed(req);
+    }
+}
+```
+
+**Và cache để không chạm database mỗi request:**
+
+```csharp
+public Task<IReadOnlySet<string>> GetForUserAsync(string userId) =>
+    _cache.GetOrCreateAsync($"perm:user:{userId}", async e =>
+    {
+        e.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5);
+        return await LoadFromDatabaseAsync(userId);
+    })!;
+```
+
+**Bảng so sánh:**
+
+| | Quyền trong token | Quyền nạp theo request |
+|---|---|---|
+| Kích thước header | Tăng theo số quyền | **Cố định** |
+| Độ trễ thu hồi | Tới khi token hết hạn | **Tới khi cache hết hạn** |
+| Chạm database | 0 | 1 lần mỗi 5 phút mỗi người |
+| Thu hồi tức thì | **Không làm được** | Xoá cache là xong |
+
+Chi phí thêm là một lần đọc cache — vài chục micro-giây. Đổi lại là kiểm soát thật sự. Cái bẫy còn lại của cách này nằm ở bài 3.
+
+</details>
+
+---
+
+#### Bài 3 — Xoá cache theo người dùng là chưa đủ
+
+Cài cache quyền TTL 5 phút, gỡ một quyền của **vai trò** (không phải của người dùng), và đo bao lâu người dùng mới thật sự mất quyền. Thêm xoá cache theo vai trò và kiểm chứng lại.
+
+**Tiêu chí hoàn thành:** bạn nêu được vì sao xoá cache theo `userId` không giải quyết được trường hợp này, và chọn được cách xử lý phù hợp với quy mô hệ thống mình.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Khoá cache là `perm:user:{userId}`. Khi bạn sửa một **vai trò**, bạn không biết trước những userId nào bị ảnh hưởng.
+
+**Lời giải — đo với cache theo người dùng:**
+
+```sql
+DELETE FROM RolePermissions WHERE RoleId = '...' AND PermissionCode = 'customer.delete';
+```
+
+```bash
+for i in $(seq 1 40); do
+  code=$(curl -s -o /dev/null -w '%{http_code}' -X DELETE \
+    -H "Authorization: Bearer $TOKEN" .../customers/42)
+  echo "$(date +%T) $code"
+  sleep 15
+done
+```
+
+```text
+09:00:00 204
+09:00:15 204
+...
+09:04:45 204
+09:05:00 403      <- mất quyền sau 5 phút
+```
+
+**Đúng bằng TTL.** Việc xoá cache khi "quyền của người dùng thay đổi" không chạy, vì bạn sửa vai trò chứ không sửa người dùng.
+
+**Vì sao khó.** Quan hệ là `vai trò -> nhiều người dùng`, nhưng khoá cache lại theo người dùng. Muốn xoá đúng, bạn phải **duyệt ngược**: tìm mọi người có vai trò đó rồi xoá từng khoá. Với vai trò `Employee` có 5.000 người, đó là 5.000 lệnh `Remove` — và bạn vẫn có thể bỏ sót người vừa được gán vai trò trong lúc đang duyệt.
+
+**Ba cách xử lý, chọn theo quy mô:**
+
+**1. Khoá theo phiên bản vai trò — gọn nhất, không cần duyệt.**
+
+```csharp
+var version = await _cache.GetStringAsync($"role-version:{roleId}") ?? "0";
+var key = $"perm:user:{userId}:rv{version}";
+```
+
+```csharp
+// Khi sửa quyền của vai trò — chỉ MỘT lệnh
+await _cache.SetStringAsync($"role-version:{roleId}",
+    (int.Parse(version) + 1).ToString());
+```
+
+Tăng số phiên bản là mọi khoá cũ trở thành mồ côi và hết hạn tự nhiên theo TTL. Không cần tìm ai bị ảnh hưởng.
+
+**2. Xoá theo tag với `HybridCache` (.NET 9).**
+
+```csharp
+await _hybridCache.GetOrCreateAsync(
+    $"perm:user:{userId}",
+    factory,
+    tags: [$"role:{roleId}"]);
+
+await _hybridCache.RemoveByTagAsync($"role:{roleId}", ct);
+```
+
+Rõ ràng hơn cách 1, nhưng cần `HybridCache` — xem [bài 14.6](../../stage-04-database-production/module-14-caching-background-jobs/14.5-hybridcache-dotnet-9.mdx).
+
+**3. Chấp nhận TTL ngắn.** Hạ TTL xuống 30 giây và không xoá gì cả. Đơn giản nhất, đổi lại là tải database tăng 10 lần. Hợp lý khi hệ thống nhỏ và quyền hiếm khi đổi.
+
+**Một cái bẫy nữa: cache cục bộ trên nhiều pod.**
+
+`IMemoryCache` sống **trong tiến trình**. Xoá cache trên pod A không ảnh hưởng pod B và C:
+
+```text
+10:00  Admin gỡ quyền, request rơi vào pod A -> pod A xoá cache
+10:01  Người dùng gọi API, request rơi vào pod B -> VẪN CÒN QUYỀN
+```
+
+Với nhiều instance, cache quyền phải nằm ở Redis, hoặc bạn phải phát một thông báo để mọi pod cùng xoá — vấn đề và cách giải ở [bài 14.5](../../stage-04-database-production/module-14-caching-background-jobs/14.4-cache-invalidation-strategies.mdx).
+
+**Khuyến nghị theo quy mô:**
+
+| Quy mô | Cách chọn |
+|---|---|
+| Một instance, ít người dùng | TTL 30 giây, không xoá |
+| Nhiều instance | Redis + khoá theo phiên bản vai trò |
+| Yêu cầu thu hồi tức thì | Redis + `RemoveByTag`, TTL ngắn làm lưới an toàn |
+
+</details>
 
 ## Tự kiểm tra
 
