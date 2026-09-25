@@ -272,11 +272,403 @@ Connection string ở đây chỉ dùng để **sinh** migration, không bao gi�
 
 ## Bài tập áp dụng
 
-1. **Xung đột snapshot.** Tạo hai nhánh, mỗi nhánh thêm một migration, rồi merge. Thử giải xung đột bằng tay và xem migration tiếp theo sinh ra gì. Làm lại bằng quy trình gỡ và sinh lại.
+#### Bài 1 — Xung đột model snapshot
 
-2. **Đổi tên mất dữ liệu.** Đổi tên một thuộc tính trong entity, sinh migration, và đọc SQL. Xác nhận nó `DROP` rồi `ADD`. Sửa thành `RenameColumn` và kiểm chứng dữ liệu còn nguyên.
+Tạo hai nhánh, mỗi nhánh thêm một migration, rồi merge. Thử giải xung đột bằng tay và xem migration tiếp theo sinh ra gì. Làm lại bằng quy trình gỡ và sinh lại.
 
-3. **`Down()` không khôi phục dữ liệu.** Chạy migration `DropColumn` trên bảng có dữ liệu, rồi rollback. Xác nhận cột trở lại nhưng **rỗng**.
+**Tiêu chí hoàn thành:** bạn giải thích được vì sao giải xung đột bằng tay **có vẻ đúng** nhưng lại hỏng ở migration tiếp theo.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** EF Core so sánh mô hình hiện tại với **cái gì** để biết cần sinh migration nào?
+
+**Lời giải — tái hiện:**
+
+```bash
+git checkout -b feature/them-source
+# thêm thuộc tính Lead.Source
+dotnet ef migrations add ThemLeadSource
+git commit -am "thêm Lead.Source"
+
+git checkout main && git checkout -b feature/them-priority
+# thêm thuộc tính Lead.Priority
+dotnet ef migrations add ThemLeadPriority
+git commit -am "thêm Lead.Priority"
+
+git checkout main
+git merge feature/them-source      # sạch
+git merge feature/them-priority    # XUNG ĐỘT
+```
+
+```text
+CONFLICT (content): Merge conflict in Migrations/CrmDbContextModelSnapshot.cs
+```
+
+Hai file migration **không** xung đột — chúng là file mới, tên khác nhau. Chỉ `CrmDbContextModelSnapshot.cs` xung đột, vì cả hai nhánh cùng sửa nó.
+
+**Giải bằng tay — và vì sao nó "có vẻ đúng":**
+
+```csharp
+b.Property<string>("Source").HasColumnType("nvarchar(max)");
+b.Property<int>("Priority").HasColumnType("int");
+```
+
+Giữ cả hai dòng. Build xanh. `dotnet ef database update` chạy ngon lành, cả hai cột đều được tạo. Test đi qua. Nhìn từ mọi góc, mọi thứ đều ổn.
+
+**Vì sao nó hỏng ở migration tiếp theo.** Vấn đề là snapshot không chỉ có hai dòng đó. Nó là **bản chụp đầy đủ** của toàn bộ mô hình — mọi entity, mọi thuộc tính, mọi index, mọi khoá ngoại, mọi annotation — và EF Core dùng nó làm **điểm tham chiếu duy nhất** để tính ra migration kế tiếp:
+
+```text
+Migration tiếp theo = (mô hình hiện tại trong code) TRỪ (snapshot)
+```
+
+Merge bằng tay chỉ giải phần Git đánh dấu xung đột. Những phần Git **tự merge được** nhưng sai ngữ nghĩa vẫn lọt qua: thứ tự annotation, giá trị `HasMaxLength` bị chọn từ một phía, một index mà chỉ một nhánh biết. Hai nhánh còn có thể cùng chạm tới những dòng chung như giá trị `ProductVersion` hoặc khai báo `HasAnnotation("Relational:MaxIdentifierLength", 128)`.
+
+Kết quả là snapshot **không còn khớp** với mô hình thật. Và vì công thức trên lấy snapshot làm chuẩn, migration tiếp theo tính sai:
+
+```bash
+dotnet ef migrations add ThemLeadNotes
+```
+
+```csharp
+public partial class ThemLeadNotes : Migration
+{
+    protected override void Up(MigrationBuilder migrationBuilder)
+    {
+        migrationBuilder.AddColumn<string>(name: "Notes", table: "Leads", nullable: true);
+
+        // Không ai yêu cầu những dòng này
+        migrationBuilder.AlterColumn<string>(
+            name: "Source", table: "Leads", type: "nvarchar(100)", maxLength: 100,
+            oldClrType: typeof(string), oldType: "nvarchar(max)");
+
+        migrationBuilder.DropIndex(name: "IX_Leads_Priority", table: "Leads");
+    }
+}
+```
+
+Lỗi xuất hiện **trễ một nhịp**: nó không xảy ra ở lần merge, mà ở lần thay đổi schema tiếp theo — có thể nhiều ngày sau, do một người khác làm, trên một tính năng chẳng liên quan gì. Đó là lý do nó khó truy nguyên.
+
+**Quy trình đúng — gỡ và sinh lại:**
+
+```bash
+git checkout main
+git merge feature/them-source
+
+git merge feature/them-priority
+# Khi xung đột, lấy nguyên snapshot của nhánh ĐANG ĐƯỢC MERGE VÀO
+git checkout --ours Migrations/CrmDbContextModelSnapshot.cs
+git add Migrations/CrmDbContextModelSnapshot.cs
+git commit
+
+# Gỡ migration của nhánh đến (snapshot lúc này chưa biết về nó)
+rm Migrations/*_ThemLeadPriority.cs
+
+# Sinh lại — EF Core tự so mô hình với snapshot và sinh đúng phần còn thiếu
+dotnet ef migrations add ThemLeadPriority
+```
+
+Điểm cốt lõi: **đừng bao giờ sửa snapshot bằng tay.** Nó là file sinh tự động. Cách duy nhất để nó đúng là để EF Core sinh ra nó.
+
+**Kiểm chứng sau mỗi lần merge có migration** — một lệnh duy nhất:
+
+```bash
+dotnet ef migrations add KiemTra --dry-run
+```
+
+Hoặc trên bản EF Core không có `--dry-run`:
+
+```bash
+dotnet ef migrations add TamThoi && cat Migrations/*_TamThoi.cs
+dotnet ef migrations remove
+```
+
+Nếu migration sinh ra **rỗng**, snapshot khớp với mô hình. Nếu nó chứa bất kỳ thao tác nào, snapshot đã sai và bạn vừa bắt được lỗi trước khi nó lên production.
+
+**Đưa kiểm tra đó vào CI** — đây là thứ đáng làm nhất trong cả bài:
+
+```yaml
+- name: Kiểm tra model snapshot khớp với mô hình
+  run: |
+    dotnet ef migrations add CiCheck --project src/Crm.Infrastructure
+    if grep -q "migrationBuilder\." src/Crm.Infrastructure/Migrations/*_CiCheck.cs; then
+      echo "Model snapshot không khớp với mô hình — hãy sinh lại migration"
+      exit 1
+    fi
+```
+
+**Ba cách giảm tần suất xung đột:**
+
+1. **Một người phụ trách migration mỗi sprint** — cách rẻ nhất, và hiệu quả bất ngờ với nhóm nhỏ.
+2. **Merge main vào nhánh tính năng thường xuyên** — xung đột được phát hiện sớm, khi chỉ có một migration để sinh lại.
+3. **Gộp thay đổi schema thành một migration mỗi tính năng**, đặt ở cuối nhánh thay vì rải rác — ít file hơn, ít lần chạm snapshot hơn.
+
+</details>
+
+---
+
+#### Bài 2 — Đổi tên thuộc tính làm mất dữ liệu
+
+Đổi tên một thuộc tính trong entity, sinh migration, và đọc SQL. Xác nhận nó `DROP` rồi `ADD`. Sửa thành `RenameColumn` và kiểm chứng dữ liệu còn nguyên.
+
+**Tiêu chí hoàn thành:** bạn giải thích được vì sao EF Core **không thể** tự nhận ra đây là đổi tên.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** EF Core so sánh hai bản chụp mô hình. Nó thấy gì khi một thuộc tính đổi tên?
+
+**Lời giải:**
+
+```csharp
+public class Lead
+{
+    public string Name { get; set; } = null!;     // đổi thành...
+    public string FullName { get; set; } = null!;
+}
+```
+
+```bash
+dotnet ef migrations add DoiTenNameThanhFullName
+```
+
+```csharp
+protected override void Up(MigrationBuilder migrationBuilder)
+{
+    migrationBuilder.DropColumn(name: "Name", table: "Leads");
+
+    migrationBuilder.AddColumn<string>(
+        name: "FullName", table: "Leads", type: "nvarchar(max)",
+        nullable: false, defaultValue: "");
+}
+```
+
+```sql
+ALTER TABLE [Leads] DROP COLUMN [Name];
+ALTER TABLE [Leads] ADD [FullName] nvarchar(max) NOT NULL DEFAULT N'';
+```
+
+Chạy migration này trên production: 50.000 tên khách hàng biến mất, thay bằng 50.000 chuỗi rỗng. Migration **thành công**, không lỗi, không cảnh báo nào ngoài một dòng `An operation was scaffolded that may result in the loss of data` trong log — dòng mà CI thường không đọc.
+
+**Bản sửa — sửa file migration bằng tay:**
+
+```csharp
+protected override void Up(MigrationBuilder migrationBuilder)
+{
+    migrationBuilder.RenameColumn(
+        name: "Name", table: "Leads", newName: "FullName");
+}
+
+protected override void Down(MigrationBuilder migrationBuilder)
+{
+    migrationBuilder.RenameColumn(
+        name: "FullName", table: "Leads", newName: "Name");
+}
+```
+
+```sql
+EXEC sp_rename N'[Leads].[Name]', N'FullName', N'COLUMN';
+```
+
+Dữ liệu còn nguyên, và `Down()` khôi phục được hoàn toàn — khác hẳn bản `DROP`/`ADD`, nơi `Down()` chỉ tạo lại một cột rỗng.
+
+**Vì sao EF Core không thể tự nhận ra đây là đổi tên.** Vì thông tin đó **không tồn tại** ở chỗ nó nhìn.
+
+EF Core sinh migration bằng cách so sánh hai cấu trúc dữ liệu: snapshot cũ và mô hình mới. Mỗi thuộc tính trong đó được định danh bằng **tên**. Không có id ổn định, không có lịch sử, không có liên kết giữa thuộc tính cũ và mới:
+
+```text
+Snapshot cũ:   { "Name": string }
+Mô hình mới:   { "FullName": string }
+
+Khác biệt:     - "Name" không còn    -> DropColumn
+               - "FullName" mới có   -> AddColumn
+```
+
+Bài toán "hai tên khác nhau này thật ra là một thứ" là bài toán **không giải được** từ dữ liệu đó. Cân nhắc hai kịch bản tạo ra **cùng một khác biệt**:
+
+```text
+Kịch bản A: đổi tên Name -> FullName
+            Mong muốn: giữ dữ liệu
+
+Kịch bản B: xoá cột Name, thêm cột FullName không liên quan
+            Mong muốn: cột mới phải RỖNG
+```
+
+Snapshot không phân biệt được hai kịch bản này, vì cả hai để lại đúng cùng một dấu vết. EF Core buộc phải chọn một, và nó chọn `DROP`/`ADD` — diễn giải **an toàn hơn về mặt ngữ nghĩa** (không giả định dữ liệu cũ phù hợp với cột mới), dù nguy hiểm hơn về mặt dữ liệu.
+
+Có công cụ đoán được — so sánh kiểu dữ liệu, độ tương đồng tên, vị trí cột — nhưng đó là **suy đoán**, và một công cụ migration đoán sai về dữ liệu production thì tệ hơn một công cụ không đoán.
+
+**Cách giữ ý định đổi tên cho EF Core biết** — dùng `HasColumnName` thay vì đổi tên cột thật:
+
+```csharp
+public string FullName { get; set; } = null!;   // đổi tên trong C#
+```
+
+```csharp
+builder.Property(l => l.FullName).HasColumnName("Name");   // cột database giữ nguyên
+```
+
+Không migration nào được sinh ra, vì database không đổi gì. Đây thường là lựa chọn đúng khi bạn chỉ muốn code đọc dễ hơn — và nó tách được hai việc vốn không liên quan: đặt tên trong C# và đặt tên trong schema.
+
+**Quy trình bắt buộc, không có ngoại lệ: đọc mọi migration trước khi commit.**
+
+```bash
+dotnet ef migrations add TenMigration
+cat src/Crm.Infrastructure/Migrations/*_TenMigration.cs
+```
+
+Và tốt hơn nữa, đọc SQL thật:
+
+```bash
+dotnet ef migrations script --idempotent --from <migration-trước> --to TenMigration
+```
+
+**Chặn trong CI** — bắt mọi thao tác phá dữ liệu, không chỉ đổi tên:
+
+```bash
+#!/usr/bin/env bash
+# Cảnh báo khi migration mới chứa thao tác có thể mất dữ liệu
+NGUY_HIEM="DropColumn|DropTable|AlterColumn.*nullable: false"
+if git diff --name-only origin/main...HEAD -- '*/Migrations/*.cs' \
+   | xargs --no-run-if-empty grep -lE "$NGUY_HIEM"; then
+  echo "Migration chứa thao tác có thể mất dữ liệu — cần một người nữa duyệt"
+  exit 1
+fi
+```
+
+Đặt nó ở mức **cảnh báo cần duyệt** chứ không phải chặn cứng: `DropColumn` đôi khi đúng là thứ bạn muốn. Điều quan trọng là nó không bao giờ được đi qua mà không ai nhìn.
+
+</details>
+
+---
+
+#### Bài 3 — `Down()` không khôi phục dữ liệu
+
+Chạy migration `DropColumn` trên bảng có dữ liệu, rồi rollback. Xác nhận cột trở lại nhưng **rỗng**.
+
+**Tiêu chí hoàn thành:** bạn phân loại được thao tác migration nào **rollback được thật** và thao tác nào chỉ rollback được về mặt schema.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** `Down()` là code bạn viết. Nó chỉ làm được những gì bạn bảo nó làm — và nó không có bản sao dữ liệu nào để dùng.
+
+**Lời giải:**
+
+```sql
+SELECT TOP 3 Id, Name, Notes FROM Leads;
+```
+
+```text
+Id   Name              Notes
+1    Nguyễn Văn An     Khách quan tâm gói doanh nghiệp
+2    Trần Thị Bình     Đã gọi 3 lần, hẹn gặp tuần sau
+3    Lê Minh Cường     Yêu cầu báo giá chi tiết
+```
+
+```bash
+dotnet ef migrations add BoCotNotes    # sau khi xoá thuộc tính Notes
+dotnet ef database update
+dotnet ef database update BanGhiTruocDo    # rollback
+```
+
+```sql
+SELECT TOP 3 Id, Name, Notes FROM Leads;
+```
+
+```text
+Id   Name              Notes
+1    Nguyễn Văn An     NULL
+2    Trần Thị Bình     NULL
+3    Lê Minh Cường     NULL
+```
+
+Cột trở lại. Dữ liệu thì không, và không có cách nào lấy lại từ database — `ALTER TABLE DROP COLUMN` giải phóng hẳn không gian đó.
+
+**Vì sao.** `Down()` chỉ là một phương thức C# bạn viết, và nội dung EF Core sinh ra cho nó là phép đảo **của thao tác schema**, không phải của dữ liệu:
+
+```csharp
+protected override void Up(MigrationBuilder migrationBuilder)
+    => migrationBuilder.DropColumn(name: "Notes", table: "Leads");
+
+protected override void Down(MigrationBuilder migrationBuilder)
+    => migrationBuilder.AddColumn<string>(
+           name: "Notes", table: "Leads", nullable: true);
+```
+
+`AddColumn` tạo một cột mới, rỗng. Nó không thể làm gì khác, vì **không tồn tại bản sao nào** của dữ liệu cũ để khôi phục. Migration không phải backup.
+
+**Phân loại thao tác — đây là phần chính của bài:**
+
+**Nhóm 1 — rollback được thật, cả schema lẫn dữ liệu:**
+
+| Thao tác | `Down()` | Vì sao an toàn |
+|---|---|---|
+| `AddColumn` | `DropColumn` | Cột mới vốn chưa có dữ liệu nào đáng giữ |
+| `CreateIndex` | `DropIndex` | Index dẫn xuất hoàn toàn từ dữ liệu bảng |
+| `CreateTable` | `DropTable` | Bảng mới, dữ liệu sinh ra sau migration này |
+| `RenameColumn` | `RenameColumn` | Chỉ đổi metadata, dữ liệu không bị chạm |
+| `AddForeignKey` | `DropForeignKey` | Chỉ là ràng buộc |
+| Nới lỏng kiểu (`nvarchar(50)` → `nvarchar(200)`) | Thu hẹp lại | Giá trị cũ vẫn vừa — **trừ khi** đã có giá trị dài hơn 50 |
+
+Dòng cuối có điều kiện, và đó là điểm đáng nhớ: nó an toàn **nếu rollback ngay**, và không an toàn nếu ứng dụng đã chạy một thời gian với kiểu mới.
+
+**Nhóm 2 — chỉ rollback được schema, dữ liệu mất vĩnh viễn:**
+
+| Thao tác | Mất gì |
+|---|---|
+| `DropColumn` | Toàn bộ giá trị của cột |
+| `DropTable` | Toàn bộ bảng |
+| Thu hẹp kiểu (`nvarchar(200)` → `nvarchar(50)`) | Phần bị cắt của mọi giá trị dài hơn 50 |
+| Đổi kiểu (`nvarchar` → `int`) | Mọi giá trị không parse được |
+| `AlterColumn` sang `NOT NULL` với default | Thông tin "giá trị này vốn chưa biết" |
+| `DELETE` trong migration | Các dòng đã xoá |
+
+Dòng áp chót tinh tế hơn các dòng khác: không có byte nào mất đi, nhưng `NULL` và `0` mang hai ý nghĩa khác nhau — "chưa biết" và "bằng không" — và sau khi chuyển thì không phân biệt được nữa.
+
+**Nhóm 3 — không rollback được ngay cả về schema:**
+
+```csharp
+protected override void Down(MigrationBuilder migrationBuilder)
+    => throw new NotSupportedException(
+           "Migration này không thể rollback: dữ liệu đã được chuyển đổi không thuận nghịch.");
+```
+
+Tách một cột `FullName` thành `FirstName` và `LastName` là ví dụ điển hình: ghép lại được, nhưng `"Nguyễn Văn An"` tách rồi ghép có thể ra `"Nguyễn Văn An"` hoặc `"An Nguyễn Văn"` tuỳ quy tắc tách — không đảm bảo về đúng chuỗi ban đầu.
+
+Trong trường hợp này, **ném exception rõ ràng tốt hơn viết một `Down()` gần đúng**: nó buộc người vận hành phải khôi phục từ backup thay vì tin vào một phép đảo không chính xác.
+
+**Hệ quả cho quy trình triển khai — điểm quan trọng nhất của bài.**
+
+Nếu `Down()` không khôi phục được dữ liệu, thì **rollback không phải là kế hoạch dự phòng của bạn**. Kế hoạch dự phòng thật là:
+
+**1. Expand–contract, và để khoảng cách giữa hai bước đủ dài.** Chỉ `Up()` của bước expand mới được triển khai cùng code mới; bước contract chờ đến khi bạn chắc chắn không cần quay lại:
+
+```text
+Tuần 1:  thêm cột mới, ghi cả hai cột       -> rollback được
+Tuần 2:  chuyển đọc sang cột mới            -> rollback được
+Tuần 3:  ngừng ghi cột cũ                   -> rollback được
+Tuần 4:  DropColumn cột cũ                  -> điểm không quay lại
+```
+
+Ba tuần đầu, rollback chỉ là triển khai lại bản code cũ. Đến tuần 4 mới có thao tác phá huỷ, và lúc đó bạn đã có ba tuần để phát hiện vấn đề.
+
+**2. Backup ngay trước mọi migration có thao tác nhóm 2.** Đưa vào pipeline, không để người vận hành nhớ:
+
+```bash
+sqlcmd -Q "BACKUP DATABASE Crm TO DISK='/backup/truoc-migration-$(date +%F-%H%M).bak'"
+dotnet ef database update
+```
+
+**3. Giữ dữ liệu thay vì xoá, khi có thể.** Đổi tên cột sang `Notes_DaBo` và xoá thật ở một migration sau vài tuần:
+
+```csharp
+migrationBuilder.RenameColumn(name: "Notes", table: "Leads", newName: "Notes_DaBo_20260925");
+```
+
+Cách này biến một thao tác nhóm 2 thành nhóm 1. Cái giá là một cột thừa trong vài tuần — rẻ hơn nhiều so với mất dữ liệu, và nó cho bạn đúng thứ mà `Down()` không cho được.
+
+</details>
 
 ## Tự kiểm tra
 
