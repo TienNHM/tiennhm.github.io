@@ -244,11 +244,298 @@ MessagePack là định dạng nhị phân, thường nhỏ hơn JSON **30–50%
 
 ## Bài tập áp dụng
 
-1. **Gõ sai tên hàm.** Gọi `Clients.User(id).SendAsync("ReceiveNotifcation", dto)` với một chữ sai, xác nhận **không có lỗi nào** và client không nhận gì. Chuyển sang strongly-typed và xác nhận nó không biên dịch được.
+#### Bài 1 — Gõ sai tên hàm và không có gì báo cho bạn
 
-2. **Exception bị che.** Ném `InvalidOperationException` trong một Hub method và ghi lại thông điệp client nhận. Đổi sang `HubException` và so sánh. Sau đó bật `EnableDetailedErrors` và xem client nhận được gì.
+Gọi `Clients.User(id).SendAsync("ReceiveNotifcation", dto)` với một chữ sai, xác nhận **không có lỗi nào** và client không nhận gì. Chuyển sang strongly-typed và xác nhận nó không biên dịch được.
 
-3. **Lời gọi tuần tự.** Viết một Hub method mất 3 giây, gọi nó rồi gọi ngay một method nhanh từ cùng client. Đo thời gian method thứ hai hoàn thành và giải thích.
+**Tiêu chí hoàn thành:** bạn giải thích được vì sao SignalR **không thể** báo lỗi ở đây, kể cả khi nó muốn.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Server và client là hai chương trình khác nhau, có thể viết bằng hai ngôn ngữ khác nhau, và client có thể kết nối sau khi server đã chạy hàng tháng.
+
+**Lời giải — bản dùng chuỗi:**
+
+```csharp
+public class NotificationHub : Hub
+{
+    public Task Notify(string userId, NotificationDto dto)
+        => Clients.User(userId).SendAsync("ReceiveNotifcation", dto);   // thiếu chữ 'i'
+}
+```
+
+```js
+connection.on('ReceiveNotification', dto => showToast(dto));   // tên đúng
+```
+
+```text
+(không có gì xảy ra — không lỗi server, không lỗi client, không log)
+```
+
+**Vì sao SignalR không thể báo lỗi.** Server chỉ gửi đi một thông điệp mang **tên phương thức dưới dạng chuỗi**. Nó không có cách nào biết client đăng ký những tên nào:
+
+- client có thể là JavaScript, C#, Java, Python — server không đọc được code của họ;
+- client có thể đăng ký handler **sau** khi thông điệp tới;
+- một client có thể cố tình bỏ qua một số thông điệp;
+- nhiều client khác nhau đăng ký những tập tên khác nhau.
+
+Nếu SignalR cảnh báo "không ai lắng nghe tên này", nó sẽ cảnh báo sai trong tất cả các trường hợp trên. Nên nó im lặng — đúng như thiết kế, và đó chính là vấn đề.
+
+**Bản strongly-typed:**
+
+```csharp
+public interface INotificationClient
+{
+    Task ReceiveNotification(NotificationDto dto);
+    Task NotificationRead(Guid id);
+}
+
+public class NotificationHub : Hub<INotificationClient>
+{
+    public Task Notify(string userId, NotificationDto dto)
+        => Clients.User(userId).ReceiveNotifcation(dto);      // gõ sai
+}
+```
+
+```text
+error CS1061: 'INotificationClient' does not contain a definition for 'ReceiveNotifcation'
+```
+
+**Không biên dịch được.** Lỗi chuyển từ "im lặng lúc chạy" sang "đỏ lúc build".
+
+**Ba thứ được thêm cùng lúc:**
+
+| | Chuỗi | Strongly-typed |
+|---|---|---|
+| Gõ sai tên | Im lặng | **Lỗi biên dịch** |
+| Sai số tham số hoặc kiểu | Im lặng | **Lỗi biên dịch** |
+| Đổi tên phương thức | Tìm và thay bằng tay | `F2` trong IDE, đổi mọi nơi |
+
+Dòng thứ hai đáng chú ý: `SendAsync("ReceiveNotification", dto, extraArg)` cũng không báo gì. Client nhận một thông điệp có số tham số không khớp và bỏ qua nó.
+
+**Phía client vẫn còn là chuỗi** — `connection.on('ReceiveNotification', ...)` trong JavaScript. Để đóng nốt khoảng trống đó, sinh hằng số từ interface:
+
+```ts
+export const HubEvents = {
+  ReceiveNotification: 'ReceiveNotification',
+  NotificationRead: 'NotificationRead',
+} as const;
+
+connection.on(HubEvents.ReceiveNotification, dto => showToast(dto));
+```
+
+Kết hợp với bước sinh client từ OpenAPI ở [bài 9.11](../module-09-web-api-professional/9.10-advanced-notes.mdx), bạn có được kiểm tra hợp đồng ở cả hai đầu.
+
+**Kết luận:** dùng `Hub<T>` cho mọi Hub mới. Chi phí là một interface; đổi lại là cả một lớp lỗi im lặng biến mất.
+
+</details>
+
+---
+
+#### Bài 2 — Exception bị che, và `HubException` thì không
+
+Ném `InvalidOperationException` trong một Hub method và ghi lại thông điệp client nhận. Đổi sang `HubException` và so sánh. Sau đó bật `EnableDetailedErrors` và xem client nhận được gì.
+
+**Tiêu chí hoàn thành:** bạn nêu được vì sao SignalR che thông điệp theo mặc định, và vì sao `EnableDetailedErrors` không nên bật trên production.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Thông điệp exception thường chứa những thứ không dành cho người ngoài — tên bảng, chuỗi kết nối, đường dẫn file.
+
+**Lời giải — exception thường:**
+
+```csharp
+public Task JoinRoom(string room)
+{
+    if (!_rooms.Exists(room))
+        throw new InvalidOperationException(
+            $"Phòng {room} không tồn tại trong bảng dbo.ChatRooms trên máy chủ sql-prod-02");
+
+    return Groups.AddToGroupAsync(Context.ConnectionId, room);
+}
+```
+
+```js
+try { await connection.invoke('JoinRoom', 'khong-ton-tai'); }
+catch (e) { console.log(e.message); }
+```
+
+```text
+An unexpected error occurred invoking 'JoinRoom' on the server.
+```
+
+**Thông điệp bị che.** Client không biết gì, nhưng server có đầy đủ trong log.
+
+**Với `HubException`:**
+
+```csharp
+if (!_rooms.Exists(room))
+    throw new HubException($"Phòng '{room}' không tồn tại");
+```
+
+```text
+Phòng 'khong-ton-tai' không tồn tại
+```
+
+**Thông điệp tới nguyên vẹn.** `HubException` là cách bạn nói với SignalR: *"thông điệp này tôi cố ý viết cho client đọc"*.
+
+**Với `EnableDetailedErrors = true`:**
+
+```csharp
+builder.Services.AddSignalR(o => o.EnableDetailedErrors = true);
+```
+
+```text
+An unexpected error occurred invoking 'JoinRoom' on the server.
+InvalidOperationException: Phòng khong-ton-tai không tồn tại trong bảng
+dbo.ChatRooms trên máy chủ sql-prod-02
+   at Crm.Api.Hubs.NotificationHub.JoinRoom(String room) in
+      /src/Crm.Api/Hubs/NotificationHub.cs:line 42
+```
+
+**Vì sao mặc định che.** Thông điệp exception được viết cho **lập trình viên đang gỡ rối**, không cho người dùng cuối. Chúng thường chứa:
+
+- tên bảng, tên cột, tên máy chủ database,
+- đường dẫn file trên server và số dòng,
+- một phần câu truy vấn hoặc giá trị tham số,
+- đôi khi cả chuỗi kết nối khi lỗi ở tầng hạ tầng.
+
+Ghép lại, đó là một bản đồ khá chi tiết về hệ thống của bạn — đúng loại thông tin mà [bài 10.11](../module-10-authentication-authorization/10.10-security-best-practices.mdx) khuyên không để lọt ra ngoài.
+
+**Vì sao không bật trên production.** Stack trace lộ cấu trúc thư mục và tên lớp nội bộ; thông điệp lộ tên bảng và tên máy chủ. Nó hữu ích ở môi trường phát triển và vô giá trị với người dùng thật — họ không làm gì được với `NotificationHub.cs:line 42`.
+
+```csharp
+builder.Services.AddSignalR(o =>
+    o.EnableDetailedErrors = builder.Environment.IsDevelopment());
+```
+
+**Mẫu xử lý lỗi hợp lý trong Hub:**
+
+```csharp
+public async Task JoinRoom(string room)
+{
+    try
+    {
+        if (!await _rooms.ExistsAsync(room))
+            throw new HubException($"Phòng '{room}' không tồn tại");   // cho client
+
+        if (!await _authz.CanJoinAsync(Context.User!, room))
+            throw new HubException("Bạn không có quyền vào phòng này");
+
+        await Groups.AddToGroupAsync(Context.ConnectionId, room);
+    }
+    catch (HubException) { throw; }                 // đã dành cho client -> để nguyên
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "JoinRoom thất bại cho {Room}", room);
+        throw new HubException("Không vào được phòng, vui lòng thử lại");
+    }
+}
+```
+
+Chi tiết vào log, thông điệp chung chung tới client — cùng nguyên tắc với xử lý ngoại lệ toàn cục ở [bài 8.9](../module-08-aspnet-core-fundamentals/8.8-global-exception-handling.mdx).
+
+</details>
+
+---
+
+#### Bài 3 — Lời gọi từ cùng một client chạy tuần tự
+
+Viết một Hub method mất 3 giây, gọi nó rồi gọi ngay một method nhanh từ cùng client. Đo thời gian method thứ hai hoàn thành và giải thích.
+
+**Tiêu chí hoàn thành:** bạn nêu được vì sao SignalR chọn tuần tự thay vì song song, và cách xử lý việc dài mà không chặn kết nối.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Nếu hai lời gọi từ cùng một client chạy song song, thứ tự hoàn thành sẽ không xác định. Hãy nghĩ tới một client gửi "vào phòng A" rồi "gửi tin vào phòng A".
+
+**Lời giải:**
+
+```csharp
+public async Task<string> SlowJob()
+{
+    await Task.Delay(3000);
+    return "xong việc chậm";
+}
+
+public Task<string> Ping() => Task.FromResult("pong");
+```
+
+```js
+const t0 = performance.now();
+connection.invoke('SlowJob').then(() => console.log('SlowJob', performance.now() - t0));
+connection.invoke('Ping').then(()    => console.log('Ping',    performance.now() - t0));
+```
+
+```text
+SlowJob 3012
+Ping 3018
+```
+
+**`Ping` mất hơn 3 giây**, dù bản thân nó trả về tức thì.
+
+**Vì sao SignalR chọn tuần tự.** Mỗi kết nối xử lý các lời gọi **lần lượt theo thứ tự nhận được**, vì rất nhiều luồng nghiệp vụ phụ thuộc vào thứ tự:
+
+```text
+invoke('JoinRoom', 'A')
+invoke('SendMessage', 'A', 'xin chào')
+```
+
+Nếu hai lời gọi này chạy song song, `SendMessage` có thể xong trước `JoinRoom` và tin nhắn gửi vào hư không. Bảo đảm thứ tự làm cho hành vi tất định, và đó là đánh đổi có chủ ý.
+
+**Cho phép song song nếu bạn chắc chắn không cần thứ tự:**
+
+```csharp
+builder.Services.AddSignalR(o => o.MaximumParallelInvocationsPerClient = 4);
+```
+
+```text
+SlowJob 3011
+Ping 4
+```
+
+Nhưng hãy cân nhắc kỹ: mọi giả định về thứ tự trong code của bạn sẽ im lặng trở thành sai.
+
+**Cách đúng cho việc dài — đừng làm nó trong Hub.**
+
+```csharp
+public async Task<string> StartExport()
+{
+    var jobId = Guid.NewGuid();
+    await _queue.EnqueueAsync(new ExportJob(jobId, Context.UserIdentifier!), default);
+    return jobId.ToString();              // trả về NGAY
+}
+```
+
+```csharp
+// Worker — gửi kết quả qua IHubContext khi xong
+public sealed class ExportWorker(
+    EmailQueue queue,
+    IHubContext<NotificationHub, INotificationClient> hub) : BackgroundService
+{
+    protected override async Task ExecuteAsync(CancellationToken ct)
+    {
+        await foreach (var job in queue.ReadAllAsync(ct))
+        {
+            var url = await _exporter.RunAsync(job, ct);
+            await hub.Clients.User(job.UserId).ExportReady(job.Id, url);
+        }
+    }
+}
+```
+
+**Ba thứ tốt lên cùng lúc:**
+
+1. **Kết nối không bị chặn** — Hub method trả về trong vài mili-giây.
+2. **Việc sống sót qua restart** — nó nằm trong hàng đợi, không nằm trong một `Task` trong bộ nhớ.
+3. **Có retry** — worker thử lại được, Hub method thì không.
+
+**Và nhớ rằng client cũng có giới hạn.** Trình duyệt giữ một kết nối WebSocket cho mọi lời gọi; một method chậm làm mọi tương tác real-time khác của người dùng đó trông như bị treo. Với người dùng, "ứng dụng đơ" và "một nút bấm chậm" là hai cảm nhận rất khác nhau.
+
+</details>
 
 ## Tự kiểm tra
 
