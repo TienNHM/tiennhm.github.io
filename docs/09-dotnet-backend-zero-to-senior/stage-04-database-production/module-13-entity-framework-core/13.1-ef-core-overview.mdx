@@ -263,11 +263,348 @@ var sql = db.Customers.Where(c => c.Status == CustomerStatus.Active)
 
 ## Bài tập áp dụng
 
-1. **Đo tracking.** Nạp 50.000 entity có và không có `AsNoTracking`, đo thời gian và bộ nhớ bằng `dotnet-counters`.
+#### Bài 1 — Đo chi phí của change tracker
 
-2. **`.ToList()` sai chỗ.** Viết hai phiên bản của cùng một bộ lọc, một lọc ở SQL và một lọc sau `.ToList()`. Bật log SQL và so sánh câu lệnh sinh ra cùng số dòng trả về.
+Nạp 50.000 entity có và không có `AsNoTracking`, đo thời gian và bộ nhớ bằng `dotnet-counters`.
 
-3. **`ToQueryString`.** Lấy một truy vấn phức tạp trong dự án của bạn, in SQL bằng `ToQueryString()`, và chạy nó trong SSMS với execution plan. Ghi lại những gì bạn không ngờ tới.
+**Tiêu chí hoàn thành:** bạn giải thích được change tracker **làm gì** để tốn từng đó, và nói được khi nào chi phí đó là xứng đáng.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Để biết bạn đã đổi gì, EF Core phải nhớ giá trị **trước khi** bạn đổi.
+
+**Lời giải — đo thật, trên .NET 9.0.203, EF Core 9.0.0, SQLite, 50.000 `Lead`:**
+
+```csharp
+static long Run(string label, Action action)
+{
+    GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
+    var before = GC.GetTotalAllocatedBytes(precise: true);
+    var sw = Stopwatch.StartNew();
+    action();
+    sw.Stop();
+    var alloc = GC.GetTotalAllocatedBytes(precise: true) - before;
+    Console.WriteLine($"{label,-34} {sw.ElapsedMilliseconds,6} ms   alloc {alloc / 1024.0 / 1024.0,8:F1} MB");
+    return sw.ElapsedMilliseconds;
+}
+
+Run("tracking",      () => { using var db = new Db(CS); var x = db.Leads.ToList(); });
+Run("AsNoTracking",  () => { using var db = new Db(CS); var x = db.Leads.AsNoTracking().ToList(); });
+Run("projection",    () => { using var db = new Db(CS);
+    var x = db.Leads.AsNoTracking().Select(l => new { l.Id, l.Name, l.Status }).ToList(); });
+```
+
+```text
+(bỏ qua lần chạy đầu — JIT warm-up)
+tracking                              696 ms   alloc     53.6 MB
+AsNoTracking                          330 ms   alloc     26.7 MB
+projection sang DTO (no-track)         75 ms   alloc     16.1 MB
+```
+
+| | Thời gian | Bộ nhớ cấp phát | So với tracking |
+|---|---:|---:|---|
+| Tracking | 696 ms | 53,6 MB | — |
+| `AsNoTracking` | 330 ms | 26,7 MB | nhanh 2,1×, tốn nửa bộ nhớ |
+| Projection | 75 ms | 16,1 MB | **nhanh 9,3×**, tốn 1/3 bộ nhớ |
+
+Đo bằng `dotnet-counters` trong lúc chạy cũng cho cùng kết luận:
+
+```bash
+dotnet-counters monitor --process-id <pid> \
+    --counters System.Runtime[gc-heap-size,alloc-rate,gen-0-gc-count]
+```
+
+**Change tracker làm gì để tốn từng đó.** Với **mỗi** entity trả về, EF Core:
+
+1. **Tạo một `EntityEntry`** — đối tượng theo dõi chứa tham chiếu tới entity, trạng thái (`Added`/`Modified`/`Unchanged`/`Deleted`), và một mảng các giá trị.
+2. **Chụp lại `OriginalValues`** — **một bản sao của mọi thuộc tính**. Đây là chỗ tốn bộ nhớ nhất: mỗi entity tồn tại hai lần trong RAM, một bản bạn cầm và một bản EF Core giữ để so sánh.
+3. **Đăng ký entity vào identity map** — một dictionary khoá chính → entity, để lần sau truy vấn cùng id thì trả về **đúng object đó**, không tạo object mới.
+4. **Kết nối các navigation property** — nếu một `Lead` vừa nạp trỏ tới một `Customer` đã được theo dõi, EF Core tự gắn hai bên với nhau (gọi là *fixup*).
+
+Cộng lại: 53,6 MB so với 26,7 MB, tức khoảng **27 MB thuần cho việc theo dõi** 50.000 dòng — xấp xỉ **550 byte mỗi entity**.
+
+```text
+Tracking:      [Lead] + [bản sao OriginalValues] + [EntityEntry] + [mục trong identity map]
+AsNoTracking:  [Lead]
+Projection:    [object ẩn danh chỉ 3 trường]
+```
+
+**Vì sao projection nhanh hơn `AsNoTracking` thêm 4 lần nữa**, dù cả hai đều không theo dõi: nó đọc **ít cột hơn từ database**, truyền ít byte hơn qua kết nối, và dựng object nhỏ hơn. `AsNoTracking` chỉ bỏ bước theo dõi; projection bỏ luôn cả dữ liệu không cần.
+
+**Khi nào chi phí tracking là xứng đáng.** Khi bạn **sắp sửa entity và lưu lại**. Đó chính xác là thứ bạn trả tiền để có:
+
+```csharp
+// Tracking đúng chỗ — EF Core biết bạn đổi gì và sinh UPDATE chỉ cho cột đó
+var lead = await _db.Leads.FirstAsync(l => l.Id == id, ct);
+lead.Status = "Won";
+await _db.SaveChangesAsync(ct);
+// UPDATE Leads SET Status = @p0 WHERE Id = @p1
+```
+
+Không có `OriginalValues`, EF Core không thể biết chỉ `Status` đổi, và sẽ phải `UPDATE` **mọi cột** — ghi đè cả những cột mà người khác vừa sửa.
+
+**Quy tắc chọn, theo thứ tự nên thử:**
+
+| Tình huống | Chọn |
+|---|---|
+| Đọc để trả về API, không sửa | **Projection** `Select(...)` |
+| Đọc nhiều entity đầy đủ, không sửa | `AsNoTracking()` |
+| Đọc rồi sửa rồi lưu | Tracking (mặc định) |
+| Cập nhật hàng loạt, không cần entity | `ExecuteUpdateAsync` ([bài 13.7](13.7-performance.mdx)) |
+
+**Một cảnh báo về `AsNoTracking` mà nhiều người gặp:** không có identity map, nên cùng một dòng database xuất hiện hai lần trong kết quả sẽ thành **hai object khác nhau**:
+
+```csharp
+var leads = await _db.Leads.AsNoTracking().Include(l => l.Customer).ToListAsync(ct);
+// 100 lead của cùng 1 khách hàng -> 100 object Customer RIÊNG BIỆT
+```
+
+Dùng `AsNoTrackingWithIdentityResolution()` nếu bạn cần chúng là cùng một object — nó giữ identity map nhưng vẫn bỏ `OriginalValues`, nên nằm giữa hai cực về chi phí.
+
+**Và đừng đặt `AsNoTracking` làm mặc định toàn cục** bằng `QueryTrackingBehavior.NoTracking` nếu ứng dụng có ghi. Một ngày nào đó ai đó sẽ viết đoạn "đọc rồi sửa rồi lưu" ở trên, và `SaveChangesAsync` sẽ **không làm gì cả, không báo lỗi gì cả**.
+
+</details>
+
+---
+
+#### Bài 2 — `.ToList()` sai chỗ
+
+Viết hai phiên bản của cùng một bộ lọc, một lọc ở SQL và một lọc sau `.ToList()`. Bật log SQL và so sánh câu lệnh sinh ra cùng số dòng trả về.
+
+**Tiêu chí hoàn thành:** bạn chỉ ra được **chính xác** phương thức nào làm truy vấn chuyển từ SQL sang bộ nhớ, và nêu được hai cách bắt lỗi này tự động.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** `IQueryable` và `IEnumerable` nhìn gần giống nhau trong code, nhưng một cái dịch sang SQL còn cái kia thì không.
+
+**Lời giải — bật log SQL trước:**
+
+```csharp
+options.UseSqlServer(conn)
+       .LogTo(Console.WriteLine, new[] { DbLoggerCategory.Database.Command.Name }, LogLevel.Information);
+```
+
+**Bản đúng — lọc ở SQL:**
+
+```csharp
+var leads = await _db.Leads
+    .Where(l => l.Status == "New" && l.Value > 5_000_000)
+    .ToListAsync(ct);
+```
+
+```sql
+SELECT [l].[Id], [l].[Name], [l].[Status], [l].[Value]
+FROM [Leads] AS [l]
+WHERE [l].[Status] = N'New' AND [l].[Value] > 5000000.0
+-- trả về 1.240 dòng
+```
+
+**Bản sai — lọc trong bộ nhớ:**
+
+```csharp
+var leads = _db.Leads
+    .ToList()                                              // <- đây
+    .Where(l => l.Status == "New" && l.Value > 5_000_000)
+    .ToList();
+```
+
+```sql
+SELECT [l].[Id], [l].[Name], [l].[Status], [l].[Value]
+FROM [Leads] AS [l]
+-- trả về 50.000 dòng, rồi C# vứt bỏ 48.760 dòng
+```
+
+Cùng một kết quả cuối, nhưng bản sai kéo **toàn bộ bảng** qua mạng, dựng 50.000 object, rồi bỏ đi 97,5% trong số đó.
+
+**Chính xác thì phương thức nào gây ra chuyển?** Là **bất kỳ phương thức nào trả về `IEnumerable<T>` thay vì `IQueryable<T>`**. Từ điểm đó trở đi, mọi `Where`, `Select`, `OrderBy` là LINQ to Objects chạy trong tiến trình .NET, không còn là LINQ to Entities dịch sang SQL.
+
+```text
+db.Leads                 -> IQueryable<Lead>    còn dịch được sang SQL
+   .Where(...)           -> IQueryable<Lead>    vẫn dịch được
+   .ToList()             -> List<Lead>          ĐÃ THỰC THI, ra bộ nhớ
+   .Where(...)           -> IEnumerable<Lead>   chạy trong C#
+```
+
+Danh sách đầy đủ các phương thức cắt đứt chuỗi:
+
+| Phương thức | Ghi chú |
+|---|---|
+| `.ToList()` / `.ToArray()` / `.ToListAsync()` | Rõ ràng nhất, dễ thấy nhất |
+| `.AsEnumerable()` | **Rất khó thấy** — không có `Async`, không trông giống thực thi |
+| `foreach` trực tiếp trên `IQueryable` | Thực thi ngay tại vòng lặp |
+| `.First()` / `.Single()` / `.Count()` | Thực thi và trả về giá trị, không phải query |
+
+**`.AsEnumerable()` là thủ phạm khó thấy nhất**, vì nó không có gì gợi ý rằng một truy vấn vừa chạy:
+
+```csharp
+var leads = _db.Leads
+    .AsEnumerable()                    // im lặng kéo cả bảng về
+    .Where(l => l.Status == "New")
+    .ToList();
+```
+
+**Một biến thể còn khó thấy hơn — truyền `IQueryable` ra khỏi phương thức với kiểu trả về `IEnumerable`:**
+
+```csharp
+// Chữ ký nói IEnumerable, nên MỌI thứ gọi sau đó đều chạy trong bộ nhớ
+public IEnumerable<Lead> LayLeadTheoTenant(string tenantId)
+    => _db.Leads.Where(l => l.TenantId == tenantId);
+
+// Nơi gọi trông hoàn toàn bình thường
+var ketQua = _service.LayLeadTheoTenant("acme")
+                     .Where(l => l.Status == "New")   // <- trong bộ nhớ!
+                     .Take(20)                        // <- trong bộ nhớ!
+                     .ToList();
+```
+
+Toàn bộ lead của tenant được nạp về, rồi mới lọc và lấy 20. Sửa bằng cách đổi kiểu trả về thành `IQueryable<Lead>` — hoặc, tốt hơn, trả về `List<LeadDto>` đã hoàn chỉnh để nơi gọi **không thể** ghép thêm gì.
+
+**Khi nào `.AsEnumerable()` là đúng.** Khi bạn thật sự cần một phép tính mà SQL không làm được, và bạn đã **lọc xong** trước đó:
+
+```csharp
+var leads = await _db.Leads
+    .Where(l => l.TenantId == tenantId && l.Status == "New")   // lọc ở SQL
+    .Select(l => new { l.Id, l.Name, l.Email })                // chỉ cột cần
+    .ToListAsync(ct);                                          // ra bộ nhớ
+
+var groups = leads.GroupBy(l => TinhDomain(l.Email));          // hàm C#, SQL không dịch được
+```
+
+Thứ tự là điều quyết định: lọc hết mức có thể ở SQL, rồi mới ra bộ nhớ.
+
+**Hai cách bắt lỗi này tự động:**
+
+**1. Bật cảnh báo đánh giá phía client thành lỗi.** EF Core 3.0 trở đi đã ném exception cho hầu hết trường hợp `Where` không dịch được, nhưng bạn nên bật rõ ràng cả những cảnh báo còn lại:
+
+```csharp
+options.UseSqlServer(conn)
+       .ConfigureWarnings(w => w.Throw(
+            RelationalEventId.MultipleCollectionIncludeWarning));
+```
+
+Cách này **không** bắt được `.ToList().Where(...)`, vì về mặt kỹ thuật đó là code hợp lệ — EF Core không có cách nào biết bạn không cố ý.
+
+**2. Phân tích tĩnh — đây mới là cách bắt được `.ToList().Where()`.** Một Roslyn analyzer tìm chuỗi gọi LINQ đứng sau phương thức thực thi, trên biểu thức bắt nguồn từ `DbSet`:
+
+```xml
+<PackageReference Include="EntityFrameworkCore.Analyzers" Version="..." PrivateAssets="all" />
+```
+
+Hoặc, rẻ hơn và thường là đủ, một quy tắc cấm trong review cộng với **test đếm số dòng trả về**:
+
+```csharp
+[Fact]
+public async Task Loc_lead_phai_chay_o_SQL()
+{
+    var rows = await DemSoDongDocAsync(() => _service.LayLeadMoiAsync("acme", ct));
+    rows.Should().BeLessThan(2_000);   // bảng thử có 50.000 dòng
+}
+```
+
+Test này bắt được **cả hai** dạng lỗi — lọc trong bộ nhớ và quên `Where` — trong khi analyzer chỉ bắt được dạng thứ nhất.
+
+</details>
+
+---
+
+#### Bài 3 — `ToQueryString` và execution plan
+
+Lấy một truy vấn phức tạp trong dự án của bạn, in SQL bằng `ToQueryString()`, và chạy nó trong SSMS với execution plan. Ghi lại những gì bạn không ngờ tới.
+
+**Tiêu chí hoàn thành:** bạn nêu được **giới hạn** của `ToQueryString()` — ba thứ nó không cho bạn thấy.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** `ToQueryString()` không mở kết nối tới database. Hãy nghĩ xem điều đó loại bỏ những thông tin nào.
+
+**Lời giải — cách dùng:**
+
+```csharp
+var query = _db.Leads
+    .Where(l => l.TenantId == tenantId && l.Status == "New")
+    .Include(l => l.Customer)
+    .OrderByDescending(l => l.CreatedAt)
+    .Take(50);
+
+Console.WriteLine(query.ToQueryString());
+```
+
+```sql
+DECLARE @__tenantId_0 nvarchar(450) = N'acme';
+DECLARE @__p_1 int = 50;
+
+SELECT TOP(@__p_1) [l].[Id], [l].[Name], [l].[Status], [l].[Value], [l].[CreatedAt],
+                   [l].[TenantId], [c].[Id], [c].[Name]
+FROM [Leads] AS [l]
+INNER JOIN [Customers] AS [c] ON [l].[CustomerId] = [c].[Id]
+WHERE [l].[TenantId] = @__tenantId_0 AND [l].[Status] = N'New'
+ORDER BY [l].[CreatedAt] DESC
+```
+
+Phần `DECLARE` ở đầu là thứ khiến `ToQueryString()` hữu ích hơn hẳn log SQL thường: bạn **dán thẳng** vào SSMS và chạy được ngay, không cần tự điền tham số.
+
+**Năm thứ hay gây bất ngờ khi đọc lần đầu:**
+
+1. **`INNER JOIN` thay vì `LEFT JOIN`** — EF Core suy ra từ việc `CustomerId` là `int` không nullable, tức quan hệ bắt buộc. Nếu bạn nghĩ nó phải là `LEFT JOIN`, nghĩa là mô hình đang khai báo khác ý định của bạn.
+2. **`nvarchar(450)`** cho tham số chuỗi — đây là giới hạn độ dài khoá index của SQL Server. Nếu cột thật là `varchar`, đây là ép kiểu ngầm ([bài 12.11](../module-12-sql-deep-dive/12.11-quick-real-world-example.mdx)).
+3. **Cột thừa trong `SELECT`** — `Include` kéo **mọi** cột của cả hai bảng, kể cả cột bạn không dùng.
+4. **Thiếu `WHERE` của global query filter** — nếu bạn có filter soft delete mà không thấy nó trong SQL, filter đang không được áp.
+5. **`ORDER BY` không có index tương ứng** — dấu hiệu sắp có một bước `Sort` tốn kém trong plan.
+
+**Ba thứ `ToQueryString()` KHÔNG cho bạn thấy — đây là phần chính của bài:**
+
+**1. Execution plan.** `ToQueryString()` chỉ sinh **chuỗi SQL**; nó không mở kết nối, không hỏi optimizer. Nó không biết truy vấn đó sẽ seek hay scan, có key lookup không, có spill ra `tempdb` không. Chuỗi SQL trông hoàn hảo vẫn có thể quét toàn bảng vì thiếu index. Muốn biết, phải thật sự chạy nó:
+
+```sql
+SET STATISTICS IO ON;
+SET SHOWPLAN_XML ON;
+```
+
+**2. Số truy vấn thật sự được thực thi.** Nó in SQL của **một** `IQueryable`. Nhưng một thao tác có thể sinh ra nhiều câu lệnh:
+
+```csharp
+// AsSplitQuery -> ToQueryString() in ra NHIỀU câu lệnh, nhưng...
+var q = _db.Customers.Include(c => c.Leads).Include(c => c.Contacts).AsSplitQuery();
+```
+
+Và quan trọng hơn, nó **hoàn toàn không thấy** N+1 sinh ra sau đó, vì những truy vấn ấy chưa tồn tại lúc bạn gọi `ToQueryString()`:
+
+```csharp
+var customers = _db.Customers.ToQueryString();     // in ra ĐÚNG 1 câu lệnh
+// ...nhưng đoạn code dưới đây sinh thêm 500 câu lệnh nữa
+foreach (var c in _db.Customers.ToList())
+    Console.WriteLine(c.Leads.Count);              // lazy loading
+```
+
+Để thấy toàn cảnh, phải dùng interceptor đếm truy vấn ([bài 13.6](13.6-n-plus-1-problem.mdx)) hoặc log SQL của cả request.
+
+**3. SQL thật sự chạy khi đổi provider — và cả sự khác biệt do dữ liệu.** `ToQueryString()` sinh SQL theo provider đang được cấu hình. Test dùng SQLite in-memory sẽ in ra SQL của SQLite, không phải của SQL Server:
+
+```csharp
+// Trong test: dùng UseSqlServer với chuỗi kết nối GIẢ.
+// ToQueryString() không mở kết nối, nên nó chạy được mà không cần database nào.
+var options = new DbContextOptionsBuilder<CrmDbContext>()
+    .UseSqlServer("Server=khong-ton-tai;Database=Crm;")
+    .Options;
+```
+
+Ngoài ra, cùng một chuỗi SQL có thể cho plan **khác nhau** ở hai môi trường, vì optimizer quyết định dựa trên thống kê dữ liệu. Một truy vấn seek gọn gàng trên database dev 1.000 dòng có thể chuyển sang scan trên production 50 triệu dòng. Đây là lý do "đã kiểm tra trên máy em rồi" không thay thế được việc đo trên production.
+
+**Kết luận về vị trí của công cụ này trong quy trình.** `ToQueryString()` là bước **đầu tiên**, không phải bước cuối:
+
+```text
+1. ToQueryString()          -> LINQ đã dịch thành SQL gì?          (rẻ, không cần DB)
+2. SSMS + execution plan    -> SQL đó chạy thế nào?                (cần DB giống thật)
+3. Interceptor đếm truy vấn -> một request sinh bao nhiêu câu lệnh? (cần chạy thật)
+4. DMV trên production      -> thực tế ra sao với dữ liệu thật?     (cần production)
+```
+
+Mỗi bước bắt được loại lỗi mà bước trước không thấy. Bỏ qua bước 1 là tối ưu mò; dừng ở bước 1 là tin vào một chuỗi văn bản chưa bao giờ được chạy.
+
+</details>
 
 ## Tự kiểm tra
 
