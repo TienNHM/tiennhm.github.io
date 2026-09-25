@@ -220,11 +220,591 @@ Mỗi chỗ đều bỏ qua entity, interceptor và domain event. Kiểm tra t�
 
 ## Bài tập áp dụng
 
-1. **Đếm nơi nhân bản.** Chọn một quy tắc nghiệp vụ trong dự án và đếm xem nó xuất hiện ở bao nhiêu file. So sánh các phiên bản.
+#### Bài 1 — Đếm nơi nhân bản
 
-2. **Gom về entity.** Chuyển quy tắc đó vào entity với private setter và sửa mọi nơi gọi.
+Chọn một quy tắc nghiệp vụ trong dự án và đếm xem nó xuất hiện ở bao nhiêu file. So sánh các phiên bản.
 
-3. **Rà dữ liệu.** Viết truy vấn tìm bản ghi vi phạm quy tắc vừa gom và đếm số hàng.
+**Tiêu chí hoàn thành:** bạn tìm được ít nhất hai phiên bản khác nhau, và xác định được phiên bản nào **đang được dùng nhiều nhất** — vì đó là hành vi thật của hệ thống.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Nếu ba đường code có ba hành vi khác nhau, hành vi "đúng" là cái nào? Câu trả lời không nằm trong code.
+
+**Lời giải — tìm rộng, không chỉ tìm con số:**
+
+```bash
+QUY_TAC="500_000_000|500000000|NguongDuyet|ApprovalThreshold|CanDuyet|RequiresApproval"
+grep -rniE "$QUY_TAC" --include="*.cs" --include="*.json" --include="*.js" src/ \
+  | grep -v "/obj/\|/bin/"
+```
+
+```text
+src/Crm.Api/Controllers/LeadsController.cs:87
+    if (request.Value > 500_000_000 && !User.IsInRole("Manager"))
+
+src/Crm.Application/Services/LeadService.cs:211
+    if (lead.Value >= 500_000_000 && !nguoiDung.LaTruongPhong)
+
+src/Crm.Application/Validators/CapNhatLeadValidator.cs:34
+    RuleFor(x => x.Value).LessThanOrEqualTo(500_000_000).When(x => !x.DaDuyet)
+
+src/Crm.Infrastructure/Jobs/ImportLeadJob.cs:118
+    // không có kiểm tra nào
+
+src/Crm.Infrastructure/Consumers/LeadSyncConsumer.cs:64
+    // không có kiểm tra nào
+
+src/Crm.Api/appsettings.json:24
+    "NguongDuyet": 500000000
+
+src/Crm.Api/appsettings.Production.json:11
+    "NguongDuyet": 300000000
+
+src/Crm.Web/wwwroot/js/lead-form.js:56
+    if (value > 500000000) hienThiCanhBaoDuyet();
+```
+
+**Tám chỗ, bốn phiên bản khác nhau:**
+
+| Phiên bản | Nơi | Hành vi tại đúng 500.000.000 |
+|---|---|---|
+| A: `>` | Controller, JavaScript | **Cho qua** |
+| B: `>=` | LeadService | **Chặn** |
+| C: không kiểm tra | ImportJob, SyncConsumer | **Cho qua** |
+| D: ngưỡng 300 triệu | appsettings.Production.json | Không có hiệu lực — không code nào đọc |
+
+**Phiên bản D đáng chú ý nhất**: nó **trông như** đang có hiệu lực, nhưng cả Controller lẫn Service đều hardcode con số. Ai đó đã sửa file cấu hình, deploy, và không thấy gì thay đổi — rồi có thể đã kết luận nhầm rằng "tính năng bị lỗi".
+
+**Xác định phiên bản nào đang được dùng nhiều nhất — vì đó là hành vi thật:**
+
+```sql
+-- Bao nhiêu lead trên ngưỡng được tạo, và qua đường nào?
+SELECT
+    ISNULL(NguonTao, '(không ghi)') AS Duong,
+    COUNT(*) AS Tong,
+    SUM(CASE WHEN Value >= 500000000 AND DaDuyet = 0 THEN 1 ELSE 0 END) AS ViPham
+FROM Leads
+WHERE CreatedUtc >= DATEADD(MONTH, -3, GETUTCDATE())
+GROUP BY NguonTao
+ORDER BY ViPham DESC;
+```
+
+```text
+Duong           Tong    ViPham
+import-csv      8421      1847      <- phiên bản C, không kiểm tra
+sync-erp        3102       612      <- phiên bản C
+api              892         0      <- phiên bản A hoặc B
+```
+
+**Hơn 80% lead được tạo qua đường KHÔNG kiểm tra gì.** Nghĩa là "hành vi thật" của hệ thống là phiên bản C — quy tắc gần như không tồn tại trong thực tế, dù code ở hai chỗ có vẻ đang thực thi nó.
+
+Đây là thông tin quan trọng hơn việc đếm số file, vì nó trả lời câu hỏi mà nghiệp vụ sẽ hỏi: *"quy tắc này có đang hoạt động không?"*
+
+**Và nó dẫn tới một câu hỏi cần trả lời trước khi sửa:**
+
+```text
+1.847 + 612 = 2.459 lead vi phạm quy tắc đang nằm trong database.
+
+Khi gom quy tắc lại và bật ràng buộc, chúng ta làm gì với chúng?
+    a. Đánh dấu DaDuyet = 1 cho toàn bộ (coi như đã duyệt ngầm)
+    b. Đưa vào danh sách chờ duyệt
+    c. Giữ nguyên, chỉ áp quy tắc cho bản ghi MỚI
+
+-> Đây là quyết định NGHIỆP VỤ, không phải quyết định kỹ thuật.
+```
+
+Hỏi trước khi sửa. Nếu chọn phương án (b) và bộ phận bán hàng đột ngột thấy 2.459 lead chuyển sang trạng thái chờ duyệt, đó là một sự cố dù code hoàn toàn đúng.
+
+**Ba cách tìm quy tắc bị nhân bản mà bạn chưa biết là tồn tại:**
+
+**1. Tìm số ma trong tầng nghiệp vụ:**
+
+```bash
+grep -rnE "[^a-zA-Z0-9_.\"]([0-9]{4,}|[0-9]+_[0-9]{3})" --include="*.cs" \
+     src/Crm.Application src/Crm.Domain \
+  | grep -vE "Migrations|^\s*//|Assert|Should|InlineData|HasMaxLength|Version"
+```
+
+**2. Tìm điều kiện lặp lại:**
+
+```bash
+grep -rn "IsInRole\|LaTruongPhong\|HasClaim" --include="*.cs" src/ | wc -l
+grep -rn "Status ==\|Status !=" --include="*.cs" src/ | wc -l
+```
+
+```text
+23
+47
+```
+
+**3. Tìm file hay đổi cùng nhau** — cách tìm ra khớp nối ngầm:
+
+```bash
+git log --format='%H' --since='1 year ago' | while read c; do
+  git diff-tree --no-commit-id --name-only -r "$c" | grep '\.cs$' | sort | paste -sd,
+done | sort | uniq -c | sort -rn | head -5
+```
+
+```text
+  42 LeadsController.cs,LeadService.cs
+  31 LeadService.cs,ImportLeadJob.cs
+```
+
+Hai file luôn đổi cùng nhau nghĩa là chúng chia sẻ một khái niệm — và khái niệm đó đang nằm ở cả hai chỗ.
+
+**Ghi lại kết quả:**
+
+```markdown
+## Quy tắc bị nhân bản — 2026-09-25
+
+### Ngưỡng duyệt lead
+| Nơi | Phiên bản | Hành vi tại 500tr |
+|---|---|---|
+| LeadsController.cs:87 | `>` | cho qua |
+| LeadService.cs:211 | `>=` | chặn |
+| ImportLeadJob.cs:118 | không có | cho qua |
+| LeadSyncConsumer.cs:64 | không có | cho qua |
+| appsettings.Production.json | 300tr | **không có hiệu lực** |
+
+### Hành vi thật (3 tháng qua)
+- 80% lead tạo qua đường KHÔNG kiểm tra
+- 2.459 lead vi phạm đang nằm trong database
+
+### Cần quyết định nghiệp vụ trước khi sửa
+- Xử lý 2.459 bản ghi cũ thế nào? -> hỏi trưởng phòng kinh doanh
+```
+
+Bảng này biến một nhiệm vụ refactor thành một cuộc trò chuyện với nghiệp vụ — và đó thường là cách duy nhất để nó được ưu tiên.
+
+</details>
+
+---
+
+#### Bài 2 — Gom về entity
+
+Chuyển quy tắc đó vào entity với private setter và sửa mọi nơi gọi.
+
+**Tiêu chí hoàn thành:** bạn hoàn thành được mà **không phá vỡ** đường nào, và xử lý được trường hợp một đường code cố tình cần bỏ qua quy tắc.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Job import cần tạo 8.000 lead, trong đó 1.847 vi phạm quy tắc. Nó nên làm gì?
+
+**Lời giải — gom quy tắc:**
+
+```csharp
+public class Lead
+{
+    public static readonly Money NguongCanDuyet = Money.VND(500_000_000);
+
+    public Money Value { get; private set; } = null!;
+    public bool DaDuyet { get; private set; }
+    public LeadStatus Status { get; private set; }
+
+    private Lead() { }
+
+    public static Result<Lead> Tao(string ten, Email email, Money giaTri, bool daDuyet)
+    {
+        if (string.IsNullOrWhiteSpace(ten))
+            return Result<Lead>.Loi("Tên lead là bắt buộc");
+
+        if (giaTri >= NguongCanDuyet && !daDuyet)
+            return Result<Lead>.Loi(
+                $"Lead từ {NguongCanDuyet} trở lên cần được duyệt trước");
+
+        return Result<Lead>.ThanhCong(new Lead
+        {
+            Name = ten, Email = email, Value = giaTri,
+            DaDuyet = daDuyet, Status = LeadStatus.New,
+        });
+    }
+
+    public bool CanTruongPhongDuyet() => Value >= NguongCanDuyet;
+}
+```
+
+Chú ý dùng `>=` — và ghi rõ trong tên phương thức và thông điệp ("từ ... trở lên"), để không ai phải đoán.
+
+**Sửa từng đường:**
+
+```csharp
+// Controller
+var lead = Lead.Tao(req.Name, email, Money.VND(req.Value), req.DaDuyet);
+if (!lead.ThanhCong) return Results.BadRequest(new ProblemDetails { Detail = lead.Loi });
+```
+
+```csharp
+// Validator — bỏ quy tắc nghiệp vụ, giữ validation đầu vào
+RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
+RuleFor(x => x.Value).GreaterThan(0);
+// Quy tắc ngưỡng ĐÃ CHUYỂN sang Lead.Tao()
+```
+
+```javascript
+// JavaScript — lấy ngưỡng từ backend thay vì hardcode
+const cauHinh = await fetch('/api/cau-hinh-nghiep-vu').then(r => r.json());
+if (value >= cauHinh.nguongDuyetLead) hienThiCanhBaoDuyet();
+```
+
+```csharp
+app.MapGet("/api/cau-hinh-nghiep-vu", () => new
+{
+    NguongDuyetLead = Lead.NguongCanDuyet.Amount,
+});
+```
+
+**Xử lý đường cố tình cần bỏ qua quy tắc** — đây là phần chính của bài.
+
+Job import gặp 1.847 bản ghi vi phạm. Có bốn lựa chọn, và **lựa chọn sai là bỏ qua quy tắc trong im lặng**:
+
+**Lựa chọn 1 — từ chối và báo cáo (mặc định nên chọn):**
+
+```csharp
+var thanhCong = 0;
+var loi = new List<(int Dong, string LyDo)>();
+
+await foreach (var (soDong, row) in DocCsvAsync(csv, ct))
+{
+    var email = Email.Tao(row.Email);
+    if (!email.ThanhCong) { loi.Add((soDong, email.Loi)); continue; }
+
+    var lead = Lead.Tao(row.Name, email.Value, Money.VND(row.Value), row.DaDuyet);
+    if (!lead.ThanhCong) { loi.Add((soDong, lead.Loi)); continue; }
+
+    _db.Leads.Add(lead.Value);
+    thanhCong++;
+}
+
+await _db.SaveChangesAsync(ct);
+
+_logger.LogInformation("Import: {ThanhCong} thành công, {Loi} bị từ chối", thanhCong, loi.Count);
+await _baoCao.GuiFileLoiAsync(loi, ct);      // gửi file lỗi cho người import
+```
+
+Người import nhận file liệt kê 1.847 dòng bị từ chối kèm lý do — họ sửa file và import lại. Đây là hành vi đúng với dữ liệu vi phạm quy tắc nghiệp vụ.
+
+**Lựa chọn 2 — tạo ở trạng thái chờ duyệt:**
+
+```csharp
+public static Result<Lead> TaoChoDuyet(string ten, Email email, Money giaTri)
+{
+    // Quy tắc VẪN ĐƯỢC ÁP, nhưng kết quả là trạng thái chờ thay vì từ chối
+    var lead = new Lead
+    {
+        Name = ten, Email = email, Value = giaTri,
+        DaDuyet = false,
+        Status = giaTri >= NguongCanDuyet ? LeadStatus.ChoDuyet : LeadStatus.New,
+    };
+    return Result<Lead>.ThanhCong(lead);
+}
+```
+
+Khác biệt quan trọng: quy tắc **không bị bỏ qua**, nó chỉ dẫn tới một kết quả khác. Lead vi phạm vẫn không thể chuyển sang `Won` cho tới khi được duyệt.
+
+**Lựa chọn 3 — bỏ qua CÓ CHỦ Ý, tường minh và có kiểm soát:**
+
+```csharp
+public static Result<Lead> TaoVoiQuyenQuanTri(
+    string ten, Email email, Money giaTri, string lyDoBoQua, NguoiDungId nguoiThucHien)
+{
+    if (string.IsNullOrWhiteSpace(lyDoBoQua))
+        return Result<Lead>.Loi("Phải nêu lý do khi bỏ qua quy tắc duyệt");
+
+    var lead = new Lead { Name = ten, Email = email, Value = giaTri, DaDuyet = true };
+    lead.Raise(new QuyTacBiBoQua(nameof(NguongCanDuyet), lyDoBoQua, nguoiThucHien));
+    return Result<Lead>.ThanhCong(lead);
+}
+```
+
+Ba tính chất làm lựa chọn này chấp nhận được:
+
+1. **Tên phương thức nói rõ** đây là đường đặc biệt.
+2. **Bắt buộc có lý do** — không gọi được mà không giải thích.
+3. **Phát sự kiện** — mọi lần bỏ qua đều được ghi lại và đếm được.
+
+```sql
+SELECT COUNT(*), LyDo FROM QuyTacBiBoQuaLog
+WHERE TenQuyTac = 'NguongCanDuyet' AND ThoiDiem >= DATEADD(MONTH, -1, GETUTCDATE())
+GROUP BY LyDo;
+```
+
+Nếu con số này tăng đều, quy tắc đang không phù hợp với thực tế và cần được xem lại cùng nghiệp vụ — chứ không phải tiếp tục bị bỏ qua.
+
+**Lựa chọn 4 (SAI) — thêm một tham số `boolean`:**
+
+```csharp
+// ĐỪNG làm thế này
+public static Result<Lead> Tao(string ten, Email email, Money giaTri,
+                               bool daDuyet, bool boQuaKiemTra = false)
+{
+    if (!boQuaKiemTra && giaTri >= NguongCanDuyet && !daDuyet)
+        return Result<Lead>.Loi("...");
+}
+```
+
+Ba vấn đề: nơi gọi truyền `true` mà không ai biết vì sao, không có bản ghi nào về việc bỏ qua, và tham số mặc định `false` khiến nó vô hình trong code review. Sáu tháng sau sẽ có ba chỗ truyền `true` và không ai nhớ lý do.
+
+**Kiểm chứng sau khi gom:**
+
+```bash
+grep -rn "500_000_000\|500000000" --include="*.cs" src/ | grep -v Tests
+```
+
+```text
+src/Crm.Domain/Entities/Lead.cs:14
+```
+
+```bash
+grep -rn "\.Status\s*=\|\.DaDuyet\s*=" --include="*.cs" src/ | grep -v "==" | grep -v Domain
+```
+
+```text
+(không có kết quả)
+```
+
+```csharp
+[Fact]
+public void Nguong_duyet_chi_duoc_khai_bao_trong_Lead()
+{
+    var viPham = Directory
+        .GetFiles(ThuMucSrc(), "*.cs", SearchOption.AllDirectories)
+        .Where(f => !f.Contains("obj") && !f.Contains("Migrations") && !f.Contains("Tests"))
+        .Where(f => Regex.IsMatch(File.ReadAllText(f), @"500[_]?000[_]?000"))
+        .Where(f => !f.EndsWith("Lead.cs"))
+        .Select(Path.GetFileName)
+        .ToList();
+
+    viPham.Should().BeEmpty();
+}
+```
+
+**Và bước cuối — ràng buộc database, lớp mà không đường nào đi vòng qua được:**
+
+```sql
+-- Dọn dữ liệu cũ TRƯỚC (theo quyết định nghiệp vụ ở bài 1)
+UPDATE Leads SET DaDuyet = 1
+WHERE Value >= 500000000 AND DaDuyet = 0 AND CreatedUtc < '2026-09-25';
+
+ALTER TABLE Leads ADD CONSTRAINT CK_Leads_NguongDuyet
+    CHECK (Value < 500000000 OR DaDuyet = 1);
+```
+
+Nếu `ALTER TABLE` thất bại, nghĩa là còn dữ liệu vi phạm — và đó là thông tin hữu ích, không phải một trở ngại.
+
+</details>
+
+---
+
+#### Bài 3 — Rà dữ liệu hiện có
+
+Viết truy vấn tìm bản ghi vi phạm quy tắc vừa gom và đếm số hàng.
+
+**Tiêu chí hoàn thành:** bạn đếm được, và có kế hoạch xử lý **trước khi** bật ràng buộc — kèm cách phát hiện nếu vi phạm mới xuất hiện.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Nếu bạn bật ràng buộc mà chưa dọn dữ liệu, `ALTER TABLE` sẽ thất bại. Nhưng đó không phải vấn đề lớn nhất.
+
+**Lời giải — rà toàn diện, không chỉ một quy tắc:**
+
+```sql
+WITH ViPham AS (
+    SELECT 'Giá trị lớn chưa duyệt'  AS QuyTac,
+           COUNT(*)                   AS SoDong,
+           MIN(CreatedUtc)            AS SomNhat,
+           MAX(CreatedUtc)            AS MuonNhat
+    FROM Leads WHERE Value >= 500000000 AND DaDuyet = 0
+
+    UNION ALL
+    SELECT 'Won nhưng không có ClosedUtc', COUNT(*), MIN(CreatedUtc), MAX(CreatedUtc)
+    FROM Leads WHERE Status = 'Won' AND ClosedUtc IS NULL
+
+    UNION ALL
+    SELECT 'Won nhưng chưa gán cho ai', COUNT(*), MIN(CreatedUtc), MAX(CreatedUtc)
+    FROM Leads WHERE Status = 'Won' AND AssignedTo IS NULL
+
+    UNION ALL
+    SELECT 'Trạng thái không hợp lệ', COUNT(*), MIN(CreatedUtc), MAX(CreatedUtc)
+    FROM Leads WHERE Status NOT IN ('New','Contacted','Qualified','Won','Lost')
+
+    UNION ALL
+    SELECT 'Giá trị âm hoặc bằng 0', COUNT(*), MIN(CreatedUtc), MAX(CreatedUtc)
+    FROM Leads WHERE Value <= 0
+)
+SELECT * FROM ViPham WHERE SoDong > 0 ORDER BY SoDong DESC;
+```
+
+```text
+QuyTac                          SoDong   SomNhat      MuonNhat
+Giá trị lớn chưa duyệt            2459   2024-03-12   2026-09-24
+Won nhưng không có ClosedUtc      1284   2024-01-08   2026-09-23
+Won nhưng chưa gán cho ai          312   2024-06-20   2026-09-18
+Trạng thái không hợp lệ              8   2025-02-14   2025-11-03
+Giá trị âm hoặc bằng 0               3   2024-08-30   2024-09-02
+```
+
+**Cột `MuonNhat` là cột quan trọng nhất**, và nó thường bị bỏ qua:
+
+```text
+MuonNhat = 2026-09-24 (hôm qua)  -> vi phạm VẪN ĐANG được tạo
+                                  -> có đường ghi chưa được kiểm soát
+                                  -> phải tìm và sửa TRƯỚC khi dọn dữ liệu
+
+MuonNhat = 2025-11-03 (10 tháng trước) -> vi phạm cũ, đường ghi đã được sửa
+                                        -> chỉ cần dọn
+```
+
+Dọn dữ liệu trong khi vẫn còn đường ghi tạo ra vi phạm mới là công việc vô ích — nó sẽ quay lại.
+
+**Tìm đường ghi còn sót:**
+
+```sql
+SELECT NguonTao, COUNT(*) AS SoDong, MAX(CreatedUtc) AS GanNhat
+FROM Leads
+WHERE Value >= 500000000 AND DaDuyet = 0
+  AND CreatedUtc >= DATEADD(DAY, -30, GETUTCDATE())
+GROUP BY NguonTao
+ORDER BY SoDong DESC;
+```
+
+```text
+NguonTao     SoDong    GanNhat
+sync-erp        142    2026-09-24 14:22
+(không ghi)      18    2026-09-23 09:11
+```
+
+Hai đường. Đường thứ hai — không ghi nguồn — đáng lo hơn, vì nó có thể là script chạy tay hoặc một job SQL Agent ([bài 16.2](16.2-layered-architecture-still-useful.mdx)).
+
+```sql
+SELECT j.name, st.command FROM msdb.dbo.sysjobs j
+JOIN msdb.dbo.sysjobsteps st ON st.job_id = j.job_id
+WHERE st.command LIKE '%Leads%';
+```
+
+**Kế hoạch xử lý — bốn bước, theo đúng thứ tự:**
+
+```markdown
+## Kế hoạch dọn dữ liệu — quy tắc ngưỡng duyệt
+
+### Bước 1: Chặn đường ghi mới (BẮT BUỘC làm trước)
+- [ ] LeadSyncConsumer gọi Lead.Tao() thay vì gán trực tiếp
+- [ ] Tìm và sửa nguồn "(không ghi)" — nghi là job SQL Agent
+- [ ] Deploy, theo dõi 3 ngày, xác nhận MuonNhat không tiến thêm
+
+### Bước 2: Quyết định nghiệp vụ về 2.459 bản ghi cũ
+Đã trao đổi với trưởng phòng kinh doanh ngày 2026-09-24:
+-> Bản ghi trước 2026-01-01: đánh dấu DaDuyet = 1 (coi như đã duyệt ngầm)
+-> Bản ghi từ 2026-01-01: đưa vào danh sách chờ duyệt, thông báo cho người phụ trách
+
+### Bước 3: Dọn, theo lô
+- [ ] Backup trước khi chạy
+- [ ] Chạy theo lô 5.000 dòng (bài 12.8)
+- [ ] Xác minh sau mỗi lô
+
+### Bước 4: Bật ràng buộc
+- [ ] ALTER TABLE thêm CHECK constraint
+- [ ] Xác nhận thành công (thất bại = còn dữ liệu vi phạm)
+- [ ] Bật job giám sát
+```
+
+**Script dọn, chia lô:**
+
+```sql
+-- Nhóm 1: bản ghi cũ -> đánh dấu đã duyệt
+DECLARE @SoDong INT = 1;
+WHILE @SoDong > 0
+BEGIN
+    UPDATE TOP (5000) Leads
+    SET DaDuyet = 1, UpdatedUtc = SYSUTCDATETIME(), UpdatedBy = 'don-du-lieu-CRM-4821'
+    WHERE Value >= 500000000 AND DaDuyet = 0 AND CreatedUtc < '2026-01-01';
+
+    SET @SoDong = @@ROWCOUNT;
+    PRINT CONCAT('Đã cập nhật ', @SoDong, ' dòng lúc ', SYSUTCDATETIME());
+    WAITFOR DELAY '00:00:01';
+END
+```
+
+Chia lô là bắt buộc với 2.459 dòng trở lên: một `UPDATE` toàn bảng giữ khoá lâu và làm transaction log phình ([bài 12.8](../../stage-04-database-production/module-12-sql-deep-dive/12.8-database-migration-strategy.mdx)).
+
+`UpdatedBy = 'don-du-lieu-CRM-4821'` là chi tiết đáng làm: sáu tháng sau, khi có người hỏi "sao 2.459 lead này đều có `DaDuyet = 1` mà không có bản ghi duyệt nào?", câu trả lời nằm ngay trong dữ liệu.
+
+```sql
+-- Nhóm 2: bản ghi mới -> đưa vào chờ duyệt
+UPDATE Leads
+SET Status = 'ChoDuyet', UpdatedUtc = SYSUTCDATETIME(), UpdatedBy = 'don-du-lieu-CRM-4821'
+WHERE Value >= 500000000 AND DaDuyet = 0 AND CreatedUtc >= '2026-01-01';
+```
+
+**Bật ràng buộc:**
+
+```sql
+ALTER TABLE Leads WITH CHECK
+    ADD CONSTRAINT CK_Leads_NguongDuyet
+    CHECK (Value < 500000000 OR DaDuyet = 1 OR Status = 'ChoDuyet');
+```
+
+`WITH CHECK` là chi tiết quan trọng: nó **kiểm tra dữ liệu hiện có**. Dùng `WITH NOCHECK` sẽ tạo ràng buộc không đáng tin (`is_not_trusted = 1`), và optimizer bỏ qua nó khi lập kế hoạch truy vấn ([bài 12.8](../../stage-04-database-production/module-12-sql-deep-dive/12.8-database-migration-strategy.mdx)).
+
+```sql
+SELECT name, is_not_trusted FROM sys.check_constraints WHERE name = 'CK_Leads_NguongDuyet';
+```
+
+```text
+name                     is_not_trusted
+CK_Leads_NguongDuyet     0                <- đáng tin
+```
+
+**Phát hiện vi phạm mới — job giám sát:**
+
+```csharp
+public class KiemTraToanVenJob : BackgroundService
+{
+    protected override async Task ExecuteAsync(CancellationToken ct)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromHours(6));
+        while (await timer.WaitForNextTickAsync(ct))
+        {
+            var viPham = await _db.Database.SqlQuery<KetQuaKiemTra>($@"
+                SELECT 'nguong_duyet' AS QuyTac, COUNT(*) AS SoDong FROM Leads
+                WHERE Value >= 500000000 AND DaDuyet = 0 AND Status <> 'ChoDuyet'
+                UNION ALL
+                SELECT 'won_khong_closedutc', COUNT(*) FROM Leads
+                WHERE Status = 'Won' AND ClosedUtc IS NULL")
+                .ToListAsync(ct);
+
+            foreach (var v in viPham.Where(x => x.SoDong > 0))
+            {
+                _logger.LogError(
+                    "Toàn vẹn dữ liệu: {SoDong} dòng vi phạm {QuyTac} — " +
+                    "có đường ghi chưa được kiểm soát", v.SoDong, v.QuyTac);
+                _demViPham.Record(v.SoDong,
+                    new KeyValuePair<string, object?>("quy_tac", v.QuyTac));
+            }
+        }
+    }
+}
+```
+
+```text
+Cảnh báo khi bất kỳ chỉ số toàn vẹn nào khác 0.
+```
+
+**Vì sao vẫn cần job này dù đã có ràng buộc database:**
+
+```text
+1. Có quy tắc không viết được bằng CHECK đơn giản
+   (ví dụ "tổng đơn hàng khớp với tổng các dòng")
+2. Ràng buộc có thể bị tắt trong lúc bảo trì rồi quên bật lại
+3. Ràng buộc mới thêm có thể là WITH NOCHECK do nhầm
+4. Nó phát hiện vi phạm trong VÀI GIỜ thay vì vài tháng
+```
+
+**Và một lời khuyên về thứ tự:** đừng bật ràng buộc trên nhiều quy tắc cùng lúc. Mỗi ràng buộc là một cơ hội để phát hiện một đường ghi chưa biết — và xử lý từng cái một cho bạn thời gian để tìm hiểu, thay vì đối mặt với năm sự cố cùng lúc sau một lần deploy.
+
+</details>
 
 ## Tự kiểm tra
 
