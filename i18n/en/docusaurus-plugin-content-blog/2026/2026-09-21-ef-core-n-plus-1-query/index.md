@@ -3,7 +3,7 @@ title: "Why Does EF Core Fire 201 Queries for One List Screen? Fixing N+1"
 slug: ef-core-n-plus-1-query
 description: "A 200-row screen whose SQL log shows 201 statements is the signature of an N+1 query. This post explains the mechanism that produces it in EF Core, how to turn on logging to see it, and four ways to fix it: projection with Select, Include/ThenInclude, AsSplitQuery and AsNoTracking — including the trap few people notice, where Include fixes N+1 but creates a cartesian explosion."
 keywords: [n+1 query, n plus 1 ef core, ef core n+1, entity framework core performance, n+1 problem in ef core, include theninclude, eager loading, lazy loading ef core, explicit loading, assplitquery ef core, split query, cartesian explosion, projection select dto, asnotracking, identity resolution, navigation property, toquerystring, log sql ef core, microsoft entityframeworkcore database command, ef core query optimization, slow api caused by queries, dotnet backend, aspnet core, linq to entities, iqueryable, foreign key index, query optimization]
-tags: [dotnet, csharp, database, performance, aspnetcore, efcore]
+tags: [dotnet, csharp, database, performance, aspnetcore, ef-core]
 authors: [tiennhm]
 date: 2026-09-21
 ---

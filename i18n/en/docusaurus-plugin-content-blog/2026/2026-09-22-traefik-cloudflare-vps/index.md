@@ -3,7 +3,7 @@ title: "Traefik + Cloudflare: Why Your Certificates All Expire on Day 60"
 slug: traefik-cloudflare-https-tu-dong-vps
 description: "One VPS, 14 containers, 13 hostnames, all behind Cloudflare and all needing automatic HTTPS. This post dissects a Traefik v3 + Cloudflare architecture running in production: why ACME HTTP-01 issues the first certificate fine but is guaranteed to fail at renewal, why DNS-01 solves that while creating a new constraint of its own, and why a missing catch-all router makes Cloudflare return a 526."
 keywords: [traefik cloudflare, traefik v3, acme dns-01, cloudflare dns challenge, http-01 vs dns-01, lets encrypt wildcard certificate, traefik lets encrypt, cloudflare full strict, cloudflare flexible redirect loop, cloudflare 526 error, traefik docker labels, docker reverse proxy, forwardedheaders trustedips, cloudflare ip ranges, traefik catchall router, hostregexp traefik, cf_dns_api_token, traefik acme.json, wildcard certificate, docker network, exposedbydefault, traefik entrypoints https redirect, multi site vps, automatic https, certificate renewal failure, zone could not be found, traefik router priority]
-tags: [traefik, cloudflare, docker, devops, https, tls, vps, architecture]
+tags: [devops, docker, security, architecture]
 authors: [tiennhm]
 date: 2026-09-22
 ---

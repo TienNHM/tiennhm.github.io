@@ -3,7 +3,7 @@ title: "Traefik + Cloudflare: vì sao cert hết hạn đồng loạt sau 60 ng�
 slug: traefik-cloudflare-https-tu-dong-vps
 description: "Một VPS, 14 container, 13 hostname, tất cả nằm sau Cloudflare và đều cần HTTPS tự động. Bài viết mổ kiến trúc Traefik v3 + Cloudflare đang chạy thật: vì sao ACME HTTP-01 cấp được cert lần đầu nhưng chắc chắn trượt lúc gia hạn, vì sao DNS-01 giải quyết được nhưng lại đẻ ra một ràng buộc mới, và vì sao thiếu router bắt-tất thì Cloudflare trả lỗi 526."
 keywords: [traefik cloudflare, traefik v3, acme dns-01, dns challenge cloudflare, http-01 vs dns-01, lets encrypt wildcard, traefik lets encrypt, cloudflare full strict, cloudflare flexible redirect loop, loi 526 cloudflare, traefik docker labels, reverse proxy docker, forwardedheaders trustedips, cloudflare ip ranges, traefik catchall router, hostregexp traefik, cf_dns_api_token, traefik acme.json, wildcard certificate, docker network edge, exposedbydefault, traefik entrypoints redirect https, multi site vps, https tu dong, cau hinh traefik, gia han cert that bai, zone could not be found, traefik priority router]
-tags: [traefik, cloudflare, docker, devops, https, tls, vps, architecture]
+tags: [devops, docker, security, architecture]
 authors: [tiennhm]
 date: 2026-09-22
 ---

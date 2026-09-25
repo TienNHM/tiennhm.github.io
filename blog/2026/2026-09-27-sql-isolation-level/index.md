@@ -3,7 +3,7 @@ title: "Hai giao dịch cùng cộng 100, số dư chỉ tăng 100: isolation le
 slug: sql-isolation-level-lost-update-phantom-read
 description: "Hai phiên cùng đọc số dư 1000 rồi cùng ghi 1100. Kết quả cuối là 1100 chứ không phải 1200, và không có lỗi nào được ném ra. Bài viết chạy thí nghiệm hai session song song trên PostgreSQL 16 cho từng mức isolation, cho thấy lost update biến thành lỗi rõ ràng ở REPEATABLE READ, và vì sao PostgreSQL chặn phantom read ở mức mà chuẩn SQL cho phép nó xảy ra."
 keywords: [isolation level, lost update, phantom read, non repeatable read, dirty read, read committed, repeatable read, serializable, could not serialize access due to concurrent update, acid, transaction sql, postgresql isolation, snapshot isolation, select for update, optimistic locking, pessimistic locking, retry transaction, muc co lap giao dich, transaction la gi, hoc sql transaction]
-tags: [sql, database, postgresql, transaction, backend, concurrency]
+tags: [sql, database, postgresql, concurrency, backend]
 authors: [tiennhm]
 date: 2026-09-27
 ---

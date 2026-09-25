@@ -2,7 +2,7 @@
 slug: phat-trien-phan-mem-ai-driven-development-phan-4
 title: 'AI-DD - Phần 4: Tương Lai và Kết Luận'
 authors: [tiennhm]
-tags: [AI-DD, AI-DLC, Tương lai AI, Autonomous Coding, Natural Language Programming, Kết luận]
+tags: [ai-driven-development]
 keywords: [tương lai AI development, autonomous coding agents, natural language programming, self-healing systems, AI trong tương lai, kết luận AI-DLC]
 image: /img/background/ai-first-software-dev.webp
 description: 'Khám phá tương lai của AI-DD với autonomous systems, natural language programming và những đột phá công nghệ sắp tới.'

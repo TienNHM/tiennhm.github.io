@@ -1,8 +1,10 @@
 ---
 slug: install-zeppelin-on-windows
 title: Hướng dẫn cài đặt Apache Zeppelin trên Windows
+description: "Hướng dẫn cài Apache Zeppelin trên Windows theo từng bước: cài Java, tải và cấu hình Zeppelin, khởi chạy notebook. Zeppelin hỗ trợ Scala, Python, SQL, SparkSQL và Hive trong cùng một giao diện web."
+keywords: [cai dat apache zeppelin, zeppelin tren windows, apache zeppelin, zeppelin notebook, spark sql, phan tich du lieu, data science tools, huong dan cai zeppelin, zeppelin java]
 authors: [tiennhm]
-tags: [apache, zeppelin, installation, tutorial, windows]
+tags: [tools, learning, devops]
 enableComments: true # for Gisqus comments, set to true
 draft: false # set to true to hide this post from the site
 image: /img/blogs/zeppelin-spark.png

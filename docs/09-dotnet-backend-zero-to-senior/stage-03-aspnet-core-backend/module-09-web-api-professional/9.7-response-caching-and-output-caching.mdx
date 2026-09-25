@@ -190,7 +190,7 @@ Và luôn đặt giới hạn kích thước:
 ```csharp
 builder.Services.AddOutputCache(options =>
 {
-    options.MaximumBodySize = 64 * 1024;          // bo qua response lon hon
+    options.MaximumBodySize = 64 * 1024;          // bỏ qua response lớn hơn
     options.SizeLimit = 100 * 1024 * 1024;        // trần cho toàn bộ cache
 });
 ```
@@ -216,11 +216,277 @@ Không có `SizeLimit`, một endpoint có nhiều biến thể sẽ ăn hết b
 
 ## Bài tập áp dụng
 
-1. **Trộn lẫn trang.** Bật output cache cho endpoint danh sách **không** có `SetVaryByQuery`, gọi `?page=1` rồi `?page=2` và xác nhận cả hai trả cùng nội dung.
+#### Bài 1 — Trang 2 trả về nội dung trang 1
 
-2. **Rò rỉ giữa người dùng.** Đặt `[ResponseCache(Location = Any)]` trên endpoint trả dữ liệu cá nhân, đặt một proxy cache ở giữa (Nginx), và xác nhận người dùng thứ hai nhận dữ liệu của người thứ nhất.
+Bật output cache cho endpoint danh sách **không** có `SetVaryByQuery`, gọi `?page=1` rồi `?page=2` và xác nhận cả hai trả cùng nội dung.
 
-3. **Đo ETag.** Cài ETag cho một endpoint trả 200KB JSON, gọi hai lần và so sánh tổng số byte truyền đi. Đo cả thời gian truy vấn database ở lần thứ hai.
+**Tiêu chí hoàn thành:** bạn nói được **khoá cache gồm những gì** khi thiếu `SetVaryByQuery`.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Câu trả lời cho tiêu chí: khoá mặc định gồm **method + host + đường dẫn**, và **không** gồm chuỗi truy vấn. Mọi giá trị `?page=` khác nhau đều rơi vào cùng một ô.
+
+**Lời giải — chính sách thiếu sót:**
+
+```csharp
+options.AddPolicy("customers-list", b => b
+    .Expire(TimeSpan.FromMinutes(2)));
+    // THIẾU: .SetVaryByQuery("page", "pageSize", "search", "status")
+```
+
+**Kiểm chứng:**
+
+```bash
+curl -s 'https://localhost:5001/api/v1/customers?page=1&pageSize=2' | jq '.items[].name'
+curl -s 'https://localhost:5001/api/v1/customers?page=2&pageSize=2' | jq '.items[].name'
+```
+
+```text
+"Công ty Minh Phát"
+"Startup GreenTech"
+
+"Công ty Minh Phát"      <- trang 2 trả về Y HỆT trang 1
+"Startup GreenTech"
+```
+
+**Vì sao lỗi này sống sót qua review.** Đọc code không thấy gì sai: chính sách có `Expire`, action có `[OutputCache]`, tham số `page` được gắn vào model đầy đủ. Lỗi nằm ở **thứ không được viết ra**. Và nó chỉ xuất hiện từ request thứ hai trở đi trong cửa sổ 2 phút, nên thử tay một lần thì hoàn toàn không thấy.
+
+**Sau khi thêm đủ tham số:**
+
+```csharp
+options.AddPolicy("customers-list", b => b
+    .Expire(TimeSpan.FromMinutes(2))
+    .SetVaryByQuery("page", "pageSize", "search", "status")
+    .Tag("customers"));
+```
+
+```text
+"Công ty Minh Phát"
+"Startup GreenTech"
+
+"Hộ kinh doanh Lan"      <- đúng
+"Tập đoàn Bắc Nam"
+```
+
+**Thiếu một tham số cũng đủ hỏng.** Bỏ `status` ra khỏi danh sách thì `?status=active` và `?status=inactive` dùng chung cache — người dùng lọc "ngừng hoạt động" lại thấy danh sách "đang hoạt động".
+
+**Một bài kiểm thử chặn được cả lớp lỗi này:**
+
+```csharp
+[Fact]
+public async Task DanhSach_MoiTrang_TraVeDuLieuKhacNhau()
+{
+    var client = _factory.CreateClient();
+
+    var p1 = await client.GetFromJsonAsync<PagedResponse<CustomerDto>>(
+        "/api/v1/customers?page=1&pageSize=2");
+    var p2 = await client.GetFromJsonAsync<PagedResponse<CustomerDto>>(
+        "/api/v1/customers?page=2&pageSize=2");
+
+    Assert.NotEqual(p1!.Items[0].Id, p2!.Items[0].Id);
+}
+```
+
+Chạy nó **với output cache đang bật** — nếu bộ test tắt cache thì nó không bắt được gì.
+
+**Cách phòng tốt hơn danh sách tham số viết tay.** Danh sách sẽ lạc hậu ngay khi ai đó thêm bộ lọc mới mà quên cập nhật chính sách. Dùng `VaryByQuery` cho **toàn bộ** chuỗi truy vấn:
+
+```csharp
+options.AddPolicy("customers-list", b => b
+    .Expire(TimeSpan.FromMinutes(2))
+    .VaryByQuery()          // mọi tham số đều vào khoá
+    .Tag("customers"));
+```
+
+Đổi lại, tham số rác (`?utm_source=...`) cũng tạo bản cache riêng và làm loãng tỷ lệ trúng. Với API nội bộ thì đây là đánh đổi đáng giá; với endpoint nhận lưu lượng từ quảng cáo thì nên liệt kê tường minh.
+
+</details>
+
+---
+
+#### Bài 2 — Rò rỉ dữ liệu giữa hai người dùng
+
+Đặt `[ResponseCache(Location = ResponseCacheLocation.Any)]` trên endpoint trả dữ liệu cá nhân, đặt một proxy cache ở giữa, và xác nhận người dùng thứ hai nhận dữ liệu của người thứ nhất.
+
+**Tiêu chí hoàn thành:** bạn chỉ ra được **header nào** khiến proxy tin rằng nó được phép chia sẻ phản hồi đó.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** `Location = Any` dịch thành `Cache-Control: public`. Từ `public` có nghĩa rất cụ thể trong HTTP: *bất kỳ cache chung nào cũng được lưu và phục vụ lại cho người khác*.
+
+**Lời giải — endpoint sai:**
+
+```csharp
+[HttpGet("me/profile")]
+[Authorize]
+[ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any)]
+public async Task<ActionResult<ProfileDto>> GetMyProfile(CancellationToken ct)
+    => Ok(await _service.GetProfileAsync(User.GetUserId(), ct));
+```
+
+Header trả về:
+
+```http
+HTTP/1.1 200 OK
+Cache-Control: public,max-age=60
+```
+
+**Dòng đó chính là câu trả lời cho tiêu chí.** Không có `Vary`, không có `private` — proxy hiểu là "ai hỏi cũng đưa bản này".
+
+**Dựng proxy để kiểm chứng:**
+
+```nginx
+proxy_cache_path /tmp/cache keys_zone=demo:10m;
+
+server {
+    location /api/ {
+        proxy_cache demo;
+        proxy_pass http://localhost:5000;
+        add_header X-Cache-Status $upstream_cache_status;
+    }
+}
+```
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN_AN"   http://localhost:8080/api/v1/me/profile -D- | head -3
+curl -s -H "Authorization: Bearer $TOKEN_BINH" http://localhost:8080/api/v1/me/profile -D- | head -3
+```
+
+```text
+X-Cache-Status: MISS
+{"name":"Nguyễn Văn An","email":"an@company.com","salary":25000000}
+
+X-Cache-Status: HIT
+{"name":"Nguyễn Văn An","email":"an@company.com","salary":25000000}
+```
+
+Bình gửi token của Bình và nhận **hồ sơ của An**, kèm cả lương. Ứng dụng không hề nhận request thứ hai — Nginx trả lời thay.
+
+**Vì sao đây là lỗi dễ mắc.** `ResponseCacheLocation` có ba giá trị và tên của chúng không gợi ý gì về rủi ro:
+
+| Giá trị | Header sinh ra | Ai lưu được |
+|---|---|---|
+| `Any` | `public` | **Mọi proxy, CDN, trình duyệt** |
+| `Client` | `private` | Chỉ trình duyệt của người đó |
+| `None` | `no-store` | Không ai |
+
+Người viết code thường đọc `Any` là "cho phép cache ở bất cứ tầng nào cho tiện", chứ không đọc là "cho phép người lạ đọc dữ liệu này".
+
+**Ba cách sửa, theo thứ tự an toàn:**
+
+```csharp
+// 1. AN TOÀN NHẤT — dữ liệu cá nhân thì đừng cache chung
+[ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+
+// 2. Cache ở trình duyệt của chính người đó
+[ResponseCache(Duration = 60, Location = ResponseCacheLocation.Client)]
+
+// 3. Cần cache phía server thì dùng output cache có khoá theo người dùng
+options.AddPolicy("per-user", b => b
+    .Expire(TimeSpan.FromMinutes(5))
+    .SetVaryByHeader("Authorization"));
+```
+
+**Cách 3 vẫn còn một cạm bẫy.** `VaryByHeader("Authorization")` tạo **một bản cache cho mỗi token**. Token đổi sau mỗi lần refresh, nên với refresh 15 phút một lần, mỗi người dùng sinh ra 96 bản cache mỗi ngày — cache phình lên mà tỷ lệ trúng rất thấp. Khoá theo **user id** lấy từ claim sẽ ổn định hơn nhiều:
+
+```csharp
+options.AddPolicy("per-user", b => b
+    .Expire(TimeSpan.FromMinutes(5))
+    .SetVaryByValue((ctx, _) =>
+        ValueTask.FromResult(new KeyValuePair<string, string>(
+            "uid", ctx.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "anon"))));
+```
+
+**Quy tắc một câu:** `public` chỉ dành cho phản hồi mà bạn sẵn lòng dán lên trang chủ.
+
+</details>
+
+---
+
+#### Bài 3 — Đo ETag tiết kiệm được gì, và không tiết kiệm được gì
+
+Cài ETag cho một endpoint trả 200KB JSON, gọi hai lần và so sánh tổng số byte truyền đi. Đo cả thời gian truy vấn database ở lần thứ hai.
+
+**Tiêu chí hoàn thành:** bạn nêu được **một** thứ ETag tiết kiệm và **một** thứ nó không tiết kiệm.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Để tính được ETag, server phải biết dữ liệu hiện tại là gì. Hãy nghĩ xem điều đó bắt buộc nó phải làm gì trước.
+
+**Lời giải — cài đặt:**
+
+```csharp
+[HttpGet("{id:guid}")]
+public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
+{
+    var customer = await _service.GetByIdAsync(id, ct);      // LUÔN chạy
+    if (customer is null) return NotFound();
+
+    var etag = $"\"{Convert.ToBase64String(customer.RowVersion)}\"";
+
+    if (Request.Headers.IfNoneMatch == etag)
+        return StatusCode(StatusCodes.Status304NotModified);
+
+    Response.Headers.ETag = etag;
+    return Ok(customer);
+}
+```
+
+**Đo hai lần gọi:**
+
+```bash
+curl -s -o /dev/null -D h1.txt -w 'lan 1: %{size_download} byte, %{time_total}s\n' \
+  https://localhost:5001/api/v1/customers/42
+
+ETAG=$(grep -i '^etag:' h1.txt | cut -d' ' -f2 | tr -d '\r')
+
+curl -s -o /dev/null -w 'lan 2: %{size_download} byte, %{time_total}s\n' \
+  -H "If-None-Match: $ETAG" https://localhost:5001/api/v1/customers/42
+```
+
+```text
+lan 1: 204800 byte, 0.062s
+lan 2:      0 byte, 0.017s
+```
+
+**Thứ ETag tiết kiệm: băng thông.** 204.800 byte xuống 0. Trên mạng di động 3G, đó là khoảng 1,5 giây so với gần như tức thì.
+
+**Thứ ETag không tiết kiệm: tải database.** Bật log EF Core và đếm:
+
+```text
+[lần 1] Executed DbCommand (4ms) SELECT TOP(1) ... FROM [Customers] WHERE [Id] = @__id_0
+[lần 2] Executed DbCommand (4ms) SELECT TOP(1) ... FROM [Customers] WHERE [Id] = @__id_0
+```
+
+**Hai truy vấn.** Lần thứ hai vẫn chạy đủ: nhận request, xác thực token, truy vấn database, tính ETag — rồi mới phát hiện không đổi và trả 304 rỗng. Toàn bộ chi phí phía server giữ nguyên; chỉ phần truyền dữ liệu biến mất.
+
+**Bảng phân vai:**
+
+| | Tải database | Byte truyền | Độ mới của dữ liệu |
+|---|---|---|---|
+| ETag | Không giảm | **Giảm về 0** | Luôn đúng |
+| Output cache | **Giảm về 0** trong TTL | Không giảm | Cũ tối đa bằng TTL |
+| Cả hai | **Giảm** | **Giảm** | Cũ tối đa bằng TTL |
+
+**Kết hợp cả hai:**
+
+```csharp
+[HttpGet("{id:guid}")]
+[OutputCache(PolicyName = "customer-detail")]
+public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
+```
+
+Giờ trong cửa sổ TTL, lần gọi thứ hai không chạm database **và** không truyền body.
+
+**Hai chi tiết làm hỏng ETag trong thực tế:**
+
+1. **Sinh ETag bằng cách băm JSON đã tuần tự hoá** thì vẫn phải truy vấn **và** phải tuần tự hoá — tốn hơn cả việc trả thẳng. Dùng `RowVersion` của EF Core, vì nó đổi mỗi lần bản ghi được ghi và lấy ra không tốn gì thêm ([Module 13](../../stage-04-database-production/module-13-entity-framework-core/)).
+2. **`If-None-Match` có thể chứa nhiều giá trị** (`"a", "b"`) và ký tự `W/` cho weak ETag. So sánh bằng `==` với một chuỗi duy nhất sẽ trượt trong những trường hợp đó, và bạn lặng lẽ mất hết lợi ích mà không ai biết. Tách chuỗi rồi so từng phần tử, hoặc dùng một thư viện ETag thay vì tự viết.
+
+</details>
 
 ## Tự kiểm tra
 

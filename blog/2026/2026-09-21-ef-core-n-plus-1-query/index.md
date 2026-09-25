@@ -3,7 +3,7 @@ title: "Vì sao EF Core bắn 201 query cho 1 màn hình danh sách? Cách sửa
 slug: ef-core-n-plus-1-query
 description: "Một màn hình 200 dòng mà log SQL ghi 201 câu lệnh là dấu hiệu của N+1 query. Bài viết giải thích cơ chế sinh ra nó trong EF Core, cách bật log để nhìn thấy, và bốn cách sửa: projection bằng Select, Include/ThenInclude, AsSplitQuery và AsNoTracking. Kèm cái bẫy ít người để ý là Include chữa được N+1 nhưng lại tạo ra cartesian explosion."
 keywords: [n+1 query, n plus 1 ef core, ef core n+1, entity framework core performance, loi n+1 trong ef core, include theninclude, eager loading, lazy loading ef core, explicit loading, assplitquery ef core, split query, cartesian explosion, projection select dto, asnotracking, identity resolution, navigation property, toquerystring, log sql ef core, microsoft entityframeworkcore database command, toi uu query ef core, api cham do query, dotnet backend, aspnet core, linq to entities, iqueryable, index foreign key, query optimization]
-tags: [dotnet, csharp, database, performance, aspnetcore, efcore]
+tags: [dotnet, csharp, database, performance, aspnetcore, ef-core]
 authors: [tiennhm]
 date: 2026-09-21
 ---

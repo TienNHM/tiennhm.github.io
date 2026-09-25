@@ -2,7 +2,7 @@
 slug: best-websites-to-learn-javascript
 title: The Best Websites for Learning JavaScript
 authors: [tiennhm]
-tags: [javascript, resources, learning]
+tags: [javascript, learning]
 enableComments: true # for Gisqus comments, set to true
 draft: false # set to true to hide this post from the site
 image: https://i.pinimg.com/originals/71/ee/32/71ee32577432648f9e45fbd63b2cf261.jpg

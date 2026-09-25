@@ -2,7 +2,7 @@
 slug: phat-trien-phan-mem-ai-driven-development-phan-1
 title: 'AI-DD - Phần 1: Giới Thiệu và Tác Động'
 authors: [tiennhm]
-tags: [AI-DD, AI-DLC, Lập trình AI, ChatGPT, Cursor, Năng suất lập trình, Công nghệ phần mềm]
+tags: [ai-driven-development, ai-tools, fundamentals]
 keywords: [AI-DD, AI-driven development, lập trình với AI, ChatGPT lập trình, Cursor AI, năng suất developer, công nghệ phần mềm 2025, AI trong lập trình]
 image: /img/background/ai-first-software-dev.webp
 description: 'Tìm hiểu về AI-DD (AI-Driven Development) - cách tiếp cận mới thay đổi hoàn toàn quy trình làm việc và tác động đến từng vai trò trong team phát triển phần mềm.'

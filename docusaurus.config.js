@@ -339,7 +339,11 @@ const config = {
                         type: ['rss', 'atom'],
                         xslt: true,
                     },
-                    onInlineTags: 'warn',
+                    // Tag của blog khai báo tập trung ở blog/tags.yml.
+                    // 'throw' khiến build đỏ khi bài viết dùng tag chưa khai báo,
+                    // nhờ đó danh mục không phình ra theo thời gian như trước
+                    // (từng có 133 tag cho 43 bài, 90 tag chỉ dùng đúng một lần).
+                    onInlineTags: 'throw',
                     onInlineAuthors: 'warn',
                 },
                 theme: {

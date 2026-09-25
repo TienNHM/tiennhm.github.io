@@ -2,7 +2,7 @@
 slug: phat-trien-phan-mem-ai-driven-development
 title: 'AI-DD: Phát Triển Phần Mềm AI-Driven - Series Toàn Diện'
 authors: [tiennhm]
-tags: [AI-DD, AI-DLC, Lập trình AI, ChatGPT, Cursor, Năng suất lập trình, Công nghệ phần mềm, Series]
+tags: [ai-driven-development, ai-tools, fundamentals]
 keywords: [AI-DD, AI-driven development, lập trình với AI, ChatGPT lập trình, Cursor AI, năng suất developer, công nghệ phần mềm 2025, AI trong lập trình, series AI-DLC]
 image: /img/background/ai-first-software-dev.webp
 description: 'Series toàn diện về AI-DD (AI-Driven Development) - phương pháp phát triển phần mềm do AI dẫn dắt, xu hướng mới thay đổi hoàn toàn cách làm việc của team phát triển và tương lai ngành công nghệ.'

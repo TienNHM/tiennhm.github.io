@@ -3,7 +3,7 @@ title: "Một dấu tiếng Việt làm chết lời gọi API: cf-ipcity, HttpC
 slug: cloudflare-header-broke-dotnet-httpclient
 description: "Trên một nền tảng loyalty thương mại điện tử khoảng 3 triệu khách hàng, một lời gọi HTTP nội bộ hỏng trên production trong khi database, Kubernetes và downstream đều khoẻ. Thủ phạm là header cf-ipcity của Cloudflare mang giá trị Hồ Chí Minh. Bài viết truy vết sự cố và chỉ ra chỗ .NET thực sự ném exception — không phải chỗ bạn đoán."
 keywords: [cloudflare header dotnet httpclient, cf-ipcity, non ascii http header, unicode http header, request headers must contain only ascii characters, httpclient exception, tryaddwithoutvalidation, aspnet core header forwarding, production debugging dotnet, kubernetes dotnet debugging, reverse proxy header, cloudflare geolocation header, header forwarding anti pattern, loyalty ecommerce dotnet, dau tieng viet loi api, loi httpclient production, debug su co production]
-tags: [dotnet, csharp, cloudflare, http, production, debugging, architecture, aspnetcore]
+tags: [dotnet, csharp, devops, http, troubleshooting, architecture, aspnetcore]
 authors: [tiennhm]
 date: 2026-09-23
 ---

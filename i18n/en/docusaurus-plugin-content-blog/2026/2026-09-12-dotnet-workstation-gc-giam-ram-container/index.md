@@ -3,7 +3,7 @@ title: "Why Does .NET Eat 96% of Container RAM While Idle? Server GC and How to 
 slug: dotnet-workstation-gc-giam-ram-container
 description: "A .NET 9 container sat at 987 MiB against a 1 GiB ceiling after two hours without a single request. The culprit was not a memory leak but Server GC — the ASP.NET Core default. This post walks through the whole diagnosis using cgroup v2, how to tell retained heap from a real leak, and the measured result after switching to Workstation GC: anonymous memory down from 822 MB to 280 MB."
 keywords: [workstation gc, server gc, dotnet gc, DOTNET_gcServer, GCConserveMemory, GCHeapHardLimit, dotnet 9, aspnetcore memory, docker memory limit, container memory, cgroup v2, memory.stat anon, OOMKilled, reduce dotnet memory usage, container memory optimization, memory leak dotnet, abp framework, docker stats, net9, devops]
-tags: [dotnet, net9, docker, performance, garbage-collection, aspnetcore, devops, csharp]
+tags: [dotnet, docker, performance, aspnetcore, devops, csharp]
 authors: [tiennhm]
 date: 2026-09-12
 ---

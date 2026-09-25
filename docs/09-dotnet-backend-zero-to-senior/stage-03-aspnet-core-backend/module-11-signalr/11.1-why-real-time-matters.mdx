@@ -141,11 +141,229 @@ Lộ trình thực dụng: **bắt đầu bằng polling**. Khi nó thật sự 
 
 ## Bài tập áp dụng
 
-1. **Đo chi phí polling.** Mô phỏng 500 client poll mỗi 5 giây vào một endpoint có xác thực và truy vấn database. Đo request mỗi giây, CPU, và **tỷ lệ response rỗng**.
+#### Bài 1 — Đo chi phí thật của polling
 
-2. **SSE trong 20 dòng.** Viết một endpoint `text/event-stream` đẩy thông báo, và một client dùng `EventSource`. So sánh số dòng code với một Hub SignalR làm cùng việc.
+Mô phỏng 500 client poll mỗi 5 giây vào một endpoint có xác thực và truy vấn database. Đo request mỗi giây, CPU, và **tỷ lệ response rỗng**.
 
-3. **Giới hạn 6 kết nối.** Mở 8 tab cùng kết nối SSE qua HTTP/1.1 và xác nhận hai tab cuối bị treo. Bật HTTP/2 và kiểm chứng lại.
+**Tiêu chí hoàn thành:** bạn nêu được vì sao **tỷ lệ response rỗng** mới là con số quan trọng nhất, chứ không phải CPU.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** CPU nói bạn tốn bao nhiêu. Tỷ lệ rỗng nói bạn tốn **một cách vô ích** bao nhiêu.
+
+**Lời giải — mô phỏng:**
+
+```bash
+# 500 client, mỗi client poll mỗi 5 giây => 100 request/giây
+bombardier -c 100 -r 100 -d 60s \
+  -H "Authorization: Bearer $TOKEN" \
+  http://localhost:5000/api/v1/notifications/unread
+```
+
+**Kết quả điển hình:**
+
+```text
+Requests/sec:      100.02
+Latencies  avg:     18ms
+CPU (dotnet-counters):  14%
+Truy vấn database:      100/giây
+```
+
+**Đếm tỷ lệ rỗng:**
+
+```csharp
+app.Use(async (ctx, next) =>
+{
+    await next(ctx);
+    if (ctx.Request.Path.StartsWithSegments("/api/v1/notifications/unread"))
+        _metrics.Polls.Add(1, new KeyValuePair<string, object?>(
+            "empty", ctx.Response.Headers.ContentLength <= 2));   // "[]"
+});
+```
+
+```text
+Tổng request:        6.000
+Trả về có dữ liệu:      41
+Trả về rỗng:         5.959      -> 99,3%
+```
+
+**Vì sao tỷ lệ rỗng quan trọng hơn CPU.** 14% CPU nghe chấp nhận được, và đó chính là cái bẫy: con số đó **không nói cho bạn biết công việc này có ích hay không**. Tỷ lệ rỗng 99,3% nói thẳng rằng cứ 1.000 đồng bạn bỏ ra thì 993 đồng không mang lại gì.
+
+Và nó cho bạn tính được tác động của mọi thay đổi:
+
+| | Request/giây | CPU | Có ích |
+|---|---|---|---|
+| Poll 5 giây | 100 | 14% | 0,7% |
+| Poll 30 giây | 17 | ~3% | 4% |
+| Poll 1 giây | 500 | ~60% | 0,14% |
+| SignalR | ~0 | ~1% | **100%** |
+
+**Chi phí mỗi request không chỉ là truy vấn.** Mỗi lần poll đi qua:
+
+```text
+Bắt tay TLS (nếu chưa giữ kết nối), parse JWT, xác thực chữ ký,
+tra quyền, mở kết nối database từ pool, chạy truy vấn,
+tuần tự hoá, ghi log, trả về "[]"
+```
+
+Phần lớn chi phí nằm ở những bước **trước** truy vấn — nên tối ưu câu SQL gần như không giúp gì.
+
+**Và đây là điều tệ nhất của polling: nó bắt bạn chọn giữa hai thứ đều xấu.**
+
+```text
+Poll thưa  -> rẻ, nhưng người dùng thấy thông báo muộn 30 giây
+Poll dày   -> nhanh, nhưng chi phí tăng tuyến tính và vẫn 99% vô ích
+```
+
+Real-time bỏ hẳn lựa chọn này: độ trễ gần như bằng 0 **và** không có request vô ích, vì server chỉ gửi khi thật sự có gì.
+
+**Khi nào polling vẫn đúng:**
+
+- Dữ liệu đổi đều đặn và bạn **biết** chu kỳ (giá cập nhật mỗi phút) — lúc đó tỷ lệ rỗng thấp.
+- Số client nhỏ và độ trễ 30 giây chấp nhận được.
+- Bạn không kiểm soát được hạ tầng để chạy WebSocket.
+
+Ngoài ba trường hợp đó, hãy đo tỷ lệ rỗng của mình trước khi quyết định.
+
+</details>
+
+---
+
+#### Bài 2 — SSE trong hai mươi dòng
+
+Viết một endpoint `text/event-stream` đẩy thông báo, và một client dùng `EventSource`. So sánh số dòng code với một Hub SignalR làm cùng việc.
+
+**Tiêu chí hoàn thành:** bạn nêu được **ba** thứ SignalR làm mà SSE không làm — và một tình huống SSE vẫn là lựa chọn đúng.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** SSE là một chiều. Hãy nghĩ xem điều đó chặn những tình huống nào.
+
+**Lời giải — server:**
+
+```csharp
+app.MapGet("/api/v1/notifications/stream",
+    async (HttpContext ctx, INotificationStream stream, CancellationToken ct) =>
+{
+    ctx.Response.Headers.ContentType = "text/event-stream";
+    ctx.Response.Headers.CacheControl = "no-cache";
+    ctx.Response.Headers["X-Accel-Buffering"] = "no";      // tắt buffer của Nginx
+
+    var userId = ctx.User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+
+    await foreach (var n in stream.SubscribeAsync(userId, ct))
+    {
+        await ctx.Response.WriteAsync($"data: {JsonSerializer.Serialize(n)}\n\n", ct);
+        await ctx.Response.Body.FlushAsync(ct);            // BẮT BUỘC
+    }
+}).RequireAuthorization();
+```
+
+**Client:**
+
+```js
+const es = new EventSource('/api/v1/notifications/stream');
+es.onmessage = e => showNotification(JSON.parse(e.data));
+es.onerror = () => console.log('mất kết nối — trình duyệt sẽ tự thử lại');
+```
+
+**Khoảng 20 dòng, không thư viện nào.** Bản SignalR tương đương cũng khoảng ngần ấy, nhưng cộng thêm một gói NuGet, một gói npm và một Hub.
+
+**Ba thứ SignalR làm mà SSE không làm:**
+
+**1. Giao tiếp hai chiều.** `EventSource` chỉ **nhận**. Muốn client gửi gì lên — tham gia phòng chat, báo "đang gõ", xác nhận đã đọc — bạn phải gọi thêm một REST endpoint. Với SignalR, `connection.invoke("MarkAsRead", id)` đi trên cùng kết nối.
+
+**2. Gửi theo nhóm và theo người dùng.** SignalR có sẵn `Clients.Group(...)`, `Clients.User(...)`, và với backplane Redis thì nó hoạt động xuyên nhiều instance. Với SSE bạn tự dựng toàn bộ: bảng ánh xạ người dùng sang kết nối, cơ chế phát tán giữa các pod, dọn dẹp khi ngắt.
+
+**3. Tự chọn phương thức truyền.** SignalR thử WebSocket trước, và nếu môi trường chặn thì tự lùi về SSE rồi Long Polling — client không cần biết. Với SSE thuần, môi trường nào chặn `text/event-stream` thì bạn hết cách.
+
+**Thêm hai khác biệt nhỏ nhưng hay gây bất ngờ:**
+
+| | SSE | SignalR |
+|---|---|---|
+| Header tuỳ chỉnh | **Không** — `EventSource` không cho đặt | Có |
+| Dữ liệu nhị phân | Không, chỉ text | Có (MessagePack) |
+| Kết nối lại | Trình duyệt tự làm | Có, kèm sự kiện để bạn xử lý |
+
+Dòng đầu quan trọng với xác thực: `EventSource` không gửi được header `Authorization`, nên bạn buộc phải dùng cookie hoặc đưa token vào query string — vấn đề y hệt [bài 11.14](11.13-quick-real-world-example.mdx).
+
+**Khi nào SSE vẫn là lựa chọn đúng:**
+
+Khi bạn chỉ cần **một chiều**, **một instance**, và muốn **không thêm phụ thuộc nào**. Ví dụ điển hình: trang theo dõi tiến độ một job dài, hoặc log đẩy về thời gian thực cho trang quản trị. Ở đó SSE gọn hơn hẳn, và mọi thứ SignalR thêm vào đều là thứ bạn không dùng.
+
+Ngược lại, khi đã có hai chiều, hoặc đã chạy nhiều instance, thì tự dựng lại những thứ SignalR có sẵn tốn hơn nhiều so với việc thêm một gói.
+
+</details>
+
+---
+
+#### Bài 3 — Giới hạn sáu kết nối của HTTP/1.1
+
+Mở 8 tab cùng kết nối SSE qua HTTP/1.1 và xác nhận hai tab cuối bị treo. Bật HTTP/2 và kiểm chứng lại.
+
+**Tiêu chí hoàn thành:** bạn nêu được vì sao giới hạn này **không** ảnh hưởng tới WebSocket, dù WebSocket cũng giữ kết nối lâu dài.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Giới hạn đếm **kết nối HTTP** tới một origin. WebSocket bắt đầu bằng HTTP nhưng kết thúc ở một trạng thái khác.
+
+**Lời giải — với HTTP/1.1:**
+
+```bash
+dotnet run --urls "http://localhost:5000"     # HTTP/1.1, không TLS
+```
+
+Mở 8 tab cùng trỏ vào trang có `new EventSource('/api/v1/notifications/stream')`.
+
+```text
+Tab 1..6: kết nối, nhận thông báo bình thường
+Tab 7, 8: trạng thái pending — không có gì xảy ra
+```
+
+Trong DevTools của tab 7, request nằm mãi ở `(pending)`. Không lỗi, không timeout — chỉ là xếp hàng.
+
+**Trình duyệt giới hạn 6 kết nối HTTP/1.1 đồng thời cho mỗi origin.** Mỗi `EventSource` giữ một kết nối **vĩnh viễn**, nên 6 tab là hết chỗ. Và vấn đề lan rộng hơn: tab thứ bảy **cũng không tải được ảnh, CSS hay gọi được API nào** tới cùng origin — chúng xếp hàng sau các kết nối SSE không bao giờ đóng.
+
+**Với HTTP/2:**
+
+```bash
+dotnet dev-certs https --trust
+dotnet run --urls "https://localhost:5001"
+```
+
+```text
+Tất cả 8 tab: kết nối và nhận thông báo bình thường
+```
+
+HTTP/2 ghép nhiều luồng (**multiplexing**) trên **một** kết nối TCP, với giới hạn mặc định khoảng 100 luồng đồng thời. Tám tab dùng chung một kết nối.
+
+**Lưu ý: trình duyệt chỉ dùng HTTP/2 qua HTTPS.** Chạy `http://localhost` là quay về HTTP/1.1 và lỗi trở lại — đây là lý do lỗi này hay chỉ xuất hiện ở môi trường phát triển.
+
+**Vì sao WebSocket không bị ảnh hưởng.** WebSocket bắt đầu bằng một request HTTP có `Upgrade: websocket`. Sau khi bắt tay xong, kết nối **rời khỏi** phạm vi HTTP và trở thành một kênh song công. Trình duyệt không còn tính nó vào hạn ngạch 6 kết nối HTTP nữa — Chrome cho phép khoảng 255 WebSocket mỗi origin.
+
+```text
+SSE:       là request HTTP đang mở    -> tính vào giới hạn 6
+WebSocket: đã nâng cấp khỏi HTTP      -> không tính
+```
+
+**Bảng tóm tắt:**
+
+| | HTTP/1.1 | HTTP/2 |
+|---|---|---|
+| SSE | **Tối đa 6 tab** | ~100 luồng |
+| WebSocket | Không giới hạn thực tế | Không giới hạn thực tế |
+| Long Polling | **Tối đa 6 tab** | ~100 luồng |
+
+**Ba điều rút ra cho thực tế:**
+
+1. **Dùng SSE hay Long Polling thì bắt buộc bật HTTP/2**, và nhớ rằng reverse proxy phải nói HTTP/2 với client.
+2. **Đừng mở một kết nối cho mỗi tab.** Dùng `BroadcastChannel` hoặc `SharedWorker` để mọi tab chia sẻ một kết nối — vừa tránh giới hạn, vừa giảm tải server theo số lần bằng số tab.
+3. **SignalR ưu tiên WebSocket là có lý do.** Nó tránh hẳn lớp vấn đề này, và chỉ lùi về SSE hay Long Polling khi môi trường không cho dùng WebSocket.
+
+</details>
 
 ## Tự kiểm tra
 

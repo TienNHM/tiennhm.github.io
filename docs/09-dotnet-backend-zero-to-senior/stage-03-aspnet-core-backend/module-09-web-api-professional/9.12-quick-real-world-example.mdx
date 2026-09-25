@@ -231,11 +231,238 @@ Xoá theo lô để không khoá bảng, và chạy định kỳ bằng job nề
 
 ## Bài tập áp dụng
 
-1. **Tái hiện trùng.** Gửi hai request `POST` giống hệt cách nhau 100ms và đếm số bản ghi tạo ra.
+#### Bài 1 — Tái hiện đơn hàng trùng
 
-2. **Cài idempotency.** Thêm filter với ghi trước khi xử lý, chạy lại bài 1 và xác nhận chỉ tạo một bản ghi.
+Gửi hai request `POST` giống hệt cách nhau 100ms và đếm số bản ghi tạo ra.
 
-3. **Thử race condition.** Gửi 20 request song song cùng một `Idempotency-Key` và đếm số 201, số 409.
+**Tiêu chí hoàn thành:** bạn nêu được vì sao **client đúng** vẫn tạo ra request thứ hai — chứ không phải "người dùng bấm nhầm".
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Đặt câu hỏi ngược lại: một client bị mất kết nối giữa chừng **có cách nào** biết server đã xử lý hay chưa không?
+
+**Lời giải — tái hiện:**
+
+```bash
+BODY='{"customerId":"8f3a1b2c-0000-0000-0000-000000000001","lines":[{"productId":"...","quantity":2}]}'
+
+curl -s -X POST https://localhost:5001/api/v1/orders \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d "$BODY" &
+sleep 0.1
+curl -s -X POST https://localhost:5001/api/v1/orders \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d "$BODY" &
+wait
+```
+
+```sql
+SELECT COUNT(*) FROM Orders WHERE CustomerId = '8f3a1b2c-...' AND CreatedUtc > DATEADD(minute,-1,SYSUTCDATETIME());
+-- 2
+```
+
+**Hai đơn hàng, hai lần trừ tiền.**
+
+**Câu trả lời cho tiêu chí — client không có cách nào biết.** Khi kết nối đứt sau lúc server đã xử lý nhưng trước lúc response về tới nơi, client thấy đúng một thứ: **timeout**. Từ phía nó, ba tình huống sau **hoàn toàn giống nhau**:
+
+```text
+Server chưa nhận request        -> phải gửi lại
+Server đang xử lý dở, rồi crash -> phải gửi lại
+Server xử lý XONG, response mất -> KHÔNG được gửi lại
+```
+
+Không có thông tin nào trong tay client phân biệt được ba trường hợp đó. Nên dù client viết đúng đến mấy, nó chỉ còn hai lựa chọn: gửi lại (rủi ro trùng) hoặc không gửi lại (rủi ro mất đơn). Cả hai đều sai trong một nửa số trường hợp.
+
+**Bốn nguồn sinh ra request trùng, và chỉ một liên quan tới người dùng:**
+
+| Nguồn | Có phải lỗi người dùng? |
+|---|---|
+| Người dùng sốt ruột bấm lại | Có |
+| Client retry tự động sau timeout | **Không** — đây là hành vi đúng |
+| Load balancer retry khi upstream không phản hồi | **Không** |
+| Người dùng bấm nút Back rồi gửi lại form | **Không** hẳn |
+
+Vô hiệu hoá nút bấm ở giao diện chỉ chặn được dòng đầu tiên. Ba dòng còn lại nằm ngoài tầm với của frontend, và chúng mới là phần lớn.
+
+**Vì sao `POST` không tự idempotent.** `GET`, `PUT`, `DELETE` đều mô tả một **trạng thái đích**: gọi lại cho cùng kết quả. `POST` mô tả một **hành động**: "tạo thêm một đơn hàng". Gọi hai lần nghĩa là hai đơn — về mặt ngữ nghĩa HTTP thì server đang làm **đúng**.
+
+Vì vậy tính idempotent phải do bạn thêm vào, và phải dựa trên một **khoá do client sinh** — thứ duy nhất giống nhau giữa hai lần gửi. Xem bài 2.
+
+</details>
+
+---
+
+#### Bài 2 — Cài `Idempotency-Key` và kiểm chứng
+
+Thêm filter với ghi trước khi xử lý, chạy lại bài 1 và xác nhận chỉ tạo một bản ghi.
+
+**Tiêu chí hoàn thành:** request thứ hai nhận **đúng response của request thứ nhất**, không phải một response mới tình cờ giống.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Để phân biệt "trả lại kết quả cũ" với "xử lý lại rồi tình cờ ra kết quả giống", hãy so **id của bản ghi** trong hai response.
+
+**Lời giải — chạy lại bài 1 với khoá:**
+
+```bash
+KEY=$(uuidgen)
+
+for i in 1 2; do
+  curl -s -X POST https://localhost:5001/api/v1/orders \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Idempotency-Key: $KEY" \
+    -H "Content-Type: application/json" -d "$BODY" | jq -r '.id'
+  sleep 0.1
+done
+```
+
+```text
+c4f1a9d2-7b3e-4a55-9f01-2d6e8b4c1a77
+c4f1a9d2-7b3e-4a55-9f01-2d6e8b4c1a77      <- CÙNG id
+```
+
+```sql
+SELECT COUNT(*) FROM Orders WHERE CustomerId = '8f3a1b2c-...';
+-- 1
+```
+
+**Cùng id chính là bằng chứng cần cho tiêu chí.** Nếu filter xử lý lại rồi tạo đơn mới, id sẽ khác — dù mọi trường còn lại giống hệt.
+
+**Ba điều bắt buộc trong bản ghi idempotency, và vì sao:**
+
+```csharp
+public sealed class IdempotencyRecord
+{
+    public string Key { get; init; } = null!;          // UNIQUE INDEX
+    public string RequestHash { get; init; } = null!;  // 1
+    public IdempotencyStatus Status { get; set; }      // 2
+    public string? ResponseBody { get; set; }          // 3
+    public int? ResponseStatusCode { get; set; }
+    public DateTime CreatedUtc { get; init; }
+}
+```
+
+**1. `RequestHash` — chống dùng lại khoá cho nội dung khác.** Client sinh khoá một lần rồi vô tình gửi kèm body khác là một lỗi thật sự cần báo:
+
+```csharp
+if (stored.RequestHash != currentHash)
+{
+    context.Result = new ObjectResult(new ProblemDetails
+    {
+        Status = StatusCodes.Status422UnprocessableEntity,
+        Title = "Idempotency-Key đã được dùng cho một nội dung khác"
+    }) { StatusCode = 422 };
+    return;
+}
+```
+
+Không có kiểm tra này, người dùng gửi đơn thứ hai với khoá cũ sẽ **lặng lẽ nhận lại đơn cũ** và tin rằng đơn mới đã được tạo.
+
+**2. `Status` — phân biệt "đang chạy" với "đã xong".** Cần cho bài 3.
+
+**3. `ResponseBody` — trả lại đúng cái cũ.** Chỉ chặn không tạo bản ghi trùng là chưa đủ; client cần nhận được `id` để đi tiếp.
+
+**Khoá phải do client sinh, và phải bền qua lần retry:**
+
+```ts
+// SAI — mỗi lần retry một khoá mới, không chặn được gì
+async function createOrder(body) {
+  return post('/orders', body, { 'Idempotency-Key': crypto.randomUUID() });
+}
+
+// ĐÚNG — sinh một lần cho mỗi ý định của người dùng, dùng lại khi retry
+async function createOrder(body) {
+  const key = crypto.randomUUID();
+  return retry(() => post('/orders', body, { 'Idempotency-Key': key }));
+}
+```
+
+Đây là chỗ sai phổ biến nhất khi cài phía client, và server không có cách nào phát hiện.
+
+</details>
+
+---
+
+#### Bài 3 — Hai mươi request song song cùng một khoá
+
+Gửi 20 request song song cùng một `Idempotency-Key` và đếm số 201, số 409.
+
+**Tiêu chí hoàn thành:** tổng số `201` cộng `409` bằng 20, số `201` bằng **đúng 1**, và bảng `Orders` có **đúng 1** dòng.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Nếu kết quả ra 2 hay 3 bản ghi, gần như chắc chắn code đang **kiểm tra bằng `if` rồi mới ghi**. Chỉ ràng buộc `UNIQUE` của database mới đóng được khoảng hở đó.
+
+**Lời giải — thử tải song song:**
+
+```bash
+KEY=$(uuidgen)
+
+seq 1 20 | xargs -P 20 -I{} curl -s -o /dev/null -w '%{http_code}\n' \
+  -X POST https://localhost:5001/api/v1/orders \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Idempotency-Key: $KEY" \
+  -H "Content-Type: application/json" -d "$BODY" | sort | uniq -c
+```
+
+**Với bản chỉ kiểm tra bằng `if`:**
+
+```text
+      3 201
+     17 409
+```
+
+```sql
+SELECT COUNT(*) FROM Orders WHERE CustomerId = '8f3a1b2c-...';
+-- 3
+```
+
+**Ba đơn hàng.** Ba request cùng chạy `AnyAsync` trước khi bất kỳ ai kịp ghi, nên cả ba đều thấy "chưa có".
+
+**Với bản giành chỗ bằng `UNIQUE INDEX`:**
+
+```text
+      1 201
+     19 409
+```
+
+```sql
+-- 1
+```
+
+**Đạt cả ba tiêu chí.**
+
+**Vì sao ràng buộc database là thứ duy nhất đủ.** Giữa `AnyAsync` và `Add` luôn có một khoảng thời gian, dù nhỏ tới đâu. Mọi cách "kiểm tra rồi ghi" ở tầng ứng dụng đều chỉ **thu hẹp** khoảng đó chứ không xoá được — đúng lập luận ở [bài 17.3](../../stage-05-senior-engineering/module-17-distributed-systems/17.2-messaging-fears-lost-duplicates.mdx). Ràng buộc `UNIQUE` thì được kiểm tra **nguyên tử bên trong** lệnh ghi.
+
+**Index bắt buộc:**
+
+```sql
+CREATE UNIQUE INDEX UX_IdempotencyRecords_Key ON IdempotencyRecords(Key);
+```
+
+Thiếu nó thì `SaveChangesAsync` không ném gì cả, và bạn quay lại kịch bản ba đơn hàng.
+
+**Hai điều cần hoàn thiện trước khi dùng thật:**
+
+1. **Bản ghi `InProgress` bị kẹt.** Nếu tiến trình chết giữa chừng, khoá nằm mãi ở `InProgress` và mọi lần retry đều nhận `409` vĩnh viễn. Cần một job giải phóng:
+
+   ```sql
+   UPDATE IdempotencyRecords
+   SET    Status = 'Failed'
+   WHERE  Status = 'InProgress'
+     AND  CreatedUtc < DATEADD(minute, -5, SYSUTCDATETIME());
+   ```
+
+2. **`409` nên kèm `Retry-After`.** Client cần biết chờ bao lâu thay vì quay vòng liên tục:
+
+   ```csharp
+   context.HttpContext.Response.Headers.RetryAfter = "2";
+   ```
+
+**Một lựa chọn thiết kế đáng cân nhắc.** Thay vì `409`, có hệ thống cho request thứ hai **chờ** bản ghi chuyển sang `Completed` rồi trả luôn kết quả. Trải nghiệm mượt hơn, nhưng đổi lại là giữ kết nối và thread trong lúc chờ — chính là kiểu tải sinh ra thread pool starvation ở [bài 6.12](../../stage-02-csharp-professional/module-06-async-programming/6.11-quick-real-world-example.mdx). Với API công khai, `409` kèm `Retry-After` an toàn hơn.
+
+</details>
 
 ## Tự kiểm tra
 

@@ -3,7 +3,7 @@ title: "Vì sao .NET ngốn 96% RAM container dù app đang rảnh? Server GC v�
 slug: dotnet-workstation-gc-giam-ram-container
 description: "Một container .NET 9 chiếm 987 MiB trên trần 1 GiB dù suốt 2 giờ không có request nào. Thủ phạm không phải rò rỉ bộ nhớ mà là Server GC — mặc định của ASP.NET Core. Bài viết ghi lại toàn bộ quá trình chẩn đoán bằng cgroup v2, cách phân biệt retained heap với memory leak, và kết quả đo thật sau khi chuyển sang Workstation GC: bộ nhớ anon giảm từ 822 MB xuống 280 MB."
 keywords: [workstation gc, server gc, dotnet gc, DOTNET_gcServer, GCConserveMemory, GCHeapHardLimit, dotnet 9, aspnetcore memory, docker memory limit, container memory, cgroup v2, memory.stat anon, OOMKilled, giảm ram dotnet, tối ưu ram container, memory leak dotnet, abp framework, docker stats, net9, devops]
-tags: [dotnet, net9, docker, performance, garbage-collection, aspnetcore, devops, csharp]
+tags: [dotnet, docker, performance, aspnetcore, devops, csharp]
 authors: [tiennhm]
 date: 2026-09-12
 ---

@@ -1,8 +1,10 @@
 ---
 slug: best-extensions-for-vs-code
 title: Những extensions tốt nhất cho Visual Studio Code
+description: "16 extension Visual Studio Code dùng hằng ngày: GitLens và Git Graph cho Git, Prettier và ESLint cho định dạng và soát lỗi, Live Server cho phát triển cục bộ. Mỗi extension kèm mô tả chức năng và cách dùng thực tế."
+keywords: [extension vs code, vscode extension tot nhat, visual studio code extension, gitlens, git graph, prettier vscode, eslint vscode, live server, tang nang suat lap trinh, cong cu lap trinh]
 authors: [tiennhm]
-tags: [vscode, extensions]
+tags: [tools]
 enableComments: true # for Gisqus comments, set to true
 draft: false # set to true to hide this post from the site
 image: https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fmarketplace.visualstudio.com%2Fvscode/showcase/

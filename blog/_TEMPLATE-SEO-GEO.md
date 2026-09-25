@@ -1,7 +1,8 @@
 ---
 title: Tiêu đề bài viết (dạng câu hỏi nếu phù hợp)
 description: Mô tả ngắn gọn 2-4 câu trả lời trực tiếp câu hỏi chính của bài viết. AI Agents sẽ ưu tiên trích xuất nội dung này.
-tags: [tag1, tag2]
+# Chỉ dùng key đã khai báo trong blog/tags.yml
+tags: [dotnet, backend]
 author: TienNHM
 date: 2026-02-09
 keywords: [keyword1, keyword2, keyword3]

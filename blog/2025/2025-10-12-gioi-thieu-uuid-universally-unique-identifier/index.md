@@ -1,8 +1,10 @@
 ---
 slug: gioi-thieu-uuid-universally-unique-identifier
 title: Giới thiệu UUID (Universally Unique Identifier) - Định danh duy nhất toàn cầu
+description: "UUID là chuẩn định danh 128-bit tạo được ID duy nhất toàn cầu mà không cần cơ quan trung tâm. Bài viết đi qua 5 phiên bản (v1 theo thời gian, v4 ngẫu nhiên, v3/v5 theo tên), ưu nhược điểm từng loại và cách dùng trong hệ phân tán, microservices và thiết kế database."
+keywords: [uuid, universally unique identifier, uuid v4, uuid v7, guid, dinh danh duy nhat, uuid vs auto increment, khoa chinh database, uuid trong database, uuid la gi]
 authors: [tiennhm]
-tags: [uuid, database, programming, identifier, unique-id]
+tags: [database, fundamentals]
 ---
 
 import { SummaryBox, FAQSection } from '@site/src/components/SEO';

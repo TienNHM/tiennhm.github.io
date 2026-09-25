@@ -3,7 +3,7 @@ title: "ONNX Runtime Dies on Alpine: the ld-linux-x86-64.so.2 Error and Why libc
 slug: onnx-runtime-alpine-ld-linux-x86-64-so-2
 description: "The Node.js container builds, starts, and then dies the moment it loads the model: Error loading shared library ld-linux-x86-64.so.2. This post dissects the cause with readelf against onnxruntime-node's own binary, proves that libc6-compat and gcompat merely move the error elsewhere, and compares four ways out along with what each really costs."
 keywords: [ld-linux-x86-64.so.2, onnxruntime alpine, onnxruntime-node alpine, error loading shared library, musl vs glibc, alpine musl libc, libc6-compat, gcompat alpine, __vsnprintf_chk symbol not found, error relocating, native module alpine, docker node alpine, node bookworm-slim, transformers.js docker, huggingface transformers node, dt_needed readelf, prebuilt binary glibc, docker image size tradeoff, alpine linux docker, onnx runtime docker, node native addon musl, choosing a node base image]
-tags: [docker, alpine, onnx, nodejs, linux, devops, troubleshooting]
+tags: [docker, ai, javascript, devops, troubleshooting]
 authors: [tiennhm]
 date: 2026-09-22
 ---

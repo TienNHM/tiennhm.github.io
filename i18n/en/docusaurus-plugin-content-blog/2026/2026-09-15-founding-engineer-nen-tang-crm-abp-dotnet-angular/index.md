@@ -3,7 +3,7 @@ title: "Building a Multi-Tenant CRM Platform from Nothing: 20 Months on the Job"
 slug: founding-engineer-nen-tang-crm-abp-dotnet-angular
 description: "The first product I was handed to initialise and build from scratch: a multi-tenant CRM platform that spent nearly a year being demoed across industries before moving into real delivery for a healthcare client, and after 20 months had become 18 ABP/.NET 9 microservices and 13 Angular libraries. A career story told chronologically, including the export screen that forgot its permission checks, the Angular upgrade I had to revert, the three months I was moved to a different loyalty project and committed nothing, and a migration so boring nobody noticed it had happened."
 keywords: [software career story, mentoring interns, dynamic filter, filter operator, eav, entity attribute value, dynamic attributes, custom fields, multi tenant, multi tenancy, abp framework, abp 9.3, dotnet 9, angular 20, primeng, microservices, bounded context, strangler fig, feature toggle, dual read, record level permission, ownership filter, ef core migration, signalr, omnichannel chat, gitops, helm, kubernetes, openiddict, yarp, architecture decision record, adr, fullstack developer, crm platform, devex, angular upgrade, monorepo, product engineering experience, ai driven development, cursor ide, claude code, chatgpt for coding, ai pair programming, coding standards]
-tags: [career, architecture, dotnet, abp, angular, microservices, devops, product, ai]
+tags: [career, architecture, dotnet, abp, angular, microservices, devops, ai]
 authors: [tiennhm]
 date: 2026-09-15
 ---

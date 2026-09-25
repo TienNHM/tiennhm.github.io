@@ -236,11 +236,284 @@ Client sau đó gọi `/api/auth/refresh` để lấy access token, đúng mẫu
 
 ## Bài tập áp dụng
 
-1. **Đọc `id_token`.** Hoàn tất một luồng đăng nhập Google, lấy `id_token` và giải mã payload. Liệt kê các claim và xác định cái nào bạn thật sự dùng.
+#### Bài 1 — Đọc `id_token` và quyết định dùng claim nào
 
-2. **Mô phỏng chiếm tài khoản.** Tạo tài khoản `test@example.com` bằng mật khẩu. Giả lập một `ExternalLoginInfo` có cùng email nhưng `email_verified = false`, và xác nhận code **không** liên kết.
+Hoàn tất một luồng đăng nhập Google, lấy `id_token` và giải mã payload. Liệt kê các claim và xác định cái nào bạn thật sự dùng.
 
-3. **`SameSite` phá luồng.** Đặt cookie refresh token với `SameSite = Strict`, chạy luồng đăng nhập Google, và xác nhận cookie **không** được gửi khi quay về. Đổi sang `Lax` và kiểm chứng lại.
+**Tiêu chí hoàn thành:** bạn chỉ ra được claim nào **định danh người dùng một cách bền vững**, và vì sao `email` không phải claim đó.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Hỏi: người dùng có đổi được giá trị này không? Và nếu họ đổi, tài khoản của họ trong hệ thống bạn có còn nhận ra họ không?
+
+**Lời giải — lấy và giải mã:**
+
+```csharp
+options.SaveTokens = true;      // tạm bật để xem, xem lưu ý ở cuối
+
+// Trong callback
+var idToken = await HttpContext.GetTokenAsync("Google", "id_token");
+```
+
+```bash
+python3 -c "
+import base64,json,sys
+p = sys.argv[1].split('.')[1]; p += '=' * (-len(p) % 4)
+print(json.dumps(json.loads(base64.urlsafe_b64decode(p)), indent=2, ensure_ascii=False))
+" "$ID_TOKEN"
+```
+
+```json
+{
+  "iss": "https://accounts.google.com",
+  "azp": "1234.apps.googleusercontent.com",
+  "aud": "1234.apps.googleusercontent.com",
+  "sub": "110248495921238986420",
+  "email": "an@company.com",
+  "email_verified": true,
+  "name": "Nguyễn Văn An",
+  "picture": "https://lh3.googleusercontent.com/a/...",
+  "given_name": "An",
+  "family_name": "Nguyễn Văn",
+  "iat": 1790000000,
+  "exp": 1790003600
+}
+```
+
+**Claim định danh bền vững là `sub`.** Nó do Google cấp, duy nhất trong phạm vi issuer, và **không bao giờ đổi** — kể cả khi người dùng đổi email, đổi tên, hay đổi ảnh đại diện.
+
+**Vì sao `email` không dùng làm định danh — ba lý do:**
+
+1. **Người dùng đổi được.** Google Workspace cho phép đổi địa chỉ chính. Sau khi đổi, nếu bạn tra theo email thì người đó thành một người mới và mất sạch dữ liệu.
+2. **Email có thể được cấp lại.** Nhân viên nghỉ việc, công ty gán `an@company.com` cho người mới. Tra theo email là người mới vào thẳng tài khoản của người cũ.
+3. **`email_verified` có thể là `false`.** Với một số nhà cung cấp, người dùng tự khai email mà không chứng minh sở hữu — xem bài 2.
+
+**Cách lưu đúng:**
+
+```csharp
+public sealed class ExternalLogin
+{
+    public string Provider { get; init; } = null!;      // "Google"
+    public string ProviderKey { get; init; } = null!;   // sub — KHOÁ THẬT
+    public Guid UserId { get; init; }
+}
+```
+
+```sql
+CREATE UNIQUE INDEX UX_ExternalLogins ON ExternalLogins(Provider, ProviderKey);
+```
+
+`email` chỉ dùng để **hiển thị** và để **gợi ý liên kết** với tài khoản sẵn có — và việc liên kết đó cần xác nhận, xem bài 2.
+
+**Bảng phân loại claim:**
+
+| Claim | Dùng làm gì | Lưu lại? |
+|---|---|---|
+| `sub` | **Định danh** | Có — cùng `Provider` |
+| `email` | Hiển thị, gợi ý liên kết | Có, nhưng cập nhật lại mỗi lần đăng nhập |
+| `email_verified` | Quyết định có tự động liên kết không | Không — kiểm tại chỗ |
+| `name`, `picture` | Hiển thị | Tuỳ, cập nhật mỗi lần đăng nhập |
+| `given_name`, `family_name` | Hầu như không dùng | Không |
+| `iss`, `aud`, `exp` | Thư viện tự xác thực | Không |
+
+**Lưu ý về `SaveTokens`.** Bật nó lưu cả `access_token` của Google vào cookie xác thực, làm cookie phình lên và giữ một thứ bạn thường không cần. Chỉ bật khi thật sự gọi API của Google thay mặt người dùng:
+
+```csharp
+options.SaveTokens = false;        // mặc định nên là false
+```
+
+Sau khi xem xong bài tập này, tắt nó đi.
+
+</details>
+
+---
+
+#### Bài 2 — Chiếm tài khoản qua liên kết tự động theo email
+
+Tạo tài khoản `test@example.com` bằng mật khẩu. Giả lập một `ExternalLoginInfo` có cùng email nhưng `email_verified = false`, và xác nhận code **không** liên kết.
+
+**Tiêu chí hoàn thành:** bạn mô tả được **toàn bộ chuỗi tấn công** từ góc nhìn kẻ xấu, không chỉ nói "thiếu kiểm tra".
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Có những nhà cung cấp OAuth cho phép đặt email tuỳ ý trong hồ sơ mà không bắt chứng minh sở hữu.
+
+**Lời giải — code dễ tổn thương:**
+
+```csharp
+var info = await _signInManager.GetExternalLoginInfoAsync();
+var email = info!.Principal.FindFirstValue(ClaimTypes.Email);
+
+var user = await _userManager.FindByEmailAsync(email!);
+if (user is not null)
+{
+    await _userManager.AddLoginAsync(user, info);      // LIÊN KẾT NGAY
+    await _signInManager.SignInAsync(user, isPersistent: false);
+    return Redirect("/");
+}
+```
+
+**Chuỗi tấn công đầy đủ:**
+
+```text
+1. Kẻ tấn công biết nạn nhân dùng ceo@company.com trên hệ thống của bạn
+   (email công ty thường đoán được: ho.ten@congty.com)
+
+2. Hắn tạo tài khoản ở một nhà cung cấp OAuth cho phép tự khai email,
+   và đặt email hồ sơ thành ceo@company.com — không cần chứng minh gì
+
+3. Hắn bấm "Đăng nhập bằng <nhà cung cấp>" trên hệ thống của bạn
+
+4. Code của bạn đọc claim email, thấy ceo@company.com, tìm thấy tài
+   khoản của CEO, và GẮN danh tính của kẻ tấn công vào tài khoản đó
+
+5. Hắn đăng nhập vào tài khoản CEO — không cần mật khẩu, không cần
+   chạm vào email thật của CEO, không để lại dấu vết nào bất thường
+```
+
+**Điểm đáng chú ý:** không có bước nào là "tấn công" theo nghĩa kỹ thuật. Không dò mật khẩu, không khai thác lỗ hổng bộ nhớ, không SQL injection. Hắn chỉ dùng đúng luồng đăng nhập mà bạn cung cấp.
+
+**Bản đã sửa — ba tầng kiểm tra:**
+
+```csharp
+var info = await _signInManager.GetExternalLoginInfoAsync();
+if (info is null) return Redirect("/login?error=external");
+
+// Tầng 1: đã liên kết trước đó -> đăng nhập thẳng
+var linked = await _signInManager.ExternalLoginSignInAsync(
+    info.LoginProvider, info.ProviderKey, isPersistent: false);
+if (linked.Succeeded) return Redirect("/");
+
+var email = info.Principal.FindFirstValue(ClaimTypes.Email);
+var verified = info.Principal.FindFirstValue("email_verified") == "true";
+
+// Tầng 2: email đã tồn tại -> KHÔNG tự liên kết
+var existing = email is null ? null : await _userManager.FindByEmailAsync(email);
+if (existing is not null)
+{
+    if (!verified || !TrustedProviders.Contains(info.LoginProvider))
+    {
+        await _mail.SendLinkConfirmationAsync(existing, info, ct);
+        return Redirect("/login?info=check-your-email");
+    }
+
+    await _userManager.AddLoginAsync(existing, info);
+    await _signInManager.SignInAsync(existing, isPersistent: false);
+    return Redirect("/");
+}
+
+// Tầng 3: người dùng mới -> tạo với quyền thấp nhất
+if (!verified) return Redirect("/login?error=email-not-verified");
+
+var newUser = new AppUser { UserName = email, Email = email, EmailConfirmed = true };
+await _userManager.CreateAsync(newUser);
+await _userManager.AddLoginAsync(newUser, info);
+await _userManager.AddToRoleAsync(newUser, CrmRoles.ReadOnly);
+```
+
+**Ba nguyên tắc rút ra:**
+
+1. **`email_verified = false` thì không liên kết gì cả** — email đó chưa được chứng minh là của ai.
+2. **Chỉ tự động liên kết với nhà cung cấp bạn tin cậy.** Google và Microsoft có quy trình xác minh email nghiêm túc; một nhà cung cấp OAuth bất kỳ thì không.
+3. **Khi email đã tồn tại, hãy hỏi chủ tài khoản.** Gửi email xác nhận tới **địa chỉ đã có trong hệ thống** — chỉ người thật sự kiểm soát hộp thư đó mới bấm được.
+
+**Và tài khoản mới luôn bắt đầu ở quyền thấp nhất.** Nếu bước xác minh nào đó vẫn bị vượt qua, kẻ tấn công cũng chỉ có tài khoản chỉ-đọc thay vì quyền của tài khoản cũ.
+
+</details>
+
+---
+
+#### Bài 3 — `SameSite=Strict` làm gãy luồng đăng nhập ngoài
+
+Đặt cookie refresh token với `SameSite = Strict`, chạy luồng đăng nhập Google, và xác nhận cookie **không** được gửi khi quay về. Đổi sang `Lax` và kiểm chứng lại.
+
+**Tiêu chí hoàn thành:** bạn nêu được `Strict` và `Lax` khác nhau ở tình huống nào, và vì sao `Lax` vẫn chặn được CSRF.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Người dùng quay về từ `accounts.google.com` bằng một **chuyển hướng**, không phải bằng cách gõ địa chỉ. Với trình duyệt, đó là điều hướng **xuyên site**.
+
+**Lời giải — với `Strict`:**
+
+```csharp
+Response.Cookies.Append("refresh_token", token, new CookieOptions
+{
+    HttpOnly = true,
+    Secure   = true,
+    SameSite = SameSiteMode.Strict,
+    Path     = "/api/auth"
+});
+```
+
+```text
+1. Người dùng bấm "Đăng nhập bằng Google"
+2. Chuyển sang accounts.google.com
+3. Đăng nhập, Google chuyển về https://crm.company.com/signin-google?code=...
+4. Trình duyệt KHÔNG gửi cookie — vì request đến từ một site khác
+5. Server không thấy cookie tương quan -> "Correlation failed"
+```
+
+```text
+Exception: .AspNetCore.Correlation.Google.xxx cookie not found.
+```
+
+**Cùng lỗi này xảy ra với mọi thứ đi qua chuyển hướng xuyên site:** thanh toán trả về từ cổng, xác nhận email bằng link, đăng nhập một lần của doanh nghiệp.
+
+**Với `Lax`:**
+
+```csharp
+SameSite = SameSiteMode.Lax
+```
+
+```text
+200 — đăng nhập thành công
+```
+
+**Khác biệt chính xác giữa hai giá trị:**
+
+| Tình huống | `Strict` | `Lax` | `None` |
+|---|---|---|---|
+| Gõ địa chỉ trực tiếp | Gửi | Gửi | Gửi |
+| **Điều hướng cấp cao nhất** bằng `GET` từ site khác | **Không** | **Gửi** | Gửi |
+| `POST` từ form ở site khác | Không | **Không** | Gửi |
+| `fetch`/XHR từ site khác | Không | **Không** | Gửi |
+| Ảnh, iframe nhúng ở site khác | Không | Không | Gửi |
+
+Dòng thứ hai là dòng cứu luồng OAuth: người dùng **tự bấm** và đi tới trang của bạn ở cấp cao nhất — đó là điều hướng hợp pháp.
+
+**Vì sao `Lax` vẫn chặn được CSRF.** Tấn công CSRF cổ điển dựa vào việc trang độc hại tự gửi một request thay đổi dữ liệu mà người dùng không biết:
+
+```html
+<!-- Trang của kẻ tấn công -->
+<form action="https://crm.company.com/api/customers/42" method="POST">
+  <input name="delete" value="true">
+</form>
+<script>document.forms[0].submit()</script>
+```
+
+Đây là `POST` xuyên site — **dòng thứ ba trong bảng** — nên `Lax` **không** gửi cookie, và request thất bại. Điều `Lax` cho phép chỉ là `GET` ở cấp cao nhất, mà `GET` theo đúng thiết kế thì không được thay đổi dữ liệu.
+
+**Điều này nói thêm một chuyện:** nếu API của bạn có endpoint `GET` gây thay đổi dữ liệu (`GET /customers/42/delete`), thì `Lax` **không** bảo vệ nó. Đó là một lý do nữa để tôn trọng ngữ nghĩa của HTTP method, như [bài 9.2](../module-09-web-api-professional/9.1-rest-api-design-principles.mdx) trình bày.
+
+**Cấu hình thực dụng:**
+
+```csharp
+// Cookie phiên và refresh token — Lax là đủ và tương thích OAuth
+SameSite = SameSiteMode.Lax
+
+// Cookie cho thao tác đặc biệt nhạy cảm và không đi qua redirect nào
+SameSite = SameSiteMode.Strict
+
+// Chỉ khi frontend nằm ở tên miền khác backend — và BẮT BUỘC kèm Secure
+SameSite = SameSiteMode.None, Secure = true
+```
+
+**Cẩn thận với `None`:** nó tắt hẳn lớp bảo vệ SameSite, nên phải bù lại bằng token chống CSRF hoặc kiểm tra header `Origin` ở phía server.
+
+</details>
 
 ## Tự kiểm tra
 

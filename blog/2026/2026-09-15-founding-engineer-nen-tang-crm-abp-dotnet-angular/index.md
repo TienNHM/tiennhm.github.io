@@ -3,7 +3,7 @@ title: "Dựng một nền tảng CRM multi-tenant từ con số không: chuyệ
 slug: founding-engineer-nen-tang-crm-abp-dotnet-angular
 description: "Sản phẩm đầu tiên mình được giao init và dựng từ đầu: một nền tảng CRM multi-tenant, đi demo cho nhiều ngành gần một năm rồi chuyển sang delivery thật cho khách ngành y tế, sau 20 tháng thành 18 microservice ABP/.NET 9 và 13 Angular library. Chuyện nghề kể theo mạch thời gian, có cái màn hình export bị quên phân quyền, có lần nâng Angular hỏng phải revert, có ba tháng bị điều sang dự án loyalty khác nên không commit dòng nào, và một lần migration nhàm chán tới mức chẳng ai để ý là nó đã xảy ra."
 keywords: [chuyen nghe lap trinh, mentor intern, dynamic filter, filter operator, eav, entity attribute value, dynamic attributes, custom fields, multi tenant, multi tenancy, abp framework, abp 9.3, dotnet 9, angular 20, primeng, microservices, bounded context, strangler fig, feature toggle, dual read, record level permission, ownership filter, ef core migration, signalr, omnichannel chat, gitops, helm, kubernetes, openiddict, yarp, architecture decision record, adr, fullstack developer, crm platform, devex, nang cap angular, monorepo, kinh nghiem lam san pham, ai driven development, cursor ide, claude code, chatgpt lap trinh, ai pair programming, coding standards]
-tags: [career, architecture, dotnet, abp, angular, microservices, devops, product, ai]
+tags: [career, architecture, dotnet, abp, angular, microservices, devops, ai]
 authors: [tiennhm]
 date: 2026-09-15
 ---

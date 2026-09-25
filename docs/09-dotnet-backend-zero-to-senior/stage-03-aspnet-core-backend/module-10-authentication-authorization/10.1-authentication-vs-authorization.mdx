@@ -199,11 +199,245 @@ Lý do thứ hai quan trọng hơn kích thước: **claim là ảnh chụp tạ
 
 ## Bài tập áp dụng
 
-1. **401 và 403.** Gọi một endpoint có `[Authorize(Roles = "Admin")]` ba lần: không token, token hợp lệ vai trò `User`, token hợp lệ vai trò `Admin`. Ghi lại ba mã trạng thái.
+#### Bài 1 — Ba lời gọi, ba mã trạng thái
 
-2. **Identity không xác thực.** Tạo `ClaimsIdentity` **không** có `authenticationType`, gán vào `HttpContext.User`, và xác nhận `[Authorize]` vẫn trả 401 dù claim đầy đủ.
+Gọi một endpoint có `[Authorize(Roles = "Admin")]` ba lần: không token, token hợp lệ vai trò `User`, token hợp lệ vai trò `Admin`. Ghi lại ba mã trạng thái.
 
-3. **Token phình to.** Thêm 200 claim quyền vào token, đo kích thước header, và gọi qua một Nginx có `large_client_header_buffers` mặc định. Ghi lại mã lỗi nhận được.
+**Tiêu chí hoàn thành:** bạn nói được `401` và `403` khác nhau ở chỗ nào, và vì sao **thêm token** lại đổi mã từ `401` sang `403`.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Hai mã trả lời hai câu hỏi khác nhau, và chúng được hỏi theo thứ tự.
+
+**Lời giải — ba lời gọi:**
+
+```bash
+# 1. Không token
+curl -s -o /dev/null -w '%{http_code}\n' https://localhost:5001/api/v1/admin/users
+
+# 2. Token hợp lệ, vai trò User
+curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $TOKEN_USER" \
+  https://localhost:5001/api/v1/admin/users
+
+# 3. Token hợp lệ, vai trò Admin
+curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $TOKEN_ADMIN" \
+  https://localhost:5001/api/v1/admin/users
+```
+
+```text
+401
+403
+200
+```
+
+**Câu trả lời cho tiêu chí:**
+
+| Mã | Câu hỏi bị trả lời "không" | Nghĩa với client |
+|---|---|---|
+| `401 Unauthorized` | *Bạn là ai?* | "Tôi **không biết** bạn — hãy đăng nhập" |
+| `403 Forbidden` | *Bạn được làm gì?* | "Tôi **biết** bạn, và bạn không được phép" |
+
+Thêm token làm mã đổi từ `401` sang `403` vì nó trả lời xong câu hỏi thứ nhất. Hệ thống chuyển từ "chưa biết bạn" sang "biết bạn, nhưng không đủ quyền" — hai trạng thái hoàn toàn khác nhau.
+
+**Vì sao phân biệt đúng lại quan trọng với client:**
+
+```ts
+if (res.status === 401) {
+  await refreshToken();      // làm mới rồi thử lại — có thể cứu được
+  return retry();
+}
+if (res.status === 403) {
+  showMessage('Bạn không có quyền thực hiện thao tác này');   // retry vô ích
+}
+```
+
+Trả nhầm `401` cho trường hợp thiếu quyền sẽ đẩy client vào **vòng lặp làm mới token vô tận**: nó refresh, gọi lại, vẫn `401`, lại refresh. Người dùng thấy màn hình quay mãi, còn log của bạn đầy request refresh mà không hiểu vì sao.
+
+**Tên `401 Unauthorized` là một lỗi lịch sử trong đặc tả HTTP.** Nó thật ra nghĩa là *unauthenticated*. Đặc tả bù lại bằng cách bắt `401` phải kèm header nói cách xác thực:
+
+```http
+HTTP/1.1 401 Unauthorized
+WWW-Authenticate: Bearer error="invalid_token", error_description="The token expired"
+```
+
+ASP.NET Core tự thêm header này. Nó đáng đọc khi gỡ rối — trường `error_description` nói rõ token hết hạn, sai chữ ký hay sai issuer.
+
+**Một biến thể cố ý trả sai, và khi nào nó hợp lý.** Có hệ thống trả `404` thay cho `403` để không tiết lộ rằng tài nguyên đó tồn tại — đánh đổi giữa bảo mật và khả năng gỡ rối, bàn kỹ ở [bài 10.14](10.13-quick-real-world-example.mdx).
+
+</details>
+
+---
+
+#### Bài 2 — Identity đầy claim nhưng vẫn không được xác thực
+
+Tạo `ClaimsIdentity` **không** có `authenticationType`, gán vào `HttpContext.User`, và xác nhận `[Authorize]` vẫn trả `401` dù claim đầy đủ.
+
+**Tiêu chí hoàn thành:** bạn chỉ ra được **thuộc tính nào** quyết định, và vì sao .NET thiết kế như vậy.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Đọc tài liệu của `ClaimsIdentity.IsAuthenticated`. Nó không đếm claim.
+
+**Lời giải — dựng thử:**
+
+```csharp
+app.Use(async (ctx, next) =>
+{
+    var claims = new[]
+    {
+        new Claim(ClaimTypes.NameIdentifier, "42"),
+        new Claim(ClaimTypes.Name, "An"),
+        new Claim(ClaimTypes.Role, "Admin"),
+    };
+
+    // KHÔNG truyền authenticationType
+    ctx.User = new ClaimsPrincipal(new ClaimsIdentity(claims));
+
+    await next(ctx);
+});
+```
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' https://localhost:5001/api/v1/admin/users
+# 401
+```
+
+**Ba claim đầy đủ, có cả vai trò `Admin`, vẫn `401`.**
+
+**Thuộc tính quyết định là `IsAuthenticated`**, và nó được tính bằng một quy tắc duy nhất:
+
+```csharp
+public virtual bool IsAuthenticated => !string.IsNullOrEmpty(_authenticationType);
+```
+
+Không có `authenticationType` thì `IsAuthenticated == false`, và `[Authorize]` từ chối ngay trước khi nhìn tới bất kỳ claim nào.
+
+**Thêm một chuỗi bất kỳ là qua:**
+
+```csharp
+ctx.User = new ClaimsPrincipal(new ClaimsIdentity(claims, authenticationType: "Test"));
+```
+
+```text
+200
+```
+
+**Vì sao .NET thiết kế như vậy.** `ClaimsIdentity` được dùng cho cả những danh tính **chưa** được xác minh — ví dụ thông tin đọc từ một cookie chưa kiểm chữ ký, hay dữ liệu đang dựng dở trong quá trình đăng nhập. Nếu chỉ cần có claim là được coi là đã xác thực, mọi đoạn code lỡ tay dựng một identity tạm sẽ vô tình cấp quyền. Trường `authenticationType` là lời khẳng định tường minh: *"danh tính này đến từ một cơ chế xác thực đã chạy xong"*.
+
+**Đây cũng là bẫy số một khi viết integration test.** Handler xác thực giả rất hay quên tham số này:
+
+```csharp
+public class TestAuthHandler(IOptionsMonitor<AuthenticationSchemeOptions> options,
+                             ILoggerFactory logger, UrlEncoder encoder)
+    : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
+{
+    protected override Task<AuthenticateResult> HandleAuthenticateAsync()
+    {
+        var claims = new[] { new Claim(ClaimTypes.NameIdentifier, "42"),
+                             new Claim(ClaimTypes.Role, "Admin") };
+
+        var identity = new ClaimsIdentity(claims, "Test");   // <- BẮT BUỘC
+        var ticket = new AuthenticationTicket(
+            new ClaimsPrincipal(identity), "Test");
+
+        return Task.FromResult(AuthenticateResult.Success(ticket));
+    }
+}
+```
+
+Thiếu chữ `"Test"` ở dòng đó, **mọi** test có `[Authorize]` đều `401`, và thông báo lỗi không hề nhắc tới `authenticationType`. Người ta thường mất khá lâu để tìm ra, vì nhìn vào code thì claim rõ ràng là đủ.
+
+</details>
+
+---
+
+#### Bài 3 — Token phình to vượt giới hạn header của proxy
+
+Thêm 200 claim quyền vào token, đo kích thước header, và gọi qua một Nginx có `large_client_header_buffers` mặc định. Ghi lại mã lỗi nhận được.
+
+**Tiêu chí hoàn thành:** bạn giải thích được vì sao lỗi này **không xuất hiện** trên máy phát triển.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Trên máy phát triển, request đi thẳng từ trình duyệt vào Kestrel. Trên production, nó đi qua thêm ít nhất một thứ nữa.
+
+**Lời giải — phát token phình:**
+
+```csharp
+var claims = new List<Claim>
+{
+    new(JwtRegisteredClaimNames.Sub, userId),
+    new(JwtRegisteredClaimNames.Email, email),
+};
+
+for (int i = 0; i < 200; i++)
+    claims.Add(new Claim("permission", $"module{i / 10}.resource{i % 10}.write"));
+```
+
+**Đo kích thước:**
+
+```bash
+TOKEN=$(curl -s -X POST .../auth/login -d '...' | jq -r .accessToken)
+echo -n "$TOKEN" | wc -c
+# 9847
+```
+
+Header `Authorization` thành `Bearer ` + 9.847 ký tự ≈ **9,6 KB**.
+
+**Gọi qua Nginx mặc định:**
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8080/api/v1/customers
+# 431
+```
+
+```text
+HTTP/1.1 431 Request Header Fields Too Large
+```
+
+**Câu trả lời cho tiêu chí — trên máy phát triển không có proxy.** Trình duyệt gọi thẳng `localhost:5001`, và Kestrel cho phép header tới **32 KB** theo mặc định. Token 9,6 KB lọt thoải mái. Chỉ khi lên môi trường có Nginx (mặc định `large_client_header_buffers 4 8k;` — tối đa 8 KB mỗi header) thì nó mới vỡ.
+
+Và nó vỡ **theo người dùng**: chỉ tài khoản có nhiều quyền mới sinh token lớn. Quản trị viên đăng nhập không vào được trong khi mọi người khác bình thường — một triệu chứng rất khó lần ra nếu không biết trước.
+
+**Ba nơi có giới hạn riêng, và bạn phải biết cả ba:**
+
+| Tầng | Mặc định | Cấu hình |
+|---|---|---|
+| Kestrel | 32 KB | `MaxRequestHeadersTotalSize` |
+| Nginx | 8 KB mỗi header | `large_client_header_buffers` |
+| CloudFront / ALB | 8–16 KB | Thường **không** đổi được |
+
+Dòng cuối là lý do chính để không đi theo hướng "nới giới hạn": với CDN hoặc load balancer của nhà cung cấp, bạn thường không có quyền đổi.
+
+**Cách sửa đúng — đừng nhét quyền vào token:**
+
+```csharp
+// Token chỉ mang danh tính và vai trò thô
+new Claim(JwtRegisteredClaimNames.Sub, userId),
+new Claim(ClaimTypes.Role, "Manager"),
+new Claim("tenant_id", tenantId),
+```
+
+```csharp
+// Quyền chi tiết nạp theo request, có cache ngắn
+public async Task<IReadOnlySet<string>> GetPermissionsAsync(string userId, CancellationToken ct)
+    => await _cache.GetOrCreateAsync($"perm:{userId}",
+        async e =>
+        {
+            e.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5);
+            return await _db.LoadPermissionsAsync(userId, ct);
+        }, ct) ?? [];
+```
+
+**Cách này còn giải quyết luôn một vấn đề khác.** Quyền nằm trong token thì **không thu hồi được** cho tới khi token hết hạn — thu hồi quyền của ai đó lúc 9 giờ mà token còn hạn tới 9 giờ 15 thì họ vẫn dùng được 15 phút. Nạp theo request với cache 5 phút thì độ trễ tối đa là 5 phút, và bạn xoá cache được ngay khi cần. Chi tiết ở [bài 10.8](10.7-permission-system.mdx).
+
+**Quy tắc thực dụng:** giữ token dưới **2 KB**. Vượt quá là dấu hiệu bạn đang dùng token làm nơi lưu trạng thái thay vì làm chứng minh thư.
+
+</details>
 
 ## Tự kiểm tra
 

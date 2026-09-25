@@ -2,7 +2,7 @@
 slug: phat-trien-phan-mem-ai-driven-development-phan-2
 title: 'AI-DD - Phần 2: Công Cụ AI và Nghiên Cứu Tình Huống'
 authors: [tiennhm]
-tags: [AI-DD, AI-DLC, ChatGPT, Cursor, Nghiên cứu tình huống, E-commerce Dashboard]
+tags: [ai-driven-development, ai-tools]
 keywords: [ChatGPT lập trình, Cursor AI, AWS AI-DLC, e-commerce dashboard, React TypeScript, nghiên cứu tình huống AI, phát triển AI-driven]
 image: /img/background/ai-first-software-dev.webp
 description: 'Khám phá chi tiết các công cụ AI như ChatGPT và Cursor, cùng với nghiên cứu tình huống thực tế về phát triển E-commerce Dashboard theo phương pháp AI-DLC.'
