@@ -123,11 +123,523 @@ Sau module này là [Module 18 — Microservices](../module-18-microservices/), 
 
 ## Bài tập áp dụng
 
-1. **Tự đánh giá.** Đi qua danh sách rà soát ở trên và quay lại đúng bài cho mục nào chưa tự tin.
+#### Bài 1 — Tự đánh giá theo danh sách rà soát
 
-2. **Ánh xạ sang đám mây.** Nếu dự án của bạn ở trên Azure hoặc AWS, ánh xạ mỗi khái niệm trong module sang dịch vụ tương ứng.
+Đi qua danh sách rà soát ở trên và quay lại đúng bài cho mục nào chưa tự tin.
 
-3. **Kiểm tra nền móng.** Xác nhận dự án đã có outbox và mọi consumer đều idempotent. Nếu chưa, đó là việc cần làm trước Module 18.
+**Tiêu chí hoàn thành:** bạn kiểm chứng bằng **code trong dự án** chứ không bằng cảm giác, và biết mục nào là điều kiện tiên quyết cho Module 18.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** "Tôi hiểu outbox" và "dự án của tôi có outbox hoạt động đúng" là hai chuyện khác nhau.
+
+**Lời giải — kiểm chứng bằng code, không bằng trí nhớ:**
+
+```bash
+#!/usr/bin/env bash
+# kiem-tra-nen-mong-messaging.sh
+
+echo "=== 1. Có outbox không? ==="
+grep -rln "Outbox\|OutboxMessage" --include="*.cs" src/ | head -5
+
+echo "=== 2. Outbox có cùng transaction với thay đổi nghiệp vụ không? ==="
+grep -rn -B5 -A5 "Outbox.Add" --include="*.cs" src/ | grep -c "SaveChangesAsync"
+
+echo "=== 3. Dispatcher có dùng READPAST hoặc SKIP LOCKED không? ==="
+grep -rn "READPAST\|SKIP LOCKED" --include="*.cs" src/ || echo "KHÔNG CÓ — nguy hiểm nếu nhiều instance"
+
+echo "=== 4. Consumer có idempotent không? ==="
+echo "Số consumer:"
+grep -rln "IConsumer<\|IEventHandler<" --include="*.cs" src/ | wc -l
+echo "Số consumer có khử trùng lặp:"
+grep -rln "IConsumer<\|IEventHandler<" --include="*.cs" src/ \
+  | xargs grep -l "MessageDaXuLy\|Inbox\|DbUpdateException" | wc -l
+
+echo "=== 5. Có jitter trong retry không? ==="
+grep -rn "UseJitter" --include="*.cs" src/ || echo "KHÔNG CÓ — xem bài 17.6"
+
+echo "=== 6. Publish entity thẳng ra broker? ==="
+grep -rn "Publish(.*lead\b\|Publish(.*order\b" --include="*.cs" src/ \
+  | grep -v "V1\|V2\|Event" || echo "OK — không publish entity"
+
+echo "=== 7. Integration event có tách project riêng không? ==="
+ls src/ | grep -i "contract\|shared" || echo "KHÔNG CÓ project Contracts"
+```
+
+```text
+=== 1. Có outbox không? ===
+src/Crm.Infrastructure/Outbox/TinNhanOutbox.cs
+src/Crm.Infrastructure/Outbox/OutboxDispatcher.cs
+
+=== 3. Dispatcher có dùng READPAST hoặc SKIP LOCKED không? ===
+KHÔNG CÓ — nguy hiểm nếu nhiều instance
+
+=== 4. Consumer có idempotent không? ===
+Số consumer: 12
+Số consumer có khử trùng lặp: 4
+```
+
+**Tám consumer chưa idempotent.** Đây là thông tin cụ thể, hành động được — khác hẳn với việc tự chấm "tôi hiểu idempotency: 7/10".
+
+**Bảng tự kiểm chứng:**
+
+```markdown
+| Chủ đề | Kiểm chứng bằng | Kết quả | Bài |
+|---|---|---|---|
+| Dual write | `grep` publish sau SaveChanges không qua outbox | ? | 17.2 |
+| Outbox cùng transaction | Đọc code use case | ? | 17.3 |
+| Dispatcher nhiều instance | `grep READPAST` | ? | 17.3 |
+| Consumer idempotent | Đếm consumer có khử trùng lặp | 4/12 | 17.2 |
+| Jitter | `grep UseJitter` | ? | 17.6 |
+| Phân loại lỗi retry | Đọc hàm IsTransient | ? | 17.6 |
+| Integration event tách biệt | Kiểm tra project Contracts | ? | 17.1 |
+| Phiên bản message | Có payload mẫu trong test không | ? | 17.1 |
+| Thứ tự message | Có phân vùng theo khoá không | ? | 17.4 |
+| Giám sát độ trễ | `grep oldest_pending` | ? | 17.7 |
+```
+
+**Ba mục là điều kiện tiên quyết cho Module 18:**
+
+```text
+1. OUTBOX hoạt động đúng
+   -> không có nó, mỗi dịch vụ mới là một nguồn mất dữ liệu mới
+
+2. MỌI consumer idempotent
+   -> at-least-once là mặc định; không có cách nào tắt nó
+
+3. Phân loại lỗi và retry có jitter
+   -> nhiều dịch vụ nghĩa là nhiều lời gọi mạng, nhiều cơ hội cho thundering herd
+```
+
+Vì sao ba mục này là tiên quyết: **microservices nhân lên mọi vấn đề của messaging.**
+
+```text
+Monolith với 1 luồng message:
+    thiếu outbox -> thỉnh thoảng mất một message -> khó chịu
+
+10 dịch vụ với 30 luồng message:
+    thiếu outbox -> mất message ở 30 chỗ
+                 -> dữ liệu không nhất quán giữa các dịch vụ
+                 -> và không có transaction chung để sửa
+```
+
+Chuyển sang microservices khi nền móng messaging chưa vững là cách nhanh nhất để có một hệ thống mà không ai tin được dữ liệu của nó.
+
+**Ba câu hỏi ở mức cao — nếu trả lời được, bạn đã nắm chắc:**
+
+**1. Nêu một tình huống mà message broker là lựa chọn SAI.**
+
+```text
+Ví dụ trả lời tốt:
+"Một monolith với ba module, cần thông báo giữa các module trong cùng
+ transaction. Domain event in-process đủ, và nó cho nhất quán TỨC THỜI.
+ Thêm broker nghĩa là thêm một thành phần phải vận hành, chuyển sang
+ nhất quán cuối cùng, và mất khả năng rollback chung — để đổi lấy gì?"
+```
+
+**2. Vì sao exactly-once không tồn tại ở tầng vận chuyển?**
+
+```text
+"Vì người gửi không bao giờ biết chắc người nhận đã nhận chưa — ack có
+ thể mất trên đường về. Hoặc gửi lại (có thể trùng), hoặc không gửi lại
+ (có thể mất). Đây là bài toán hai tướng quân, đã chứng minh không giải được.
+ Cái gọi là 'exactly-once' trong thực tế là at-least-once cộng khử trùng lặp
+ ở phía nhận — tức là nghĩa vụ chuyển sang cho ứng dụng."
+```
+
+**3. Bạn đã cố tình chấp nhận nhất quán cuối cùng ở đâu, và vì sao?**
+
+```text
+"Trạng thái 'đã thanh toán' của đơn hàng cập nhật sau vài trăm mili giây
+ thay vì tức thời. Chấp nhận được vì không ai thiệt hại trong khoảng đó,
+ và nó cho phép tách Payment thành aggregate riêng — giảm tranh chấp
+ concurrency giả giữa nhân viên kho và nhân viên kế toán."
+```
+
+Câu 3 phân biệt rõ nhất người áp dụng máy móc với người hiểu: nó đòi hỏi một quyết định **có ý thức** với lý do cụ thể, không phải một mẫu hình được sao chép.
+
+**Và một kiểm chứng cuối cùng, tốn 30 phút nhưng đáng giá:**
+
+```text
+Vẽ luồng dữ liệu của MỘT nghiệp vụ quan trọng, từ request HTTP tới
+khi mọi hệ quả hoàn tất. Đánh dấu:
+    - chỗ nào có transaction
+    - chỗ nào là ranh giới nhất quán cuối cùng
+    - chỗ nào có thể mất dữ liệu nếu tiến trình chết
+    - chỗ nào có thể xử lý trùng
+```
+
+Nếu bạn vẽ được sơ đồ đó mà không phải mở code, bạn hiểu hệ thống của mình. Nếu không — và đó là trường hợp phổ biến — sơ đồ đó là thứ đáng làm trước khi thêm bất kỳ dịch vụ nào.
+
+</details>
+
+---
+
+#### Bài 2 — Ánh xạ sang dịch vụ đám mây
+
+Nếu dự án của bạn ở trên Azure hoặc AWS, ánh xạ mỗi khái niệm trong module sang dịch vụ tương ứng.
+
+**Tiêu chí hoàn thành:** bạn lập được bảng ánh xạ, và nêu được **ba** khác biệt mà dịch vụ quản lý **không** loại bỏ.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Dịch vụ quản lý lo việc vận hành. Nó có lo được việc consumer của bạn idempotent không?
+
+**Lời giải — bảng ánh xạ:**
+
+| Khái niệm | Tự dựng | Azure | AWS | Google Cloud |
+|---|---|---|---|---|
+| Queue | RabbitMQ | **Service Bus Queue** | **SQS** | Cloud Tasks |
+| Pub/sub | RabbitMQ topic exchange | **Service Bus Topic** | **SNS + SQS** | **Pub/Sub** |
+| Log có replay | Kafka | **Event Hubs** | **Kinesis** / MSK | **Pub/Sub** (giữ 7 ngày) |
+| Dead-letter queue | Cấu hình thủ công | **Có sẵn** | **Có sẵn** | Có sẵn |
+| Delayed message | Plugin | **Có sẵn** (`ScheduledEnqueueTime`) | **Có sẵn** (`DelaySeconds`, tối đa 15 phút) | Có sẵn |
+| Khử trùng lặp | Tự cài (inbox) | **Có sẵn** (cửa sổ tối đa 7 ngày) | **Có** (FIFO queue, 5 phút) | Tự cài |
+| Giữ thứ tự | Phân vùng theo khoá | **Session** | **FIFO queue + MessageGroupId** | **Ordering key** |
+| CDC | Debezium | **Azure Data Factory**, Debezium trên AKS | **DMS** | **Datastream** |
+| Outbox | Tự cài | **Tự cài** | **Tự cài** | **Tự cài** |
+
+**Dòng cuối là dòng quan trọng nhất: không nhà cung cấp nào có "outbox as a service".**
+
+Lý do: outbox đòi hỏi ghi message vào **cùng database và cùng transaction** với dữ liệu nghiệp vụ của bạn. Không dịch vụ bên ngoài nào làm được điều đó — nó phải nằm trong ứng dụng của bạn.
+
+**Ba khác biệt mà dịch vụ quản lý KHÔNG loại bỏ:**
+
+**Khác biệt 1 — dual write vẫn tồn tại.**
+
+```csharp
+await _db.SaveChangesAsync(ct);
+await _serviceBusSender.SendMessageAsync(message, ct);     // vẫn là dual write
+```
+
+Service Bus có độ tin cậy 99,9%, có replication, có geo-disaster-recovery — và **không cái nào** giúp được ở đây. Vấn đề không phải broker mất message; vấn đề là tiến trình của bạn chết giữa hai thao tác.
+
+```text
+Outbox vẫn cần, và bạn vẫn phải tự cài.
+```
+
+**Khác biệt 2 — khử trùng lặp của dịch vụ có giới hạn, và nó không thay được inbox.**
+
+```csharp
+var sender = client.CreateSender("lead-events");
+await sender.SendMessageAsync(new ServiceBusMessage(body)
+{
+    MessageId = eventId.ToString(),        // Service Bus khử trùng theo MessageId
+});
+```
+
+```text
+Azure Service Bus: cửa sổ khử trùng TỐI ĐA 7 ngày
+AWS SQS FIFO:      cửa sổ 5 PHÚT
+
+Ngoài cửa sổ đó -> message trùng ĐI QUA
+```
+
+Và có một giới hạn căn bản hơn: khử trùng lặp của broker chỉ bắt được **cùng một message** gửi lại. Nó không bắt được **hai message khác nhau cho cùng một hành động nghiệp vụ**:
+
+```text
+Người dùng bấm "Chốt lead" hai lần
+-> hai request, hai MessageId KHÁC NHAU, cùng LeadId
+-> broker không khử trùng được
+-> cần khoá nghiệp vụ ở phía consumer ([bài 17.2](17.2-messaging-fears-lost-duplicates.mdx))
+```
+
+```text
+Consumer idempotent vẫn cần, và bạn vẫn phải tự cài.
+```
+
+**Khác biệt 3 — nhất quán cuối cùng vẫn là nhất quán cuối cùng.**
+
+```text
+Dịch vụ quản lý không làm message đến TỨC THỜI.
+Không làm mất coupling nghiệp vụ.
+Không quyết định hộ bạn cái gì nên đồng bộ, cái gì nên bất đồng bộ.
+```
+
+Mọi thiết kế ở [bài 17.1](17.1-event-driven-architecture-when-to-use.mdx) vẫn nguyên giá trị.
+
+**Cái dịch vụ quản lý THẬT SỰ loại bỏ:**
+
+```text
+- Cài đặt, nâng cấp, vá lỗi broker
+- Cấu hình cụm, replication, failover
+- Giám sát hạ tầng broker
+- Mở rộng dung lượng
+- Backup và khôi phục
+```
+
+Đây là công việc thật và đáng kể — với một đội nhỏ, nó có thể là vài ngày mỗi tháng. Nhưng nó là **vận hành hạ tầng**, không phải **tính đúng đắn của ứng dụng**.
+
+```text
+Dịch vụ quản lý giải quyết:   vận hành
+Bạn vẫn phải giải quyết:      tính đúng đắn
+```
+
+**Ba điều cần biết khi chuyển sang dịch vụ quản lý:**
+
+**1. Giới hạn kích thước message:**
+
+```text
+Azure Service Bus Standard:  256 KB
+Azure Service Bus Premium:   100 MB
+AWS SQS:                     256 KB
+Google Pub/Sub:              10 MB
+RabbitMQ:                    cấu hình được, thường 128 MB
+```
+
+Với message lớn, dùng mẫu **claim check**: lưu payload vào blob storage, gửi đường dẫn trong message.
+
+**2. Mô hình chi phí đổi cách bạn thiết kế:**
+
+```text
+Azure Service Bus:  tính theo thao tác (mỗi send, receive, peek)
+AWS SQS:            tính theo request (mỗi 64 KB là một request)
+
+-> Poll liên tục với long polling tắt = rất tốn tiền
+-> Gửi 1.000 message nhỏ đắt hơn gửi 100 message gộp
+```
+
+```csharp
+// Long polling — giảm số request đáng kể
+var receiver = client.CreateReceiver("lead-events", new ServiceBusReceiverOptions
+{
+    PrefetchCount = 20,
+});
+var messages = await receiver.ReceiveMessagesAsync(maxMessages: 20,
+    maxWaitTime: TimeSpan.FromSeconds(20), ct);
+```
+
+Đây là một trường hợp mà quyết định kỹ thuật (prefetch, batch size) trở thành quyết định tài chính — và nó thường không được tính tới khi ước lượng chi phí.
+
+**3. Ràng buộc riêng của từng dịch vụ:**
+
+```text
+AWS SQS FIFO:       tối đa 300 giao dịch/giây (3.000 với batching)
+                    -> có thể là nút thắt
+
+Azure Session:      giữ thứ tự nhưng một session chỉ một consumer tại một thời điểm
+                    -> session lớn = nút thắt
+
+Google Pub/Sub:     giữ message tối đa 7 ngày, không cấu hình dài hơn được
+                    -> không dùng được cho replay lịch sử dài
+```
+
+**MassTransit hỗ trợ cả ba, nên code ứng dụng gần như không đổi:**
+
+```csharp
+// RabbitMQ
+x.UsingRabbitMq((ctx, cfg) => { cfg.Host(rabbitUri); cfg.ConfigureEndpoints(ctx); });
+
+// Azure Service Bus
+x.UsingAzureServiceBus((ctx, cfg) => { cfg.Host(sbConnectionString); cfg.ConfigureEndpoints(ctx); });
+
+// AWS SQS
+x.UsingAmazonSqs((ctx, cfg) => { cfg.Host("ap-southeast-1", h => { }); cfg.ConfigureEndpoints(ctx); });
+```
+
+Nhưng đừng nhầm "code không đổi" với "hành vi không đổi": giới hạn kích thước, ngữ nghĩa thứ tự, cửa sổ khử trùng lặp và mô hình chi phí đều khác nhau. Hãy thử nghiệm với tải thật trước khi chuyển.
+
+**Và một lời khuyên về việc chọn:**
+
+```text
+Đội dưới 10 người, không có người chuyên vận hành hạ tầng
+    -> DỊCH VỤ QUẢN LÝ, gần như luôn đúng
+    -> chi phí vận hành một cụm RabbitMQ hoặc Kafka tự dựng
+       thường cao hơn nhiều so với hoá đơn dịch vụ
+
+Đội lớn, có SRE, lưu lượng rất cao
+    -> tự dựng có thể rẻ hơn đáng kể ở quy mô lớn
+    -> nhưng hãy tính CẢ chi phí nhân sự, không chỉ chi phí máy
+```
+
+</details>
+
+---
+
+#### Bài 3 — Kiểm tra nền móng trước Module 18
+
+Xác nhận dự án đã có outbox và mọi consumer đều idempotent. Nếu chưa, đó là việc cần làm trước Module 18.
+
+**Tiêu chí hoàn thành:** bạn có danh sách cụ thể những gì còn thiếu, và hiểu vì sao microservices **nhân lên** mọi vấn đề chưa giải quyết.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Nếu một luồng message có vấn đề trong monolith, thì với 10 dịch vụ và 30 luồng, vấn đề đó xuất hiện bao nhiêu lần?
+
+**Lời giải — kiểm tra bằng test, không bằng grep:**
+
+```csharp
+public class NenMongMessagingTests
+{
+    [Fact]
+    public void Moi_consumer_phai_co_co_che_khu_trung_lap()
+    {
+        var consumerTypes = typeof(TaoSubscriptionConsumer).Assembly.GetTypes()
+            .Where(t => !t.IsAbstract && t.GetInterfaces()
+                .Any(i => i.IsGenericType
+                       && (i.GetGenericTypeDefinition() == typeof(IConsumer<>)
+                        || i.GetGenericTypeDefinition() == typeof(IEventHandler<>))))
+            .ToList();
+
+        var thieu = consumerTypes
+            .Where(t => !CoKhuTrungLap(t))
+            .Select(t => t.Name)
+            .ToList();
+
+        thieu.Should().BeEmpty(
+            "các consumer sau chưa idempotent: {0}. " +
+            "At-least-once là mặc định — message SẼ tới hai lần.",
+            string.Join(", ", thieu));
+    }
+
+    private static bool CoKhuTrungLap(Type t)
+    {
+        var duongDan = TimFileNguon(t);
+        if (duongDan is null) return false;
+        var noiDung = File.ReadAllText(duongDan);
+
+        return noiDung.Contains("MessageDaXuLy")
+            || noiDung.Contains("IdempotencyKey")
+            || noiDung.Contains("DbUpdateException")
+            || noiDung.Contains("[Idempotent]");
+    }
+}
+```
+
+```text
+Xpect: các consumer sau chưa idempotent: GuiEmailConsumer, CapNhatThongKeConsumer,
+DongBoErpConsumer, TinhHoaHongConsumer, TaoHoaDonConsumer, GuiSmsConsumer,
+CapNhatTonKhoConsumer, GhiAuditConsumer
+```
+
+Tám consumer. Và test này chạy trong mọi lần build, nên consumer thứ chín sẽ không lọt qua.
+
+**Test thứ hai — kiểm tra outbox:**
+
+```csharp
+[Fact]
+public void Khong_duoc_publish_truc_tiep_ngoai_dispatcher()
+{
+    var choPhep = new[] { "OutboxDispatcher", "MassTransitEventPublisher" };
+
+    var viPham = Directory
+        .GetFiles(ThuMucSrc(), "*.cs", SearchOption.AllDirectories)
+        .Where(f => !f.Contains("obj") && !f.Contains("Tests"))
+        .Where(f => !choPhep.Any(c => Path.GetFileNameWithoutExtension(f) == c))
+        .Where(f => Regex.IsMatch(File.ReadAllText(f), @"\.Publish\(|\.Send\("))
+        .Select(Path.GetFileName)
+        .ToList();
+
+    viPham.Should().BeEmpty(
+        "chỉ dispatcher được publish trực tiếp; các chỗ khác phải ghi vào outbox");
+}
+```
+
+**Danh sách những gì còn thiếu:**
+
+```markdown
+## Nền móng messaging — kiểm tra 2026-09-25
+
+### Đã có
+- [x] Bảng outbox với filtered index
+- [x] Dispatcher chạy như BackgroundService
+- [x] Integration event tách ở project Crm.Contracts
+- [x] Retry có jitter (Polly, UseJitter = true)
+
+### Còn thiếu — CẦN LÀM TRƯỚC MODULE 18
+- [ ] **8/12 consumer chưa idempotent** — ưu tiên 1
+- [ ] Dispatcher chưa dùng READPAST — hỏng nếu scale lên 2 instance
+- [ ] Chưa có chỉ số outbox_oldest_pending_seconds
+- [ ] Chưa có payload mẫu để test tương thích message
+- [ ] 3 chỗ còn publish trực tiếp không qua outbox
+
+### Ước lượng
+- Consumer idempotent: 8 × 2 giờ = 16 giờ
+- READPAST: 1 giờ
+- Chỉ số và cảnh báo: 3 giờ
+- Tổng: khoảng 3 ngày công
+```
+
+**Vì sao microservices nhân lên mọi vấn đề chưa giải quyết:**
+
+**1. Số luồng message tăng theo bình phương số dịch vụ.**
+
+```text
+Monolith:                    0 luồng message giữa dịch vụ
+3 dịch vụ:                   khoảng 3–6 luồng
+10 dịch vụ:                  khoảng 30–90 luồng
+```
+
+Mỗi luồng là một chỗ có thể mất message, xử lý trùng, hoặc sai thứ tự.
+
+**2. Không còn transaction chung để sửa sai.**
+
+```text
+Monolith:
+    Dữ liệu không nhất quán -> một câu UPDATE trong một transaction là xong
+
+Microservices:
+    Dữ liệu không nhất quán giữa 3 dịch vụ, 3 database
+    -> phải viết script đối chiếu
+    -> phải sửa từng dịch vụ, theo đúng thứ tự
+    -> và trong lúc sửa, hệ thống vẫn đang chạy và tạo thêm sai lệch
+```
+
+**3. Chẩn đoán khó hơn nhiều bậc.**
+
+```text
+Monolith:       một log, một database, một stack trace
+Microservices:  10 log, 10 database, và một request đi qua 5 dịch vụ
+
+-> không có distributed tracing = không chẩn đoán được
+```
+
+**4. Mỗi thiếu sót được nhân bản.**
+
+```text
+Consumer không idempotent trong monolith:
+    -> một chỗ, một lỗi, sửa một lần
+
+Mẫu consumer không idempotent được sao chép sang 10 dịch vụ:
+    -> 10 chỗ, và mỗi đội sao chép lại mẫu cũ
+    -> sửa cần phối hợp giữa các đội
+```
+
+Điểm 4 là điểm nguy hiểm nhất: **mẫu code được sao chép nhanh hơn được sửa.** Một consumer viết sai hôm nay sẽ là mẫu cho 10 consumer của quý sau.
+
+**Ba thứ phải vững trước khi tách dịch vụ:**
+
+```text
+1. OUTBOX hoạt động và được kiểm chứng bằng test
+2. MỌI consumer idempotent, có test chứng minh
+3. Distributed tracing nối được toàn bộ luồng
+```
+
+Thứ ba đáng nói thêm: nó không phải nội dung của module này, nhưng nó là điều kiện tiên quyết ngang với hai thứ kia. Không có trace, sự cố đầu tiên trong hệ thống nhiều dịch vụ sẽ mất nhiều giờ để chẩn đoán ([bài 15.8](../../stage-04-database-production/module-15-docker-deployment/15.8-production-monitoring.mdx)).
+
+**Và một câu hỏi nên hỏi trước Module 18: bạn có THẬT SỰ cần microservices không?**
+
+```text
+Lý do chính đáng:
+    - Các phần của hệ thống có yêu cầu scale RẤT khác nhau
+    - Nhiều đội cần triển khai độc lập, và ranh giới đội đã rõ ràng
+    - Yêu cầu tuân thủ buộc cô lập dữ liệu
+
+Lý do KHÔNG chính đáng:
+    - "Monolith là lỗi thời"
+    - "Chúng tôi muốn dùng nhiều ngôn ngữ"
+    - "Code đang rối" -> tách dịch vụ không sửa được kiến trúc tệ,
+                         nó chỉ thêm ranh giới mạng vào giữa
+```
+
+Dòng cuối đáng nhấn mạnh: một monolith có ranh giới module rõ ràng dễ bảo trì hơn nhiều so với một hệ microservices không có. Nếu code hiện tại rối, hãy sửa nó **trước** — Module 16 nói về việc đó — vì tách dịch vụ từ một codebase rối sẽ cho bạn một hệ phân tán rối, và đó là thứ khó sửa hơn nhiều.
+
+**Module 18 sẽ nói về cách tách đúng và khi nào không nên tách.** Nhưng nền móng ở module này phải vững trước — vì mọi thứ ở Module 18 xây trên nó.
+
+</details>
 
 ## Tự kiểm tra
 
