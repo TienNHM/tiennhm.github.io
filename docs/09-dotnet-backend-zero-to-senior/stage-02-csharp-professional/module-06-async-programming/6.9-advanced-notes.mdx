@@ -229,11 +229,479 @@ Sau Module 6, bước tiếp theo là [Module 7 — Dependency Injection](../mod
 
 ## Bài tập áp dụng
 
-1. **Tiêm TimeProvider.** Chuyển một logic hết hạn trong dự án sang `TimeProvider` và viết test dùng `FakeTimeProvider`.
+#### Bài 1 — Tiêm TimeProvider
 
-2. **So sánh chu kỳ.** Chạy hai vòng lặp — một dùng `Task.Delay`, một dùng `PeriodicTimer` — với công việc tốn 2 giây, và ghi mốc thời gian sau 10 vòng.
+Chuyển một logic hết hạn trong dự án sang `TimeProvider` và viết test dùng `FakeTimeProvider`.
 
-3. **Đo ValueTask.** Benchmark một phương thức trả về từ cache 95% số lần, với `Task` và với `ValueTask`.
+**Tiêu chí hoàn thành:** test của bạn kiểm tra được hành vi ở **nhiều mốc thời gian** mà không cần `Thread.Sleep`, và chạy trong vài mili giây.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** `DateTime.UtcNow` không giả lập được. Đó là lý do test về hết hạn thường phải `Sleep`, và vì vậy mà chúng chậm và hay hỏng vặt.
+
+**Lời giải — trước:**
+
+```csharp
+public class PhienDangNhapService
+{
+    public bool ConHieuLuc(Phien p) => p.HetHanLuc > DateTime.UtcNow;
+
+    public Phien Tao(int nguoiDungId) =>
+        new(nguoiDungId, DateTime.UtcNow, DateTime.UtcNow.AddMinutes(15));
+}
+```
+
+```csharp
+// Test phải làm thế này — chậm và không đáng tin
+[Fact]
+public async Task Phien_het_han_sau_15_phut()
+{
+    var p = _service.Tao(1);
+    await Task.Delay(TimeSpan.FromMinutes(15));    // 15 PHÚT?
+    _service.ConHieuLuc(p).Should().BeFalse();
+}
+```
+
+**Sau:**
+
+```csharp
+public class PhienDangNhapService(TimeProvider thoiGian)
+{
+    public bool ConHieuLuc(Phien p) => p.HetHanLuc > thoiGian.GetUtcNow();
+
+    public Phien Tao(int nguoiDungId)
+    {
+        var bayGio = thoiGian.GetUtcNow();
+        return new Phien(nguoiDungId, bayGio, bayGio.AddMinutes(15));
+    }
+}
+```
+
+```csharp
+// Program.cs — đăng ký bản thật
+builder.Services.AddSingleton(TimeProvider.System);
+```
+
+```csharp
+// Test — Microsoft.Extensions.TimeProvider.Testing
+[Fact]
+public void Phien_het_han_dung_sau_15_phut()
+{
+    var thoiGian = new FakeTimeProvider(new DateTimeOffset(2026, 9, 25, 10, 0, 0, TimeSpan.Zero));
+    var service = new PhienDangNhapService(thoiGian);
+
+    var p = service.Tao(nguoiDungId: 1);
+
+    service.ConHieuLuc(p).Should().BeTrue();
+
+    thoiGian.Advance(TimeSpan.FromMinutes(14));
+    service.ConHieuLuc(p).Should().BeTrue("14 phút vẫn còn hiệu lực");
+
+    thoiGian.Advance(TimeSpan.FromMinutes(1));
+    service.ConHieuLuc(p).Should().BeFalse("đúng 15 phút là hết hạn");
+
+    thoiGian.Advance(TimeSpan.FromDays(365));
+    service.ConHieuLuc(p).Should().BeFalse();
+}
+```
+
+```text
+Bốn mốc thời gian, chạy trong vài mili giây.
+Kiểm tra được cả ranh giới 14 phút và 15 phút — điều không khả thi với Sleep.
+```
+
+**Bốn thứ `TimeProvider` giả lập được, không chỉ `GetUtcNow`:**
+
+| Thành viên | Dùng cho | `FakeTimeProvider` |
+|---|---|---|
+| `GetUtcNow()` | Thời điểm hiện tại | `Advance()` để tua |
+| `CreateTimer()` | `PeriodicTimer`, `Timer` | Tick theo `Advance()` |
+| `GetTimestamp()` | Đo khoảng thời gian | Tăng theo `Advance()` |
+| `LocalTimeZone` | Quy đổi múi giờ | Đặt được trong test |
+
+```csharp
+// Test một BackgroundService chạy mỗi 5 phút — không phải chờ 5 phút
+var thoiGian = new FakeTimeProvider();
+var job = new DongBoJob(thoiGian, _kho);
+_ = job.StartAsync(CancellationToken.None);
+
+thoiGian.Advance(TimeSpan.FromMinutes(5));
+await Task.Yield();
+
+_kho.Received(1).DongBoAsync(Arg.Any<CancellationToken>());
+```
+
+**Ba chỗ khác cũng nên tiêm thay vì gọi trực tiếp — cùng lý do:**
+
+```csharp
+DateTime.UtcNow      ->  TimeProvider
+Guid.NewGuid()       ->  IGuidProvider (tự viết, hoặc truyền vào)
+Random.Shared.Next() ->  Random có hạt cố định trong test
+Environment.MachineName -> một interface nhỏ, nếu logic phụ thuộc nó
+```
+
+```text
+Điểm chung: chúng trả về giá trị KHÁC NHAU mỗi lần gọi.
+-> test không lặp lại được -> test hỏng vặt -> đội mất niềm tin vào test
+```
+
+**Và một điều cần chú ý khi chuyển đổi:**
+
+```bash
+grep -rn "DateTime\.\(Now\|UtcNow\)\|DateTimeOffset\.\(Now\|UtcNow\)" \
+  --include="*.cs" src/ | grep -v "/Tests/" | wc -l
+```
+
+```text
+47
+```
+
+```text
+Đừng chuyển hết 47 chỗ cùng lúc. Thứ tự nên làm:
+    1. Chỗ có logic hết hạn, hạn mức, lịch biểu — nơi test đang phải Sleep
+    2. Chỗ ghi mốc thời gian vào database — để test kiểm tra được giá trị
+    3. Phần còn lại (ghi log, đo hiệu năng) — không cần, và chuyển thì thừa
+```
+
+Chặn chỗ mới bằng phân tích tĩnh:
+
+```xml
+<!-- .editorconfig -->
+dotnet_diagnostic.CA1305.severity = warning
+```
+
+Hoặc một quy tắc riêng bằng kiến trúc test:
+
+```csharp
+[Fact]
+public void Domain_khong_duoc_goi_DateTime_UtcNow_truc_tiep()
+{
+    var viPham = Directory.GetFiles("src/Crm.Domain", "*.cs", SearchOption.AllDirectories)
+        .Where(f => File.ReadAllText(f).Contains("DateTime.UtcNow"))
+        .ToList();
+
+    viPham.Should().BeEmpty("domain phải nhận thời gian từ ngoài để test được");
+}
+```
+
+</details>
+
+---
+
+#### Bài 2 — So sánh chu kỳ
+
+Chạy hai vòng lặp — một dùng `Task.Delay`, một dùng `PeriodicTimer` — với công việc tốn 2 giây, và ghi mốc thời gian sau 10 vòng.
+
+**Tiêu chí hoàn thành:** bạn đo được **độ trôi tích luỹ** của `Task.Delay`, và biết `PeriodicTimer` xử lý thế nào khi công việc chạy lâu hơn chu kỳ.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Với `Task.Delay`, mỗi vòng tốn "thời gian công việc + thời gian chờ". Cộng dồn 10 vòng thì sai lệch thành bao nhiêu?
+
+**Lời giải:**
+
+```csharp
+const int SoVong = 10;
+var chuKy = TimeSpan.FromMilliseconds(500);
+const int CongViecMs = 200;
+
+// A — Task.Delay
+var sw = Stopwatch.StartNew();
+for (int i = 0; i < SoVong; i++)
+{
+    await Task.Delay(CongViecMs);        // "công việc"
+    await Task.Delay(chuKy);             // chờ chu kỳ
+}
+var tDelay = sw.Elapsed.TotalMilliseconds;
+
+// B — PeriodicTimer
+sw.Restart();
+using (var timer = new PeriodicTimer(chuKy))
+{
+    for (int i = 0; i < SoVong; i++)
+    {
+        await timer.WaitForNextTickAsync();
+        await Task.Delay(CongViecMs);    // "công việc"
+    }
+}
+var tTimer = sw.Elapsed.TotalMilliseconds;
+```
+
+Kết quả chạy trên .NET 9.0.203:
+
+```text
+  Task.Delay     :  7.007 ms cho 10 vòng (lý tưởng 5.000 ms)
+  PeriodicTimer  :  5.201 ms cho 10 vòng
+  trôi           :  2.007 ms /    201 ms
+```
+
+| | Thực tế | Trôi | Trôi mỗi vòng |
+|---|---:|---:|---:|
+| `Task.Delay` | 7.007 ms | **2.007 ms** | ~200 ms |
+| `PeriodicTimer` | 5.201 ms | **201 ms** | ~20 ms |
+
+**Độ trôi của `Task.Delay` đúng bằng thời gian công việc, cộng dồn mỗi vòng:**
+
+```text
+Mỗi vòng = 200 ms công việc + 500 ms chờ = 700 ms
+10 vòng  = 7.000 ms, thay vì 5.000 ms
+
+-> trôi 200 ms MỖI VÒNG, tích luỹ tuyến tính
+```
+
+```text
+Quy đổi ra job chạy hằng ngày:
+    chu kỳ 1 phút, công việc 10 giây
+    -> mỗi vòng trôi 10 giây
+    -> sau 24 giờ: 1.440 vòng × 10 giây = 4 giờ trôi
+    -> job "mỗi phút" thực tế chạy 1.234 lần thay vì 1.440
+```
+
+Và với job báo cáo chạy "lúc 0 giờ mỗi ngày", độ trôi này nghĩa là sau vài tuần nó chạy vào buổi sáng.
+
+**`PeriodicTimer` đo từ ĐIỂM BẮT ĐẦU của chu kỳ trước, nên công việc nằm *trong* chu kỳ:**
+
+```text
+t=0     tick -> làm việc 200 ms
+t=500   tick -> làm việc 200 ms
+t=1000  tick -> ...
+
+-> chu kỳ giữ nguyên bất kể công việc mất bao lâu (miễn là dưới chu kỳ)
+-> 201 ms trôi còn lại là chi phí lập lịch của hệ điều hành
+```
+
+**Và đây là câu hỏi quan trọng: công việc chạy LÂU HƠN chu kỳ thì sao?**
+
+```csharp
+using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(500));
+while (await timer.WaitForNextTickAsync(ct))
+{
+    await Task.Delay(1200, ct);          // công việc 1,2 giây > chu kỳ 0,5 giây
+}
+```
+
+```text
+PeriodicTimer BỎ QUA các tick bị lỡ — nó không dồn chúng lại.
+
+t=0     tick -> làm việc tới t=1200
+t=500   tick bị lỡ  (bỏ qua)
+t=1000  tick bị lỡ  (bỏ qua)
+t=1200  WaitForNextTickAsync trả về NGAY -> làm việc tới t=2400
+```
+
+```text
+Hành vi này gần như luôn là điều bạn muốn:
+    - không bao giờ có hai lần chạy chồng lên nhau
+    - không tích luỹ một hàng đợi công việc quá hạn
+    - hệ thống chậm lại thì tần suất giảm, thay vì sụp đổ
+```
+
+So với `System.Threading.Timer`:
+
+```csharp
+// Timer cũ: callback chạy CHỒNG LÊN NHAU nếu công việc lâu hơn chu kỳ
+var timer = new Timer(_ => LamViecLau(), null, 0, 500);
+```
+
+```text
+-> ba lần chạy song song sau 1,5 giây
+-> tranh chấp tài nguyên, và thường là nguồn của lỗi khó hiểu
+```
+
+**Cách dùng đúng trong một `BackgroundService`:**
+
+```csharp
+public class DongBoJob(TimeProvider thoiGian, ILogger<DongBoJob> log) : BackgroundService
+{
+    protected override async Task ExecuteAsync(CancellationToken ct)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(5), thoiGian);
+
+        while (await timer.WaitForNextTickAsync(ct))
+        {
+            try
+            {
+                await DongBoAsync(ct);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                break;                       // dừng bình thường khi ứng dụng tắt
+            }
+            catch (Exception ex)
+            {
+                log.LogError(ex, "Lỗi đồng bộ, sẽ thử lại ở chu kỳ sau");
+            }
+        }
+    }
+}
+```
+
+**Ba chi tiết trong đoạn này:**
+
+```text
+1. try/catch BÊN TRONG vòng lặp
+   -> một lần lỗi không giết cả job
+   -> không có nó, ngoại lệ thoát ra khỏi ExecuteAsync và job dừng HẲN,
+      thường là im lặng
+
+2. PeriodicTimer nhận TimeProvider (từ .NET 8)
+   -> test tua được thời gian, không phải chờ 5 phút
+
+3. OperationCanceledException tách riêng
+   -> dừng ứng dụng không bị ghi log thành lỗi
+```
+
+</details>
+
+---
+
+#### Bài 3 — Đo ValueTask
+
+Benchmark một phương thức trả về từ cache 95% số lần, với `Task` và với `ValueTask`.
+
+**Tiêu chí hoàn thành:** bạn thấy khác biệt rõ ở **cột cấp phát**, và biết ba quy tắc bắt buộc khi dùng `ValueTask`.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** `Task.FromResult` vẫn cấp phát một đối tượng `Task`. `ValueTask` trả giá trị trực tiếp, không cấp phát gì.
+
+**Lời giải:**
+
+```csharp
+private bool TrongCache() => (++_i % 20) != 0;     // 95% số lần
+
+public Task<string> LayTaskAsync(int k) =>
+    TrongCache() ? Task.FromResult(_cache[k]) : DocChamTaskAsync(k);
+
+public ValueTask<string> LayValueTaskAsync(int k) =>
+    TrongCache() ? new ValueTask<string>(_cache[k]) : new ValueTask<string>(DocChamTaskAsync(k));
+```
+
+```csharp
+[Benchmark(Baseline = true, Description = "Task")]
+public async Task<int> DungTask()
+{
+    int n = 0;
+    for (int i = 0; i < 100; i++) n += (await LayTaskAsync(i)).Length;
+    return n;
+}
+```
+
+Kết quả đo trên .NET 9.0.203, 100 lời gọi mỗi vòng:
+
+```text
+| Method    |      Mean |    Error | Ratio |   Gen0 | Allocated | Alloc Ratio |
+|---------- |----------:|---------:|------:|-------:|----------:|------------:|
+| Task      | 10,538 us | 2,636 us |  1.00 | 0.3967 |   7.473 B |        1.00 |
+| ValueTask |  7,406 us | 3,051 us |  0.70 | 0.0305 |     648 B |        0.09 |
+```
+
+| | `Task` | `ValueTask` |
+|---|---:|---:|
+| Thời gian | 10,538 µs | **7,406 µs** (0,70×) |
+| **Cấp phát** | **7.473 B** | **648 B** (0,09×) |
+| Gen-0 GC | 0,3967 | **0,0305** |
+
+**Cột cấp phát là cột quan trọng: giảm 11,5 lần.**
+
+```text
+7.473 B cho 100 lời gọi = khoảng 75 B mỗi lời gọi
+-> đúng bằng kích thước một đối tượng Task<string>
+
+648 B còn lại của ValueTask là 5 lời gọi thật sự bất đồng bộ
+(5% trong 100) -> mỗi cái vẫn cần một Task bên dưới
+```
+
+```text
+Quy đổi ra quy mô thật:
+    một endpoint gọi cache 20 lần, 500 request/giây
+    -> 20 × 500 × 75 B = 750 KB/giây với Task
+    -> gần 0 với ValueTask
+
+Không lớn, nhưng nó là áp lực GC LIÊN TỤC, và nó cộng vào
+mọi nguồn cấp phát khác trong cùng tiến trình.
+```
+
+**Nhưng chỉ dùng `ValueTask` khi thoả cả ba điều kiện:**
+
+```text
+1. Phương thức trả về ĐỒNG BỘ trong PHẦN LỚN trường hợp
+2. Nó nằm trên đường đi nóng — gọi hàng nghìn lần mỗi giây
+3. Bạn đã ĐO và thấy cấp phát là vấn đề
+```
+
+```text
+Thiếu điều kiện 1 -> ValueTask CHẬM HƠN Task, vì nó là struct lớn hơn
+                     và vẫn phải bọc một Task bên trong
+```
+
+**Và ba quy tắc bắt buộc khi dùng:**
+
+**1. Chỉ `await` MỘT LẦN.**
+
+```csharp
+// SAI
+ValueTask<string> vt = LayValueTaskAsync(1);
+var a = await vt;
+var b = await vt;        // InvalidOperationException hoặc kết quả sai
+```
+
+```text
+Task await lại bao nhiêu lần cũng được — nó giữ kết quả.
+ValueTask có thể được TÁI SỬ DỤNG bởi nguồn tạo ra nó sau lần await đầu.
+```
+
+**2. Không `await` song song.**
+
+```csharp
+// SAI
+var vt = LayValueTaskAsync(1);
+await Task.WhenAll(vt.AsTask(), vt.AsTask());
+```
+
+**3. Muốn giữ lại thì chuyển sang `Task` trước.**
+
+```csharp
+// ĐÚNG — cần dùng nhiều lần
+Task<string> t = LayValueTaskAsync(1).AsTask();
+var a = await t;
+var b = await t;
+```
+
+```text
+AsTask() cấp phát một Task -> mất đúng phần lợi ích vừa đo được.
+Nên nếu chỗ gọi thường xuyên cần AsTask(), hãy trả về Task ngay từ đầu.
+```
+
+**Cách dùng an toàn nhất — và cũng là cách phổ biến nhất:**
+
+```csharp
+var giaTri = await LayValueTaskAsync(key);     // await NGAY tại chỗ gọi
+```
+
+```text
+await ngay tại chỗ -> không giữ tham chiếu -> không vi phạm quy tắc nào
+Đây là 95% cách ValueTask được dùng trong thực tế.
+```
+
+**Và một lưu ý về `Error` trong bảng đo trên:**
+
+```text
+Task      : Mean 10,538 µs, Error 2,636 µs -> 25% của Mean
+ValueTask : Mean  7,406 µs, Error 3,051 µs -> 41% của Mean
+```
+
+```text
+Hai khoảng tin cậy CHỒNG nhau -> kết luận "nhanh hơn 30%" chưa chắc chắn.
+Nhưng cột Allocated thì không có sai số: 7.473 B so với 648 B là phép ĐẾM.
+
+-> đây lại là tình huống nên quyết định bằng Allocated, không bằng Mean.
+```
+
+</details>
 
 ## Tự kiểm tra
 

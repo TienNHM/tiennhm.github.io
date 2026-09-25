@@ -244,11 +244,448 @@ Người dùng nhận phản hồi tức thì kèm mã theo dõi, và công vi�
 
 ## Bài tập áp dụng
 
-1. **Đo ba phiên bản.** Cài cả ba cách — tuần tự, song song tối đa, song song có giới hạn — và đo thời gian cùng tỷ lệ lỗi.
+#### Bài 1 — Đo ba phiên bản
 
-2. **Tái hiện lỗi DbContext.** Chạy 10 truy vấn song song dùng chung một `DbContext` và ghi lại exception.
+Cài cả ba cách — tuần tự, song song tối đa, song song có giới hạn — và đo thời gian cùng tỷ lệ lỗi.
 
-3. **Tìm mức tối ưu.** Tăng dần `MaxDegreeOfParallelism` từ 2 tới 64 và vẽ đồ thị thông lượng.
+**Tiêu chí hoàn thành:** bạn có số đo cho cả ba, và nhận ra **vì sao bài thử này chưa đủ** để chọn mức song song cho hệ thống thật.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Đo thêm một chỉ số nữa ngoài thời gian: **đỉnh số việc chạy đồng thời**. Nó cho thấy mỗi cách thật sự làm gì.
+
+**Lời giải:**
+
+```csharp
+const int SoMuc = 200;
+int dangChay = 0, dinhDongThoi = 0;
+
+async Task XuLyAsync(int i, CancellationToken ct = default)
+{
+    var n = Interlocked.Increment(ref dangChay);
+    InterlockedMax(ref dinhDongThoi, n);
+    await Task.Delay(50, ct);                 // mô phỏng một lời gọi I/O
+    Interlocked.Decrement(ref dangChay);
+}
+```
+
+```csharp
+// A — tuần tự
+for (int i = 0; i < SoMuc; i++) await XuLyAsync(i);
+
+// B — song song tối đa
+await Task.WhenAll(Enumerable.Range(0, SoMuc).Select(i => XuLyAsync(i)));
+
+// C — song song có giới hạn
+await Parallel.ForEachAsync(Enumerable.Range(0, SoMuc),
+    new ParallelOptions { MaxDegreeOfParallelism = 8 },
+    async (i, ct) => await XuLyAsync(i, ct));
+```
+
+Kết quả đo trên .NET 9.0.203, 200 mục, mỗi mục 50 ms:
+
+```text
+  tuần tự            : 10.400 ms | đỉnh đồng thời   1
+  song song tối đa   :     51 ms | đỉnh đồng thời 200
+  có giới hạn MDOP=8 :  1.299 ms | đỉnh đồng thời   8
+```
+
+| | Thời gian | Đỉnh đồng thời | So với tuần tự |
+|---|---:|---:|---:|
+| Tuần tự | 10.400 ms | 1 | 1× |
+| Song song tối đa | **51 ms** | **200** | 204× |
+| Có giới hạn (8) | 1.299 ms | 8 | 8× |
+
+**Song song tối đa nhanh nhất — nhưng đó chính là vấn đề.**
+
+```text
+200 lời gọi cùng lúc tới một hệ thống bên ngoài:
+    - API bên thứ ba: gần như chắc chắn bị giới hạn tần suất (429)
+    - database: 200 kết nối -> vượt pool -> hàng đợi -> timeout
+    - chính hệ thống của bạn: 200 luồng hoặc 200 kết nối bị chiếm
+```
+
+Đây là điều mục 6.11.2 nói: nhanh nhất trên máy đo không có nghĩa là dùng được.
+
+**Và đây là phần quan trọng hơn — vì sao bài thử này CHƯA ĐỦ:**
+
+```text
+Công việc ở đây là Task.Delay(50) — nó không tranh chấp gì cả.
+-> tăng MDOP bao nhiêu cũng nhanh hơn, tuyến tính, mãi mãi
+```
+
+Số liệu chứng minh điều đó:
+
+```text
+  MDOP= 2 : 5.204 ms | thông lượng   38/s
+  MDOP= 4 : 2.603 ms | thông lượng   77/s
+  MDOP= 8 : 1.299 ms | thông lượng  154/s
+  MDOP=16 :   676 ms | thông lượng  296/s
+  MDOP=32 :   364 ms | thông lượng  550/s
+  MDOP=64 :   208 ms | thông lượng  962/s
+```
+
+```text
+Thông lượng tăng gần ĐÚNG gấp đôi mỗi lần MDOP gấp đôi.
+Không có điểm bão hoà, vì không có tài nguyên nào để bão hoà.
+```
+
+**Với công việc thật, đường cong này có hình khác hẳn:**
+
+```text
+Gọi database thật:
+    MDOP tăng -> thông lượng tăng -> tới khi database bão hoà
+    -> thông lượng ĐỨNG LẠI, rồi GIẢM vì tranh chấp khoá và chuyển ngữ cảnh
+
+Gọi API có giới hạn tần suất:
+    MDOP vượt ngưỡng -> bắt đầu nhận 429 -> tỷ lệ lỗi tăng
+    -> thông lượng THỰC (không tính lỗi) giảm
+```
+
+Nên kết luận đúng của bài này là về **cơ chế**, không phải về con số:
+
+```text
+Học được: song song có giới hạn giữ đúng số việc đồng thời (đỉnh = MDOP)
+KHÔNG học được: MDOP tối ưu là bao nhiêu
+
+Con số đó chỉ tìm được bằng cách đo trên phụ thuộc THẬT — bài 3 dưới đây.
+```
+
+**Thêm cột tỷ lệ lỗi để bài thử sát thực tế hơn:**
+
+```csharp
+int thanhCong = 0, loi = 0;
+
+async Task XuLyAsync(int i, CancellationToken ct = default)
+{
+    try
+    {
+        using var res = await _http.GetAsync($"{Url}/{i}", ct);
+        if (res.IsSuccessStatusCode) Interlocked.Increment(ref thanhCong);
+        else Interlocked.Increment(ref loi);          // 429, 503...
+    }
+    catch (Exception) { Interlocked.Increment(ref loi); }
+}
+```
+
+```text
+Thông lượng THỰC = thanhCong / thời gian
+
+Với MDOP quá cao, thông lượng thô vẫn tăng nhưng thông lượng thực giảm
+-> và đó mới là con số cần tối ưu.
+```
+
+</details>
+
+---
+
+#### Bài 2 — Tái hiện lỗi DbContext
+
+Chạy 10 truy vấn song song dùng chung một `DbContext` và ghi lại exception.
+
+**Tiêu chí hoàn thành:** bạn có **thông điệp lỗi chính xác**, và biết vì sao nó **đôi khi không xảy ra** — điều làm lỗi này khó tìm.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Thử với bảng nhỏ trước, rồi thử với bảng lớn. Hai kết quả khác nhau, và đó là phần đáng học nhất.
+
+**Lời giải:**
+
+```csharp
+using var db = new CrmDbContext(options);
+
+var tasks = Enumerable.Range(0, 10)
+    .Select(t => Task.Run(() => db.Leads.AsNoTracking()
+        .Where(l => l.TenantId == t).ToListAsync()))
+    .ToArray();
+
+try { Task.WaitAll(tasks); }
+catch (Exception ex)
+{
+    var g = ex is AggregateException ae ? ae.InnerExceptions[0] : ex;
+    Console.WriteLine($"{g.GetType().Name}: {g.Message}");
+}
+```
+
+Kết quả trên .NET 9.0.203, EF Core 9.0.0, bảng **200.000 dòng**:
+
+```text
+InvalidOperationException: A second operation was started on this context instance
+before a previous operation completed. This is usually caused by different threads
+concurrently using the same instance of DbContext. For more information on how to
+avoid threading issues with DbContext, see https://go.microsoft.com/fwlink/?linkid=2097913
+```
+
+**Với bảng 5.000 dòng, cùng đoạn code đó KHÔNG ném lỗi.**
+
+```text
+Bảng nhỏ  -> mỗi truy vấn xong trước khi truy vấn kế tiếp kịp bắt đầu
+          -> bộ phát hiện đồng thời của EF Core không thấy chồng lấn
+          -> chạy trơn tru
+
+Bảng lớn  -> truy vấn đủ lâu để chồng lấn -> ném lỗi ngay
+```
+
+**Đây là lý do lỗi này khó tìm:**
+
+```text
+Máy phát triển: database nhỏ, truy vấn vài mili giây
+             -> code sai vẫn chạy đúng, hàng tháng trời
+
+Production:  dữ liệu lớn, database bận
+             -> lỗi xuất hiện, và KHÔNG ĐỀU
+             -> "thỉnh thoảng lỗi, F5 lại thì được"
+```
+
+**Và có tình huống còn tệ hơn cả việc ném lỗi:**
+
+```text
+DbContext không an toàn cho truy cập đồng thời.
+Bộ phát hiện của EF Core bắt được PHẦN LỚN trường hợp, không phải MỌI trường hợp.
+
+Khi nó không bắt được: change tracker hỏng trạng thái
+-> dữ liệu sai, hoặc ngoại lệ ở một chỗ hoàn toàn khác, muộn hơn nhiều
+```
+
+**Cách sửa — mỗi tác vụ song song một context:**
+
+```csharp
+builder.Services.AddDbContextFactory<CrmDbContext>(o => o.UseSqlServer(cs));
+```
+
+```csharp
+var tasks = tenants.Select(async t =>
+{
+    await using var db = await _factory.CreateDbContextAsync(ct);
+    return await db.Leads.AsNoTracking().Where(l => l.TenantId == t).ToListAsync(ct);
+});
+var ketQua = await Task.WhenAll(tasks);
+```
+
+```text
+Lưu ý: mỗi context là một KẾT NỐI riêng.
+-> 10 tác vụ song song = 10 kết nối
+-> nên vẫn cần giới hạn số tác vụ đồng thời (bài 1 ở trên)
+```
+
+Kết hợp cả hai:
+
+```csharp
+await Parallel.ForEachAsync(tenants,
+    new ParallelOptions { MaxDegreeOfParallelism = 8, CancellationToken = ct },
+    async (t, ct2) =>
+    {
+        await using var db = await _factory.CreateDbContextAsync(ct2);
+        var ds = await db.Leads.AsNoTracking().Where(l => l.TenantId == t).ToListAsync(ct2);
+        await XuLyAsync(ds, ct2);
+    });
+```
+
+**Ba biến thể của cùng lỗi, khó thấy hơn:**
+
+**1. `Task.WhenAll` trên các phương thức của cùng một service.**
+
+```csharp
+await Task.WhenAll(
+    _leadService.DemTheoTrangThaiAsync(ct),
+    _dealService.LayTopAsync(ct),
+    _baoCaoService.DoanhThuAsync(ct));
+```
+
+```text
+Ba service khác nhau, nhưng DbContext đăng ký Scoped
+-> cả ba nhận CÙNG MỘT instance trong một request -> vẫn là lỗi
+```
+
+**2. Duyệt `IAsyncEnumerable` rồi truy vấn bên trong vòng lặp.**
+
+```csharp
+await foreach (var lead in db.Leads.AsAsyncEnumerable())
+{
+    var kh = await db.KhachHangs.FindAsync(lead.KhachHangId);   // reader kia còn mở
+}
+```
+
+**3. `BackgroundService` nhận `DbContext` qua constructor.**
+
+```csharp
+// SAI — Scoped bị giữ bởi Singleton
+public class DongBoService(CrmDbContext db) : BackgroundService { }
+
+// ĐÚNG — tạo scope mỗi lượt
+public class DongBoService(IServiceScopeFactory factory) : BackgroundService
+{
+    protected override async Task ExecuteAsync(CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested)
+        {
+            using var scope = factory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<CrmDbContext>();
+            await LamViecAsync(db, ct);
+            await Task.Delay(TimeSpan.FromMinutes(5), ct);
+        }
+    }
+}
+```
+
+Biến thể thứ ba có công cụ phát hiện tự động, và nên bật ở mọi dự án:
+
+```csharp
+builder.Host.UseDefaultServiceProvider((_, o) =>
+{
+    o.ValidateScopes = true;       // ném lỗi ngay lúc khởi động
+    o.ValidateOnBuild = true;
+});
+```
+
+```text
+Hai dòng này biến một lỗi phụ thuộc thời gian, khó tái hiện
+thành một lỗi khởi động không thể bỏ qua.
+```
+
+</details>
+
+---
+
+#### Bài 3 — Tìm mức tối ưu
+
+Tăng dần `MaxDegreeOfParallelism` từ 2 tới 64 và vẽ đồ thị thông lượng.
+
+**Tiêu chí hoàn thành:** bạn tìm được **điểm bão hoà** trên một phụ thuộc thật, và biết vì sao con số đó **không chuyển được** sang môi trường khác.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Đo trên chính phụ thuộc thật. Với công việc giả lập, đường cong không bao giờ bão hoà — như đã thấy ở bài 1.
+
+**Lời giải — khung đo:**
+
+```csharp
+foreach (var mdop in new[] { 1, 2, 4, 8, 16, 32, 64 })
+{
+    int thanhCong = 0, loi = 0;
+    var sw = Stopwatch.StartNew();
+
+    await Parallel.ForEachAsync(cacMuc,
+        new ParallelOptions { MaxDegreeOfParallelism = mdop, CancellationToken = ct },
+        async (muc, ct2) =>
+        {
+            try
+            {
+                await GoiPhuThuocThatAsync(muc, ct2);
+                Interlocked.Increment(ref thanhCong);
+            }
+            catch { Interlocked.Increment(ref loi); }
+        });
+
+    sw.Stop();
+    var thongLuongThuc = thanhCong / sw.Elapsed.TotalSeconds;
+    Console.WriteLine($"MDOP={mdop,2} | {sw.Elapsed.TotalSeconds,6:F1}s | " +
+                      $"OK {thanhCong,4} | lỗi {loi,3} | thông lượng thực {thongLuongThuc,6:F0}/s");
+}
+```
+
+Hình dạng kết quả trên một phụ thuộc thật (mức **điển hình** — bài thử này cần một API hoặc database thật; trên máy viết bài chỉ có công việc giả lập, và nó không bão hoà):
+
+```text
+MDOP= 1 |  40,0s | OK 2000 | lỗi   0 | thông lượng thực     50/s
+MDOP= 2 |  20,1s | OK 2000 | lỗi   0 | thông lượng thực     99/s
+MDOP= 4 |  10,2s | OK 2000 | lỗi   0 | thông lượng thực    196/s
+MDOP= 8 |   5,4s | OK 2000 | lỗi   0 | thông lượng thực    370/s
+MDOP=16 |   4,1s | OK 2000 | lỗi   0 | thông lượng thực    488/s   <- bắt đầu chững
+MDOP=32 |   3,9s | OK 1981 | lỗi  19 | thông lượng thực    508/s   <- đỉnh
+MDOP=64 |   4,6s | OK 1802 | lỗi 198 | thông lượng thực    392/s   <- GIẢM
+```
+
+**Ba vùng trên đường cong, và mỗi vùng nói một điều:**
+
+```text
+MDOP 1–8   : thông lượng tăng gần TUYẾN TÍNH
+             -> phụ thuộc chưa bão hoà, cứ tăng tiếp
+
+MDOP 16–32 : tăng CHẬM DẦN rồi đứng lại
+             -> phụ thuộc đã bão hoà, đây là trần thật
+
+MDOP 64    : thông lượng GIẢM và lỗi tăng vọt
+             -> quá tải: tranh chấp, hàng đợi, timeout, 429
+```
+
+**Điểm nên chọn không phải đỉnh, mà là chỗ ngay trước khi lỗi xuất hiện:**
+
+```text
+MDOP=32 cho thông lượng cao nhất (508/s) nhưng đã có 19 lỗi
+MDOP=16 cho 488/s và KHÔNG lỗi
+
+Chênh 4% thông lượng, đổi lấy 0 lỗi -> chọn 16.
+```
+
+```text
+Lý do: 19 lỗi ở MDOP=32 là 19 lần phải thử lại
+       -> tải thật cao hơn con số đo được
+       -> và ở mức tải cao hơn một chút, nó trượt sang vùng 64
+```
+
+**Và đây là điều quan trọng nhất — con số này KHÔNG chuyển được:**
+
+```text
+MDOP tối ưu phụ thuộc:
+    - số nhân và bộ nhớ của phụ thuộc
+    - có bao nhiêu instance của CHÍNH ứng dụng bạn đang chạy
+    - có ai khác đang dùng phụ thuộc đó không
+    - giới hạn tần suất của bên thứ ba
+    - độ trễ mạng giữa hai bên
+```
+
+```text
+Đo trên staging với 1 instance -> MDOP=16
+Chạy production với 6 instance -> tổng 96 việc đồng thời tới cùng database
+-> vượt xa điểm bão hoà -> sự cố
+```
+
+```csharp
+// Vì vậy MDOP nên là cấu hình, không phải hằng số
+var mdop = _cauHinh.Value.MaxDegreeOfParallelism;        // mặc định 8
+```
+
+```csharp
+// Và tốt hơn nữa: chia cho số instance nếu biết được
+var mdop = Math.Max(1, _cauHinh.Value.TongSongSong / _cauHinh.Value.SoInstance);
+```
+
+**Cách bền hơn việc chỉnh một con số: để phụ thuộc tự nói.**
+
+```csharp
+builder.Services.AddResiliencePipeline("api-ngoai", b => b
+    .AddConcurrencyLimiter(permitLimit: 16, queueLimit: 8)
+    .AddRetry(new RetryStrategyOptions
+    {
+        BackoffType = DelayBackoffType.Exponential,
+        UseJitter = true,
+        MaxRetryAttempts = 3,
+        ShouldHandle = new PredicateBuilder().HandleResult<HttpResponseMessage>(
+            r => r.StatusCode == HttpStatusCode.TooManyRequests),
+    })
+    .AddCircuitBreaker(new CircuitBreakerStrategyOptions { FailureRatio = 0.3 }));
+```
+
+```text
+Giới hạn đồng thời + thử lại có jitter + ngắt mạch
+-> hệ thống tự điều chỉnh khi phụ thuộc chậm đi
+-> thay vì phụ thuộc vào một con số đo được sáu tháng trước
+```
+
+**Và theo dõi để biết khi nào con số cần chỉnh lại:**
+
+```promql
+# Tỷ lệ lỗi theo mức song song — nếu tăng, MDOP đang quá cao cho tải hiện tại
+rate(cong_viec_loi_total[5m]) / rate(cong_viec_tong_total[5m]) > 0.01
+```
+
+Nối lại ba bài: bài 1 cho thấy cơ chế, bài 2 cho thấy cái bẫy kỹ thuật đi kèm khi song song hoá, bài 3 cho thấy con số tối ưu là một thứ đo được nhưng không mang đi được. Mẫu số chung: **song song hoá là một quyết định về tài nguyên của bên kia, không phải về tốc độ của bên mình.**
+
+</details>
 
 ## Tự kiểm tra
 
