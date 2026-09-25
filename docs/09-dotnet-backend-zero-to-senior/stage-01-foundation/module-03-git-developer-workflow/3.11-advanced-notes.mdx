@@ -222,11 +222,396 @@ git clean -fdn               # xem TRƯỚC những file sẽ bị xoá (-n = th
 
 ## Bài tập áp dụng
 
-1. **Thử bisect.** Tạo một repo với 20 commit, cố tình làm hỏng ở commit thứ 7, rồi dùng `git bisect` tìm ra nó.
+#### Bài 1 — Thử bisect
 
-2. **Bisect tự động.** Viết một test tái hiện lỗi và chạy `git bisect run` với test đó.
+Tạo một repo với 20 commit, cố tình làm hỏng ở commit thứ 7, rồi dùng `git bisect` tìm ra nó.
 
-3. **Dọn lịch sử.** Tạo 5 commit lộn xộn rồi dùng rebase tương tác gộp thành 2 commit có ý nghĩa.
+**Tiêu chí hoàn thành:** bạn tìm đúng commit gây lỗi trong **4–5 bước**, và giải thích được vì sao số bước đó không tăng nhiều khi repo lớn hơn.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** `git bisect start <bad> <good>` — thứ tự là *xấu trước, tốt sau*. Dễ nhớ nhầm.
+
+**Lời giải — dựng repo thử:**
+
+```bash
+mkdir thu-bisect && cd thu-bisect
+git init -q -b main
+
+for i in $(seq 1 20); do
+  if [ $i -lt 7 ]; then
+    echo "def tinh(a,b): return a + b" > tinh.py      # đúng
+  else
+    echo "def tinh(a,b): return a - b" > tinh.py      # SAI từ commit 7
+  fi
+  echo "dòng $i" >> ghichu.txt
+  git add -A && git commit -q -m "commit $i"
+done
+```
+
+```bash
+git bisect start HEAD HEAD~19
+```
+
+Chạy trên Git 2.34.1:
+
+```text
+Bisecting: 9 revisions left to test after this (roughly 3 steps)
+[41ec17aa2ae83dd749a758282daa025a0ed491d6] commit 10
+```
+
+Sau mỗi lần Git chuyển sang một commit, bạn chạy thử rồi báo kết quả:
+
+```bash
+python3 -c "exec(open('tinh.py').read()); print(tinh(2,3))"   # phải ra 5
+git bisect bad     # hoặc: git bisect good
+```
+
+```text
+  kết quả test: bad
+Bisecting: 4 revisions left to test after this (roughly 2 steps)
+  kết quả test: good
+Bisecting: 2 revisions left to test after this (roughly 1 step)
+  kết quả test: bad
+Bisecting: 0 revisions left to test after this (roughly 0 steps)
+  kết quả test: good
+9834390321714a02142a4a2c45f568751b4e2f2e is the first bad commit
+```
+
+```bash
+git show 9834390 --stat | head -5
+```
+
+```text
+commit 9834390321714a02142a4a2c45f568751b4e2f2e
+    commit 7
+
+ ghichu.txt | 1 +
+ tinh.py    | 2 +-
+```
+
+**Đúng commit 7, sau 4 lần thử.**
+
+```bash
+git bisect reset      # LUÔN chạy lệnh này khi xong
+```
+
+**Vì sao số bước không tăng nhiều khi repo lớn hơn:**
+
+```text
+Mỗi lần thử loại bỏ MỘT NỬA số commit còn lại.
+
+20 commit    -> khoảng 4–5 bước    (log₂20  ≈ 4,3)
+100 commit   -> khoảng 7 bước      (log₂100 ≈ 6,6)
+1.000 commit -> khoảng 10 bước     (log₂1000 ≈ 10)
+10.000 commit-> khoảng 14 bước
+```
+
+```text
+Repo lớn gấp 500 lần -> chỉ thêm 9 bước.
+
+So với cách tìm tuần tự (đi từ commit mới nhất lùi dần):
+    1.000 commit -> có thể phải thử tới 1.000 lần
+```
+
+Đây là cùng một tính chất với tìm kiếm nhị phân, và nó là lý do `bisect` đáng học sớm: với một repo thật, nó biến một buổi chiều mò mẫm thành mười phút.
+
+**Ba lệnh phụ đáng biết:**
+
+```bash
+git bisect skip          # commit này không build được, bỏ qua
+git bisect log           # xem lại các bước đã làm
+git bisect log > b.txt   # lưu lại
+git bisect replay b.txt  # chạy lại y hệt, hữu ích khi báo cáo cho người khác
+```
+
+**Và hai điều kiện để `bisect` dùng được:**
+
+**1. Lỗi phải TẤT ĐỊNH — cùng commit luôn cho cùng kết quả.**
+
+```text
+Lỗi chỉ xảy ra 1/10 lần -> báo "good" nhầm ở một bước
+-> bisect đi sai nhánh và cho kết quả sai
+-> tệ hơn là không dùng gì, vì bạn tin vào một câu trả lời sai
+```
+
+```text
+Với lỗi không tất định: chạy test 20 lần mỗi bước,
+báo bad nếu hỏng dù chỉ một lần.
+```
+
+**2. Mỗi commit phải chạy được.**
+
+```text
+Commit giữa chừng không build được -> git bisect skip
+Nhiều commit như vậy -> bisect chậm và kém chính xác
+
+-> đây là lập luận thực tế cho việc mỗi commit trên nhánh chính
+   phải build và chạy test được, không phải chỉ là nguyên tắc suông.
+```
+
+</details>
+
+---
+
+#### Bài 2 — Bisect tự động
+
+Viết một test tái hiện lỗi và chạy `git bisect run` với test đó.
+
+**Tiêu chí hoàn thành:** `git bisect run` chạy tới kết quả **không cần bạn gõ gì thêm**, và bạn biết vì sao script test phải nằm **ngoài** repo.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** `git bisect run` hiểu mã thoát: `0` là good, khác `0` là bad, `125` là skip.
+
+**Lời giải — script kiểm tra:**
+
+```bash
+#!/usr/bin/env bash
+# /duong/dan/NGOAI/repo/kt.sh
+kq=$(python3 -c "exec(open('tinh.py').read()); print(tinh(2,3))")
+[ "$kq" = "5" ]
+```
+
+```bash
+chmod +x ~/kt.sh
+git bisect start HEAD HEAD~19
+git bisect run ~/kt.sh
+```
+
+```text
+[049874982967db82c4383f71a5efc416ddcc7269] commit 5
+[9834390321714a02142a4a2c45f568751b4e2f2e] commit 7
+[55e3a2d418e7f06d8237ea6b076cae932612aa38] commit 6
+9834390321714a02142a4a2c45f568751b4e2f2e is the first bad commit
+commit 9834390321714a02142a4a2c45f568751b4e2f2e
+    commit 7
+
+ ghichu.txt | 1 +
+ tinh.py    | 2 +-
+bisect found first bad commit
+```
+
+**Không gõ một lệnh nào giữa chừng.** Với dự án .NET, script thường là:
+
+```bash
+#!/usr/bin/env bash
+dotnet build -c Release --nologo -v q || exit 125      # không build được -> skip
+dotnet test --filter "FullyQualifiedName~LoiTinhHoaHong" --nologo -v q
+```
+
+```text
+Mã thoát 125 có ý nghĩa đặc biệt: "bỏ qua commit này"
+-> dùng cho commit không build được, thay vì báo nhầm thành bad
+```
+
+**Vì sao script test phải nằm NGOÀI repo — đây là cái bẫy chính của bài này:**
+
+```text
+git bisect checkout một commit cũ
+-> cây làm việc trở về trạng thái CỦA COMMIT ĐÓ
+-> nếu kt.sh được commit ở commit gần đây, nó KHÔNG TỒN TẠI ở commit cũ
+-> bash: ./kt.sh: No such file or directory
+-> mã thoát 127 -> git coi là "bad"
+-> MỌI commit cũ đều bị đánh dấu bad -> kết quả sai hoàn toàn
+```
+
+Đây là lỗi trực tiếp gặp khi dựng ví dụ cho bài này: lần chạy đầu tiên, script được commit vào repo và bisect chỉ ra sai commit. Triệu chứng rất dễ bỏ qua vì `git bisect run` vẫn kết thúc bình thường và vẫn đưa ra một câu trả lời — chỉ là câu trả lời sai.
+
+```bash
+# ĐÚNG — script ở ngoài, đường dẫn tuyệt đối
+git bisect run ~/kt.sh
+
+# SAI — script nằm trong repo
+git bisect run ./kt.sh
+```
+
+**Cùng lý do đó áp cho dữ liệu test và cấu hình:**
+
+```text
+Test đọc một tệp dữ liệu mẫu trong repo -> tệp đó cũng biến mất ở commit cũ
+-> đặt dữ liệu ở ngoài, hoặc sinh ra trong chính script
+```
+
+**Ba mẹo làm `bisect run` chạy nhanh hơn:**
+
+**1. Giới hạn khoảng tìm càng hẹp càng tốt.**
+
+```bash
+# Biết chắc hai tuần trước còn tốt?
+git bisect start HEAD HEAD@{2.weeks.ago}
+```
+
+**2. Chỉ chạy đúng một test, không chạy cả bộ.**
+
+```text
+Cả bộ test: 3 phút mỗi bước × 10 bước = 30 phút
+Một test:   8 giây mỗi bước × 10 bước = 80 giây
+```
+
+**3. Kiểm chứng script TRƯỚC khi bắt đầu.**
+
+```bash
+git checkout HEAD    && ~/kt.sh; echo "HEAD:    $?"      # phải khác 0
+git checkout HEAD~19 && ~/kt.sh; echo "HEAD~19: $?"      # phải bằng 0
+git checkout main
+```
+
+```text
+Bước này mất 20 giây và loại bỏ khả năng chạy cả quá trình rồi nhận
+một câu trả lời sai — đúng loại lỗi đã mô tả ở trên.
+```
+
+</details>
+
+---
+
+#### Bài 3 — Dọn lịch sử
+
+Tạo 5 commit lộn xộn rồi dùng rebase tương tác gộp thành 2 commit có ý nghĩa.
+
+**Tiêu chí hoàn thành:** `git log` còn 2 commit với thông điệp rõ ràng, và bạn nêu được vì sao việc này **chỉ làm trên nhánh của riêng mình**.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Trong danh sách rebase, `squash` gộp vào commit **phía trên** nó. Nên commit đầu tiên luôn giữ `pick`.
+
+**Lời giải — năm commit lộn xộn:**
+
+```bash
+git checkout -b tinh-nang
+for m in "thêm hàm tính" "sửa lỗi chính tả" "thêm test" "sửa test" "thêm tài liệu"; do
+  echo "$m" >> nhatky.txt && git add -A && git commit -q -m "$m"
+done
+git log --oneline -5
+```
+
+```text
+8bf9ee2 thêm tài liệu
+55def59 sửa test
+ff583af thêm test
+878a7d3 sửa lỗi chính tả
+b2ec1a6 thêm hàm tính
+```
+
+```bash
+git rebase -i HEAD~5
+```
+
+Git mở trình soạn thảo với danh sách theo thứ tự **cũ trước, mới sau**:
+
+```text
+pick b2ec1a6 thêm hàm tính
+pick 878a7d3 sửa lỗi chính tả
+pick ff583af thêm test
+pick 55def59 sửa test
+pick 8bf9ee2 thêm tài liệu
+```
+
+Sửa thành:
+
+```text
+pick   b2ec1a6 thêm hàm tính
+squash 878a7d3 sửa lỗi chính tả
+pick   ff583af thêm test
+squash 55def59 sửa test
+squash 8bf9ee2 thêm tài liệu
+```
+
+```text
+Successfully rebased and updated refs/heads/tinh-nang.
+```
+
+```bash
+git log --oneline -2
+```
+
+```text
+bd3d3f7 test: thêm test cho hàm tính hoa hồng
+58a1e8e feat: thêm hàm tính hoa hồng theo bậc
+```
+
+**Năm commit thành hai, và hai commit đó kể một câu chuyện đọc được.**
+
+**Bảng các lệnh trong rebase tương tác:**
+
+| Lệnh | Tác dụng |
+|---|---|
+| `pick` | Giữ nguyên |
+| `reword` | Giữ thay đổi, **sửa thông điệp** |
+| `squash` | Gộp vào commit phía trên, **ghép cả hai thông điệp** |
+| `fixup` | Gộp vào commit phía trên, **bỏ thông điệp của nó** |
+| `edit` | Dừng lại để sửa nội dung commit |
+| `drop` | Xoá hẳn commit |
+
+```text
+fixup hữu ích hơn squash trong phần lớn trường hợp:
+    "sửa lỗi chính tả", "sửa test" không đáng có mặt trong thông điệp cuối
+```
+
+```bash
+git rebase -i --autosquash HEAD~5
+```
+
+```text
+Kết hợp với: git commit --fixup=<hash>
+-> Git tự sắp xếp và đánh dấu fixup, không phải sửa tay
+```
+
+**Vì sao chỉ làm trên nhánh của riêng mình:**
+
+```text
+Rebase VIẾT LẠI commit -> mọi commit được viết lại có hash MỚI
+-> lịch sử cũ và lịch sử mới là hai đường khác nhau
+```
+
+```text
+Nếu ai đó đã pull nhánh đó về:
+    - họ có lịch sử cũ
+    - bạn đẩy lên lịch sử mới
+    - lần pull tiếp theo của họ: hai lịch sử không liên quan gì nhau
+    - kết quả thường là merge lộn xộn, hoặc commit bị nhân đôi
+    - và nếu họ giải quyết sai, thay đổi của người khác có thể MẤT
+```
+
+**Quy tắc gói gọn:**
+
+```text
+Commit chỉ nằm trên máy bạn, hoặc trên nhánh chỉ mình bạn dùng -> rebase thoải mái
+Commit đã lên nhánh chung (main, develop)                       -> KHÔNG BAO GIỜ rebase
+```
+
+Đây đúng là điều mục 3.12.3 nói, và bài tập này là chỗ để làm quen với nó ở nơi an toàn.
+
+**Nếu đã lỡ đẩy nhánh của riêng mình lên rồi:**
+
+```bash
+git push --force-with-lease
+```
+
+```text
+--force-with-lease KHÁC --force:
+    --force: ghi đè bất chấp -> nếu ai đó vừa đẩy lên, thay đổi của họ MẤT
+    --force-with-lease: chỉ ghi đè nếu nhánh trên máy chủ ĐÚNG như bạn nghĩ
+                        -> có người khác đẩy lên trong lúc đó -> từ chối
+```
+
+Không có lý do nào để dùng `--force` khi `--force-with-lease` tồn tại.
+
+**Và nếu rebase đi sai hướng, không có gì mất cả:**
+
+```bash
+git rebase --abort           # đang giữa chừng -> quay về nguyên trạng
+git reflog                   # đã xong rồi mới thấy sai
+git reset --hard HEAD@{5}    # quay về trạng thái trước khi rebase
+```
+
+`reflog` ghi lại mọi lần `HEAD` di chuyển, kể cả những commit không còn nhánh nào trỏ tới — nên gần như mọi thao tác Git đều đảo ngược được trong vòng 90 ngày mặc định. Bài 3 của [bài 3.12](3.12-mini-case-study.mdx) đi sâu vào cách dùng nó.
+
+</details>
 
 ## Tự kiểm tra
 

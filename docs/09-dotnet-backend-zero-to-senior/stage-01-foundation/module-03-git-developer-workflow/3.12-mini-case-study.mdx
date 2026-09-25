@@ -196,11 +196,468 @@ Thứ tự quan trọng: tạo nhánh **trước**, reset **sau**. Ngược lạ
 
 ## Bài tập áp dụng
 
-1. **Thử git-filter-repo.** Tạo một repo thử, commit một file chứa chuỗi giả làm bí mật, rồi xoá nó khỏi toàn bộ lịch sử và xác nhận bằng `git log --all -- <file>`.
+#### Bài 1 — Thử git-filter-repo
 
-2. **Cài Gitleaks.** Chạy nó trên một dự án thật và xem kết quả quét toàn bộ lịch sử.
+Tạo một repo thử, commit một file chứa chuỗi giả làm bí mật, rồi xoá nó khỏi toàn bộ lịch sử và xác nhận bằng `git log --all -- <file>`.
 
-3. **Khôi phục bằng reflog.** Commit vài thay đổi, chạy `git reset --hard HEAD~3`, rồi dùng `git reflog` để lấy lại.
+**Tiêu chí hoàn thành:** trước khi xoá, bạn **chứng minh được** bí mật vẫn đọc được sau khi `git rm`; sau khi xoá, bạn xác nhận nó đã biến mất.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Làm phần "chứng minh nó vẫn còn" trước. Đó mới là phần dạy được nhiều nhất.
+
+**Lời giải — dựng repo có bí mật rồi xoá bằng cách thông thường:**
+
+```bash
+mkdir thu-bi-mat && cd thu-bi-mat && git init -q -b main
+git config user.email t@vi.du && git config user.name "Thử Nghiệm"
+
+echo "app=crm" > appsettings.json
+git add -A && git commit -q -m "khởi tạo"
+
+printf 'app=crm\nConnectionStrings__Db=Server=db;Password=MatKhauThat123!\n' > appsettings.json
+git add -A && git commit -q -m "thêm cấu hình kết nối"
+
+echo "tính năng A" > a.txt && git add -A && git commit -q -m "tính năng A"
+
+# "Xoá" theo cách nhiều người nghĩ là đủ
+git rm -q appsettings.json && git commit -q -m "xoá file cấu hình khỏi repo"
+```
+
+```bash
+ls
+grep -rn "MatKhauThat123" . --exclude-dir=.git || echo "  không tìm thấy"
+```
+
+```text
+a.txt
+  không tìm thấy
+```
+
+**Trông như đã xong. Nhưng chưa:**
+
+```bash
+git log --all --oneline -- appsettings.json
+```
+
+```text
+8141dd6 xoá file cấu hình khỏi repo
+efac72e thêm cấu hình kết nối
+fc8abd8 khởi tạo
+```
+
+```bash
+git log -S 'MatKhauThat123' --all --oneline
+```
+
+```text
+8141dd6 xoá file cấu hình khỏi repo
+efac72e thêm cấu hình kết nối
+```
+
+```bash
+git show efac72e:appsettings.json
+```
+
+```text
+app=crm
+ConnectionStrings__Db=Server=db;Password=MatKhauThat123!
+```
+
+**Mật khẩu vẫn đọc được bằng một lệnh, bởi bất kỳ ai clone được repo.**
+
+Và cách tìm mạnh nhất — quét mọi commit cùng lúc:
+
+```bash
+git grep -n "MatKhauThat123" $(git rev-list --all)
+```
+
+```text
+eb1d230e...:appsettings.json:2:ConnectionStrings__Db=Server=db;Password=MatKhauThat123!
+efac72e2...:appsettings.json:2:ConnectionStrings__Db=Server=db;Password=MatKhauThat123!
+```
+
+Đây chính là điều mục 3.13.3 nói: **commit là bất biến.** Xoá file ở commit mới chỉ thêm một commit nói "file này không còn nữa" — nó không chạm được vào commit cũ, vì sửa commit cũ nghĩa là đổi hash của nó và của mọi commit sau nó.
+
+**Xoá thật bằng `git-filter-repo`:**
+
+```bash
+pip install git-filter-repo        # hoặc: brew install git-filter-repo
+
+cd ..
+git clone --mirror thu-bi-mat thu-bi-mat-mirror     # LUÔN làm trên bản sao
+cd thu-bi-mat-mirror
+
+git filter-repo --path appsettings.json --invert-paths
+```
+
+```text
+Parsed 4 commits
+New history written in 0.05 seconds...
+Completely finished after 0.12 seconds.
+```
+
+Xác nhận:
+
+```bash
+git log --all --oneline -- appsettings.json     # không còn dòng nào
+git grep "MatKhauThat123" $(git rev-list --all) # không còn kết quả
+```
+
+**Hoặc giữ file nhưng thay nội dung nhạy cảm:**
+
+```bash
+cat > ../thay-the.txt <<'EOF'
+MatKhauThat123!==>***DA-XOA***
+EOF
+
+git filter-repo --replace-text ../thay-the.txt
+```
+
+```text
+Cách này giữ lại lịch sử của file, chỉ thay chuỗi bí mật.
+Hữu ích khi file vẫn cần tồn tại, ví dụ appsettings.Development.json mẫu.
+```
+
+**Bốn việc bắt buộc làm sau khi viết lại lịch sử:**
+
+```text
+1. ĐỔI bí mật đó ngay — đây là việc QUAN TRỌNG NHẤT và phải làm ĐẦU TIÊN
+2. Báo mọi người trên đội xoá bản sao cũ và clone lại
+3. Đẩy lên: git push --force --all && git push --force --tags
+4. Liên hệ nhà cung cấp Git để xoá bản sao trên máy chủ của họ
+```
+
+Việc thứ tư hay bị quên và nó quan trọng:
+
+```text
+GitHub và GitLab giữ các commit "mồ côi" một thời gian, và chúng vẫn truy
+cập được qua URL nếu ai đó biết hash.
+-> phải mở ticket yêu cầu dọn, không tự làm được.
+```
+
+**Và điều đáng nhớ nhất về thứ tự:**
+
+```text
+Viết lại lịch sử mất vài giờ và gây phiền cho cả đội.
+Đổi mật khẩu mất năm phút.
+
+Bí mật đã lộ lên một repo có nhiều người truy cập thì coi như ĐÃ LỘ.
+Viết lại lịch sử chỉ để dọn dẹp — nó KHÔNG thay thế việc đổi bí mật.
+```
+
+Đây đúng là thứ tự ở mục 3.13.2, và bài tập này cho thấy vì sao: giữa lúc bạn phát hiện và lúc lịch sử được viết lại, bí mật đó vẫn đọc được bằng một lệnh `git show`.
+
+</details>
+
+---
+
+#### Bài 2 — Cài Gitleaks
+
+Chạy nó trên một dự án thật và xem kết quả quét toàn bộ lịch sử.
+
+**Tiêu chí hoàn thành:** bạn có kết quả quét, và phân biệt được **phát hiện thật** với **báo động giả** — cũng như biết xử lý từng loại.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Lần quét đầu tiên trên một repo cũ thường ra rất nhiều kết quả. Phần lớn là báo động giả, và chính vì vậy mà nhiều đội bỏ luôn công cụ.
+
+**Lời giải — cài và quét:**
+
+```bash
+brew install gitleaks                     # macOS
+# hoặc tải bản nhị phân từ trang phát hành cho Linux
+
+gitleaks detect --source . --report-format json --report-path bao-cao.json -v
+```
+
+Kết quả điển hình trên một repo đã chạy vài năm:
+
+```text
+Finding:     ConnectionStrings__Db=Server=db;User Id=sa;Password=P@ssw0rd123
+Secret:      P@ssw0rd123
+RuleID:      generic-api-key
+Entropy:     3.918290
+File:        src/Crm.Api/appsettings.Development.json
+Line:        8
+Commit:      efac72e28a03e67b9679839a13b221a8582a3f46
+Author:      Nguyễn Văn A
+Date:        2024-03-14T09:22:11Z
+
+...
+
+12:03AM INF scanned ~4.2 MB (1284 commits) in 3.8s
+12:03AM WRN leaks found: 23
+```
+
+**Phân loại 23 phát hiện:**
+
+| Nhóm | Số | Xử lý |
+|---|---:|---|
+| Bí mật THẬT còn hiệu lực | **2** | **Đổi ngay**, rồi viết lại lịch sử |
+| Bí mật thật nhưng đã hết hiệu lực | 4 | Ghi nhận, viết lại lịch sử khi tiện |
+| Chuỗi kết nối tới database cục bộ | 9 | Báo động giả — thêm vào danh sách bỏ qua |
+| Dữ liệu mẫu trong test | 6 | Báo động giả |
+| Chuỗi ngẫu nhiên có entropy cao | 2 | Báo động giả — ví dụ mã băm, GUID |
+
+**Cách phân biệt, bằng bốn câu hỏi:**
+
+```text
+1. Chuỗi này dùng được để truy cập cái gì thật không?
+2. Nó có còn hiệu lực không?
+3. Nó trỏ tới localhost hay tới hệ thống thật?
+4. Nó nằm trong thư mục test hay trong mã chạy production?
+```
+
+```text
+"Server=localhost;Database=crm;User Id=sa;Password=Local123"
+-> chỉ dùng được trên máy của chính người viết -> báo động giả
+
+"Server=prod-sql.crm.vn;...;Password=Xk9#mP2q"
+-> hệ thống thật -> ĐỔI NGAY
+```
+
+**Danh sách bỏ qua — để lần quét sau chỉ còn kết quả đáng xem:**
+
+```toml
+# .gitleaks.toml
+[extend]
+useDefault = true
+
+[[rules]]
+id = "generic-api-key"
+[rules.allowlist]
+paths = [
+  '''tests/.*''',
+  '''.*\.Tests/.*''',
+  '''docs/.*''',
+]
+regexes = [
+  '''Server=localhost''',
+  '''Server=\(localdb\)''',
+  '''Password=Local\d+''',
+]
+```
+
+```bash
+gitleaks detect --source . --config .gitleaks.toml
+```
+
+```text
+12:05AM INF scanned ~4.2 MB (1284 commits) in 3.9s
+12:05AM WRN leaks found: 6
+```
+
+**Từ 23 xuống 6 — và giờ mỗi kết quả đều đáng đọc.**
+
+```text
+Đây là bước quyết định công cụ có được dùng tiếp hay không:
+    23 kết quả với 17 báo động giả -> đội bỏ qua toàn bộ
+     6 kết quả, đều thật           -> đội xử lý từng cái
+```
+
+**Đưa vào CI để bí mật mới không lọt vào:**
+
+```yaml
+# .github/workflows/quet-bi-mat.yml
+name: Quét bí mật
+on: [pull_request]
+jobs:
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }        # cần toàn bộ lịch sử
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+```text
+fetch-depth: 0 là bắt buộc.
+Mặc định actions/checkout chỉ lấy MỘT commit -> quét không thấy gì
+-> CI xanh, và không ai biết nó đang không kiểm tra gì cả.
+```
+
+**Và lớp phòng thủ đứng trước CI: hook lúc commit.**
+
+```yaml
+# .pre-commit-config.yaml
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.0
+    hooks:
+      - id: gitleaks
+```
+
+```text
+Hook chặn TRƯỚC khi commit -> bí mật không bao giờ vào lịch sử
+CI chặn TRƯỚC khi merge   -> bí mật không vào nhánh chính
+Quét định kỳ              -> tìm những gì đã lọt qua trước đây
+```
+
+Ba lớp này đúng là ba lớp ở mục 3.13.4, và thứ tự hiệu quả cũng theo thứ tự đó: chặn ở hook rẻ hơn nhiều so với viết lại lịch sử ở bài 1.
+
+</details>
+
+---
+
+#### Bài 3 — Khôi phục bằng reflog
+
+Commit vài thay đổi, chạy `git reset --hard HEAD~3`, rồi dùng `git reflog` để lấy lại.
+
+**Tiêu chí hoàn thành:** bạn lấy lại được đúng trạng thái cũ, và biết `reflog` **không** cứu được trường hợp nào.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** `reflog` ghi lại mọi lần `HEAD` di chuyển, kể cả tới những commit không còn nhánh nào trỏ tới.
+
+**Lời giải:**
+
+```bash
+git log --oneline -3
+```
+
+```text
+bd3d3f7 gộp lại
+58a1e8e gộp lại
+6e92803 commit 20
+```
+
+```bash
+git reset --hard HEAD~2
+```
+
+```text
+HEAD is now at 6e92803 commit 20
+```
+
+Hai commit đã biến mất khỏi `git log`. Nhưng:
+
+```bash
+git reflog -6
+```
+
+```text
+6e92803 HEAD@{0}: reset: moving to HEAD~2
+bd3d3f7 HEAD@{1}: rebase (finish): returning to refs/heads/tinh-nang
+bd3d3f7 HEAD@{2}: rebase (squash): gộp lại
+0a8db9a HEAD@{3}: rebase (squash): # This is a combination of 2 commits.
+bdcfb2c HEAD@{4}: rebase (pick): thêm test
+58a1e8e HEAD@{5}: rebase (squash): gộp lại
+```
+
+```bash
+git reset --hard bd3d3f7        # hoặc: git reset --hard HEAD@{1}
+```
+
+```text
+HEAD is now at bd3d3f7 gộp lại
+```
+
+```bash
+git log --oneline -2
+```
+
+```text
+bd3d3f7 gộp lại
+58a1e8e gộp lại
+```
+
+**Lấy lại nguyên vẹn.**
+
+**Vì sao được: commit không bị xoá khi mất nhánh trỏ tới.**
+
+```text
+git reset --hard chỉ di chuyển con trỏ nhánh.
+Commit cũ vẫn nằm trong kho đối tượng của Git, chỉ là không có tên nào trỏ tới.
+
+reflog giữ danh sách những nơi HEAD từng đi qua
+-> đủ để tìm lại hash -> đủ để khôi phục
+```
+
+```text
+Thời gian giữ mặc định:
+    commit còn nhánh trỏ tới       : mãi mãi
+    commit mồ côi, có trong reflog : 90 ngày
+    commit mồ côi, không có reflog : 30 ngày
+```
+
+**Ba tình huống `reflog` cứu được — gần như mọi tai nạn thường gặp:**
+
+```bash
+git reset --hard <sai chỗ>           # reflog -> quay lại
+git rebase <hỏng>                    # reflog -> quay lại trạng thái trước rebase
+git branch -D <nhánh chưa merge>     # reflog -> tìm hash cuối của nhánh, tạo lại
+git checkout <nhánh khác>            # "mất" commit -> thật ra chỉ đang ở nhánh khác
+```
+
+```bash
+# Tạo lại một nhánh đã xoá nhầm
+git reflog | grep "tinh-nang"
+git checkout -b tinh-nang <hash>
+```
+
+**Và đây là phần quan trọng hơn — ba trường hợp `reflog` KHÔNG cứu được:**
+
+**1. Thay đổi chưa bao giờ được commit.**
+
+```bash
+git reset --hard          # xoá mọi thay đổi chưa commit
+git checkout -- .         # cùng tác dụng với các file đã sửa
+```
+
+```text
+reflog chỉ biết về COMMIT.
+Thay đổi trong cây làm việc chưa commit -> không có dấu vết nào -> MẤT HẲN
+```
+
+```text
+Trừ khi bạn đã: git stash    (stash cũng có reflog riêng: git stash list)
+Hoặc IDE có lịch sử cục bộ: JetBrains có "Local History",
+VS Code có tính năng timeline — hai thứ này cứu được nhiều lần.
+```
+
+**2. File chưa bao giờ được `git add`.**
+
+```bash
+git clean -fd             # xoá mọi file không được theo dõi
+```
+
+```text
+File chưa add -> Git chưa từng biết tới nó -> không khôi phục được
+
+git clean -nd     # LUÔN chạy với -n trước để xem nó SẼ xoá gì
+```
+
+**3. `reflog` của người khác không có trên máy bạn.**
+
+```text
+reflog là CỤC BỘ. Nó không được đẩy lên máy chủ.
+
+Đồng nghiệp force-push xoá mất commit của bạn
+-> reflog của bạn vẫn có (nếu bạn từng fetch về)
+-> reflog trên máy chủ thì không tồn tại
+
+-> GitHub và GitLab có API xem các sự kiện push gần đây,
+   đó là cách tìm lại hash đã bị ghi đè.
+```
+
+**Quy tắc thực dụng rút ra:**
+
+```text
+Commit sớm, commit thường xuyên — kể cả commit lộn xộn.
+
+Một commit "lưu tạm" xấu xí có thể dọn sau bằng rebase (bài 3 của 3.11).
+Thay đổi chưa commit thì không có gì dọn, vì không có gì cả.
+```
+
+Đây là lập luận thực dụng nhất cho thói quen commit nhỏ và thường xuyên: nó không chỉ làm lịch sử dễ đọc, nó còn đưa công việc của bạn vào vùng mà Git **khôi phục được**.
+
+</details>
 
 ## Tự kiểm tra
 

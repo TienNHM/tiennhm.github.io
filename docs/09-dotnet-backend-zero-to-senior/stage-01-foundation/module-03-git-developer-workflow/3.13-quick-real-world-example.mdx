@@ -182,11 +182,429 @@ Cùng một nguyên tắc áp dụng cho mọi file sinh tự động:
 
 ## Bài tập áp dụng
 
-1. **Tái hiện conflict.** Tạo hai nhánh, mỗi nhánh thêm một migration, và merge chúng để thấy conflict trong snapshot.
+#### Bài 1 — Tái hiện conflict
 
-2. **Xử lý đúng cách.** Áp dụng ba bước ở mục 3.14.3 và đọc file migration sinh ra để xác nhận nó chỉ chứa thay đổi của bạn.
+Tạo hai nhánh, mỗi nhánh thêm một migration, và merge chúng để thấy conflict trong snapshot.
 
-3. **Thử ghép tay.** Ghép tay snapshot rồi tạo một migration mới. Đọc lệnh SQL sinh ra và tìm chỗ sai.
+**Tiêu chí hoàn thành:** bạn thấy conflict xuất hiện ở **file snapshot** chứ không phải ở hai file migration, và giải thích được vì sao chỉ mình snapshot bị conflict.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Hai migration có tên file khác nhau nên Git không coi chúng là xung đột. Snapshot thì chỉ có một file duy nhất.
+
+**Lời giải — dựng tình huống:**
+
+```bash
+git checkout -b feature/so-dien-thoai main
+# thêm thuộc tính SoDienThoai vào Lead
+dotnet ef migrations add ThemSoDienThoaiChoLead
+git add -A && git commit -m "feat: thêm số điện thoại cho lead"
+
+git checkout main
+git checkout -b feature/bang-ghi-chu
+# thêm entity GhiChu
+dotnet ef migrations add ThemBangGhiChu
+git add -A && git commit -m "feat: thêm bảng ghi chú"
+```
+
+```bash
+git checkout feature/bang-ghi-chu
+git merge feature/so-dien-thoai
+```
+
+```text
+Auto-merging src/Crm.Infrastructure/Migrations/CrmDbContextModelSnapshot.cs
+CONFLICT (content): Merge conflict in src/Crm.Infrastructure/Migrations/CrmDbContextModelSnapshot.cs
+Automatic merge failed; fix conflicts and then commit the result.
+```
+
+```bash
+git status --short
+```
+
+```text
+A  src/Crm.Infrastructure/Migrations/20260921094512_ThemSoDienThoaiChoLead.cs
+A  src/Crm.Infrastructure/Migrations/20260921094512_ThemSoDienThoaiChoLead.Designer.cs
+UU src/Crm.Infrastructure/Migrations/CrmDbContextModelSnapshot.cs
+```
+
+**Chỉ một file bị conflict (`UU`), hai file migration được thêm sạch (`A`).**
+
+**Vì sao chỉ snapshot bị conflict:**
+
+```text
+Mỗi migration = MỘT file mới, tên riêng có dấu thời gian
+    20260921094512_ThemSoDienThoaiChoLead.cs
+    20260921101233_ThemBangGhiChu.cs
+-> hai file khác nhau -> Git ghép được, không có gì chồng lấn
+
+Snapshot = MỘT file duy nhất mô tả TOÀN BỘ model hiện tại
+-> cả hai nhánh cùng sửa nó -> Git phải chọn -> conflict
+```
+
+Nội dung conflict trông như sau:
+
+```csharp
+modelBuilder.Entity("Crm.Domain.Lead", b =>
+{
+    b.Property<int>("Id").ValueGeneratedOnAdd();
+    b.Property<string>("HoTen").IsRequired().HasMaxLength(200);
+<<<<<<< HEAD
+    b.ToTable("Leads");
+});
+
+modelBuilder.Entity("Crm.Domain.GhiChu", b =>
+{
+    b.Property<int>("Id").ValueGeneratedOnAdd();
+    b.Property<string>("NoiDung").IsRequired();
+    b.ToTable("GhiChu");
+=======
+    b.Property<string>("SoDienThoai").HasMaxLength(20);
+    b.ToTable("Leads");
+>>>>>>> feature/so-dien-thoai
+});
+```
+
+**Và đây là điều khiến file này khác mọi file conflict khác:**
+
+```text
+Snapshot KHÔNG phải mã nguồn do người viết.
+Nó là mã SINH RA, mô tả trạng thái model tại một thời điểm.
+
+-> ghép tay hai trạng thái không cho ra một trạng thái đúng,
+   nó cho ra một trạng thái mà EF Core chưa bao giờ sinh
+```
+
+Cùng lý do đó áp cho file `.Designer.cs` của mỗi migration: nó cũng chứa một bản sao snapshot tại thời điểm migration đó.
+
+**Một chi tiết trong `git status` đáng để ý:**
+
+```text
+Hai migration có dấu thời gian trong TÊN FILE.
+Thứ tự chạy được quyết định bởi dấu thời gian đó, không phải bởi thứ tự merge.
+
+-> nếu An tạo migration lúc 09:45 và Bình lúc 10:12,
+   migration của An luôn chạy trước, kể cả khi Bình merge trước.
+```
+
+Điều này thường đúng và vô hại. Nó chỉ thành vấn đề khi hai migration động tới cùng một bảng và thứ tự có ý nghĩa — lúc đó bước 3 của mục 3.14.3 (sinh lại migration) tự nhiên xử lý đúng, vì migration mới được sinh sau và mang dấu thời gian mới hơn.
+
+</details>
+
+---
+
+#### Bài 2 — Xử lý đúng cách
+
+Áp dụng ba bước ở mục 3.14.3 và đọc file migration sinh ra để xác nhận nó chỉ chứa thay đổi của bạn.
+
+**Tiêu chí hoàn thành:** migration mới **chỉ** chứa thay đổi của bạn, và bạn kiểm chứng được điều đó bằng cả mắt lẫn một lệnh.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** `dotnet ef migrations remove` không chỉ xoá file — nó còn hoàn tác phần tương ứng trong snapshot. Đó là lý do phải dùng nó thay vì `rm`.
+
+**Lời giải — ba bước:**
+
+```bash
+# Bước 1 — bỏ migration của mình
+git merge --abort
+dotnet ef migrations remove
+```
+
+```text
+Build started...
+Build succeeded.
+Removing migration '20260921101233_ThemBangGhiChu'.
+Reverting the model snapshot.
+Done.
+```
+
+```text
+Dòng "Reverting the model snapshot" là dòng quan trọng nhất.
+Nó là việc bạn KHÔNG làm đúng được bằng tay.
+```
+
+```bash
+# Bước 2 — lấy bản mới nhất
+git checkout main && git pull
+git checkout feature/bang-ghi-chu
+git rebase main
+```
+
+```text
+Successfully rebased and updated refs/heads/feature/bang-ghi-chu.
+```
+
+```text
+Không còn conflict — vì migration của bạn đã được gỡ khỏi snapshot,
+nên nhánh của bạn không còn sửa file đó nữa.
+```
+
+```bash
+# Bước 3 — sinh lại
+dotnet ef migrations add ThemBangGhiChu
+```
+
+```bash
+cat src/Crm.Infrastructure/Migrations/*_ThemBangGhiChu.cs
+```
+
+```csharp
+public partial class ThemBangGhiChu : Migration
+{
+    protected override void Up(MigrationBuilder migrationBuilder)
+    {
+        migrationBuilder.CreateTable(
+            name: "GhiChu",
+            columns: table => new
+            {
+                Id = table.Column<int>(nullable: false)
+                    .Annotation("SqlServer:Identity", "1, 1"),
+                LeadId = table.Column<int>(nullable: false),
+                NoiDung = table.Column<string>(nullable: false),
+                NgayTao = table.Column<DateTime>(nullable: false),
+            },
+            constraints: table =>
+            {
+                table.PrimaryKey("PK_GhiChu", x => x.Id);
+                table.ForeignKey("FK_GhiChu_Leads_LeadId", x => x.LeadId,
+                    "Leads", "Id", onDelete: ReferentialAction.Cascade);
+            });
+
+        migrationBuilder.CreateIndex("IX_GhiChu_LeadId", "GhiChu", "LeadId");
+    }
+
+    protected override void Down(MigrationBuilder migrationBuilder)
+        => migrationBuilder.DropTable("GhiChu");
+}
+```
+
+**Kiểm chứng bằng mắt: KHÔNG có dòng nào nhắc tới `SoDienThoai`.**
+
+```text
+Nếu thấy AddColumn("SoDienThoai", ...) trong migration của bạn
+-> snapshot đã bị ghép tay ở đâu đó
+-> migration này sẽ cố thêm một cột ĐÃ TỒN TẠI -> lỗi khi chạy
+```
+
+**Và kiểm chứng bằng lệnh, chắc chắn hơn mắt:**
+
+```bash
+dotnet ef migrations script 20260921094512_ThemSoDienThoaiChoLead \
+       20260921103045_ThemBangGhiChu
+```
+
+```sql
+CREATE TABLE [GhiChu] (
+    [Id] int NOT NULL IDENTITY,
+    [LeadId] int NOT NULL,
+    [NoiDung] nvarchar(max) NOT NULL,
+    [NgayTao] datetime2 NOT NULL,
+    CONSTRAINT [PK_GhiChu] PRIMARY KEY ([Id]),
+    CONSTRAINT [FK_GhiChu_Leads_LeadId] FOREIGN KEY ([LeadId])
+        REFERENCES [Leads] ([Id]) ON DELETE CASCADE
+);
+GO
+
+CREATE INDEX [IX_GhiChu_LeadId] ON [GhiChu] ([LeadId]);
+GO
+```
+
+```text
+Đây là SQL SẼ CHẠY trên database. Đọc nó là cách kiểm chứng cuối cùng —
+nó không phụ thuộc vào việc bạn đọc đúng C# hay không.
+```
+
+**Và một bước kiểm chứng nữa, trả lời câu hỏi "snapshot có khớp model không":**
+
+```bash
+dotnet ef migrations add KiemTra --dry-run
+```
+
+```text
+Nếu snapshot đúng, migration này sẽ RỖNG (không có thay đổi nào)
+Nếu nó có nội dung -> snapshot đang LỆCH với model -> có gì đó sai
+```
+
+Đây là phép thử đáng chạy trước mỗi lần commit migration: nó mất vài giây và phát hiện ngay snapshot bị ghép tay.
+
+**Đưa phép thử đó vào CI:**
+
+```yaml
+- name: Kiểm tra snapshot khớp model
+  run: |
+    dotnet ef migrations add __KiemTra --project src/Crm.Infrastructure
+    if grep -q "migrationBuilder\." src/Crm.Infrastructure/Migrations/*__KiemTra.cs; then
+      echo "::error::Snapshot lệch với model — có migration chưa được tạo,
+             hoặc snapshot đã bị sửa tay"
+      exit 1
+    fi
+    dotnet ef migrations remove --project src/Crm.Infrastructure
+```
+
+```text
+Bước này bắt được cả hai lỗi:
+    - ai đó đổi model mà quên tạo migration
+    - ai đó ghép tay snapshot khi giải quyết conflict
+```
+
+</details>
+
+---
+
+#### Bài 3 — Thử ghép tay
+
+Ghép tay snapshot rồi tạo một migration mới. Đọc lệnh SQL sinh ra và tìm chỗ sai.
+
+**Tiêu chí hoàn thành:** bạn tìm được **lệnh SQL sai cụ thể**, và hiểu vì sao lỗi này không lộ ra cho tới khi migration chạy trên một database thật.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Ghép tay thường cho ra một snapshot *trông đúng*. Vấn đề chỉ lộ ra ở migration **tiếp theo**.
+
+**Lời giải — ghép tay "hợp lý":**
+
+```csharp
+// Giải quyết conflict bằng cách giữ CẢ HAI bên — nghe rất hợp lý
+modelBuilder.Entity("Crm.Domain.Lead", b =>
+{
+    b.Property<int>("Id").ValueGeneratedOnAdd();
+    b.Property<string>("HoTen").IsRequired().HasMaxLength(200);
+    b.Property<string>("SoDienThoai").HasMaxLength(20);     // của An
+    b.ToTable("Leads");
+});
+
+modelBuilder.Entity("Crm.Domain.GhiChu", b =>              // của Bình
+{
+    b.Property<int>("Id").ValueGeneratedOnAdd();
+    b.Property<string>("NoiDung").IsRequired();
+    b.ToTable("GhiChu");
+});
+```
+
+```bash
+git add -A && git commit -m "merge: giải quyết conflict snapshot"
+```
+
+Dự án build được, test chạy được, pull request được duyệt. Vấn đề xuất hiện ở migration **kế tiếp**:
+
+```bash
+dotnet ef migrations add ThemTrangThaiChoGhiChu
+cat Migrations/*_ThemTrangThaiChoGhiChu.cs
+```
+
+```csharp
+protected override void Up(MigrationBuilder migrationBuilder)
+{
+    migrationBuilder.AddColumn<int>(
+        name: "TrangThai", table: "GhiChu", nullable: false, defaultValue: 0);
+}
+```
+
+**Trông hoàn toàn đúng. Và nó vẫn hỏng.**
+
+```bash
+dotnet ef database update
+```
+
+```text
+Applying migration '20260921101233_ThemBangGhiChu'.
+Applying migration '20260921113355_ThemTrangThaiChoGhiChu'.
+Failed executing DbCommand:
+    ALTER TABLE [GhiChu] ADD [TrangThai] int NOT NULL DEFAULT 0;
+
+Microsoft.Data.SqlClient.SqlException:
+    Invalid object name 'GhiChu'.
+```
+
+**Vì sao: bảng `GhiChu` chưa bao giờ được tạo.**
+
+```text
+Ghép tay sửa SNAPSHOT — mô tả trạng thái model.
+Nhưng migration ThemBangGhiChu đã bị bỏ trong lúc merge,
+hoặc nó tạo bảng với cấu trúc KHÁC với snapshot đã ghép.
+
+-> snapshot nói "bảng GhiChu tồn tại và có 3 cột"
+-> nhưng KHÔNG có migration nào thực sự tạo ra nó
+-> EF Core tin snapshot, và sinh migration tiếp theo dựa trên niềm tin đó
+```
+
+**Hai nguồn sự thật lệch nhau:**
+
+| | Mô tả cái gì | Ai cập nhật |
+|---|---|---|
+| Các file migration | **Những việc PHẢI LÀM** với database | `migrations add` |
+| Snapshot | **Trạng thái model ĐƯỢC CHO LÀ** đang có | `migrations add` / `remove` |
+
+```text
+Bình thường hai thứ này luôn khớp, vì cùng một lệnh sinh ra cả hai.
+Sửa tay một trong hai -> chúng lệch nhau -> EF Core không có cách nào biết.
+```
+
+**Vì sao lỗi không lộ ra sớm — bốn tầng đều không bắt được:**
+
+```text
+1. Biên dịch  : snapshot là C# hợp lệ -> build xanh
+2. Test đơn vị: không chạm database -> xanh
+3. Code review: đoạn ghép tay trông hợp lý -> được duyệt
+4. Máy của bạn: database đã có sẵn bảng từ lần chạy trước -> không lỗi
+```
+
+```text
+Nó chỉ lộ ra ở nơi database được dựng TỪ ĐẦU:
+    - CI với database sạch
+    - môi trường staging mới
+    - hoặc production, nếu ba nơi trên đều không dựng lại từ đầu
+```
+
+Đây là thứ tự tệ nhất có thể: lỗi được phát hiện ở nơi xa nhất so với nơi nó được tạo ra.
+
+**Cách kiểm chứng chắc chắn nhất — dựng database từ số không:**
+
+```bash
+dotnet ef database drop --force
+dotnet ef database update
+```
+
+```text
+Chạy MỌI migration theo thứ tự trên một database rỗng.
+Nếu chuỗi migration đúng, lệnh này chạy sạch.
+Nếu snapshot đã bị ghép tay, nó hỏng ngay ở đây.
+```
+
+Đưa vào CI:
+
+```yaml
+- name: Dựng database từ đầu bằng toàn bộ migration
+  run: |
+    dotnet ef database update --connection "$CS_TEST"
+```
+
+```text
+Bước này chạy khoảng 10–30 giây và bắt được đúng loại lỗi ở trên,
+ở đúng chỗ nên bắt: trong pull request, không phải trên production.
+```
+
+**Nếu đã lỡ ghép tay và đã commit — cách sửa:**
+
+```bash
+# Nếu migration chưa chạy ở đâu: xoá và làm lại đúng ba bước
+dotnet ef migrations remove        # lặp lại cho từng migration bị ảnh hưởng
+git checkout main -- src/Crm.Infrastructure/Migrations/CrmDbContextModelSnapshot.cs
+dotnet ef migrations add TenMigration
+```
+
+```text
+Dòng git checkout là mấu chốt: lấy lại snapshot từ nhánh chính,
+tức bản do EF Core sinh ra, chưa bị ai sửa tay.
+```
+
+Nối lại ba bài: bài 1 cho thấy conflict chỉ nằm ở snapshot, bài 2 cho thấy cách xử lý đúng mất chưa tới một phút, bài 3 cho thấy cách sai mất hàng giờ và lộ ra ở chỗ tệ nhất. Chênh lệch giữa hai cách chỉ là biết rằng snapshot là **mã sinh ra**, không phải mã nguồn.
+
+</details>
 
 ## Tự kiểm tra
 
