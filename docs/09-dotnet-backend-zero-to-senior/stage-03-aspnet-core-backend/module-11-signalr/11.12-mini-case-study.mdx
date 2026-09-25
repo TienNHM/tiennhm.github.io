@@ -199,11 +199,266 @@ Dấu hiệu thứ hai đáng chú ý: nếu client liên tục kết nối lạ
 
 ## Bài tập áp dụng
 
-1. **Tái hiện sự cố.** Chạy hai instance không có backplane, kết nối hai client vào hai instance khác nhau và gửi `Clients.All`.
+#### Bài 1 — Tái hiện: `Clients.All` chỉ tới một phần người dùng
 
-2. **Kiểm tra WebSocket.** Mở DevTools tab Network lọc `WS` và xác nhận có kết nối `101 Switching Protocols`.
+Chạy hai instance không có backplane, kết nối hai client vào hai instance khác nhau và gửi `Clients.All`.
 
-3. **Thử triển khai.** Kết nối một client rồi khởi động lại pod, đo thời gian mất kết nối và kiểm tra client có đồng bộ lại không.
+**Tiêu chí hoàn thành:** bạn chỉ ra được vì sao cái tên `Clients.All` là thứ khiến lỗi này khó nghi ngờ.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Đọc `Clients.All` và tự hỏi: "tất cả" là tất cả của ai?
+
+**Lời giải — dựng lại:**
+
+```bash
+dotnet run --urls http://localhost:5001 &
+dotnet run --urls http://localhost:5002 &
+```
+
+```nginx
+upstream crm { server localhost:5001; server localhost:5002; }
+server { listen 8080; location / { proxy_pass http://crm;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade"; } }
+```
+
+Mở hai trình duyệt, xác nhận chúng rơi vào hai instance khác nhau:
+
+```csharp
+public override Task OnConnectedAsync()
+{
+    _logger.LogInformation("Kết nối mới trên {Machine}", Environment.MachineName);
+    return base.OnConnectedAsync();
+}
+```
+
+Gửi thông báo:
+
+```bash
+curl -s -X POST http://localhost:5001/api/v1/notifications/broadcast -d '{"text":"xin chào"}'
+```
+
+```text
+Client A (instance 1): nhận "xin chào"
+Client B (instance 2): KHÔNG nhận gì
+```
+
+**Câu trả lời cho tiêu chí.** `Clients.All` đọc lên như một lời hứa tuyệt đối — "tất cả client". Nhưng ý nghĩa thật của nó là **"tất cả kết nối mà instance này đang giữ"**. Khi chỉ có một instance, hai cách hiểu trùng nhau, nên lập trình viên xây dựng trực giác sai ngay từ đầu mà không hề biết.
+
+Đến lúc scale ra nhiều instance, trực giác đó sụp đổ — nhưng **tên phương thức không đổi**, code không đổi, không có cảnh báo nào. Người gỡ rối sẽ đi tìm lỗi ở phía client, ở proxy, ở dữ liệu, mà không nghi ngờ chính dòng `Clients.All`.
+
+Cùng điều đó đúng với `Clients.Group` và `Clients.User`:
+
+```text
+Instance A: giữ 400 kết nối -> không biết gì về B
+Instance B: giữ 400 kết nối -> không biết gì về A và C
+Instance C: giữ 400 kết nối
+
+Request tạo lead rơi vào instance A -> chỉ 400/1.200 người nhận được
+```
+
+**Và triệu chứng đặc biệt khó chịu:** tỷ lệ nhận được **thay đổi theo từng lần**, vì load balancer phân phối request tạo lead. Người dùng báo "lúc thấy lúc không", và việc thử lại đôi khi thành công — đủ để kết luận nhầm là do mạng.
+
+**Sửa bằng backplane:**
+
+```csharp
+builder.Services.AddSignalR()
+    .AddStackExchangeRedis(cs, o => o.Configuration.AbortOnConnectFail = false);
+```
+
+```text
+Instance A gửi thông báo
+  -> đẩy lên Redis pub/sub
+  -> Instance B và C nhận được
+  -> Mỗi instance gửi tới kết nối CỦA MÌNH
+  -> 1.200/1.200 người nhận được
+```
+
+**Cách phát hiện sớm mà không cần chờ sự cố.** Thêm một chỉ số đếm số kết nối mỗi instance và so với tổng số người dùng đang hoạt động; hoặc đơn giản hơn, **luôn chạy hai instance trên môi trường phát triển**. Chi phí là một dòng trong `compose.yaml`, và nó lộ ra cả lớp lỗi này lẫn lỗi Data Protection ở [bài 10.12](../module-10-authentication-authorization/10.11-advanced-notes.mdx).
+
+</details>
+
+---
+
+#### Bài 2 — Xác nhận transport thật sự là WebSocket
+
+Mở DevTools tab Network lọc `WS` và xác nhận có kết nối `101 Switching Protocols`.
+
+**Tiêu chí hoàn thành:** bạn biết cách kiểm **từ phía server** chứ không chỉ từ DevTools — vì bạn không mở DevTools trên máy người dùng được.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** DevTools chỉ cho biết transport của **chính bạn**, ở **mạng của bạn**. Người dùng sau proxy công ty có thể đang dùng thứ khác.
+
+**Lời giải — kiểm ở DevTools:**
+
+```text
+Network -> lọc WS
+
+Đúng:
+  notifications?id=vXk3Lm9Q    101 Switching Protocols
+  (một dòng duy nhất, giữ mãi)
+
+Đang lùi về long polling:
+  (tab WS trống)
+  Network -> lọc XHR:
+    ?id=...   200
+    ?id=...   200      (request mới liên tục mỗi vài giây)
+```
+
+**Kiểm bằng dòng lệnh, không cần trình duyệt:**
+
+```bash
+curl -i -N -H "Connection: Upgrade" -H "Upgrade: websocket" \
+     -H "Sec-WebSocket-Version: 13" \
+     -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" \
+     http://localhost:8080/hubs/notifications | head -1
+```
+
+```text
+HTTP/1.1 101 Switching Protocols     <- đúng
+HTTP/1.1 200 OK                       <- proxy đang nuốt header Upgrade
+```
+
+**Kiểm từ phía server — đây mới là thứ dùng được trên production:**
+
+```csharp
+public override Task OnConnectedAsync()
+{
+    var transport = Context.Features
+        .Get<IHttpTransportFeature>()?.TransportType.ToString() ?? "unknown";
+
+    _metrics.Connections.Add(1,
+        new KeyValuePair<string, object?>("transport", transport));
+
+    _logger.LogInformation("Kết nối {ConnectionId} qua {Transport}",
+        Context.ConnectionId, transport);
+
+    return base.OnConnectedAsync();
+}
+```
+
+```text
+transport=WebSockets        1.184
+transport=LongPolling          16
+transport=ServerSentEvents      0
+```
+
+**Cảnh báo nên đặt:**
+
+```text
+CẢNH BÁO khi: tỷ lệ kết nối không phải WebSocket > 5% trong 10 phút
+```
+
+Ngưỡng 5% cho phép một số ít người dùng ở mạng doanh nghiệp chặn WebSocket — đó là chuyện bình thường và bạn không sửa được. Nhưng nó bắt ngay trường hợp cả hệ thống lùi về long polling vì một dòng cấu hình proxy bị xoá trong lần sửa gần nhất.
+
+**Vì sao con số này đáng theo dõi thường xuyên.** Lùi transport **không gây lỗi** — ứng dụng vẫn chạy đúng chức năng. Hậu quả chỉ hiện ra dưới dạng tải server cao hơn và độ trễ lớn hơn, hai thứ dễ bị quy cho nguyên nhân khác. Không có chỉ số này thì bạn không có cách nào biết, cho tới khi đi tìm.
+
+**Ba nguyên nhân phổ biến làm lùi transport:**
+
+| Nguyên nhân | Dấu hiệu |
+|---|---|
+| Proxy thiếu header `Upgrade` | **Toàn bộ** kết nối đều lùi |
+| Proxy công ty của khách hàng chặn WebSocket | Một nhóm nhỏ người dùng, ổn định theo thời gian |
+| `skipNegotiation` sai cấu hình | Lỗi kết nối chứ không lùi |
+
+Phân biệt được ba trường hợp này chỉ cần nhìn **tỷ lệ**: toàn bộ thì là lỗi của bạn, một nhóm nhỏ ổn định thì là môi trường của người dùng.
+
+</details>
+
+---
+
+#### Bài 3 — Khởi động lại pod và đo khoảng mất kết nối
+
+Kết nối một client rồi khởi động lại pod, đo thời gian mất kết nối và kiểm tra client có đồng bộ lại không.
+
+**Tiêu chí hoàn thành:** bạn đo được khoảng mất kết nối và xác nhận **không mất thông báo nào** trong khoảng đó.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Mất kết nối vài giây là chuyện bình thường khi deploy. Câu hỏi đúng không phải "có mất kết nối không" mà là "có mất **dữ liệu** không".
+
+**Lời giải — đo:**
+
+```js
+let downAt = null;
+
+connection.onreconnecting(() => { downAt = Date.now(); console.log('mất kết nối'); });
+
+connection.onreconnected(async () => {
+    console.log(`kết nối lại sau ${Date.now() - downAt}ms`);
+    await joinRooms();
+    await syncMissed();
+});
+```
+
+```bash
+# Trong lúc pod restart, đẩy 5 thông báo
+kubectl rollout restart deployment/crm-api
+for i in 1 2 3 4 5; do
+  curl -s -X POST .../api/v1/notifications -d "{\"userId\":\"8f3a...\",\"text\":\"tin $i\"}"
+  sleep 1
+done
+```
+
+```text
+mất kết nối
+kết nối lại sau 4180ms
+GET /api/v1/notifications?after=018f3a1b...
+(5 thông báo hiện ra)
+```
+
+**Mất kết nối 4,2 giây, không mất thông báo nào.**
+
+**Vì sao không mất — nhờ ba thứ cùng hoạt động:**
+
+1. **Lưu trước, đẩy sau.** Cả 5 thông báo đã nằm trong database trước khi bước đẩy chạy, nên việc đẩy thất bại không làm mất gì ([bài 11.5](11.4-client-side-integration.mdx)).
+2. **`withAutomaticReconnect()`** tự thử lại theo chu kỳ 0s, 2s, 10s, 30s — không cần code gì thêm.
+3. **`syncMissed()` trong `onreconnected`** kéo về những gì đã bỏ lỡ. Thiếu bước này thì 5 thông báo kia không bao giờ tới, dù chúng vẫn nằm an toàn trong database.
+
+**Rút ngắn khoảng mất kết nối bằng cấu hình triển khai:**
+
+```yaml
+spec:
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0          # KHÔNG giảm số pod đang phục vụ
+  template:
+    spec:
+      terminationGracePeriodSeconds: 60      # tổng thời gian cho phép
+      containers:
+        - name: crm-api
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", "15"]     # chờ load balancer cập nhật
+```
+
+`maxUnavailable: 0` giữ pod cũ phục vụ cho tới khi pod mới sẵn sàng, nên client kết nối lại được ngay thay vì phải chờ pod mới khởi động.
+
+**Và `preStop` giải quyết một vấn đề tinh tế:** Kubernetes gỡ pod khỏi Service và gửi `SIGTERM` gần như cùng lúc, nhưng việc gỡ mất vài giây để lan tới mọi node. Không có `preStop`, pod ngừng nhận kết nối mới trong khi load balancer vẫn còn gửi request tới — chi tiết ở [bài 15.14](../../stage-04-database-production/module-15-docker-deployment/15.13-quick-real-world-example.mdx).
+
+**Ba chỉ số nên theo dõi quanh mỗi lần deploy:**
+
+| Chỉ số | Giá trị mong đợi |
+|---|---|
+| Thời gian kết nối lại trung bình | < 5 giây |
+| Số thông báo mất | **0** |
+| Số lần `onclose` (bỏ cuộc hẳn) | 0 |
+
+Dòng thứ ba đáng chú ý: `withAutomaticReconnect()` mặc định chỉ thử **4 lần** rồi bỏ cuộc. Với lần deploy lâu hơn dự kiến, client sẽ dừng hẳn và người dùng phải tải lại trang. Nới ra nếu cần:
+
+```js
+.withAutomaticReconnect([0, 2000, 10000, 30000, 60000, 60000, 60000])
+```
+
+</details>
 
 ## Tự kiểm tra
 
