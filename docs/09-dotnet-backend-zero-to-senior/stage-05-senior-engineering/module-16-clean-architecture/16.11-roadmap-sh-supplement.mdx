@@ -126,11 +126,414 @@ Sau module này là [Module 17 — Distributed Systems](../module-17-distributed
 
 ## Bài tập áp dụng
 
-1. **Tự đánh giá.** Đi qua danh sách rà soát ở trên và quay lại đúng bài cho mục nào chưa tự tin.
+#### Bài 1 — Tự đánh giá theo danh sách rà soát
 
-2. **Thêm kiến trúc test.** Cài `NetArchTest.Rules` và viết một test chặn Domain phụ thuộc EF Core. Chạy trên dự án thật.
+Đi qua danh sách rà soát ở trên và quay lại đúng bài cho mục nào chưa tự tin.
 
-3. **Viết lập luận kiến trúc.** Với dự án hiện tại, viết một trang giải thích vì sao chọn kiểu kiến trúc đang dùng, kèm chi phí và lợi ích cụ thể.
+**Tiêu chí hoàn thành:** bạn phân biệt được "đã đọc" với "đã dùng được", và có một cách kiểm chứng cho từng mục thay vì tự chấm điểm.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** "Tôi hiểu Clean Architecture" và "tôi giải thích được cho người khác vì sao dự án này chọn nó" là hai mức khác nhau.
+
+**Lời giải — bốn mức nắm vững, và cách kiểm chứng từng mức:**
+
+| Mức | Nghĩa | Cách kiểm chứng |
+|---|---|---|
+| 1. Biết | Nhận ra tên gọi | Nghe qua |
+| 2. Hiểu | **Giải thích được cho người khác** | Viết ba câu, không nhìn tài liệu |
+| 3. Dùng được | **Áp dụng vào code thật** | Có một commit trong repo thật |
+| 4. Đánh giá được | **Biết khi nào KHÔNG nên dùng** | Nêu được hai tình huống nên tránh |
+
+Mức 4 là mức quan trọng nhất với một người làm senior, và nó là mức mà đọc tài liệu không bao giờ đạt được — nó đến từ việc đã trả giá cho một lựa chọn sai.
+
+**Bảng tự kiểm chứng, với câu hỏi cụ thể cho từng chủ đề:**
+
+```markdown
+| Chủ đề | Mức | Câu hỏi kiểm chứng | Bài |
+|---|:-:|---|---|
+| Dependency rule | ? | Vì sao Domain không được biết EF Core? Cái giá là gì? | 16.3 |
+| Layered architecture | ? | Bốn tầng làm gì? Ranh giới transaction ở đâu? | 16.2 |
+| Vertical slice | ? | Khi nào VSA tốt hơn layered? Nó đánh đổi gì? | 16.4 |
+| Aggregate | ? | Cái gì quyết định ranh giới aggregate? | 16.5 |
+| Value object | ? | Vì sao dùng Money thay cho decimal? | 16.5 |
+| MediatR | ? | Giá trị thật của nó là gì? Khi nào không cần? | 16.6 |
+| Validation vs bất biến | ? | Quy tắc nào đặt ở validator, quy tắc nào ở entity? | 16.7 |
+| Domain event | ? | Khi nào dùng event, khi nào gọi tường minh? | 16.8 |
+| Testing | ? | Test hành vi khác test cài đặt ở chỗ nào? | 16.9 |
+| Anti-pattern | ? | Ba dấu hiệu God Service? | 16.10 |
+```
+
+**Cách tự chấm trung thực — với mỗi dòng, thử trả lời mà KHÔNG mở tài liệu:**
+
+```text
+Trả lời trôi chảy, có ví dụ từ dự án của mình  -> mức 3–4
+Trả lời được ý chính, không có ví dụ cụ thể    -> mức 2
+Nhớ mang máng, phải mở lại bài                 -> mức 1
+```
+
+Nếu phần lớn dòng ở mức 1–2, đừng đọc lại tuần tự. Đọc lại **phần bài tập** của đúng những bài đó — vì bài tập là nơi buộc bạn áp dụng, còn phần lý thuyết thì đọc lần hai cũng không khác lần một bao nhiêu.
+
+**Ba câu hỏi ở mức 4 — nếu trả lời được, bạn đã nắm chắc:**
+
+**1. Nêu một dự án mà Clean Architecture là lựa chọn SAI.**
+
+```text
+Ví dụ trả lời tốt:
+"Một API báo cáo đọc dữ liệu từ data warehouse, không có logic ghi,
+ 40 endpoint đều là truy vấn. Phân tầng thêm 6 file cho mỗi endpoint
+ mà không bảo vệ bất biến nào — vì không có bất biến nào.
+ Minimal API gọi thẳng Dapper là đủ."
+```
+
+**2. Nêu một tình huống mà anemic domain model là đúng.**
+
+```text
+"Bảng danh mục tỉnh thành. Mọi tổ hợp giá trị đều hợp lệ,
+ không có trạng thái nào cần bảo vệ. Thêm private setter và
+ phương thức domain là chi phí thuần tuý."
+```
+
+**3. Nêu một chỗ mà bạn cố tình vi phạm dependency rule, và vì sao.**
+
+```text
+"Đường đọc gọi DbContext trực tiếp thay vì qua repository.
+ Đo được nhanh hơn 280 lần, và đường đọc không thay đổi trạng thái
+ nên không có bất biến nào cần bảo vệ."
+```
+
+Câu 3 là câu phân biệt rõ nhất giữa người áp dụng máy móc và người hiểu. Nếu câu trả lời là "tôi không bao giờ vi phạm", đó thường là dấu hiệu chưa gặp đủ tình huống thật.
+
+**Và một cách kiểm chứng khách quan hơn tự chấm: mở dự án hiện tại và trả lời năm câu hỏi này bằng code, không bằng trí nhớ.**
+
+```bash
+# 1. Domain có sạch không?
+dotnet list src/Crm.Domain package --include-transitive | grep -v "^ *$"
+
+# 2. Quy tắc nghiệp vụ có bị nhân bản không?
+grep -rn "500_000_000\|NguongDuyet" --include="*.cs" src/ | wc -l
+
+# 3. Entity có phương thức nghiệp vụ không?
+grep -c "public.*Result \|public void " src/Crm.Domain/Entities/Lead.cs
+
+# 4. Có bao nhiêu đường ghi đi vòng qua domain?
+grep -rn "\.Status\s*=" --include="*.cs" src/ | grep -v "==" | wc -l
+
+# 5. Service lớn nhất có bao nhiêu dependency?
+grep -c "private readonly" $(ls -S src/Crm.Application/Services/*.cs | head -1)
+```
+
+Năm con số này nói về mức nắm vững thật của bạn chính xác hơn bất kỳ bảng tự chấm nào — vì chúng phản ánh những quyết định bạn đã thực sự đưa ra.
+
+</details>
+
+---
+
+#### Bài 2 — Thêm kiến trúc test vào dự án thật
+
+Cài `NetArchTest.Rules` và viết một test chặn Domain phụ thuộc EF Core. Chạy trên dự án thật.
+
+**Tiêu chí hoàn thành:** test chạy được trên dự án thật của bạn, và bạn có một kế hoạch cụ thể cho số vi phạm tìm được.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Phần kỹ thuật đã có ở [bài 16.10](16.10-anti-patterns-to-avoid.mdx). Phần khó là làm gì sau khi thấy kết quả.
+
+**Lời giải — thiết lập:**
+
+```bash
+dotnet new xunit -o tests/Crm.ArchitectureTests
+dotnet sln add tests/Crm.ArchitectureTests
+dotnet add tests/Crm.ArchitectureTests package NetArchTest.Rules
+dotnet add tests/Crm.ArchitectureTests package FluentAssertions
+dotnet add tests/Crm.ArchitectureTests reference src/Crm.Domain src/Crm.Application src/Crm.Infrastructure
+```
+
+```csharp
+public class KienTrucTests(ITestOutputHelper output)
+{
+    private const int NguongViPham = 999;    // đặt tạm, sẽ sửa sau lần chạy đầu
+
+    [Fact]
+    public void Domain_khong_duoc_phu_thuoc_EF_Core()
+    {
+        var kq = Types.InAssembly(typeof(Lead).Assembly)
+            .ShouldNot().HaveDependencyOn("Microsoft.EntityFrameworkCore")
+            .GetResult();
+
+        var viPham = (kq.FailingTypeNames ?? []).ToList();
+        foreach (var v in viPham) output.WriteLine(v);
+
+        viPham.Count.Should().BeLessThanOrEqualTo(NguongViPham);
+    }
+}
+```
+
+```bash
+dotnet test tests/Crm.ArchitectureTests --logger "console;verbosity=detailed"
+```
+
+**Kế hoạch theo số vi phạm tìm được:**
+
+**Trường hợp A — 0 vi phạm:**
+
+```text
+Chúc mừng, nhưng đừng dừng ở đó.
+-> Đặt NguongViPham = 0 để test thật sự bảo vệ
+-> Thêm quy tắc tiếp theo (Application không phụ thuộc Infrastructure)
+-> Mục tiêu: 5–7 quy tắc trong một tháng
+```
+
+**Trường hợp B — dưới 10 vi phạm:**
+
+```text
+Sửa hết trong một PR.
+-> Phần lớn thường là attribute [Table], [Column] -> chuyển sang Fluent API
+-> Đặt NguongViPham = 0
+-> Thời gian: một buổi
+```
+
+**Trường hợp C — 10 tới 50 vi phạm:**
+
+```text
+Ratchet, giảm theo sprint.
+-> Đặt NguongViPham = số hiện tại
+-> Mỗi sprint giảm 10–15, cập nhật ngưỡng trong cùng PR
+-> Về 0 sau 3–4 sprint
+```
+
+**Trường hợp D — trên 50 vi phạm:**
+
+```text
+Ratchet, nhưng đặt mục tiêu theo quý thay vì theo sprint.
+-> Và trước tiên PHÂN LOẠI: attribute ánh xạ hay code gọi EF Core?
+   -> attribute: sửa cơ học, nhanh
+   -> code gọi EF Core trong Domain: cần thiết kế lại, chậm
+```
+
+Phân loại:
+
+```csharp
+[Fact]
+public void Phan_loai_vi_pham()
+{
+    var domain = typeof(Lead).Assembly;
+
+    var doAttribute = domain.GetTypes()
+        .Where(t => t.GetCustomAttributes(false)
+            .Any(a => a.GetType().Namespace?.StartsWith("Microsoft.EntityFrameworkCore") == true
+                   || a.GetType().Namespace?.StartsWith("System.ComponentModel.DataAnnotations.Schema") == true))
+        .Select(t => t.Name).ToList();
+
+    output.WriteLine($"Do attribute ánh xạ ({doAttribute.Count}): {string.Join(", ", doAttribute)}");
+}
+```
+
+```text
+Do attribute ánh xạ (74): Lead, Customer, Order, Invoice, ...
+Còn lại (13): LeadQueryHelper, BaoCaoCu, ImportMapper, ...
+```
+
+74 chỗ sửa cơ học, 13 chỗ cần suy nghĩ. Đây là thông tin đủ để lập kế hoạch thật.
+
+**Viết kế hoạch ra, đừng giữ trong đầu:**
+
+```markdown
+## Kiến trúc test — kế hoạch
+
+Chạy lần đầu: 2026-09-25, 87 vi phạm
+
+### Phân loại
+- 74 do attribute ánh xạ ([Table], [Column], [Key]) -> sửa cơ học
+- 13 do code gọi EF Core trong Domain -> cần thiết kế lại
+
+### Kế hoạch
+| Sprint | Mục tiêu | Ngưỡng |
+|---|---|---|
+| 42 | Chuyển attribute của 6 entity cốt lõi sang Fluent API | 87 -> 60 |
+| 43 | Chuyển attribute của phần còn lại | 60 -> 13 |
+| 44 | Thiết kế lại 5 chỗ gọi EF Core trong Domain | 13 -> 8 |
+| 45 | Phần còn lại | 8 -> 0 |
+
+### Quy tắc trong lúc chờ
+- Entity MỚI không được dùng attribute ánh xạ (review chặn)
+- Ngưỡng chỉ được giảm, không được tăng
+
+### Người phụ trách: <tên>
+```
+
+**Bốn lý do kế hoạch viết ra hiệu quả hơn ý định:**
+
+1. Số vi phạm là **sự thật kiểm chứng được**, không phải ý kiến về chất lượng code.
+2. Ngưỡng trong code làm hồi quy **không thể lọt qua**.
+3. Bảng sprint biến một việc mơ hồ thành các bước có kích thước biết trước.
+4. Có người phụ trách nghĩa là có người nhớ.
+
+**Và điều quan trọng nhất: đưa test vào CI ngay từ ngày đầu**, kể cả khi ngưỡng đang là 87.
+
+```yaml
+- name: Kiến trúc test
+  run: dotnet test tests/Crm.ArchitectureTests --no-build
+```
+
+Giá trị lớn nhất không phải là 87 vi phạm hiện có — mà là **vi phạm thứ 88 không bao giờ xuất hiện**. Đó là lợi ích bạn nhận được ngay hôm nay, trước khi sửa dòng nào.
+
+</details>
+
+---
+
+#### Bài 3 — Viết lập luận kiến trúc
+
+Với dự án hiện tại, viết một trang giải thích vì sao chọn kiểu kiến trúc đang dùng, kèm chi phí và lợi ích cụ thể.
+
+**Tiêu chí hoàn thành:** tài liệu của bạn nêu được **cái giá** chứ không chỉ lợi ích, và có ít nhất một con số đo được.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Một tài liệu chỉ nói về lợi ích là quảng cáo, không phải lập luận.
+
+**Lời giải — dùng định dạng ADR (Architecture Decision Record):**
+
+```markdown
+# ADR-001: Clean Architecture cho đường ghi, truy vấn thẳng cho đường đọc
+
+- **Trạng thái:** Đã chấp nhận
+- **Ngày:** 2026-09-25
+- **Người quyết định:** Nhóm backend CRM
+- **Bối cảnh liên quan:** ADR-002 (chọn EF Core), ADR-005 (bỏ IRepository generic)
+
+## Bối cảnh
+
+Hệ thống CRM phục vụ 50 tenant, khoảng 200.000 lead. Hiện tại:
+
+- Quy tắc nghiệp vụ nằm rải ở controller, service và job. Đo được ngưỡng
+  duyệt lead xuất hiện ở **7 file với 3 phiên bản khác nhau** — trong đó
+  một phiên bản dùng `>` còn một phiên bản dùng `>=`.
+- Dữ liệu vi phạm bất biến đã tồn tại: **1.284 lead** ở trạng thái Won
+  mà không có `ClosedUtc`.
+- `LeadService` có **687 dòng, 14 dependency**, và có **31 merge conflict**
+  trong 6 tháng qua.
+- Có **4 đường ghi** vào bảng Leads: API, job import, message consumer,
+  và một job SQL Agent.
+
+Dự kiến 18 tháng tới: thêm module báo giá, module hợp đồng, và tích hợp
+với hệ thống kế toán.
+
+## Quyết định
+
+**Đường ghi** đi qua Clean Architecture đầy đủ:
+- Quy tắc nghiệp vụ nằm trong entity, `private set` cho mọi thuộc tính
+  có bất biến.
+- Handler điều phối; `Crm.Domain` không tham chiếu gói nào ngoài BCL.
+
+**Đường đọc** gọi `DbContext` trực tiếp trong handler, trả về DTO.
+
+## Lý do
+
+Đường ghi và đường đọc có nhu cầu ngược nhau:
+
+- Ghi thay đổi trạng thái -> có bất biến phải bảo vệ -> lớp trừu tượng
+  đảm bảo mọi đường ghi tuân thủ cùng một quy tắc.
+- Đọc không thay đổi trạng thái -> không có bất biến -> lớp trừu tượng
+  chỉ là chi phí.
+
+Đo được: truy vấn danh sách có phân trang qua repository thuần khiết mất
+**3,4 giây và 420 MB**; qua `DbContext` trực tiếp mất **12 ms và 40 KB**.
+
+## Cái giá — chúng tôi chấp nhận những điều sau
+
+1. **Thêm một trường vào response tốn 5–7 file** thay vì 1 file.
+   Đo được: 7 file cho trường `SoNgayTonTai`.
+   Chấp nhận vì thay đổi này xảy ra khoảng 3 lần mỗi tuần, còn thay đổi
+   quy tắc nghiệp vụ — thứ đắt hơn nhiều nếu làm sai — xảy ra hằng tháng.
+
+2. **Người mới cần khoảng 2 tuần** để quen với cấu trúc, so với khoảng
+   3 ngày cho kiến trúc phẳng.
+   Giảm thiểu bằng: tài liệu này, một slice mẫu có chú thích đầy đủ, và
+   kèm cặp trong hai tuần đầu.
+
+3. **Domain không dùng được `Include`, `AsNoTracking`, `ExecuteUpdate`.**
+   Chấp nhận vì những tính năng đó thuộc đường đọc, và đường đọc không
+   đi qua Domain.
+
+4. **Chúng tôi cố tình KHÔNG dùng `IRepository<T>` generic** — xem ADR-005.
+   Nó chặn quá nhiều tính năng EF Core mà không bảo vệ thêm bất biến nào.
+
+5. **Chi phí ban đầu khoảng 3 sprint** để gỡ `LeadService` và `OrderService`,
+   làm dần theo quy tắc "chạm đâu gỡ đó", không có sprint riêng.
+
+## Các phương án đã cân nhắc
+
+| Phương án | Vì sao không chọn |
+|---|---|
+| Giữ nguyên hiện trạng | 4 đường ghi với 3 hành vi khác nhau; dữ liệu sai đang tích tụ |
+| Vertical Slice hoàn toàn | Không giải quyết được việc quy tắc bị nhân bản qua các slice |
+| Clean Architecture cho CẢ đường đọc | Đo được chậm hơn 280 lần; không bảo vệ thêm bất biến nào |
+| Microservices | Nhóm 6 người, một database; chi phí vận hành không xứng — xem ADR-008 |
+
+## Cách chúng tôi biết quyết định này đúng hay sai
+
+Đo lại sau 6 tháng (2027-03-25):
+
+| Chỉ số | Hiện tại | Mục tiêu |
+|---|---:|---:|
+| Số file phải sửa khi đổi một quy tắc nghiệp vụ | 7 | **1** |
+| Dòng vi phạm bất biến trong database | 1.284 | **0** |
+| Merge conflict mỗi tuần | 5 | **dưới 2** |
+| Thời gian chạy unit test của Domain | — | **dưới 10 giây** |
+| Dependency trung bình mỗi handler | 14 | **dưới 5** |
+
+**Nếu sau 6 tháng ba chỉ số đầu không cải thiện**, quyết định này sai và
+chúng tôi sẽ xem lại — có thể chuyển hẳn sang Vertical Slice với domain
+model mỏng hơn.
+```
+
+**Năm thứ làm một ADR tốt — và bốn trong số đó thường bị thiếu:**
+
+**1. Có con số, không chỉ tính từ.**
+
+```text
+Kém:  "code hiện tại khó bảo trì"
+Tốt:  "ngưỡng duyệt xuất hiện ở 7 file với 3 phiên bản khác nhau"
+```
+
+**2. Có mục "cái giá".** Đây là phần bị thiếu thường xuyên nhất, và là phần làm tài liệu đáng tin. Một ADR chỉ nói lợi ích khiến người đọc nghi ngờ mọi điều còn lại.
+
+**3. Nêu các phương án đã loại, kèm lý do.** Sáu tháng sau sẽ có người hỏi "sao không dùng X?" — và nếu X đã nằm trong bảng, cuộc trò chuyện kết thúc trong một phút thay vì một cuộc họp.
+
+**4. Có tiêu chí biết mình sai.** Đây là phần phân biệt một quyết định kỹ thuật với một niềm tin. Nếu không có cách nào biết quyết định sai, thì nó không phải quyết định mà là sở thích.
+
+**5. Ghi rõ những gì cố tình KHÔNG làm.** Mục 4 trong "cái giá" ở trên ngăn được việc ai đó thêm `IRepository<T>` vào sáu tháng sau vì "đó là chuẩn Clean Architecture".
+
+**Nơi đặt và cách bảo trì:**
+
+```text
+docs/architecture-decisions/
+    0001-clean-architecture-cho-duong-ghi.md
+    0002-chon-ef-core.md
+    0005-bo-irepository-generic.md
+    0008-khong-dung-microservices.md
+    README.md          <- danh sách và trạng thái
+```
+
+```markdown
+| # | Tiêu đề | Trạng thái | Ngày |
+|---|---|---|---|
+| 001 | Clean Architecture cho đường ghi | Đã chấp nhận | 2026-09-25 |
+| 002 | Chọn EF Core | Đã chấp nhận | 2025-03-10 |
+| 005 | Bỏ IRepository generic | Đã chấp nhận | 2026-06-14 |
+| 008 | Không dùng microservices | Đã chấp nhận | 2026-08-02 |
+| 003 | Dùng MongoDB cho log | **Đã thay thế bởi 009** | 2025-11-20 |
+```
+
+**Quy tắc quan trọng: ADR là bất biến.** Khi quyết định đổi, **không sửa** ADR cũ — viết ADR mới và đánh dấu cái cũ là "đã thay thế". Lý do: giá trị của ADR không nằm ở việc nó mô tả hiện tại, mà ở việc nó ghi lại **bối cảnh tại thời điểm quyết định**. Sửa nó là xoá mất lý do vì sao người ta từng nghĩ khác.
+
+**Và một cách đơn giản để bắt đầu nếu dự án chưa có ADR nào:** viết ADR cho ba quyết định **đã** được đưa ra trong quá khứ. Nó buộc bạn phải diễn đạt được lý do — và bạn sẽ phát hiện ít nhất một quyết định mà không ai còn nhớ vì sao.
+
+</details>
 
 ## Tự kiểm tra
 
