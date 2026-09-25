@@ -142,11 +142,674 @@ Lập luận có dữ liệu thay vì tranh cãi quan điểm:
 
 ## Bài tập áp dụng
 
-1. **Kiểm tra điều kiện tiên quyết.** Với dự án hiện tại, trả lời đủ 5 câu hỏi ở mục 18.2.5 bằng số liệu thật, không bằng ước lượng.
+#### Bài 1 — Kiểm tra điều kiện tiên quyết
 
-2. **Dựng kiến trúc test ranh giới.** Thêm `NetArchTest.Rules` và viết test chặn một module tham chiếu nội bộ của module khác. Chạy trên dự án thật, đếm số vi phạm hiện có.
+Với dự án hiện tại, trả lời đủ 5 câu hỏi ở mục 18.2.5 bằng số liệu thật, không bằng ước lượng.
 
-3. **Tách schema.** Chọn hai module trong monolith của bạn, chuyển bảng sang hai schema riêng và tìm mọi truy vấn `JOIN` xuyên schema.
+**Tiêu chí hoàn thành:** mỗi câu trả lời có **một con số đo được**, và bạn nhận ra câu nào trong năm câu là câu quyết định.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** "Chúng tôi cần scale tốt hơn" không phải câu trả lời. "Endpoint báo cáo dùng 78% CPU trong khi phần còn lại dùng 12%" thì có.
+
+**Lời giải — đo từng câu:**
+
+**Câu 1 — Service nào cần scale khác phần còn lại?**
+
+```promql
+# CPU theo endpoint trong 30 ngày
+topk(10, sum by (http_route) (rate(process_cpu_seconds_total[30d])))
+```
+
+```bash
+# Hoặc từ log của reverse proxy
+awk '{print $7}' /var/log/nginx/access.log | sort | uniq -c | sort -rn | head -10
+```
+
+```text
+Endpoint                         Request/ngày   CPU trung bình   Bộ nhớ
+/api/leads                            842.104            12%      180 MB
+/api/bao-cao/tong-hop                   1.204            78%      2,1 GB
+/api/khach-hang                       412.008             8%      140 MB
+/api/dong-bo-erp                          412             4%      320 MB
+```
+
+```text
+Kết luận: /api/bao-cao dùng 78% CPU cho 0,1% lưu lượng
+          -> ĐÂY là ứng viên tách, và có số liệu chứng minh
+```
+
+Nếu mọi endpoint dùng CPU và bộ nhớ tương đương nhau, **không có nhu cầu scale khác biệt** — và một trong ba lý do chính đáng cho microservices không tồn tại.
+
+**Câu 2 — Deploy mất bao lâu, bao nhiêu bước thủ công?**
+
+```bash
+gh run list --workflow=deploy.yml --limit 20 \
+  --json durationMs,conclusion --jq '.[] | select(.conclusion=="success") | .durationMs' \
+  | awk '{s+=$1; n++} END {printf "Trung bình: %.1f phút qua %d lần\n", s/n/60000, n}'
+```
+
+```text
+Trung bình: 18.4 phút qua 20 lần
+```
+
+```markdown
+Bước thủ công hiện có:
+1. [ ] Chạy migration bằng tay trên production — 5 phút
+2. [ ] Xoá cache Redis bằng tay sau deploy — 2 phút
+3. [ ] Kiểm tra bằng mắt 3 endpoint chính — 5 phút
+4. [ ] Báo trong kênh chat — 1 phút
+
+-> 4 bước thủ công, khoảng 13 phút
+```
+
+```text
+Kết luận: CI/CD CHƯA tự động hoàn toàn.
+Với 1 dịch vụ: 13 phút thủ công mỗi lần deploy — khó chịu
+Với 8 dịch vụ: 104 phút thủ công — không khả thi
+```
+
+Đây là điều kiện tiên quyết **rõ ràng nhất**, và nó thường bị bỏ qua vì nó không thú vị bằng việc thiết kế kiến trúc.
+
+**Câu 3 — Ai trực sự cố cho từng service?**
+
+```markdown
+| Service dự kiến | Chủ sở hữu | Người trực chính | Người trực phụ |
+|---|---|---|---|
+| Identity | Đội A | An | Bình |
+| Lead | Đội A | An | Bình |
+| Billing | Đội B | Cường | ? |
+| Notification | ? | ? | ? |
+| Reporting | ? | ? | ? |
+| ERP Sync | Đội B | Cường | ? |
+```
+
+```text
+Kết luận: 6 service dự kiến, 3 người có thể trực, 3 service không có chủ
+-> An sẽ trực 2 service, Cường trực 2, và 2 service không ai lo
+-> đội 6 người không vận hành được 6 service
+```
+
+Quy tắc thường được nhắc tới: **một service cần ít nhất 3–4 người để có lịch trực bền vững.** Đội 6 người vận hành được khoảng 2 service.
+
+**Câu 4 — Trace một request qua 4 service mất bao lâu?**
+
+```bash
+grep -rn "AddOpenTelemetry\|AddSource\|TraceId" --include="*.cs" src/ | wc -l
+```
+
+```text
+0
+```
+
+```text
+Kết luận: KHÔNG có distributed tracing
+-> trace một request qua 4 service = đọc 4 file log,
+   ghép bằng dấu thời gian
+-> ước lượng: 30–60 phút cho MỘT request, và thường không ghép được
+```
+
+Nếu con số này không phải "vài giây", bạn chưa sẵn sàng. Sự cố đầu tiên trong hệ nhiều dịch vụ sẽ mất nhiều giờ để chẩn đoán ([bài 18.5](18.5-observability-three-pillars.mdx)).
+
+**Câu 5 — Nếu sai, quay lại monolith mất bao lâu?**
+
+```markdown
+Ước lượng quay lại từ 4 service về monolith:
+- Gộp code:                      2 tuần
+- Gộp 4 database về 1:           3 tuần (di chuyển dữ liệu, sửa khoá ngoại)
+- Sửa mọi lời gọi HTTP thành gọi trực tiếp:  2 tuần
+- Test lại toàn bộ:              2 tuần
+-> Tổng: khoảng 9 tuần
+```
+
+```text
+Kết luận: quyết định này khó đảo ngược.
+-> phải chắc chắn hơn nhiều so với một quyết định đảo ngược được trong một ngày
+```
+
+**Câu nào là câu quyết định — câu 1.**
+
+```text
+Câu 2, 3, 4:  điều kiện TIÊN QUYẾT — thiếu thì phải bổ sung trước
+Câu 5:        đo mức rủi ro
+Câu 1:        LÝ DO — nếu không có, mọi câu khác vô nghĩa
+```
+
+Không có câu trả lời cụ thể cho câu 1, bạn đang giải một bài toán không tồn tại. Và đây là trường hợp phổ biến nhất: đội muốn microservices vì nó là kiến trúc được nói tới nhiều, không vì một vấn đề cụ thể.
+
+**Ba lý do chính đáng — cần ít nhất một:**
+
+```text
+1. Yêu cầu scale KHÁC BIỆT RÕ RỆT, có số liệu
+   (một phần dùng 78% CPU cho 0,1% lưu lượng)
+
+2. Nhiều đội cần triển khai ĐỘC LẬP, và ranh giới đội ĐÃ RÕ
+   (không phải "sẽ rõ sau khi tách")
+
+3. Yêu cầu tuân thủ buộc CÁCH LY DỮ LIỆU
+   (dữ liệu y tế, thanh toán phải nằm ở hạ tầng riêng)
+```
+
+**Ba lý do KHÔNG chính đáng:**
+
+```text
+1. "Monolith là lỗi thời"
+2. "Chúng tôi muốn dùng nhiều ngôn ngữ"
+3. "Code đang rối"
+```
+
+Lý do 3 đáng nói kỹ: **tách dịch vụ không sửa được kiến trúc tệ.** Nó thêm ranh giới mạng vào giữa code đã rối, và bạn có một hệ phân tán rối — khó sửa hơn nhiều.
+
+**Viết kết quả thành một trang:**
+
+```markdown
+## Đánh giá tách microservices — 2026-09-25
+
+| Câu hỏi | Trả lời | Kết luận |
+|---|---|---|
+| Ai cần scale khác? | Báo cáo: 78% CPU / 0,1% lưu lượng | **CÓ lý do, cho 1 service** |
+| Deploy bao lâu? | 18,4 phút + 13 phút thủ công | **Chưa đủ điều kiện** |
+| Ai trực? | 3 người cho 6 service dự kiến | **Chưa đủ nhân lực** |
+| Trace 4 service? | Không có tracing | **Chưa đủ điều kiện** |
+| Quay lại mất bao lâu? | ~9 tuần | Rủi ro cao |
+
+## Đề xuất
+1. Tách DUY NHẤT service báo cáo (có lý do rõ, ít phụ thuộc)
+2. Trước đó: tự động hoá 4 bước deploy thủ công (2 tuần)
+3. Trước đó: dựng OpenTelemetry (1 tuần)
+4. Phần còn lại: giữ monolith, làm modular monolith
+5. Đánh giá lại sau 6 tháng
+```
+
+Đề xuất "tách một service" thường được chấp nhận dễ hơn nhiều so với "chưa tách gì cả" — và nó cho bạn kinh nghiệm thật trước khi quyết định về phần còn lại.
+
+</details>
+
+---
+
+#### Bài 2 — Kiến trúc test cho ranh giới module
+
+Thêm `NetArchTest.Rules` và viết test chặn một module tham chiếu nội bộ của module khác. Chạy trên dự án thật, đếm số vi phạm hiện có.
+
+**Tiêu chí hoàn thành:** bạn đếm được vi phạm, và hiểu vì sao con số này **dự báo** chi phí tách service.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Nếu module A gọi thẳng vào lớp nội bộ của module B, chuyện gì xảy ra khi B trở thành một service riêng?
+
+**Lời giải — cấu trúc modular monolith:**
+
+```text
+src/Crm.Api/
+  Modules/
+    Leads/
+      Contracts/          <- PUBLIC: interface và DTO cho module khác dùng
+        ILeadQueries.cs
+        LeadSummaryDto.cs
+      Domain/             <- NỘI BỘ
+      Infrastructure/     <- NỘI BỘ
+      Features/           <- NỘI BỘ
+    Billing/
+      Contracts/
+      Domain/
+      ...
+```
+
+```csharp
+[Fact]
+public void Module_chi_duoc_tham_chieu_Contracts_cua_module_khac()
+{
+    var modules = new[] { "Leads", "Billing", "Notification", "Reporting", "Identity" };
+    var viPham = new List<string>();
+
+    foreach (var module in modules)
+    {
+        var namespaceKhac = modules
+            .Where(m => m != module)
+            .SelectMany(m => new[]
+            {
+                $"Crm.Api.Modules.{m}.Domain",
+                $"Crm.Api.Modules.{m}.Infrastructure",
+                $"Crm.Api.Modules.{m}.Features",
+            })
+            .ToArray();
+
+        var kq = Types.InAssembly(typeof(Program).Assembly)
+            .That().ResideInNamespace($"Crm.Api.Modules.{module}")
+            .ShouldNot().HaveDependencyOnAny(namespaceKhac)
+            .GetResult();
+
+        if (!kq.IsSuccessful)
+            viPham.AddRange((kq.FailingTypeNames ?? []).Select(t => $"{module}: {t}"));
+    }
+
+    viPham.Should().BeEmpty(
+        "module chỉ được dùng Contracts của module khác. Vi phạm: {0}",
+        string.Join("\n  ", viPham));
+}
+```
+
+```text
+Xpect: module chỉ được dùng Contracts của module khác. Vi phạm:
+  Billing: Crm.Api.Modules.Billing.Features.TaoHoaDonHandler
+  Billing: Crm.Api.Modules.Billing.Domain.Invoice
+  Notification: Crm.Api.Modules.Notification.Features.GuiEmailHandler
+  Reporting: Crm.Api.Modules.Reporting.Features.BaoCaoDoanhSoHandler
+  ... (34 kiểu)
+```
+
+**34 vi phạm.**
+
+**Vì sao con số này dự báo chi phí tách service:**
+
+```text
+Mỗi vi phạm là một chỗ mà module A gọi thẳng vào nội bộ của B.
+
+Khi B thành service riêng:
+    lời gọi trong tiến trình  ->  lời gọi mạng
+    đồng bộ, không thể lỗi     ->  bất đồng bộ, có thể timeout
+    dữ liệu mới nhất           ->  có thể cũ
+    transaction chung          ->  KHÔNG có transaction chung
+```
+
+Mỗi vi phạm cần một trong bốn cách xử lý, với chi phí rất khác nhau:
+
+| Cách | Chi phí | Khi nào dùng |
+|---|---|---|
+| Thêm vào `Contracts` của B | **Thấp** — chỉ là interface | A cần đọc dữ liệu của B |
+| Nhân bản dữ liệu qua event | Trung bình | A cần dữ liệu của B thường xuyên |
+| Gọi HTTP/gRPC | Trung bình | A cần dữ liệu tươi, chấp nhận coupling |
+| **Thiết kế lại ranh giới** | **Cao** | A và B chia sẻ một transaction |
+
+**Phân loại 34 vi phạm:**
+
+```csharp
+[Fact]
+public void Phan_loai_vi_pham_theo_muc_do()
+{
+    // Vi phạm ĐỌC — dễ sửa
+    var doc = TimViPham(chiDoc: true);
+
+    // Vi phạm GHI — khó, vì có thể đang chia sẻ transaction
+    var ghi = TimViPhamGhi();
+
+    _output.WriteLine($"Vi phạm ĐỌC: {doc.Count}  -> thêm vào Contracts");
+    _output.WriteLine($"Vi phạm GHI: {ghi.Count}  -> cần thiết kế lại");
+}
+```
+
+```text
+Vi phạm ĐỌC: 28  -> thêm vào Contracts
+Vi phạm GHI:  6  -> cần thiết kế lại
+```
+
+**Sáu vi phạm ghi là phần đắt nhất**, và chúng thường có hình dạng này:
+
+```csharp
+// Billing gọi thẳng vào Domain của Leads
+public async Task<Result> TaoHoaDonAsync(LeadId leadId, CancellationToken ct)
+{
+    var lead = await _db.Leads.FirstAsync(l => l.Id == leadId, ct);
+    lead.DanhDauDaXuatHoaDon();                      // GHI vào entity của module khác
+
+    var hoaDon = Invoice.Tao(lead.CustomerId, lead.Value);
+    _db.Invoices.Add(hoaDon);
+
+    await _db.SaveChangesAsync(ct);                  // MỘT transaction cho CẢ HAI module
+}
+```
+
+```text
+Khi tách:
+    hai database riêng
+    -> không có transaction chung
+    -> "đánh dấu đã xuất hoá đơn" và "tạo hoá đơn" có thể lệch nhau
+    -> cần saga có bù trừ ([bài 17.11](../module-17-distributed-systems/17.11-advanced-notes.mdx))
+```
+
+**Và đây là tín hiệu quan trọng nhất: nếu hai module chia sẻ transaction, chúng có lẽ THUỘC VỀ NHAU.**
+
+```text
+6 vi phạm ghi giữa Leads và Billing
+-> hai module này luôn thay đổi cùng nhau
+-> tách chúng = tạo ra một saga phức tạp cho thứ vốn là một transaction
+-> cân nhắc GIỮ CHUNG trong một service
+```
+
+**Sửa vi phạm đọc — thêm vào Contracts:**
+
+```csharp
+// Crm.Api/Modules/Leads/Contracts/ILeadQueries.cs
+public interface ILeadQueries
+{
+    Task<LeadSummaryDto?> LayTomTatAsync(Guid leadId, CancellationToken ct);
+    Task<IReadOnlyList<LeadSummaryDto>> LayTheoKhachHangAsync(Guid customerId, CancellationToken ct);
+}
+
+public sealed record LeadSummaryDto(Guid Id, string Ten, decimal GiaTri, string TrangThai);
+```
+
+```csharp
+// Billing dùng interface, KHÔNG dùng entity
+public class TaoHoaDonHandler(ILeadQueries leadQueries, CrmDbContext db)
+{
+    public async Task<Result> Handle(TaoHoaDonCommand c, CancellationToken ct)
+    {
+        var lead = await leadQueries.LayTomTatAsync(c.LeadId, ct);
+        if (lead is null) return Result.KhongTimThay();
+
+        db.Invoices.Add(Invoice.Tao(lead.Id, lead.GiaTri));
+        await db.SaveChangesAsync(ct);
+        return Result.ThanhCong();
+    }
+}
+```
+
+**Lợi ích ngay cả khi KHÔNG tách service:**
+
+```text
+1. Ranh giới rõ -> đọc code dễ hơn
+2. Đổi nội bộ module Leads không ảnh hưởng Billing
+3. Test Billing chỉ cần fake ILeadQueries
+4. NẾU tách service sau này -> đổi phần cài đặt ILeadQueries thành HTTP client
+```
+
+Điểm 4 là điểm quan trọng nhất: **modular monolith với ranh giới rõ là bước chuẩn bị tốt nhất cho microservices** — và nếu bạn không bao giờ tách, bạn vẫn có một codebase tốt hơn.
+
+**Áp dụng ratchet:**
+
+```csharp
+private const int NguongViPham = 34;
+
+[Fact]
+public void So_vi_pham_ranh_gioi_chi_duoc_giam()
+{
+    var soViPham = DemViPham();
+    soViPham.Should().BeLessThanOrEqualTo(NguongViPham,
+        "số vi phạm tăng từ {0} lên {1}", NguongViPham, soViPham);
+}
+```
+
+Và theo dõi con số theo thời gian:
+
+```markdown
+| Tuần | Vi phạm đọc | Vi phạm ghi | Ghi chú |
+|---|---:|---:|---|
+| 0 | 28 | 6 | Đo lần đầu |
+| 4 | 12 | 6 | Thêm ILeadQueries, IBillingQueries |
+| 8 | 0 | 6 | Xong vi phạm đọc |
+| 12 | 0 | 2 | Gộp Leads và Billing thành một module |
+```
+
+Dòng cuối là kết luận mà số liệu dẫn tới: **hai module chia sẻ transaction thì gộp lại, đừng tách ra.**
+
+</details>
+
+---
+
+#### Bài 3 — Tách schema
+
+Chọn hai module trong monolith của bạn, chuyển bảng sang hai schema riêng và tìm mọi truy vấn `JOIN` xuyên schema.
+
+**Tiêu chí hoàn thành:** bạn tìm được mọi `JOIN` xuyên schema, và biết ba cách xử lý cùng chi phí của từng cách.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Mỗi `JOIN` xuyên schema là một `JOIN` sẽ **không còn tồn tại** khi tách database.
+
+**Lời giải — tách schema:**
+
+```sql
+CREATE SCHEMA leads;
+CREATE SCHEMA billing;
+
+ALTER SCHEMA leads   TRANSFER dbo.Leads;
+ALTER SCHEMA leads   TRANSFER dbo.LeadActivities;
+ALTER SCHEMA leads   TRANSFER dbo.LeadNotes;
+
+ALTER SCHEMA billing TRANSFER dbo.Invoices;
+ALTER SCHEMA billing TRANSFER dbo.InvoiceLines;
+ALTER SCHEMA billing TRANSFER dbo.Subscriptions;
+```
+
+```csharp
+builder.Entity<Lead>().ToTable("Leads", "leads");
+builder.Entity<Invoice>().ToTable("Invoices", "billing");
+```
+
+**Tìm `JOIN` xuyên schema:**
+
+```sql
+-- Khoá ngoại xuyên schema — dễ tìm nhất
+SELECT
+    fk.name AS TenKhoaNgoai,
+    SCHEMA_NAME(tp.schema_id) + '.' + tp.name AS BangCha,
+    SCHEMA_NAME(tr.schema_id) + '.' + tr.name AS BangCon
+FROM sys.foreign_keys fk
+JOIN sys.tables tp ON tp.object_id = fk.referenced_object_id
+JOIN sys.tables tr ON tr.object_id = fk.parent_object_id
+WHERE SCHEMA_NAME(tp.schema_id) <> SCHEMA_NAME(tr.schema_id)
+  AND SCHEMA_NAME(tp.schema_id) IN ('leads', 'billing')
+ORDER BY BangCha;
+```
+
+```text
+TenKhoaNgoai              BangCha        BangCon
+FK_Invoices_Leads         leads.Leads    billing.Invoices
+FK_Subscriptions_Leads    leads.Leads    billing.Subscriptions
+```
+
+```sql
+-- JOIN trong view, stored procedure, function
+SELECT o.name, o.type_desc
+FROM sys.sql_modules m
+JOIN sys.objects o ON o.object_id = m.object_id
+WHERE m.definition LIKE '%leads.%' AND m.definition LIKE '%billing.%';
+```
+
+```text
+name                        type_desc
+vw_BaoCaoDoanhSo            VIEW
+sp_TinhHoaHongNhanVien      SQL_STORED_PROCEDURE
+```
+
+```bash
+# JOIN trong LINQ — tìm qua code
+grep -rn "\.Include(\|join .* in \|\.Leads\." --include="*.cs" src/Crm.Api/Modules/Billing/
+```
+
+```csharp
+// Tìm được
+var hoaDon = await _db.Invoices
+    .Include(i => i.Lead)                    // JOIN xuyên schema
+    .Where(i => i.Lead.TrangThai == "Won")   // và lọc theo cột của module khác
+    .ToListAsync(ct);
+```
+
+**Cách chắc chắn nhất — bật log SQL và chạy bộ test:**
+
+```csharp
+options.UseSqlServer(conn).LogTo(sql =>
+{
+    if (sql.Contains("leads.") && sql.Contains("billing."))
+        File.AppendAllText("join-xuyen-schema.log", sql + "\n---\n");
+}, LogLevel.Information);
+```
+
+```bash
+dotnet test
+wc -l join-xuyen-schema.log
+```
+
+```text
+Tìm thấy 18 truy vấn JOIN xuyên schema
+```
+
+**Ba cách xử lý, với chi phí thật:**
+
+**Cách 1 — nhân bản dữ liệu qua event (phổ biến nhất):**
+
+```csharp
+// Billing giữ bản sao TỐI THIỂU của dữ liệu Lead mà nó cần
+public class LeadSnapshot
+{
+    public Guid     LeadId      { get; private set; }
+    public string   Ten         { get; private set; } = null!;
+    public decimal  GiaTri      { get; private set; }
+    public string   TrangThai   { get; private set; } = null!;
+    public DateTime CapNhatLuc  { get; private set; }
+}
+```
+
+```csharp
+public class CapNhatLeadSnapshotConsumer : IConsumer<LeadDaCapNhatV1>
+{
+    public async Task Consume(ConsumeContext<LeadDaCapNhatV1> ctx)
+    {
+        var e = ctx.Message;
+        var snapshot = await _db.LeadSnapshots
+            .FirstOrDefaultAsync(s => s.LeadId == e.LeadId, ctx.CancellationToken);
+
+        if (snapshot is null)
+        {
+            _db.LeadSnapshots.Add(LeadSnapshot.Tao(e.LeadId, e.Ten, e.GiaTri, e.TrangThai));
+        }
+        else
+        {
+            // Bỏ qua event CŨ hơn — thứ tự message không được bảo đảm
+            if (snapshot.CapNhatLuc >= e.ThoiDiemUtc) return;
+            snapshot.CapNhat(e.Ten, e.GiaTri, e.TrangThai, e.ThoiDiemUtc);
+        }
+
+        await _db.SaveChangesAsync(ctx.CancellationToken);
+    }
+}
+```
+
+```csharp
+// JOIN giờ nằm TRONG schema billing
+var hoaDon = await _db.Invoices
+    .Join(_db.LeadSnapshots, i => i.LeadId, s => s.LeadId, (i, s) => new { i, s })
+    .Where(x => x.s.TrangThai == "Won")
+    .ToListAsync(ct);
+```
+
+```text
+Chi phí:
+    + Một bảng snapshot và một consumer cho mỗi module cần dữ liệu
+    + Dữ liệu có thể cũ vài trăm mili giây
+    + Cần xử lý thứ tự message (kiểm tra CapNhatLuc ở trên)
+    - JOIN vẫn nhanh (trong cùng database)
+    - Không phụ thuộc thời gian vào module kia
+```
+
+Đây là cách **đúng nhất về kiến trúc**, vì nó loại bỏ hẳn phụ thuộc thời gian.
+
+**Cách 2 — gọi qua interface (giữ trong monolith) hoặc HTTP (sau khi tách):**
+
+```csharp
+var hoaDon = await _db.Invoices.Where(...).ToListAsync(ct);
+var leadIds = hoaDon.Select(h => h.LeadId).Distinct().ToList();
+
+var leads = await _leadQueries.LayTheoIdsAsync(leadIds, ct);    // một lời gọi cho nhiều id
+
+var ketQua = hoaDon
+    .Join(leads, h => h.LeadId, l => l.Id, (h, l) => new { h, l })
+    .Where(x => x.l.TrangThai == "Won")
+    .ToList();
+```
+
+```text
+Chi phí:
+    + Phụ thuộc thời gian: module kia chết -> chức năng này chết
+    + Lọc trong BỘ NHỚ thay vì SQL -> phải nạp nhiều dữ liệu hơn
+    + Độ trễ mạng sau khi tách service
+    - Dữ liệu luôn mới nhất
+    - Không cần bảng snapshot
+```
+
+**Chú ý `LayTheoIdsAsync` nhận danh sách id** — gọi từng id một là N+1 qua mạng, và đó là lỗi phổ biến nhất sau khi tách service.
+
+**Cách 3 — thiết kế lại để không cần dữ liệu của module kia:**
+
+```csharp
+// Invoice LƯU thông tin cần thiết tại thời điểm tạo
+public class Invoice
+{
+    public Guid    LeadId        { get; private set; }
+    public string  TenLeadLucTao { get; private set; } = null!;   // snapshot tại thời điểm
+    public decimal GiaTriLucTao  { get; private set; }
+}
+```
+
+```text
+Chi phí:
+    - Không phụ thuộc gì cả
+    - Truy vấn nhanh nhất
+    + Dữ liệu là ảnh chụp, KHÔNG cập nhật khi lead đổi
+```
+
+**Và đây thường là cách ĐÚNG NHẤT về mặt nghiệp vụ**, không chỉ về kỹ thuật:
+
+```text
+Hoá đơn ghi "Công ty ABC, 5 triệu" tại thời điểm xuất.
+Nếu lead đổi tên thành "Công ty ABC Việt Nam" sau đó,
+hoá đơn CŨ vẫn phải ghi tên CŨ — đó là bản chất của chứng từ.
+```
+
+Nhiều `JOIN` xuyên module thật ra là dấu hiệu của **mô hình dữ liệu chưa đúng**: thông tin cần được đóng băng tại một thời điểm đang được tra cứu động.
+
+**Bảng chọn:**
+
+| Tình huống | Cách |
+|---|---|
+| Cần dữ liệu tại thời điểm xảy ra sự kiện | **Cách 3 — lưu vào chính bản ghi** |
+| Cần dữ liệu hiện tại, truy vấn thường xuyên | **Cách 1 — snapshot qua event** |
+| Cần dữ liệu tươi tuyệt đối, ít truy vấn | Cách 2 — gọi trực tiếp |
+| Truy vấn báo cáo tổng hợp nhiều module | Read model riêng, dựng từ event |
+
+**Xoá khoá ngoại xuyên schema:**
+
+```sql
+ALTER TABLE billing.Invoices DROP CONSTRAINT FK_Invoices_Leads;
+```
+
+```csharp
+builder.Entity<Invoice>()
+    .Property(i => i.LeadId)
+    .HasColumnName("LeadId");
+// KHÔNG khai HasOne(i => i.Lead)
+```
+
+Mất khoá ngoại nghĩa là mất một lớp bảo vệ toàn vẹn — bù lại bằng kiểm tra định kỳ:
+
+```sql
+-- Hoá đơn trỏ tới lead không tồn tại
+SELECT COUNT(*) FROM billing.Invoices i
+WHERE NOT EXISTS (SELECT 1 FROM leads.Leads l WHERE l.Id = i.LeadId);
+```
+
+```text
+Cảnh báo khi con số này khác 0.
+```
+
+**Chặn `JOIN` xuyên schema quay lại:**
+
+```csharp
+options.UseSqlServer(conn).LogTo(sql =>
+{
+    if (sql.Contains("[leads].") && sql.Contains("[billing]."))
+        throw new InvalidOperationException(
+            $"JOIN xuyên schema bị cấm. SQL: {sql[..Math.Min(500, sql.Length)]}");
+}, LogLevel.Information);
+```
+
+Bật ở môi trường test và dev, tắt ở production. Nó bắt được đúng lúc ai đó thêm một `Include` mới — và thông điệp lỗi kèm câu SQL nói rõ vấn đề nằm ở đâu.
+
+</details>
 
 ## Tự kiểm tra
 
