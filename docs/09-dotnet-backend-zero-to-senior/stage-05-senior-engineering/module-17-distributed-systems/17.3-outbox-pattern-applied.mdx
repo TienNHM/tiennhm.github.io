@@ -260,11 +260,603 @@ Khuyến nghị: **tự viết một lần để hiểu**, rồi dùng framework
 
 ## Bài tập áp dụng
 
-1. **Chứng minh outbox không mất tin.** Ghi outbox trong cùng transaction, chèn `Environment.FailFast` ngay sau `SaveChangesAsync`. Khởi động lại và xác nhận dispatcher vẫn publish được message.
+#### Bài 1 — Chứng minh outbox không mất tin
 
-2. **Tái hiện publish trùng do nhiều instance.** Chạy hai dispatcher không dùng `READPAST` trên cùng database, đếm số lần mỗi message được publish. Thêm `READPAST` và đo lại.
+Ghi outbox trong cùng transaction, chèn `Environment.FailFast` ngay sau `SaveChangesAsync`. Khởi động lại và xác nhận dispatcher vẫn publish được message.
 
-3. **Đo tác dụng của filtered index.** Tạo một triệu hàng đã xử lý, chạy truy vấn poll, xem execution plan trước và sau khi thêm filtered index.
+**Tiêu chí hoàn thành:** bạn chỉ ra được **chính xác** chỗ mà khoảnh khắc "chết giữa chừng" chuyển sang, và vì sao chỗ mới vô hại.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Outbox không loại bỏ khoảnh khắc nguy hiểm. Nó di chuyển khoảnh khắc đó.
+
+**Lời giải — cài đặt:**
+
+```csharp
+public class TinNhanOutbox
+{
+    public Guid      Id           { get; private set; }
+    public string    LoaiMessage  { get; private set; } = null!;
+    public string    NoiDung      { get; private set; } = null!;
+    public DateTime  TaoLuc       { get; private set; }
+    public DateTime? GuiLuc       { get; private set; }
+    public int       SoLanThu     { get; private set; }
+    public string?   LoiGanNhat   { get; private set; }
+
+    private TinNhanOutbox() { }
+
+    public static TinNhanOutbox Tao<T>(T message) where T : class => new()
+    {
+        Id          = Guid.CreateVersion7(),
+        LoaiMessage = typeof(T).AssemblyQualifiedName!,
+        NoiDung     = JsonSerializer.Serialize(message),
+        TaoLuc      = DateTime.UtcNow,
+    };
+
+    public void DanhDauDaGui(DateTime bayGio) => GuiLuc = bayGio;
+    public void GhiNhanLoi(string loi) { SoLanThu++; LoiGanNhat = loi; }
+}
+```
+
+```csharp
+public async Task<Result> ChotLeadAsync(LeadId id, CancellationToken ct)
+{
+    var lead = await _db.Leads.FirstAsync(l => l.Id == id, ct);
+    var kq = lead.ChuyenSangWon(_user.ToNguoiDung(), _clock.GetUtcNow().UtcDateTime);
+    if (!kq.ThanhCong) return kq;
+
+    _db.Outbox.Add(TinNhanOutbox.Tao(new LeadDaChotV1(
+        EventId: Guid.CreateVersion7(), LeadId: lead.Id.Value, GiaTri: lead.Value.Amount)));
+
+    await _db.SaveChangesAsync(ct);                    // MỘT điểm commit
+
+    Environment.FailFast("Mô phỏng tiến trình chết");
+
+    return Result.ThanhCong();
+}
+```
+
+```bash
+curl -X POST http://localhost:8080/leads/abc-123/chot     # tiến trình chết
+```
+
+```sql
+SELECT Id, Status FROM Leads WHERE Id = 'abc-123';
+SELECT Id, LoaiMessage, GuiLuc, SoLanThu FROM Outbox WHERE GuiLuc IS NULL;
+```
+
+```text
+abc-123    Won
+
+Id                LoaiMessage       GuiLuc   SoLanThu
+0192f8a3-...      LeadDaChotV1      NULL     0
+```
+
+**Lead đã chốt VÀ message đã được ghi** — cả hai trong cùng một transaction, nên chúng cùng tồn tại hoặc cùng không.
+
+```bash
+dotnet run --project src/Crm.Worker
+```
+
+```text
+[OutboxDispatcher] Tìm thấy 1 message chưa gửi
+[OutboxDispatcher] Đã publish LeadDaChotV1 0192f8a3-...
+```
+
+```bash
+rabbitmqctl list_queues name messages
+```
+
+```text
+erp-tao-don-hang    1
+```
+
+**Khoảnh khắc nguy hiểm chuyển sang đâu:**
+
+```text
+TRƯỚC (không outbox):
+    [ghi database] ---- KHOẢNH KHẮC NGUY HIỂM ---- [publish]
+    chết ở đây -> MẤT MESSAGE, không phục hồi được
+
+SAU (có outbox):
+    [ghi database + outbox trong một transaction]
+                   ↓
+    [dispatcher: publish] ---- KHOẢNH KHẮC NGUY HIỂM ---- [đánh dấu GuiLuc]
+    chết ở đây -> message được publish LẠI -> TRÙNG LẶP
+```
+
+**Vì sao chỗ mới vô hại:**
+
+```text
+Mất message:  không phục hồi được bằng bất cứ cách nào
+              hệ quả nghiệp vụ không bao giờ xảy ra
+              không ai biết
+
+Trùng message: xử lý được bằng consumer idempotent (bài 17.2)
+               consumer thứ hai thấy đã xử lý rồi và bỏ qua
+               phát hiện được, đo được
+```
+
+Outbox **không loại bỏ** vấn đề hai tướng quân — nó chuyển hậu quả từ dạng không xử lý được sang dạng xử lý được.
+
+```text
+Bảo đảm:           AT-LEAST-ONCE
+Nghĩa vụ kèm theo: consumer PHẢI idempotent
+```
+
+**Dispatcher:**
+
+```csharp
+public class OutboxDispatcher(IServiceScopeFactory scopeFactory,
+                              ILogger<OutboxDispatcher> logger) : BackgroundService
+{
+    protected override async Task ExecuteAsync(CancellationToken ct)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+        while (await timer.WaitForNextTickAsync(ct))
+        {
+            try { await XuLyMotVongAsync(ct); }
+            catch (Exception ex) { logger.LogError(ex, "Lỗi trong vòng dispatch"); }
+        }
+    }
+
+    private async Task XuLyMotVongAsync(CancellationToken ct)
+    {
+        await using var scope = scopeFactory.CreateAsyncScope();
+        var db  = scope.ServiceProvider.GetRequiredService<CrmDbContext>();
+        var bus = scope.ServiceProvider.GetRequiredService<IPublishEndpoint>();
+
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+
+        var chuaGui = await db.Outbox
+            .FromSql($@"
+                SELECT TOP (100) * FROM Outbox WITH (UPDLOCK, READPAST)
+                WHERE GuiLuc IS NULL AND SoLanThu < 10
+                ORDER BY TaoLuc")
+            .ToListAsync(ct);
+
+        foreach (var m in chuaGui)
+        {
+            try
+            {
+                var kieu = Type.GetType(m.LoaiMessage)!;
+                var msg  = JsonSerializer.Deserialize(m.NoiDung, kieu)!;
+                await bus.Publish(msg, kieu, ct);
+                m.DanhDauDaGui(DateTime.UtcNow);
+            }
+            catch (Exception ex)
+            {
+                m.GhiNhanLoi(ex.Message);
+                logger.LogWarning(ex, "Không publish được {Id}, lần {Lan}", m.Id, m.SoLanThu);
+            }
+        }
+
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+    }
+}
+```
+
+**Ba chi tiết trong dispatcher:**
+
+1. **`UPDLOCK, READPAST`** — cho phép nhiều instance chạy song song, chi tiết ở bài 2.
+2. **`SoLanThu < 10`** — message hỏng vĩnh viễn (kiểu không deserialize được) không chặn hàng đợi mãi.
+3. **`try`/`catch` trong vòng lặp, không quanh cả vòng** — một message hỏng không làm 99 message còn lại bị bỏ qua.
+
+**Và một chi tiết ít người để ý: `PeriodicTimer` 1 giây nghĩa là độ trễ trung bình 500 ms.** Với luồng cần nhanh hơn, kết hợp poll với đánh thức trực tiếp:
+
+```csharp
+// Sau khi SaveChanges thành công, đánh thức dispatcher
+_outboxSignal.Set();
+```
+
+```csharp
+// Trong dispatcher — chờ tín hiệu hoặc hết chu kỳ, cái nào đến trước
+await Task.WhenAny(_outboxSignal.WaitAsync(ct), timer.WaitForNextTickAsync(ct).AsTask());
+```
+
+Poll vẫn phải giữ làm lưới an toàn: tín hiệu chỉ hoạt động trong cùng tiến trình, và một instance khác ghi outbox thì instance này không nhận được tín hiệu.
+
+</details>
+
+---
+
+#### Bài 2 — Publish trùng do nhiều instance
+
+Chạy hai dispatcher không dùng `READPAST` trên cùng database, đếm số lần mỗi message được publish. Thêm `READPAST` và đo lại.
+
+**Tiêu chí hoàn thành:** bạn giải thích được `UPDLOCK` và `READPAST` làm gì, và nêu được phương án thay thế trên PostgreSQL.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Hai dispatcher cùng chạy `SELECT TOP 100 WHERE GuiLuc IS NULL`. Chúng lấy được gì?
+
+**Lời giải — không có hint:**
+
+```csharp
+var chuaGui = await db.Outbox
+    .Where(m => m.GuiLuc == null && m.SoLanThu < 10)
+    .OrderBy(m => m.TaoLuc)
+    .Take(100)
+    .ToListAsync(ct);
+```
+
+```bash
+dotnet run --project src/Crm.Worker &
+dotnet run --project src/Crm.Worker &
+# Ghi 1.000 message vào outbox
+```
+
+```bash
+rabbitmqctl list_queues name messages
+```
+
+```text
+erp-tao-don-hang    1847
+```
+
+**1.847 message cho 1.000 bản ghi outbox.** Phần lớn được publish hai lần.
+
+```text
+t=0,000  Dispatcher A: SELECT -> lấy message 1..100
+t=0,003  Dispatcher B: SELECT -> lấy message 1..100  (CÙNG tập)
+t=0,010  A publish 1..100
+t=0,014  B publish 1..100        <- trùng
+t=0,050  A: UPDATE GuiLuc, COMMIT
+t=0,055  B: UPDATE GuiLuc, COMMIT
+```
+
+**Với `UPDLOCK, READPAST`:**
+
+```csharp
+var chuaGui = await db.Outbox
+    .FromSql($@"
+        SELECT TOP (100) * FROM Outbox WITH (UPDLOCK, READPAST)
+        WHERE GuiLuc IS NULL AND SoLanThu < 10
+        ORDER BY TaoLuc")
+    .ToListAsync(ct);
+```
+
+```text
+erp-tao-don-hang    1000
+```
+
+Đúng 1.000. Không trùng.
+
+**`UPDLOCK` và `READPAST` làm gì:**
+
+**`UPDLOCK`** — lấy khoá update thay vì khoá đọc chia sẻ:
+
+```text
+Khoá S (mặc định):  nhiều giao dịch cùng đọc được
+                    -> A và B cùng SELECT được cùng dòng
+
+Khoá U (UPDLOCK):   chỉ MỘT giao dịch giữ được trên một dòng
+                    -> B không đọc được dòng A đang giữ
+```
+
+Khoá được giữ tới khi transaction kết thúc, nên các dòng A đã lấy không ai đụng được cho tới khi A commit.
+
+**`READPAST`** — bỏ qua dòng đang bị khoá thay vì chờ:
+
+```text
+Không có READPAST:  B thấy dòng 1..100 bị khoá -> CHỜ tới khi A commit
+                    -> hai dispatcher chạy TUẦN TỰ, không nhanh hơn một cái
+
+Có READPAST:        B BỎ QUA dòng 1..100 -> lấy 101..200
+                    -> hai dispatcher chạy SONG SONG, thông lượng gấp đôi
+```
+
+**Hai hint kết hợp cho đúng thứ cần: mỗi dòng được xử lý bởi đúng một dispatcher, và các dispatcher không chặn nhau.**
+
+```text
+UPDLOCK một mình:            không trùng, nhưng tuần tự (chậm)
+READPAST một mình:           vẫn trùng, vì khoá S không loại trừ
+UPDLOCK + READPAST:          không trùng, song song
+```
+
+**Trên PostgreSQL — `FOR UPDATE SKIP LOCKED`:**
+
+```csharp
+var chuaGui = await db.Outbox
+    .FromSql($@"
+        SELECT * FROM outbox
+        WHERE gui_luc IS NULL AND so_lan_thu < 10
+        ORDER BY tao_luc
+        LIMIT 100
+        FOR UPDATE SKIP LOCKED")
+    .ToListAsync(ct);
+```
+
+`FOR UPDATE` tương đương `UPDLOCK`; `SKIP LOCKED` tương đương `READPAST`. Cú pháp này cũng có trong MySQL 8.0+ và Oracle.
+
+**Hỗ trợ cả hai provider:**
+
+```csharp
+private IQueryable<TinNhanOutbox> LayMessageChuaGui(CrmDbContext db, int soLuong)
+    => db.Database.IsNpgsql()
+        ? db.Outbox.FromSql($@"
+              SELECT * FROM outbox WHERE gui_luc IS NULL AND so_lan_thu < 10
+              ORDER BY tao_luc LIMIT {soLuong} FOR UPDATE SKIP LOCKED")
+        : db.Outbox.FromSql($@"
+              SELECT TOP ({soLuong}) * FROM Outbox WITH (UPDLOCK, READPAST)
+              WHERE GuiLuc IS NULL AND SoLanThu < 10 ORDER BY TaoLuc");
+```
+
+**Ba phương án thay thế, và vì sao chúng kém hơn:**
+
+**1. Chỉ chạy MỘT dispatcher.**
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: crm-outbox-dispatcher }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+```
+
+Đơn giản, nhưng ba nhược điểm: không scale được khi lượng message tăng, một điểm lỗi duy nhất, và trong lúc rolling update vẫn có thể có hai pod cùng sống ([bài 14.11](../../stage-04-database-production/module-14-caching-background-jobs/14.11-mini-case-study.mdx)) — nên bạn vẫn cần `READPAST`.
+
+**2. Khoá phân tán qua Redis.**
+
+```csharp
+await using var khoa = await _redLock.CreateLockAsync("outbox-dispatcher", TimeSpan.FromMinutes(1));
+if (!khoa.IsAcquired) return;
+```
+
+Thêm một phụ thuộc, và có thể thất bại theo những cách khó lường — khoá hết hạn giữa chừng, Redis failover ([bài 14.11](../../stage-04-database-production/module-14-caching-background-jobs/14.11-mini-case-study.mdx)). `READPAST` không có vấn đề nào trong số đó, vì nó dùng chính database bạn đã có.
+
+**3. Chia theo hash.**
+
+```csharp
+var chiSo = int.Parse(Environment.GetEnvironmentVariable("INSTANCE_INDEX")!);
+var tong  = int.Parse(Environment.GetEnvironmentVariable("INSTANCE_COUNT")!);
+
+var chuaGui = await db.Outbox
+    .Where(m => m.GuiLuc == null && m.Id.GetHashCode() % tong == chiSo)
+    .ToListAsync(ct);
+```
+
+Hoạt động, nhưng cứng nhắc: đổi số instance phải cấu hình lại, và một instance chết nghĩa là phần của nó **không ai xử lý** cho tới khi nó quay lại.
+
+**`UPDLOCK, READPAST` tốt hơn cả ba** vì nó không thêm phụ thuộc, tự động cân bằng khi số instance đổi, và một instance chết thì các instance khác tiếp quản ngay (khoá được nhả khi kết nối đóng).
+
+**Kiểm chứng bằng test:**
+
+```csharp
+[Fact]
+public async Task Hai_dispatcher_khong_publish_trung()
+{
+    await TaoMessageOutboxAsync(soLuong: 1000);
+
+    var bus = new FakePublishEndpoint();
+    await Task.WhenAll(
+        ChayDispatcherAsync(bus, TimeSpan.FromSeconds(5)),
+        ChayDispatcherAsync(bus, TimeSpan.FromSeconds(5)));
+
+    bus.DaPublish.Should().HaveCount(1000);
+    bus.DaPublish.Select(m => m.Id).Should().OnlyHaveUniqueItems();
+}
+```
+
+Test này cần **database thật** — SQLite và provider in-memory không hỗ trợ `UPDLOCK`/`READPAST`, nên chúng sẽ cho test xanh ngay cả với bản có lỗi. Dùng Testcontainers với SQL Server hoặc PostgreSQL.
+
+**Và một chỉ số nên theo dõi:**
+
+```csharp
+_meter.CreateObservableGauge("outbox.pending", () =>
+    _db.Outbox.Count(m => m.GuiLuc == null));
+
+_meter.CreateObservableGauge("outbox.oldest_pending_seconds", () =>
+{
+    var somNhat = _db.Outbox.Where(m => m.GuiLuc == null).Min(m => (DateTime?)m.TaoLuc);
+    return somNhat is null ? 0 : (DateTime.UtcNow - somNhat.Value).TotalSeconds;
+});
+```
+
+Chỉ số thứ hai quan trọng hơn: số message chờ có thể nhỏ mà vẫn có một message kẹt từ ba ngày trước vì `SoLanThu` đã chạm trần.
+
+</details>
+
+---
+
+#### Bài 3 — Đo tác dụng của filtered index
+
+Tạo một triệu hàng đã xử lý, chạy truy vấn poll, xem execution plan trước và sau khi thêm filtered index.
+
+**Tiêu chí hoàn thành:** bạn đọc được execution plan, và giải thích được vì sao filtered index **đặc biệt phù hợp** với bảng outbox.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Bảng có một triệu hàng, trong đó bao nhiêu hàng thoả `GuiLuc IS NULL`?
+
+**Lời giải — dữ liệu thử:**
+
+```sql
+INSERT INTO Outbox (Id, LoaiMessage, NoiDung, TaoLuc, GuiLuc, SoLanThu)
+SELECT TOP (1000000)
+    NEWID(), 'LeadDaChotV1', '{}',
+    DATEADD(SECOND, -ROW_NUMBER() OVER (ORDER BY (SELECT NULL)), SYSUTCDATETIME()),
+    DATEADD(SECOND, -ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) + 1, SYSUTCDATETIME()),
+    0
+FROM sys.all_columns a CROSS JOIN sys.all_columns b;
+
+-- 50 hàng chưa gửi
+INSERT INTO Outbox (Id, LoaiMessage, NoiDung, TaoLuc, GuiLuc, SoLanThu)
+SELECT TOP (50) NEWID(), 'LeadDaChotV1', '{}', SYSUTCDATETIME(), NULL, 0
+FROM sys.all_columns;
+```
+
+```sql
+SET STATISTICS IO ON;
+
+SELECT TOP (100) * FROM Outbox WITH (UPDLOCK, READPAST)
+WHERE GuiLuc IS NULL AND SoLanThu < 10
+ORDER BY TaoLuc;
+```
+
+```text
+|--Sort(ORDER BY:([TaoLuc] ASC))
+   |--Clustered Index Scan(OBJECT:([PK_Outbox]),
+          WHERE:([GuiLuc] IS NULL AND [SoLanThu]<(10)))
+
+Table 'Outbox'. Scan count 1, logical reads 48291
+CPU time = 312 ms, elapsed time = 340 ms
+```
+
+**Quét toàn bộ một triệu hàng để tìm 50 hàng.** Và nó chạy **mỗi giây**.
+
+**Thêm filtered index:**
+
+```sql
+CREATE NONCLUSTERED INDEX IX_Outbox_ChuaGui
+ON Outbox (TaoLuc)
+INCLUDE (LoaiMessage, NoiDung, SoLanThu)
+WHERE GuiLuc IS NULL;
+```
+
+```csharp
+builder.Entity<TinNhanOutbox>()
+    .HasIndex(m => m.TaoLuc)
+    .IncludeProperties(m => new { m.LoaiMessage, m.NoiDung, m.SoLanThu })
+    .HasFilter("[GuiLuc] IS NULL")
+    .HasDatabaseName("IX_Outbox_ChuaGui");
+```
+
+```text
+|--Top(TOP EXPRESSION:((100)))
+   |--Index Seek(OBJECT:([IX_Outbox_ChuaGui]), ORDERED FORWARD,
+          WHERE:([SoLanThu]<(10)))
+
+Table 'Outbox'. Scan count 1, logical reads 3
+CPU time = 0 ms, elapsed time = 1 ms
+```
+
+**Từ 48.291 xuống 3 logical reads — hơn 16.000 lần.** Và bước `Sort` biến mất, vì index đã sắp theo `TaoLuc`.
+
+**Vì sao filtered index đặc biệt phù hợp với bảng outbox:**
+
+**1. Tỷ lệ hàng thoả điều kiện cực thấp, và không đổi theo thời gian.**
+
+```text
+Tổng hàng:        1.000.050
+Hàng chưa gửi:           50    (0,005%)
+```
+
+Filtered index chỉ chứa các hàng thoả `WHERE`, nên:
+
+```sql
+SELECT i.name, p.rows, SUM(a.used_pages) * 8 / 1024 AS SizeMB
+FROM sys.indexes i
+JOIN sys.partitions p ON p.object_id = i.object_id AND p.index_id = i.index_id
+JOIN sys.allocation_units a ON a.container_id = p.partition_id
+WHERE OBJECT_NAME(i.object_id) = 'Outbox'
+GROUP BY i.name, p.rows;
+```
+
+```text
+name                    rows       SizeMB
+PK_Outbox            1000050          412
+IX_Outbox_ChuaGui         50            1      <- 1 MB thay vì 412 MB
+```
+
+**Index 1 MB nằm trọn trong bộ nhớ, mãi mãi** — bất kể bảng lớn đến đâu. Đây là tính chất quan trọng nhất: kích thước index tỉ lệ với **số message đang chờ**, không với kích thước bảng.
+
+**2. Chi phí ghi gần như bằng không.**
+
+```text
+INSERT message mới (GuiLuc = NULL)   -> THÊM vào index
+UPDATE GuiLuc = <thời điểm>           -> XOÁ khỏi index
+```
+
+Một index thường trên `TaoLuc` phải cập nhật cho **mọi** hàng; filtered index chỉ chạm tới các hàng chưa gửi. Với bảng outbox, mỗi message chỉ vào và ra khỏi index đúng một lần.
+
+**3. Truy vấn poll chạy liên tục, nên lợi ích nhân lên.**
+
+```text
+Poll mỗi giây, 86.400 lần mỗi ngày
+
+Không index:  86.400 × 48.291 reads = 4,17 tỷ logical reads/ngày
+Có index:     86.400 × 3 reads      = 259.200 reads/ngày
+```
+
+**Ba chi tiết khi tạo filtered index:**
+
+**1. `INCLUDE` các cột cần đọc**, để có covering index và tránh key lookup:
+
+```text
+Không INCLUDE:  Index Seek + 100 Key Lookup -> ~300 reads
+Có INCLUDE:     Index Seek only             -> 3 reads
+```
+
+**2. Điều kiện `WHERE` của truy vấn phải KHỚP với filter của index.**
+
+```sql
+-- Dùng được index
+WHERE GuiLuc IS NULL AND SoLanThu < 10
+
+-- KHÔNG dùng được — filter là IS NULL, truy vấn dùng phép so sánh khác
+WHERE GuiLuc = '1900-01-01' AND SoLanThu < 10
+```
+
+Đây là lý do nên để `GuiLuc` nullable thay vì dùng một giá trị sentinel.
+
+**3. `SET` options phải đúng khi tạo và khi truy vấn.** SQL Server từ chối dùng filtered index nếu một số `SET` option khác với lúc tạo:
+
+```sql
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+SET ARITHABORT ON;
+```
+
+EF Core và `SqlClient` đặt đúng mặc định, nhưng một số công cụ cũ thì không — và triệu chứng là "index tồn tại nhưng plan vẫn scan".
+
+**Và đừng quên dọn bảng** — filtered index giúp truy vấn poll nhanh, nhưng bảng vẫn lớn vô hạn:
+
+```sql
+-- Chạy hằng ngày, chia lô
+DECLARE @SoDong INT = 1;
+WHILE @SoDong > 0
+BEGIN
+    DELETE TOP (5000) FROM Outbox
+    WHERE GuiLuc IS NOT NULL AND GuiLuc < DATEADD(DAY, -7, SYSUTCDATETIME());
+    SET @SoDong = @@ROWCOUNT;
+    WAITFOR DELAY '00:00:01';
+END
+```
+
+Chia lô là bắt buộc: một `DELETE` xoá một triệu hàng giữ khoá lâu và làm transaction log phình ([bài 12.8](../../stage-04-database-production/module-12-sql-deep-dive/12.8-database-migration-strategy.mdx)).
+
+**Với bảng rất lớn, cân nhắc phân vùng theo ngày:**
+
+```sql
+-- Xoá cả một phân vùng là thao tác METADATA, gần như tức thời
+ALTER TABLE Outbox SWITCH PARTITION 3 TO OutboxCu PARTITION 3;
+TRUNCATE TABLE OutboxCu;
+```
+
+**Kiểm chứng index đang được dùng:**
+
+```sql
+SELECT i.name, s.user_seeks, s.user_scans, s.user_lookups, s.last_user_seek
+FROM sys.dm_db_index_usage_stats s
+JOIN sys.indexes i ON i.object_id = s.object_id AND i.index_id = s.index_id
+WHERE OBJECT_NAME(s.object_id) = 'Outbox';
+```
+
+```text
+name                  user_seeks   user_scans   last_user_seek
+IX_Outbox_ChuaGui         86412            0    2026-09-25 08:14:22
+PK_Outbox                     0            2    2026-09-25 02:00:00
+```
+
+`user_seeks` cao và `user_scans` bằng 0 nghĩa là truy vấn poll đang seek đúng như mong đợi. Nếu `user_scans` của `PK_Outbox` tăng đều, có một truy vấn nào đó vẫn đang quét toàn bảng.
+
+</details>
 
 ## Tự kiểm tra
 
