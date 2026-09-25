@@ -1,6 +1,7 @@
 # Giới thiệu DBML - Database Markup Language
 
 > Nguồn: https://tiennhm.io.vn/blog/gioi-thieu-dbml-database-markup-language
+> DBML là DSL mã nguồn mở để mô tả và tài liệu hoá lược đồ cơ sở dữ liệu. Cú pháp gọn, không phụ thuộc hệ quản trị, sinh được sơ đồ ER tự động và đưa lược đồ vào quản lý phiên bản như mã nguồn.
 
 > DBML (Database Markup Language) là một ngôn ngữ DSL mã nguồn mở được thiết kế để định nghĩa và tài liệu hóa cấu trúc cơ sở dữ liệu. Với cú pháp đơn giản, dễ đọc và độc lập với hệ quản trị cơ sở dữ liệu, DBML giúp developers quản lý schema hiệu quả, tạo ER diagrams tự động và tích hợp tốt với version control. Bài viết giới thiệu khái niệm, lợi ích, cú pháp cơ bản và các công cụ hỗ trợ DBML.
 

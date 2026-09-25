@@ -1,6 +1,7 @@
 # Những extensions tốt nhất cho Visual Studio Code
 
 > Nguồn: https://tiennhm.io.vn/blog/best-extensions-for-vs-code
+> 16 extension Visual Studio Code dùng hằng ngày: GitLens và Git Graph cho Git, Prettier và ESLint cho định dạng và soát lỗi, Live Server cho phát triển cục bộ. Mỗi extension kèm mô tả chức năng và cách dùng thực tế.
 
 > Bài viết giới thiệu 16 extensions tốt nhất cho Visual Studio Code được sử dụng hàng ngày, bao gồm GitLens (quản lý Git), Git Graph (visualize Git history), Prettier (code formatter), ESLint (code linter), Live Server (local development server), và nhiều extensions hữu ích khác. Mỗi extension được mô tả chi tiết về chức năng và cách sử dụng, giúp developers tăng năng suất và cải thiện trải nghiệm làm việc với VS Code.
 

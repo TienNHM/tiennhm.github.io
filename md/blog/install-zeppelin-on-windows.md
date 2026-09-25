@@ -1,6 +1,7 @@
 # Hướng dẫn cài đặt Apache Zeppelin trên Windows
 
 > Nguồn: https://tiennhm.io.vn/blog/install-zeppelin-on-windows
+> Hướng dẫn cài Apache Zeppelin trên Windows theo từng bước: cài Java, tải và cấu hình Zeppelin, khởi chạy notebook. Zeppelin hỗ trợ Scala, Python, SQL, SparkSQL và Hive trong cùng một giao diện web.
 
 > Bài viết hướng dẫn chi tiết cách cài đặt Apache Zeppelin trên Windows. Apache Zeppelin là công cụ phân tích dữ liệu mã nguồn mở với giao diện web, hỗ trợ nhiều ngôn ngữ như Scala, Python, SQL, SparkSQL, Hive. Bài viết bao gồm các bước cài đặt Java, tải và cấu hình Zeppelin, và cách khởi chạy ứng dụng. Zeppelin giúp data scientists và analysts thực hiện data analysis tương tác và trực quan với notebooks tương tự Jupyter.
 

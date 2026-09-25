@@ -1,6 +1,7 @@
 # Những tài khoản Linkedin mà bất cứ lập trình viên nào cũng nên theo dõi
 
 > Nguồn: https://tiennhm.io.vn/en/blog/top-linked-accounts-to-follow-for-developers
+> Danh sách tài khoản LinkedIn đáng theo dõi với lập trình viên: chuyên gia, công ty công nghệ và cộng đồng developer, giúp cập nhật xu hướng và mở rộng quan hệ nghề nghiệp.
 
 > Bài viết giới thiệu danh sách các tài khoản LinkedIn mà mọi lập trình viên nên theo dõi để cập nhật xu hướng công nghệ mới nhất, học hỏi kinh nghiệm từ các chuyên gia và developers hàng đầu, và tìm hiểu về các công nghệ mới. Danh sách bao gồm các influencers, công ty công nghệ, và cộng đồng developers nổi tiếng trong ngành, giúp developers mở rộng network và cập nhật kiến thức liên tục.
 

@@ -1,6 +1,7 @@
 # Những hàm JavaScript hữu ích
 
 > Nguồn: https://tiennhm.io.vn/blog/helpful-javascript-utility-functions
+> Các hàm tiện ích JavaScript dùng lại được trong dự án thật — GetValuesByKey, FlattenObject, FlattenObjectWithKey — kèm mã nguồn, trường hợp kiểm thử và tình huống áp dụng cụ thể.
 
 > Bài viết giới thiệu các hàm tiện ích JavaScript hữu ích được sử dụng trong các dự án thực tế, bao gồm các hàm xử lý object như GetValuesByKey, FlattenObject, FlattenObjectWithKey. Mỗi hàm được trình bày kèm code examples, test cases và use cases cụ thể. Các hàm này giúp developers xử lý dữ liệu phức tạp một cách hiệu quả và tái sử dụng code trong các dự án JavaScript/TypeScript.
 

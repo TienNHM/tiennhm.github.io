@@ -1,6 +1,7 @@
 # Markdown Cheat Sheet - Cách tạo một file README trên Github với Markdown
 
 > Nguồn: https://tiennhm.io.vn/en/blog/markdown-cheat-sheet
+> Bảng tra cú pháp Markdown đầy đủ để viết README trên GitHub: heading, danh sách, liên kết, ảnh, khối mã, bảng và nhiều thành phần khác, mỗi loại kèm ví dụ cụ thể.
 
 > Bài viết là một Markdown Cheat Sheet đầy đủ hướng dẫn cách tạo file README trên GitHub với Markdown. Markdown là ngôn ngữ đánh dấu nhẹ, dễ đọc và dễ viết, được sử dụng rộng rãi trên GitHub để tạo documentation. Bài viết bao gồm tất cả các syntax cơ bản của Markdown như headings, lists, links, images, code blocks, tables, và nhiều tính năng khác, kèm ví dụ cụ thể cho từng loại.
 

@@ -1,6 +1,7 @@
 # Generative AI learning path - by Google
 
 > Nguồn: https://tiennhm.io.vn/blog/google-generative-ai-courses
+> Lộ trình học Generative AI miễn phí của Google gồm 10 khoá, đi từ khái niệm nền tảng của machine learning tới Large Language Model, Transformer và các công cụ Vertex AI, Generative AI Studio.
 
 > Bài viết giới thiệu lộ trình học tập miễn phí về Generative AI của Google, bao gồm 10 khóa học nhằm giới thiệu về trí tuệ nhân tạo, machine learning và Generative AI. Chương trình học được thiết kế để giúp người học từ cơ bản đến nâng cao hiểu về các công nghệ AI mới nhất, bao gồm các khái niệm về Large Language Models, Transformer models, và cách sử dụng các công cụ AI của Google như Vertex AI và Generative AI Studio.
 

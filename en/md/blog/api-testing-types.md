@@ -1,6 +1,7 @@
 # Các loại kiểm thử API
 
 > Nguồn: https://tiennhm.io.vn/en/blog/api-testing-types
+> Các loại kiểm thử API và phạm vi của từng loại: unit test, integration test, functional test, load test và security test — mỗi loại kèm mục đích, cách thực hiện và thời điểm nên dùng.
 
 > Bài viết giới thiệu về các loại kiểm thử API phổ biến trong phát triển phần mềm, bao gồm Unit Testing, Integration Testing, Functional Testing, Load Testing, Security Testing và nhiều loại testing khác. Mỗi loại testing được giải thích về mục đích, cách thực hiện và khi nào nên sử dụng. API testing là một phần quan trọng trong quy trình phát triển phần mềm để đảm bảo chất lượng và độ tin cậy của API.
 

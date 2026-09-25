@@ -1,6 +1,7 @@
 # Các trang web tốt nhất để học JavaScript
 
 > Nguồn: https://tiennhm.io.vn/blog/best-websites-to-learn-javascript
+> Các trang web đáng dùng để học JavaScript từ cơ bản tới nâng cao: MDN Web Docs, freeCodeCamp, JavaScript.info và nhiều nguồn khác, kèm nhận xét về nội dung và phương pháp học của từng nơi.
 
 > Bài viết giới thiệu các trang web tốt nhất để học JavaScript, bao gồm MDN Web Docs (tài liệu chính thức), freeCodeCamp (khóa học miễn phí), JavaScript.info (hướng dẫn chi tiết), và nhiều nguồn học tập khác. Mỗi trang web được mô tả về nội dung, phương pháp học và lý do nên sử dụng, giúp người học JavaScript từ cơ bản đến nâng cao tìm được nguồn tài liệu phù hợp với trình độ và mục tiêu của mình.
 

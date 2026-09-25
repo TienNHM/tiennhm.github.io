@@ -1,6 +1,7 @@
 # Giới thiệu UUID (Universally Unique Identifier) - Định danh duy nhất toàn cầu
 
 > Nguồn: https://tiennhm.io.vn/blog/gioi-thieu-uuid-universally-unique-identifier
+> UUID là chuẩn định danh 128-bit tạo được ID duy nhất toàn cầu mà không cần cơ quan trung tâm. Bài viết đi qua 5 phiên bản (v1 theo thời gian, v4 ngẫu nhiên, v3/v5 theo tên), ưu nhược điểm từng loại và cách dùng trong hệ phân tán, microservices và thiết kế database.
 
 > UUID (Universally Unique Identifier) là chuẩn định danh 128-bit được sử dụng rộng rãi trong lập trình và cơ sở dữ liệu để tạo ID duy nhất toàn cầu mà không cần cơ quan trung tâm quản lý. Bài viết giới thiệu 5 phiên bản UUID (v1 time-based, v4 random, v3/v5 name-based), ưu nhược điểm của từng loại, cách sử dụng trong các ngôn ngữ lập trình phổ biến, và các use case thực tế trong distributed systems, microservices và database design.
 
