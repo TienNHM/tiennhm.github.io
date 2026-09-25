@@ -1,6 +1,8 @@
 ---
 slug: top-linked-accounts-to-follow-for-developers
 title: Những tài khoản Linkedin mà bất cứ lập trình viên nào cũng nên theo dõi
+description: "Danh sách tài khoản LinkedIn đáng theo dõi với lập trình viên: chuyên gia, công ty công nghệ và cộng đồng developer, giúp cập nhật xu hướng và mở rộng quan hệ nghề nghiệp."
+keywords: [linkedin cho lap trinh vien, tai khoan linkedin nen theo doi, phat trien su nghiep lap trinh, networking developer, xu huong cong nghe, cong dong lap trinh vien]
 authors: [tiennhm]
 tags: [career]
 enableComments: true # for Gisqus comments, set to true

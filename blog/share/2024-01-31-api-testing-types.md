@@ -1,6 +1,8 @@
 ---
 slug: api-testing-types
 title: Các loại kiểm thử API
+description: "Các loại kiểm thử API và phạm vi của từng loại: unit test, integration test, functional test, load test và security test — mỗi loại kèm mục đích, cách thực hiện và thời điểm nên dùng."
+keywords: [kiem thu api, api testing, cac loai kiem thu, unit test, integration test, load test api, security testing, functional testing, test api, chat luong phan mem]
 authors: [tiennhm]
 tags: [api, testing]
 enableComments: true # for Gisqus comments, set to true

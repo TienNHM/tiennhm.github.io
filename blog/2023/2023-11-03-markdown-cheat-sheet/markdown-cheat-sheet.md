@@ -1,6 +1,8 @@
 ---
 slug: markdown-cheat-sheet
 title: Markdown Cheat Sheet - Cách tạo một file README trên Github với Markdown
+description: "Bảng tra cú pháp Markdown đầy đủ để viết README trên GitHub: heading, danh sách, liên kết, ảnh, khối mã, bảng và nhiều thành phần khác, mỗi loại kèm ví dụ cụ thể."
+keywords: [markdown cheat sheet, cu phap markdown, viet readme github, readme md, markdown table, markdown code block, huong dan markdown, tao readme dep, markdown tieng viet]
 authors: [tiennhm]
 tags: [tools, git]
 enableComments: true # for Gisqus comments, set to true

@@ -1,6 +1,8 @@
 ---
 slug: gioi-thieu-dbml-database-markup-language
 title: Giới thiệu DBML - Database Markup Language
+description: "DBML là DSL mã nguồn mở để mô tả và tài liệu hoá lược đồ cơ sở dữ liệu. Cú pháp gọn, không phụ thuộc hệ quản trị, sinh được sơ đồ ER tự động và đưa lược đồ vào quản lý phiên bản như mã nguồn."
+keywords: [dbml, database markup language, tai lieu hoa database, thiet ke luoc do, er diagram, dbdiagram io, database schema, quan ly schema, dbml syntax, tai lieu database]
 authors: [tiennhm]
 tags: [database, tools]
 ---

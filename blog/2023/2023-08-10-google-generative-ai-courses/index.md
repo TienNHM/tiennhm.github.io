@@ -1,6 +1,8 @@
 ---
 slug: google-generative-ai-courses
 title: Generative AI learning path - by Google
+description: "Lộ trình học Generative AI miễn phí của Google gồm 10 khoá, đi từ khái niệm nền tảng của machine learning tới Large Language Model, Transformer và các công cụ Vertex AI, Generative AI Studio."
+keywords: [generative ai google, khoa hoc ai mien phi, hoc ai, google cloud skills boost, vertex ai, large language model, transformer model, lo trinh hoc ai, machine learning co ban]
 authors: [tiennhm]
 tags: [ai, learning]
 enableComments: true # for Gisqus comments, set to true

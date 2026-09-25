@@ -1,5 +1,6 @@
 ---
 title: "Giới thiệu RabbitMQ - Message Broker mạnh mẽ"
+keywords: [rabbitmq, message broker, rabbitmq net8, microservices dotnet, amqp, producer consumer, queue exchange, hang doi tin nhan, rabbitmq csharp, kien truc microservices]
 slug: introduction-to-rabbitmq
 description: "Tìm hiểu về RabbitMQ, một message broker phổ biến trong kiến trúc microservices. Bài viết bao gồm khái niệm cơ bản, cài đặt và ví dụ thực tế với .NET 8."
 tags: [microservices, dotnet, csharp]

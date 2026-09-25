@@ -1,6 +1,8 @@
 ---
 slug: best-websites-to-learn-javascript
 title: Các trang web tốt nhất để học JavaScript
+description: "Các trang web đáng dùng để học JavaScript từ cơ bản tới nâng cao: MDN Web Docs, freeCodeCamp, JavaScript.info và nhiều nguồn khác, kèm nhận xét về nội dung và phương pháp học của từng nơi."
+keywords: [hoc javascript, trang web hoc javascript, tu hoc javascript, mdn web docs, freecodecamp, javascript info, tai lieu javascript, lo trinh hoc javascript, hoc lap trinh mien phi]
 authors: [tiennhm]
 tags: [javascript, learning]
 enableComments: true # for Gisqus comments, set to true
