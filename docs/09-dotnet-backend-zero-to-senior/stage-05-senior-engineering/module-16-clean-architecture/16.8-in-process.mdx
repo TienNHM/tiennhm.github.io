@@ -284,11 +284,669 @@ Và **phải qua outbox** để không mất event khi tiến trình chết gi�
 
 ## Bài tập áp dụng
 
-1. **Handler lỗi chặn handler sau.** Đăng ký ba handler cho một event, cho handler thứ hai ném exception, và xác nhận handler thứ ba **không chạy**. Thêm `try/catch` và kiểm chứng.
+#### Bài 1 — Handler lỗi chặn handler sau
 
-2. **Event phát hai lần.** Bỏ `ClearDomainEvents()` trước vòng lặp, cho một handler gọi `SaveChanges`, và đếm số lần event được xử lý.
+Đăng ký ba handler cho một event, cho handler thứ hai ném exception, và xác nhận handler thứ ba **không chạy**. Thêm `try/catch` và kiểm chứng.
 
-3. **Chuỗi event.** Dựng chuỗi ba tầng event rồi thử lần theo luồng từ một lời gọi phương thức domain. Ghi lại số file phải mở.
+**Tiêu chí hoàn thành:** bạn nêu được vì sao bọc `try/catch` **không phải lúc nào cũng đúng**, và có tiêu chí quyết định cho từng handler.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** MediatR chạy các handler của một notification theo thứ tự, trong cùng một luồng. Exception ở giữa thì sao?
+
+**Lời giải — ba handler:**
+
+```csharp
+public record LeadDaChot(LeadId Id, Money GiaTri) : INotification;
+
+public class GhiAuditHandler : INotificationHandler<LeadDaChot>
+{
+    public async Task Handle(LeadDaChot e, CancellationToken ct)
+    {
+        _logger.LogInformation("[1] Ghi audit cho lead {Id}", e.Id);
+        await _audit.GhiAsync(e, ct);
+    }
+}
+
+public class GuiEmailHandler : INotificationHandler<LeadDaChot>
+{
+    public async Task Handle(LeadDaChot e, CancellationToken ct)
+    {
+        _logger.LogInformation("[2] Gửi email cho lead {Id}", e.Id);
+        throw new SmtpException("Máy chủ SMTP không phản hồi");
+    }
+}
+
+public class CapNhatThongKeHandler : INotificationHandler<LeadDaChot>
+{
+    public async Task Handle(LeadDaChot e, CancellationToken ct)
+    {
+        _logger.LogInformation("[3] Cập nhật thống kê cho lead {Id}", e.Id);
+        await _thongKe.TangDoanhSoAsync(e.GiaTri, ct);
+    }
+}
+```
+
+```text
+[1] Ghi audit cho lead abc-123
+[2] Gửi email cho lead abc-123
+fail: SmtpException: Máy chủ SMTP không phản hồi
+```
+
+Handler `[3]` **không chạy**. Thống kê doanh số không được cập nhật, và không ai biết — vì lỗi được ghi nhận là "lỗi gửi email".
+
+Tệ hơn: nếu event được dispatch **trong** transaction, exception làm rollback cả `SaveChanges`:
+
+```text
+-> lead KHÔNG được chốt
+-> nhưng audit ở handler [1] có thể đã ghi vào một hệ thống khác
+-> trạng thái không nhất quán
+```
+
+**Bọc `try/catch`:**
+
+```csharp
+public class DomainEventDispatcher
+{
+    public async Task DispatchAsync(IEnumerable<IDomainEvent> events, CancellationToken ct)
+    {
+        foreach (var e in events)
+        {
+            foreach (var handler in LayHandler(e))
+            {
+                try
+                {
+                    await handler.Handle(e, ct);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Handler {Handler} thất bại cho event {Event}",
+                                     handler.GetType().Name, e.GetType().Name);
+                    // Nuốt lỗi, chạy tiếp handler sau
+                }
+            }
+        }
+    }
+}
+```
+
+```text
+[1] Ghi audit cho lead abc-123
+[2] Gửi email cho lead abc-123
+fail: Handler GuiEmailHandler thất bại cho event LeadDaChot
+[3] Cập nhật thống kê cho lead abc-123
+```
+
+**Vì sao `try/catch` không phải lúc nào cũng đúng** — đây là phần chính của bài.
+
+Nuốt lỗi nghĩa là **mất hẳn công việc đó**, trong im lặng. Với gửi email thì chấp nhận được; với những việc khác thì không:
+
+```text
+Handler cập nhật số dư tài khoản -> nuốt lỗi = TIỀN SAI
+Handler trừ tồn kho             -> nuốt lỗi = BÁN QUÁ SỐ LƯỢNG
+Handler ghi audit bắt buộc      -> nuốt lỗi = MẤT BẰNG CHỨNG TUÂN THỦ
+```
+
+Nói cách khác, câu hỏi không phải "có nên bọc `try/catch` không" mà là:
+
+> **"Handler này có phải là một phần của bất biến nghiệp vụ không?"**
+
+**Bốn loại handler và cách xử lý từng loại:**
+
+| Loại | Ví dụ | Thất bại thì |
+|---|---|---|
+| **Bắt buộc, cùng transaction** | Trừ tồn kho, cập nhật số dư | **Ném ra — rollback tất cả** |
+| **Bắt buộc, có thể chậm** | Đồng bộ sang hệ thống khác | **Outbox — thử lại tới khi thành công** |
+| Tốt-nếu-có, không quan trọng | Gửi email, thông báo | `try/catch`, ghi log |
+| Chỉ quan sát | Metric, audit không bắt buộc | `try/catch`, ghi log |
+
+**Với loại 1, đừng dùng domain event.** Nếu một việc phải thành công cùng với thao tác chính, nó thuộc về **chính thao tác đó**:
+
+```csharp
+// SAI — dùng event cho một bất biến
+public Result ChuyenSangWon(...)
+{
+    Status = LeadStatus.Won;
+    Raise(new LeadDaChot(Id, Value));     // handler trừ tồn kho -> nếu lỗi thì sao?
+}
+
+// ĐÚNG — bất biến nằm trong cùng aggregate hoặc cùng use case
+public async Task<Result> Handle(ChotLeadCommand c, CancellationToken ct)
+{
+    var lead = await _db.Leads.FirstAsync(...);
+    var kq = lead.ChuyenSangWon(...);
+    if (!kq.ThanhCong) return kq;
+
+    var kho = await _db.TonKho.FirstAsync(...);
+    var kqKho = kho.Tru(lead.SoLuong);              // tường minh, trong cùng transaction
+    if (!kqKho.ThanhCong) return kqKho;
+
+    await _db.SaveChangesAsync(ct);                 // cả hai cùng commit hoặc cùng rollback
+    return Result.ThanhCong();
+}
+```
+
+Domain event tốt cho việc **thông báo**, không tốt cho việc **điều phối một giao dịch nghiệp vụ**.
+
+**Với loại 2, dùng outbox:**
+
+```csharp
+public class DongBoSangErpHandler : INotificationHandler<LeadDaChot>
+{
+    public async Task Handle(LeadDaChot e, CancellationToken ct)
+    {
+        // Ghi vào outbox trong CÙNG transaction — không gọi ERP ở đây
+        _db.Outbox.Add(new TinNhanOutbox
+        {
+            LoaiMessage = nameof(LeadDaChot),
+            NoiDung = JsonSerializer.Serialize(e),
+        });
+    }
+}
+```
+
+Việc gọi ERP thật do dispatcher nền làm, có retry và có dead-letter ([bài 14.8](../../stage-04-database-production/module-14-caching-background-jobs/14.8-message-bus-intro.mdx)). Handler chỉ ghi một dòng vào database — thao tác gần như không bao giờ thất bại vì lý do bên ngoài.
+
+**Với loại 3 và 4, `try/catch` là đúng — nhưng phải quan sát được:**
+
+```csharp
+catch (Exception ex)
+{
+    _logger.LogError(ex,
+        "Handler {Handler} thất bại cho {Event} trên {AggregateId}",
+        handler.GetType().Name, e.GetType().Name, e.AggregateId);
+
+    _demLoiHandler.Add(1,
+        new KeyValuePair<string, object?>("handler", handler.GetType().Name),
+        new KeyValuePair<string, object?>("event", e.GetType().Name));
+}
+```
+
+```text
+Cảnh báo khi tỷ lệ lỗi của một handler vượt 5% trong 15 phút.
+```
+
+Không có metric này, `try/catch` trở thành chỗ để lỗi biến mất. Một handler thất bại 100% suốt ba tháng sẽ không ai biết — và đó là kịch bản thường gặp nhất của cách làm này.
+
+**Phân loại tường minh trong code, thay vì để ngầm:**
+
+```csharp
+public interface IBatBuocHandler { }        // marker — lỗi phải ném ra
+
+public class TruTonKhoHandler : INotificationHandler<LeadDaChot>, IBatBuocHandler { }
+public class GuiEmailHandler  : INotificationHandler<LeadDaChot> { }
+```
+
+```csharp
+foreach (var handler in LayHandler(e))
+{
+    if (handler is IBatBuocHandler)
+    {
+        await handler.Handle(e, ct);        // KHÔNG bắt — để nó rollback
+    }
+    else
+    {
+        try { await handler.Handle(e, ct); }
+        catch (Exception ex) { GhiNhan(ex, handler, e); }
+    }
+}
+```
+
+Cách này làm cho quyết định **hiện rõ khi đọc code**. Người viết một handler mới phải chọn, thay vì nhận hành vi mặc định mà họ có thể không biết.
+
+**Và cân nhắc chạy handler song song** — chỉ khi chúng thật sự độc lập:
+
+```csharp
+var tasks = LayHandler(e).Select(async h =>
+{
+    try { await h.Handle(e, ct); return (h, (Exception?)null); }
+    catch (Exception ex) { return (h, ex); }
+});
+
+var kq = await Task.WhenAll(tasks);
+foreach (var (h, ex) in kq.Where(x => x.Item2 is not null))
+    GhiNhan(ex!, h, e);
+```
+
+**Cảnh báo quan trọng:** nếu các handler dùng chung `DbContext`, chạy song song sẽ ném `A second operation was started on this context instance`. `DbContext` không thread-safe ([bài 13.2](../../stage-04-database-production/module-13-entity-framework-core/13.2-dbcontext-and-entity-configuration.mdx)).
+
+Chạy song song chỉ an toàn khi mỗi handler tự tạo scope riêng — và khi đó chúng không còn nằm trong cùng transaction, tức bạn đã chuyển sang mô hình nhất quán cuối cùng.
+
+</details>
+
+---
+
+#### Bài 2 — Event phát hai lần
+
+Bỏ `ClearDomainEvents()` trước vòng lặp, cho một handler gọi `SaveChanges`, và đếm số lần event được xử lý.
+
+**Tiêu chí hoàn thành:** bạn vẽ được vòng lặp và giải thích được vì sao nó **không dừng lại**, và biết ba cách chặn.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Event nằm ở đâu? Ai đọc nó, và khi nào nó bị xoá?
+
+**Lời giải — bản có lỗi:**
+
+```csharp
+public override async Task<int> SaveChangesAsync(CancellationToken ct = default)
+{
+    var events = ChangeTracker.Entries<EntityBase>()
+        .SelectMany(e => e.Entity.DomainEvents)
+        .ToList();
+
+    var kq = await base.SaveChangesAsync(ct);
+
+    foreach (var e in events)
+        await _mediator.Publish(e, ct);      // KHÔNG xoá event trước khi publish
+
+    return kq;
+}
+```
+
+```csharp
+public class GhiAuditHandler : INotificationHandler<LeadDaChot>
+{
+    public async Task Handle(LeadDaChot e, CancellationToken ct)
+    {
+        _db.AuditLogs.Add(new AuditLog { ... });
+        await _db.SaveChangesAsync(ct);      // gọi lại SaveChanges
+    }
+}
+```
+
+```text
+[Publish] LeadDaChot lần 1
+[Publish] LeadDaChot lần 2
+[Publish] LeadDaChot lần 3
+...
+System.StackOverflowException
+```
+
+Tiến trình chết — và `StackOverflowException` **không bắt được**, nên không có log nào giải thích.
+
+**Vòng lặp:**
+
+```text
+1. SaveChanges lần 1
+   -> thu thập event từ ChangeTracker: [LeadDaChot]
+   -> base.SaveChangesAsync() — lưu lead
+   -> publish LeadDaChot
+
+2. GhiAuditHandler chạy
+   -> _db.AuditLogs.Add(...)
+   -> _db.SaveChangesAsync()          <- SaveChanges lần 2
+
+3. SaveChanges lần 2
+   -> thu thập event từ ChangeTracker
+   -> Lead VẪN đang được theo dõi
+   -> DomainEvents của nó VẪN CÒN LeadDaChot
+   -> publish LeadDaChot LẦN NỮA
+
+4. GhiAuditHandler chạy lại -> SaveChanges lần 3 -> ...
+```
+
+**Vì sao nó không dừng lại:** entity vẫn nằm trong change tracker sau `SaveChanges`, và danh sách `DomainEvents` của nó **không bị xoá**. Mỗi lần `SaveChanges` chạy, nó lại thấy đúng event đó.
+
+Điểm tinh tế: ngay cả khi lead không còn thay đổi gì, `ChangeTracker.Entries<EntityBase>()` vẫn trả về nó — thu thập event không lọc theo `EntityState`.
+
+**Bản sửa — xoá trước khi publish:**
+
+```csharp
+public override async Task<int> SaveChangesAsync(CancellationToken ct = default)
+{
+    var entries = ChangeTracker.Entries<EntityBase>()
+        .Where(e => e.Entity.DomainEvents.Count > 0)
+        .ToList();
+
+    var events = entries.SelectMany(e => e.Entity.DomainEvents).ToList();
+
+    // XOÁ TRƯỚC khi publish — điểm quyết định
+    foreach (var entry in entries)
+        entry.Entity.ClearDomainEvents();
+
+    var kq = await base.SaveChangesAsync(ct);
+
+    foreach (var e in events)
+        await _mediator.Publish(e, ct);
+
+    return kq;
+}
+```
+
+```text
+[Publish] LeadDaChot lần 1
+(kết thúc)
+```
+
+**Ba cách chặn, theo thứ tự nên áp dụng:**
+
+**Cách 1 — xoá trước khi publish** (ở trên). Đơn giản nhất và luôn nên có.
+
+Nhưng nó có một lỗ hổng: nếu `base.SaveChangesAsync` **thất bại**, event đã bị xoá nhưng chưa được publish. Với `ClearDomainEvents` sau `SaveChanges` thì ngược lại — rollback rồi vẫn publish. Không thứ tự nào đúng hoàn toàn, và đó là lý do cần cách 3.
+
+**Cách 2 — handler không được gọi `SaveChanges`:**
+
+```csharp
+public class GhiAuditHandler : INotificationHandler<LeadDaChot>
+{
+    public Task Handle(LeadDaChot e, CancellationToken ct)
+    {
+        _db.AuditLogs.Add(new AuditLog { ... });
+        return Task.CompletedTask;           // KHÔNG SaveChanges
+    }
+}
+```
+
+`SaveChanges` được gọi **một lần** ở `TransactionBehavior`, sau khi mọi handler đã chạy. Đây cũng là lý do thứ tự behavior ở [bài 16.6](16.6-mediatr-use-case-pipeline.mdx) quan trọng.
+
+Ép bằng kiến trúc test:
+
+```csharp
+[Fact]
+public void Handler_cua_domain_event_khong_duoc_goi_SaveChanges()
+{
+    var files = Directory.GetFiles(ThuMucSrc(), "*Handler.cs", SearchOption.AllDirectories)
+        .Where(f => File.ReadAllText(f).Contains("INotificationHandler"));
+
+    var viPham = files
+        .Where(f => Regex.IsMatch(File.ReadAllText(f), @"SaveChangesAsync|SaveChanges\("))
+        .Select(Path.GetFileName)
+        .ToList();
+
+    viPham.Should().BeEmpty(
+        "handler của domain event không được gọi SaveChanges; " +
+        "TransactionBehavior sẽ lưu một lần sau khi mọi handler chạy xong");
+}
+```
+
+**Cách 3 — dispatch NGOÀI `SaveChanges`, ở tầng pipeline.** Đây là cách tốt nhất về mặt kiến trúc:
+
+```csharp
+public class DomainEventBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
+{
+    public async Task<TResponse> Handle(TRequest request,
+        RequestHandlerDelegate<TResponse> next, CancellationToken ct)
+    {
+        var kq = await next();               // handler chạy, entity được sửa
+
+        // Thu thập và xoá
+        var entries = _db.ChangeTracker.Entries<EntityBase>()
+            .Where(e => e.Entity.DomainEvents.Count > 0).ToList();
+        var events = entries.SelectMany(e => e.Entity.DomainEvents).ToList();
+        foreach (var entry in entries) entry.Entity.ClearDomainEvents();
+
+        // Dispatch — handler có thể sửa thêm entity
+        foreach (var e in events) await _mediator.Publish(e, ct);
+
+        // TransactionBehavior (nằm NGOÀI) sẽ SaveChanges và commit
+        return kq;
+    }
+}
+```
+
+```csharp
+c.AddOpenBehavior(typeof(TransactionBehavior<,>));     // ngoài
+c.AddOpenBehavior(typeof(DomainEventBehavior<,>));     // trong
+```
+
+Ba lợi ích so với override `SaveChanges`:
+
+1. **`DbContext` không biết gì về MediatR.** Nó quay lại là hạ tầng thuần tuý.
+2. **Không có vòng lặp nào có thể xảy ra**, vì dispatch không nằm trong `SaveChanges`.
+3. **Event và thay đổi dữ liệu cùng một transaction**, do `TransactionBehavior` bọc ngoài.
+
+**Nhưng nó vẫn còn một trường hợp cần xử lý: chuỗi event.** Nếu một handler làm entity phát thêm event, event mới đó chưa được dispatch:
+
+```csharp
+var events = LayVaXoaEvent();
+
+while (events.Count > 0)
+{
+    foreach (var e in events) await _mediator.Publish(e, ct);
+    events = LayVaXoaEvent();                    // event MỚI phát sinh trong vòng vừa rồi
+
+    if (++soVong > 10)
+        throw new InvalidOperationException(
+            "Chuỗi domain event vượt quá 10 vòng — có thể có vòng lặp");
+}
+```
+
+Giới hạn số vòng là chi tiết bắt buộc. Không có nó, hai handler phát event cho nhau sẽ tạo vòng lặp vô hạn — và lần này nó không phải `StackOverflow` mà là một vòng `while` chạy mãi, còn khó chẩn đoán hơn.
+
+**Ba dấu hiệu bạn đang có vấn đề này:**
+
+```bash
+# 1. DbContext biết về MediatR
+grep -n "IMediator\|IPublisher" src/Crm.Infrastructure/CrmDbContext.cs
+
+# 2. Handler gọi SaveChanges
+grep -rln "INotificationHandler" --include="*.cs" src/ \
+  | xargs grep -l "SaveChanges"
+
+# 3. Không có ClearDomainEvents
+grep -rn "ClearDomainEvents" --include="*.cs" src/ | wc -l
+```
+
+Nếu lệnh thứ ba trả về 0 và lệnh đầu có kết quả, bạn đang ở đúng tình huống của bài này — và vòng lặp chỉ chưa xảy ra vì chưa có handler nào gọi `SaveChanges`.
+
+</details>
+
+---
+
+#### Bài 3 — Chuỗi event ba tầng
+
+Dựng chuỗi ba tầng event rồi thử lần theo luồng từ một lời gọi phương thức domain. Ghi lại số file phải mở.
+
+**Tiêu chí hoàn thành:** bạn đo được số file, và nêu được ngưỡng mà domain event chuyển từ **có lợi** sang **có hại**.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Từ `lead.ChuyenSangWon()`, làm sao biết những gì sẽ xảy ra?
+
+**Lời giải — dựng chuỗi:**
+
+```csharp
+// Tầng 1
+public Result ChuyenSangWon(...)
+{
+    Status = LeadStatus.Won;
+    Raise(new LeadDaChot(Id, Value, CustomerId));
+    return Result.ThanhCong();
+}
+
+// Tầng 2
+public class TaoDonHangHandler : INotificationHandler<LeadDaChot>
+{
+    public async Task Handle(LeadDaChot e, CancellationToken ct)
+    {
+        var don = Order.TaoTuLead(e.LeadId, e.CustomerId, e.GiaTri);
+        _db.Orders.Add(don);                  // Order.TaoTuLead RAISE DonHangDaTao
+    }
+}
+
+// Tầng 3
+public class TruTonKhoHandler : INotificationHandler<DonHangDaTao>
+{
+    public async Task Handle(DonHangDaTao e, CancellationToken ct)
+    {
+        var kho = await _db.TonKho.FirstAsync(k => k.ProductId == e.ProductId, ct);
+        kho.Tru(e.SoLuong);                   // TonKho.Tru RAISE TonKhoThap nếu dưới ngưỡng
+    }
+}
+
+// Tầng 4
+public class CanhBaoTonKhoHandler : INotificationHandler<TonKhoThap>
+{
+    public async Task Handle(TonKhoThap e, CancellationToken ct)
+        => await _email.GuiAsync(_config["Kho:EmailQuanLy"], "Cảnh báo tồn kho thấp", ...);
+}
+```
+
+**Lần theo luồng từ `lead.ChuyenSangWon()`:**
+
+```text
+1.  Lead.cs                        -> thấy Raise(new LeadDaChot(...))
+2.  LeadDaChot.cs                  -> xem định nghĩa event
+3.  ??? tìm handler — "Find All References" trên LeadDaChot trả về 0 kết quả hữu ích
+    -> phải grep "INotificationHandler<LeadDaChot>"
+4.  TaoDonHangHandler.cs           -> thấy Order.TaoTuLead(...)
+5.  Order.cs                       -> thấy Raise(new DonHangDaTao(...))
+6.  DonHangDaTao.cs
+7.  ??? grep lại
+8.  TruTonKhoHandler.cs            -> thấy kho.Tru(...)
+9.  TonKho.cs                      -> thấy Raise(new TonKhoThap(...)) có điều kiện
+10. TonKhoThap.cs
+11. ??? grep lại
+12. CanhBaoTonKhoHandler.cs        -> gửi email
+
+12 file, 3 lần grep thủ công
+```
+
+Và đó là với **một** handler mỗi event. Với hai handler mỗi event, cây phân nhánh thành 8 nhánh và bạn phải đi hết tất cả.
+
+**Câu hỏi mà không ai trả lời nhanh được:**
+
+```text
+"Gọi lead.ChuyenSangWon() sẽ gây ra những gì?"
+-> không có cách nào biết ngoài việc đi hết cây
+-> và cây có thể đổi khi ai đó thêm một handler ở file khác
+
+"Vì sao email cảnh báo tồn kho được gửi?"
+-> phải lần NGƯỢC 12 file
+```
+
+**Ngưỡng mà domain event chuyển từ có lợi sang có hại:**
+
+| Số tầng | Đánh giá |
+|---|---|
+| **1 tầng** | **Có lợi rõ rệt** — tách mối quan tâm, dễ hiểu |
+| 2 tầng | Chấp nhận được nếu có tài liệu |
+| **3 tầng trở lên** | **Có hại** — chi phí lần theo vượt lợi ích tách rời |
+
+Vì sao ngưỡng nằm ở đó: với một tầng, câu hỏi "cái gì xảy ra sau X" có một câu trả lời tìm được bằng một lần grep. Với ba tầng, nó là một bài toán duyệt cây mà công cụ IDE không giúp được.
+
+**Bốn dấu hiệu chuỗi event đã quá sâu:**
+
+```text
+1. Không ai trong nhóm vẽ được sơ đồ luồng từ trí nhớ
+2. Sửa một handler gây hậu quả ở chỗ không ngờ tới
+3. Không đoán được thứ tự các việc xảy ra
+4. Gỡ lỗi phải đặt breakpoint ở 5+ chỗ
+```
+
+**Cách sửa — gom điều phối vào use case, chỉ giữ event cho việc thật sự phụ:**
+
+```csharp
+public class ChotLeadHandler : IRequestHandler<ChotLeadCommand, Result>
+{
+    public async Task<Result> Handle(ChotLeadCommand c, CancellationToken ct)
+    {
+        var lead = await _db.Leads.FirstOrDefaultAsync(l => l.Id == c.Id, ct);
+        if (lead is null) return Result.KhongTimThay();
+
+        // Bước 1
+        var kq = lead.ChuyenSangWon(_user.ToNguoiDung(), _clock.GetUtcNow().UtcDateTime);
+        if (!kq.ThanhCong) return kq;
+
+        // Bước 2 — TƯỜNG MINH, không qua event
+        var don = Order.TaoTuLead(lead.Id, lead.CustomerId, lead.Value);
+        _db.Orders.Add(don);
+
+        // Bước 3 — tường minh
+        foreach (var item in don.Items)
+        {
+            var kho = await _db.TonKho.FirstAsync(k => k.ProductId == item.ProductId, ct);
+            var kqKho = kho.Tru(item.Quantity);
+            if (!kqKho.ThanhCong) return kqKho;       // xử lý lỗi RÕ RÀNG
+        }
+
+        await _db.SaveChangesAsync(ct);
+        return Result.ThanhCong();
+    }
+}
+```
+
+```csharp
+// Chỉ giữ event cho việc THẬT SỰ PHỤ, không ảnh hưởng tới tính đúng đắn
+public class GuiEmailChucMungHandler : INotificationHandler<LeadDaChot> { }
+public class CapNhatDashboardHandler : INotificationHandler<LeadDaChot> { }
+```
+
+```text
+Đọc ChotLeadHandler.cs -> thấy TOÀN BỘ những gì xảy ra
+Event còn lại: 1 tầng, và đều là việc phụ
+```
+
+**So sánh hai cách:**
+
+| | Chuỗi event | Điều phối tường minh |
+|---|---|---|
+| Đọc "cái gì xảy ra" | 12 file | **1 file** |
+| Thứ tự thực thi | Không xác định | **Rõ ràng** |
+| Xử lý lỗi | Khó — lỗi ở tầng 3 rollback tất cả? | **Tường minh ở mỗi bước** |
+| Thêm bước mới | Thêm một handler ở đâu đó | Thêm một dòng, nhìn thấy được |
+| Khớp nối | Lỏng — nhưng **ngầm** | Chặt — nhưng **hiện rõ** |
+| Test | Phải test cả chuỗi | **Test một handler** |
+
+Dòng "khớp nối" là chỗ dễ hiểu nhầm nhất. Chuỗi event **không** thật sự giảm khớp nối — `ChotLead` vẫn phụ thuộc vào việc đơn hàng được tạo, chỉ là phụ thuộc đó không xuất hiện trong code. Bạn đổi **khớp nối hiện rõ** lấy **khớp nối ngầm**, và khớp nối ngầm khó bảo trì hơn.
+
+**Quy tắc quyết định — dùng event hay gọi tường minh:**
+
+> **"Nếu việc này không xảy ra, thao tác chính có còn ĐÚNG không?"**
+
+```text
+Không -> nó là một phần của thao tác -> GỌI TƯỜNG MINH
+Có    -> nó là phản ứng phụ          -> domain event
+```
+
+Áp dụng:
+
+```text
+"Chốt lead thì tạo đơn hàng"
+    -> không tạo đơn = lead đã chốt mà không có đơn = SAI
+    -> gọi tường minh
+
+"Chốt lead thì gửi email chúc mừng"
+    -> không gửi email = vẫn đúng, chỉ là khách không nhận được thư
+    -> domain event
+
+"Chốt lead thì cập nhật dashboard"
+    -> dashboard chậm 5 giây = không sao
+    -> domain event
+```
+
+**Và khi thật sự cần nhiều bước phụ thuộc nhau qua thời gian, dùng saga thay vì chuỗi event:**
+
+```csharp
+public class QuyTrinhChotLeadSaga : MassTransitStateMachine<TrangThaiChotLead>
+{
+    public QuyTrinhChotLeadSaga()
+    {
+        Initially(When(LeadDaChot)
+            .Then(ctx => ctx.Saga.LeadId = ctx.Message.LeadId)
+            .TransitionTo(DangTaoDonHang)
+            .Publish(ctx => new TaoDonHangCommand(ctx.Saga.LeadId)));
+
+        During(DangTaoDonHang,
+            When(DonHangDaTao)
+                .TransitionTo(DangTruKho)
+                .Publish(ctx => new TruKhoCommand(ctx.Message.OrderId)),
+            When(TaoDonHangThatBai)
+                .TransitionTo(DaHuy)
+                .Publish(ctx => new HuyChotLeadCommand(ctx.Saga.LeadId)));   // đền bù
+    }
+}
+```
+
+Saga làm được ba thứ mà chuỗi event không làm được: **trạng thái hiện rõ** (có một bảng ghi quy trình đang ở bước nào), **xử lý thất bại có đền bù** (nhánh `TaoDonHangThatBai`), và **quy trình mô tả ở một chỗ** thay vì rải qua nhiều handler.
+
+Cái giá là một khái niệm mới phải học và một hạ tầng phải vận hành — nên chỉ dùng khi quy trình thật sự kéo dài qua nhiều dịch vụ hoặc nhiều thời điểm.
+
+</details>
 
 ## Tự kiểm tra
 

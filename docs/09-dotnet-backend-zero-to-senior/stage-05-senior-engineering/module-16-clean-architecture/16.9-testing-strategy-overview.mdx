@@ -259,11 +259,636 @@ Bốn test này rẻ để viết và bắt được những lỗi tốn kém nh
 
 ## Bài tập áp dụng
 
-1. **Test gãy khi refactor.** Viết một test dùng `Verify` cho hai lời gọi, rồi gộp hai lời gọi đó thành một phương thức mà **không đổi hành vi**. Xác nhận test đỏ.
+#### Bài 1 — Test gãy khi refactor
 
-2. **Mutation testing.** Chạy Stryker.NET trên assembly Domain và xem báo cáo. Tìm một mutant "sống sót" và viết test bắt được nó.
+Viết một test dùng `Verify` cho hai lời gọi, rồi gộp hai lời gọi đó thành một phương thức mà **không đổi hành vi**. Xác nhận test đỏ.
 
-3. **Coverage nói dối.** Viết một test chỉ assert `NotNull`, đo coverage, rồi cố tình làm hỏng logic bên trong handler. Xác nhận test **vẫn xanh**.
+**Tiêu chí hoàn thành:** bạn giải thích được khác biệt giữa test **hành vi** và test **cài đặt**, và có một quy tắc để nhận ra mình đang viết loại nào.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Nếu bạn đổi cách làm mà không đổi kết quả, test nên đỏ hay xanh?
+
+**Lời giải — test cài đặt:**
+
+```csharp
+[Fact]
+public async Task Chot_lead_phai_gui_email_va_ghi_audit()
+{
+    var email = Substitute.For<IEmailSender>();
+    var audit = Substitute.For<IAuditLogger>();
+    var svc = new LeadService(_db, email, audit, _clock);
+
+    await svc.ChotLeadAsync(leadId, ct);
+
+    await email.Received(1).GuiAsync(
+        Arg.Any<string>(), "Lead đã chốt", Arg.Any<string>());
+    await audit.Received(1).GhiAsync("LeadChot", leadId.ToString());
+}
+```
+
+Refactor — gộp hai lời gọi, **không đổi hành vi**:
+
+```csharp
+// Trước
+await _email.GuiAsync(lead.Email, "Lead đã chốt", NoiDung(lead));
+await _audit.GhiAsync("LeadChot", lead.Id.ToString());
+
+// Sau — một phương thức làm cả hai, kết quả cuối GIỐNG HỆT
+await _thongBao.ThongBaoChotLeadAsync(lead, ct);
+```
+
+```text
+NSubstitute.Exceptions.ReceivedCallsException:
+  Expected to receive exactly 1 call matching:
+      GuiAsync(any String, "Lead đã chốt", any String)
+  Actually received no matching calls.
+```
+
+**Test đỏ dù hành vi không đổi.** Email vẫn được gửi, audit vẫn được ghi, người dùng không thấy khác biệt nào — nhưng test báo hỏng.
+
+**Khác biệt giữa test hành vi và test cài đặt:**
+
+| | Test hành vi | Test cài đặt |
+|---|---|---|
+| Khẳng định về | **Kết quả quan sát được** | **Cách làm** |
+| Đỏ khi | **Hành vi đổi** | Cách làm đổi, kể cả khi hành vi không đổi |
+| Cho phép refactor | **Có** | Không |
+| Công cụ | Assert trên trạng thái, kết quả trả về | `Verify`, `Received`, `AssertWasCalled` |
+| Giá trị | **Bảo vệ đúng đắn** | Ghi lại cấu trúc code tại một thời điểm |
+
+**Test hành vi cho cùng use case:**
+
+```csharp
+[Fact]
+public async Task Chot_lead_chuyen_trang_thai_va_ghi_thoi_diem()
+{
+    var lead = Lead.Tao("ABC", Email.Tao("an@abc.com").Value, Money.VND(1_000_000)).Value;
+    var truongPhong = NguoiDung.TruongPhong("tp01");
+    var bayGio = new DateTime(2026, 9, 25, 8, 0, 0, DateTimeKind.Utc);
+
+    var kq = lead.ChuyenSangWon(truongPhong, bayGio);
+
+    kq.ThanhCong.Should().BeTrue();
+    lead.Status.Should().Be(LeadStatus.Won);
+    lead.ClosedUtc.Should().Be(bayGio);
+    lead.DomainEvents.Should().ContainSingle().Which.Should().BeOfType<LeadDaChot>();
+}
+```
+
+Test này **không quan tâm** cách `ChuyenSangWon` được cài đặt. Gộp phương thức, tách phương thức, đổi tên biến — nó vẫn xanh chừng nào hành vi đúng.
+
+**Quy tắc để nhận ra mình đang viết loại nào:**
+
+> **"Nếu tôi viết lại phần cài đặt từ đầu, giữ nguyên hành vi, test này có còn xanh không?"**
+
+```text
+Có    -> test hành vi -> giữ
+Không -> test cài đặt -> viết lại hoặc xoá
+```
+
+Ba dấu hiệu cụ thể của test cài đặt:
+
+```csharp
+// 1. Verify trên lời gọi nội bộ
+await _repo.Received(1).LayAsync(Arg.Any<LeadId>(), Arg.Any<CancellationToken>());
+
+// 2. Kiểm tra THỨ TỰ gọi
+Received.InOrder(() => { _repo.LayAsync(...); _email.GuiAsync(...); });
+
+// 3. Mock một lớp CỦA CHÍNH BẠN mà không phải ranh giới
+var svc = Substitute.For<ILeadCalculator>();
+```
+
+**Vậy khi nào `Verify` là đúng?** Khi lời gọi đó **chính là hành vi** — tức là tác dụng phụ ra ngoài hệ thống mà không quan sát được bằng cách nào khác:
+
+```csharp
+[Fact]
+public async Task Lead_tren_nguong_phai_gui_thong_bao_cho_truong_phong()
+{
+    var email = Substitute.For<IEmailSender>();
+    // ...
+    await _handler.Handle(new ChotLeadCommand(id), ct);
+
+    // Gửi email LÀ yêu cầu nghiệp vụ, không phải chi tiết cài đặt
+    await email.Received(1).GuiAsync(
+        "truongphong@cty.com",
+        Arg.Is<string>(s => s.Contains("cần duyệt")),
+        Arg.Any<string>());
+}
+```
+
+Phân biệt:
+
+```text
+"Gọi _repo.LayAsync"              -> cách làm -> đừng verify
+"Gửi email tới trưởng phòng"      -> yêu cầu nghiệp vụ -> verify được
+"Publish message lên queue"       -> hợp đồng với hệ thống khác -> verify được
+"Gọi API thanh toán"              -> tác dụng phụ ra ngoài -> verify được
+```
+
+**Quy tắc mock:**
+
+```text
+MOCK:      ranh giới ra ngoài hệ thống — email, SMS, API bên thứ ba,
+           message broker, đồng hồ, bộ sinh số ngẫu nhiên
+
+ĐỪNG MOCK: lớp của chính bạn — entity, value object, service nội bộ
+           database (dùng SQLite in-memory hoặc Testcontainers)
+```
+
+Lý do không mock database: nó là **chi tiết cài đặt của việc lưu trữ**, không phải ranh giới hệ thống. Mock nó nghĩa là test không kiểm tra được rằng truy vấn đúng, ánh xạ đúng, và ràng buộc được tôn trọng — tức là bỏ qua đúng những chỗ hay sai nhất.
+
+**Viết lại test ở đầu bài theo hướng hành vi:**
+
+```csharp
+[Fact]
+public async Task Chot_lead_phai_thong_bao_ra_ngoai()
+{
+    var email = Substitute.For<IEmailSender>();
+    await using var db = TaoSqliteInMemory();
+    await db.Leads.AddAsync(Lead.Tao(...).Value);
+    await db.SaveChangesAsync();
+
+    var handler = new ChotLeadHandler(db, email, _user, _clock);
+    var kq = await handler.Handle(new ChotLeadCommand(leadId), ct);
+
+    // Hành vi quan sát được
+    kq.ThanhCong.Should().BeTrue();
+
+    var lead = await db.Leads.AsNoTracking().FirstAsync(l => l.Id == leadId);
+    lead.Status.Should().Be(LeadStatus.Won);
+
+    // Tác dụng phụ ra ngoài — đây LÀ hành vi
+    await email.Received(1).GuiAsync(
+        "an@abc.com", Arg.Is<string>(s => s.Contains("chốt")), Arg.Any<string>());
+}
+```
+
+Test này sống sót qua mọi refactor nội bộ, và nó kiểm tra đúng ba thứ quan trọng: kết quả trả về, trạng thái được lưu, và tác dụng phụ ra ngoài.
+
+**Rà soát test hiện có:**
+
+```bash
+grep -rn "Received(\|Verify(\|AssertWasCalled" --include="*Tests.cs" tests/ | wc -l
+```
+
+```text
+284
+```
+
+284 lời gọi `Verify`. Với mỗi cái, áp câu hỏi ở trên. Trong một codebase điển hình, khoảng 70–80% trong số đó là test cài đặt — và chúng là lý do khiến "refactor thì 40 test đỏ" trở thành trải nghiệm quen thuộc.
+
+**Và một chỉ số đáng theo dõi:**
+
+```bash
+# Trong 6 tháng qua, bao nhiêu commit sửa test mà KHÔNG sửa code production?
+git log --since='6 months ago' --name-only --format='%H' | awk '
+  /^[0-9a-f]{40}$/ { if (n > 0 && chiTest) print sha; sha = $0; n = 0; chiTest = 1; next }
+  /\.cs$/ { n++; if ($0 !~ /[Tt]ests?\//) chiTest = 0 }
+  END { if (n > 0 && chiTest) print sha }' | wc -l
+```
+
+Con số cao nghĩa là test đang bám vào cài đặt: người ta refactor code, test đỏ, rồi sửa test cho khớp. Mỗi lần như vậy, test mất một phần giá trị — vì nó được sửa để **khớp với code mới**, không phải để kiểm tra rằng code mới đúng.
+
+</details>
+
+---
+
+#### Bài 2 — Mutation testing
+
+Chạy Stryker.NET trên assembly Domain và xem báo cáo. Tìm một mutant "sống sót" và viết test bắt được nó.
+
+**Tiêu chí hoàn thành:** bạn giải thích được mutation testing đo gì mà coverage không đo được, và biết đọc báo cáo để tìm test yếu.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Coverage đo dòng code được **chạy**. Nó có đo dòng code được **kiểm tra** không?
+
+**Lời giải:**
+
+```bash
+dotnet tool install -g dotnet-stryker
+cd tests/Crm.Domain.Tests
+dotnet stryker --project Crm.Domain.csproj --mutation-level Standard
+```
+
+```text
+Killed:   142
+Survived:  38
+Timeout:    2
+No coverage: 14
+
+The final mutation score is 71.36%
+```
+
+```text
+Crm.Domain/Entities/Lead.cs
+
+[Survived] Equality mutation on line 47
+-    if (Value >= NguongCanDuyet && !nguoiThucHien.LaTruongPhong)
++    if (Value > NguongCanDuyet && !nguoiThucHien.LaTruongPhong)
+
+[Survived] Logical mutation on line 52
+-    if (Status is LeadStatus.Won or LeadStatus.Lost)
++    if (Status is LeadStatus.Won)
+
+[Survived] Boolean mutation on line 61
+-    return Result.ThanhCong();
++    return Result.Loi("");
+```
+
+Ba mutant sống sót trên một phương thức có **coverage 100%**.
+
+**Mutation testing đo gì mà coverage không đo được:**
+
+```csharp
+// Coverage 100% — dòng này được chạy
+public Result ChuyenSangWon(NguoiDung nguoiThucHien, DateTime bayGio)
+{
+    if (Value >= NguongCanDuyet && !nguoiThucHien.LaTruongPhong)
+        return Result.Loi("Cần trưởng phòng duyệt");
+    // ...
+}
+```
+
+```csharp
+// Test duy nhất — chạy qua dòng đó, nhưng không kiểm tra BIÊN
+[Fact]
+public void Lead_gia_tri_lon_can_duyet()
+{
+    var lead = TaoLead(giaTri: 600_000_000);      // XA biên
+    var kq = lead.ChuyenSangWon(NhanVien(), _bayGio);
+    kq.ThanhCong.Should().BeFalse();
+}
+```
+
+Đổi `>=` thành `>` không làm test đỏ, vì 600 triệu vẫn lớn hơn 500 triệu theo cả hai toán tử. Nghĩa là **test không kiểm tra biên** — và biên chính là chỗ lỗi hay nằm.
+
+```text
+Coverage:          "dòng này ĐƯỢC CHẠY trong lúc test"
+Mutation testing:  "nếu tôi làm hỏng dòng này, có test nào PHÁT HIỆN không?"
+```
+
+Khác biệt là bản chất: coverage đo **sự hiện diện** của test; mutation testing đo **sức mạnh** của test.
+
+```text
+Coverage 100%, mutation score 45%  -> test chạy hết code nhưng kiểm tra rất ít
+Coverage 70%,  mutation score 85%  -> test ít hơn nhưng mỗi test có giá trị
+```
+
+Cặp thứ hai tốt hơn cặp thứ nhất.
+
+**Viết test bắt mutant thứ nhất — kiểm tra biên:**
+
+```csharp
+[Theory]
+[InlineData(499_999_999, true)]      // ngay DƯỚI ngưỡng -> qua
+[InlineData(500_000_000, false)]     // ĐÚNG ngưỡng -> chặn  <- mutant chết ở đây
+[InlineData(500_000_001, false)]     // ngay TRÊN ngưỡng -> chặn
+public void Nguong_duyet_kiem_tra_dung_bien(decimal giaTri, bool mongDoiThanhCong)
+{
+    var lead = TaoLead(giaTri: giaTri);
+    var kq = lead.ChuyenSangWon(NhanVien(), _bayGio);
+    kq.ThanhCong.Should().Be(mongDoiThanhCong);
+}
+```
+
+Với `>` thay cho `>=`, dòng thứ hai sẽ cho `ThanhCong = true` và test đỏ. Mutant bị giết.
+
+**Mutant thứ hai — thiếu nhánh:**
+
+```csharp
+[Theory]
+[InlineData(LeadStatus.Won)]
+[InlineData(LeadStatus.Lost)]         // <- nhánh này trước đây không được test
+public void Khong_chot_duoc_lead_da_o_trang_thai_cuoi(LeadStatus trangThai)
+{
+    var lead = TaoLeadOTrangThai(trangThai);
+    var kq = lead.ChuyenSangWon(TruongPhong(), _bayGio);
+
+    kq.ThanhCong.Should().BeFalse();
+    kq.Loi.Should().Contain("trạng thái cuối");
+}
+```
+
+**Mutant thứ ba — khẳng định quá yếu:**
+
+```csharp
+// Trước — chỉ kiểm tra thành công, không kiểm tra TÁC DỤNG
+kq.ThanhCong.Should().BeTrue();
+
+// Sau — kiểm tra cả trạng thái đã đổi
+kq.ThanhCong.Should().BeTrue();
+lead.Status.Should().Be(LeadStatus.Won);
+lead.ClosedUtc.Should().Be(_bayGio);
+lead.DomainEvents.Should().ContainSingle().Which.Should().BeOfType<LeadDaChot>();
+```
+
+Mutant `return Result.Loi("")` sống sót được vì test chỉ kiểm tra `ThanhCong` ở nhánh lỗi, và không kiểm tra gì ở nhánh thành công.
+
+**Đọc báo cáo để tìm test yếu:**
+
+```bash
+dotnet stryker --reporter html --reporter progress
+open StrykerOutput/*/reports/mutation-report.html
+```
+
+Ba thứ cần nhìn, theo thứ tự ưu tiên:
+
+**1. Mutant `[Survived]` trong lớp Domain** — đây là ưu tiên cao nhất, vì đó là nơi chứa quy tắc nghiệp vụ.
+
+**2. Mutant `[No coverage]`** — code không có test nào chạm tới:
+
+```text
+[No coverage] on line 89 in Lead.cs
+-    public Result Huy(string lyDo)
+```
+
+Một phương thức public không có test nào. Đây là thứ coverage cũng phát hiện được, nhưng báo cáo Stryker đặt nó cạnh các mutant khác nên dễ ưu tiên hơn.
+
+**3. Mutant `[Timeout]`** — thường nghĩa là mutant tạo vòng lặp vô hạn, và **đó là tín hiệu tốt**: nó cho thấy có test chạy qua đoạn đó. Stryker tính timeout như "đã giết".
+
+**Mục tiêu mutation score thực tế:**
+
+| Loại code | Mục tiêu |
+|---|---:|
+| **Domain (entity, value object)** | **85–95%** |
+| Application (handler) | 70–80% |
+| Infrastructure (repository, adapter) | 40–60% |
+| Api (controller, endpoint) | không chạy mutation testing |
+
+Đừng đặt mục tiêu 100% ở bất cứ đâu. Luôn có mutant **tương đương** — thay đổi không làm đổi hành vi:
+
+```csharp
+// Mutant này KHÔNG thể giết được, vì hai bản tương đương về hành vi
+- for (var i = 0; i < items.Count; i++)
++ for (var i = 0; i != items.Count; i++)
+```
+
+Đánh dấu chúng để không phải xem lại:
+
+```csharp
+// Stryker disable once all : hai biểu thức tương đương
+for (var i = 0; i < items.Count; i++)
+```
+
+**Cấu hình cho dự án:**
+
+```json
+// stryker-config.json
+{
+  "stryker-config": {
+    "project": "Crm.Domain.csproj",
+    "test-projects": ["../../tests/Crm.Domain.Tests/Crm.Domain.Tests.csproj"],
+    "mutation-level": "Standard",
+    "thresholds": { "high": 85, "low": 70, "break": 65 },
+    "reporters": ["html", "progress", "cleartext"],
+    "ignore-mutations": ["string"],
+    "mutate": ["**/*.cs", "!**/Migrations/**", "!**/obj/**"]
+  }
+}
+```
+
+`"ignore-mutations": ["string"]` bỏ qua mutation trên chuỗi — chúng thường sinh ra hàng trăm mutant vô nghĩa trên thông điệp lỗi.
+
+**Đưa vào CI, nhưng không chạy mỗi lần:**
+
+```yaml
+# Mutation testing mất nhiều phút -> chạy hằng đêm, không chạy mỗi PR
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  mutation:
+    runs-on: ubuntu-latest
+    steps:
+      - run: dotnet stryker --break-at 65
+```
+
+`--break-at 65` làm job đỏ nếu điểm tụt dưới 65 — một mẫu ratchet: nâng ngưỡng dần theo thời gian thay vì đặt mục tiêu cao ngay từ đầu.
+
+**Và giá trị lớn nhất của mutation testing không phải con số** — mà là danh sách mutant sống sót. Mỗi mutant là một câu hỏi cụ thể: *"nếu dòng này sai theo cách này, ai phát hiện?"* Trả lời câu đó thường dẫn tới một test tốt mà bạn không nghĩ ra khi viết test lần đầu.
+
+</details>
+
+---
+
+#### Bài 3 — Coverage nói dối
+
+Viết một test chỉ assert `NotNull`, đo coverage, rồi cố tình làm hỏng logic bên trong handler. Xác nhận test **vẫn xanh**.
+
+**Tiêu chí hoàn thành:** bạn nêu được ba cách coverage đánh lừa, và biết dùng coverage **đúng mục đích** của nó.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Coverage đếm dòng được chạy. Bạn làm gì với kết quả sau khi chạy?
+
+**Lời giải — test vô nghĩa:**
+
+```csharp
+[Fact]
+public async Task ChotLead_tra_ve_ket_qua()
+{
+    var handler = new ChotLeadHandler(_db, _email, _user, _clock);
+    var kq = await handler.Handle(new ChotLeadCommand(leadId), ct);
+    kq.Should().NotBeNull();
+}
+```
+
+```bash
+dotnet test --collect:"XPlat Code Coverage"
+reportgenerator -reports:**/coverage.cobertura.xml -targetdir:coverage
+```
+
+```text
+ChotLeadHandler.cs     Line coverage: 100%    Branch coverage: 100%
+```
+
+Làm hỏng logic:
+
+```csharp
+public async Task<Result> Handle(ChotLeadCommand c, CancellationToken ct)
+{
+    var lead = await _db.Leads.FirstOrDefaultAsync(l => l.Id == c.Id, ct);
+    if (lead is null) return Result.KhongTimThay();
+
+    // Bỏ hẳn kiểm tra quyền
+    lead.DatTrangThai(LeadStatus.Won);        // đi vòng qua ChuyenSangWon
+    await _db.SaveChangesAsync(ct);
+
+    return Result.ThanhCong();                 // luôn thành công
+}
+```
+
+```bash
+dotnet test
+```
+
+```text
+Passed!  - Failed: 0, Passed: 1, Skipped: 0
+Line coverage: 100%
+```
+
+Test vẫn xanh. Coverage vẫn 100%. Và quy tắc duyệt đã biến mất hoàn toàn.
+
+**Ba cách coverage đánh lừa:**
+
+**Cách 1 — đếm dòng được CHẠY, không đếm dòng được KIỂM TRA.**
+
+```csharp
+var kq = await handler.Handle(command, ct);
+kq.Should().NotBeNull();                      // 100% coverage, 0% kiểm tra
+```
+
+Mọi dòng trong handler được chạy, nên coverage đầy đủ. Nhưng khẳng định duy nhất là "kết quả không null" — điều đúng với **mọi** phiên bản của handler, kể cả phiên bản sai.
+
+Đây chính là thứ mutation testing ở bài 2 đo được mà coverage không đo được.
+
+**Cách 2 — branch coverage không phải path coverage.**
+
+```csharp
+public Result ChuyenSangWon(NguoiDung nguoi, DateTime bayGio)
+{
+    if (Status is LeadStatus.Won) return Result.Loi("Đã chốt");          // nhánh A
+    if (AssignedTo is null)       return Result.Loi("Chưa gán");         // nhánh B
+    if (CanDuyet() && !nguoi.LaTruongPhong) return Result.Loi("Cần duyệt"); // nhánh C
+    Status = LeadStatus.Won;
+    return Result.ThanhCong();
+}
+```
+
+Bốn test — mỗi nhánh một test cộng một test đường thành công — cho **branch coverage 100%**. Nhưng số **tổ hợp** là 2³ = 8:
+
+```text
+Chưa test:  lead đã Won VÀ chưa gán       -> trả lỗi nào? thứ tự có đúng không?
+            đã gán VÀ cần duyệt VÀ là nhân viên
+            ...
+```
+
+Branch coverage 100% không có nghĩa là mọi tổ hợp điều kiện đã được kiểm tra — và lỗi thường nằm ở tổ hợp, không ở từng nhánh riêng.
+
+**Cách 3 — coverage cao vì test những thứ không cần test.**
+
+```text
+Coverage tổng: 87%
+
+Phân rã:
+    DTO, record, property          98%    <- không có logic, test vô nghĩa
+    Migration                      95%    <- code sinh tự động
+    Mapping profile                92%
+    Program.cs, extension đăng ký  88%
+    Entity, value object           42%    <- CHỖ QUAN TRỌNG NHẤT
+    Handler                        51%
+```
+
+Con số 87% nghe tốt, nhưng nó được kéo lên bởi những phần **không chứa quy tắc nghiệp vụ**. Chỗ thật sự cần test thì dưới 50%.
+
+Đây là lý do coverage tổng gần như vô dụng — nó trộn những thứ có giá trị rất khác nhau vào một con số.
+
+**Dùng coverage đúng mục đích:**
+
+> **Coverage hữu ích khi TÌM code KHÔNG có test. Nó vô dụng khi làm MỤC TIÊU.**
+
+```text
+Dùng đúng:
+    "Lead.cs có 3 phương thức không có test nào chạm tới"     -> hành động được
+    "Toàn bộ thư mục Handlers/Orders không có test"           -> hành động được
+    "Coverage giảm từ 68% xuống 51% sau PR này"               -> đáng hỏi vì sao
+
+Dùng sai:
+    "Đạt 80% coverage"                    -> người ta viết test vô nghĩa để đạt
+    "Coverage tổng là 87%"                -> không nói lên điều gì
+    "PR phải có coverage 100%"            -> khuyến khích test rác
+```
+
+Lý do "coverage làm mục tiêu" luôn thất bại là **định luật Goodhart**: khi một thước đo trở thành mục tiêu, nó ngừng là thước đo tốt. Cách nhanh nhất để tăng coverage là viết test `NotNull` cho mọi thứ — và đó chính là điều sẽ xảy ra.
+
+**Cấu hình coverage có ích:**
+
+```xml
+<!-- coverlet.runsettings -->
+<Configuration>
+  <Exclude>[*]*.Migrations.*,[*]*Dto,[*]*Request,[*]*Response,[*]Program</Exclude>
+  <ExcludeByAttribute>GeneratedCodeAttribute,CompilerGeneratedAttribute</ExcludeByAttribute>
+  <SkipAutoProps>true</SkipAutoProps>
+</Configuration>
+```
+
+```bash
+dotnet test --settings coverlet.runsettings --collect:"XPlat Code Coverage"
+```
+
+```text
+Coverage sau khi loại trừ: 58%
+    Crm.Domain:         42%     <- ưu tiên 1
+    Crm.Application:    51%     <- ưu tiên 2
+    Crm.Infrastructure: 73%
+```
+
+Con số thấp hơn nhưng **có ý nghĩa** — nó phản ánh đúng phần code chứa quyết định.
+
+**Ngưỡng theo tầng, không dùng một ngưỡng chung:**
+
+```yaml
+- name: Kiểm tra coverage theo tầng
+  run: |
+    dotnet test --settings coverlet.runsettings \
+      /p:CollectCoverage=true \
+      /p:Threshold=85 /p:ThresholdType=line \
+      /p:Include="[Crm.Domain]*" \
+      tests/Crm.Domain.Tests
+```
+
+```text
+Crm.Domain:         ngưỡng 85%   (quy tắc nghiệp vụ — phải có test kỹ)
+Crm.Application:    ngưỡng 70%
+Crm.Infrastructure: không đặt ngưỡng (test bằng integration test)
+Crm.Api:            không đặt ngưỡng
+```
+
+**Và ba chỉ số tốt hơn coverage:**
+
+**1. Mutation score trên Domain** (bài 2 ở trên) — đo sức mạnh của test, không đo sự hiện diện.
+
+**2. Thời gian phát hiện lỗi:**
+
+```markdown
+| Lỗi | Phát hiện ở | Đáng ra nên phát hiện ở |
+|---|---|---|
+| Ngưỡng duyệt sai | Production | Unit test Domain |
+| Rò rỉ tenant | Production | Integration test |
+| N+1 | Production | Test đếm truy vấn |
+```
+
+Bảng này cho biết **lớp test nào đang thiếu**, và nó hữu ích hơn bất kỳ con số phần trăm nào.
+
+**3. Tỷ lệ commit chỉ sửa test:**
+
+```bash
+git log --since='3 months ago' --name-only --format='%H' \
+  | awk '/^[0-9a-f]{40}$/{if(n&&t)c++;sha=$0;n=0;t=1;next} /\.cs$/{n++;if($0!~/[Tt]ests?\//)t=0} END{if(n&&t)c++; print c}'
+```
+
+Con số cao nghĩa là test đang bám vào cài đặt — vấn đề ở bài 1.
+
+**Kết luận đáng mang theo:**
+
+```text
+Coverage trả lời:     "phần nào của code CHƯA có test?"
+Coverage KHÔNG trả lời: "test của tôi có tốt không?"
+
+Dùng nó để tìm khoảng trống, đừng dùng nó để tự đánh giá.
+```
+
+Và nếu nhóm bạn đang có mục tiêu coverage theo phần trăm, hãy thử đề xuất thay bằng: **mutation score trên Domain, và danh sách file không có test nào**. Hai thứ đó dẫn tới hành động cụ thể, còn một con số phần trăm thì không.
+
+</details>
 
 ## Tự kiểm tra
 
