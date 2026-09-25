@@ -5,7 +5,7 @@
 
 ## Nội dung module
 
-- [11.1 — 1. Tại sao cần Real-time?](11.1-tai-sao-can-real-time.mdx)
+- [11.1 — 1. Tại sao cần Real-time?](11.1-why-real-time-matters.mdx)
 - [11.2 — 2. SignalR Architecture](11.2-signalr-architecture.mdx)
 - [11.3 — 3. Setup SignalR Server](11.3-setup-signalr-server.mdx)
 - [11.4 — 4. Client-side Integration](11.4-client-side-integration.mdx)
