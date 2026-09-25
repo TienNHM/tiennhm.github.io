@@ -240,11 +240,792 @@ public async Task<CreditCheckResult> CheckCreditAsync(Guid customerId, decimal a
 
 ## Bài tập áp dụng
 
-1. **Tính uptime chuỗi.** Vẽ chuỗi gọi dài nhất trong hệ thống của bạn và tính uptime tích luỹ với giả định mỗi service đạt 99,9%.
+#### Bài 1 — Tính uptime chuỗi
 
-2. **Phá vỡ chuỗi.** Chọn một lời gọi đồng bộ và chuyển sang nhân bản dữ liệu qua event. Đo lại độ trễ p99 của endpoint đó.
+Vẽ chuỗi gọi dài nhất trong hệ thống của bạn và tính uptime tích luỹ với giả định mỗi service đạt 99,9%.
 
-3. **Kiểm thử circuit breaker.** Dừng một service phụ thuộc và xác nhận phương án dự phòng chạy đúng, không phải trả về lỗi 500.
+**Tiêu chí hoàn thành:** bạn tính được con số, và hiểu vì sao phép nhân này **lạc quan** so với thực tế.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Nếu A cần B để phục vụ một request, A hoạt động được khi B chết không?
+
+**Lời giải — tìm chuỗi dài nhất:**
+
+```bash
+# Từ trace — chuỗi có nhiều span nhất
+curl -s "http://jaeger:16686/api/traces?service=crm-gateway&limit=100" \
+  | jq '[.data[] | {traceID, spans: (.spans | length)}] | sort_by(-.spans) | .[0:5]'
+```
+
+```text
+[
+  {"traceID": "4bf92f35...", "spans": 14},
+  {"traceID": "7a2c8e91...", "spans": 12}
+]
+```
+
+```text
+Chuỗi dài nhất — POST /api/don-hang:
+
+Gateway -> Order Service -> Inventory Service -> Product Service
+                        \-> Pricing Service -> Promotion Service
+                        \-> Customer Service -> Identity Service
+```
+
+**Tính uptime tích luỹ:**
+
+```text
+Mỗi service: 99,9% (downtime 8,8 giờ/năm)
+
+Chuỗi đồng bộ dài nhất: Gateway -> Order -> Inventory -> Product
+    = 0,999^4 = 0,9960 = 99,60%
+
+Nhưng Order CŨNG cần Pricing và Customer đồng bộ:
+    Gateway, Order, Inventory, Product, Pricing, Promotion, Customer, Identity
+    = 0,999^8 = 0,9920 = 99,20%
+```
+
+| Số phụ thuộc đồng bộ | Uptime tích luỹ | Downtime/năm |
+|---:|---:|---:|
+| 1 (monolith) | 99,90% | 8,8 giờ |
+| 2 | 99,80% | 17,5 giờ |
+| 4 | 99,60% | 35,0 giờ |
+| **8** | **99,20%** | **70,1 giờ** |
+| 16 | 98,41% | 139,3 giờ |
+
+**Tách thành 8 service làm downtime tăng gấp 8 lần** so với monolith — nếu mọi lời gọi đều đồng bộ.
+
+**Vì sao phép nhân này LẠC QUAN so với thực tế — bốn lý do:**
+
+**1. Sự cố tương quan, không độc lập.**
+
+```text
+Phép nhân giả định các sự cố ĐỘC LẬP.
+Thực tế:
+    - Một sự cố mạng ảnh hưởng nhiều service cùng lúc
+    - Một node Kubernetes chết mang theo nhiều pod
+    - Một bản vá hệ điều hành lỗi ảnh hưởng cả cụm
+    - Một database dùng chung chết -> mọi service dùng nó chết
+```
+
+**2. Không tính thời gian triển khai.**
+
+```text
+8 service × deploy 2 lần/tuần = 16 lần deploy/tuần
+Mỗi lần có cửa sổ vài giây mà request có thể lỗi
+-> với rolling update chưa đúng ([bài 15.13](../../stage-04-database-production/module-15-docker-deployment/15.13-quick-real-world-example.mdx)),
+   cửa sổ đó là vài chục request mỗi lần
+```
+
+**3. Không tính suy giảm hiệu năng.**
+
+```text
+"Uptime 99,9%" thường nghĩa là "service phản hồi"
+Nhưng một service phản hồi trong 30 giây thì với người dùng nó ĐÃ CHẾT
+
+-> uptime thật (bao gồm cả độ trễ chấp nhận được) thấp hơn con số công bố
+```
+
+**4. Lỗi cascade — và đây là lý do nghiêm trọng nhất.**
+
+```text
+Product Service chậm (chưa chết, chỉ chậm)
+-> Inventory chờ, luồng của nó bị chiếm
+-> Inventory chậm
+-> Order chờ, luồng của nó bị chiếm
+-> Order chậm
+-> Gateway chờ
+-> TOÀN BỘ hệ thống chậm vì MỘT service ở cuối chuỗi
+```
+
+Cascade không nằm trong phép nhân, và nó là cách mà hệ phân tán thường chết thật sự: không phải một service chết, mà một service **chậm** và kéo theo mọi thứ.
+
+**Tính lại với tương quan — ước lượng thực tế hơn:**
+
+```text
+Uptime tích luỹ (lý thuyết):     99,20%
+Trừ thời gian deploy:            -0,15%
+Trừ suy giảm hiệu năng:          -0,30%
+Trừ lỗi cascade:                 -0,40%
+                                 -------
+Uptime thực tế ước tính:         98,35%    = 144 giờ/năm
+```
+
+**Ba cách cải thiện, theo hiệu quả giảm dần:**
+
+**Cách 1 — phá vỡ chuỗi bằng event (hiệu quả nhất):**
+
+```csharp
+// TRƯỚC — chuỗi 4 service đồng bộ
+public async Task<Result> TaoDonHangAsync(TaoDonRequest req, CancellationToken ct)
+{
+    var gia = await _pricing.TinhGiaAsync(req.Items, ct);          // đồng bộ
+    var kho = await _inventory.KiemTraKhoAsync(req.Items, ct);     // đồng bộ
+    var khach = await _customer.LayAsync(req.CustomerId, ct);      // đồng bộ
+
+    var don = Order.Tao(khach.Id, req.Items, gia.Value);
+    _db.Orders.Add(don);
+    await _db.SaveChangesAsync(ct);
+    return Result.ThanhCong();
+}
+```
+
+```csharp
+// SAU — chỉ giữ đồng bộ thứ THẬT SỰ cần trước khi tạo đơn
+public async Task<Result> TaoDonHangAsync(TaoDonRequest req, CancellationToken ct)
+{
+    // Giá: PHẢI đồng bộ — không tạo đơn mà không biết giá
+    var gia = await _pricing.TinhGiaAsync(req.Items, ct);
+    if (!gia.ThanhCong) return Result.Loi(gia.Loi);
+
+    // Khách hàng: dùng SNAPSHOT nhân bản qua event
+    var khach = await _db.CustomerSnapshots.FirstOrDefaultAsync(c => c.Id == req.CustomerId, ct);
+    if (khach is null) return Result.Loi("Không tìm thấy khách hàng");
+
+    var don = Order.Tao(khach.Id, req.Items, gia.Value);
+    _db.Orders.Add(don);
+
+    // Trừ kho: BẤT ĐỒNG BỘ qua event, có bù trừ nếu không đủ hàng
+    _db.Outbox.Add(TinNhanOutbox.Tao(new DonHangDaTaoV1(don.Id.Value, req.Items)));
+
+    await _db.SaveChangesAsync(ct);
+    return Result.ThanhCong();
+}
+```
+
+```text
+Phụ thuộc đồng bộ: 4 -> 2 (Gateway, Order, Pricing)
+Uptime: 99,20% -> 99,70%
+Downtime: 70 giờ -> 26 giờ/năm
+```
+
+**Cách 2 — phương án dự phòng khi service phụ chết:**
+
+```csharp
+var gia = await _pricing.TinhGiaAsync(req.Items, ct);
+```
+
+```csharp
+try
+{
+    var gia = await _pricing.TinhGiaAsync(req.Items, ct);
+    return gia;
+}
+catch (BrokenCircuitException)
+{
+    // Dùng bảng giá cache — có thể cũ, nhưng vẫn phục vụ được
+    _logger.LogWarning("Pricing chết — dùng bảng giá cache");
+    return await _cache.GetOrCreateAsync($"bang-gia", ...);
+}
+```
+
+```text
+Phụ thuộc "cứng" -> phụ thuộc "mềm"
+-> Pricing chết KHÔNG làm Order chết
+-> và người dùng thấy giá cũ thay vì thấy lỗi
+```
+
+**Cách 3 — bulkhead, ngăn cascade:**
+
+```csharp
+services.AddHttpClient<IPricingClient, PricingClient>()
+    .AddResilienceHandler("pricing", b =>
+    {
+        b.AddConcurrencyLimiter(new ConcurrencyLimiterOptions
+        {
+            PermitLimit = 20,          // tối đa 20 lời gọi đồng thời
+            QueueLimit = 10,
+        });
+        b.AddTimeout(TimeSpan.FromSeconds(2));
+        b.AddCircuitBreaker(new HttpCircuitBreakerStrategyOptions { FailureRatio = 0.5 });
+    });
+```
+
+```text
+Pricing chậm 30 giây
+-> chỉ 20 luồng của Order bị chiếm, không phải tất cả
+-> lời gọi thứ 31 bị từ chối NGAY
+-> các endpoint không dùng Pricing vẫn hoạt động bình thường
+```
+
+Bulkhead không ngăn Pricing chết, nhưng nó **giới hạn thiệt hại** — và đó là khác biệt giữa "một chức năng hỏng" và "toàn hệ thống chậm".
+
+**Vẽ bản đồ phụ thuộc và đánh dấu loại:**
+
+```markdown
+## Bản đồ phụ thuộc — POST /api/don-hang
+
+| Từ | Tới | Loại | Nếu chết |
+|---|---|---|---|
+| Gateway | Order | **Cứng** | Endpoint chết |
+| Order | Pricing | **Cứng** | Dùng bảng giá cache |
+| Order | Customer | Mềm (snapshot) | Không ảnh hưởng |
+| Order | Inventory | Mềm (event) | Trừ kho chậm vài giây |
+| Inventory | Product | Mềm (snapshot) | Không ảnh hưởng |
+
+**Phụ thuộc cứng: 2** -> uptime 99,70%
+```
+
+**Và quy tắc đáng nhớ:**
+
+> **Mỗi phụ thuộc đồng bộ là một cách mới để hệ thống chết. Đếm chúng, và giảm chúng.**
+
+Cách đếm nhanh:
+
+```bash
+grep -rn "HttpClient\|GrpcClient\|_.*Client\." --include="*.cs" src/ \
+  | grep -v Tests | grep -oP "I[A-Z][a-zA-Z]*Client" | sort -u | wc -l
+```
+
+Con số này nên được theo dõi như một chỉ số kiến trúc — nếu nó tăng đều, uptime của bạn đang giảm đều.
+
+</details>
+
+---
+
+#### Bài 2 — Phá vỡ chuỗi
+
+Chọn một lời gọi đồng bộ và chuyển sang nhân bản dữ liệu qua event. Đo lại độ trễ p99 của endpoint đó.
+
+**Tiêu chí hoàn thành:** bạn đo được cả hai, và nêu được **ba** thứ phải xử lý khi nhân bản dữ liệu.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Dữ liệu nhân bản có thể cũ, có thể đến sai thứ tự, và có thể thiếu nếu event bị mất.
+
+**Lời giải — trước khi chuyển:**
+
+```csharp
+public async Task<DonHangDto> LayChiTietAsync(Guid id, CancellationToken ct)
+{
+    var don = await _db.Orders.FirstAsync(o => o.Id == id, ct);
+
+    // Lời gọi đồng bộ tới Customer Service
+    var khach = await _customerClient.LayAsync(don.CustomerId, ct);
+
+    return new DonHangDto(don.Id, don.Total, khach.Ten, khach.Email);
+}
+```
+
+```bash
+hey -n 1000 -c 20 http://gateway:8080/api/don-hang/abc-123
+```
+
+```text
+Latency distribution:
+  50% in 0.0840 secs
+  95% in 0.1620 secs
+  99% in 0.4210 secs      <- đuôi dài, vì phụ thuộc vào Customer Service
+  
+Error distribution:
+  [3] context deadline exceeded
+```
+
+**Sau khi nhân bản:**
+
+```csharp
+// Bảng snapshot trong database của Order Service
+public class CustomerSnapshot
+{
+    public Guid     Id         { get; private set; }
+    public string   Ten        { get; private set; } = null!;
+    public string   Email      { get; private set; } = null!;
+    public DateTime CapNhatLuc { get; private set; }
+
+    private CustomerSnapshot() { }
+
+    public static CustomerSnapshot Tao(Guid id, string ten, string email, DateTime luc)
+        => new() { Id = id, Ten = ten, Email = email, CapNhatLuc = luc };
+
+    public void CapNhat(string ten, string email, DateTime luc)
+    {
+        Ten = ten; Email = email; CapNhatLuc = luc;
+    }
+}
+```
+
+```csharp
+public class CapNhatCustomerSnapshotConsumer : IConsumer<KhachHangDaDoiV1>
+{
+    public async Task Consume(ConsumeContext<KhachHangDaDoiV1> ctx)
+    {
+        var e = ctx.Message;
+        var s = await _db.CustomerSnapshots
+            .FirstOrDefaultAsync(x => x.Id == e.CustomerId, ctx.CancellationToken);
+
+        if (s is null)
+        {
+            _db.CustomerSnapshots.Add(
+                CustomerSnapshot.Tao(e.CustomerId, e.Ten, e.Email, e.ThoiDiemUtc));
+        }
+        else if (s.CapNhatLuc < e.ThoiDiemUtc)      // BỎ QUA event cũ hơn
+        {
+            s.CapNhat(e.Ten, e.Email, e.ThoiDiemUtc);
+        }
+        else
+        {
+            _logger.LogInformation("Bỏ qua event cũ cho khách {Id}", e.CustomerId);
+            return;
+        }
+
+        await _db.SaveChangesAsync(ctx.CancellationToken);
+    }
+}
+```
+
+```csharp
+public async Task<DonHangDto> LayChiTietAsync(Guid id, CancellationToken ct)
+{
+    // MỘT truy vấn, KHÔNG gọi mạng
+    var kq = await _db.Orders
+        .Where(o => o.Id == id)
+        .Join(_db.CustomerSnapshots, o => o.CustomerId, c => c.Id,
+              (o, c) => new DonHangDto(o.Id, o.Total, c.Ten, c.Email))
+        .FirstAsync(ct);
+
+    return kq;
+}
+```
+
+```text
+Latency distribution:
+  50% in 0.0120 secs
+  95% in 0.0180 secs
+  99% in 0.0240 secs      <- đuôi NGẮN
+  
+Error distribution:
+  (không có)
+```
+
+**p99 từ 421 ms xuống 24 ms — nhanh 17 lần, và không còn lỗi.**
+
+Cải thiện lớn nhất nằm ở **đuôi** (p99), không ở trung vị (p50): 84 ms → 12 ms là 7 lần, còn 421 ms → 24 ms là 17 lần. Lý do: lời gọi mạng có phương sai lớn, và nó chi phối phần đuôi.
+
+**Ba thứ phải xử lý khi nhân bản dữ liệu:**
+
+**1. Thứ tự message không được bảo đảm.**
+
+```text
+Customer Service phát hai event nhanh liên tiếp:
+    t=0,000  KhachHangDaDoi(ten: "Công ty ABC")
+    t=0,050  KhachHangDaDoi(ten: "Công ty ABC Việt Nam")
+
+Consumer nhận NGƯỢC thứ tự (do retry, do phân vùng khác nhau):
+    -> snapshot giữ "Công ty ABC" — giá trị CŨ
+```
+
+```csharp
+// Sửa — so sánh dấu thời gian, bỏ qua event cũ hơn
+else if (s.CapNhatLuc < e.ThoiDiemUtc) { s.CapNhat(...); }
+else { return; }
+```
+
+Cách mạnh hơn — dùng số phiên bản thay vì dấu thời gian:
+
+```csharp
+public record KhachHangDaDoiV1(Guid CustomerId, string Ten, string Email, long PhienBan);
+```
+
+```csharp
+if (s.PhienBan >= e.PhienBan) return;      // không phụ thuộc đồng hồ
+```
+
+Dấu thời gian phụ thuộc đồng bộ đồng hồ giữa các máy; số phiên bản thì không.
+
+**2. Event có thể bị mất — cần cơ chế đối chiếu.**
+
+```text
+Message mất (broker lỗi, consumer bỏ qua vì bug)
+-> snapshot vĩnh viễn sai
+-> và KHÔNG có gì phát hiện được
+```
+
+```csharp
+public class DoiChieuSnapshotJob : BackgroundService
+{
+    protected override async Task ExecuteAsync(CancellationToken ct)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromHours(6));
+        while (await timer.WaitForNextTickAsync(ct))
+        {
+            // Lấy checksum từ nguồn
+            var nguon = await _customerClient.LayChecksumAsync(ct);
+            var cucBo = await TinhChecksumSnapshotAsync(ct);
+
+            if (nguon.Checksum != cucBo.Checksum)
+            {
+                _logger.LogError(
+                    "Snapshot lệch: nguồn {SoNguon} bản ghi, cục bộ {SoCucBo}",
+                    nguon.SoBanGhi, cucBo.SoBanGhi);
+                _demLech.Add(1);
+
+                await DongBoLaiToanBoAsync(ct);
+            }
+        }
+    }
+}
+```
+
+```csharp
+// API đối chiếu ở Customer Service
+app.MapGet("/khach-hang/checksum", async (CustomerDbContext db, CancellationToken ct) =>
+{
+    var kq = await db.Customers
+        .GroupBy(_ => 1)
+        .Select(g => new { SoBanGhi = g.Count(), MaxCapNhat = g.Max(c => c.UpdatedUtc) })
+        .FirstAsync(ct);
+
+    return new { kq.SoBanGhi, kq.MaxCapNhat };
+});
+```
+
+Không có job đối chiếu, snapshot lệch sẽ tồn tại **vĩnh viễn** — và bạn chỉ phát hiện khi có khách hàng phàn nàn.
+
+**3. Khởi tạo ban đầu — snapshot rỗng khi service mới deploy.**
+
+```text
+Order Service deploy lần đầu
+-> bảng CustomerSnapshots RỖNG
+-> mọi đơn hàng hiển thị "không tìm thấy khách hàng"
+-> và event chỉ phát khi có THAY ĐỔI, nên khách không đổi gì thì không bao giờ có snapshot
+```
+
+Hai cách:
+
+```csharp
+// Cách 1 — nạp ban đầu khi khởi động
+public class NapSnapshotBanDauJob : IHostedService
+{
+    public async Task StartAsync(CancellationToken ct)
+    {
+        if (await _db.CustomerSnapshots.AnyAsync(ct)) return;   // đã có, bỏ qua
+
+        _logger.LogInformation("Nạp snapshot khách hàng lần đầu...");
+
+        await foreach (var trang in _customerClient.LayTatCaAsync(ct))
+        {
+            _db.CustomerSnapshots.AddRange(trang.Select(c =>
+                CustomerSnapshot.Tao(c.Id, c.Ten, c.Email, c.CapNhatLuc)));
+            await _db.SaveChangesAsync(ct);
+        }
+    }
+}
+```
+
+```csharp
+// Cách 2 — lazy: thiếu thì gọi về lấy
+var snapshot = await _db.CustomerSnapshots.FirstOrDefaultAsync(c => c.Id == id, ct);
+
+if (snapshot is null)
+{
+    var khach = await _customerClient.LayAsync(id, ct);       // dự phòng
+    snapshot = CustomerSnapshot.Tao(khach.Id, khach.Ten, khach.Email, khach.CapNhatLuc);
+    _db.CustomerSnapshots.Add(snapshot);
+    await _db.SaveChangesAsync(ct);
+}
+```
+
+Cách 2 đơn giản hơn nhưng giữ lại một phụ thuộc thời gian — dùng nó như lưới an toàn, không phải cơ chế chính.
+
+**Nguyên tắc: chỉ nhân bản đúng thứ bạn CẦN.**
+
+```csharp
+// SAI — sao chép cả entity
+public class CustomerSnapshot
+{
+    public string Ten, Email, DiaChi, MaSoThue, SoDienThoai, GhiChu, ...  // 24 trường
+}
+
+// ĐÚNG — chỉ trường Order Service thật sự dùng
+public class CustomerSnapshot
+{
+    public Guid Id; public string Ten; public string Email;
+}
+```
+
+Mỗi trường nhân bản là một trường phải đồng bộ, phải đối chiếu, và phải xử lý khi lệch.
+
+**Và một dấu hiệu cảnh báo:**
+
+```text
+Nếu snapshot của bạn có trên 5–6 trường, hoặc bạn thấy mình
+nhân bản gần hết một entity
+-> có lẽ ranh giới service SAI
+-> hai service này quá phụ thuộc vào nhau, cân nhắc gộp lại
+```
+
+**Đo và theo dõi độ trễ đồng bộ:**
+
+```csharp
+_meter.CreateObservableGauge("snapshot_lag_seconds", () =>
+{
+    var moiNhat = _db.CustomerSnapshots.Max(s => (DateTime?)s.CapNhatLuc);
+    return moiNhat is null ? 0 : (DateTime.UtcNow - moiNhat.Value).TotalSeconds;
+});
+```
+
+```text
+Cảnh báo khi snapshot_lag_seconds > 300 (5 phút)
+```
+
+Chỉ số này là **tuổi**, không phải số lượng — đúng nguyên tắc ở [bài 17.7](../module-17-distributed-systems/17.7-outbox-idempotency-demo.mdx).
+
+</details>
+
+---
+
+#### Bài 3 — Kiểm thử circuit breaker và phương án dự phòng
+
+Dừng một service phụ thuộc và xác nhận phương án dự phòng chạy đúng, không phải trả về lỗi 500.
+
+**Tiêu chí hoàn thành:** bạn kiểm chứng được phương án dự phòng, và phân biệt được **bốn** loại phương án với tiêu chí chọn.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** "Trả về lỗi 500" cũng là một phương án — chỉ là phương án tệ nhất trong bốn cái.
+
+**Lời giải — cấu hình đầy đủ:**
+
+```csharp
+services.AddHttpClient<IPricingClient, PricingClient>(c =>
+{
+    c.BaseAddress = new Uri(pricingUrl);
+    c.Timeout = TimeSpan.FromSeconds(5);
+})
+.AddStandardResilienceHandler(o =>
+{
+    o.AttemptTimeout.Timeout = TimeSpan.FromSeconds(2);
+    o.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(6);
+    o.Retry.MaxRetryAttempts = 2;
+    o.Retry.UseJitter = true;
+    o.CircuitBreaker.FailureRatio = 0.5;
+    o.CircuitBreaker.MinimumThroughput = 10;
+    o.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(30);
+    o.CircuitBreaker.BreakDuration = TimeSpan.FromSeconds(15);
+});
+```
+
+```csharp
+public class PricingService(IPricingClient client, HybridCache cache, ILogger<PricingService> logger)
+{
+    public async Task<Result<BangGia>> LayBangGiaAsync(Guid sanPhamId, CancellationToken ct)
+    {
+        try
+        {
+            var gia = await client.LayGiaAsync(sanPhamId, ct);
+
+            // Cache lại để dùng làm dự phòng
+            await cache.SetAsync($"gia:{sanPhamId}", gia,
+                new HybridCacheEntryOptions { Expiration = TimeSpan.FromHours(24) }, ct: ct);
+
+            return Result<BangGia>.ThanhCong(gia);
+        }
+        catch (Exception ex) when (ex is BrokenCircuitException or TimeoutRejectedException
+                                      or HttpRequestException)
+        {
+            logger.LogWarning(ex, "Pricing không khả dụng — dùng giá cache");
+            _demDuPhong.Add(1, new KeyValuePair<string, object?>("service", "pricing"));
+
+            var giaCache = await cache.GetOrDefaultAsync<BangGia>($"gia:{sanPhamId}", ct);
+
+            if (giaCache is not null)
+                return Result<BangGia>.ThanhCong(giaCache with { LaGiaCache = true });
+
+            return Result<BangGia>.Loi("Tạm thời không lấy được giá. Vui lòng thử lại sau.");
+        }
+    }
+}
+```
+
+```bash
+docker stop pricing-service
+curl -i http://gateway:8080/api/san-pham/abc-123/gia
+```
+
+```text
+HTTP/1.1 200 OK
+X-Data-Source: cache
+
+{"sanPhamId":"abc-123","gia":5000000,"laGiaCache":true,
+ "canhBao":"Giá có thể chưa cập nhật"}
+```
+
+**Không phải 500.** Người dùng thấy giá (có thể cũ vài giờ) kèm một cảnh báo.
+
+**Bốn loại phương án dự phòng:**
+
+| Loại | Trả về gì | Dùng khi |
+|---|---|---|
+| **1. Dữ liệu cache** | Giá trị cũ, có nhãn | Dữ liệu ít đổi, cũ vẫn dùng được |
+| **2. Giá trị mặc định** | Giá trị an toàn định trước | Có một giá trị "an toàn" rõ ràng |
+| **3. Chức năng rút gọn** | Một phần dữ liệu | Màn hình có nhiều phần độc lập |
+| **4. Thất bại rõ ràng** | 503 + thông điệp dễ hiểu | Không có phương án nào an toàn |
+
+**Loại 1 — cache:**
+
+```csharp
+var giaCache = await cache.GetOrDefaultAsync<BangGia>($"gia:{id}", ct);
+return giaCache with { LaGiaCache = true };
+```
+
+```text
+Điều kiện: dữ liệu cũ vài giờ vẫn CHẤP NHẬN ĐƯỢC về nghiệp vụ
+Bắt buộc:  đánh dấu rõ đây là dữ liệu cache, để giao diện hiển thị cảnh báo
+```
+
+**Loại 2 — giá trị mặc định:**
+
+```csharp
+catch (BrokenCircuitException)
+{
+    // Không lấy được điểm tín dụng -> dùng mức THẬN TRỌNG NHẤT
+    return new DiemTinDung(Diem: 0, MucDo: "KhongXacDinh", HanMuc: Money.Zero);
+}
+```
+
+```text
+Điều kiện: có một giá trị AN TOÀN rõ ràng
+Cẩn thận:  "an toàn" phải theo hướng bảo thủ
+
+    Hạn mức tín dụng không lấy được -> 0, KHÔNG phải vô hạn
+    Quyền không lấy được            -> từ chối, KHÔNG phải cho phép
+    Khuyến mãi không lấy được       -> không giảm giá, KHÔNG phải giảm tối đa
+```
+
+Đây là chỗ dễ sai nhất: một giá trị mặc định chọn sai hướng biến phương án dự phòng thành lỗ hổng.
+
+**Loại 3 — chức năng rút gọn:**
+
+```csharp
+app.MapGet("/bff/trang-chu", async (...) =>
+{
+    var donHangTask = LayAnToanAsync(() => orders.LayGanDayAsync(userId, ct));
+    var khuyenMaiTask = LayAnToanAsync(() => promo.LayDangApDungAsync(ct));
+    var thongBaoTask = LayAnToanAsync(() => notif.LayChuaDocAsync(userId, ct));
+
+    await Task.WhenAll(donHangTask, khuyenMaiTask, thongBaoTask);
+
+    return Results.Ok(new TrangChuDto
+    {
+        DonHang   = await donHangTask,      // null nếu service chết
+        KhuyenMai = await khuyenMaiTask,
+        ThongBao  = await thongBaoTask,
+        PhanKhongKhaDung = TenCacPhanNull(...),
+    });
+});
+```
+
+```text
+Giao diện ẩn phần không có dữ liệu, hiển thị phần còn lại
+-> người dùng vẫn dùng được trang chủ khi một service chết
+```
+
+**Loại 4 — thất bại rõ ràng:**
+
+```csharp
+catch (BrokenCircuitException)
+{
+    return Results.Problem(
+        statusCode: StatusCodes.Status503ServiceUnavailable,
+        title: "Dịch vụ tạm thời không khả dụng",
+        detail: "Chúng tôi không kiểm tra được hạn mức công nợ. Vui lòng thử lại sau vài phút.",
+        extensions: new Dictionary<string, object?> { ["retryAfter"] = 60 });
+}
+```
+
+```text
+Điều kiện: KHÔNG có phương án nào an toàn
+    - kiểm tra hạn mức tín dụng trước khi cho vay
+    - xác thực người dùng
+    - kiểm tra quyền truy cập dữ liệu nhạy cảm
+```
+
+**503 với thông điệp rõ ràng tốt hơn nhiều so với 500** — nó nói cho người dùng biết đây là vấn đề tạm thời và nên thử lại.
+
+**Tiêu chí chọn — một câu hỏi:**
+
+> **"Nếu dùng dữ liệu cũ hoặc giá trị mặc định, hậu quả xấu nhất là gì?"**
+
+```text
+Hiển thị giá cũ          -> khách thấy giá sai vài giờ -> chấp nhận được -> loại 1
+Cho phép vượt hạn mức    -> mất tiền                   -> KHÔNG -> loại 4
+Thiếu phần khuyến mãi    -> giao diện thiếu một khối   -> chấp nhận -> loại 3
+Cấp quyền sai            -> rò rỉ dữ liệu              -> KHÔNG -> loại 4
+```
+
+**Test cho phương án dự phòng — dùng Testcontainers:**
+
+```csharp
+[Fact]
+public async Task Pricing_chet_thi_dung_gia_cache_chu_khong_tra_500()
+{
+    // Nạp cache trước
+    await _client.GetAsync("/api/san-pham/abc-123/gia");
+
+    await _pricingContainer.StopAsync();
+
+    // Đủ request để mạch ngắt
+    for (var i = 0; i < 15; i++)
+        await _client.GetAsync("/api/san-pham/abc-123/gia");
+
+    var res = await _client.GetAsync("/api/san-pham/abc-123/gia");
+
+    res.StatusCode.Should().Be(HttpStatusCode.OK);
+    res.Headers.GetValues("X-Data-Source").Should().Contain("cache");
+
+    var dto = await res.Content.ReadFromJsonAsync<GiaDto>();
+    dto!.LaGiaCache.Should().BeTrue();
+}
+
+[Fact]
+public async Task Pricing_chet_va_KHONG_co_cache_thi_tra_503_khong_phai_500()
+{
+    await _pricingContainer.StopAsync();
+
+    var res = await _client.GetAsync("/api/san-pham/chua-tung-xem/gia");
+
+    res.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+    (await res.Content.ReadAsStringAsync()).Should().Contain("thử lại");
+}
+```
+
+Test thứ hai quan trọng ngang test thứ nhất: nó kiểm tra đường đi khi **cả phương án dự phòng cũng không có** — và đó là đường ít được nghĩ tới nhất.
+
+**Và diễn tập định kỳ, vì test không thay thế được:**
+
+```markdown
+## Diễn tập hỏng hóc — hằng tháng trên staging
+
+| Kịch bản | Mong đợi | Kết quả 2026-09 |
+|---|---|---|
+| Dừng Pricing Service | Giá từ cache, có nhãn | Đạt |
+| Dừng Customer Service | Dùng snapshot | Đạt |
+| Dừng Notification | Không ảnh hưởng | Đạt |
+| Dừng Identity | 503 rõ ràng, không 500 | **Không đạt — trả 500** |
+| Pricing chậm 30 giây | Timeout 2s, dùng cache | Đạt |
+| Database chậm 10 giây | Readiness Degraded, không restart | **Không đạt — pod restart** |
+```
+
+Hai dòng "không đạt" là giá trị thật của diễn tập: chúng là những đường code chưa bao giờ chạy trên production, và giả định về chúng gần như luôn sai.
+
+**Và giám sát tần suất dùng phương án dự phòng:**
+
+```promql
+rate(fallback_used_total[5m]) / rate(requests_total[5m])
+```
+
+```text
+Tỷ lệ dự phòng > 5% trong 15 phút -> service phụ thuộc đang có vấn đề
+-> cảnh báo, dù người dùng không thấy lỗi
+```
+
+Phương án dự phòng che giấu sự cố khỏi người dùng — đó là mục đích của nó. Nhưng nó cũng che giấu sự cố khỏi **bạn**, trừ khi bạn đo nó.
+
+</details>
 
 ## Tự kiểm tra
 

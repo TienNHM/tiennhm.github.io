@@ -243,11 +243,747 @@ app.MapGet("/mobile/dashboard", async (ISalesClient sales, IBillingClient billin
 
 ## Bài tập áp dụng
 
-1. **Dựng YARP đầy đủ.** Cấu hình hai cluster với health check chủ động. Dừng một instance và xác nhận YARP loại nó khỏi vòng cân bằng tải trong vòng 10 giây.
+#### Bài 1 — Dựng YARP với health check chủ động
 
-2. **Kiểm tra correlation id.** Gửi một request qua gateway tới service, xác nhận cùng một id xuất hiện trong log của cả hai và trong response header.
+Cấu hình hai cluster với health check chủ động. Dừng một instance và xác nhận YARP loại nó khỏi vòng cân bằng tải trong vòng 10 giây.
 
-3. **Đo chi phí BFF.** Viết một endpoint BFF gọi hai service tuần tự, đo độ trễ, đổi sang `Task.WhenAll` và đo lại.
+**Tiêu chí hoàn thành:** bạn đo được thời gian loại bỏ, và phân biệt được health check **chủ động** với **thụ động**.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Gateway biết một instance chết bằng cách nào — hỏi nó, hay chờ một request thất bại?
+
+**Lời giải — cấu hình:**
+
+```json
+{
+  "ReverseProxy": {
+    "Routes": {
+      "leads-route": {
+        "ClusterId": "leads-cluster",
+        "Match": { "Path": "/api/leads/{**catch-all}" },
+        "Transforms": [
+          { "PathPattern": "/leads/{**catch-all}" },
+          { "RequestHeader": "X-Forwarded-Prefix", "Set": "/api" }
+        ]
+      },
+      "billing-route": {
+        "ClusterId": "billing-cluster",
+        "Match": { "Path": "/api/billing/{**catch-all}" },
+        "Transforms": [{ "PathPattern": "/billing/{**catch-all}" }]
+      }
+    },
+    "Clusters": {
+      "leads-cluster": {
+        "LoadBalancingPolicy": "PowerOfTwoChoices",
+        "HealthCheck": {
+          "Active": {
+            "Enabled": true,
+            "Interval": "00:00:05",
+            "Timeout": "00:00:02",
+            "Policy": "ConsecutiveFailures",
+            "Path": "/health/ready"
+          },
+          "Passive": {
+            "Enabled": true,
+            "Policy": "TransportFailureRate",
+            "ReactivationPeriod": "00:00:30"
+          }
+        },
+        "Metadata": {
+          "ConsecutiveFailuresHealthPolicy.Threshold": "2"
+        },
+        "Destinations": {
+          "leads-1": { "Address": "http://leads-1:8080/" },
+          "leads-2": { "Address": "http://leads-2:8080/" },
+          "leads-3": { "Address": "http://leads-3:8080/" }
+        }
+      }
+    }
+  }
+}
+```
+
+```csharp
+builder.Services.AddReverseProxy()
+    .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
+    .AddTransforms(b => b.AddRequestTransform(async ctx =>
+    {
+        var correlationId = ctx.HttpContext.Request.Headers["X-Correlation-Id"].FirstOrDefault()
+                            ?? Activity.Current?.TraceId.ToString()
+                            ?? Guid.CreateVersion7().ToString();
+        ctx.ProxyRequest.Headers.Remove("X-Correlation-Id");
+        ctx.ProxyRequest.Headers.Add("X-Correlation-Id", correlationId);
+        await Task.CompletedTask;
+    }));
+
+app.MapReverseProxy();
+```
+
+```bash
+watch -n 1 'curl -s http://gateway:8080/api/leads/ping'
+docker stop leads-2
+```
+
+```text
+[08:14:22] leads-1 OK
+[08:14:23] leads-2 OK
+[08:14:24] docker stop leads-2
+[08:14:25] leads-3 OK
+[08:14:26] ERROR — Bad Gateway          <- request rơi vào leads-2 đã chết
+[08:14:27] leads-1 OK
+[08:14:29] ERROR — Bad Gateway
+[08:14:31] leads-1 OK                   <- health check thứ 2 thất bại, YARP loại leads-2
+[08:14:32] leads-3 OK
+[08:14:33] leads-1 OK
+```
+
+```text
+Thời gian loại bỏ: khoảng 7 giây (2 lần health check × 5 giây interval)
+Số request lỗi:    2
+```
+
+**Giảm xuống dưới 10 giây:**
+
+```json
+"Active": {
+  "Interval": "00:00:03",
+  "Timeout": "00:00:01"
+},
+"Metadata": { "ConsecutiveFailuresHealthPolicy.Threshold": "2" }
+```
+
+```text
+Thời gian loại bỏ: khoảng 4 giây
+```
+
+Nhưng đừng giảm quá tay:
+
+```text
+Interval 1 giây × 3 destination × 5 cluster = 15 request/giây chỉ cho health check
+-> tốn tài nguyên, và có thể làm nhiễu số liệu của service
+```
+
+**Chủ động và thụ động — khác biệt và vì sao cần cả hai:**
+
+| | Chủ động (Active) | Thụ động (Passive) |
+|---|---|---|
+| Cách hoạt động | **Gateway gọi** `/health/ready` định kỳ | **Quan sát** request thật |
+| Phát hiện | Trước khi có request lỗi | Sau khi đã có request lỗi |
+| Chi phí | Request thêm, liên tục | **Không có** |
+| Phát hiện lỗi từng phần | Không — endpoint health có thể OK | **Có** |
+| Instance vừa khởi động | Biết khi nào sẵn sàng | Không biết |
+
+```text
+Chủ động BẮT ĐƯỢC:
+    instance chết hẳn, đang khởi động, database mất kết nối
+Chủ động KHÔNG BẮT ĐƯỢC:
+    endpoint /health/ready trả 200 nhưng endpoint nghiệp vụ trả 500
+    -> instance "khoẻ" theo health check, nhưng hỏng với người dùng
+
+Thụ động BẮT ĐƯỢC:
+    tỷ lệ lỗi của request THẬT vượt ngưỡng
+```
+
+Đây là lý do cần cả hai: chủ động phát hiện **sớm**, thụ động phát hiện **đúng**.
+
+```json
+"Passive": {
+  "Enabled": true,
+  "Policy": "TransportFailureRate",
+  "ReactivationPeriod": "00:00:30"
+},
+"Metadata": {
+  "TransportFailureRateHealthPolicy.RateLimit": "0.3"
+}
+```
+
+```text
+Tỷ lệ lỗi vận chuyển vượt 30% -> loại destination
+Sau 30 giây -> đưa lại vào vòng và quan sát tiếp
+```
+
+**Ba chi tiết cấu hình quan trọng:**
+
+**1. `Path` phải trỏ vào readiness, không phải liveness:**
+
+```json
+"Path": "/health/ready"
+```
+
+```text
+/health/live  -> chỉ kiểm tra tiến trình sống -> luôn 200 -> vô dụng cho gateway
+/health/ready -> kiểm tra dependency -> ĐÚNG
+```
+
+**2. `LoadBalancingPolicy`:**
+
+| Policy | Cách chọn | Dùng khi |
+|---|---|---|
+| `PowerOfTwoChoices` | Chọn 2 ngẫu nhiên, lấy cái ít tải hơn | **Mặc định tốt** |
+| `RoundRobin` | Luân phiên | Request đồng đều |
+| `LeastRequests` | Ít request đang chạy nhất | Thời gian xử lý rất khác nhau |
+| `Random` | Ngẫu nhiên | — |
+| `FirstAlphabetical` | Luôn cái đầu | Chỉ để debug |
+
+`PowerOfTwoChoices` là lựa chọn tốt trong phần lớn trường hợp: nó gần bằng `LeastRequests` về chất lượng phân bổ nhưng rẻ hơn nhiều về chi phí tính toán.
+
+**3. Timeout phải nhỏ hơn interval:**
+
+```json
+"Interval": "00:00:05",
+"Timeout": "00:00:02"       // nhỏ hơn interval
+```
+
+Timeout lớn hơn interval nghĩa là các lần kiểm tra chồng lên nhau.
+
+**Và cảnh báo lớn nhất: gateway là điểm chết đơn.**
+
+```text
+Gateway chết -> TOÀN BỘ hệ thống không truy cập được
+-> dù mọi service phía sau đều khoẻ
+```
+
+Ba biện pháp:
+
+```yaml
+# 1. Nhiều instance gateway
+spec:
+  replicas: 3
+  strategy:
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+```
+
+```csharp
+// 2. Gateway phải CỰC nhẹ — không logic nghiệp vụ, không gọi database
+// KHÔNG làm thế này ở gateway:
+var user = await _db.Users.FirstAsync(u => u.Id == userId, ct);
+```
+
+```yaml
+# 3. PodDisruptionBudget
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+spec:
+  minAvailable: 2
+  selector: { matchLabels: { app: gateway } }
+```
+
+**Ba thứ gateway TUYỆT ĐỐI không được làm:**
+
+```text
+1. Logic nghiệp vụ    -> nó thành một service nữa, và là service ai cũng phụ thuộc
+2. Gọi database       -> thêm điểm lỗi, thêm độ trễ cho MỌI request
+3. Lưu trạng thái     -> không scale được, không thay thế được instance
+```
+
+Gateway chỉ nên làm bốn việc: **định tuyến, cân bằng tải, xác thực token (chỉ xác minh chữ ký), và thêm correlation id.**
+
+**Quan sát:**
+
+```csharp
+builder.Services.AddOpenTelemetry().WithMetrics(m => m
+    .AddMeter("Yarp.ReverseProxy")
+    .AddPrometheusExporter());
+```
+
+```promql
+# Destination nào đang bị loại?
+yarp_proxy_current_requests{destination="leads-2"}
+
+# Tỷ lệ lỗi theo cluster
+rate(yarp_proxy_requests_failed_total[5m]) / rate(yarp_proxy_requests_started_total[5m])
+```
+
+</details>
+
+---
+
+#### Bài 2 — Kiểm tra correlation id
+
+Gửi một request qua gateway tới service, xác nhận cùng một id xuất hiện trong log của cả hai và trong response header.
+
+**Tiêu chí hoàn thành:** bạn nối được log của hai thành phần, và biết vì sao `trace_id` của OpenTelemetry **tốt hơn** correlation id tự sinh.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Correlation id nối được log. Nó có cho bạn biết thời gian của từng chặng không?
+
+**Lời giải — cấu hình ở gateway:**
+
+```csharp
+app.Use(async (ctx, next) =>
+{
+    var id = ctx.Request.Headers["X-Correlation-Id"].FirstOrDefault()
+             ?? Guid.CreateVersion7().ToString();
+
+    ctx.Items["CorrelationId"] = id;
+    ctx.Response.Headers["X-Correlation-Id"] = id;
+
+    using var scope = logger.BeginScope(new Dictionary<string, object>
+    {
+        ["CorrelationId"] = id,
+    });
+
+    await next();
+});
+```
+
+```csharp
+.AddTransforms(b => b.AddRequestTransform(ctx =>
+{
+    var id = (string)ctx.HttpContext.Items["CorrelationId"]!;
+    ctx.ProxyRequest.Headers.Remove("X-Correlation-Id");
+    ctx.ProxyRequest.Headers.Add("X-Correlation-Id", id);
+    return default;
+}));
+```
+
+```csharp
+// Ở service — đọc và đưa vào log scope
+app.Use(async (ctx, next) =>
+{
+    var id = ctx.Request.Headers["X-Correlation-Id"].FirstOrDefault() ?? "không-có";
+    using var scope = logger.BeginScope(new Dictionary<string, object> { ["CorrelationId"] = id });
+    await next();
+});
+```
+
+```bash
+curl -i http://gateway:8080/api/leads/abc-123
+```
+
+```text
+HTTP/1.1 200 OK
+X-Correlation-Id: 0192f8a3-1234-7890-abcd-ef1234567890
+```
+
+```bash
+kubectl logs -l app=gateway | grep 0192f8a3
+kubectl logs -l app=leads   | grep 0192f8a3
+```
+
+```text
+[gateway] {"CorrelationId":"0192f8a3-...","msg":"Định tuyến tới leads-cluster"}
+[leads]   {"CorrelationId":"0192f8a3-...","msg":"Nạp lead abc-123"}
+[leads]   {"CorrelationId":"0192f8a3-...","msg":"Trả về LeadDto"}
+```
+
+**Vì sao `trace_id` của OpenTelemetry tốt hơn:**
+
+| | Correlation id tự sinh | `trace_id` OpenTelemetry |
+|---|---|---|
+| Nối log | **Có** | **Có** |
+| **Thời gian từng chặng** | **Không** | **Có** |
+| **Quan hệ cha-con** | **Không** | **Có** |
+| Truyền qua message broker | Phải tự viết | **Tự động** |
+| Truyền qua database | Không | Có (với instrumentation) |
+| Chuẩn | Tự định nghĩa | **W3C Trace Context** |
+| Công cụ đọc | grep | **Jaeger, Tempo, Azure Monitor** |
+
+Hai dòng in đậm là khác biệt quyết định:
+
+```text
+Correlation id nói:  "những dòng log này thuộc cùng một request"
+Trace nói:           "request này mất 2.184 ms, trong đó 1.892 ms ở lời gọi
+                      tới billing-service, và trong đó 1.740 ms ở một truy vấn SQL"
+```
+
+Với correlation id, bạn **ghép log và tự tính thời gian**. Với trace, thời gian đã được đo và cấu trúc đã có sẵn.
+
+**Cấu hình OpenTelemetry — và bỏ correlation id tự viết:**
+
+```csharp
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(r => r.AddService("crm-gateway", serviceVersion: version))
+    .WithTracing(t => t
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddSource("Yarp.ReverseProxy")
+        .AddOtlpExporter());
+
+builder.Logging.AddOpenTelemetry(o =>
+{
+    o.IncludeScopes = true;
+    o.IncludeFormattedMessage = true;
+    o.AddOtlpExporter();
+});
+```
+
+**Context được truyền tự động qua header chuẩn W3C:**
+
+```text
+traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01
+             ^^ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ ^^^^^^^^^^^^^^^^ ^^
+             |  trace-id (32 hex)                span-id          flags
+             version
+```
+
+`HttpClient` của .NET **tự động** thêm header này — không cần transform nào ở YARP.
+
+```json
+{"timestamp":"2026-09-25T08:14:22Z","level":"Information",
+ "message":"Nạp lead abc-123",
+ "trace_id":"4bf92f3577b34da6a3ce929d0e0e4736",
+ "span_id":"00f067aa0ba902b7",
+ "service.name":"crm-leads"}
+```
+
+```text
+Waterfall trong Jaeger:
+
+GET /api/leads/abc-123                                    2.184 ms  ████████████████████
+├─ [gateway] proxy to leads-cluster                       2.170 ms  ███████████████████░
+│  └─ [leads] GET /leads/abc-123                          2.142 ms  ███████████████████░
+│     ├─ SELECT Leads WHERE Id = @p0                         14 ms  █
+│     └─ [leads] HTTP GET billing/khach-hang/xyz           1.892 ms  █████████████████░
+│        └─ [billing] GET /khach-hang/xyz                  1.874 ms  █████████████████░
+│           └─ SELECT ... FROM Customers                   1.740 ms  ████████████████░
+```
+
+Nhìn một lần là thấy nút thắt: một truy vấn SQL ở billing chiếm 80% tổng thời gian.
+
+**Vẫn giữ `X-Correlation-Id` ở response header** — để người dùng báo lỗi có thể đưa cho bạn một id:
+
+```csharp
+app.Use(async (ctx, next) =>
+{
+    await next();
+    if (Activity.Current is { } a)
+        ctx.Response.Headers["X-Trace-Id"] = a.TraceId.ToString();
+});
+```
+
+```text
+Người dùng: "Tôi gặp lỗi, mã là 4bf92f3577b34da6a3ce929d0e0e4736"
+-> dán vào Jaeger -> thấy toàn bộ request trong 5 giây
+```
+
+Đây là cải thiện lớn cho quy trình hỗ trợ: thay vì "lỗi lúc khoảng 2 giờ chiều", bạn có một định danh chính xác.
+
+**Ba chi tiết dễ sai:**
+
+**1. `IncludeScopes = true` là bắt buộc** — không có nó, `trace_id` không xuất hiện trong log.
+
+**2. Truyền context qua message broker.** MassTransit làm tự động, nhưng nếu tự viết:
+
+```csharp
+// Khi publish
+var context = new Dictionary<string, string>();
+Propagators.DefaultTextMapPropagator.Inject(
+    new PropagationContext(Activity.Current!.Context, Baggage.Current),
+    context, (d, k, v) => d[k] = v);
+message.Headers = context;
+
+// Khi consume
+var parent = Propagators.DefaultTextMapPropagator.Extract(
+    default, message.Headers, (d, k) => d.TryGetValue(k, out var v) ? [v] : []);
+using var activity = _source.StartActivity("consume", ActivityKind.Consumer, parent.ActivityContext);
+```
+
+**3. Lưu trace context vào outbox.** Message nằm trong outbox vài giây, và context phải được lưu cùng:
+
+```csharp
+public static TinNhanOutbox Tao<T>(T message) where T : class => new()
+{
+    // ...
+    TraceParent = Activity.Current?.Id,       // định dạng W3C
+};
+```
+
+Không có nó, trace bị đứt làm hai: một phần cho request HTTP, một phần cho dispatcher ([bài 17.7](../module-17-distributed-systems/17.7-outbox-idempotency-demo.mdx)).
+
+**Và sampling — đừng ghi 100% trace ở production:**
+
+```yaml
+# OpenTelemetry Collector — tail-based sampling
+processors:
+  tail_sampling:
+    decision_wait: 10s
+    policies:
+      - name: giu-loi
+        type: status_code
+        status_code: { status_codes: [ERROR] }
+      - name: giu-cham
+        type: latency
+        latency: { threshold_ms: 1000 }
+      - name: con-lai
+        type: probabilistic
+        probabilistic: { sampling_percentage: 5 }
+```
+
+Giữ 100% trace lỗi và trace chậm — đó chính là những trace bạn cần — và 5% phần còn lại để có cơ sở so sánh.
+
+</details>
+
+---
+
+#### Bài 3 — Đo chi phí BFF
+
+Viết một endpoint BFF gọi hai service tuần tự, đo độ trễ, đổi sang `Task.WhenAll` và đo lại.
+
+**Tiêu chí hoàn thành:** bạn đo được cả hai, và nêu được **ba** vấn đề khác của BFF ngoài độ trễ.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Hai lời gọi độc lập chạy tuần tự mất bao lâu? Chạy song song thì sao?
+
+**Lời giải — tuần tự:**
+
+```csharp
+app.MapGet("/bff/lead-tong-quan/{id}", async (
+    Guid id, ILeadClient leads, IBillingClient billing, CancellationToken ct) =>
+{
+    var lead = await leads.LayAsync(id, ct);                        // 180 ms
+    if (lead is null) return Results.NotFound();
+
+    var hoaDon = await billing.LayHoaDonAsync(lead.CustomerId, ct); // 240 ms
+
+    return Results.Ok(new LeadTongQuanDto(lead, hoaDon));
+});
+```
+
+```bash
+hey -n 500 -c 10 http://gateway:8080/bff/lead-tong-quan/abc-123
+```
+
+```text
+Latency distribution:
+  50% in 0.4180 secs
+  95% in 0.4890 secs
+  99% in 0.6120 secs
+```
+
+**Song song — nhưng chỉ khi các lời gọi ĐỘC LẬP:**
+
+Đoạn tuần tự ở trên **không** song song hoá được, vì `billing.LayHoaDonAsync` cần
+`lead.CustomerId` — thứ chỉ có sau khi lời gọi đầu tiên xong. Đây là một phụ thuộc
+thật, và cách sửa là ở **thiết kế API**, không ở `Task.WhenAll`:
+
+```csharp
+// Billing nhận leadId thay vì customerId -> hai lời gọi trở nên ĐỘC LẬP
+app.MapGet("/billing/hoa-don-theo-lead/{leadId}", ...);
+```
+
+```csharp
+app.MapGet("/bff/lead-tong-quan/{id}", async (
+    Guid id, ILeadClient leads, IBillingClient billing, CancellationToken ct) =>
+{
+    var leadTask  = leads.LayAsync(id, ct);                    // 180 ms
+    var hoaDonTask = billing.LayHoaDonTheoLeadAsync(id, ct);   // 240 ms
+
+    await Task.WhenAll(leadTask, hoaDonTask);                  // chạy CÙNG LÚC
+
+    var lead = await leadTask;
+    if (lead is null) return Results.NotFound();
+
+    return Results.Ok(new LeadTongQuanDto(lead, await hoaDonTask));
+});
+```
+
+```text
+Latency distribution:
+  50% in 0.2410 secs
+  95% in 0.2980 secs
+  99% in 0.3840 secs
+```
+
+**Từ 418 ms xuống 241 ms — nhanh 42%.** Tổng thời gian giờ bằng **lời gọi chậm nhất**
+(240 ms) thay vì **tổng hai lời gọi** (180 + 240 = 420 ms).
+
+```text
+Tuần tự:   [leads 180ms][billing 240ms]           = 420 ms
+Song song: [leads 180ms]                           = max(180, 240)
+           [billing 240ms]                         = 240 ms
+```
+
+**Và đây là bài học quan trọng hơn con số: phụ thuộc giữa các lời gọi là vấn đề THIẾT KẾ API.**
+
+```text
+Billing nhận customerId  -> BFF phải gọi leads trước -> tuần tự bắt buộc
+Billing nhận leadId      -> hai lời gọi độc lập      -> song song được
+```
+
+Khi thiết kế API cho service, hãy hỏi: *"client sẽ gọi endpoint này cùng lúc với
+endpoint nào khác?"* — và nhận tham số sao cho chúng không phụ thuộc nhau.
+
+Với chuỗi phụ thuộc thật sự không phá được, hãy vẽ ra để biết giới hạn:
+
+```text
+Tầng 1 (song song):  leads.LayAsync      180 ms
+                     leads.LayHoatDong   120 ms   -> max = 180 ms
+Tầng 2 (song song):  billing.LayHoaDon   240 ms
+                     customers.LayAsync   90 ms   -> max = 240 ms
+
+Tổng tối thiểu = 180 + 240 = 420 ms
+```
+
+Con số này là **sàn** — không tối ưu xuống dưới được mà không đổi thiết kế API.
+
+**Ba vấn đề khác của BFF ngoài độ trễ:**
+
+**Vấn đề 1 — xử lý lỗi từng phần.**
+
+```csharp
+await Task.WhenAll(hoaDonTask, khachTask);
+```
+
+```text
+Nếu billing chết:
+    Task.WhenAll ném exception
+    -> TOÀN BỘ endpoint trả 500
+    -> người dùng không thấy gì, kể cả thông tin lead vốn đã lấy được
+```
+
+```csharp
+// Xử lý từng phần — trả về những gì lấy được
+var ketQua = await Task.WhenAll(
+    LayAnToanAsync(() => billing.LayHoaDonAsync(lead.CustomerId, ct)),
+    LayAnToanAsync(() => customers.LayAsync(lead.CustomerId, ct)));
+
+return Results.Ok(new LeadTongQuanDto
+{
+    Lead = lead,
+    HoaDon = ketQua[0] as List<HoaDonDto>,          // null nếu billing chết
+    KhachHang = ketQua[1] as KhachHangDto,
+    CanhBao = ketQua.Any(r => r is null)
+        ? "Một số thông tin tạm thời không khả dụng" : null,
+});
+```
+
+```csharp
+private static async Task<object?> LayAnToanAsync<T>(Func<Task<T>> goi)
+{
+    try { return await goi(); }
+    catch (Exception ex) { _logger.LogWarning(ex, "Lấy dữ liệu thất bại"); return null; }
+}
+```
+
+**Suy giảm có kiểm soát** tốt hơn nhiều so với lỗi toàn phần: người dùng thấy thông tin lead và một dòng cảnh báo, thay vì một trang lỗi.
+
+**Vấn đề 2 — BFF nhân lên số lời gọi, và dễ thành N+1 qua mạng.**
+
+```csharp
+// SAI — N+1 qua mạng
+var leads = await leadClient.LayDanhSachAsync(ct);          // 1 lời gọi
+
+var ketQua = new List<LeadTongQuanDto>();
+foreach (var lead in leads)                                  // 50 lead
+{
+    var khach = await customerClient.LayAsync(lead.CustomerId, ct);   // 50 lời gọi!
+    ketQua.Add(new LeadTongQuanDto(lead, khach));
+}
+```
+
+```text
+51 lời gọi mạng, mỗi cái 20 ms -> 1.020 ms
+```
+
+```csharp
+// ĐÚNG — một lời gọi cho nhiều id
+var leads = await leadClient.LayDanhSachAsync(ct);
+var customerIds = leads.Select(l => l.CustomerId).Distinct().ToList();
+
+var khachHang = await customerClient.LayTheoIdsAsync(customerIds, ct);   // 1 lời gọi
+var map = khachHang.ToDictionary(k => k.Id);
+
+var ketQua = leads.Select(l => new LeadTongQuanDto(l, map.GetValueOrDefault(l.CustomerId)));
+```
+
+```text
+2 lời gọi -> 45 ms
+```
+
+Đây là N+1 ở [bài 13.6](../../stage-04-database-production/module-13-entity-framework-core/13.6-n-plus-1-problem.mdx), nhưng qua mạng — nên mỗi lần lặp tốn 20 ms thay vì 4 ms, và hậu quả lớn hơn nhiều.
+
+**Mọi API của service nên có phiên bản nhận danh sách id:**
+
+```csharp
+app.MapPost("/khach-hang/batch", async (List<Guid> ids, ICustomerQueries q, CancellationToken ct)
+    => await q.LayTheoIdsAsync(ids, ct));
+```
+
+**Vấn đề 3 — BFF dễ trở thành một monolith mới.**
+
+```text
+Tháng 1:  BFF gọi 2 service, 200 dòng
+Tháng 6:  BFF gọi 6 service, 2.400 dòng, có logic nghiệp vụ
+Tháng 12: mọi thay đổi ở bất kỳ service nào cũng phải sửa BFF
+          -> BFF thành điểm nghẽn triển khai
+          -> đúng thứ mà microservices được dựng lên để tránh
+```
+
+Ba quy tắc giữ BFF mỏng:
+
+```text
+1. BFF chỉ GỌI và GHÉP dữ liệu — không có quy tắc nghiệp vụ
+2. Mỗi BFF phục vụ MỘT loại client (web, mobile, đối tác)
+   -> không dùng chung một BFF cho mọi client
+3. BFF thuộc về đội FRONTEND, không thuộc đội backend
+   -> nó thay đổi theo nhu cầu giao diện
+```
+
+Quy tắc 3 là quy tắc gốc của mẫu BFF: **Backend For Frontend** nghĩa là nó là phần backend **của** frontend, không phải một tầng chung.
+
+**Kiểm tra quy tắc 1:**
+
+```csharp
+[Fact]
+public void BFF_khong_duoc_chua_logic_nghiep_vu()
+{
+    var viPham = Directory
+        .GetFiles(ThuMucBff(), "*.cs", SearchOption.AllDirectories)
+        .Where(f => Regex.IsMatch(File.ReadAllText(f),
+            @"\b(if|switch)\b.*\b(Status|TrangThai|GiaTri|Nguong)\b"))
+        .Select(Path.GetFileName)
+        .ToList();
+
+    viPham.Should().BeEmpty("BFF chỉ ghép dữ liệu, quy tắc nghiệp vụ thuộc về service");
+}
+```
+
+**Và cân nhắc phương án thay thế: GraphQL.**
+
+```graphql
+query {
+  lead(id: "abc-123") {
+    ten
+    giaTri
+    khachHang { ten email }
+    hoaDon(trangThai: CHUA_THANH_TOAN) { soTien hanThanhToan }
+  }
+}
+```
+
+```text
+Ưu:    client tự quyết định lấy gì -> không cần một endpoint BFF cho mỗi màn hình
+       DataLoader giải quyết N+1 tự động
+Nhược: thêm một tầng phải vận hành
+       khó cache hơn REST
+       dễ viết truy vấn tốn kém -> cần giới hạn độ sâu và độ phức tạp
+```
+
+GraphQL đáng cân nhắc khi bạn thấy mình đang viết endpoint BFF thứ mười lăm cho mười lăm màn hình. Với ba bốn endpoint, BFF viết tay đơn giản hơn.
+
+**Đo và theo dõi:**
+
+```csharp
+using var activity = _source.StartActivity("bff.lead-tong-quan");
+activity?.SetTag("bff.so_loi_goi", 4);
+activity?.SetTag("bff.so_loi_goi_that_bai", soThatBai);
+```
+
+```promql
+# Endpoint BFF nào gọi nhiều service nhất?
+topk(5, bff_downstream_calls_total)
+```
+
+Nếu một endpoint BFF gọi trên 5 service, đó là dấu hiệu màn hình đó đang hiển thị quá nhiều thứ — và câu hỏi nên hỏi là liệu giao diện có cần tất cả cùng lúc không, thay vì làm sao gọi chúng nhanh hơn.
+
+</details>
 
 ## Tự kiểm tra
 
