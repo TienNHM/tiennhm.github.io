@@ -217,11 +217,556 @@ Và nhớ: **Free tier hết hạn**. Nhiều dịch vụ miễn phí 12 tháng 
 
 ## Bài tập áp dụng
 
-1. **Cold start.** Triển khai Container App với `min-replicas 0`, để idle 30 phút, rồi gọi API và đo thời gian request đầu tiên so với request thứ hai.
+#### Bài 1 — Cold start với `min-replicas 0`
 
-2. **`BackgroundService` không chạy.** Với `min-replicas 0`, thêm một `BackgroundService` ghi log mỗi phút. Để idle 20 phút và đếm số dòng log.
+Triển khai Container App với `min-replicas 0`, để idle 30 phút, rồi gọi API và đo thời gian request đầu tiên so với request thứ hai.
 
-3. **Managed identity.** Cấu hình Azure SQL với `Authentication=Active Directory Default` và xác nhận ứng dụng kết nối được **không có mật khẩu nào** trong cấu hình.
+**Tiêu chí hoàn thành:** bạn phân tách được cold start thành các thành phần, và biết cách giảm từng thành phần.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Từ lúc request đến tới lúc có phản hồi, hệ thống phải làm những việc gì?
+
+**Lời giải:**
+
+```bash
+az containerapp create \
+  --name crm-api --resource-group rg-crm \
+  --image ghcr.io/cty/crm-api:sha-abc123 \
+  --min-replicas 0 --max-replicas 10 \
+  --ingress external --target-port 8080
+```
+
+```bash
+sleep 1800        # chờ scale về 0
+
+curl -w "Tổng: %{time_total}s (kết nối %{time_connect}s, TTFB %{time_starttransfer}s)\n" \
+     -o /dev/null -s https://crm-api.xxx.azurecontainerapps.io/health
+```
+
+```text
+Tổng: 8.412s (kết nối 0.089s, TTFB 8.401s)
+```
+
+```bash
+curl -w "Tổng: %{time_total}s\n" -o /dev/null -s https://.../health
+```
+
+```text
+Tổng: 0.043s
+```
+
+**Phân tách 8,4 giây thành các thành phần:**
+
+```text
+1. Nền tảng phát hiện request và quyết định scale       0,2 – 0,5 s
+2. Lập lịch, cấp tài nguyên cho container                0,5 – 1,5 s
+3. Kéo image từ registry (nếu chưa cache trên node)      2,0 – 15,0 s  <- thường lớn nhất
+4. Khởi động container, PID 1 chạy                       0,1 – 0,3 s
+5. .NET runtime khởi động, JIT mã khởi tạo               0,3 – 1,0 s
+6. Xây dựng host: DI, cấu hình, đọc secret               0,5 – 3,0 s   <- hay bị bỏ qua
+7. Kết nối database, mở connection pool                  0,3 – 2,0 s
+8. Health check đầu tiên PASS, nền tảng chuyển traffic   0,5 – 2,0 s
+9. Request thật được xử lý, JIT mã đường chạy nóng       0,2 – 1,0 s
+                                                         ---------------
+                                                         4,6 – 26,3 s
+```
+
+Hai thành phần lớn nhất thường là **kéo image** và **xây dựng host** — và cả hai đều giảm được đáng kể.
+
+**Giảm từng thành phần:**
+
+**Bước 3 — kích thước image.** Đây là chỗ có lợi ích lớn nhất:
+
+```dockerfile
+# aspnet:9.0                    ~220 MB
+# aspnet:9.0-alpine             ~110 MB
+FROM mcr.microsoft.com/dotnet/aspnet:9.0-noble-chiseled
+# chiseled                      ~50 MB
+```
+
+```text
+220 MB -> 12 s kéo image
+ 50 MB ->  3 s kéo image
+```
+
+Image `chiseled` bỏ shell, package manager và mọi thứ không cần cho runtime — nên nó vừa nhỏ hơn vừa có bề mặt tấn công nhỏ hơn. Đổi lại: không `docker exec` vào được để chẩn đoán.
+
+Cách mạnh hơn nữa: **Native AOT**, bỏ hẳn cả runtime và bước JIT:
+
+```xml
+<PublishAot>true</PublishAot>
+<InvariantGlobalization>true</InvariantGlobalization>
+```
+
+```text
+Image:        ~15 MB
+Khởi động:    ~30 ms thay vì ~800 ms
+```
+
+Giới hạn: AOT không hỗ trợ reflection động, nên EF Core (trước bản có compiled model đầy đủ), một số thư viện DI và serializer runtime không dùng được. Phù hợp cho API đơn giản và Minimal API, khó cho ứng dụng nghiệp vụ đầy đủ.
+
+**Bước 5 và 9 — JIT:**
+
+```xml
+<PublishReadyToRun>true</PublishReadyToRun>
+<TieredPGO>true</TieredPGO>
+```
+
+`ReadyToRun` biên dịch sẵn IL thành mã máy, nên runtime không phải JIT ở đường khởi động. Image to hơn khoảng 30%, đổi lấy khoảng 300–600 ms.
+
+**Bước 6 — xây dựng host.** Thành phần hay bị bỏ qua nhất, và thường dễ giảm nhất:
+
+```csharp
+// Đo xem thời gian đi đâu
+var sw = Stopwatch.StartNew();
+var app = builder.Build();
+Console.WriteLine($"Build(): {sw.ElapsedMilliseconds} ms");
+```
+
+```text
+Build(): 2840 ms
+```
+
+Ba nguyên nhân phổ biến:
+
+```csharp
+// 1. Quét assembly — rất chậm
+builder.Services.AddAutoMapper(Assembly.GetExecutingAssembly());
+builder.Services.AddMediatR(c => c.RegisterServicesFromAssembly(...));
+builder.Services.Scan(s => s.FromAssemblies(...));
+
+// 2. Gọi mạng lúc khởi động
+builder.Configuration.AddAzureKeyVault(...);     // vài trăm ms tới vài giây
+
+// 3. Khởi tạo singleton nặng ngay lúc đăng ký
+builder.Services.AddSingleton(sp => new MotThuNang());   // chạy lúc Build()
+```
+
+Giảm bằng cách:
+
+```csharp
+// 1. Đăng ký tường minh thay vì quét — nhanh hơn nhiều, và rõ ràng hơn
+builder.Services.AddScoped<ILeadService, LeadService>();
+
+// 2. Dùng source generator cho AutoMapper và MediatR nếu có
+
+// 3. Khởi tạo lười
+builder.Services.AddSingleton<IMotThuNang>(sp => new Lazy<MotThuNang>(...).Value);
+```
+
+**Bước 7 — connection pool:**
+
+```csharp
+options.UseSqlServer(conn, sql => sql.MinBatchSize(1));
+// Đừng chạy migration lúc khởi động trong môi trường scale-to-zero
+```
+
+**Bước 8 — health check nhẹ:**
+
+```csharp
+app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
+```
+
+Liveness probe không kiểm tra gì thì nó pass ngay — như đã nói ở [bài 14.3](../module-14-caching-background-jobs/14.3-idistributedcache-and-redis.mdx).
+
+**Kết quả sau khi tối ưu:**
+
+```text
+Trước:  8,4 s
+Sau:    2,1 s   (chiseled + ReadyToRun + bỏ quét assembly + health check nhẹ)
+```
+
+**Nhưng câu hỏi quan trọng hơn: có nên dùng `min-replicas 0` không?**
+
+| | `min-replicas 0` | `min-replicas 1` |
+|---|---|---|
+| Chi phí khi idle | **0 đồng** | Tiền một replica 24/7 |
+| Request đầu sau idle | 2–15 giây | Bình thường |
+| `BackgroundService` | **Không chạy khi scale về 0** | Chạy |
+| Cache trong bộ nhớ | Mất mỗi lần scale về 0 | Giữ |
+| Kết nối bền (SignalR) | Bị ngắt | Giữ |
+
+**Chọn theo loại ứng dụng:**
+
+```text
+min-replicas 0:  môi trường dev và test
+                 API nội bộ dùng theo giờ hành chính
+                 dịch vụ chạy theo sự kiện, có thể chờ
+
+min-replicas 1:  API phục vụ người dùng cuối
+                 có BackgroundService hoặc job theo lịch
+                 có kết nối WebSocket/SignalR
+```
+
+Dòng thứ hai trong nhóm hai là bẫy phổ biến nhất, và là chủ đề của bài 2.
+
+**Một lựa chọn trung dung: scale theo lịch.**
+
+```bash
+az containerapp update --name crm-api --resource-group rg-crm \
+  --scale-rule-name gio-hanh-chinh \
+  --scale-rule-type cron \
+  --scale-rule-metadata \
+      timezone="Asia/Ho_Chi_Minh" \
+      start="0 7 * * 1-5" \
+      end="0 19 * * 1-5" \
+      desiredReplicas="2"
+```
+
+Giữ 2 replica trong giờ làm việc, về 0 ngoài giờ và cuối tuần. Với một CRM nội bộ, cách này tiết kiệm khoảng 70% chi phí mà không ai gặp cold start trong giờ làm.
+
+</details>
+
+---
+
+#### Bài 2 — `BackgroundService` không chạy khi scale về 0
+
+Với `min-replicas 0`, thêm một `BackgroundService` ghi log mỗi phút. Để idle 20 phút và đếm số dòng log.
+
+**Tiêu chí hoàn thành:** bạn giải thích được vì sao đây là hệ quả tất yếu của mô hình serverless, và chọn được kiến trúc đúng cho công việc nền.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Nền tảng quyết định scale dựa trên cái gì?
+
+**Lời giải:**
+
+```csharp
+public class NhipTimJob : BackgroundService
+{
+    protected override async Task ExecuteAsync(CancellationToken ct)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(1));
+        while (await timer.WaitForNextTickAsync(ct))
+            _logger.LogInformation("Nhịp tim lúc {Luc:O}", DateTime.UtcNow);
+    }
+}
+```
+
+```bash
+az containerapp logs show --name crm-api --resource-group rg-crm --follow
+```
+
+```text
+08:00:00  Nhịp tim lúc 2026-09-25T01:00:00Z
+08:01:00  Nhịp tim lúc 2026-09-25T01:01:00Z
+08:02:00  Nhịp tim lúc 2026-09-25T01:02:00Z
+08:03:00  Nhịp tim lúc 2026-09-25T01:03:00Z
+08:04:00  Nhịp tim lúc 2026-09-25T01:04:00Z
+(không có gì nữa)
+```
+
+Năm dòng trong 20 phút. Sau khoảng 5 phút không có HTTP request, Container Apps scale về 0 và **giết tiến trình** — `BackgroundService` biến mất cùng với nó.
+
+**Vì sao đây là hệ quả tất yếu.** Mô hình scale-to-zero dựa trên một giả định căn bản:
+
+> **Không có request nghĩa là không có việc.**
+
+Nền tảng quan sát **traffic đi vào** — HTTP request, message trong queue, sự kiện — và dùng nó để quyết định cần bao nhiêu replica. Nó **không có cách nào biết** rằng bên trong tiến trình có một vòng lặp đang chờ tới phút tiếp theo.
+
+```text
+Nền tảng thấy:      0 request trong 5 phút -> không ai cần -> scale về 0
+Thực tế bên trong:  một PeriodicTimer đang đếm ngược
+                    -> nhưng đó là trạng thái RIÊNG của tiến trình, vô hình với nền tảng
+```
+
+Và không có cách nào để tiến trình nói "đừng giết tôi": nếu có, mọi ứng dụng sẽ dùng nó và scale-to-zero mất ý nghĩa.
+
+Đây cũng chính là **mâu thuẫn thiết kế** giữa hai mô hình:
+
+```text
+BackgroundService:  giả định tiến trình sống LIÊN TỤC
+Serverless:         giả định tiến trình sống THEO REQUEST
+
+Hai giả định này không tương thích. Không có cấu hình nào hoà giải được.
+```
+
+**Bốn kiến trúc đúng cho công việc nền:**
+
+**1. Tách worker thành một dịch vụ riêng với `min-replicas 1`:**
+
+```bash
+# API — scale theo traffic, về 0 khi rảnh
+az containerapp create --name crm-api --min-replicas 0 --max-replicas 10 --ingress external
+
+# Worker — luôn chạy, không có ingress
+az containerapp create --name crm-worker --min-replicas 1 --max-replicas 1 --ingress internal
+```
+
+```csharp
+// Program.cs của worker
+var builder = Host.CreateApplicationBuilder(args);
+builder.Services.AddHostedService<NhipTimJob>();
+builder.Services.AddHostedService<GuiEmailJob>();
+await builder.Build().RunAsync();
+```
+
+Đây là cách đơn giản nhất và thường là đúng nhất. API — phần chiếm phần lớn tài nguyên khi có tải — vẫn scale về 0; worker là một container nhỏ chạy liên tục.
+
+**2. Dùng dịch vụ lập lịch của nền tảng — không có tiến trình nào phải sống chờ:**
+
+```bash
+az containerapp job create \
+  --name crm-bao-cao-hang-ngay \
+  --resource-group rg-crm \
+  --trigger-type Schedule \
+  --cron-expression "0 1 * * *" \
+  --replica-timeout 1800 \
+  --image ghcr.io/cty/crm-worker:sha-abc123 \
+  --args "--job=bao-cao-hang-ngay"
+```
+
+```csharp
+// Chạy một việc rồi thoát — không có vòng lặp nào
+var host = Host.CreateApplicationBuilder(args).Build();
+var job = host.Services.GetRequiredService<BaoCaoJob>();
+await job.ChayAsync(CancellationToken.None);
+return 0;
+```
+
+Cách này **tiết kiệm nhất**: container chỉ tồn tại trong lúc job chạy. Và nó giải quyết luôn vấn đề "nhiều instance cùng chạy job" ở [bài 14.11](../module-14-caching-background-jobs/14.11-mini-case-study.mdx), vì nền tảng bảo đảm chỉ một lần chạy.
+
+Tương đương trên các nền tảng khác: Kubernetes `CronJob`, Azure Functions Timer Trigger, AWS EventBridge + Lambda.
+
+**3. Scale theo hàng đợi, không theo HTTP** — cho công việc hướng sự kiện:
+
+```bash
+az containerapp create --name crm-worker \
+  --min-replicas 0 --max-replicas 20 \
+  --scale-rule-name hang-doi \
+  --scale-rule-type azure-servicebus \
+  --scale-rule-metadata queueName=cong-viec messageCount=5 \
+  --scale-rule-auth connection=sb-connection
+```
+
+Nền tảng theo dõi độ sâu hàng đợi: 0 message thì 0 replica, 100 message thì scale lên. Đây là mô hình serverless **đúng cách** cho xử lý nền — công việc được biểu diễn bằng message, và message là thứ nền tảng nhìn thấy được.
+
+**4. Dịch vụ cron bên ngoài gọi vào HTTP endpoint:**
+
+```csharp
+app.MapPost("/internal/jobs/bao-cao-hang-ngay", async (
+    BaoCaoService svc, IConfiguration cfg, HttpContext ctx, CancellationToken ct) =>
+{
+    if (ctx.Request.Headers["X-Job-Token"] != cfg["Jobs:Token"])
+        return Results.Unauthorized();
+
+    await svc.ChayAsync(ct);
+    return Results.Ok();
+});
+```
+
+Request từ cron làm nền tảng scale lên, job chạy, rồi scale về 0. Đơn giản, nhưng có ba nhược điểm: cần bảo vệ endpoint, giới hạn thời gian request của nền tảng (thường 230 giây trên App Service) có thể cắt job dài, và bạn phụ thuộc vào một dịch vụ cron bên ngoài.
+
+**Bảng chọn:**
+
+| Loại công việc | Kiến trúc |
+|---|---|
+| Theo lịch, chạy xong là hết | **Container Apps Job / CronJob** |
+| Xử lý message từ hàng đợi | **Scale theo hàng đợi** |
+| Vòng lặp liên tục, trạng thái trong bộ nhớ | **Worker riêng, `min-replicas 1`** |
+| Việc ngắn, gọi được qua HTTP | Cron bên ngoài gọi endpoint |
+
+**Và một điều đáng nói: mô hình `BackgroundService` chạy cùng API vốn đã có vấn đề, kể cả không có scale-to-zero.**
+
+```text
+API scale lên 10 replica  -> 10 bản sao của BackgroundService cùng chạy
+                          -> job chạy 10 lần (bài 14.11)
+
+API restart khi deploy    -> job đang chạy bị cắt giữa chừng
+
+Job nặng                  -> chiếm CPU của tiến trình đang phục vụ request
+                          -> độ trễ API tăng
+```
+
+Scale-to-zero chỉ làm vấn đề **lộ ra sớm hơn**. Tách worker ra là điều đúng đắn trong mọi trường hợp — và nếu bạn đang chạy `BackgroundService` bên trong API với nhiều replica, bạn đã có vấn đề rồi, chỉ là chưa phát hiện.
+
+</details>
+
+---
+
+#### Bài 3 — Managed identity, không có mật khẩu nào
+
+Cấu hình Azure SQL với `Authentication=Active Directory Default` và xác nhận ứng dụng kết nối được **không có mật khẩu nào** trong cấu hình.
+
+**Tiêu chí hoàn thành:** bạn giải thích được cơ chế cấp danh tính, và nêu được những vấn đề mà managed identity **không** giải quyết.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Nếu không có mật khẩu, làm sao database biết ai đang kết nối?
+
+**Lời giải — cấu hình:**
+
+```bash
+# 1. Bật managed identity cho Container App
+az containerapp identity assign \
+  --name crm-api --resource-group rg-crm --system-assigned
+
+az containerapp identity show --name crm-api --resource-group rg-crm --query principalId -o tsv
+# 8f2a1b3c-...
+```
+
+```sql
+-- 2. Tạo user trong Azure SQL từ danh tính đó
+CREATE USER [crm-api] FROM EXTERNAL PROVIDER;
+ALTER ROLE db_datareader ADD MEMBER [crm-api];
+ALTER ROLE db_datawriter ADD MEMBER [crm-api];
+GRANT EXECUTE ON SCHEMA::dbo TO [crm-api];
+```
+
+```json
+// 3. Cấu hình — không có mật khẩu
+{
+  "ConnectionStrings": {
+    "Default": "Server=tcp:crm.database.windows.net,1433;Database=Crm;Authentication=Active Directory Default;TrustServerCertificate=False;Encrypt=True;"
+  }
+}
+```
+
+```csharp
+builder.Services.AddDbContext<CrmDbContext>(o =>
+    o.UseSqlServer(builder.Configuration.GetConnectionString("Default")));
+```
+
+```bash
+grep -riE "password|pwd=" appsettings*.json .env docker-compose.yml 2>/dev/null
+# (không có kết quả)
+```
+
+**Cơ chế cấp danh tính — bốn bước:**
+
+```text
+1. Azure gán cho Container App một danh tính (service principal) trong Entra ID.
+
+2. Nền tảng cung cấp một endpoint metadata CHỈ truy cập được từ BÊN TRONG instance:
+       http://169.254.169.254/metadata/identity/oauth2/token
+   Địa chỉ 169.254.x.x là dải link-local, không định tuyến ra ngoài.
+
+3. Thư viện Azure Identity gọi endpoint đó, nhận về một access token
+   có thời hạn ngắn (thường 24 giờ) cho tài nguyên đích.
+
+4. Driver SQL gửi token đó thay cho mật khẩu. Azure SQL xác minh chữ ký
+   với Entra ID và tra user tương ứng.
+```
+
+Điểm mấu chốt: **token chỉ lấy được từ bên trong chính instance đó**. Không có gì để copy ra ngoài, không có gì để commit nhầm, không có gì để lộ trong log.
+
+`Active Directory Default` dùng `DefaultAzureCredential`, thử lần lượt nhiều nguồn:
+
+```text
+1. Biến môi trường (AZURE_CLIENT_ID, ...)
+2. Workload Identity (Kubernetes)
+3. Managed Identity          <- trên Azure
+4. Azure CLI (az login)      <- trên máy dev
+5. Azure PowerShell
+6. Visual Studio
+```
+
+Nhờ vậy **cùng một chuỗi kết nối** hoạt động ở cả máy dev (qua `az login`) lẫn production (qua managed identity) — không cần cấu hình riêng cho từng môi trường.
+
+**Áp dụng cho các dịch vụ khác:**
+
+```csharp
+builder.Configuration.AddAzureKeyVault(
+    new Uri($"https://{vault}.vault.azure.net/"), new DefaultAzureCredential());
+
+builder.Services.AddSingleton(new BlobServiceClient(
+    new Uri($"https://{account}.blob.core.windows.net"), new DefaultAzureCredential()));
+
+builder.Services.AddSingleton(new ServiceBusClient(
+    $"{ns}.servicebus.windows.net", new DefaultAzureCredential()));
+```
+
+**Năm vấn đề mà managed identity KHÔNG giải quyết** — đây là phần chính của bài:
+
+**1. Phân quyền.** Danh tính trả lời "bạn là ai", không trả lời "bạn được làm gì". Cấp quá tay vẫn là lỗ hổng:
+
+```sql
+-- SAI — quyền cao nhất có thể
+ALTER ROLE db_owner ADD MEMBER [crm-api];
+
+-- ĐÚNG — tối thiểu cần thiết
+ALTER ROLE db_datareader ADD MEMBER [crm-api];
+ALTER ROLE db_datawriter ADD MEMBER [crm-api];
+GRANT EXECUTE ON SCHEMA::dbo TO [crm-api];
+DENY ALTER, CONTROL ON SCHEMA::dbo TO [crm-api];
+```
+
+Một API bị SQL injection với quyền `db_owner` vẫn xoá được toàn bộ database — managed identity không thay đổi gì ở điểm này.
+
+**2. Các dịch vụ không hỗ trợ.** Không phải mọi thứ đều nói được Entra ID:
+
+```text
+Hỗ trợ:        Azure SQL, Key Vault, Storage, Service Bus, Cosmos DB, PostgreSQL Flexible
+KHÔNG hỗ trợ:  API bên thứ ba, SMTP, dịch vụ tự dựng, phần lớn SaaS
+```
+
+Với những thứ đó, bạn vẫn cần khoá — nhưng hãy lưu chúng trong Key Vault và **truy cập Key Vault bằng managed identity**. Như vậy chỉ còn một danh tính để quản lý thay vì nhiều khoá.
+
+**3. Môi trường ngoài Azure.** Máy dev không có managed identity, và CI cũng vậy:
+
+```text
+Máy dev:  az login -> DefaultAzureCredential dùng thông tin của bạn
+          -> nhưng quyền của BẠN, không phải quyền của ứng dụng
+          -> code chạy được trên máy dev có thể thất bại trên production
+
+CI:       dùng OIDC federated credential thay cho client secret
+```
+
+Sự khác biệt về quyền giữa hai môi trường là nguồn của những lỗi chỉ xuất hiện sau khi deploy. Cách giảm: tạo một service principal riêng cho dev với **đúng** quyền của ứng dụng, và dùng nó thay vì tài khoản cá nhân.
+
+**4. Độ trễ và điểm lỗi mới.** Lấy token là một lời gọi mạng:
+
+```text
+Lần đầu:      50–200 ms
+Sau đó:       token được cache trong bộ nhớ tới khi gần hết hạn
+```
+
+Nếu endpoint metadata hoặc Entra ID gặp sự cố, ứng dụng **không lấy được token mới** và mất kết nối tới mọi thứ — dù database vẫn hoàn toàn khoẻ. Đây là một phụ thuộc mới mà kiến trúc dùng mật khẩu không có.
+
+```csharp
+// Cache token tường minh để giảm phụ thuộc vào đường lấy token
+var credential = new DefaultAzureCredential(new DefaultAzureCredentialOptions
+{
+    ExcludeInteractiveBrowserCredential = true,
+    Retry = { MaxRetries = 3, Mode = RetryMode.Exponential },
+});
+builder.Services.AddSingleton<TokenCredential>(credential);
+```
+
+Đăng ký `TokenCredential` làm singleton là quan trọng: mỗi instance có cache token riêng, nên tạo mới mỗi lần dùng nghĩa là gọi mạng mỗi lần.
+
+**5. Rò rỉ token nếu ứng dụng có SSRF.** Endpoint metadata truy cập được từ bên trong instance, nên một lỗ hổng cho phép ứng dụng gọi URL tuỳ ý sẽ cho phép kẻ tấn công lấy token:
+
+```text
+https://crm.example.com/proxy?url=http://169.254.169.254/metadata/identity/oauth2/token
+```
+
+Azure có một lớp bảo vệ — yêu cầu header `Metadata: true` và một số nền tảng thêm header bí mật riêng — nhưng SSRF vẫn là lỗ hổng cần phòng ở tầng ứng dụng:
+
+```csharp
+// Chặn dải link-local và mạng nội bộ khi gọi URL do người dùng cung cấp
+if (IPAddress.TryParse(uri.Host, out var ip) &&
+    (ip.IsIPv4LinkLocal() || LaMangNoiBo(ip)))
+    throw new InvalidOperationException("Không cho phép gọi địa chỉ nội bộ");
+```
+
+**Tổng kết — managed identity giải quyết đúng một việc, và làm nó rất tốt:**
+
+```text
+Giải quyết:      quản lý vòng đời của khoá bí mật
+                 -> không lưu, không xoay, không lộ, không hết hạn bất ngờ
+
+KHÔNG giải quyết: phân quyền, SSRF, dịch vụ không hỗ trợ,
+                  khác biệt giữa môi trường, phụ thuộc mới
+```
+
+Nó là một cải thiện lớn và đáng dùng ở mọi nơi có thể. Nhưng nó không phải là bảo mật — nó là **một phần** của bảo mật, và phần còn lại vẫn là việc của bạn.
+
+</details>
 
 ## Tự kiểm tra
 
