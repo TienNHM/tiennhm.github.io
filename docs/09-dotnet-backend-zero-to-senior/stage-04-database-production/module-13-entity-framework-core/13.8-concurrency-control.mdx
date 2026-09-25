@@ -297,11 +297,452 @@ Bài test này phải chạy trên **database thật** — InMemory provider kh�
 
 ## Bài tập áp dụng
 
-1. **Lost update.** Với entity **không** có concurrency token, mô phỏng hai người cùng sửa và xác nhận thay đổi của người đầu biến mất **không có lỗi nào**. Thêm `IsRowVersion` và kiểm chứng.
+#### Bài 1 — Lost update
 
-2. **Token không được truyền.** Cài endpoint `PUT` **không** gán `OriginalValue`, gửi token cũ, và xác nhận xung đột **không** được phát hiện. Thêm dòng gán và kiểm chứng.
+Với entity **không** có concurrency token, mô phỏng hai người cùng sửa và xác nhận thay đổi của người đầu biến mất **không có lỗi nào**. Thêm `IsRowVersion` và kiểm chứng.
 
-3. **Cập nhật nguyên tử.** Cài trừ kho bằng đọc-sửa-lưu, bắn 100 request đồng thời trừ 1 đơn vị từ kho 50, và đếm số đơn thành công. So sánh với `ExecuteUpdateAsync` có điều kiện trong `Where`.
+**Tiêu chí hoàn thành:** bạn giải thích được vì sao database **không** coi đây là lỗi, và nêu được vì sao `RowVersion` phát hiện được trong khi transaction thì không.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Nhìn từ phía database, hai lệnh `UPDATE` tuần tự trông như thế nào?
+
+**Lời giải — không có token:**
+
+```csharp
+await using var db1 = await _factory.CreateDbContextAsync(ct);
+await using var db2 = await _factory.CreateDbContextAsync(ct);
+
+var lead1 = await db1.Leads.FirstAsync(l => l.Id == 1, ct);   // cả hai đọc cùng trạng thái
+var lead2 = await db2.Leads.FirstAsync(l => l.Id == 1, ct);
+
+lead1.Status = "Won";                    // người A đổi trạng thái
+await db1.SaveChangesAsync(ct);
+
+lead2.Value = 9_000_000;                 // người B đổi giá trị
+await db2.SaveChangesAsync(ct);          // không exception nào
+```
+
+```sql
+SELECT Id, Status, Value FROM Leads WHERE Id = 1;
+```
+
+```text
+Id   Status   Value
+1    New      9000000
+```
+
+`Status = "Won"` của người A biến mất. Cả hai lệnh `SaveChangesAsync` đều trả về 1 và không ném gì cả.
+
+**Vì sao database không coi đây là lỗi.** Vì nhìn từ phía nó, đây là hai lệnh hoàn toàn hợp lệ, chạy tuần tự, không chồng lấn:
+
+```sql
+-- 08:00:01 — từ db1
+UPDATE Leads SET Status = N'Won' WHERE Id = 1;              -- 1 dòng
+
+-- 08:00:03 — từ db2
+UPDATE Leads SET Status = N'New', Value = 9000000 WHERE Id = 1;   -- 1 dòng
+```
+
+Lệnh thứ hai chạy **sau khi** lệnh thứ nhất đã commit. Không có khoá nào bị tranh chấp, không có deadlock, không có vi phạm ràng buộc. Database làm đúng thứ nó được yêu cầu.
+
+Thông tin bị thiếu là **ý định**: người B nghĩ mình đang sửa từ trạng thái đã đọc lúc 08:00:00, nhưng trạng thái đó không còn nữa. Database không biết người B đã đọc gì — nó chỉ thấy một lệnh `UPDATE` đến.
+
+Chú ý cả `Status = N'New'` trong lệnh thứ hai: EF Core gửi **mọi cột** mà nó cho là đã thay đổi so với `OriginalValues` của context 2 — và `OriginalValues` đó chụp từ lúc 08:00:00, khi `Status` còn là `New`. Đó chính là cách thay đổi của A bị ghi đè.
+
+**Bản sửa:**
+
+```csharp
+public class Lead
+{
+    public int Id { get; set; }
+    public string Status { get; set; } = null!;
+    public decimal Value { get; set; }
+
+    [Timestamp]
+    public byte[] RowVersion { get; set; } = null!;
+}
+```
+
+```csharp
+builder.Property(l => l.RowVersion).IsRowVersion();
+```
+
+```text
+Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException:
+The database operation was expected to affect 1 row(s), but actually affected 0 row(s);
+data may have been modified or deleted since entities were loaded.
+```
+
+**Vì sao `RowVersion` phát hiện được.** Nó thêm điều kiện "trạng thái phải còn như lúc tôi đọc" vào mệnh đề `WHERE`:
+
+```sql
+-- Người A
+UPDATE Leads SET Status = N'Won', RowVersion = <mới>
+WHERE Id = 1 AND RowVersion = 0x00000000000007D1;      -- 1 dòng, thành công
+
+-- Người B — RowVersion đã đổi vì lệnh trên
+UPDATE Leads SET Value = 9000000, RowVersion = <mới>
+WHERE Id = 1 AND RowVersion = 0x00000000000007D1;      -- 0 DÒNG
+```
+
+`rowversion` của SQL Server là một bộ đếm **toàn database**, tự tăng mỗi khi dòng được ghi. Người B gửi giá trị cũ, không khớp, nên `UPDATE` không chạm dòng nào. EF Core biết mình mong đợi 1 dòng, nhận về 0, và ném `DbUpdateConcurrencyException`.
+
+Điều cốt lõi: **ý định được mã hoá vào `WHERE`**. Giờ database biết người B đang giả định gì, nên nó kiểm tra được giả định đó.
+
+**Vì sao transaction không phát hiện được** — đây là hiểu nhầm phổ biến nhất về chủ đề này:
+
+```csharp
+await using var tx = await db2.Database.BeginTransactionAsync(ct);
+var lead = await db2.Leads.FirstAsync(l => l.Id == 1, ct);
+lead.Value = 9_000_000;
+await db2.SaveChangesAsync(ct);
+await tx.CommitAsync(ct);       // vẫn ghi đè thay đổi của A
+```
+
+Transaction bảo đảm **tính nguyên tử và cô lập trong thời gian nó mở**. Nhưng ở đây, mỗi người đọc và ghi trong transaction **riêng** của mình, và hai transaction đó không chồng lấn về thời gian:
+
+```text
+A:  [đọc-ghi-commit]
+B:               [đọc-ghi-commit]
+                 ^ bắt đầu sau khi A đã commit — không có xung đột nào để cô lập
+```
+
+Và trong một ứng dụng web, khoảng cách còn lớn hơn nhiều: người dùng đọc ở request `GET` lúc 08:00, sửa form trong năm phút, rồi gửi `PUT` lúc 08:05. **Không transaction nào tồn tại qua hai request** — mỗi request có `DbContext` riêng, kết nối riêng, transaction riêng.
+
+Đây là lý do vấn đề này có tên riêng: **optimistic concurrency qua nhiều request**. Transaction giải quyết tranh chấp trong **mili giây**; `RowVersion` giải quyết tranh chấp trong **phút hoặc giờ**.
+
+| | Transaction | `RowVersion` |
+|---|---|---|
+| Phạm vi | Một đơn vị công việc | Từ lúc đọc tới lúc ghi, bao lâu cũng được |
+| Qua được nhiều request HTTP | Không | Có |
+| Giữ khoá | Có | Không |
+| Chi phí khi không có xung đột | Có | Gần như không |
+
+**Một cách duy nhất để transaction giải quyết được vấn đề này** là giữ nó mở suốt từ `GET` tới `PUT` — tức giữ khoá database trong năm phút, cho mỗi người dùng đang mở form. Với mười người dùng đồng thời, hệ thống dừng hoạt động. Đó là lý do mọi ứng dụng web đều chọn optimistic concurrency.
+
+</details>
+
+---
+
+#### Bài 2 — Token không được truyền qua tầng HTTP
+
+Cài endpoint `PUT` **không** gán `OriginalValue`, gửi token cũ, và xác nhận xung đột **không** được phát hiện. Thêm dòng gán và kiểm chứng.
+
+**Tiêu chí hoàn thành:** bạn giải thích được vì sao chỉ khai báo `IsRowVersion` là **chưa đủ**, và nêu được cách đưa token qua HTTP an toàn.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Khi endpoint đọc lại entity từ database, `OriginalValues` chứa giá trị của thời điểm nào?
+
+**Lời giải — bản có lỗi:**
+
+```csharp
+app.MapPut("/leads/{id}", async (int id, CapNhatLeadRequest req, CrmDbContext db, CancellationToken ct) =>
+{
+    var lead = await db.Leads.FirstOrDefaultAsync(l => l.Id == id, ct);
+    if (lead is null) return Results.NotFound();
+
+    lead.Status = req.Status;
+    lead.Value  = req.Value;
+
+    await db.SaveChangesAsync(ct);      // KHÔNG BAO GIỜ ném DbUpdateConcurrencyException
+    return Results.NoContent();
+});
+```
+
+Client gửi `RowVersion` trong body, nhưng không ai dùng tới. Hai request đồng thời vẫn ghi đè nhau như khi chưa có token nào.
+
+**Vì sao chỉ khai báo `IsRowVersion` là chưa đủ.** EF Core dựng mệnh đề `WHERE` từ **`OriginalValues` của entry**, không phải từ dữ liệu client gửi lên. Và `OriginalValues` được chụp **lúc entity được nạp**:
+
+```text
+08:00:00  Client A gọi GET    -> RowVersion = 0x...7D1, hiển thị lên form
+08:02:00  Client B gọi PUT    -> ghi thành công, RowVersion thành 0x...7D2
+08:05:00  Client A gọi PUT    -> endpoint nạp lại entity
+                                 OriginalValues.RowVersion = 0x...7D2  <- MỚI NHẤT
+                                 UPDATE ... WHERE RowVersion = 0x...7D2 -> 1 dòng, OK
+```
+
+Endpoint vừa đọc lại entity **sau khi** B đã ghi, nên `OriginalValues` chứa phiên bản mới nhất. Điều kiện `WHERE` luôn khớp, và xung đột không bao giờ bị phát hiện.
+
+Nói gọn: `RowVersion` so sánh "phiên bản lúc tôi nạp trong request này" với "phiên bản hiện tại". Nhưng thứ bạn cần so sánh là **"phiên bản mà người dùng đã nhìn thấy"** với "phiên bản hiện tại". Hai thứ đó chỉ trùng nhau khi việc đọc và việc ghi nằm trong cùng một request — và với form của người dùng thì không bao giờ.
+
+**Bản sửa — gán `OriginalValue` bằng token client gửi lên:**
+
+```csharp
+app.MapPut("/leads/{id}", async (int id, CapNhatLeadRequest req, CrmDbContext db, CancellationToken ct) =>
+{
+    var lead = await db.Leads.FirstOrDefaultAsync(l => l.Id == id, ct);
+    if (lead is null) return Results.NotFound();
+
+    // Dòng quyết định: nói cho EF Core biết người dùng đã nhìn thấy phiên bản nào
+    db.Entry(lead).Property(l => l.RowVersion).OriginalValue = req.RowVersion;
+
+    lead.Status = req.Status;
+    lead.Value  = req.Value;
+
+    try
+    {
+        await db.SaveChangesAsync(ct);
+        return Results.NoContent();
+    }
+    catch (DbUpdateConcurrencyException)
+    {
+        return Results.Conflict(new { message = "Bản ghi đã được người khác sửa. Hãy tải lại." });
+    }
+});
+```
+
+```sql
+UPDATE Leads SET Status = @p0, Value = @p1
+WHERE Id = @p2 AND RowVersion = @p3;     -- @p3 là token CLIENT gửi lên
+-- 0 dòng -> DbUpdateConcurrencyException -> HTTP 409
+```
+
+**Cách đưa token qua HTTP — hai lựa chọn:**
+
+**1. Trong body của DTO** — đơn giản nhất, phù hợp với form nội bộ:
+
+```csharp
+public record CapNhatLeadRequest(string Status, decimal Value, byte[] RowVersion);
+public record LeadDto(int Id, string Status, decimal Value, byte[] RowVersion);
+```
+
+`byte[]` được `System.Text.Json` tuần tự hoá thành Base64, nên nó đi qua JSON an toàn. Client chỉ cần gửi lại nguyên giá trị đã nhận.
+
+**2. Qua HTTP header `ETag` và `If-Match`** — đúng chuẩn HTTP, và là lựa chọn nên dùng cho API công khai:
+
+```csharp
+app.MapGet("/leads/{id}", async (int id, CrmDbContext db, HttpContext http, CancellationToken ct) =>
+{
+    var lead = await db.Leads.AsNoTracking().FirstOrDefaultAsync(l => l.Id == id, ct);
+    if (lead is null) return Results.NotFound();
+
+    http.Response.Headers.ETag = $"\"{Convert.ToBase64String(lead.RowVersion)}\"";
+    return Results.Ok(new LeadDto(lead.Id, lead.Status, lead.Value));
+});
+
+app.MapPut("/leads/{id}", async (int id, CapNhatLeadRequest req, CrmDbContext db,
+                                 HttpContext http, CancellationToken ct) =>
+{
+    var ifMatch = http.Request.Headers.IfMatch.FirstOrDefault();
+    if (string.IsNullOrEmpty(ifMatch))
+        return Results.StatusCode(StatusCodes.Status428PreconditionRequired);
+
+    var lead = await db.Leads.FirstOrDefaultAsync(l => l.Id == id, ct);
+    if (lead is null) return Results.NotFound();
+
+    db.Entry(lead).Property(l => l.RowVersion).OriginalValue =
+        Convert.FromBase64String(ifMatch.Trim('"'));
+
+    lead.Status = req.Status;
+    lead.Value  = req.Value;
+
+    try
+    {
+        await db.SaveChangesAsync(ct);
+        return Results.NoContent();
+    }
+    catch (DbUpdateConcurrencyException)
+    {
+        return Results.StatusCode(StatusCodes.Status412PreconditionFailed);
+    }
+});
+```
+
+Cách này có ba ưu điểm: token không lẫn vào dữ liệu nghiệp vụ, mã trạng thái đúng ngữ nghĩa HTTP (`428` khi thiếu, `412` khi không khớp), và client HTTP chuẩn — kể cả proxy và cache — hiểu được.
+
+**Bốn điều cần nhớ:**
+
+1. **Token phải đi qua `GET` xuống client.** Nếu DTO trả về không chứa `RowVersion` hoặc `ETag`, client không có gì để gửi lại.
+2. **Thiếu token phải là lỗi, không phải mặc định cho qua.** Trả `428 Precondition Required` thay vì lặng lẽ bỏ kiểm tra — nếu không, một client cũ sẽ vô hiệu hoá toàn bộ cơ chế mà không ai biết.
+3. **Đừng nhận `RowVersion` qua model binding tự động vào entity.** Nó không tự thành `OriginalValue`; phải gán tường minh như ở trên.
+4. **`ExecuteUpdate` bỏ qua kiểm tra này hoàn toàn** ([bài 13.7](13.7-performance.mdx)) — đừng dùng nó cho đường ghi cần phát hiện xung đột.
+
+**Test bắt được lỗi ngay từ đầu:**
+
+```csharp
+[Fact]
+public async Task PUT_voi_token_cu_phai_tra_ve_409()
+{
+    var truoc = await _client.GetFromJsonAsync<LeadDto>("/leads/1");
+
+    await _client.PutAsJsonAsync("/leads/1",
+        new CapNhatLeadRequest("Won", 5_000_000, truoc!.RowVersion));     // người B ghi trước
+
+    var res = await _client.PutAsJsonAsync("/leads/1",
+        new CapNhatLeadRequest("Lost", 1_000_000, truoc.RowVersion));     // người A, token cũ
+
+    res.StatusCode.Should().Be(HttpStatusCode.Conflict);
+}
+```
+
+Test này là thứ duy nhất bắt được dạng lỗi ở đầu bài, vì bản có lỗi **chạy đúng trong mọi kịch bản một người dùng** — và đó là tất cả những gì test thủ công bao phủ.
+
+</details>
+
+---
+
+#### Bài 3 — Cập nhật nguyên tử
+
+Cài trừ kho bằng đọc-sửa-lưu, bắn 100 request đồng thời trừ 1 đơn vị từ kho 50, và đếm số đơn thành công. So sánh với `ExecuteUpdateAsync` có điều kiện trong `Where`.
+
+**Tiêu chí hoàn thành:** bạn giải thích được vì sao `ExecuteUpdate` có điều kiện **không cần** concurrency token, và nêu được giới hạn của cách này.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Đếm xem có bao nhiêu lần đi về database giữa lúc đọc số tồn và lúc ghi số mới.
+
+**Lời giải — bản đọc-sửa-lưu:**
+
+```csharp
+public async Task<bool> TruKhoAsync(int productId, int soLuong, CancellationToken ct)
+{
+    await using var db = await _factory.CreateDbContextAsync(ct);
+
+    var product = await db.Products.FirstAsync(p => p.Id == productId, ct);
+    if (product.Stock < soLuong) return false;         // kiểm tra
+
+    product.Stock -= soLuong;                          // sửa
+    await db.SaveChangesAsync(ct);                     // ghi
+    return true;
+}
+```
+
+```csharp
+var tasks = Enumerable.Range(0, 100).Select(_ => TruKhoAsync(1, 1, ct));
+var ketQua = await Task.WhenAll(tasks);
+Console.WriteLine($"Thành công: {ketQua.Count(x => x)}");
+```
+
+```text
+Thành công: 87
+Stock trong database: -37
+```
+
+Kho 50 mà 87 đơn thành công, và số tồn âm. Con số chính xác đổi theo mỗi lần chạy — dấu hiệu kinh điển của race condition.
+
+**Vì sao.** Có một **khe hở** giữa kiểm tra và ghi:
+
+```text
+Luồng A: đọc Stock = 50
+Luồng B: đọc Stock = 50        <- cùng thấy 50
+Luồng A: kiểm tra 50 >= 1  OK
+Luồng B: kiểm tra 50 >= 1  OK  <- cả hai đều qua
+Luồng A: UPDATE Stock = 49
+Luồng B: UPDATE Stock = 49     <- ghi đè, chỉ trừ 1 thay vì 2
+```
+
+Đây là mẫu **kiểm-tra-rồi-hành-động** (check-then-act), và nó luôn sai khi có đồng thời: điều kiện được kiểm tra trên một ảnh chụp đã cũ tại thời điểm hành động.
+
+**Bản `ExecuteUpdate` có điều kiện:**
+
+```csharp
+public async Task<bool> TruKhoAsync(int productId, int soLuong, CancellationToken ct)
+{
+    await using var db = await _factory.CreateDbContextAsync(ct);
+
+    var soDong = await db.Products
+        .Where(p => p.Id == productId && p.Stock >= soLuong)     // điều kiện Ở TRONG WHERE
+        .ExecuteUpdateAsync(s => s.SetProperty(p => p.Stock, p => p.Stock - soLuong), ct);
+
+    return soDong == 1;
+}
+```
+
+```text
+Thành công: 50
+Stock trong database: 0
+```
+
+Đúng 50, mọi lần chạy.
+
+```sql
+UPDATE Products SET Stock = Stock - @soLuong
+WHERE Id = @productId AND Stock >= @soLuong;
+```
+
+**Vì sao không cần concurrency token.** Vì khe hở đã biến mất — kiểm tra và ghi nằm trong **cùng một câu lệnh**:
+
+```text
+Đọc-sửa-lưu:     [SELECT] ... khe hở ... [UPDATE]
+                            ^^^^^^^ luồng khác chen vào được
+
+ExecuteUpdate:   [UPDATE ... WHERE Stock >= @n]
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ một câu lệnh, một lần
+```
+
+Database giữ khoá ghi trên dòng đó suốt thời gian thực thi lệnh. Hai lệnh `UPDATE` trên cùng dòng **bắt buộc** phải tuần tự — đó là bảo đảm cơ bản của mọi database quan hệ, không cần cấu hình gì thêm.
+
+Và điều kiện `Stock >= @soLuong` được đánh giá trên **giá trị hiện tại tại thời điểm ghi**, không phải trên giá trị đọc từ trước. Không có ảnh chụp cũ, nên không có gì để lỗi thời.
+
+`RowVersion` giải quyết **cùng vấn đề đó bằng cách khác**: nó không đóng khe hở, mà phát hiện khi có người chen vào. Ở đây khe hở không tồn tại, nên không có gì để phát hiện.
+
+**Ba giới hạn của cách này:**
+
+**1. Không biết vì sao thất bại.** `soDong == 0` gộp chung hai nguyên nhân khác hẳn nhau:
+
+```csharp
+// Không đủ hàng?  Hay sản phẩm không tồn tại?
+return soDong == 1;
+```
+
+Phải truy vấn thêm mới phân biệt được — và lúc đó lại có khe hở, nhưng khe hở này vô hại vì nó chỉ ảnh hưởng tới **thông điệp lỗi**, không ảnh hưởng tới dữ liệu:
+
+```csharp
+if (soDong == 1) return KetQua.ThanhCong();
+
+var tonTai = await db.Products.AnyAsync(p => p.Id == productId, ct);
+return tonTai ? KetQua.KhongDuHang() : KetQua.KhongTimThay();
+```
+
+**2. Chỉ làm được những gì SQL biểu diễn được.** Logic phức tạp — kiểm tra hạn mức tín dụng theo nhiều bảng, áp quy tắc giá theo hạng khách hàng — không nhét vừa một `WHERE`. Lúc đó phải quay về đọc-sửa-lưu kèm `RowVersion`, hoặc dùng pessimistic locking:
+
+```csharp
+var product = await db.Products
+    .FromSql($"SELECT * FROM Products WITH (UPDLOCK, ROWLOCK) WHERE Id = {productId}")
+    .FirstAsync(ct);
+```
+
+**3. Bỏ qua interceptor, domain event và audit** — như mọi `ExecuteUpdate` ([bài 13.7](13.7-performance.mdx)). Phải đặt tay:
+
+```csharp
+.ExecuteUpdateAsync(s => s
+    .SetProperty(p => p.Stock,      p => p.Stock - soLuong)
+    .SetProperty(p => p.UpdatedUtc, _clock.GetUtcNow().UtcDateTime), ct);
+```
+
+**Bảng chọn cho cập nhật có điều kiện:**
+
+| Tình huống | Cách |
+|---|---|
+| Trừ kho, trừ số dư, tăng bộ đếm | **`ExecuteUpdate` có điều kiện** |
+| Người dùng sửa form qua nhiều request | **`RowVersion`** |
+| Logic nghiệp vụ phức tạp, nhiều bảng | Transaction + `UPDLOCK` |
+| Nhiều bước phải nguyên tử cùng nhau | Transaction, hoặc gộp vào một `UPDATE` nếu được |
+
+**Và một test cho mỗi thao tác kiểu này:**
+
+```csharp
+[Fact]
+public async Task Tru_kho_dong_thoi_khong_duoc_vuot_qua_so_ton()
+{
+    await TaoSanPhamAsync(id: 1, stock: 50);
+
+    var ketQua = await Task.WhenAll(
+        Enumerable.Range(0, 100).Select(_ => _service.TruKhoAsync(1, 1, ct)));
+
+    ketQua.Count(x => x).Should().Be(50);
+    (await LayTonKhoAsync(1)).Should().Be(0);
+}
+```
+
+Test này cần database thật (không dùng được in-memory provider, vì nó không có khoá dòng), và nó là một trong số ít test đáng chạy với đồng thời thật — vì đây là loại lỗi mà **chỉ** đồng thời thật mới phát hiện được.
+
+</details>
 
 ## Tự kiểm tra
 
