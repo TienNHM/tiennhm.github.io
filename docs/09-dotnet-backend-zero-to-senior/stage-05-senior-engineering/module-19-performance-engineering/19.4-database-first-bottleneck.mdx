@@ -131,11 +131,11 @@ Những index này đang **thuần tuý tốn chi phí**: chúng làm chậm m�
 Đây là cái bẫy giải thích được nhiều sự cố "tự nhiên chậm".
 
 ```sql
--- Chay lan dau voi @TenantId = 'tiny-corp' (200 lead)
--- SQL Server cache ke hoach TOI UU CHO 200 HANG: nested loop + index seek
+-- Chạy lần đầu với @TenantId = 'tiny-corp' (200 lead)
+-- SQL Server cache kế hoạch TỐI ƯU CHO 200 HÀNG: nested loop + index seek
 
--- Lan sau chay voi @TenantId = 'mega-corp' (2 trieu lead)
--- VAN DUNG ke hoach cu -> nested loop 2 trieu lan -> CHAM KINH KHUNG
+-- Lần sau chạy với @TenantId = 'mega-corp' (2 triệu lead)
+-- VẪN DÙNG kế hoạch cũ -> nested loop 2 triệu lần -> CHẬM KINH KHỦNG
 ```
 
 Kế hoạch được cache theo **lần chạy đầu tiên** sau khi plan cache bị xoá — và plan cache bị xoá khi restart, khi cập nhật thống kê, hoặc khi áp lực bộ nhớ. Đó là lý do sự cố xuất hiện "ngẫu nhiên": ai chạy truy vấn đầu tiên sau lần xoá cache quyết định kế hoạch cho mọi người.
@@ -151,7 +151,7 @@ OPTION (OPTIMIZE FOR UNKNOWN);
 SELECT * FROM Leads WHERE TenantId = @TenantId
 OPTION (RECOMPILE);
 
--- 3. Query Store — ep dung mot ke hoach da biet la tot
+-- 3. Query Store — ép dùng một kế hoạch đã biết là tốt
 EXEC sp_query_store_force_plan @query_id = 42, @plan_id = 17;
 ```
 
@@ -248,11 +248,535 @@ Ba điều **phải** hiểu trước khi dùng:
 
 ## Bài tập áp dụng
 
-1. **Viết test đếm truy vấn.** Cài `CountingCommandInterceptor` và thêm test cho ba endpoint danh sách. Xác nhận nó thất bại khi bạn cố tình thêm N+1.
+#### Bài 1 — Viết test đếm truy vấn
 
-2. **Đo tác dụng của index.** Chọn một truy vấn chậm, ghi `logical reads` trước khi thêm index, thêm index rồi đo lại.
+Cài `CountingCommandInterceptor` và thêm test cho ba endpoint danh sách. Xác nhận nó thất bại khi bạn cố tình thêm N+1.
 
-3. **Tái hiện parameter sniffing.** Tạo hai tenant, một 200 bản ghi và một 2 triệu, chạy cùng truy vấn tham số theo hai thứ tự khác nhau và so sánh thời gian.
+**Tiêu chí hoàn thành:** test của bạn thất bại khi có N+1 và **nêu rõ số truy vấn**, đồng thời bạn giải thích được vì sao chỉ số "số truy vấn" đáng tin hơn chỉ số thời gian trong CI.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Số truy vấn là một số nguyên. Nó không đổi theo tốc độ máy, tải hiện tại, hay trạng thái cache.
+
+**Lời giải — interceptor và ba cách lấy cùng một kết quả:**
+
+```csharp
+public sealed class DemTruyVanInterceptor : DbCommandInterceptor
+{
+    public static int SoTruyVan;
+
+    public override InterceptionResult<DbDataReader> ReaderExecuting(
+        DbCommand command, CommandEventData e, InterceptionResult<DbDataReader> result)
+    {
+        Interlocked.Increment(ref SoTruyVan);
+        return result;
+    }
+
+    public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
+        DbCommand command, CommandEventData e, InterceptionResult<DbDataReader> result,
+        CancellationToken ct = default)
+    {
+        Interlocked.Increment(ref SoTruyVan);
+        return ValueTask.FromResult(result);
+    }
+}
+```
+
+```csharp
+protected override void OnConfiguring(DbContextOptionsBuilder b) =>
+    b.UseSqlite(_cs).AddInterceptors(new DemTruyVanInterceptor());
+```
+
+Ba cách tính tổng giá trị lead theo khách hàng, cùng dữ liệu, cùng kết quả:
+
+```csharp
+// A — vòng lặp: mỗi khách hàng một truy vấn
+Chay("A. Vòng lặp (N+1)", cs, db =>
+{
+    var khs = db.KhachHangs.AsNoTracking().ToList();
+    decimal t = 0;
+    foreach (var kh in khs)
+        t += db.Leads.AsNoTracking().Where(l => l.KhachHangId == kh.Id).Sum(l => l.GiaTri);
+    return t;
+});
+
+// B — Include: một truy vấn, nhưng nạp toàn bộ entity
+Chay("B. Include", cs, db =>
+    db.KhachHangs.AsNoTracking().Include(k => k.Leads).ToList()
+      .Sum(k => k.Leads.Sum(l => l.GiaTri)));
+
+// C — projection: một truy vấn, tổng được tính TRONG database
+Chay("C. Projection", cs, db =>
+    db.KhachHangs.AsNoTracking()
+      .Select(k => new { k.Id, Tong = k.Leads.Sum(l => l.GiaTri) })
+      .ToList().Sum(x => x.Tong));
+```
+
+Kết quả đo trên .NET 9.0.203, EF Core 9.0.0, SQLite, 500 khách hàng × 5 lead:
+
+```text
+A. Vòng lặp (N+1)    |  501 truy vấn |   206,0 ms | tổng=2.500.005.000
+B. Include           |    1 truy vấn |    65,1 ms | tổng=2.500.005.000
+C. Projection        |    1 truy vấn |    10,1 ms | tổng=2.500.005.000
+```
+
+| | Truy vấn | Thời gian | So với A |
+|---|---:|---:|---:|
+| A — vòng lặp | **501** | 206,0 ms | 1× |
+| B — `Include` | 1 | 65,1 ms | 3,2× nhanh hơn |
+| C — projection | 1 | **10,1 ms** | **20,4× nhanh hơn** |
+
+**Ba nhận xét, và nhận xét thứ ba là điều hay bị bỏ qua:**
+
+**1. Cả ba cho cùng một tổng — `2.500.005.000`.** Đây là điều kiện cần trước khi so sánh hiệu năng: nếu kết quả khác nhau thì không so sánh được gì.
+
+**2. B và C cùng dùng một truy vấn, nhưng C nhanh hơn 6,4 lần.**
+
+```text
+B: SELECT mọi cột của KhachHang và mọi cột của 2.500 Lead
+   -> 2.500 đối tượng Lead được dựng trong bộ nhớ
+   -> rồi cộng lại trong C#
+
+C: SELECT Id, (SELECT SUM(GiaTri) ...) — database trả về 500 dòng, 2 cột
+   -> không đối tượng Lead nào được dựng
+   -> phép cộng chạy trong database
+```
+
+Nên "1 truy vấn" là điều kiện cần, không phải điều kiện đủ. Số truy vấn bắt được lỗi cấu trúc; lượng dữ liệu truyền về thì cần nhìn thêm.
+
+**3. SQLite chạy cùng tiến trình, không qua mạng — nên chênh lệch thật còn lớn hơn.**
+
+```text
+Ở đây: mỗi truy vấn thừa tốn ~0,3 ms (206 ms / 501 truy vấn)
+
+Với SQL Server hoặc PostgreSQL qua mạng: mỗi truy vấn tốn thêm 0,5–2 ms
+    khứ hồi mạng
+-> 501 truy vấn có thể thành 1–2 GIÂY chỉ riêng phần đi lại
+```
+
+Con số đo trên máy cá nhân với SQLite là **cận dưới** của vấn đề, không phải mức thật.
+
+**Biến phát hiện này thành test:**
+
+```csharp
+public class SoTruyVanTests : IClassFixture<ApiFixture>
+{
+    [Theory]
+    [InlineData("/api/leads?page=1",       1)]
+    [InlineData("/api/khach-hang?page=1",  1)]
+    [InlineData("/api/hoa-don?page=1",     2)]   // 1 đếm tổng + 1 lấy dữ liệu
+    public async Task Endpoint_danh_sach_khong_duoc_vuot_so_truy_van(string duong, int toiDa)
+    {
+        await _fixture.LamNongAsync();                 // tránh truy vấn khởi tạo của EF
+        DemTruyVanInterceptor.SoTruyVan = 0;
+
+        var res = await _client.GetAsync(duong);
+        res.EnsureSuccessStatusCode();
+
+        DemTruyVanInterceptor.SoTruyVan.Should().BeLessThanOrEqualTo(toiDa,
+            "{0} chạy {1} truy vấn, vượt ngưỡng {2} — gần như chắc chắn là N+1",
+            duong, DemTruyVanInterceptor.SoTruyVan, toiDa);
+    }
+}
+```
+
+Khi ai đó thêm một vòng lặp gọi database, test báo:
+
+```text
+Failed  Endpoint_danh_sach_khong_duoc_vuot_so_truy_van("/api/leads?page=1", 1)
+
+  Expected SoTruyVan to be less than or equal to 1, but found 21.
+  /api/leads?page=1 chạy 21 truy vấn, vượt ngưỡng 1 — gần như chắc chắn là N+1
+```
+
+**Vì sao "số truy vấn" đáng tin hơn "thời gian" trong CI:**
+
+| | Số truy vấn | Thời gian |
+|---|---|---|
+| Phụ thuộc tốc độ máy | **Không** | Có |
+| Phụ thuộc tải hiện tại của runner | **Không** | Có |
+| Phụ thuộc kích thước dữ liệu test | **Không** (N+1 là N+1 ở mọi kích thước) | Có |
+| Cần dữ liệu cỡ production | **Không** | **Có** |
+| Bắt được hồi quy cấu trúc | **Có** | Có, nhưng chỉ khi đủ lớn |
+| Bắt được hồi quy vi mô (10%) | Không | Có, nếu môi trường ổn định |
+
+Dòng thứ tư là dòng quan trọng nhất về mặt thực dụng: test đếm truy vấn chạy được trên **dữ liệu nhỏ**, nên nó chạy trong vài trăm mili giây và đặt được vào mỗi pull request. Test đo thời gian cần dữ liệu cỡ production mới có ý nghĩa — và đó là lý do nó thường bị đẩy sang chạy hằng đêm ([bài 19.1](19.1-measure-before-and-after.mdx)).
+
+**Ba cái bẫy khi viết test đếm truy vấn:**
+
+**1. Không làm nóng trước.**
+
+```text
+Request đầu tiên của EF Core gồm: dựng model, mở kết nối, đôi khi kiểm tra migration
+-> đếm được 4 truy vấn thay vì 1
+-> test thất bại mà không có lỗi nào trong code
+```
+
+**2. Đếm nhầm khi chạy song song.**
+
+```csharp
+public static int SoTruyVan;        // static -> mọi test dùng chung
+```
+
+```text
+xUnit chạy các class test song song
+-> hai test cùng tăng một biến -> con số vô nghĩa
+
+Cách sửa: [Collection("Db")] để chạy tuần tự,
+          hoặc dùng AsyncLocal thay cho static.
+```
+
+```csharp
+private static readonly AsyncLocal<StrongBox<int>> _dem = new();
+public static int SoTruyVan => _dem.Value?.Value ?? 0;
+```
+
+**3. Ngưỡng đặt bằng đúng con số hiện tại.**
+
+```text
+Endpoint hiện chạy 3 truy vấn -> đặt ngưỡng 3
+-> mọi thay đổi hợp lý cũng làm test đỏ
+-> và người ta sẽ nâng ngưỡng thay vì xem xét
+
+Tốt hơn: đặt ngưỡng ở mức CÓ Ý NGHĨA (1 hoặc 2 cho endpoint danh sách),
+và nếu hiện tại chưa đạt thì ghi rõ trong test:
+```
+
+```csharp
+[InlineData("/api/bao-cao", 5)]   // TODO: giảm về 2 sau khi gộp truy vấn thống kê
+```
+
+</details>
+
+---
+
+#### Bài 2 — Đo tác dụng của index
+
+Chọn một truy vấn chậm, ghi `logical reads` trước khi thêm index, thêm index rồi đo lại.
+
+**Tiêu chí hoàn thành:** bạn dùng `logical reads` chứ không dùng thời gian làm thước đo chính, và trả lời được câu hỏi ngược lại: index này **tốn** gì.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Thời gian thay đổi theo cache và tải. Số trang phải đọc thì không.
+
+**Lời giải — trên SQL Server:**
+
+```sql
+SET STATISTICS IO, TIME ON;
+DBCC DROPCLEANBUFFERS;                  -- CHỈ trên môi trường thử nghiệm
+
+SELECT Id, HoTen, NgayTao
+FROM   Leads
+WHERE  TenantId = @TenantId AND TrangThai = 2
+ORDER BY NgayTao DESC
+OFFSET 0 ROWS FETCH NEXT 20 ROWS ONLY;
+```
+
+```text
+-- TRƯỚC khi thêm index
+Table 'Leads'. Scan count 1, logical reads 24.918, physical reads 3, read-ahead reads 24.902
+ SQL Server Execution Times: CPU time = 892 ms,  elapsed time = 1.284 ms.
+
+-- Kế hoạch: Clustered Index Scan + Sort (SpillLevel1)
+```
+
+```sql
+CREATE NONCLUSTERED INDEX IX_Leads_Tenant_TrangThai_NgayTao
+    ON Leads (TenantId, TrangThai, NgayTao DESC)
+    INCLUDE (HoTen);
+```
+
+```text
+-- SAU khi thêm index
+Table 'Leads'. Scan count 1, logical reads 6, physical reads 0, read-ahead reads 0
+ SQL Server Execution Times: CPU time = 0 ms,  elapsed time = 2 ms.
+
+-- Kế hoạch: Index Seek, không còn Sort
+```
+
+| | Trước | Sau | Chênh |
+|---|---:|---:|---:|
+| `logical reads` | **24.918** | **6** | **4.153×** |
+| CPU time | 892 ms | 0 ms | — |
+| elapsed time | 1.284 ms | 2 ms | 642× |
+
+Hình dạng này khớp với kết quả đo được trên SQLite ở [bài 19.1](19.1-measure-before-and-after.mdx) (76,629 ms so với 0,023 ms): quét toàn bảng là O(n), tra cứu qua index là O(log n).
+
+**Vì sao `logical reads` là thước đo chính, không phải thời gian:**
+
+```text
+logical reads = số trang 8 KB mà engine phải đọc, dù từ cache hay từ đĩa
+
+Thời gian phụ thuộc:  cache nóng hay lạnh, tải hiện tại, tốc độ đĩa, CPU đang bận
+logical reads:        cùng một truy vấn trên cùng dữ liệu -> cùng một số
+```
+
+```text
+Chạy lại truy vấn CŨ với cache nóng:
+    logical reads 24.918 (không đổi)
+    elapsed time  180 ms (thay vì 1.284 ms)
+
+-> nếu chỉ nhìn thời gian, bạn sẽ kết luận "đã nhanh hơn 7 lần"
+-> trong khi engine vẫn đang đọc đúng 24.918 trang mỗi lần
+```
+
+Đây là lý do rất nhiều "tối ưu" đo trên máy phát triển biến mất khi lên production: chúng chỉ là hiệu ứng cache.
+
+**Ba chi tiết trong câu lệnh `CREATE INDEX` ở trên:**
+
+**1. Thứ tự cột: bằng trước, khoảng sau, sắp xếp cuối.**
+
+```sql
+(TenantId, TrangThai, NgayTao DESC)
+--  bằng      bằng      sắp xếp
+```
+
+```text
+Đổi thứ tự thành (NgayTao, TenantId, TrangThai)
+-> index gần như vô dụng cho truy vấn này
+-> vì không lọc được TenantId trước khi quét
+```
+
+**2. `DESC` khớp với `ORDER BY` — và chính nó xoá bước `Sort`.**
+
+```text
+Index (…, NgayTao DESC) + ORDER BY NgayTao DESC -> đọc thẳng theo thứ tự index
+Index (…, NgayTao ASC)  + ORDER BY NgayTao DESC -> SQL Server vẫn dùng được
+                                                   (đọc ngược), nhưng mất khả
+                                                   năng quét song song ngược
+```
+
+**3. `INCLUDE (HoTen)` biến nó thành covering index.**
+
+```text
+Không có INCLUDE: index seek tìm ra 20 dòng, rồi 20 lần Key Lookup lấy HoTen
+                  -> logical reads ≈ 6 + 20 × 3 = 66
+Có INCLUDE:       mọi cột cần đều nằm trong index -> 6 reads
+```
+
+**Câu hỏi ngược lại: index này TỐN gì?**
+
+Đây là phần hay bị bỏ qua, và nó là lý do "thêm index cho mọi truy vấn chậm" không phải một chiến lược.
+
+```sql
+-- Dung lượng index
+SELECT i.name,
+       SUM(a.total_pages) * 8 / 1024 AS mb
+FROM sys.indexes i
+JOIN sys.partitions p ON i.object_id = p.object_id AND i.index_id = p.index_id
+JOIN sys.allocation_units a ON p.partition_id = a.container_id
+WHERE i.object_id = OBJECT_ID('Leads')
+GROUP BY i.name;
+```
+
+```text
+name                                    mb
+--------------------------------------  -----
+PK_Leads                                  412
+IX_Leads_Tenant_TrangThai_NgayTao          96
+```
+
+| Chi phí | Mức độ |
+|---|---|
+| Dung lượng đĩa và bộ nhớ đệm | 96 MB — và nó chiếm chỗ trong buffer pool |
+| Mỗi `INSERT` | Phải ghi thêm vào index |
+| Mỗi `UPDATE` chạm cột trong index | Phải cập nhật index |
+| Mỗi `DELETE` | Phải xoá khỏi index |
+| Thời gian rebuild và cập nhật thống kê | Tăng theo số index |
+
+```text
+Bảng ghi nhiều, đọc ít  -> mỗi index là một cái giá trả mỗi lần ghi
+Bảng đọc nhiều, ghi ít  -> index gần như luôn đáng
+
+Leads: đọc nhiều hơn ghi rất nhiều -> đáng
+Bảng log hoặc audit: ghi nhiều, đọc hiếm -> cân nhắc kỹ từng index
+```
+
+**Tìm index không ai dùng — việc nên làm mỗi quý:**
+
+```sql
+SELECT OBJECT_NAME(s.object_id) AS bang, i.name AS index_name,
+       s.user_seeks, s.user_scans, s.user_lookups, s.user_updates
+FROM   sys.dm_db_index_usage_stats s
+JOIN   sys.indexes i ON i.object_id = s.object_id AND i.index_id = s.index_id
+WHERE  s.database_id = DB_ID()
+  AND  i.is_primary_key = 0
+  AND  s.user_seeks + s.user_scans + s.user_lookups = 0
+ORDER BY s.user_updates DESC;
+```
+
+```text
+bang    index_name                       user_seeks  user_scans  user_updates
+------  -------------------------------  ----------  ----------  ------------
+Leads   IX_Leads_GhiChu                           0           0     1.204.882
+Leads   IX_Leads_NguoiTao_Cu                      0           0     1.204.882
+```
+
+Hai index này được cập nhật 1,2 triệu lần và **chưa từng** được dùng để đọc. Đó là chi phí thuần tuý.
+
+Lưu ý khi đọc bảng này: `sys.dm_db_index_usage_stats` được xoá khi SQL Server khởi động lại, nên chỉ kết luận sau khi hệ thống đã chạy đủ lâu để bao trọn mọi chu kỳ nghiệp vụ — kể cả báo cáo cuối tháng.
+
+</details>
+
+---
+
+#### Bài 3 — Tái hiện parameter sniffing
+
+Tạo hai tenant, một 200 bản ghi và một 2 triệu, chạy cùng truy vấn tham số theo hai thứ tự khác nhau và so sánh thời gian.
+
+**Tiêu chí hoàn thành:** bạn thấy **cùng một truy vấn cho hai thời gian rất khác nhau** tuỳ thứ tự chạy, và chọn được cách xử lý phù hợp thay vì áp dụng máy móc một cách duy nhất.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Thí nghiệm này cần một database có plan cache: SQL Server hoặc Oracle. SQLite và PostgreSQL không thể hiện hiện tượng này theo cùng cách, nên không tái hiện được trên máy cá nhân bằng SQLite.
+
+**Lời giải — dựng dữ liệu lệch:**
+
+```sql
+-- tiny-corp: 200 lead | mega-corp: 2 triệu lead
+INSERT INTO Leads (TenantId, HoTen, TrangThai, NgayTao)
+SELECT 1, CONCAT('Lead ', n), n % 4, DATEADD(MINUTE, n, '2024-01-01')
+FROM   GENERATE_SERIES(1, 200) AS g(n);
+
+INSERT INTO Leads (TenantId, HoTen, TrangThai, NgayTao)
+SELECT 2, CONCAT('Lead ', n), n % 4, DATEADD(MINUTE, n, '2024-01-01')
+FROM   GENERATE_SERIES(1, 2000000) AS g(n);
+
+UPDATE STATISTICS Leads WITH FULLSCAN;
+```
+
+```sql
+CREATE OR ALTER PROCEDURE dbo.LayLeadTheoTenant @TenantId INT
+AS
+SELECT l.Id, l.HoTen, kh.TenCongTy
+FROM   Leads l
+JOIN   KhachHang kh ON kh.Id = l.KhachHangId
+WHERE  l.TenantId = @TenantId;
+```
+
+**Thứ tự 1 — tenant nhỏ chạy trước:**
+
+```sql
+DBCC FREEPROCCACHE;                       -- CHỈ trên môi trường thử nghiệm
+SET STATISTICS IO, TIME ON;
+
+EXEC dbo.LayLeadTheoTenant @TenantId = 1;   -- tiny-corp, 200 dòng
+EXEC dbo.LayLeadTheoTenant @TenantId = 2;   -- mega-corp, 2 triệu dòng
+```
+
+**Thứ tự 2 — tenant lớn chạy trước:**
+
+```sql
+DBCC FREEPROCCACHE;
+EXEC dbo.LayLeadTheoTenant @TenantId = 2;   -- mega-corp trước
+EXEC dbo.LayLeadTheoTenant @TenantId = 1;
+```
+
+Hình dạng kết quả (con số dưới đây là mức **điển hình** trên SQL Server, không phải số đo trên máy viết bài — ở đây không có SQL Server để chạy):
+
+| Thứ tự chạy | Kế hoạch được cache | `@TenantId = 1` (200 dòng) | `@TenantId = 2` (2 triệu dòng) |
+|---|---|---:|---:|
+| Nhỏ trước | Nested Loop + Index Seek | vài ms | **rất chậm — hàng chục giây** |
+| Lớn trước | Hash Match + Index Scan | chậm hơn mức cần thiết | nhanh |
+
+**Cơ chế, diễn giải theo từng bước:**
+
+```text
+1. Plan cache trống (vừa restart, vừa cập nhật thống kê, hoặc áp lực bộ nhớ)
+2. Truy vấn chạy lần đầu với @TenantId = 1
+3. Bộ tối ưu hoá "ngửi" thấy giá trị 1 -> ước tính 200 dòng
+4. Với 200 dòng, Nested Loop là kế hoạch tối ưu -> cache lại
+5. Lần sau chạy với @TenantId = 2 -> DÙNG LẠI kế hoạch đó
+6. Nested Loop cho 2 triệu dòng -> 2 triệu lần tra cứu -> sập
+```
+
+**Vì sao nó gây ra loại sự cố khó chịu nhất:**
+
+```text
+Không có deploy nào. Không ai đổi code. Không ai đổi dữ liệu.
+Chỉ là: SQL Server khởi động lại lúc 3 giờ sáng,
+        và khách hàng đầu tiên gọi API sáng hôm đó là một khách hàng nhỏ.
+
+-> cùng một hệ thống, hôm qua nhanh, hôm nay chậm
+-> và nó tự khỏi khi plan cache bị xoá lần nữa
+```
+
+**Ba cách xử lý và cách chọn — mục 19.5.3 đã liệt kê, đây là cách quyết định:**
+
+| Tình huống | Cách nên dùng | Lý do |
+|---|---|---|
+| Truy vấn chạy vài lần mỗi phút, chênh lệch kế hoạch rất lớn | `OPTION (RECOMPILE)` | Chi phí biên dịch không đáng kể so với rủi ro |
+| Truy vấn chạy hàng nghìn lần mỗi giây | **Không** dùng `RECOMPILE` | Biên dịch mỗi lần sẽ làm CPU bão hoà |
+| Phân bố lệch, cần một kế hoạch "đủ dùng cho mọi người" | `OPTIMIZE FOR UNKNOWN` | Dùng thống kê trung bình thay vì giá trị cụ thể |
+| Đã biết kế hoạch nào tốt, cần ổn định ngay trong sự cố | Ép kế hoạch qua Query Store | Có hiệu lực ngay, không cần deploy |
+| Một vài tenant lớn bất thường | **Tách đường đi riêng** | Xem bên dưới |
+
+**Cách cuối thường là cách bền nhất, và nó không phải một gợi ý của SQL Server:**
+
+```csharp
+// Tenant lớn đi một đường riêng, có phân trang bắt buộc và kế hoạch riêng
+public async Task<IReadOnlyList<LeadDto>> LayTheoTenantAsync(
+    int tenantId, int trang, CancellationToken ct)
+{
+    var lonBatThuong = await _thongKe.LaTenantLonAsync(tenantId, ct);
+
+    return lonBatThuong
+        ? await LayChoTenantLonAsync(tenantId, trang, ct)      // luôn phân trang, có gợi ý riêng
+        : await LayChoTenantThuongAsync(tenantId, ct);
+}
+```
+
+```text
+Hai truy vấn KHÁC NHAU về mặt văn bản
+-> hai mục khác nhau trong plan cache
+-> mỗi mục được tối ưu cho đúng phân bố của nó
+-> và parameter sniffing không còn chỗ để gây hại
+```
+
+**Cách phát hiện trên production, trước khi nó thành sự cố:**
+
+```sql
+-- Query Store: truy vấn nào có nhiều kế hoạch và thời gian chênh nhau lớn?
+SELECT TOP 20
+       q.query_id,
+       COUNT(DISTINCT p.plan_id)                        AS so_ke_hoach,
+       MIN(rs.avg_duration) / 1000.0                    AS nhanh_nhat_ms,
+       MAX(rs.avg_duration) / 1000.0                    AS cham_nhat_ms,
+       MAX(rs.avg_duration) / NULLIF(MIN(rs.avg_duration), 0) AS ty_le
+FROM   sys.query_store_query q
+JOIN   sys.query_store_plan p          ON p.query_id = q.query_id
+JOIN   sys.query_store_runtime_stats rs ON rs.plan_id = p.plan_id
+GROUP BY q.query_id
+HAVING COUNT(DISTINCT p.plan_id) > 1
+ORDER BY ty_le DESC;
+```
+
+```text
+query_id  so_ke_hoach  nhanh_nhat_ms  cham_nhat_ms   ty_le
+--------  -----------  -------------  ------------  ------
+      42            2            4,2      28.402,8   6.762
+     118            3           12,8         184,4      14
+```
+
+Truy vấn 42 có hai kế hoạch chênh nhau **6.762 lần** — đó chính là chữ ký của parameter sniffing, và nó nhìn thấy được **trước** khi có ai phàn nàn.
+
+**Và một điều nên nhớ trước khi coi parameter sniffing là kẻ xấu:**
+
+```text
+Parameter sniffing là TÍNH NĂNG, không phải lỗi.
+Nhờ nó, phần lớn truy vấn có kế hoạch tốt mà không phải biên dịch lại mỗi lần.
+
+Nó chỉ gây hại khi dữ liệu LỆCH MẠNH — và lúc đó,
+vấn đề gốc thường là mô hình dữ liệu, không phải bộ tối ưu hoá.
+```
+
+Với một hệ nhiều tenant mà một tenant chiếm 40% dữ liệu, `OPTION (RECOMPILE)` chỉ là cách chữa triệu chứng. Cách chữa gốc là phân vùng theo tenant, hoặc tách tenant lớn sang database riêng — và đó là quyết định kiến trúc, không phải một gợi ý truy vấn.
+
+</details>
 
 ## Tự kiểm tra
 
