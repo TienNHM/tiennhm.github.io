@@ -3,7 +3,7 @@ title: "When Does Calling .Result Deadlock, and When Does It Not?"
 slug: deadlock-result-wait-csharp
 description: "Calling .Result or .Wait() on a Task freezes WPF and ASP.NET Framework applications solid, yet runs fine in a console app or on ASP.NET Core. The reason is the SynchronizationContext that await captures when it suspends. This post dissects that mechanism, explains why ConfigureAwait(false) only patches half the problem, and why code that does not deadlock on ASP.NET Core can still die of thread pool starvation."
 keywords: [deadlock result wait csharp, async await deadlock, synchronizationcontext, configureawait false, what is configureawait, async all the way, async void, thread pool starvation, aspnet core no synchronizationcontext, getawaiter getresult, task run result, blocking async code, dotnet async, csharp async await, wpf deadlock, aspnet framework deadlock, why does result deadlock, how to fix async deadlock, valuetask, task whenall, cancellationtoken, dotnet backend]
-tags: [dotnet, csharp, aspnetcore, async, performance, concurrency]
+tags: [dotnet, csharp, aspnetcore, concurrency, performance]
 authors: [tiennhm]
 date: 2026-09-21
 ---

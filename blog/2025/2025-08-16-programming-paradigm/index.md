@@ -4,7 +4,7 @@ title: Các kiểu lập trình phổ biến
 description: Hướng dẫn các kiểu lập trình phổ biến trong phát triển phần mềm.
 image: https://img.youtube.com/vi/ntaUzVW38R0/0.jpg
 authors: [tiennhm]
-tags: [programming, software development]
+tags: [fundamentals]
 keywords: [programming, software development, programming paradigms, hướng dẫn, lập trình, phát triển phần mềm]
 enableComments: true # for Gisqus comments, set to true
 draft: false # set to true to hide this post from the site

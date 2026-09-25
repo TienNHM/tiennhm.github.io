@@ -2,7 +2,7 @@
 slug: gioi-thieu-dbml-database-markup-language
 title: Giới thiệu DBML - Database Markup Language
 authors: [tiennhm]
-tags: [database, dbml, schema, documentation, tools]
+tags: [database, tools]
 ---
 
 import { SummaryBox, FAQSection } from '@site/src/components/SEO';

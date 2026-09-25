@@ -3,7 +3,7 @@ title: "Scalar là gì? Tại sao nên dùng Scalar thay Swagger UI trong ASP.NE
 slug: gioi-thieu-scalar-api-reference-thay-the-swagger-ui
 description: "Scalar là open-source API Reference UI hiện đại thay thế Swagger UI. Tìm hiểu lý do Microsoft loại bỏ Swashbuckle khỏi .NET 9/10, so sánh Scalar vs Swagger UI, và hướng dẫn setup Scalar trên ASP.NET Core 10 từng bước."
 keywords: [scalar, swagger ui, swashbuckle, openapi, dotnet 10, aspnetcore, api documentation, net10, csharp, scalar aspnetcore, swagger alternative, microsoft openapi]
-tags: [scalar, swagger, openapi, dotnet, aspnetcore, api, net10, csharp]
+tags: [api, dotnet, aspnetcore, csharp]
 authors: [tiennhm]
 image: https://scalar.com/brand/scalar-wordmark-light.png
 date: 2026-08-19

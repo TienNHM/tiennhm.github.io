@@ -4,7 +4,7 @@ slug: github-badges
 description: Tổng hợp GitHub Badges phổ biến nhất cho GitHub Profile của bạn.
 image: https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fshields.io/showcase/
 authors: [tiennhm]
-tags: [git, github, badges]
+tags: [git]
 keywords: [git, github, github profile, github badges, cách tạo github badges, hướng dẫn, tạo github badges, tạo github badges đơn giản, tạo github badges đẹp mắt, tạo github badges cho người mới bắt đầu, shields.io, github-readme-stats, github-profile-trophy, github-profile-views-counter, github-readme-activity-graph, github badges, github badges tutorial, github badges example, github badges for profile, github badges for readme, github badges for repository, github badges for website, github badges for markdown, github badges for blog, github badges for youtube, github badges for facebook, github badges for instagram, github badges for linkedin, github badges for messenger, github badges for website, github badges for text]
 enableComments: true # for Gisqus comments, set to true
 draft: false # set to true to hide this post from the site

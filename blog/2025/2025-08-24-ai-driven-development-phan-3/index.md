@@ -2,7 +2,7 @@
 slug: phat-trien-phan-mem-ai-driven-development-phan-3
 title: 'AI-DD - Phần 3: Số Liệu, Kinh Nghiệm Thực Tế và Rủi Ro'
 authors: [tiennhm]
-tags: [AI-DD, AI-DLC, Metrics, Best Practices, Risk Management, McKinsey, GitHub Copilot]
+tags: [ai-driven-development, ai-tools]
 keywords: [số liệu AI development, GitHub Copilot metrics, Cursor AI statistics, McKinsey AI report, kinh nghiệm thực tế AI, rủi ro AI development, security AI]
 image: /img/background/ai-first-software-dev.webp
 description: 'Khám phá số liệu thực tế từ các nghiên cứu hàng đầu về AI-DD, kinh nghiệm thực tế để triển khai thành công và cách quản lý rủi ro hiệu quả.'

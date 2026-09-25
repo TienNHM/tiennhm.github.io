@@ -2,7 +2,7 @@
 slug: top-linked-accounts-to-follow-for-developers
 title: Những tài khoản Linkedin mà bất cứ lập trình viên nào cũng nên theo dõi
 authors: [tiennhm]
-tags: [linkedin, developer, follow]
+tags: [career]
 enableComments: true # for Gisqus comments, set to true
 draft: false # set to true to hide this post from the site
 image: https://about.linkedin.com/etc.clientlibs/settings/wcm/designs/gandalf/clientlibs/resources/images/og-social-share-image.jpg

@@ -4,7 +4,7 @@ title: Character Sets - Collations và vấn đề so sánh chuỗi trong MySQL
 description: Giới thiệu về các bảng mã và cách so sánh chuỗi trong MySQL, những vấn đề cần lưu ý khi làm việc với các bảng mã khác nhau.
 image: https://i.pinimg.com/originals/6e/4a/9a/6e4a9a1b7604e4f9b6a9f74f932834ad.png
 authors: [tiennhm]
-tags: [mysql, character-sets, collations, tips-and-tricks, database]
+tags: [database]
 keywords: [mysql, character-sets, collations, tips-and-tricks, database]
 enableComments: true # for Gisqus comments, set to true
 draft: false # set to true to hide this post from the site

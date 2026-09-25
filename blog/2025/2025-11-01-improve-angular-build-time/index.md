@@ -3,7 +3,7 @@ slug: improve-angular-build-time
 title: Cách mình giảm build time Angular 50% chỉ bằng 1 thay đổi đơn giản
 description: Chia sẻ kinh nghiệm thực tế về cách migrate Angular project từ browser builder sang application builder giúp giảm build time từ 52 phút xuống 26 phút (giảm 50%). Đặc biệt hiệu quả cho hotfix và deploy, tăng năng suất và độ hài lòng của team. Hướng dẫn chi tiết với code examples và best practices.
 authors: [tiennhm]
-tags: [angular, build-optimization, performance, angular-cli, webpack, build-time, angular-18, esbuild, vite]
+tags: [angular, performance, frontend]
 keywords: [angular build optimization, giảm build time angular, angular application builder, angular browser builder, angular build performance, cải thiện build speed angular, angular 18 build, webpack vs esbuild, angular caching]
 image: https://res.cloudinary.com/tiennhm/image/upload/w_1000,ar_16:9,c_fill,g_auto,e_sharpen/v1761985486/blog/images/opengraph/TienNHM-project_xqbbod.png
 enableComments: true

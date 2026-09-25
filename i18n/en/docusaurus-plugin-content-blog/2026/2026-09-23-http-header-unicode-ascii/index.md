@@ -3,7 +3,7 @@ title: "Can an HTTP Header Carry Vietnamese? ASCII, obs-text, and Where .NET Dra
 slug: http-header-unicode-ascii-dotnet
 description: "The short answer is no, and the reason is more interesting than it looks. The HTTP specification permits bytes 0x80-0xFF in header values through obs-text, but defines no charset for interpreting them. This post dissects the field-value grammar in RFC 9110, shows why 'í' gets through while 'ồ' does not, and covers three correct ways to encode non-ASCII data in a header."
 keywords: [http header unicode, http header non ascii, obs-text, rfc 9110 field value, rfc 8187 ext-value, percent encoding header, base64 header, latin1 vs utf8 header, iso-8859-1 header, content-disposition filename*, dotnet httpclient ascii, request headers must contain only ascii characters, mojibake header, hpack http2 header encoding, header encoding dotnet, asp net core header encoding, can http headers contain unicode]
-tags: [http, dotnet, csharp, encoding, unicode, web, standards]
+tags: [http, dotnet, csharp]
 authors: [tiennhm]
 date: 2026-09-23
 ---

@@ -2,7 +2,7 @@
 slug: markdown-cheat-sheet
 title: Markdown Cheat Sheet - Cách tạo một file README trên Github với Markdown
 authors: [tiennhm]
-tags: [markdown, github, cheatsheet, readme]
+tags: [tools, git]
 enableComments: true # for Gisqus comments, set to true
 draft: false # set to true to hide this post from the site
 image: https://www.freecodecamp.org/news/content/images/size/w2000/2022/08/Markdown-cheatsheet.png

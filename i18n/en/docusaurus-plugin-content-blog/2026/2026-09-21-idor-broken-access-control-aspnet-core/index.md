@@ -3,7 +3,7 @@ title: "Change the id in the URL and Get Someone Else's Data? Stop IDOR in a Sin
 slug: idor-broken-access-control-aspnet-core
 description: "IDOR happens when an API takes an id from the request and reads the record straight out of the database without asking whether the caller owns it. This post explains the mechanism, how to probe your own API for it, why switching to GUIDs or encrypting ids is not a fix, and how to enforce ownership checks in a single layer in ASP.NET Core using resource-based authorization together with per-user query filters."
 keywords: [idor, insecure direct object reference, broken access control, owasp top 10, owasp a01, idor vulnerability, ownership check, authorization vs authentication, aspnet core authorization, resource based authorization, policy based authorization, iauthorizationservice, authorizationhandler, global query filter ef core, per user query filter, horizontal access control, vertical access control, mass assignment, bola, broken object level authorization, api security, dotnet api security, webgoat idor, changing id in url, guid is not security, indirect object reference, forbid vs notfound, aspnet core security]
-tags: [security, owasp, aspnetcore, dotnet, csharp, api]
+tags: [security, aspnetcore, dotnet, csharp, api]
 authors: [tiennhm]
 date: 2026-09-21
 ---

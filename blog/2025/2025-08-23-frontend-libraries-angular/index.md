@@ -4,7 +4,7 @@ title: Các thư viện UI phổ biến cho Angular - So sánh và đánh giá
 description: Tìm hiểu chi tiết về Bootstrap, Ant Design, PrimeNG, Material Design và Tailwind CSS cho Angular - ưu nhược điểm, cách sử dụng và so sánh hiệu suất.
 image: https://img.youtube.com/vi/ntaUzVW38R0/0.jpg
 authors: [tiennhm]
-tags: [angular, frontend, ui-libraries, bootstrap, ant-design, primeng, material-design, tailwind]
+tags: [angular, frontend]
 keywords: [angular, frontend, ui libraries, bootstrap, ant design, primeng, material design, tailwind css, thư viện giao diện, giao diện người dùng]
 enableComments: true
 draft: false

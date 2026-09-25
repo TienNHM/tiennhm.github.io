@@ -3,7 +3,7 @@ title: "HTTP header có chứa được tiếng Việt không? ASCII, obs-text v
 slug: http-header-unicode-ascii-dotnet
 description: "Câu trả lời ngắn là không, và lý do thú vị hơn vẻ ngoài của nó. Đặc tả HTTP cho phép byte 0x80-0xFF trong giá trị header dưới dạng obs-text, nhưng không quy định bảng mã nào để diễn giải chúng. Bài viết mổ ngữ pháp field-value trong RFC 9110, chỉ ra vì sao 'í' đi lọt được còn 'ồ' thì không, và trình bày ba cách mã hoá đúng khi bạn thật sự cần mang dữ liệu có dấu qua header."
 keywords: [http header unicode, http header non ascii, http header tieng viet, obs-text, rfc 9110 field value, rfc 8187 ext-value, percent encoding header, base64 header, latin1 vs utf8 header, iso-8859-1 header, content-disposition filename*, dotnet httpclient ascii, request headers must contain only ascii characters, mojibake header, hpack http2 header encoding, ma hoa header, header encoding dotnet, asp net core header encoding]
-tags: [http, dotnet, csharp, encoding, unicode, web, standards]
+tags: [http, dotnet, csharp]
 authors: [tiennhm]
 date: 2026-09-23
 ---

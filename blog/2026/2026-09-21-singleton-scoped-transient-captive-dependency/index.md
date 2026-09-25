@@ -3,7 +3,7 @@ title: "Singleton, Scoped hay Transient? Chọn sai là DbContext sống mãi"
 slug: singleton-scoped-transient-captive-dependency
 description: "Ba lifetime trong DI container của ASP.NET Core khác nhau ở thời điểm tạo và thời điểm dispose instance. Bài này giải thích scope của một HTTP request là gì, vì sao inject service Scoped vào Singleton lại giữ DbContext sống suốt đời ứng dụng, vì sao scope validation bắt được lỗi ở Development mà không chắc bắt được ở Production, và cách sửa đúng bằng IServiceScopeFactory."
 keywords: [singleton scoped transient, service lifetime aspnet core, captive dependency, dependency injection dotnet, di container aspnet core, addscoped addsingleton addtransient, iservicescopefactory, createasyncscope, dbcontext singleton, cannot access a disposed context, second operation started on this context, scope validation, validatescopes, validateonbuild, backgroundservice scope, hostedservice dbcontext, thread safe singleton, concurrentdictionary cache, service locator anti pattern, vong doi service, chon lifetime nao, loi captive dependency, dependency injection la gi, dotnet backend]
-tags: [dotnet, aspnetcore, csharp, dependency-injection, service-lifetime, ef-core, architecture]
+tags: [dotnet, aspnetcore, csharp, architecture, ef-core]
 authors: [tiennhm]
 date: 2026-09-21
 ---

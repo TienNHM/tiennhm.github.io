@@ -2,7 +2,7 @@
 slug: install-zeppelin-on-windows
 title: Hướng dẫn cài đặt Apache Zeppelin trên Windows
 authors: [tiennhm]
-tags: [apache, zeppelin, installation, tutorial, windows]
+tags: [tools, learning, devops]
 enableComments: true # for Gisqus comments, set to true
 draft: false # set to true to hide this post from the site
 image: /img/blogs/zeppelin-spark.png

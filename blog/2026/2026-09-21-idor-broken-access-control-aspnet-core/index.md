@@ -3,7 +3,7 @@ title: "Đổi id trên URL ra dữ liệu người khác? Chặn IDOR ở một
 slug: idor-broken-access-control-aspnet-core
 description: "IDOR xảy ra khi API nhận id từ request rồi đọc thẳng bản ghi mà không hỏi xem người gọi có sở hữu bản ghi đó không. Bài viết giải thích cơ chế, cách tự dò trên chính API của bạn, vì sao đổi sang GUID hay mã hoá id không phải là cách sửa, và cách áp kiểm tra quyền sở hữu ở một tầng duy nhất trong ASP.NET Core bằng resource-based authorization cùng query filter theo người dùng."
 keywords: [idor, insecure direct object reference, broken access control, owasp top 10, owasp a01, loi idor, kiem tra quyen so huu, ownership check, authorization vs authentication, phan quyen aspnet core, resource based authorization, policy based authorization, iauthorizationservice, authorizationhandler, global query filter ef core, query filter theo user, horizontal access control, vertical access control, mass assignment, bola, broken object level authorization, api security, bao mat api dotnet, webgoat idor, doi id tren url, guid khong bao mat, indirect object reference, forbid vs notfound, aspnet core security]
-tags: [security, owasp, aspnetcore, dotnet, csharp, api]
+tags: [security, aspnetcore, dotnet, csharp, api]
 authors: [tiennhm]
 date: 2026-09-21
 ---

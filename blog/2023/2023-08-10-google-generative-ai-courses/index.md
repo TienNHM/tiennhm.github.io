@@ -2,7 +2,7 @@
 slug: google-generative-ai-courses
 title: Generative AI learning path - by Google
 authors: [tiennhm]
-tags: [generative-ai, ai, machine-learning, deep-learning, google, free-course]
+tags: [ai, learning]
 enableComments: true # for Gisqus comments, set to true
 draft: false # set to true to hide this post from the site
 image: https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fwww.cloudskillsboost.google%2Fjourneys%2F118/showcase/

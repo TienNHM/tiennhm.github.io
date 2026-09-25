@@ -3,7 +3,7 @@ title: "What Is Scalar? Why Use Scalar Instead of Swagger UI in ASP.NET Core 10"
 slug: gioi-thieu-scalar-api-reference-thay-the-swagger-ui
 description: "Scalar is a modern open-source API Reference UI that replaces Swagger UI. Learn why Microsoft dropped Swashbuckle from .NET 9/10, how Scalar compares to Swagger UI, and how to set Scalar up on ASP.NET Core 10 step by step."
 keywords: [scalar, swagger ui, swashbuckle, openapi, dotnet 10, aspnetcore, api documentation, net10, csharp, scalar aspnetcore, swagger alternative, microsoft openapi, swashbuckle replacement, openapi 3.1 dotnet, minimal api documentation]
-tags: [scalar, swagger, openapi, dotnet, aspnetcore, api, net10, csharp]
+tags: [api, dotnet, aspnetcore, csharp]
 authors: [tiennhm]
 image: https://scalar.com/brand/scalar-wordmark-light.png
 date: 2026-08-19

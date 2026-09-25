@@ -2,7 +2,7 @@
 slug: gioi-thieu-uuid-universally-unique-identifier
 title: Giới thiệu UUID (Universally Unique Identifier) - Định danh duy nhất toàn cầu
 authors: [tiennhm]
-tags: [uuid, database, programming, identifier, unique-id]
+tags: [database, fundamentals]
 ---
 
 import { SummaryBox, FAQSection } from '@site/src/components/SEO';

@@ -3,7 +3,7 @@ title: "Gọi .Result khi nào thì deadlock, khi nào thì không?"
 slug: deadlock-result-wait-csharp
 description: "Gọi .Result hay .Wait() trên một Task treo cứng ứng dụng WPF và ASP.NET Framework, nhưng chạy bình thường trong console và ASP.NET Core. Nguyên nhân nằm ở SynchronizationContext mà await bắt lại khi tạm dừng. Bài viết mổ cơ chế đó, giải thích vì sao ConfigureAwait(false) chỉ vá được một nửa vấn đề, và vì sao code không deadlock trong ASP.NET Core vẫn có thể chết vì thread pool starvation."
 keywords: [deadlock result wait csharp, async await deadlock, synchronizationcontext, configureawait false, configureawait la gi, async all the way, async void, thread pool starvation, aspnet core khong co synchronizationcontext, getawaiter getresult, task run result, blocking async code, dotnet async, csharp async await, wpf deadlock, aspnet framework deadlock, tai sao result gay deadlock, cach sua deadlock async, valuetask, task whenall, cancellationtoken, dotnet backend]
-tags: [dotnet, csharp, aspnetcore, async, performance, concurrency]
+tags: [dotnet, csharp, aspnetcore, concurrency, performance]
 authors: [tiennhm]
 date: 2026-09-21
 ---

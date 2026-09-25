@@ -2,7 +2,7 @@
 slug: api-testing-types
 title: Các loại kiểm thử API
 authors: [tiennhm]
-tags: [api, testing, types]
+tags: [api, testing]
 enableComments: true # for Gisqus comments, set to true
 draft: false # set to true to hide this post from the site
 image: /img/blogs/api-testing-types.gif

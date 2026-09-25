@@ -2,7 +2,7 @@
 slug: best-extensions-for-vs-code
 title: Những extensions tốt nhất cho Visual Studio Code
 authors: [tiennhm]
-tags: [vscode, extensions]
+tags: [tools]
 enableComments: true # for Gisqus comments, set to true
 draft: false # set to true to hide this post from the site
 image: https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fmarketplace.visualstudio.com%2Fvscode/showcase/

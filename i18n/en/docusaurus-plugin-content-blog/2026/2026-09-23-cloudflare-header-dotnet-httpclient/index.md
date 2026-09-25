@@ -3,7 +3,7 @@ title: "One Vietnamese Diacritic Killed an API Call: cf-ipcity, HttpClient and t
 slug: cloudflare-header-broke-dotnet-httpclient
 description: "On an e-commerce loyalty platform with roughly 3 million customers, an internal HTTP call started failing in production while the database, Kubernetes and the downstream service were all healthy. The culprit was Cloudflare's cf-ipcity header carrying the value Hồ Chí Minh. This post traces the investigation and shows where .NET actually throws — which is not where you would guess."
 keywords: [cloudflare header dotnet httpclient, cf-ipcity, non ascii http header, unicode http header, request headers must contain only ascii characters, httpclient exception, tryaddwithoutvalidation, aspnet core header forwarding, production debugging dotnet, kubernetes dotnet debugging, reverse proxy header, cloudflare geolocation header, header forwarding anti pattern, loyalty ecommerce dotnet, httpclient fails in production, debugging production incident]
-tags: [dotnet, csharp, cloudflare, http, production, debugging, architecture, aspnetcore]
+tags: [dotnet, csharp, devops, http, troubleshooting, architecture, aspnetcore]
 authors: [tiennhm]
 date: 2026-09-23
 ---
