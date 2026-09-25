@@ -45,24 +45,24 @@ Không ai thiết kế ra distributed monolith. Nó là kết quả tích luỹ 
 
 **1. Tách quá sớm.** Tách service khi chưa hiểu rõ domain, nên ranh giới đặt sai. Sửa ranh giới sau khi đã tách tốn gấp nhiều lần so với trước khi tách.
 
-**2. Tách theo tầng kỹ thuật.** "Auth Service", "Notification Service", "Validation Service" — mỗi tính năng đều phải đi qua tất cả ([bài 18.3](18.2-service-decomposition.mdx)).
+**2. Tách theo tầng kỹ thuật.** "Auth Service", "Notification Service", "Validation Service" — mỗi tính năng đều phải đi qua tất cả ([bài 18.2](18.2-service-decomposition.mdx)).
 
 **3. Dùng chung database "tạm thời".** Bắt đầu bằng "để sau tách" và không bao giờ có "sau" đó. Đây là nguyên nhân dai dẳng nhất vì nó khó gỡ nhất.
 
 **4. Sợ eventual consistency.** Mọi thứ đều gọi đồng bộ để "đảm bảo nhất quán", biến hệ phân tán thành một monolith có độ trễ mạng.
 
 ```csharp
-// Duong di toi distributed monolith — tung buoc deu "hop ly"
+// Đường đi tới distributed monolith — từng bước đều "hợp lý"
 // Tháng 1: "chỉ một lời gọi đồng bộ thôi"
 var customer = await _customerClient.GetAsync(id, ct);
 
-// Thang 3: "them mot cai nua, tien ma"
+// Tháng 3: "thêm một cái nữa, tiện mà"
 var credit = await _billingClient.CheckCreditAsync(id, ct);
 
 // Tháng 6: "cái này cần dữ liệu tồn kho"
 var stock = await _inventoryClient.CheckStockAsync(items, ct);
 
-// Thang 12: endpoint nay phu thuoc 5 service, p99 = 4 giay,
+// Tháng 12: endpoint này phụ thuộc 5 service, p99 = 4 giây,
 //           và nó chết nếu BẤT KỲ service nào trong 5 cái đó chết.
 ```
 
@@ -169,11 +169,582 @@ Ba câu hỏi này rẻ để hỏi và chặn được phần lớn các bướ
 
 ## Bài tập áp dụng
 
-1. **Đo sáu triệu chứng.** Với hệ thống của bạn, đo cả sáu chỉ số và ghi lại. Đánh dấu chỉ số nào vượt ngưỡng cảnh báo.
+#### Bài 1 — Đo sáu triệu chứng
 
-2. **Phá một chuỗi.** Chọn chuỗi gọi đồng bộ dài nhất, chuyển một chặng sang event, và đo lại p99 của endpoint đó.
+Với hệ thống của bạn, đo cả sáu chỉ số và ghi lại. Đánh dấu chỉ số nào vượt ngưỡng cảnh báo.
 
-3. **Chuẩn bị đề xuất gộp.** Chọn hai service luôn deploy cùng nhau và lập bảng số liệu trước/sau như mục 18.8.3.
+**Tiêu chí hoàn thành:** mỗi chỉ số có một con số, và bạn biết chỉ số nào là **nguyên nhân** còn chỉ số nào là **hệ quả**.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Sáu triệu chứng không độc lập. Sửa một cái có thể làm ba cái khác biến mất.
+
+**Lời giải — đo từng cái:**
+
+**Chỉ số 1 — deploy theo thứ tự:**
+
+```bash
+grep -rn "deploy.*trước\|deploy.*sau\|thứ tự\|order" docs/deployment/ RUNBOOK.md 2>/dev/null
+```
+
+```text
+docs/deployment/README.md:18: Deploy Identity TRƯỚC, rồi Order, rồi Billing
+docs/deployment/README.md:24: KHÔNG deploy Billing trước Order — sẽ lỗi hợp đồng
+```
+
+```text
+Kết quả: CÓ ràng buộc thứ tự cho 3 service
+```
+
+**Chỉ số 2 — số repo mỗi tính năng chạm:**
+
+```bash
+for repo in crm-order crm-billing crm-identity crm-notification; do
+  gh pr list --repo cty/$repo --state merged --limit 50 \
+    --search "label:feature" --json number,title,mergedAt
+done | jq -s 'flatten'
+```
+
+Cách đơn giản hơn — đếm theo tiêu đề ticket:
+
+```bash
+for repo in crm-*; do
+  (cd "$repo" && git log --since='3 months ago' --format='%s' \
+    | grep -oP 'CRM-\d+' | sort -u | sed "s|^|$repo |")
+done | awk '{print $2}' | sort | uniq -c | sort -rn | awk '{s+=$1;n++} END {printf "Trung bình %.2f repo/ticket qua %d ticket\n", s/n, n}'
+```
+
+```text
+Trung bình 2.84 repo/ticket qua 142 ticket        <- VƯỢT ngưỡng 2
+```
+
+**Chỉ số 3 — test độc lập:**
+
+```bash
+cd crm-order
+docker compose -f docker-compose.test.yml config --services
+```
+
+```text
+sqlserver
+rabbitmq
+crm-identity          <- cần service KHÁC để chạy test
+crm-billing           <- cần service KHÁC
+```
+
+```text
+Kết quả: test của Order cần 2 service khác -> KHÔNG độc lập
+```
+
+**Chỉ số 4 — database dùng chung:**
+
+```sql
+SELECT DISTINCT program_name, login_name, COUNT(*) AS SoKetNoi
+FROM sys.dm_exec_sessions
+WHERE is_user_process = 1 AND database_id = DB_ID('Crm')
+GROUP BY program_name, login_name;
+```
+
+```text
+program_name            login_name      SoKetNoi
+crm-order               crm_app               42
+crm-billing             crm_app               18      <- CÙNG database
+crm-reporting           crm_app               12      <- CÙNG database
+```
+
+```text
+Kết quả: 3 service dùng chung database Crm
+```
+
+**Chỉ số 5 — độ sâu chuỗi gọi:**
+
+```bash
+curl -s "http://jaeger:16686/api/traces?service=crm-gateway&limit=200" \
+  | jq '[.data[] | {
+      traceID,
+      services: ([.spans[].process.serviceName] | unique | length)
+    }] | sort_by(-.services) | .[0:3]'
+```
+
+```text
+[{"traceID":"4bf92f35...","services":6},
+ {"traceID":"7a2c8e91...","services":5}]
+```
+
+```text
+Kết quả: chuỗi sâu nhất đi qua 6 service        <- VƯỢT ngưỡng 3
+```
+
+**Chỉ số 6 — rollback dây chuyền:**
+
+```bash
+git log --all --format='%s' --since='6 months ago' | grep -i "rollback\|revert" | head
+```
+
+```text
+revert: rollback Order v2.4.1
+revert: rollback Billing v1.8.3 (do rollback Order)     <- DÂY CHUYỀN
+revert: rollback Identity v3.1.0
+revert: rollback Order v2.5.0 (do rollback Identity)    <- DÂY CHUYỀN
+```
+
+```text
+Kết quả: 2/4 lần rollback kéo theo service khác
+```
+
+**Bảng tổng hợp:**
+
+```markdown
+## Chẩn đoán distributed monolith — 2026-09-25
+
+| # | Triệu chứng | Đo được | Ngưỡng | Vượt? |
+|---|---|---|---|:-:|
+| 1 | Deploy theo thứ tự | 3 service có ràng buộc | 0 | **Có** |
+| 2 | Repo mỗi tính năng | 2,84 | 2 | **Có** |
+| 3 | Test độc lập | Cần 2 service khác | 0 | **Có** |
+| 4 | Database dùng chung | 3 service | 1 | **Có** |
+| 5 | Độ sâu chuỗi gọi | 6 | 3 | **Có** |
+| 6 | Rollback dây chuyền | 2/4 lần | 0 | **Có** |
+
+**6/6 triệu chứng — đây là distributed monolith.**
+```
+
+**Chỉ số nào là nguyên nhân, chỉ số nào là hệ quả** — đây là phần quan trọng nhất:
+
+```text
+NGUYÊN NHÂN (gốc rễ):
+    #4 Database dùng chung
+    #5 Chuỗi gọi đồng bộ dài
+    (+ ranh giới service đặt sai — không đo trực tiếp được)
+
+HỆ QUẢ (biến mất khi sửa nguyên nhân):
+    #1 Deploy theo thứ tự      <- do #5 (hợp đồng đồng bộ chặt)
+    #2 Nhiều repo mỗi tính năng <- do ranh giới sai
+    #3 Test không độc lập       <- do #4 và #5
+    #6 Rollback dây chuyền      <- do #1 và #5
+```
+
+**Hệ quả của việc phân loại này: đừng sửa hệ quả.**
+
+```text
+Sửa #3 bằng cách viết mock cho các service khác
+-> test chạy độc lập
+-> nhưng #4 và #5 vẫn nguyên
+-> và bạn có thêm một bộ mock phải bảo trì
+
+Sửa #4 và #5
+-> #1, #2, #3, #6 biến mất theo
+```
+
+**Thứ tự sửa:**
+
+```text
+1. #5 Chuỗi gọi đồng bộ  -> rẻ nhất, hiệu quả nhanh nhất
+                            chuyển một chặng sang event -> thấy kết quả ngay
+
+2. #4 Database dùng chung -> đắt nhất, nhưng là nguyên nhân dai dẳng nhất
+                            tách schema trước, tách database sau
+
+3. Ranh giới service      -> đắt nhất, có thể phải GỘP service lại
+```
+
+**Đo lại hằng quý và vẽ đường cong:**
+
+```markdown
+| Quý | #1 | #2 | #3 | #4 | #5 | #6 | Tổng vượt |
+|---|:-:|---:|:-:|---:|---:|---:|---:|
+| Q3/2026 | Có | 2,84 | Có | 3 | 6 | 2/4 | **6/6** |
+| Q4/2026 | Có | 2,41 | Có | 3 | 4 | 1/3 | 5/6 |
+| Q1/2027 | Không | 1,82 | Không | 2 | 3 | 0/2 | 2/6 |
+```
+
+Bảng này là **lập luận kiến trúc tốt nhất** bạn có thể đưa ra — nó không nói "kiến trúc tệ" (một nhận định chủ quan) mà nói "một tính năng chạm 2,84 repo và chuỗi gọi sâu 6 service", những sự thật kiểm chứng được.
+
+**Và một chỉ số thứ bảy đáng thêm vào — thời gian từ commit tới production:**
+
+```bash
+gh run list --workflow=deploy.yml --limit 20 --json createdAt,updatedAt \
+  --jq '[.[] | ((.updatedAt | fromdate) - (.createdAt | fromdate))] | add / length / 60'
+```
+
+```text
+Monolith:               18 phút
+Distributed monolith:   4,2 giờ (phải điều phối 3 service theo thứ tự)
+Microservices đúng:     22 phút (mỗi service độc lập)
+```
+
+Chỉ số này nói với người ngoài kỹ thuật rõ nhất: **distributed monolith cho bạn chi phí của microservices mà không có lợi ích của nó** — deploy chậm hơn cả monolith, trong khi vẫn phải vận hành nhiều dịch vụ.
+
+</details>
+
+---
+
+#### Bài 2 — Phá một chuỗi
+
+Chọn chuỗi gọi đồng bộ dài nhất, chuyển một chặng sang event, và đo lại p99 của endpoint đó.
+
+**Tiêu chí hoàn thành:** bạn đo được cả hai, và chọn được **đúng chặng** để phá — không phải chặng nào cũng phá được.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Chặng nào có thể chậm vài giây mà không ai thiệt hại?
+
+**Lời giải — vẽ chuỗi trước:**
+
+```text
+POST /api/don-hang                                    p99 = 4.210 ms
+
+Gateway
+└─ Order Service
+   ├─ Identity: xác minh người dùng          →  42 ms   BẮT BUỘC đồng bộ
+   ├─ Customer: lấy thông tin khách          → 180 ms   có thể snapshot
+   ├─ Pricing: tính giá                      → 240 ms   BẮT BUỘC đồng bộ
+   ├─ Inventory: kiểm tra và trừ kho         → 890 ms   ?
+   ├─ Promotion: áp khuyến mãi               → 310 ms   có thể snapshot
+   └─ Notification: gửi email xác nhận       → 420 ms   KHÔNG cần đồng bộ
+```
+
+**Phân loại từng chặng — câu hỏi: "nếu chặng này chậm 5 giây, ai thiệt hại?"**
+
+| Chặng | Nếu chậm 5 giây | Phá được? |
+|---|---|---|
+| Identity | Không xác định được người gọi — **không cho tạo đơn** | **Không** |
+| Customer | Đơn hàng thiếu tên khách — dùng snapshot được | **Có — snapshot** |
+| Pricing | Không biết giá — **không tạo đơn được** | **Không** |
+| Inventory | Bán quá số lượng nếu hết hàng | **Tuỳ nghiệp vụ** |
+| Promotion | Khách không được giảm giá — **mất tiền của khách** | Tuỳ |
+| Notification | Email đến chậm 5 giây | **Có — event** |
+
+**Chặng dễ phá nhất là `Notification`** — và nó cũng chiếm 420 ms.
+
+```csharp
+// TRƯỚC — đồng bộ
+await _notificationClient.GuiEmailXacNhanAsync(don.Id, khach.Email, ct);
+
+// SAU — event qua outbox
+_db.Outbox.Add(TinNhanOutbox.Tao(new DonHangDaTaoV1(
+    don.Id.Value, khach.Email, don.Total.Amount)));
+```
+
+```text
+p99: 4.210 ms -> 3.780 ms      (giảm 430 ms)
+```
+
+**Chặng chiếm nhiều thời gian nhất là `Inventory` (890 ms)** — nhưng phá được hay không phụ thuộc vào nghiệp vụ:
+
+```text
+Cho phép đặt trước, huỷ nếu hết hàng:
+    -> phá được bằng event, kiểm tra kho bất đồng bộ
+    -> khách nhận email "đơn hàng đang chờ xác nhận"
+
+Không được bán quá số lượng (vé sự kiện, suất ăn):
+    -> KHÔNG phá được
+    -> nhưng có thể làm nhanh hơn bằng cập nhật nguyên tử
+```
+
+```csharp
+// Không phá được, nhưng làm nhanh hơn
+var soDong = await _db.TonKho
+    .Where(k => k.ProductId == id && k.SoLuong >= soLuong)
+    .ExecuteUpdateAsync(s => s.SetProperty(k => k.SoLuong, k => k.SoLuong - soLuong), ct);
+```
+
+**`Customer` và `Promotion` — chuyển sang snapshot:**
+
+```csharp
+// Customer: snapshot nhân bản qua event
+var khach = await _db.CustomerSnapshots.FirstOrDefaultAsync(c => c.Id == req.CustomerId, ct);
+
+// Promotion: cache bảng khuyến mãi đang áp dụng
+var khuyenMai = await _cache.GetOrCreateAsync("khuyen-mai-dang-ap-dung",
+    async ct => await _promotionClient.LayDangApDungAsync(ct),
+    new HybridCacheEntryOptions { Expiration = TimeSpan.FromMinutes(5) }, cancellationToken: ct);
+```
+
+```text
+Customer:  180 ms -> 3 ms    (truy vấn cục bộ)
+Promotion: 310 ms -> 1 ms    (cache hit)
+```
+
+**Kết quả sau ba thay đổi:**
+
+```text
+Gateway
+└─ Order Service
+   ├─ Identity: xác minh                     →  42 ms   (giữ đồng bộ)
+   ├─ Customer: snapshot cục bộ              →   3 ms   ✓
+   ├─ Pricing: tính giá                      → 240 ms   (giữ đồng bộ)
+   ├─ Inventory: cập nhật nguyên tử          → 120 ms   ✓
+   ├─ Promotion: cache                       →   1 ms   ✓
+   └─ Notification: outbox                   →   2 ms   ✓
+
+p99: 4.210 ms -> 680 ms      (nhanh 6,2 lần)
+Phụ thuộc đồng bộ: 6 -> 2
+```
+
+**Và cải thiện quan trọng hơn con số: uptime.**
+
+```text
+Trước: 6 phụ thuộc đồng bộ -> 0,999^6 = 99,40%  (52 giờ downtime/năm)
+Sau:   2 phụ thuộc đồng bộ -> 0,999^2 = 99,80%  (17 giờ/năm)
+```
+
+**Vì sao "chọn đúng chặng" quan trọng:**
+
+```text
+Phá chặng SAI — ví dụ chuyển Pricing sang event:
+    -> đơn hàng được tạo mà CHƯA có giá
+    -> phải cập nhật giá sau qua event
+    -> khách thấy đơn hàng "đang tính giá"
+    -> và nếu tính giá thất bại, phải huỷ đơn -> cần saga
+    -> độ phức tạp tăng vọt để đổi lấy 240 ms
+```
+
+**Ba câu hỏi để chọn chặng:**
+
+```text
+1. Nếu chặng này KHÔNG BAO GIỜ hoàn tất, thao tác chính có còn ĐÚNG không?
+   CÓ  -> phá được bằng event
+   KHÔNG -> phải giữ đồng bộ
+
+2. Người dùng có cần kết quả của chặng này để tiếp tục không?
+   CÓ  -> giữ đồng bộ
+
+3. Dữ liệu của chặng này có đổi thường xuyên không?
+   KHÔNG -> snapshot hoặc cache
+```
+
+**Thứ tự ưu tiên khi phá:**
+
+```text
+1. Chặng KHÔNG cần đồng bộ, chiếm nhiều thời gian   -> lợi ích lớn nhất
+2. Chặng dữ liệu ít đổi -> snapshot/cache            -> rẻ và hiệu quả
+3. Chặng cần đồng bộ nhưng chậm -> tối ưu chính nó   -> đắt hơn
+4. Chặng cần đồng bộ và đã nhanh -> để yên
+```
+
+**Và đừng quên: phá chuỗi chuyển sang nhất quán cuối cùng.**
+
+```csharp
+// Người dùng không còn thấy kết quả của notification ngay
+return Results.Accepted(new
+{
+    donHangId = don.Id,
+    trangThai = "DaTao",
+    ghiChu = "Email xác nhận sẽ được gửi trong vài phút",
+});
+```
+
+Trả `202 Accepted` thay vì `200 OK` là tín hiệu đúng về mặt ngữ nghĩa HTTP: thao tác đã được chấp nhận nhưng chưa hoàn tất mọi hệ quả.
+
+**Đo lại và ghi vào bảng theo dõi:**
+
+```markdown
+| Thay đổi | p99 trước | p99 sau | Phụ thuộc đồng bộ |
+|---|---:|---:|---:|
+| Ban đầu | 4.210 ms | — | 6 |
+| Notification -> event | 4.210 ms | 3.780 ms | 5 |
+| Customer -> snapshot | 3.780 ms | 3.610 ms | 4 |
+| Promotion -> cache | 3.610 ms | 3.300 ms | 3 |
+| Inventory -> ExecuteUpdate | 3.300 ms | 680 ms | 2 |
+```
+
+Dòng cuối cho cải thiện lớn nhất, và nó **không phải** phá chuỗi — nó là tối ưu chính chặng đó. Đây là lời nhắc: đừng mặc định rằng phá chuỗi là cách duy nhất.
+
+</details>
+
+---
+
+#### Bài 3 — Chuẩn bị đề xuất gộp service
+
+Chọn hai service luôn deploy cùng nhau và lập bảng số liệu trước/sau như mục 18.8.3.
+
+**Tiêu chí hoàn thành:** bạn lập được bảng có số liệu, và nêu được vì sao gộp service là **quyết định kỹ thuật hợp lệ**, không phải thừa nhận thất bại.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Nếu hai service luôn thay đổi cùng nhau, deploy cùng nhau, và chia sẻ transaction — chúng có thật sự là hai service không?
+
+**Lời giải — tìm ứng viên:**
+
+```bash
+# Hai service nào hay deploy cùng nhau?
+for repo in crm-*; do
+  (cd "$repo" && git log --since='6 months ago' --format='%ad %s' --date=short \
+    --grep='^release\|^deploy' | awk -v r="$repo" '{print $1, r}')
+done | sort | awk '{d[$1] = d[$1] " " $2} END {for (k in d) print k, d[k]}' \
+  | awk 'NF > 2' | awk '{$1=""; print}' | sort | uniq -c | sort -rn | head
+```
+
+```text
+  18 crm-order crm-billing         <- 18/22 lần deploy CÙNG NGÀY
+   4 crm-order crm-inventory
+   2 crm-billing crm-reporting
+```
+
+```bash
+# Hai service nào hay thay đổi cùng nhau?
+for repo in crm-order crm-billing; do
+  (cd "$repo" && git log --since='6 months ago' --format='%s' \
+    | grep -oP 'CRM-\d+' | sort -u | sed "s|^|$repo |")
+done | awk '{print $2}' | sort | uniq -d | wc -l
+```
+
+```text
+67        <- 67 ticket chạm CẢ HAI repo
+```
+
+**Lập bảng số liệu:**
+
+```markdown
+## Đề xuất gộp Order Service và Billing Service
+
+### Hiện trạng — số liệu 6 tháng qua
+
+| Chỉ số | Giá trị | Ghi chú |
+|---|---:|---|
+| Lần deploy cùng ngày | 18/22 (82%) | Gần như luôn phải phối hợp |
+| Ticket chạm cả hai repo | 67/142 (47%) | Gần một nửa công việc |
+| Lời gọi đồng bộ giữa hai service | 14 | Order → Billing: 9, Billing → Order: 5 |
+| Transaction cần cả hai | 6 | Cần saga, hiện chưa có |
+| Database | **Dùng chung** | Chưa bao giờ tách được |
+| p99 endpoint tạo đơn | 4.210 ms | 1.840 ms là chờ Billing |
+| Merge conflict do hợp đồng | 11 lần | Đổi DTO ở một bên |
+| Thời gian điều phối deploy | ~45 phút/lần | Họp, kiểm tra thứ tự |
+
+### Sau khi gộp — ước tính
+
+| Chỉ số | Trước | Sau | Cơ sở ước tính |
+|---|---:|---:|---|
+| Số repo phải deploy | 2 | **1** | Gộp code |
+| Ticket chạm nhiều repo | 47% | **0%** | Cùng một repo |
+| Lời gọi đồng bộ giữa hai | 14 | **0** | Gọi trực tiếp trong tiến trình |
+| p99 endpoint tạo đơn | 4.210 ms | **~2.400 ms** | Bỏ 1.840 ms lời gọi mạng |
+| Transaction cần saga | 6 | **0** | Một database, một transaction |
+| Thời gian điều phối deploy | 45 phút | **0** | Một lần deploy |
+| Số service phải vận hành | 5 | **4** | Ít hơn một |
+
+### Chi phí gộp
+- Gộp code và test: 2 tuần
+- Gộp cấu hình, CI/CD: 3 ngày
+- Kiểm thử hồi quy: 1 tuần
+- **Tổng: khoảng 3,5 tuần**
+
+### Rủi ro
+- Service gộp lớn hơn, khởi động lâu hơn (ước tính +2 giây)
+- Không scale độc lập được — nhưng hiện tại cũng không scale độc lập,
+  vì cả hai chạy 3 replica và tải tương đương
+
+### Đề xuất
+Gộp thành `crm-sales`. Giữ ranh giới module bên trong bằng namespace
+và kiến trúc test, để tách lại được nếu sau này có lý do rõ ràng.
+```
+
+**Vì sao gộp service là quyết định kỹ thuật hợp lệ:**
+
+```text
+Tách service là một GIẢ THUYẾT:
+    "hai phần này độc lập đủ để triển khai và vận hành riêng"
+
+Số liệu ở trên BÁC BỎ giả thuyết đó:
+    - 82% deploy cùng ngày
+    - 47% ticket chạm cả hai
+    - 6 transaction cần cả hai
+    - database chưa bao giờ tách được
+
+-> giả thuyết sai
+-> sửa lại là điều đúng đắn, không phải thừa nhận thất bại
+```
+
+**Và đây là điểm quan trọng: chi phí của việc giữ nguyên cũng là chi phí.**
+
+```text
+Giữ nguyên:
+    45 phút điều phối × 22 lần deploy = 16,5 giờ/6 tháng
+    + 11 lần merge conflict do hợp đồng
+    + 6 transaction thiếu saga -> dữ liệu có thể không nhất quán
+    + p99 cao gấp đôi cần thiết
+
+Gộp: 3,5 tuần một lần
+```
+
+Chi phí gộp trả lại trong khoảng một năm, và sau đó là lợi ích thuần.
+
+**Cách gộp mà vẫn giữ khả năng tách lại:**
+
+```text
+src/Crm.Sales/
+  Modules/
+    Order/
+      Contracts/        <- PUBLIC
+      Domain/
+      Infrastructure/
+      Features/
+    Billing/
+      Contracts/
+      Domain/
+      ...
+```
+
+```csharp
+[Fact]
+public void Module_chi_duoc_tham_chieu_Contracts_cua_module_khac()
+{
+    // Giữ ranh giới NGAY CẢ KHI cùng một tiến trình
+}
+```
+
+```sql
+-- Giữ schema riêng dù cùng database
+CREATE SCHEMA orders;
+CREATE SCHEMA billing;
+```
+
+Với ranh giới được giữ, việc tách lại sau này — nếu có lý do rõ ràng — là công việc vài tuần thay vì vài tháng.
+
+**Ba tín hiệu rõ ràng nên gộp:**
+
+```text
+1. Luôn deploy cùng nhau (trên 70% số lần)
+2. Chia sẻ transaction — cần saga cho thứ vốn là một transaction
+3. Database chưa bao giờ tách được, dù đã định làm "sau"
+```
+
+**Và ba tín hiệu KHÔNG nên gộp, dù có vài triệu chứng:**
+
+```text
+1. Yêu cầu scale khác biệt rõ rệt, có số liệu
+2. Thuộc hai đội khác nhau, và ranh giới đội ổn định
+3. Yêu cầu tuân thủ buộc cách ly dữ liệu
+```
+
+**Cách trình bày đề xuất — quan trọng ngang nội dung:**
+
+```text
+ĐỪNG nói: "kiến trúc microservices của chúng ta sai"
+          -> nghe như đổ lỗi, gây phòng thủ
+
+NÊN nói:  "số liệu cho thấy Order và Billing chưa độc lập đủ.
+           Gộp lại tiết kiệm 16,5 giờ điều phối mỗi 6 tháng và
+           giảm p99 một nửa. Chúng ta giữ ranh giới module để
+           tách lại khi có lý do rõ ràng."
+```
+
+Khung "giả thuyết được kiểm chứng bằng số liệu" làm cho việc đổi hướng trở thành một phần bình thường của công việc kỹ thuật, không phải một lời thừa nhận.
+
+**Và một lưu ý về lịch sử: nhiều hệ thống lớn đã đi con đường này.**
+
+```text
+Tách quá nhỏ -> phát hiện chi phí phối hợp cao -> gộp lại vài service
+-> số service ổn định ở mức thấp hơn ban đầu
+```
+
+Đây là chu kỳ bình thường, không phải dấu hiệu của thiết kế kém. Điều phân biệt một đội trưởng thành là họ **đo và điều chỉnh**, thay vì giữ nguyên một quyết định vì đã công bố nó.
+
+</details>
 
 ## Tự kiểm tra
 
