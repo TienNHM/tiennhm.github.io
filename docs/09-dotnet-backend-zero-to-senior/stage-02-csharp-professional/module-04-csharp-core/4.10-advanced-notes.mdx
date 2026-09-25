@@ -232,11 +232,501 @@ Sau Module 4, bước tiếp theo là [Module 5 — Advanced C#](../module-05-ad
 
 ## Bài tập áp dụng
 
-1. **Áp dụng `required`.** Chọn một DTO trong dự án, thêm `required` cho trường bắt buộc và xem trình biên dịch bắt được bao nhiêu chỗ tạo thiếu.
+#### Bài 1 — Áp dụng `required`
 
-2. **Rút gọn constructor.** Chuyển ba lớp service sang primary constructor và đếm số dòng giảm được.
+Chọn một DTO trong dự án, thêm `required` cho trường bắt buộc và xem trình biên dịch bắt được bao nhiêu chỗ tạo thiếu.
 
-3. **Tìm `IDisposable` bị quên.** Rà dự án tìm mọi chỗ tạo đối tượng `IDisposable` mà không có `using`.
+**Tiêu chí hoàn thành:** bạn có **số lỗi biên dịch**, và phân biệt được `required` với kiểm chứng lúc chạy — hai thứ giải quyết hai vấn đề khác nhau.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** `required` là ràng buộc lúc **biên dịch**. Nó không thay thế `FluentValidation`, và cũng không được thay thế bởi nó.
+
+**Lời giải — trước:**
+
+```csharp
+public class TaoLeadRequest
+{
+    public string HoTen { get; set; } = "";
+    public string Email { get; set; } = "";
+    public string? DienThoai { get; set; }
+    public decimal GiaTri { get; set; }
+    public int NhanVienId { get; set; }
+}
+```
+
+```text
+Vấn đề: new TaoLeadRequest() biên dịch được, và mọi trường đều rỗng.
+Giá trị "" là cách che giấu việc thiếu dữ liệu, không phải cách xử lý nó.
+```
+
+**Sau:**
+
+```csharp
+public class TaoLeadRequest
+{
+    public required string HoTen { get; init; }
+    public required string Email { get; init; }
+    public string? DienThoai { get; init; }
+    public required decimal GiaTri { get; init; }
+    public required int NhanVienId { get; init; }
+}
+```
+
+```bash
+dotnet build 2>&1 | grep -c "error CS9035"
+```
+
+```text
+14
+```
+
+```text
+error CS9035: Required member 'TaoLeadRequest.HoTen' must be set
+              in the object initializer or attribute constructor.
+```
+
+**Phân loại 14 lỗi:**
+
+| Nhóm | Số | Ý nghĩa |
+|---|---:|---|
+| Test dựng đối tượng thiếu trường | 9 | Test đang không phản ánh dữ liệu thật |
+| Mã seed dữ liệu mẫu | 3 | Thiếu thật, nhưng vô hại |
+| **Mã chạy thật thiếu `NhanVienId`** | **2** | **Lỗi thật** |
+
+```text
+Hai chỗ cuối là giá trị của bài tập này:
+    NhanVienId = 0 được gửi xuống database
+    -> lead không thuộc về ai
+    -> không ai phát hiện cho tới khi có người hỏi "lead này của ai?"
+```
+
+**`required` khác kiểm chứng lúc chạy thế nào:**
+
+| | `required` | FluentValidation |
+|---|---|---|
+| Khi nào kiểm tra | **Lúc biên dịch** | Lúc chạy |
+| Kiểm tra cái gì | Trường có **được gán** không | Giá trị có **hợp lệ** không |
+| Bắt được | Code của bạn quên gán | Dữ liệu người dùng gửi sai |
+| Thông báo lỗi | Lỗi biên dịch | Phản hồi 400 cho client |
+
+```csharp
+// required KHÔNG bắt được cái này — nó đã được gán
+new TaoLeadRequest { HoTen = "", Email = "khong-phai-email", GiaTri = -5, ... };
+
+// FluentValidation bắt được
+RuleFor(x => x.HoTen).NotEmpty().MaximumLength(200);
+RuleFor(x => x.Email).EmailAddress();
+RuleFor(x => x.GiaTri).GreaterThan(0);
+```
+
+```text
+required : "anh quên gán trường này"      -> lỗi của LẬP TRÌNH VIÊN
+Validator: "giá trị này không hợp lệ"     -> lỗi của DỮ LIỆU
+```
+
+Cần cả hai, và chúng không chồng lên nhau.
+
+**Ba điều cần biết khi dùng `required`:**
+
+**1. Kết hợp với `init` để có bất biến.**
+
+```csharp
+public required string HoTen { get; init; }    // gán lúc khởi tạo, cấm đổi sau
+public required string HoTen { get; set; }     // bắt buộc gán, nhưng vẫn đổi được sau
+```
+
+**2. Constructor có thể "hứa" đã gán đủ.**
+
+```csharp
+[SetsRequiredMembers]
+public TaoLeadRequest(string hoTen, string email, decimal giaTri, int nhanVienId)
+{
+    HoTen = hoTen; Email = email; GiaTri = giaTri; NhanVienId = nhanVienId;
+}
+```
+
+```text
+Không có thuộc tính này, dùng constructor vẫn bị báo lỗi thiếu required.
+Nhưng dùng nó là một lời hứa — trình biên dịch KHÔNG kiểm tra lại.
+Gán thiếu trong constructor đó thì không ai nhắc.
+```
+
+**3. Tuần tự hoá JSON vẫn có thể tạo ra đối tượng thiếu trường.**
+
+```csharp
+var r = JsonSerializer.Deserialize<TaoLeadRequest>("""{"HoTen":"An"}""");
+```
+
+```text
+System.Text.Json trên .NET 9 TÔN TRỌNG required và ném lỗi:
+    JsonException: JSON deserialization for type 'TaoLeadRequest' was missing
+                   required properties including: 'Email', 'GiaTri', 'NhanVienId'.
+
+Nhưng các thư viện khác, hoặc reflection thủ công, có thể bỏ qua.
+-> vẫn cần validator ở biên hệ thống.
+```
+
+**Bắt đầu từ đâu trong một dự án đang chạy:**
+
+```text
+Đừng thêm required cho mọi DTO cùng lúc — 14 lỗi ở một lớp là vừa sức,
+200 lỗi ở 30 lớp thì sẽ bị lùi lại và không bao giờ làm.
+
+Thứ tự nên làm:
+    1. DTO đầu vào của API — nơi thiếu dữ liệu gây hại nhất
+    2. Entity và value object trong domain
+    3. DTO đầu ra — ít quan trọng hơn, vì dữ liệu do chính bạn dựng
+```
+
+</details>
+
+---
+
+#### Bài 2 — Rút gọn constructor
+
+Chuyển ba lớp service sang primary constructor và đếm số dòng giảm được.
+
+**Tiêu chí hoàn thành:** bạn có số dòng trước và sau, và biết một trường hợp **không nên** chuyển.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Primary constructor tạo ra **tham số**, không phải trường. Khác biệt đó có hệ quả thật.
+
+**Lời giải — trước:**
+
+```csharp
+public class LeadService
+{
+    private readonly CrmDbContext _db;
+    private readonly ILogger<LeadService> _log;
+    private readonly IEmailSender _email;
+    private readonly IDateTimeProvider _thoiGian;
+
+    public LeadService(
+        CrmDbContext db,
+        ILogger<LeadService> log,
+        IEmailSender email,
+        IDateTimeProvider thoiGian)
+    {
+        _db = db;
+        _log = log;
+        _email = email;
+        _thoiGian = thoiGian;
+    }
+
+    public async Task<Lead> TaoAsync(TaoLeadRequest yc, CancellationToken ct)
+    {
+        var lead = new Lead(yc.HoTen, yc.Email, _thoiGian.Now);
+        _db.Leads.Add(lead);
+        await _db.SaveChangesAsync(ct);
+        _log.LogInformation("Đã tạo lead {Id}", lead.Id);
+        return lead;
+    }
+}
+```
+
+**Sau:**
+
+```csharp
+public class LeadService(
+    CrmDbContext db,
+    ILogger<LeadService> log,
+    IEmailSender email,
+    IDateTimeProvider thoiGian)
+{
+    public async Task<Lead> TaoAsync(TaoLeadRequest yc, CancellationToken ct)
+    {
+        var lead = new Lead(yc.HoTen, yc.Email, thoiGian.Now);
+        db.Leads.Add(lead);
+        await db.SaveChangesAsync(ct);
+        log.LogInformation("Đã tạo lead {Id}", lead.Id);
+        return lead;
+    }
+}
+```
+
+```text
+Trước: 18 dòng cho phần khai báo và constructor
+Sau  :  5 dòng
+Giảm : 13 dòng mỗi lớp
+```
+
+```text
+Ba lớp service -> giảm khoảng 39 dòng.
+Và phần giảm là phần KHÔNG mang thông tin nào — chỉ là lặp lại tên bốn lần.
+```
+
+**Vì sao tiết kiệm nhiều như vậy: mỗi phụ thuộc xuất hiện 3 lần ở bản cũ.**
+
+```text
+1. Khai báo trường:     private readonly CrmDbContext _db;
+2. Tham số constructor: CrmDbContext db,
+3. Gán:                 _db = db;
+
+Primary constructor: 1 lần.
+```
+
+**Và đây là trường hợp KHÔNG nên chuyển:**
+
+```csharp
+public class BaoCaoService
+{
+    private readonly CrmDbContext _db;
+    private readonly IReadOnlyList<string> _cotMacDinh;      // tính từ cấu hình
+
+    public BaoCaoService(CrmDbContext db, IOptions<BaoCaoOptions> tuyChon)
+    {
+        _db = db ?? throw new ArgumentNullException(nameof(db));
+
+        _cotMacDinh = tuyChon.Value.Cot
+            .Where(c => c.HienThi)
+            .Select(c => c.Ten)
+            .ToArray();                                       // XỬ LÝ trong constructor
+    }
+}
+```
+
+```text
+Primary constructor không có CHỖ để viết logic khởi tạo.
+Có thể lách bằng khởi tạo trường:
+    private readonly IReadOnlyList<string> _cot = tuyChon.Value.Cot.Where(...)...;
+nhưng khi logic dài hơn một biểu thức, nó khó đọc hơn hẳn.
+```
+
+**Ba điều cần biết về primary constructor:**
+
+**1. Tham số KHÔNG phải trường — nhưng trình biên dịch tạo trường ẩn khi cần.**
+
+```csharp
+public class LeadService(CrmDbContext db)
+{
+    public void A() => db.Leads.Count();      // tạo trường ẩn để giữ db
+}
+```
+
+```text
+Hệ quả: không viết được `_db` theo quy ước đặt tên có gạch dưới
+-> nếu đội có quy ước đó, đây là một thay đổi về phong cách cần thống nhất
+```
+
+**2. Tham số **thay đổi được** — khác với `readonly`.**
+
+```csharp
+public class Dem(int batDau)
+{
+    public void Tang() => batDau++;           // biên dịch được!
+}
+```
+
+```text
+Trường readonly thì không gán lại được.
+Tham số primary constructor thì được -> mất một lớp bảo vệ.
+
+Với phụ thuộc tiêm vào, điều này hiếm khi thành vấn đề thật,
+nhưng đáng biết.
+```
+
+**3. Với `record`, tham số tự thành thuộc tính công khai. Với `class` thì không.**
+
+```csharp
+record DiaChi(string Tinh);      // DiaChi.Tinh là thuộc tính public
+class DiaChi2(string tinh);      // tinh KHÔNG lộ ra ngoài
+```
+
+**Kiểm chứng phần chuyển đổi không làm đổi hành vi:**
+
+```bash
+dotnet test
+git diff --stat
+```
+
+```text
+ src/Crm.Api/Services/LeadService.cs      | 18 ++--------------
+ src/Crm.Api/Services/KhachHangService.cs | 16 ++-------------
+ src/Crm.Api/Services/HoaDonService.cs    | 14 +++-----------
+ 3 files changed, 8 insertions(+), 40 deletions(-)
+```
+
+```text
+32 dòng biến mất, 0 thay đổi hành vi, test vẫn xanh.
+Đây là loại thay đổi nên gộp thành MỘT commit riêng, không trộn với sửa nghiệp vụ.
+```
+
+</details>
+
+---
+
+#### Bài 3 — Tìm `IDisposable` bị quên
+
+Rà dự án tìm mọi chỗ tạo đối tượng `IDisposable` mà không có `using`.
+
+**Tiêu chí hoàn thành:** bạn có danh sách kèm phân loại, và biết hai trường hợp **cố tình không dùng `using`** là đúng.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Trình phân tích của .NET có sẵn quy tắc cho việc này. Bật nó lên nhanh hơn viết grep.
+
+**Lời giải — bật phân tích tĩnh:**
+
+```xml
+<PropertyGroup>
+  <EnableNETAnalyzers>true</EnableNETAnalyzers>
+  <AnalysisMode>Recommended</AnalysisMode>
+  <WarningsAsErrors>$(WarningsAsErrors);CA2000;CA1063;CA2213</WarningsAsErrors>
+</PropertyGroup>
+```
+
+```bash
+dotnet build 2>&1 | grep -E "CA2000|CA2213" | sort | uniq -c
+```
+
+```text
+      7 warning CA2000: Call System.IDisposable.Dispose on object created by ...
+      3 warning CA2213: 'X' contains field 'Y' that is of IDisposable type ...
+```
+
+Và lượt quét thủ công cho những gì phân tích tĩnh bỏ sót:
+
+```bash
+grep -rnE "new (SqlConnection|FileStream|StreamReader|StreamWriter|HttpClient|MemoryStream|CancellationTokenSource|SemaphoreSlim|Timer)\(" \
+  --include="*.cs" src/ | grep -v "using " | grep -v "/Tests/"
+```
+
+```text
+src/Crm.Api/Features/Import/DocFileHandler.cs:34:  var reader = new StreamReader(duongDan);
+src/Crm.Api/Services/BaoCaoService.cs:88:          var stream = new MemoryStream();
+src/Crm.Api/Infrastructure/EmailSender.cs:19:      private readonly SmtpClient _smtp = new();
+src/Crm.Api/Services/KetNoiService.cs:22:          var cts = new CancellationTokenSource();
+src/Crm.Api/Jobs/DongBoJob.cs:15:                  private readonly Timer _timer;
+```
+
+**Phân loại:**
+
+| Chỗ | Đánh giá | Xử lý |
+|---|---|---|
+| `StreamReader` trong handler | **Rò rỉ** | Thêm `using` |
+| `MemoryStream` trả về cho caller | Đúng, nhưng thiếu tài liệu | Ghi rõ ai chịu trách nhiệm huỷ |
+| `SmtpClient` là trường | Rò rỉ | Lớp chứa phải cài `IDisposable` |
+| `CancellationTokenSource` cục bộ | **Rò rỉ** | Thêm `using` |
+| `Timer` là trường của `BackgroundService` | Đúng | Huỷ trong `Dispose` của lớp |
+
+```csharp
+// Rò rỉ
+var reader = new StreamReader(duongDan);
+var dong = await reader.ReadToEndAsync(ct);
+
+// Sửa
+using var reader = new StreamReader(duongDan);
+var dong = await reader.ReadToEndAsync(ct);
+```
+
+**Và đây là hai trường hợp CỐ TÌNH không dùng `using` — cả hai đều đúng:**
+
+**1. `HttpClient` lấy từ `IHttpClientFactory`.**
+
+```csharp
+// SAI — using làm đóng handler đang được dùng chung
+using var client = _factory.CreateClient("billing");
+
+// ĐÚNG — không using
+var client = _factory.CreateClient("billing");
+```
+
+```text
+Factory quản lý vòng đời của handler bên dưới, và tái dùng nó.
+Dispose client không đóng handler ngay, nhưng nó tạo ra một mẫu sai
+mà người đọc code sau sẽ bắt chước ở chỗ khác — nơi nó thật sự gây hại.
+
+Và HttpClient tự tạo bằng new thì NGƯỢC LẠI: mỗi lần new là một
+connection pool mới, dùng using vẫn để lại socket ở trạng thái TIME_WAIT.
+-> đó chính là lý do IHttpClientFactory tồn tại.
+```
+
+**2. Đối tượng được trả về cho người gọi.**
+
+```csharp
+// ĐÚNG — người gọi chịu trách nhiệm huỷ
+public Stream TaoBaoCaoAsync(int id)
+{
+    var stream = new MemoryStream();
+    GhiVaoStream(stream, id);
+    stream.Position = 0;
+    return stream;                     // KHÔNG using ở đây
+}
+
+// Người gọi:
+await using var bc = TaoBaoCaoAsync(id);
+```
+
+```text
+Phân tích tĩnh có thể cảnh báo CA2000 ở đây — và đó là báo động giả.
+Cách xử lý: tắt cảnh báo tại chỗ, kèm lý do.
+```
+
+```csharp
+#pragma warning disable CA2000 // người gọi chịu trách nhiệm huỷ stream trả về
+var stream = new MemoryStream();
+#pragma warning restore CA2000
+```
+
+**Ba lỗi phổ biến nhất về `IDisposable` trong ASP.NET Core:**
+
+**1. Lớp giữ trường `IDisposable` nhưng không tự cài `IDisposable`.**
+
+```csharp
+public sealed class EmailSender : IDisposable
+{
+    private readonly SmtpClient _smtp = new();
+    public void Dispose() => _smtp.Dispose();
+}
+```
+
+**2. Huỷ thứ do DI quản lý.**
+
+```csharp
+// SAI — DbContext do DI tạo và huỷ theo scope
+public async Task XuLy(CrmDbContext db)
+{
+    using var _ = db;                  // huỷ sớm -> request hỏng
+}
+```
+
+```text
+Quy tắc: thứ bạn NHẬN qua tiêm phụ thuộc thì KHÔNG huỷ.
+         thứ bạn TỰ tạo bằng new thì phải huỷ.
+```
+
+**3. Quên `await using` với `IAsyncDisposable`.**
+
+```csharp
+// Dùng using thường với một kiểu có cả hai giao diện
+using var conn = new SqlConnection(cs);        // gọi Dispose đồng bộ
+
+// Đúng hơn
+await using var conn = new SqlConnection(cs);  // gọi DisposeAsync
+```
+
+```text
+Dispose đồng bộ trên tài nguyên mạng có thể CHẶN luồng
+-> với ứng dụng nhiều request, đây là một nguồn thread pool starvation
+```
+
+**Cách chắc chắn nhất để việc này không quay lại:**
+
+```xml
+<WarningsAsErrors>$(WarningsAsErrors);CA2000;CA2213;CA1816</WarningsAsErrors>
+```
+
+```text
+Đặt ba quy tắc này thành LỖI thay vì cảnh báo.
+Cảnh báo trong một dự án có sẵn 300 cảnh báo khác thì không ai đọc.
+```
+
+</details>
 
 ## Tự kiểm tra
 

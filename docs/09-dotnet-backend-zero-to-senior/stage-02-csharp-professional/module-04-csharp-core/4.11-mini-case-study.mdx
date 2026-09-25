@@ -233,11 +233,388 @@ Hàng cuối đáng chú ý: với kế thừa, "sản phẩm này không bán t
 
 ## Bài tập áp dụng
 
-1. **Thêm khả năng mới.** Thêm "cho thuê" (có thời hạn thuê và tiền cọc) vào cả hai thiết kế. Đếm số file phải sửa.
+#### Bài 1 — Thêm khả năng mới
 
-2. **Tìm lớp tổ hợp.** Rà dự án của bạn tìm lớp có tên ghép từ hai khái niệm và xem nó có phải triệu chứng của vấn đề này không.
+Thêm "cho thuê" (có thời hạn thuê và tiền cọc) vào cả hai thiết kế. Đếm số file phải sửa.
 
-3. **Viết truy vấn.** Với thiết kế composition, viết truy vấn lấy mọi sản phẩm cần giao hàng và so sánh với cách làm ở thiết kế kế thừa.
+**Tiêu chí hoàn thành:** bạn có **con số cụ thể cho cả hai thiết kế**, và nhận ra chênh lệch không nằm ở lần thêm này mà ở lần thêm **tiếp theo**.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Với thiết kế kế thừa, đừng chỉ đếm lớp mới. Đếm cả những lớp tổ hợp mà nó tạo ra.
+
+**Lời giải — thiết kế composition:**
+
+```csharp
+// 1. Thêm một record
+public sealed record RentalInfo(TimeSpan ThoiHan, Money TienCoc);
+
+// 2. Thêm một thuộc tính và một phương thức vào Product
+public RentalInfo? Rental { get; private set; }
+
+public void EnableRental(TimeSpan thoiHan, Money tienCoc)
+    => Rental = new RentalInfo(thoiHan, tienCoc);
+```
+
+```text
+File phải sửa: 2 (Product.cs và một file record mới)
+Dòng thêm: khoảng 6
+```
+
+Và mọi tổ hợp đều dùng được ngay:
+
+```csharp
+var mayChieu = Product.Create("Máy chiếu", Money.Vnd(12_000_000m));
+mayChieu.EnableShipping(weightKg: 3.2m, size: new Dimensions(40, 30, 15));
+mayChieu.EnableRental(TimeSpan.FromDays(7), Money.Vnd(2_000_000m));
+```
+
+**Thiết kế kế thừa — đếm cho đủ:**
+
+```text
+1. RentalProduct : Product                           (lớp mới)
+2. ShippableRentalProduct                            (máy chiếu: giao + thuê)
+3. SubscriptionRentalProduct                         (thuê kèm gói dịch vụ)
+4. ShippableSubscriptionRentalProduct                (cả ba)
+5. ServiceRentalProduct                              (dịch vụ có thuê thiết bị)
+...
+```
+
+```text
+Thiết kế cũ có 3 khả năng -> cần tới 2³ = 8 lớp cho mọi tổ hợp
+Thêm khả năng thứ tư     -> 2⁴ = 16 lớp
+
+File phải sửa/thêm: 8 lớp mới, cộng mọi chỗ switch trên kiểu
+```
+
+Và những chỗ `switch` đó nằm rải rác:
+
+```bash
+grep -rn "is ShippableProduct\|is SubscriptionProduct\|switch (product)" --include="*.cs" src/
+```
+
+```text
+src/Crm.Api/Services/GioHangService.cs:44
+src/Crm.Api/Services/ThanhToanService.cs:88
+src/Crm.Api/Features/DonHang/TaoDonHandler.cs:126
+src/Crm.Api/Mapping/ProductMapper.cs:31
+src/Crm.Api/Validators/ProductValidator.cs:57
+```
+
+```text
+Mỗi chỗ đó phải thêm một nhánh cho mỗi lớp mới.
+```
+
+**Bảng so sánh:**
+
+| | Composition | Kế thừa |
+|---|---:|---:|
+| Lớp/record mới | **1** | 8 |
+| File hiện có phải sửa | **1** | 5+ |
+| Tổng dòng thêm | ~6 | ~200 |
+| Rủi ro sót một chỗ `switch` | **Không có** | Cao |
+
+**Nhưng con số quan trọng hơn là ở lần thêm TIẾP THEO:**
+
+```text
+Khả năng thứ 5 với composition : vẫn 1 record + 1 thuộc tính
+Khả năng thứ 5 với kế thừa     : 2⁵ = 32 lớp
+
+Composition: chi phí HẰNG SỐ
+Kế thừa:     chi phí NHÂN ĐÔI mỗi lần
+```
+
+Đây chính là điều mục 4.12.7 nói — đánh giá một thiết kế bằng yêu cầu **tiếp theo**, không bằng yêu cầu hiện tại. Ở lần thêm đầu tiên, hai thiết kế chênh nhau vài chục dòng. Ở lần thứ năm, một bên vẫn là vài dòng còn bên kia không còn khả thi.
+
+**Và một chi phí của kế thừa mà việc đếm file không thấy:**
+
+```text
+Một sản phẩm đang là ShippableProduct, khách hàng muốn thêm gói dịch vụ
+-> phải đổi KIỂU của đối tượng
+-> nhưng C# không đổi kiểu của một đối tượng đã tồn tại được
+-> phải tạo đối tượng mới, sao chép mọi thuộc tính, cập nhật mọi tham chiếu
+-> và với EF Core, phải xử lý cả việc đổi dòng trong bảng phân cấp
+```
+
+```csharp
+// Với composition, cùng việc đó là một dòng
+sanPham.EnableSubscription(BillingCycle.Monthly, autoRenew: true);
+```
+
+**Khi nào kế thừa vẫn đúng** (mục 4.12.6): khi các nhánh **loại trừ lẫn nhau** và **không đổi qua lại**. Một `PaymentMethod` là thẻ, chuyển khoản, hoặc tiền mặt — không bao giờ là hai thứ cùng lúc, và một giao dịch không đổi phương thức giữa chừng. Đó là lúc phân cấp diễn đạt đúng vấn đề.
+
+</details>
+
+---
+
+#### Bài 2 — Tìm lớp tổ hợp
+
+Rà dự án của bạn tìm lớp có tên ghép từ hai khái niệm và xem nó có phải triệu chứng của vấn đề này không.
+
+**Tiêu chí hoàn thành:** bạn có danh sách kèm đánh giá từng lớp, và phân biệt được tên ghép **hợp lý** với tên ghép là **triệu chứng**.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Không phải mọi tên ghép đều xấu. `AsyncLocal` và `ReadOnlyDictionary` là tên ghép hoàn toàn hợp lý.
+
+**Lời giải — tìm bằng một lệnh:**
+
+```bash
+# Lớp có tên ghép từ 3 từ trở lên, kèm lớp cha
+grep -rnE "class [A-Z][a-z]+[A-Z][a-z]+[A-Z][a-z]+.*:" --include="*.cs" src/ \
+  | grep -v "/Tests/" | grep -v "Handler\|Controller\|Repository\|Service\b"
+```
+
+```text
+src/Crm.Domain/Products/ShippableSubscriptionProduct.cs:8
+src/Crm.Domain/Products/DigitalSubscriptionProduct.cs:6
+src/Crm.Domain/Users/AdminManagerUser.cs:12
+src/Crm.Domain/Notifications/EmailSmsNotification.cs:9
+src/Crm.Infrastructure/Caching/ReadOnlyCachedRepository.cs:14
+src/Crm.Api/Dtos/LeadWithCustomerAndOrdersDto.cs:5
+```
+
+**Phân loại — dùng ba câu hỏi:**
+
+```text
+1. Hai khái niệm trong tên có LOẠI TRỪ nhau không?
+   Không loại trừ -> nhiều khả năng là triệu chứng
+
+2. Có bao nhiêu lớp anh em cùng kiểu ghép?
+   Nhiều -> chắc chắn là triệu chứng
+
+3. Một đối tượng có bao giờ cần CHUYỂN từ dạng này sang dạng khác không?
+   Có -> kế thừa sai, vì không đổi kiểu được
+```
+
+| Lớp | Đánh giá | Lý do |
+|---|---|---|
+| `ShippableSubscriptionProduct` | **Triệu chứng** | Hai khả năng độc lập, có 6 lớp anh em |
+| `DigitalSubscriptionProduct` | **Triệu chứng** | Cùng nhóm trên |
+| `AdminManagerUser` | **Triệu chứng** | Vai trò nên là dữ liệu, không phải kiểu |
+| `EmailSmsNotification` | **Triệu chứng** | Kênh gửi là danh sách, không phải phân cấp |
+| `ReadOnlyCachedRepository` | Hợp lý | Hai **decorator** chồng lên nhau, đúng mẫu |
+| `LeadWithCustomerAndOrdersDto` | Hợp lý | DTO mô tả đúng hình dạng dữ liệu trả về |
+
+**Hai trường hợp "hợp lý" đáng giải thích:**
+
+**1. `ReadOnlyCachedRepository` — decorator chồng nhau là mẫu đúng.**
+
+```csharp
+IRepository goc = new SqlRepository(db);
+IRepository coCache = new CachedRepository(goc, cache);
+IRepository chiDoc = new ReadOnlyRepository(coCache);
+```
+
+```text
+Mỗi lớp thêm MỘT hành vi và uỷ quyền phần còn lại.
+Tổ hợp xảy ra lúc CHẠY, không phải lúc biên dịch
+-> 3 decorator cho 8 tổ hợp mà không cần 8 lớp
+```
+
+Đây là composition, chỉ là tên lớp nghe giống tổ hợp.
+
+**2. `LeadWithCustomerAndOrdersDto` — DTO mô tả hình dạng.**
+
+```text
+Đây không phải mô hình nghiệp vụ, nó là hình dạng của MỘT phản hồi API.
+Tên dài nhưng nói đúng nó chứa gì -> hữu ích.
+
+Nếu có 15 DTO kiểu này cho cùng một entity, lúc đó mới là vấn đề khác:
+     nên cân nhắc cho client chọn trường, hoặc gom lại.
+```
+
+**Còn `AdminManagerUser` — vì sao vai trò không nên là kiểu:**
+
+```csharp
+// SAI — vai trò thành phân cấp kiểu
+class User { }
+class ManagerUser : User { }
+class AdminUser : User { }
+class AdminManagerUser : AdminUser { }     // và khi có vai trò thứ tư?
+```
+
+```csharp
+// ĐÚNG — vai trò là dữ liệu
+class User
+{
+    public HashSet<VaiTro> CacVaiTro { get; } = [];
+    public bool CoQuyen(Quyen q) => CacVaiTro.Any(v => v.CacQuyen.Contains(q));
+}
+```
+
+```text
+Lý do quyết định: một người dùng được THĂNG CHỨC.
+Với kiểu: phải tạo đối tượng mới, đổi mọi tham chiếu, đổi dòng trong database
+Với dữ liệu: user.CacVaiTro.Add(VaiTro.QuanLy);
+```
+
+**Và một dấu hiệu khác, tìm được bằng lệnh:**
+
+```bash
+# Switch trên kiểu — nơi tổ hợp lộ ra
+grep -rnE "\bis [A-Z][A-Za-z]+Product\b|switch \([a-z]+\)\s*$" --include="*.cs" src/ | wc -l
+```
+
+```text
+23
+```
+
+```text
+23 chỗ switch trên kiểu sản phẩm.
+Mỗi lớp mới -> 23 chỗ phải xem lại, và trình biên dịch KHÔNG nhắc bạn
+(trừ khi dùng switch expression vét cạn trên một phân cấp sealed).
+```
+
+Con số này thường thuyết phục hơn cả số lớp: nó đo **chi phí thay đổi**, không đo kích thước hiện tại.
+
+</details>
+
+---
+
+#### Bài 3 — Viết truy vấn
+
+Với thiết kế composition, viết truy vấn lấy mọi sản phẩm cần giao hàng và so sánh với cách làm ở thiết kế kế thừa.
+
+**Tiêu chí hoàn thành:** bạn viết được truy vấn cho cả hai thiết kế, và chỉ ra được cái nào **dịch được sang SQL** còn cái nào không.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Câu hỏi quyết định không phải "code nào ngắn hơn" mà "EF Core dịch được câu nào thành SQL".
+
+**Lời giải — với composition:**
+
+```csharp
+var canGiao = await _db.Products
+    .Where(p => p.Shipping != null)
+    .Select(p => new SanPhamGiaoDto(p.Id, p.Name, p.Shipping!.WeightKg))
+    .ToListAsync(ct);
+```
+
+```sql
+SELECT [p].[Id], [p].[Name], [p].[Shipping_WeightKg]
+FROM [Products] AS [p]
+WHERE [p].[Shipping_WeightKg] IS NOT NULL
+```
+
+```text
+Một truy vấn, lọc ở DATABASE, chỉ lấy ba cột.
+```
+
+Cấu hình EF Core cho khả năng dạng này:
+
+```csharp
+builder.OwnsOne(p => p.Shipping, s =>
+{
+    s.Property(x => x.WeightKg).HasColumnName("Shipping_WeightKg");
+    s.OwnsOne(x => x.Size);
+});
+```
+
+**Với kế thừa — phụ thuộc vào chiến lược ánh xạ, và cả ba đều có vấn đề riêng:**
+
+**1. Table-per-hierarchy (mặc định):**
+
+```csharp
+var canGiao = await _db.Products
+    .Where(p => p is ShippableProduct
+             || p is ShippableSubscriptionProduct
+             || p is ShippableServiceProduct
+             || p is ShippableSubscriptionServiceProduct)
+    .ToListAsync(ct);
+```
+
+```sql
+SELECT ...
+FROM [Products] AS [p]
+WHERE [p].[Discriminator] IN (
+    N'ShippableProduct', N'ShippableSubscriptionProduct',
+    N'ShippableServiceProduct', N'ShippableSubscriptionServiceProduct')
+```
+
+```text
+Dịch được, nhưng: THÊM một lớp có khả năng giao hàng
+                  -> phải sửa MỌI truy vấn kiểu này
+                  -> và quên một chỗ thì không có lỗi, chỉ thiếu dữ liệu
+```
+
+**2. Table-per-type:**
+
+```sql
+SELECT ... FROM [Products] AS [p]
+LEFT JOIN [ShippableProducts] AS [s] ON [p].[Id] = [s].[Id]
+LEFT JOIN [ShippableSubscriptionProducts] AS [ss] ON [p].[Id] = [ss].[Id]
+LEFT JOIN [ShippableServiceProducts] AS [sv] ON [p].[Id] = [sv].[Id]
+...
+```
+
+```text
+Mỗi lớp con là một bảng -> mỗi truy vấn là một chuỗi JOIN
+8 lớp -> 8 LEFT JOIN cho một câu hỏi đơn giản
+```
+
+**3. Và cách nhiều người chọn khi hai cách trên khó: lọc trong bộ nhớ.**
+
+```csharp
+// SAI — nạp TOÀN BỘ sản phẩm rồi mới lọc
+var tatCa = await _db.Products.ToListAsync(ct);
+var canGiao = tatCa.Where(p => p is IShippable).ToList();
+```
+
+```text
+200.000 sản phẩm nạp hết vào bộ nhớ để lấy ra 12.000
+-> đây đúng là lỗi ở bài 1.10, chỉ xuất hiện dưới một hình thức khác
+```
+
+**Bảng so sánh:**
+
+| | Composition | Kế thừa (TPH) | Kế thừa (TPT) |
+|---|---|---|---|
+| Dịch sang SQL | **Có** | Có | Có |
+| Sửa khi thêm khả năng | **Không phải sửa** | Sửa mọi truy vấn | Sửa mọi truy vấn |
+| Số JOIN | **0** | 0 | Nhiều |
+| Đánh index được không | **Có** — trên cột Shipping_WeightKg | Có — trên Discriminator | Khó |
+| Rủi ro lọc trong bộ nhớ | Thấp | Trung bình | **Cao** |
+
+**Và một câu hỏi phức tạp hơn cho thấy rõ hơn — "sản phẩm cần giao HOẶC có gói dịch vụ":**
+
+```csharp
+// Composition
+.Where(p => p.Shipping != null || p.Subscription != null)
+```
+
+```csharp
+// Kế thừa: phải liệt kê 6 trong 8 lớp
+.Where(p => p is ShippableProduct || p is SubscriptionProduct
+         || p is ShippableSubscriptionProduct || p is ShippableServiceProduct
+         || p is SubscriptionServiceProduct
+         || p is ShippableSubscriptionServiceProduct)
+```
+
+```text
+Composition: điều kiện phản ánh đúng câu hỏi nghiệp vụ
+Kế thừa:     phải tự tính ra tập con của phân cấp -> dễ sót, khó đọc lại
+```
+
+**Thêm index cho truy vấn composition:**
+
+```csharp
+builder.HasIndex(p => p.Shipping!.WeightKg)
+       .HasFilter("[Shipping_WeightKg] IS NOT NULL");
+```
+
+```text
+Index có lọc chỉ chứa những dòng CÓ khả năng giao hàng
+-> nhỏ hơn nhiều so với index trên toàn bảng
+-> và truy vấn "cần giao hàng" dùng đúng index đó
+```
+
+Nối lại ba bài: bài 1 đo chi phí thêm khả năng, bài 2 tìm triệu chứng trong dự án thật, bài 3 cho thấy hệ quả ở tầng dữ liệu. Điểm chung của cả ba: **kế thừa cố định tổ hợp lúc biên dịch, còn composition để nó là dữ liệu lúc chạy** — và mọi khác biệt còn lại đều bắt nguồn từ đó.
+
+</details>
 
 ## Tự kiểm tra
 
