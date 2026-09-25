@@ -238,11 +238,533 @@ Với `latest`, `docker pull` không biết có bản mới hay không mà khôn
 
 ## Bài tập áp dụng
 
-1. **Cache layer.** Build image hai lần: một lần với `COPY . .` trước `restore`, một lần với thứ tự đúng. Sửa một dòng code và build lại, so sánh thời gian.
+#### Bài 1 — Thứ tự layer và cache
 
-2. **OOM kill.** Chạy ứng dụng với `--memory=128m` và tạo tải làm nó cấp phát nhiều. Xác nhận container biến mất với exit code 137 và **không có log nào** giải thích.
+Build image hai lần: một lần với `COPY . .` trước `restore`, một lần với thứ tự đúng. Sửa một dòng code và build lại, so sánh thời gian.
 
-3. **`free` nói dối.** Chạy `docker run --memory=256m` rồi `docker exec` vào và chạy `free -m`. So sánh với `docker stats`.
+**Tiêu chí hoàn thành:** bạn nêu được quy tắc quyết định thứ tự các chỉ thị trong Dockerfile, và biết cái gì làm hỏng cache dù bạn không sửa file nào.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Một layer bị vô hiệu thì mọi layer sau nó cũng vậy. Layer nào hay đổi nhất?
+
+**Lời giải — thứ tự sai:**
+
+```dockerfile
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /src
+COPY . .                                  # mọi thay đổi code đều vô hiệu layer này
+RUN dotnet restore
+RUN dotnet publish -c Release -o /app
+```
+
+**Thứ tự đúng:**
+
+```dockerfile
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /src
+
+# 1. Chỉ copy file mô tả phụ thuộc — hiếm khi đổi
+COPY ["Directory.Packages.props", "Directory.Build.props", "nuget.config", "./"]
+COPY ["src/Crm.Api/Crm.Api.csproj", "src/Crm.Api/"]
+COPY ["src/Crm.Application/Crm.Application.csproj", "src/Crm.Application/"]
+COPY ["src/Crm.Infrastructure/Crm.Infrastructure.csproj", "src/Crm.Infrastructure/"]
+
+# 2. Restore — layer này được cache cho tới khi có phụ thuộc mới
+RUN dotnet restore "src/Crm.Api/Crm.Api.csproj"
+
+# 3. Bây giờ mới copy mã nguồn — đổi thường xuyên
+COPY . .
+RUN dotnet publish "src/Crm.Api/Crm.Api.csproj" -c Release -o /app --no-restore
+```
+
+```text
+Sau khi sửa một dòng trong Controller:
+
+Thứ tự sai:   restore 48 s + publish 22 s = 71 s
+Thứ tự đúng:  restore  0 s (CACHED) + publish 24 s = 25 s
+```
+
+**Nhanh hơn gần 3 lần**, và khoảng cách càng lớn khi dự án có nhiều phụ thuộc.
+
+**Quy tắc quyết định thứ tự:**
+
+> **Xếp các chỉ thị theo tần suất thay đổi, ít đổi nhất lên trên.**
+
+Vì Docker cache theo layer và **một layer bị vô hiệu thì mọi layer sau nó cũng bị vô hiệu**:
+
+```text
+FROM              đổi vài tháng một lần
+apt-get install   đổi vài tháng một lần
+COPY *.csproj     đổi khi thêm/bớt gói           <- vài lần một tháng
+RUN restore       phụ thuộc vào layer trên
+COPY . .          đổi ở MỖI commit               <- nhiều lần một ngày
+RUN publish       phụ thuộc vào layer trên
+```
+
+Đặt `COPY . .` lên trên `restore` nghĩa là **mọi commit** đều vô hiệu hoá `restore` — thao tác tốn thời gian nhất trong toàn bộ build.
+
+**Cache mount cho NuGet — cải thiện thêm một bậc:**
+
+```dockerfile
+RUN --mount=type=cache,target=/root/.nuget/packages \
+    dotnet restore "src/Crm.Api/Crm.Api.csproj"
+```
+
+```text
+Khi có phụ thuộc mới (layer restore bị vô hiệu):
+  Không cache mount:  48 s  (tải lại MỌI gói)
+  Có cache mount:      6 s  (chỉ tải gói mới)
+```
+
+Khác biệt giữa hai cơ chế đáng nắm rõ:
+
+| | Layer cache | Cache mount |
+|---|---|---|
+| Đơn vị | Cả layer | Một thư mục |
+| Bị vô hiệu khi | Layer trước đổi | Không bao giờ tự động |
+| Nằm trong image cuối | Có | **Không** |
+| Chia sẻ giữa các build | Có, nếu layer giống nhau | **Có, luôn luôn** |
+
+Cache mount cần BuildKit — mặc định từ Docker 23, nhưng phải bật tường minh trên bản cũ:
+
+```bash
+DOCKER_BUILDKIT=1 docker build -t crm-api .
+```
+
+**Cái gì làm hỏng cache dù bạn không sửa file nào** — đây là phần quan trọng nhất của bài:
+
+**1. Thiếu `.dockerignore`.** `COPY . .` sao chép **mọi thứ** trong thư mục, kể cả những thứ đổi liên tục mà không liên quan gì tới build:
+
+```text
+bin/  obj/          đổi mỗi lần build cục bộ
+.git/               đổi mỗi commit, và thường rất lớn
+*.user  .vs/  .idea/  đổi khi bạn chỉ mở IDE
+node_modules/       khổng lồ
+```
+
+Chỉ cần mở Visual Studio là `obj/` đổi, và layer `COPY . .` bị vô hiệu — dù bạn chưa gõ một ký tự code nào.
+
+```text
+# .dockerignore
+**/bin/
+**/obj/
+**/.vs/
+**/.idea/
+**/*.user
+.git/
+.github/
+**/node_modules/
+**/appsettings.Development.json
+README.md
+docs/
+```
+
+`.dockerignore` còn giảm mạnh thời gian gửi context tới daemon:
+
+```text
+Không có .dockerignore:  gửi 847 MB context, mất 12 s
+Có .dockerignore:        gửi 4,2 MB context, mất 0,3 s
+```
+
+**2. Thời gian sửa file (mtime) đổi.** Docker so sánh nội dung file cho `COPY`, nên mtime thường không ảnh hưởng — nhưng `ADD` với URL và một số thao tác `git` (như `git checkout` đổi nhánh rồi quay lại) có thể làm thay đổi metadata mà bạn không chú ý.
+
+**3. Build arg đổi.** Mọi `ARG` được dùng sau đó đều là một phần của cache key:
+
+```dockerfile
+ARG BUILD_DATE
+RUN echo "Built at $BUILD_DATE" > /build-info      # vô hiệu cache MỖI lần build
+```
+
+Đặt `ARG` hay đổi **sau** các layer đắt tiền:
+
+```dockerfile
+RUN dotnet publish ...        # layer đắt, cache được
+ARG BUILD_DATE                # đặt ở CUỐI
+LABEL build-date=$BUILD_DATE
+```
+
+**4. Image gốc được cập nhật.** `mcr.microsoft.com/dotnet/sdk:9.0` là một tag động — Microsoft đẩy bản vá vào đó. Sau `docker pull`, SHA đổi và **toàn bộ** cache mất.
+
+Ghim theo digest cho build tái lập được:
+
+```dockerfile
+FROM mcr.microsoft.com/dotnet/sdk:9.0@sha256:abc123... AS build
+```
+
+**5. Runner CI mới mỗi lần chạy.** Đây là lý do phổ biến nhất khiến "cache hoạt động trên máy em nhưng CI vẫn build 5 phút": GitHub Actions cấp một máy sạch cho mỗi job, không có layer cache nào.
+
+```yaml
+- uses: docker/build-push-action@v6
+  with:
+    cache-from: type=gha
+    cache-to: type=gha,mode=max
+```
+
+`mode=max` lưu cache của **mọi** layer trung gian, kể cả trong giai đoạn build của multi-stage — mặc định `mode=min` chỉ lưu layer của image cuối, và với multi-stage thì gần như vô dụng.
+
+**Kiểm tra cache có hoạt động không:**
+
+```bash
+docker build --progress=plain -t crm-api . 2>&1 | grep -E "CACHED|^#[0-9]+ \["
+```
+
+```text
+#8  [build 4/8] RUN dotnet restore ...    CACHED
+#9  [build 5/8] COPY . .
+#10 [build 6/8] RUN dotnet publish ...
+```
+
+Nếu `restore` không hiện `CACHED` sau khi sửa một dòng code, thứ tự Dockerfile hoặc `.dockerignore` đang sai.
+
+</details>
+
+---
+
+#### Bài 2 — OOM kill không để lại dấu vết
+
+Chạy ứng dụng với `--memory=128m` và tạo tải làm nó cấp phát nhiều. Xác nhận container biến mất với exit code 137 và **không có log nào** giải thích.
+
+**Tiêu chí hoàn thành:** bạn giải thích được vì sao ứng dụng không ghi được log, và nêu được ba cách phát hiện OOM kill.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Ai giết tiến trình, và tiến trình có được báo trước không?
+
+**Lời giải:**
+
+```bash
+docker run -d --name crm-test --memory=128m crm-api
+# tạo tải
+hey -n 10000 -c 50 http://localhost:8080/bao-cao
+
+docker ps -a --filter name=crm-test
+```
+
+```text
+CONTAINER ID   IMAGE     STATUS                          NAMES
+a1b2c3d4e5f6   crm-api   Exited (137) 2 minutes ago      crm-test
+```
+
+```bash
+docker logs crm-test | tail -5
+```
+
+```text
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/1.1 GET /bao-cao
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/1.1 GET /bao-cao
+```
+
+Log dừng giữa chừng. Không có exception, không có stack trace, không có dòng nào nói vì sao.
+
+**Exit code 137 = 128 + 9**, nghĩa là tiến trình bị kết thúc bởi tín hiệu số 9 — `SIGKILL`.
+
+**Vì sao ứng dụng không ghi được log.** Vì `SIGKILL` **không thể bị bắt, chặn hay bỏ qua**. Đây là một tính chất của nhân Linux, không phải của Docker hay .NET:
+
+```text
+SIGTERM (15):  tiến trình NHẬN được, chạy được handler, dọn dẹp, ghi log rồi thoát
+SIGKILL (9):   NHÂN xoá tiến trình ngay lập tức
+               -> không có handler nào chạy
+               -> không có finally, không có IHostApplicationLifetime
+               -> buffer log chưa ghi ra đĩa thì mất luôn
+```
+
+Khi tiến trình trong cgroup vượt `memory.max`, **OOM killer của nhân** chọn nạn nhân và gửi `SIGKILL`. Từ góc nhìn tiến trình, nó chỉ đơn giản là ngừng tồn tại giữa một dòng lệnh.
+
+Điều làm nó khó chẩn đoán gấp đôi: Docker cũng dùng exit code 137 khi `docker kill` gửi `SIGKILL`, và Kubernetes dùng nó khi `terminationGracePeriodSeconds` hết hạn. Ba nguyên nhân khác nhau, cùng một mã.
+
+**Ba cách phát hiện OOM kill:**
+
+**1. `docker inspect` — có cờ riêng:**
+
+```bash
+docker inspect crm-test --format '{{.State.OOMKilled}} {{.State.ExitCode}} {{.State.Error}}'
+```
+
+```text
+true 137
+```
+
+`OOMKilled: true` phân biệt được OOM với `docker kill` thủ công — thứ mà exit code không làm được.
+
+Trên Kubernetes:
+
+```bash
+kubectl describe pod crm-api-abc123 | grep -A5 "Last State"
+```
+
+```text
+Last State:     Terminated
+  Reason:       OOMKilled
+  Exit Code:    137
+  Started:      Fri, 25 Sep 2026 08:14:22 +0700
+  Finished:     Fri, 25 Sep 2026 12:02:41 +0700
+```
+
+```bash
+kubectl logs crm-api-abc123 --previous     # log của container ĐÃ CHẾT
+```
+
+Cờ `--previous` là thứ nhiều người không biết, và nó là cách duy nhất xem được log cuối cùng trước khi pod bị giết.
+
+**2. Log của nhân trên máy chủ** — nguồn chính xác nhất:
+
+```bash
+sudo dmesg -T | grep -i "killed process"
+```
+
+```text
+[Fri Sep 25 12:02:41 2026] Memory cgroup out of memory: Killed process 28451 (dotnet)
+total-vm:4821304kB, anon-rss:131024kB, file-rss:28160kB, shmem-rss:0kB,
+UID:1000 pgtables:892kB oom_score_adj:0
+```
+
+Dòng này cho biết chính xác tiến trình nào, dùng bao nhiêu, và thuộc cgroup nào — thông tin không có ở đâu khác.
+
+**3. Metric bộ nhớ, để thấy **trước** khi bị giết:**
+
+```bash
+docker stats --no-stream crm-test
+```
+
+```text
+CONTAINER   MEM USAGE / LIMIT     MEM %
+crm-test    124.8MiB / 128MiB     97.50%
+```
+
+Đây là cách duy nhất trong ba cách cho phép bạn hành động **trước** sự cố:
+
+```text
+Cảnh báo khi container_memory_working_set_bytes / limit > 80% trong 5 phút.
+```
+
+**Ghi nhận OOM từ trong ứng dụng — không thể trực tiếp, nhưng có cách gián tiếp:**
+
+```csharp
+// Ghi lại áp lực bộ nhớ định kỳ, để dòng log cuối cùng CÓ THÔNG TIN
+public class GiamSatBoNhoService : BackgroundService
+{
+    protected override async Task ExecuteAsync(CancellationToken ct)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(30));
+        while (await timer.WaitForNextTickAsync(ct))
+        {
+            var info = GC.GetGCMemoryInfo();
+            var proc = Process.GetCurrentProcess();
+            proc.Refresh();
+
+            var tyLe = (double)proc.WorkingSet64 / info.TotalAvailableMemoryBytes;
+
+            if (tyLe > 0.8)
+                _logger.LogWarning(
+                    "Bộ nhớ cao: RSS {Rss:F0} MB / giới hạn {Limit:F0} MB ({TyLe:P0}), " +
+                    "heap {Heap:F0} MB, gen2 {Gen2} lần",
+                    proc.WorkingSet64 / 1048576.0,
+                    info.TotalAvailableMemoryBytes / 1048576.0,
+                    tyLe,
+                    GC.GetTotalMemory(false) / 1048576.0,
+                    GC.CollectionCount(2));
+        }
+    }
+}
+```
+
+Nó không ngăn được OOM, nhưng nó biến "log dừng đột ngột" thành "log có một cảnh báo rõ ràng ngay trước khi dừng" — và đó là khác biệt giữa một giờ điều tra và năm phút.
+
+**Và ghi log ra `stdout` không đệm** để không mất dòng cuối:
+
+```csharp
+builder.Logging.AddSimpleConsole(o => o.SingleLine = true);
+```
+
+```dockerfile
+ENV DOTNET_CONSOLE_ANSI_COLOR=0
+```
+
+Ghi log ra **file** trong container là lựa chọn tệ nhất ở đây: file có buffer, container biến mất mang theo filesystem, và bạn mất đúng phần quan trọng nhất.
+
+**Nguyên nhân thật của OOM trong .NET gần như luôn là một trong ba:**
+
+1. **GC không biết giới hạn cgroup** — nguyên nhân phổ biến nhất, và là chủ đề của [bài 15.12](15.12-mini-case-study.mdx).
+2. **Rò rỉ thật** — cache không giới hạn ([bài 14.2](../module-14-caching-background-jobs/14.2-imemorycache.mdx)), sự kiện static không gỡ, `HttpClient` tạo mới mỗi lần.
+3. **Một truy vấn nạp quá nhiều** — `ToList()` trên bảng lớn, hoặc thiếu phân trang.
+
+Trước khi tăng `memory limit`, hãy xác định bạn đang ở trường hợp nào — tăng giới hạn cho trường hợp 2 chỉ làm sự cố đến muộn hơn.
+
+</details>
+
+---
+
+#### Bài 3 — `free` nói dối trong container
+
+Chạy `docker run --memory=256m` rồi `docker exec` vào và chạy `free -m`. So sánh với `docker stats`.
+
+**Tiêu chí hoàn thành:** bạn giải thích được vì sao `free` thấy sai, và liệt kê được những công cụ khác cũng bị đánh lừa theo cùng cách.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** `free` đọc thông tin từ đâu? Chỗ đó có bị cgroup giới hạn không?
+
+**Lời giải:**
+
+```bash
+docker run -d --name test --memory=256m --cpus=0.5 crm-api
+docker exec test free -m
+```
+
+```text
+               total        used        free      shared  buff/cache   available
+Mem:            7937        4452         710         565        2774        2612
+```
+
+```bash
+docker stats --no-stream test
+```
+
+```text
+CONTAINER   CPU %   MEM USAGE / LIMIT    MEM %
+test        2.31%   118.4MiB / 256MiB    46.25%
+```
+
+`free` báo 7.937 MB — đó là RAM của **máy chủ**, không phải giới hạn của container. Container thật sự chỉ được dùng 256 MB.
+
+Tương tự với CPU:
+
+```bash
+docker exec test nproc
+```
+
+```text
+4
+```
+
+Container được cấp `--cpus=0.5`, nhưng `nproc` báo 4.
+
+**Vì sao `free` thấy sai.** Vì `free` đọc `/proc/meminfo`, và `/proc` **không được namespace hoá** cho bộ nhớ:
+
+```text
+Container có namespace riêng cho:  PID, mạng, mount, user, IPC, UTS
+Container KHÔNG có namespace cho:  thông tin tài nguyên trong /proc
+
+-> /proc/meminfo, /proc/cpuinfo vẫn là của MÁY CHỦ
+```
+
+Giới hạn tài nguyên được thực thi bởi **cgroup**, một cơ chế hoàn toàn khác với namespace:
+
+```text
+Namespace:  cô lập thứ tiến trình NHÌN THẤY   (PID, mạng, filesystem)
+Cgroup:     giới hạn thứ tiến trình DÙNG ĐƯỢC (CPU, bộ nhớ, I/O)
+```
+
+Hai cơ chế độc lập, và Docker dùng cả hai. Nhưng cgroup không sửa `/proc/meminfo`, nên mọi công cụ đọc từ đó đều thấy con số của máy chủ.
+
+Giới hạn thật nằm ở đây:
+
+```bash
+# cgroup v2
+docker exec test cat /sys/fs/cgroup/memory.max
+docker exec test cat /sys/fs/cgroup/memory.current
+docker exec test cat /sys/fs/cgroup/cpu.max
+
+# cgroup v1
+docker exec test cat /sys/fs/cgroup/memory/memory.limit_in_bytes
+```
+
+```text
+268435456          <- 256 MB, đây mới là giới hạn thật
+124190720          <- đang dùng 118 MB
+50000 100000       <- 0,5 CPU
+```
+
+**Những công cụ và thư viện bị đánh lừa theo cùng cách:**
+
+| Công cụ | Thấy sai vì | Hậu quả |
+|---|---|---|
+| `free`, `top`, `htop` | Đọc `/proc/meminfo` | Con số vô nghĩa khi chẩn đoán |
+| `nproc`, `lscpu` | Đọc `/proc/cpuinfo` | Như trên |
+| JVM (trước Java 10) | Đọc `/proc/meminfo` cho heap mặc định | Heap lớn hơn giới hạn container → OOM |
+| Node.js (mặc định) | Heap mặc định theo RAM máy chủ | Tương tự |
+| Nginx `worker_processes auto` | Đếm CPU của máy chủ | Tạo quá nhiều worker |
+| Thư viện tự chỉnh kích thước pool | Tuỳ cách cài đặt | Pool quá lớn |
+
+**.NET thì sao?** Đây là tin tốt: **.NET Core 3.0 trở đi đọc cgroup đúng.**
+
+```csharp
+var info = GC.GetGCMemoryInfo();
+Console.WriteLine($"TotalAvailableMemoryBytes: {info.TotalAvailableMemoryBytes / 1048576} MB");
+Console.WriteLine($"ProcessorCount: {Environment.ProcessorCount}");
+```
+
+```text
+Trong container --memory=256m:
+TotalAvailableMemoryBytes: 256 MB      <- ĐÚNG, đọc từ cgroup
+ProcessorCount: 1                      <- ĐÚNG, làm tròn lên từ 0,5
+```
+
+`Environment.ProcessorCount` tôn trọng `--cpus` và làm tròn lên (tối thiểu 1), còn `GC.GetGCMemoryInfo()` đọc `memory.max` của cgroup.
+
+Đo thật trên .NET 9.0.203, đặt giới hạn heap bằng biến môi trường để mô phỏng cgroup:
+
+```text
+Không giới hạn:                 TotalAvailableMemory = 7937 MB,  gen0 GC: 25 lần
+DOTNET_GCHeapHardLimit=256MB:   TotalAvailableMemory =  256 MB,  gen0 GC: 36 lần
+DOTNET_GCHeapHardLimit=128MB:   TotalAvailableMemory =  128 MB,  gen0 GC: 42 lần
+```
+
+Cùng một khối lượng công việc, nhưng GC chạy nhiều hơn khi biết mình có ít bộ nhớ hơn — đó chính là hành vi mong muốn, và là lý do việc GC đọc đúng giới hạn lại quan trọng đến vậy.
+
+**Nhưng .NET đọc đúng không có nghĩa là mọi thứ tự động ổn** — xem [bài 15.12](15.12-mini-case-study.mdx). Hai điểm cần biết:
+
+1. **`TotalAvailableMemoryBytes` là giới hạn cgroup, nhưng GC mặc định dùng tới 75% của nó** trước khi thật sự ép thu gom. Với 256 MB, đó là 192 MB cho heap — phần còn lại phải đủ cho runtime, stack, mã JIT và bộ nhớ native.
+2. **Server GC tạo một heap cho mỗi CPU logic.** Trên máy nhiều core với giới hạn bộ nhớ chặt, tổng ngân sách các heap có thể vượt giới hạn container.
+
+**Ba việc nên làm khi chẩn đoán bộ nhớ trong container:**
+
+**1. Đừng dùng `free` và `top` trong container.** Dùng `docker stats` từ máy chủ, hoặc đọc thẳng cgroup:
+
+```bash
+docker exec test sh -c 'echo "$(( $(cat /sys/fs/cgroup/memory.current) / 1048576 )) MB / \
+$(( $(cat /sys/fs/cgroup/memory.max) / 1048576 )) MB"'
+```
+
+**2. Ghi giới hạn thật vào log lúc khởi động** — bốn dòng này tiết kiệm rất nhiều thời gian về sau:
+
+```csharp
+var info = GC.GetGCMemoryInfo();
+_logger.LogInformation("""
+    Tài nguyên container:
+      Giới hạn bộ nhớ (cgroup): {Mem} MB
+      ProcessorCount:           {Cpu}
+      Server GC:                {ServerGc}
+      Ngưỡng tải bộ nhớ cao:    {High} MB
+    """,
+    info.TotalAvailableMemoryBytes / 1048576,
+    Environment.ProcessorCount,
+    System.Runtime.GCSettings.IsServerGC,
+    info.HighMemoryLoadThresholdBytes / 1048576);
+```
+
+Nếu dòng đầu in ra 7.937 MB trong khi bạn đặt `--memory=256m`, có gì đó sai ở cấu hình runtime — và bạn biết ngay lúc khởi động thay vì lúc pod bị giết.
+
+**3. Đặt giới hạn tường minh cho cả những thứ không đọc cgroup:**
+
+```dockerfile
+ENV DOTNET_GCHeapHardLimitPercent=0x4B     # 75% dạng hex
+ENV DOTNET_gcServer=0                      # Workstation GC cho container nhỏ
+```
+
+Và cho các thành phần khác trong cùng image, nếu có:
+
+```nginx
+worker_processes 1;      # đừng dùng auto trong container
+```
+
+</details>
 
 ## Tự kiểm tra
 
