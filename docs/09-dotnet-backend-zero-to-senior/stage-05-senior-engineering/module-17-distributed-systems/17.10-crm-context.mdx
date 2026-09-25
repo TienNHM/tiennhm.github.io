@@ -205,11 +205,629 @@ Cần thay đổi lớn thì phát hành `LeadConvertedIntegrationEventV2` song 
 
 ## Bài tập áp dụng
 
-1. **Rà khoá idempotency.** Với mỗi consumer trong dự án, kiểm tra khoá đang dùng có phải định danh nghiệp vụ không.
+#### Bài 1 — Rà khoá idempotency
 
-2. **Tìm event dùng sai.** Tìm mọi chỗ publish event rồi chờ phản hồi và chuyển chúng sang gọi đồng bộ.
+Với mỗi consumer trong dự án, kiểm tra khoá đang dùng có phải định danh nghiệp vụ không.
 
-3. **Thử phiên bản.** Thêm một trường tuỳ chọn vào một event đang dùng và xác nhận consumer cũ vẫn đọc được message mới.
+**Tiêu chí hoàn thành:** bạn lập được bảng khoá cho mọi consumer, và nêu được vì sao `MessageId` **không đủ** trong bốn tình huống cụ thể.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** `MessageId` khử trùng được "cùng một message gửi lại". Còn "hai message khác nhau cho cùng một hành động" thì sao?
+
+**Lời giải — rà soát:**
+
+```bash
+grep -rn "MessageId\|IdempotencyKey\|MessageDaXuLy" --include="*Consumer.cs" --include="*Handler.cs" src/
+```
+
+```markdown
+| Consumer | Khoá đang dùng | Loại khoá | Đánh giá |
+|---|---|---|---|
+| TaoSubscriptionConsumer | `e.EventId` | MessageId | Chưa đủ |
+| TaoHoaDonConsumer | `$"hoadon:{e.KhachHangId}:{e.Thang:yyyy-MM}"` | **Nghiệp vụ** | Tốt |
+| GuiEmailChaoMungConsumer | `$"email-chao-mung:{e.LeadId}"` | **Nghiệp vụ** | Tốt |
+| TruTonKhoConsumer | `e.EventId` | MessageId | **Nguy hiểm** |
+| CapNhatThongKeConsumer | không có | — | **Nguy hiểm** |
+| DongBoErpConsumer | `e.EventId` | MessageId | Chưa đủ |
+```
+
+**Bốn tình huống mà `MessageId` không đủ:**
+
+**Tình huống 1 — người dùng thao tác hai lần.**
+
+```text
+Người dùng bấm "Chốt lead" hai lần (mạng chậm, nút không bị vô hiệu hoá)
+-> hai request HTTP
+-> hai use case chạy
+-> hai dòng outbox với EventId KHÁC NHAU
+-> hai message, cùng LeadId
+
+MessageId khử trùng: KHÔNG — hai id khác nhau
+-> hai subscription được tạo cho một lead
+```
+
+**Tình huống 2 — retry ở tầng trên sinh message mới.**
+
+```csharp
+// Tầng API retry khi timeout
+b.AddRetry(new HttpRetryStrategyOptions { MaxRetryAttempts = 3 });
+```
+
+```text
+Request 1 timeout ở phía client, nhưng server ĐÃ xử lý xong
+-> client retry
+-> use case chạy lại, sinh EventId MỚI
+-> hai message, cùng hành động nghiệp vụ
+```
+
+**Tình huống 3 — nhiều producer cho cùng một sự kiện.**
+
+```text
+Lead được convert qua API  -> LeadConvertedV1(EventId: A)
+Job đồng bộ ERP cũng phát  -> LeadConvertedV1(EventId: B)
+
+-> hai message hợp lệ, hai EventId, cùng một sự thật nghiệp vụ
+```
+
+**Tình huống 4 — replay sau khi sửa bug.**
+
+```text
+Consumer có bug, đã sửa. Cần xử lý lại message của hai tuần qua.
+-> reset offset trên Kafka và chạy lại
+
+Với MessageId:  consumer thấy "đã xử lý rồi" -> BỎ QUA HẾT
+                -> bug không được sửa cho dữ liệu cũ
+
+Với khoá nghiệp vụ: consumer thấy bản ghi đã tồn tại
+                    -> có thể CẬP NHẬT thay vì bỏ qua
+```
+
+Tình huống 4 đáng chú ý vì nó biến một tính năng — khử trùng lặp — thành một trở ngại. Và nó chỉ lộ ra khi bạn thật sự cần replay.
+
+**Chọn khoá đúng — ba mức:**
+
+**Mức 1 (tốt nhất) — ràng buộc unique tự nhiên trên chính bảng nghiệp vụ:**
+
+```csharp
+public class Subscription
+{
+    public SubscriptionId Id { get; private set; }
+    public CustomerId CustomerId { get; private set; }
+    public LeadId LeadId { get; private set; }        // một lead -> một subscription
+}
+```
+
+```csharp
+builder.Entity<Subscription>()
+    .HasIndex(s => s.LeadId)
+    .IsUnique()
+    .HasFilter("[IsDeleted] = 0");
+```
+
+```csharp
+try
+{
+    _db.Subscriptions.Add(Subscription.Tao(e.CustomerId, e.LeadId, e.GiaTri));
+    await _db.SaveChangesAsync(ct);
+}
+catch (DbUpdateException ex) when (LaViPhamUnique(ex, "IX_Subscriptions_LeadId"))
+{
+    _logger.LogInformation("Subscription cho lead {LeadId} đã tồn tại", e.LeadId);
+}
+```
+
+Không cần bảng khử trùng lặp riêng — chính dữ liệu nghiệp vụ là bản ghi.
+
+**Mức 2 — khoá tổ hợp từ nghiệp vụ, khi không có ràng buộc tự nhiên:**
+
+```csharp
+var khoa = $"hoadon:{e.KhachHangId}:{e.Thang:yyyy-MM}";
+var khoa = $"email-chao-mung:{e.LeadId}";
+var khoa = $"tru-kho:{e.OrderId}:{e.ProductId}";
+```
+
+**Mức 3 (yếu nhất) — `MessageId`, chỉ khi không có mức 1 hoặc 2:**
+
+```text
+Dùng được cho: consumer chỉ ghi log, chỉ cập nhật thống kê,
+               hoặc thao tác vốn đã idempotent theo bản chất
+```
+
+**Bốn khoá cho bốn luồng CRM điển hình:**
+
+```markdown
+| Luồng | Khoá đúng | Vì sao |
+|---|---|---|
+| Convert lead -> tạo subscription | `LeadId` | Một lead chỉ sinh một subscription |
+| Đơn hàng -> trừ tồn kho | `$"{OrderId}:{ProductId}"` | Một đơn, một sản phẩm, một lần trừ |
+| Cuối tháng -> xuất hoá đơn | `$"{KhachHangId}:{Thang}"` | Một khách, một tháng, một hoá đơn |
+| Lead mới -> gửi email chào mừng | `LeadId` | Một lead, một email |
+```
+
+**Hai consumer trong bảng đầu bài đáng xem kỹ:**
+
+**`TruTonKhoConsumer` dùng `MessageId` là nguy hiểm:**
+
+```text
+Hai message khác EventId, cùng OrderId
+-> trừ kho HAI LẦN
+-> tồn kho sai, và có thể âm
+```
+
+```csharp
+// Sửa — khoá nghiệp vụ, và dùng cập nhật nguyên tử
+var soDong = await _db.TonKho
+    .Where(k => k.ProductId == e.ProductId && k.SoLuong >= e.SoLuong)
+    .ExecuteUpdateAsync(s => s.SetProperty(k => k.SoLuong, k => k.SoLuong - e.SoLuong), ct);
+
+_db.TruKhoDaXuLy.Add(new TruKhoDaXuLy { Khoa = $"{e.OrderId}:{e.ProductId}" });
+await _db.SaveChangesAsync(ct);      // unique constraint trên Khoa
+```
+
+**`CapNhatThongKeConsumer` không có khoá nào:**
+
+```csharp
+// Nguy hiểm — cộng dồn, nên trùng lặp làm sai số liệu
+thongKe.TongDoanhSo += e.GiaTri;
+```
+
+Hai cách sửa:
+
+```csharp
+// a. Thêm khoá khử trùng lặp
+_db.ThongKeDaXuLy.Add(new ThongKeDaXuLy { Khoa = $"doanh-so:{e.OrderId}" });
+
+// b. Tốt hơn — thiết kế lại để phép tính tự idempotent
+var tong = await _db.Orders
+    .Where(o => o.ThangNam == thang && o.Status == OrderStatus.Completed)
+    .SumAsync(o => o.Total, ct);
+thongKe.DatTongDoanhSo(tong);        // TÍNH LẠI thay vì CỘNG DỒN
+```
+
+Cách (b) đáng ưu tiên: **một phép tính idempotent theo bản chất không cần khoá nào**. Đây là nguyên tắc chung — nếu bạn làm cho thao tác tự idempotent, bạn loại bỏ cả một lớp vấn đề thay vì quản lý nó.
+
+**Kiểm tra bằng test cho mọi consumer:**
+
+```csharp
+[Theory]
+[MemberData(nameof(MoiConsumer))]
+public async Task Consumer_xu_ly_hai_message_khac_EventId_cung_hanh_dong_chi_mot_lan(
+    Type kieuConsumer, object event1, object event2, Func<Task<int>> demKetQua)
+{
+    await GoiConsumerAsync(kieuConsumer, event1);
+    await GoiConsumerAsync(kieuConsumer, event2);     // EventId KHÁC, nội dung nghiệp vụ GIỐNG
+
+    (await demKetQua()).Should().Be(1);
+}
+```
+
+Test này khác với test ở [bài 17.2](17.2-messaging-fears-lost-duplicates.mdx): ở đó hai message **giống hệt** (cùng `EventId`); ở đây hai message **khác `EventId` nhưng cùng ý nghĩa nghiệp vụ**. Consumer chỉ dùng `MessageId` sẽ qua test kia nhưng trượt test này — và test này mới phản ánh đúng tình huống thực tế hay gặp.
+
+</details>
+
+---
+
+#### Bài 2 — Tìm event dùng sai
+
+Tìm mọi chỗ publish event rồi chờ phản hồi và chuyển chúng sang gọi đồng bộ.
+
+**Tiêu chí hoàn thành:** bạn nhận ra được mẫu "event giả dạng request", và nêu được **ba** thao tác tuyệt đối không được dùng event.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Nếu người gửi cần biết kết quả trước khi tiếp tục, đó còn là event không?
+
+**Lời giải — tìm mẫu sai:**
+
+```bash
+grep -rn -A10 "Publish(" --include="*.cs" src/ | grep -B5 "await.*Delay\|Polling\|WaitFor\|Task.WhenAny"
+```
+
+```csharp
+// Mẫu SAI 1 — publish rồi poll chờ kết quả
+public async Task<Result<GiaDto>> TinhGiaAsync(TinhGiaRequest req, CancellationToken ct)
+{
+    var requestId = Guid.CreateVersion7();
+    await _bus.Publish(new TinhGiaRequested(requestId, req.SanPhamId, req.SoLuong), ct);
+
+    // Chờ kết quả xuất hiện trong database
+    for (var i = 0; i < 50; i++)
+    {
+        var kq = await _db.KetQuaTinhGia.FirstOrDefaultAsync(k => k.RequestId == requestId, ct);
+        if (kq is not null) return Result<GiaDto>.ThanhCong(kq.ToDto());
+        await Task.Delay(100, ct);
+    }
+
+    return Result<GiaDto>.Loi("Hết thời gian chờ");
+}
+```
+
+```csharp
+// Mẫu SAI 2 — publish rồi dùng request-reply với timeout
+var response = await _requestClient.GetResponse<KetQuaTinhGia>(
+    new TinhGiaRequested(...), ct, TimeSpan.FromSeconds(30));
+```
+
+```csharp
+// Mẫu SAI 3 — publish rồi đọc lại trạng thái ngay
+await _bus.Publish(new CapNhatTonKho(sanPhamId, soLuong), ct);
+await Task.Delay(500, ct);                                       // "chờ cho nó xong"
+var kho = await _db.TonKho.FirstAsync(k => k.ProductId == sanPhamId, ct);
+```
+
+**Nhận ra mẫu "event giả dạng request":**
+
+```text
+Event thật:      "X đã xảy ra"      -> người gửi không quan tâm ai nghe
+                                     -> không chờ, không cần kết quả
+
+Request giả dạng: "hãy làm X cho tôi" -> người gửi CẦN kết quả
+                                      -> có chờ, có timeout, có poll
+```
+
+Năm dấu hiệu:
+
+```text
+1. Có Task.Delay hoặc vòng lặp poll sau Publish
+2. Có timeout cho việc chờ kết quả
+3. Tên message ở dạng mệnh lệnh: TinhGiaRequested, CapNhatTonKho
+4. Có bảng lưu "kết quả" của message
+5. Người dùng đang chờ ở đầu bên kia
+```
+
+Dấu hiệu 5 là dấu hiệu quyết định: **nếu có người đang nhìn màn hình chờ, đó là một request.**
+
+**Chuyển sang gọi đồng bộ:**
+
+```csharp
+// ĐÚNG — gọi trực tiếp, có timeout và circuit breaker
+public async Task<Result<GiaDto>> TinhGiaAsync(TinhGiaRequest req, CancellationToken ct)
+{
+    try
+    {
+        var gia = await _pricingClient.TinhGiaAsync(req.SanPhamId, req.SoLuong, ct);
+        return Result<GiaDto>.ThanhCong(gia);
+    }
+    catch (BrokenCircuitException)
+    {
+        return Result<GiaDto>.Loi("Dịch vụ tính giá tạm thời không khả dụng");
+    }
+}
+```
+
+```csharp
+services.AddHttpClient<IPricingClient, PricingClient>(c =>
+{
+    c.BaseAddress = new Uri(pricingUrl);
+    c.Timeout = TimeSpan.FromSeconds(3);
+})
+.AddStandardResilienceHandler(o =>
+{
+    o.AttemptTimeout.Timeout = TimeSpan.FromSeconds(2);
+    o.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(6);
+});
+```
+
+**Ba lợi ích của việc gọi đồng bộ đúng cách so với event giả dạng:**
+
+```text
+1. Độ trễ:      50 ms thay vì 100–5.000 ms (tuỳ chu kỳ poll)
+2. Xử lý lỗi:   exception rõ ràng thay vì "hết thời gian chờ"
+3. Đơn giản:    không cần bảng kết quả, không cần dọn bảng đó
+```
+
+**Ba thao tác tuyệt đối không được dùng event:**
+
+**1. Bất cứ thứ gì người dùng đang chờ kết quả.**
+
+```text
+Kiểm tra tồn kho trước khi cho đặt hàng
+Tính giá và chiết khấu
+Xác thực và phân quyền
+Tìm kiếm
+```
+
+Lý do: event là bất đồng bộ theo thiết kế. Bắt nó trở thành đồng bộ nghĩa là bạn trả chi phí của cả hai mô hình — độ phức tạp của messaging cộng với việc chờ của đồng bộ — mà không được lợi ích của cái nào.
+
+**2. Thao tác cần nhất quán tức thời với thao tác chính.**
+
+```text
+Trừ tồn kho khi đặt hàng
+Trừ số dư tài khoản
+Cấp số thứ tự duy nhất
+Kiểm tra hạn mức trước khi cho phép
+```
+
+```csharp
+// SAI — event cho một bất biến
+public Result DatHang(...)
+{
+    Status = OrderStatus.Placed;
+    Raise(new DonHangDaDat(Id, Items));       // handler trừ kho -> nếu thất bại thì sao?
+}
+
+// ĐÚNG — tường minh, cùng transaction
+public async Task<Result> Handle(DatHangCommand c, CancellationToken ct)
+{
+    var don = Order.Tao(...);
+
+    foreach (var item in don.Items)
+    {
+        var soDong = await _db.TonKho
+            .Where(k => k.ProductId == item.ProductId && k.SoLuong >= item.SoLuong)
+            .ExecuteUpdateAsync(s => s.SetProperty(k => k.SoLuong, k => k.SoLuong - item.SoLuong), ct);
+
+        if (soDong == 0) return Result.Loi($"Không đủ hàng cho sản phẩm {item.ProductId}");
+    }
+
+    _db.Orders.Add(don);
+    await _db.SaveChangesAsync(ct);          // cả hai cùng commit hoặc cùng rollback
+    return Result.ThanhCong();
+}
+```
+
+**3. Thao tác mà thứ tự và thời điểm là một phần của tính đúng đắn.**
+
+```text
+Cấp mã hoá đơn theo dãy liên tục
+Ghi nhận thời điểm cho mục đích pháp lý
+Khoá bản ghi trước khi sửa
+```
+
+**Bảng quyết định:**
+
+| Câu hỏi | Có | Không |
+|---|---|---|
+| Người gửi cần kết quả để tiếp tục? | **Gọi đồng bộ** | Event |
+| Thất bại của việc này làm thao tác chính SAI? | **Cùng transaction** | Event |
+| Có người đang chờ ở màn hình? | **Gọi đồng bộ** | Event |
+| Chậm 5 giây có ai thiệt hại? | Cân nhắc đồng bộ | **Event** |
+
+**Và một mẫu trung gian đáng biết: gọi đồng bộ để lấy kết quả, phát event để thông báo.**
+
+```csharp
+public async Task<Result> DatHangAsync(DatHangCommand c, CancellationToken ct)
+{
+    // ĐỒNG BỘ — cần kết quả ngay
+    var gia = await _pricingClient.TinhGiaAsync(c.Items, ct);
+    if (!gia.ThanhCong) return Result.Loi(gia.Loi);
+
+    var don = Order.Tao(c.CustomerId, c.Items, gia.Value);
+    _db.Orders.Add(don);
+
+    // EVENT — việc phụ, không ai chờ
+    _db.Outbox.Add(TinNhanOutbox.Tao(new DonHangDaTaoV1(don.Id.Value, don.Total.Amount)));
+
+    await _db.SaveChangesAsync(ct);
+    return Result.ThanhCong();
+}
+```
+
+```text
+Tính giá:          đồng bộ  -> cần kết quả để tạo đơn
+Gửi email xác nhận: event    -> không ai chờ
+Cập nhật dashboard: event    -> chậm 5 giây không sao
+Đồng bộ sang ERP:   event    -> chậm vài phút không sao
+```
+
+Đây là hình dạng đúng của phần lớn use case thật: **một phần đồng bộ cho những gì cần ngay, và event cho phần còn lại** — chứ không phải chọn một mô hình cho tất cả.
+
+</details>
+
+---
+
+#### Bài 3 — Thử phiên bản message
+
+Thêm một trường tuỳ chọn vào một event đang dùng và xác nhận consumer cũ vẫn đọc được message mới.
+
+**Tiêu chí hoàn thành:** bạn kiểm chứng được cả hai chiều, và có một quy trình để thay đổi hợp đồng message an toàn.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Bài 17.1 đã nói về tương thích hai chiều. Bài này là áp dụng vào một thay đổi thật.
+
+**Lời giải — thêm trường tuỳ chọn:**
+
+```csharp
+// V1 đang chạy trên production
+public record LeadDaChotV1(
+    Guid EventId,
+    Guid LeadId,
+    decimal GiaTri,
+    string TienTe);
+```
+
+```csharp
+// Thêm hai trường tuỳ chọn
+public record LeadDaChotV1(
+    Guid EventId,
+    Guid LeadId,
+    decimal GiaTri,
+    string TienTe,
+    string? MaChienDich = null,          // MỚI, tuỳ chọn
+    string? NguonKhach  = null);         // MỚI, tuỳ chọn
+```
+
+**Kiểm chứng chiều thứ nhất — consumer MỚI đọc message CŨ:**
+
+```csharp
+[Fact]
+public void Consumer_moi_doc_duoc_message_cu()
+{
+    var payloadCu = """
+        {"EventId":"0192f8a3-1234-7890-abcd-ef1234567890",
+         "LeadId":"0192f8a4-1234-7890-abcd-ef1234567890",
+         "GiaTri":5000000,
+         "TienTe":"VND"}
+        """;
+
+    var e = JsonSerializer.Deserialize<LeadDaChotV1>(payloadCu);
+
+    e.Should().NotBeNull();
+    e!.GiaTri.Should().Be(5_000_000);
+    e.MaChienDich.Should().BeNull("trường mới không có trong message cũ");
+    e.NguonKhach.Should().BeNull();
+}
+```
+
+**Kiểm chứng chiều thứ hai — consumer CŨ đọc message MỚI:**
+
+```csharp
+[Fact]
+public void Consumer_cu_doc_duoc_message_moi()
+{
+    // Định nghĩa CŨ, sao chép nguyên văn vào test
+    var payloadMoi = """
+        {"EventId":"0192f8a3-1234-7890-abcd-ef1234567890",
+         "LeadId":"0192f8a4-1234-7890-abcd-ef1234567890",
+         "GiaTri":5000000,
+         "TienTe":"VND",
+         "MaChienDich":"q4-2026",
+         "NguonKhach":"facebook"}
+        """;
+
+    var e = JsonSerializer.Deserialize<LeadDaChotV1Cu>(payloadMoi);
+
+    e.Should().NotBeNull();
+    e!.GiaTri.Should().Be(5_000_000);
+    // Hai trường mới bị BỎ QUA — đó là hành vi đúng
+}
+
+// Bản sao của định nghĩa cũ, giữ trong test
+private record LeadDaChotV1Cu(Guid EventId, Guid LeadId, decimal GiaTri, string TienTe);
+```
+
+```text
+Cả hai test PASS -> thay đổi an toàn
+```
+
+**Một chi tiết cấu hình quan trọng:** `System.Text.Json` mặc định **bỏ qua** trường không biết. Nhưng nếu ai đó bật chế độ nghiêm ngặt, chiều thứ hai sẽ gãy:
+
+```csharp
+var options = new JsonSerializerOptions { UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow };
+```
+
+```text
+System.Text.Json.JsonException: The JSON property 'MaChienDich' could not be
+mapped to any .NET member contained in type 'LeadDaChotV1Cu'.
+```
+
+Với message, **đừng bao giờ** bật `Disallow` — nó phá vỡ forward compatibility. Đặt một test để chặn:
+
+```csharp
+[Fact]
+public void Serializer_cua_message_khong_duoc_dung_che_do_nghiem_ngat()
+{
+    var options = LayJsonOptionsCuaMessage();
+    options.UnmappedMemberHandling.Should().NotBe(JsonUnmappedMemberHandling.Disallow,
+        "bật Disallow sẽ làm consumer cũ gãy khi producer thêm trường mới");
+}
+```
+
+**Quy trình thay đổi hợp đồng message an toàn:**
+
+```markdown
+## Quy trình đổi integration event
+
+### Bước 1 — Phân loại thay đổi
+| Thay đổi | An toàn | Quy trình |
+|---|:-:|---|
+| Thêm trường tuỳ chọn có mặc định | Có | Thêm trực tiếp |
+| Thêm trường bắt buộc | **Không** | Phiên bản mới |
+| Đổi tên trường | **Không** | Phiên bản mới |
+| Xoá trường | **Không** | Phiên bản mới |
+| Đổi kiểu | **Không** | Phiên bản mới |
+| Thêm giá trị enum | Cẩn thận | Kiểm tra consumer có nhánh mặc định không |
+
+### Bước 2 — Với thay đổi an toàn
+1. Thêm trường với giá trị mặc định
+2. Cập nhật payload mẫu trong `TestData/`, GIỮ cả bản cũ
+3. Chạy test tương thích hai chiều
+4. Deploy — thứ tự producer/consumer không quan trọng
+
+### Bước 3 — Với thay đổi phá vỡ
+1. Tạo `LeadDaChotV2`
+2. Publish CẢ V1 và V2 (giai đoạn 1, 4 tuần)
+3. Consumer chuyển dần sang V2 (giai đoạn 2)
+4. Theo dõi chỉ số `consumer_v1_count` — chờ về 0 và giữ 2 tuần
+5. Ngừng publish V1 (giai đoạn 3)
+```
+
+**Lưu payload mẫu — hồ sơ mọi định dạng từng tồn tại:**
+
+```text
+tests/Crm.Contracts.Tests/TestData/
+    LeadDaChotV1-2026-03.json      <- định dạng gốc
+    LeadDaChotV1-2026-06.json      <- sau khi thêm TenantId
+    LeadDaChotV1-2026-09.json      <- sau khi thêm MaChienDich
+```
+
+```csharp
+[Theory]
+[InlineData("LeadDaChotV1-2026-03.json")]
+[InlineData("LeadDaChotV1-2026-06.json")]
+[InlineData("LeadDaChotV1-2026-09.json")]
+public void Consumer_hien_tai_doc_duoc_MOI_dinh_dang_tung_ton_tai(string tenFile)
+{
+    var payload = File.ReadAllText(Path.Combine("TestData", tenFile));
+
+    var act = () => JsonSerializer.Deserialize<LeadDaChotV1>(payload);
+
+    act.Should().NotThrow($"consumer phải đọc được định dạng {tenFile}");
+}
+```
+
+**Quy tắc: không bao giờ xoá file payload cũ.** Message có thể nằm trong dead-letter queue hàng tháng, và một ngày nào đó có người xử lý lại chúng.
+
+**Đếm consumer để biết khi nào ngừng publish phiên bản cũ:**
+
+```csharp
+public async Task Consume(ConsumeContext<LeadDaChotV1> ctx)
+{
+    _demConsumerV1.Add(1,
+        new KeyValuePair<string, object?>("consumer", GetType().Name),
+        new KeyValuePair<string, object?>("endpoint", ctx.DestinationAddress?.AbsolutePath));
+
+    // ...
+}
+```
+
+```promql
+sum by (consumer) (rate(consumer_v1_total[1h]))
+```
+
+```text
+Nếu về 0 và giữ nguyên 2 tuần -> an toàn để ngừng publish V1
+```
+
+Không có chỉ số này, quyết định "ngừng publish V1" là một phỏng đoán — và phỏng đoán sai nghĩa là một dịch vụ nào đó ngừng nhận dữ liệu **trong im lặng**, vì nó vẫn chạy và vẫn xử lý message của các loại khác.
+
+**Và một cách làm cho consumer chịu được trường thiếu — không chỉ dựa vào giá trị mặc định:**
+
+```csharp
+public async Task Consume(ConsumeContext<LeadDaChotV1> ctx)
+{
+    var e = ctx.Message;
+
+    // Message cũ không có MaChienDich -> suy ra hoặc dùng giá trị hợp lý
+    var maChienDich = e.MaChienDich ?? await SuyRaChienDichAsync(e.LeadId, ct) ?? "khong-xac-dinh";
+
+    // Message cũ không có TenantId -> BẮT BUỘC phải có, không suy ra được
+    if (string.IsNullOrEmpty(e.TenantId))
+    {
+        _logger.LogWarning("Message {EventId} thiếu TenantId — bỏ qua", e.EventId);
+        return;      // ack, không retry — retry không làm trường xuất hiện
+    }
+}
+```
+
+Hai nhánh xử lý khác nhau cho hai loại trường: thứ **suy ra được** thì suy ra, thứ **bắt buộc** thì ghi log và bỏ qua. Cả hai đều tốt hơn là ném exception và để message quay vòng trong dead-letter queue.
+
+</details>
 
 ## Tự kiểm tra
 
