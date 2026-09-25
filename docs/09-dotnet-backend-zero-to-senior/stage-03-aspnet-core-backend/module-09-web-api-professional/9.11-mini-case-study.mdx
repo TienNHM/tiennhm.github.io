@@ -243,11 +243,208 @@ _meter.CreateCounter<long>("api.requests")
 
 ## Bài tập áp dụng
 
-1. **Phân loại thay đổi.** Lấy 5 thay đổi gần nhất trên API của bạn và xếp chúng vào an toàn hay phá hợp đồng.
+#### Bài 1 — Xếp loại năm thay đổi gần nhất của chính bạn
 
-2. **Bật kiểm tra CI.** Thêm bước so sánh OpenAPI vào pipeline và cố tình đổi kiểu một trường để xác nhận CI thất bại.
+Lấy 5 thay đổi gần nhất trên API của bạn và xếp chúng vào **an toàn** hay **phá hợp đồng**. Với mỗi cái phá hợp đồng, viết ra client nào sẽ hỏng và hỏng như thế nào.
 
-3. **Thêm giám sát.** Thêm chỉ số đếm request theo phiên bản và xem phân bố thực tế.
+**Tiêu chí hoàn thành:** với mỗi thay đổi, bạn nêu được **loại client nào chịu hậu quả nặng nhất** — vì đó mới là thứ quyết định kế hoạch.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Sự cố trong bài này cho thấy cùng một thay đổi gây hậu quả rất khác nhau tuỳ client. Hãy xếp thêm một cột: *client này có cập nhật được trong ngày không?*
+
+**Lời giải — bảng xếp loại có thêm cột hậu quả:**
+
+| Thay đổi | Phá hợp đồng? | Web (JS) | Mobile đã phát hành | Đối tác B2B |
+|---|---|---|---|---|
+| `int` → `Guid` cho `CustomerId` | **Có** | Refresh là xong | **Crash, chờ kiểm duyệt** | Hỏng job đêm |
+| Thêm `Tags` vào response | Không | — | — | — |
+| Thêm `?status=` tuỳ chọn | Không | — | — | — |
+| `Name` từ `MaxLength(200)` → `(100)` | **Có** | Lỗi 400 khi nhập dài | Lỗi 400, không rõ lý do | Bản ghi bị từ chối |
+| Bỏ trường `LegacyCode` | **Có** | Cột trống | **Crash nếu parse chặt** | Hỏng ánh xạ |
+
+**Ba điều bảng này nói ra mà một danh sách "breaking / không breaking" đơn thuần không nói:**
+
+1. **Mức độ nghiêm trọng không nằm ở thay đổi, mà ở client.** Cùng một lần đổi kiểu: web chỉ cần refresh, mobile thì crash và phải chờ cửa hàng duyệt. Chính khoảng cách này quyết định bạn được phép đi nhanh tới đâu.
+
+2. **Client bạn không kiểm soát đặt ra mốc thời gian.** Bạn không rollback được bản cài trên máy người dùng. Với ứng dụng mobile, "gỡ v1" nghĩa là chờ tới khi tỉ lệ cài đặt bản cũ về gần 0 — thường là **hàng tháng**.
+
+3. **Rollback backend không hoàn tác được thiệt hại.** Trong sự cố của bài, 15 phút đủ để dữ liệu hỏng đi vào **cache cục bộ trên máy người dùng**. Backend trở lại bình thường nhưng app vẫn hỏng cho tới khi người dùng xoá dữ liệu ứng dụng.
+
+**Hệ quả cho cách làm việc:** có client mobile đã phát hành thì mọi thay đổi phá hợp đồng **bắt buộc** đi qua version mới, kể cả khi bạn chắc chắn "chỉ mình đội mình gọi API này". Cái giá của việc nhầm là một bản vá phải qua kiểm duyệt cửa hàng.
+
+**Một mẹo rẻ để biết trước.** Ghi log `User-Agent` và phiên bản app cho mỗi request. Khi cần đánh giá một thay đổi, bạn trả lời được ngay *"bao nhiêu phần trăm lưu lượng đến từ bản không cập nhật được?"* thay vì phải đoán.
+
+</details>
+
+---
+
+#### Bài 2 — Bắt CI thất bại đúng lúc cần
+
+Thêm bước so sánh OpenAPI vào pipeline và cố tình đổi kiểu một trường để xác nhận CI thất bại.
+
+**Tiêu chí hoàn thành:** CI **đỏ** khi đổi kiểu, và **xanh** khi chỉ thêm trường — chứng minh bước kiểm tra không phải là cái chuông kêu suốt ngày.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Một bước kiểm tra kêu cả với thay đổi an toàn sẽ bị người ta thêm `continue-on-error: true` trong vòng một tuần. Hãy kiểm chứng cả hai chiều trước khi bật nó cho cả đội.
+
+**Lời giải — bước CI đầy đủ:**
+
+```yaml
+- name: Sinh hợp đồng hiện tại
+  run: |
+    dotnet build -c Release
+    dotnet tool install --global Swashbuckle.AspNetCore.Cli
+    swagger tofile --output current.json bin/Release/net9.0/CrmApi.dll v1
+
+- name: Lấy hợp đồng của bản đã phát hành
+  run: |
+    gh release download latest --pattern swagger.json --output baseline.json
+
+- name: So sánh với bản đã phát hành
+  run: npx @redocly/cli diff baseline.json current.json --format=stylish
+```
+
+**Kiểm chứng chiều thứ nhất — đổi kiểu, CI phải đỏ:**
+
+```csharp
+public record LeadDto(Guid CustomerId, string Name, decimal Value);   // đổi từ int
+```
+
+```text
+✗ BREAKING  components.schemas.LeadDto.properties.customerId.type
+            Type changed from 'integer' to 'string'.
+
+1 breaking change found.
+Error: Process completed with exit code 1.
+```
+
+**Kiểm chứng chiều thứ hai — thêm trường, CI phải xanh:**
+
+```csharp
+public record LeadDto(int CustomerId, string Name, decimal Value, string[]? Tags = null);
+```
+
+```text
+✓ 1 non-breaking change: components.schemas.LeadDto.properties.tags added.
+
+No breaking changes found.
+```
+
+**Hai chiều đều đúng, nên bước này dùng được thật.**
+
+**Ba chi tiết làm bước kiểm tra này sống sót lâu dài:**
+
+1. **File cơ sở phải là bản đã phát hành, không phải nhánh chính.** Lấy từ nhánh chính thì một breaking change đã merge sẽ trở thành "bình thường mới", và mọi pull request sau đó không báo gì nữa.
+
+2. **Cho phép vượt qua một cách tường minh, có dấu vết.** Đôi khi bạn **cố ý** phá hợp đồng vì đang phát hành v2. Đừng tắt bước kiểm tra — hãy bắt người ta khai báo:
+
+   ```yaml
+   - name: So sánh hợp đồng
+     if: "!contains(github.event.pull_request.labels.*.name, 'breaking-change-approved')"
+     run: npx @redocly/cli diff baseline.json current.json
+   ```
+
+   Giờ việc phá hợp đồng cần một nhãn trên pull request — nhìn thấy được trong lịch sử, và có người phải chủ động gắn.
+
+3. **Gắn thêm một dòng nhắc trong thông báo lỗi.** Người gặp lỗi lần đầu thường không biết phải làm gì:
+
+   ```yaml
+   run: |
+     npx @redocly/cli diff baseline.json current.json || {
+       echo "::error::Thay đổi này phá hợp đồng API. Hoặc sửa lại cho tương thích ngược,"
+       echo "::error::hoặc mở v2 theo hướng dẫn ở bài 9.3, rồi gắn nhãn breaking-change-approved."
+       exit 1
+     }
+   ```
+
+**Giới hạn phải nhớ.** Bước này không bắt được đổi **ý nghĩa**: `Value` chuyển từ "chưa thuế" sang "đã thuế" giữ nguyên tên, kiểu và ràng buộc — hợp đồng OpenAPI không đổi một ký tự. Máy không thấy gì, chỉ người review thấy.
+
+</details>
+
+---
+
+#### Bài 3 — Đo phân bố lưu lượng theo phiên bản
+
+Thêm chỉ số đếm request theo phiên bản và xem phân bố thực tế.
+
+**Tiêu chí hoàn thành:** bạn có một biểu đồ trả lời được *"còn bao lâu nữa thì tắt được v1?"* — bằng **xu hướng**, không phải bằng một con số tại một thời điểm.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Một con số "v1 chiếm 12%" không nói được gì. Con số đó **đang giảm nhanh hay đứng yên** mới là thứ quyết định.
+
+**Lời giải — chỉ số:**
+
+```csharp
+public sealed class ApiMetrics
+{
+    private readonly Counter<long> _requests;
+
+    public ApiMetrics(IMeterFactory factory)
+    {
+        var meter = factory.Create("Crm.Api");
+        _requests = meter.CreateCounter<long>("crm.api.requests");
+    }
+
+    public void Record(string version, string clientKind, int status) =>
+        _requests.Add(1,
+            new KeyValuePair<string, object?>("api.version", version),
+            new KeyValuePair<string, object?>("client.kind", clientKind),
+            new KeyValuePair<string, object?>("http.status_class", $"{status / 100}xx"));
+}
+```
+
+```csharp
+app.Use(async (ctx, next) =>
+{
+    await next(ctx);
+    metrics.Record(
+        ctx.GetRequestedApiVersion()?.ToString() ?? "unset",
+        ClassifyClient(ctx.Request.Headers.UserAgent),
+        ctx.Response.StatusCode);
+});
+```
+
+**Ba nhãn, và vì sao đúng ba nhãn này:**
+
+| Nhãn | Trả lời câu hỏi |
+|---|---|
+| `api.version` | Còn ai dùng v1? |
+| `client.kind` | Ai trong số đó **cập nhật được**? |
+| `http.status_class` | v2 có thật sự hoạt động tốt không? |
+
+**Tuyệt đối không gắn `customer_id` hay `user_id` làm nhãn.** Mỗi tổ hợp nhãn là một chuỗi thời gian riêng; thêm một nhãn có hàng chục nghìn giá trị là làm nổ hệ thống metric — đúng cảnh báo ở [bài 18.5](../../stage-05-senior-engineering/module-18-microservices/18.5-observability-three-pillars.mdx). Câu hỏi "ai còn dùng" thuộc về **log**, không thuộc về metric.
+
+**Phân bố điển hình sau 8 tuần theo dõi:**
+
+```text
+Tuần   v1      v2      Ghi chú
+  1    94%      6%     vừa phát hành v2
+  2    81%     19%     web chuyển xong
+  3    64%     36%     mobile phát hành bản mới
+  4    41%     59%     người dùng cập nhật dần
+  5    23%     77%
+  6    16%     84%
+  7    13%     87%     <- bắt đầu phẳng
+  8    12%     88%     <- vẫn phẳng
+```
+
+**Đường cong phẳng ở tuần 7 mới là thông tin thật.** 12% còn lại không tự biến mất: đó là những người không bao giờ cập nhật app, cộng với vài đối tác chưa đụng tới. Chờ thêm sáu tuần nữa cũng vẫn là 12%.
+
+**Đó là lúc chuyển từ chờ sang hành động:**
+
+1. Tách 12% đó theo `client.kind` để biết là mobile cũ hay đối tác.
+2. Lấy danh sách cụ thể từ **log** và liên hệ trực tiếp.
+3. Công bố ngày tắt, brownout một ngày, rồi tắt.
+
+**Một chỉ số nữa đáng theo dõi song song:** tỉ lệ `4xx`/`5xx` **của riêng v2**. Nếu v2 có tỉ lệ lỗi cao hơn v1, việc người ta chưa chuyển có thể không phải vì lười — mà vì v2 đang hỏng ở một trường hợp nào đó. Không có nhãn `http.status_class`, bạn sẽ thúc mọi người chuyển sang một phiên bản tệ hơn.
+
+</details>
 
 ## Tự kiểm tra
 
