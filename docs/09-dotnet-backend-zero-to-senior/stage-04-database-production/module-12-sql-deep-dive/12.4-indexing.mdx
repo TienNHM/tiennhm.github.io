@@ -229,11 +229,321 @@ CREATE INDEX IX_Contacts_CustomerId ON Contacts(CustomerId);
 
 ## Bài tập áp dụng
 
-1. **SARGable.** Trên bảng 1 triệu dòng có index trên `CreatedAt`, chạy `WHERE YEAR(CreatedAt) = 2026` và `WHERE CreatedAt >= '2026-01-01' AND CreatedAt < '2027-01-01'`. So sánh execution plan và số lần đọc trang.
+#### Bài 1 — Hàm bọc quanh cột làm index vô dụng
 
-2. **Key lookup.** Tạo index chỉ trên `Status`, chạy truy vấn `SELECT` nhiều cột với 50.000 dòng khớp, và xem optimizer có dùng index không. Thêm `INCLUDE` và so sánh.
+Trên bảng 1 triệu dòng có index trên `CreatedAt`, chạy `WHERE YEAR(CreatedAt) = 2026` và `WHERE CreatedAt >= '2026-01-01' AND CreatedAt < '2027-01-01'`. So sánh execution plan và số lần đọc trang.
 
-3. **Chi phí ghi.** Đo thời gian chèn 100.000 dòng vào bảng có 1 index, rồi vào bảng giống hệt có 8 index. So sánh.
+**Tiêu chí hoàn thành:** bạn giải thích được vì sao database **không thể** tự viết lại hàm thành khoảng, dù kết quả hai cách là như nhau.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Index là một cấu trúc **đã sắp xếp theo giá trị cột**. Hãy nghĩ xem `YEAR(x) = 2026` cho biết gì về vị trí của `x` trong cấu trúc đó.
+
+**Lời giải — hai truy vấn:**
+
+```sql
+CREATE INDEX IX_Leads_CreatedAt ON Leads(CreatedAt);
+SET STATISTICS IO ON;
+
+-- KHÔNG SARGable — hàm bọc quanh CỘT
+SELECT COUNT(*) FROM Leads WHERE YEAR(CreatedAt) = 2026;
+```
+
+```text
+|--Index Scan(OBJECT:([IX_Leads_CreatedAt]),
+              WHERE:(datepart(year,[CreatedAt])=(2026)))
+
+Table 'Leads'. logical reads 2847
+```
+
+```sql
+-- SARGable — cột đứng một mình
+SELECT COUNT(*) FROM Leads
+WHERE  CreatedAt >= '2026-01-01' AND CreatedAt < '2027-01-01';
+```
+
+```text
+|--Index Seek(OBJECT:([IX_Leads_CreatedAt]),
+              SEEK:([CreatedAt] >= '2026-01-01' AND [CreatedAt] < '2027-01-01'))
+
+Table 'Leads'. logical reads 412
+```
+
+**Quét toàn index so với nhảy thẳng tới khoảng cần: gần 7 lần đọc trang.** Với bảng lớn hơn, tỷ lệ này còn giãn ra.
+
+**Vì sao database không tự viết lại được.** Index lưu các giá trị `CreatedAt` **đã sắp xếp**. Để dùng nó, optimizer cần biết **khoảng giá trị** cần tìm — tức là một điểm bắt đầu và một điểm kết thúc trong cấu trúc đã sắp xếp.
+
+`CreatedAt >= A AND CreatedAt < B` nói thẳng điều đó.
+
+`YEAR(CreatedAt) = 2026` thì không. Nó nói về **kết quả của một hàm**, và optimizer không biết hàm đó ánh xạ ngược ra khoảng nào. Nó chỉ có một cách chắc chắn đúng: lấy từng giá trị, tính `YEAR()`, rồi so. Tức là đọc hết.
+
+Về lý thuyết, `YEAR` là hàm đơn điệu nên viết lại được — và SQL Server **có** làm điều đó cho một số trường hợp rất hẹp. Nhưng quy tắc chung thì không, vì optimizer phải đúng với **mọi** hàm, kể cả hàm người dùng tự viết mà nó không biết gì về hành vi. Nên nó chọn cách an toàn.
+
+**Ba dạng phá index hay gặp nhất:**
+
+```sql
+-- 1. Hàm trên cột
+WHERE YEAR(CreatedAt) = 2026
+WHERE UPPER(Email) = 'AN@COMPANY.COM'
+WHERE CAST(CustomerId AS NVARCHAR) = '42'
+
+-- 2. Tính toán trên cột
+WHERE Total * 1.1 > 1000000          -- viết lại: Total > 1000000 / 1.1
+
+-- 3. Wildcard ở đầu chuỗi
+WHERE Name LIKE N'%Phát'             -- không biết bắt đầu tìm từ đâu
+```
+
+**Viết lại tương ứng:**
+
+```sql
+WHERE CreatedAt >= '2026-01-01' AND CreatedAt < '2027-01-01'
+WHERE Email = 'an@company.com'       -- chuẩn hoá khi GHI, xem bài 12.3
+WHERE CustomerId = 42
+WHERE Total > 909090.91
+WHERE Name LIKE N'Phát%'             -- tiền tố thì dùng được index
+```
+
+**Khi thật sự cần truy vấn theo kết quả hàm**, đặt index lên chính biểu thức:
+
+```sql
+-- SQL Server: cột tính toán rồi index lên nó
+ALTER TABLE Leads ADD CreatedYear AS YEAR(CreatedAt) PERSISTED;
+CREATE INDEX IX_Leads_CreatedYear ON Leads(CreatedYear);
+```
+
+```sql
+-- PostgreSQL: index trên biểu thức, không cần thêm cột
+CREATE INDEX idx_leads_created_year ON leads (EXTRACT(YEAR FROM created_at));
+```
+
+**Cái bẫy trong EF Core.** Viết LINQ theo thói quen rất dễ sinh ra hàm trên cột:
+
+```csharp
+// SAI — sinh DATEPART(year, [l].[CreatedAt]) = 2026
+_db.Leads.Where(l => l.CreatedAt.Year == 2026)
+
+// ĐÚNG
+var from = new DateTime(2026, 1, 1);
+var to   = new DateTime(2027, 1, 1);
+_db.Leads.Where(l => l.CreatedAt >= from && l.CreatedAt < to)
+```
+
+Bật log SQL của EF Core khi phát triển là cách rẻ nhất để bắt những chỗ này — xem [bài 13.2](../module-13-entity-framework-core/13.1-ef-core-overview.mdx).
+
+**Cách rà soát nhanh:** tìm `CONVERT_IMPLICIT`, `Scan` và tên hàm trong execution plan của các truy vấn chậm nhất. Mỗi lần thấy một hàm áp lên tên cột là một index đang bị vô hiệu hoá.
+
+</details>
+
+---
+
+#### Bài 2 — Key lookup và ngưỡng optimizer bỏ index
+
+Tạo index chỉ trên `Status`, chạy truy vấn `SELECT` nhiều cột với 50.000 dòng khớp, và xem optimizer có dùng index không. Thêm `INCLUDE` và so sánh.
+
+**Tiêu chí hoàn thành:** bạn giải thích được vì sao optimizer **cố tình** bỏ qua một index đang tồn tại và phù hợp.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Index chỉ chứa `Status` và khoá chính. Những cột khác trong `SELECT` phải lấy từ đâu?
+
+**Lời giải — index hẹp:**
+
+```sql
+CREATE INDEX IX_Leads_Status ON Leads(Status);
+
+SET STATISTICS IO ON;
+
+SELECT Id, Name, Value, CreatedAt, OwnerId
+FROM   Leads
+WHERE  Status = N'New';              -- khớp 50.000 / 1.000.000 dòng
+```
+
+```text
+|--Clustered Index Scan(OBJECT:([PK_Leads]), WHERE:([Status]=N'New'))
+
+Table 'Leads'. logical reads 8921
+```
+
+**Optimizer bỏ qua `IX_Leads_Status` và quét thẳng bảng.**
+
+**Vì sao nó cố tình làm vậy.** Index `IX_Leads_Status` chỉ chứa hai thứ: `Status` và khoá chính `Id`. Truy vấn cần thêm `Name`, `Value`, `CreatedAt`, `OwnerId` — những cột không có trong index.
+
+Nên nếu dùng index, SQL Server phải:
+
+```text
+1. Seek vào index, lấy 50.000 giá trị Id
+2. Với MỖI Id, nhảy về clustered index lấy các cột còn lại   <- key lookup
+```
+
+Mỗi key lookup là một lần truy cập ngẫu nhiên vào cây B-tree, tốn khoảng 3–4 lần đọc trang. 50.000 lookup là khoảng 150.000–200.000 lần đọc — **nhiều hơn hẳn** so với 8.921 lần đọc khi quét tuần tự cả bảng.
+
+Optimizer ước lượng được điều đó và chọn phương án rẻ hơn. Đây không phải nó "không thấy index"; nó thấy, tính, và kết luận rằng dùng index **đắt hơn**.
+
+**Ngưỡng này gọi là tipping point**, và nó thấp hơn nhiều người tưởng: thường chỉ khoảng **1–2% số dòng của bảng**. Vượt ngưỡng đó, quét tuần tự thắng.
+
+```text
+Khớp     50 dòng / 1.000.000  (0,005%)  -> dùng index + lookup
+Khớp  5.000 dòng / 1.000.000  (0,5%)    -> dùng index + lookup
+Khớp 50.000 dòng / 1.000.000  (5%)      -> QUÉT BẢNG
+```
+
+**Thêm `INCLUDE` để index tự chứa đủ dữ liệu:**
+
+```sql
+CREATE INDEX IX_Leads_Status_Covering
+    ON Leads(Status)
+    INCLUDE (Name, Value, CreatedAt, OwnerId);
+```
+
+```text
+|--Index Seek(OBJECT:([IX_Leads_Status_Covering]), SEEK:([Status]=N'New'))
+
+Table 'Leads'. logical reads 487
+```
+
+**Từ 8.921 xuống 487 — gần 18 lần.** Không còn lookup nào vì mọi cột cần đều nằm sẵn trong index. Đây gọi là **covering index**.
+
+**Khác biệt giữa cột khoá và cột `INCLUDE`:**
+
+| | Cột khoá `(...)` | Cột `INCLUDE (...)` |
+|---|---|---|
+| Được sắp xếp | Có | **Không** |
+| Dùng để `SEEK` | Có | Không |
+| Dùng để `ORDER BY` | Có | Không |
+| Nằm ở | Mọi tầng của B-tree | **Chỉ tầng lá** |
+| Chi phí dung lượng | Cao hơn | Thấp hơn |
+
+Vì `INCLUDE` chỉ nằm ở tầng lá, nó không làm phình các tầng trên của cây — nên thêm cột vào `INCLUDE` rẻ hơn nhiều so với thêm vào khoá.
+
+**Quy tắc thực dụng:**
+
+```text
+Cột dùng để LỌC hoặc SẮP XẾP  ->  đặt trong khoá
+Cột chỉ để ĐỌC ra              ->  đặt trong INCLUDE
+```
+
+**Và đừng lạm dụng.** Một covering index cho mỗi truy vấn nghe hấp dẫn, nhưng mỗi index là một cấu trúc phải cập nhật ở **mọi** `INSERT`, `UPDATE`, `DELETE` — chi phí đó đo được ở bài 3. Chỉ tạo covering index cho những truy vấn **thật sự quan trọng và chạy thường xuyên**.
+
+**Cách tìm ứng viên:**
+
+```sql
+SELECT TOP 20
+       mid.statement, migs.avg_user_impact,
+       migs.user_seeks + migs.user_scans AS uses,
+       mid.equality_columns, mid.inequality_columns, mid.included_columns
+FROM   sys.dm_db_missing_index_groups mig
+JOIN   sys.dm_db_missing_index_group_stats migs ON migs.group_handle = mig.index_group_handle
+JOIN   sys.dm_db_missing_index_details  mid     ON mig.index_handle  = mid.index_handle
+ORDER  BY migs.avg_user_impact * (migs.user_seeks + migs.user_scans) DESC;
+```
+
+Đây là **gợi ý**, không phải lệnh. SQL Server đề xuất index cho từng truy vấn riêng lẻ mà không nhìn tổng thể, nên nó hay đề xuất nhiều index gần trùng nhau. Hãy gộp lại trước khi tạo.
+
+</details>
+
+---
+
+#### Bài 3 — Cái giá của index khi ghi
+
+Đo thời gian chèn 100.000 dòng vào bảng có 1 index, rồi vào bảng giống hệt có 8 index. So sánh.
+
+**Tiêu chí hoàn thành:** bạn nêu được con số và rút ra được nguyên tắc về **số lượng** index nên có trên một bảng ghi nhiều.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Mỗi index là một cây B-tree riêng. Một dòng mới phải được chèn vào **mọi** cây.
+
+**Lời giải — hai bảng:**
+
+```sql
+CREATE TABLE LeadsFew (
+    Id INT IDENTITY PRIMARY KEY,
+    Name NVARCHAR(200), Email NVARCHAR(256), Status NVARCHAR(50),
+    Value DECIMAL(18,2), OwnerId INT, TenantId INT,
+    CreatedAt DATETIME2(3), UpdatedAt DATETIME2(3)
+);
+
+CREATE TABLE LeadsMany (   -- cấu trúc y hệt
+    Id INT IDENTITY PRIMARY KEY,
+    Name NVARCHAR(200), Email NVARCHAR(256), Status NVARCHAR(50),
+    Value DECIMAL(18,2), OwnerId INT, TenantId INT,
+    CreatedAt DATETIME2(3), UpdatedAt DATETIME2(3)
+);
+
+CREATE INDEX IX1 ON LeadsMany(Email);
+CREATE INDEX IX2 ON LeadsMany(Status);
+CREATE INDEX IX3 ON LeadsMany(OwnerId);
+CREATE INDEX IX4 ON LeadsMany(TenantId, Status);
+CREATE INDEX IX5 ON LeadsMany(CreatedAt);
+CREATE INDEX IX6 ON LeadsMany(UpdatedAt);
+CREATE INDEX IX7 ON LeadsMany(Value) INCLUDE (Name, Status);
+```
+
+```sql
+SET STATISTICS TIME ON;
+-- chèn 100.000 dòng vào từng bảng
+```
+
+**Kết quả điển hình:**
+
+| | 1 index (khoá chính) | 8 index |
+|---|---|---|
+| Thời gian chèn | ~3,1 giây | **~19,4 giây** |
+| Logical writes | ~4.200 | **~38.500** |
+| Dung lượng bảng | 18 MB | **71 MB** |
+
+**Chèn chậm hơn khoảng 6 lần và tốn gấp 4 lần dung lượng.**
+
+**Vì sao.** Mỗi `INSERT` phải:
+
+```text
+1. Ghi dòng vào clustered index
+2. Ghi một mục vào MỖI nonclustered index — 7 lần nữa
+3. Với mỗi cây, có thể phải tách trang nếu trang đích đã đầy
+4. Mọi thay đổi đều được ghi vào transaction log
+```
+
+Và `UPDATE` còn tệ hơn: sửa một cột có mặt trong ba index là ba cây phải cập nhật, mỗi cây có thể cần **xoá rồi chèn lại** nếu giá trị khoá đổi.
+
+**Nguyên tắc rút ra: index là một khoản đầu tư, không phải một thứ miễn phí.** Mỗi index nên trả lời được câu hỏi *"truy vấn nào dùng nó, chạy bao nhiêu lần một ngày?"*. Không trả lời được thì nên xoá.
+
+**Tìm index không ai dùng:**
+
+```sql
+SELECT OBJECT_NAME(i.object_id)          AS TableName,
+       i.name                            AS IndexName,
+       s.user_seeks + s.user_scans + s.user_lookups AS Reads,
+       s.user_updates                    AS Writes
+FROM   sys.indexes i
+LEFT JOIN sys.dm_db_index_usage_stats s
+       ON s.object_id = i.object_id AND s.index_id = i.index_id
+      AND s.database_id = DB_ID()
+WHERE  i.type_desc = 'NONCLUSTERED'
+  AND  OBJECTPROPERTY(i.object_id, 'IsUserTable') = 1
+  AND  ISNULL(s.user_seeks + s.user_scans + s.user_lookups, 0) = 0
+  AND  ISNULL(s.user_updates, 0) > 1000                  -- nhưng vẫn phải GHI
+ORDER  BY s.user_updates DESC;
+```
+
+Mỗi dòng trả về là một index **chỉ tốn chi phí**: không truy vấn nào đọc nó, nhưng mọi lần ghi đều phải cập nhật nó.
+
+**Lưu ý:** thống kê này được đặt lại khi SQL Server khởi động lại, nên hãy xem sau khi hệ thống đã chạy ít nhất vài tuần — đủ để bao gồm cả những báo cáo chỉ chạy cuối tháng.
+
+**Ngưỡng thực dụng theo loại bảng:**
+
+| Loại bảng | Số index hợp lý |
+|---|---|
+| Ghi rất nhiều (log, event, outbox) | **1–2** |
+| Nghiệp vụ thông thường | 3–5 |
+| Chủ yếu đọc (bảng tra cứu, báo cáo) | 5–10 |
+
+**Và trước khi thêm index thứ sáu, hãy kiểm tra xem có index nào đã bao phủ nó chưa.** Index `(TenantId, Status)` đã phục vụ được truy vấn chỉ lọc theo `TenantId` — thêm một index riêng cho `TenantId` là thừa. Quy tắc: index trên `(A, B)` dùng được cho truy vấn lọc theo `A`, nhưng **không** dùng được cho truy vấn chỉ lọc theo `B`.
+
+</details>
 
 ## Tự kiểm tra
 
