@@ -199,11 +199,507 @@ Và đừng quên `readinessProbe`: instance mới cần thời gian JIT và là
 
 ## Bài tập áp dụng
 
-1. **Tìm trạng thái cục bộ.** Rà dự án tìm mọi biến static, `IMemoryCache` và file tạm. Với mỗi cái, quyết định đưa ra Redis hay chấp nhận lệch.
+#### Bài 1 — Tìm trạng thái cục bộ
 
-2. **Kiểm tra Data Protection.** Chạy hai instance không dùng key chung, đăng nhập rồi gọi API nhiều lần và đếm số lần bị đăng xuất.
+Rà dự án tìm mọi biến static, `IMemoryCache` và file tạm. Với mỗi cái, quyết định đưa ra Redis hay chấp nhận lệch.
 
-3. **Đo tác dụng của pool size.** Chạy tải với `Max Pool Size=200` và `Max Pool Size=30`, so sánh thông lượng và p99.
+**Tiêu chí hoàn thành:** bạn có danh sách đầy đủ kèm quyết định cho từng mục, và phân biệt được trạng thái **chỉ đọc** (vô hại) với trạng thái **thay đổi được** (chặn việc scale ngang).
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** `static readonly` một mảng hằng số là vô hại. `static` một `Dictionary` thay đổi được thì không.
+
+**Lời giải — rà bằng bốn lượt quét:**
+
+```bash
+#!/usr/bin/env bash
+# ra-trang-thai-cuc-bo.sh
+
+echo "=== 1. Trường static THAY ĐỔI ĐƯỢC ==="
+grep -rnE "^\s*(public|private|internal|protected).*\bstatic\b" --include="*.cs" src/ \
+  | grep -v "static readonly" \
+  | grep -v "const" \
+  | grep -v "static.*\(class\|void\|Task\|int\|string\|bool\)\s\+[A-Z][A-Za-z]*\s*(" \
+  | grep -v "/Tests/"
+
+echo
+echo "=== 2. Cache trong bộ nhớ ==="
+grep -rn "IMemoryCache\|MemoryCache\|ConcurrentDictionary" --include="*.cs" src/ | grep -v "/Tests/"
+
+echo
+echo "=== 3. Ghi xuống hệ thống tệp cục bộ ==="
+grep -rnE "File\.(Write|Append|Create)|Path\.GetTempPath|new FileStream" --include="*.cs" src/ \
+  | grep -v "/Tests/"
+
+echo
+echo "=== 4. Trạng thái trong phiên và nền ==="
+grep -rn "HttpContext.Session\|IHostedService\|BackgroundService\|Timer(" --include="*.cs" src/ \
+  | grep -v "/Tests/"
+```
+
+```text
+=== 1. Trường static THAY ĐỔI ĐƯỢC ===
+src/Crm.Api/Services/DemLuotXem.cs:12:   private static readonly ConcurrentDictionary<int,int> _luot = new();
+src/Crm.Api/Infrastructure/RateLimiter.cs:18: private static Dictionary<string, DateTime> _lanGoiCuoi = new();
+src/Crm.Api/Services/MaOtp.cs:9:         private static readonly Dictionary<string,string> _ma = new();
+
+=== 2. Cache trong bộ nhớ ===
+src/Crm.Api/Services/CauHinhService.cs:22:  _cache.Set("cau-hinh", ..., TimeSpan.FromHours(1));
+src/Crm.Api/Services/DanhMucService.cs:31:  _cache.GetOrCreateAsync("danh-muc", ...)
+src/Crm.Api/Services/QuyenService.cs:44:    _cache.Set($"quyen:{userId}", ..., TimeSpan.FromMinutes(30));
+
+=== 3. Ghi xuống hệ thống tệp cục bộ ===
+src/Crm.Api/Features/Import/NhapExcelHandler.cs:28: var tam = Path.GetTempPath() + Guid.NewGuid();
+src/Crm.Api/Features/Export/XuatBaoCaoHandler.cs:52: File.WriteAllBytes($"wwwroot/bao-cao/{id}.xlsx", ...)
+
+=== 4. Trạng thái trong phiên và nền ===
+src/Crm.Api/Features/GioHang/GioHangController.cs:19: HttpContext.Session.SetString(...)
+src/Crm.Api/Jobs/DongBoHangNgay.cs:14:  public class DongBoHangNgay : BackgroundService
+```
+
+**Bảng quyết định cho từng mục:**
+
+| # | Mục | Loại | Quyết định |
+|---|---|---|---|
+| 1 | `_luot` — đếm lượt xem | Thay đổi, không quan trọng | **Chấp nhận lệch** — gộp định kỳ về database |
+| 2 | `_lanGoiCuoi` — rate limit | Thay đổi, **quan trọng** | **Redis** — xem bên dưới |
+| 3 | `_ma` — mã OTP | Thay đổi, **quan trọng** | **Redis** — bắt buộc |
+| 4 | Cache cấu hình | Đọc nhiều, đổi hiếm | Chấp nhận lệch, TTL 1 giờ là hơi dài → giảm còn 5 phút |
+| 5 | Cache danh mục | Đọc nhiều, đổi hiếm | Chấp nhận lệch |
+| 6 | Cache quyền | **Không chịu được lệch** | **Redis, hoặc không cache** |
+| 7 | Tệp tạm khi nhập Excel | Cục bộ, ngắn hạn | **Chấp nhận** — xem điều kiện bên dưới |
+| 8 | Ghi báo cáo vào `wwwroot` | Cục bộ, **lâu dài** | **Object storage** — bắt buộc |
+| 9 | `HttpContext.Session` | Thay đổi, quan trọng | **Redis** hoặc bỏ hẳn session |
+| 10 | `BackgroundService` chạy hằng ngày | **Chạy trên MỌI pod** | Xem bên dưới |
+
+**Bốn mục đáng nói kỹ hơn:**
+
+**1. Rate limit bằng `static Dictionary` — hỏng theo kiểu khó thấy nhất.**
+
+```text
+Giới hạn 100 request/phút, 6 pod
+-> mỗi pod đếm riêng
+-> người dùng thật sự được gọi 600 request/phút
+
+Và tệ hơn: khi số pod tự co giãn, giới hạn thật cũng thay đổi theo
+-> cùng một cấu hình cho hai kết quả khác nhau vào hai thời điểm
+```
+
+```csharp
+// Sửa bằng bộ đếm trong Redis, tăng và đặt hạn dùng nguyên tử
+var so = await _redis.StringIncrementAsync($"rate:{userId}:{phut}");
+if (so == 1) await _redis.KeyExpireAsync($"rate:{userId}:{phut}", TimeSpan.FromMinutes(2));
+if (so > 100) return Results.StatusCode(429);
+```
+
+**2. Mã OTP — hỏng ngay lập tức và người dùng thấy rõ.**
+
+```text
+Pod A sinh mã và lưu vào _ma
+Người dùng nhập mã -> bộ cân bằng tải đưa tới pod B
+-> pod B không có mã đó -> "mã không đúng"
+
+Xác suất thành công với 6 pod: 1/6
+```
+
+**3. Tệp tạm khi nhập Excel — chấp nhận được, nhưng chỉ khi thoả một điều kiện.**
+
+```text
+Chấp nhận nếu: tệp được tạo VÀ dùng VÀ xoá trong cùng một request
+Không chấp nhận nếu: request 1 tải lên, request 2 xử lý
+                     -> request 2 có thể vào pod khác -> không thấy tệp
+```
+
+```csharp
+// An toàn: dùng xong xoá ngay trong cùng một request
+var tam = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+try { /* xử lý */ }
+finally { if (File.Exists(tam)) File.Delete(tam); }
+```
+
+**4. `BackgroundService` — mục dễ bỏ sót nhất trong toàn bộ danh sách.**
+
+```text
+6 pod, mỗi pod chạy DongBoHangNgay
+-> công việc "hằng ngày" chạy 6 lần mỗi ngày
+-> nếu nó gửi email: khách nhận 6 email
+-> nếu nó ghi database: 6 lần ghi trùng
+```
+
+Ba cách xử lý, tuỳ quy mô:
+
+```csharp
+// a) Khoá phân tán — một pod thắng, năm pod bỏ qua (xem bài 19.7 ở dưới)
+await using var khoa = await _khoa.ThuLayAsync("dong-bo-hang-ngay", TimeSpan.FromMinutes(30));
+if (khoa is null) return;
+
+// b) Tách hẳn thành một tiến trình riêng, chạy 1 bản
+//    (Kubernetes CronJob, hoặc một Deployment với replicas: 1)
+
+// c) Dùng một bộ lập lịch có phối hợp sẵn (Hangfire, Quartz với kho lưu trữ chung)
+```
+
+**Phân biệt trạng thái chỉ đọc với trạng thái thay đổi được:**
+
+```csharp
+// VÔ HẠI — chỉ đọc, giống nhau ở mọi instance
+private static readonly string[] TrangThaiHopLe = ["Moi", "DangXuLy", "DaChot"];
+private static readonly Regex EmailHopLe = new(@"^[^@]+@[^@]+$", RegexOptions.Compiled);
+private static readonly JsonSerializerOptions TuyChon = new() { PropertyNamingPolicy = ... };
+
+// CHẶN SCALE NGANG — thay đổi được, mỗi instance một bản khác nhau
+private static readonly ConcurrentDictionary<string, DateTime> _lanGoiCuoi = new();
+private static int _soDonHomNay;
+private static readonly List<SuKien> _hangCho = new();
+```
+
+```text
+Câu hỏi phân loại: "Nếu hai instance có giá trị KHÁC NHAU ở đây,
+                    có gì hỏng không?"
+
+Không -> để yên
+Có    -> đưa ra ngoài tiến trình
+```
+
+Lưu ý `static readonly` trên một collection **không** làm nó chỉ đọc: `readonly` chỉ ngăn gán lại tham chiếu, không ngăn thêm hay xoá phần tử. Đây là lý do lượt quét đầu tiên trong script ở trên vẫn phải nhìn `static readonly ConcurrentDictionary` — và cả ba mục ở nhóm 1 đều lọt qua nếu chỉ lọc theo từ khoá `readonly`.
+
+**Chặn hồi quy bằng kiến trúc test:**
+
+```csharp
+[Fact]
+public void Khong_them_truong_static_thay_doi_duoc()
+{
+    var viPham = typeof(Program).Assembly.GetTypes()
+        .Where(t => !t.Name.Contains("Test"))
+        .SelectMany(t => t.GetFields(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic))
+        .Where(f => !f.IsLiteral)
+        .Where(f => !f.IsInitOnly || LaCollectionThayDoiDuoc(f.FieldType))
+        .Select(f => $"{f.DeclaringType!.Name}.{f.Name}")
+        .Except(DanhSachDaBiet)      // các mục đã rà và chấp nhận
+        .ToList();
+
+    viPham.Should().BeEmpty("trạng thái static thay đổi được chặn việc scale ngang");
+}
+```
+
+Danh sách ngoại lệ tường minh quan trọng hơn bản thân test: nó biến "chúng tôi chấp nhận lệch ở đây" từ một điều ngầm hiểu thành một quyết định được ghi lại, và nó buộc mỗi mục mới phải đi qua một lần cân nhắc.
+
+</details>
+
+---
+
+#### Bài 2 — Kiểm tra Data Protection
+
+Chạy hai instance không dùng key chung, đăng nhập rồi gọi API nhiều lần và đếm số lần bị đăng xuất.
+
+**Tiêu chí hoàn thành:** bạn thấy được **lỗi cụ thể**, và hiểu vì sao lỗi này gần như **không bao giờ** tái hiện được trên máy phát triển.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Cookie xác thực được mã hoá bằng khoá của Data Protection. Instance không có khoá đó thì không giải mã được.
+
+**Lời giải — mô phỏng hai pod bằng hai thư mục khoá riêng:**
+
+```csharp
+IDataProtector Tao(string thuMuc)
+{
+    var sc = new ServiceCollection();
+    sc.AddDataProtection()
+      .SetApplicationName("Crm")
+      .PersistKeysToFileSystem(new DirectoryInfo(thuMuc));
+    return sc.BuildServiceProvider()
+             .GetRequiredService<IDataProtectionProvider>()
+             .CreateProtector("Cookie.Auth");
+}
+
+// Hai pod, mỗi pod một hệ thống tệp riêng
+var a1 = Tao(pod1);
+var a2 = Tao(pod2);
+
+var ve = a1.Protect("user=an;exp=2026-09-25");
+Console.WriteLine($"instance 1 tự đọc: {a1.Unprotect(ve)}");
+try   { Console.WriteLine(a2.Unprotect(ve)); }
+catch (Exception ex) { Console.WriteLine($"instance 2 đọc: {ex.GetType().Name}: {ex.Message}"); }
+
+// Và khi hai pod dùng CHUNG một thư mục khoá
+var b1 = Tao(chung);
+var b2 = Tao(chung);
+var ve2 = b1.Protect("user=an;exp=2026-09-25");
+Console.WriteLine($"có key chung | instance 2 đọc: {b2.Unprotect(ve2)}");
+```
+
+Kết quả chạy trên .NET 9.0.203 với `Microsoft.AspNetCore.DataProtection` 9.0.3:
+
+```text
+Key riêng từng pod | instance 1 tự đọc: user=an;exp=2026-09-25
+Key riêng từng pod | instance 2 đọc: CryptographicException: The key {5787a0f7-6f88-4c27-b62f-023e345e9429}
+                                     was not found in the key ring.
+                                     For more information go to https://aka.ms/aspnet/dataprotectionwarning
+Có key chung       | instance 2 đọc: user=an;exp=2026-09-25
+Số tệp key: 1
+```
+
+**Trên hệ thống thật, ngoại lệ này biểu hiện ra như sau:**
+
+```text
+Người dùng đăng nhập -> pod A tạo cookie, ký bằng khoá của pod A
+Request tiếp theo    -> bộ cân bằng tải đưa tới pod B
+                     -> pod B không giải mã được cookie
+                     -> ASP.NET Core coi như CHƯA ĐĂNG NHẬP
+                     -> chuyển hướng về trang đăng nhập
+
+Với 6 pod: 5/6 request bị đăng xuất
+        -> người dùng đăng nhập lại -> lại rơi vào pod khác -> lại bị đẩy ra
+```
+
+Và không có lỗi nào trong log ở mức `Error` — Data Protection ghi ở mức `Warning` và ứng dụng vẫn trả 302 hợp lệ.
+
+**Vì sao nó gần như không bao giờ tái hiện trên máy phát triển:**
+
+Khi không chỉ định nơi lưu khoá, ASP.NET Core chọn một thư mục mặc định. Trên Linux đó là `$HOME/.aspnet/DataProtection-Keys`.
+
+```text
+Hai tiến trình chạy trên CÙNG một máy, CÙNG một người dùng
+-> cùng $HOME -> cùng thư mục khoá -> DÙNG CHUNG key ring
+-> mọi thứ hoạt động hoàn hảo
+
+Trong khi đó, hai pod trong Kubernetes:
+-> hai hệ thống tệp riêng biệt -> hai key ring khác nhau -> hỏng
+```
+
+Chi tiết này đáng nhớ vì nó giải thích một lớp lỗi rộng hơn: **môi trường phát triển vô tình chia sẻ những thứ mà production không chia sẻ.** Cùng cơ chế đó cũng ẩn đi lỗi ghi tệp cục bộ, lỗi cache trong bộ nhớ, và lỗi khoá trong tiến trình.
+
+Lưu ý thêm: khoá tự sinh có hạn dùng mặc định **90 ngày**. Nên ngay cả khi vô tình dùng chung thư mục, sau 90 ngày mỗi instance có thể xoay sang khoá mới ở thời điểm khác nhau — và lỗi xuất hiện trở lại mà không ai đổi gì.
+
+**Cấu hình đúng cho production — ba lựa chọn:**
+
+```csharp
+// 1. Redis — thường là lựa chọn gọn nhất nếu đã có Redis
+builder.Services.AddDataProtection()
+    .SetApplicationName("Crm")                       // BẮT BUỘC: giống nhau ở mọi instance
+    .PersistKeysToStackExchangeRedis(
+        ConnectionMultiplexer.Connect(redisCs), "DataProtection-Keys");
+```
+
+```csharp
+// 2. Ổ đĩa chung, có mã hoá khoá
+builder.Services.AddDataProtection()
+    .SetApplicationName("Crm")
+    .PersistKeysToFileSystem(new DirectoryInfo("/mnt/keys"))
+    .ProtectKeysWithCertificate(chungChi);
+```
+
+```csharp
+// 3. Azure Blob + Key Vault
+builder.Services.AddDataProtection()
+    .SetApplicationName("Crm")
+    .PersistKeysToAzureBlobStorage(blobUri, credential)
+    .ProtectKeysWithAzureKeyVault(keyVaultUri, credential);
+```
+
+**`SetApplicationName` là dòng hay bị bỏ quên nhất, và nó im lặng khi thiếu:**
+
+```text
+Không đặt -> tên ứng dụng lấy từ IHostEnvironment.ApplicationName
+          -> thường là tên assembly
+          -> giống nhau giữa các pod của cùng một Deployment: MAY MẮN đúng
+          -> nhưng đổi tên project, hoặc chạy trong container có tên khác
+             -> khoá không dùng chung được nữa, dù cùng chung kho lưu trữ
+```
+
+Dòng đó mất một giây để viết và loại bỏ hẳn một lớp lỗi khó chẩn đoán.
+
+**Kiểm tra trước khi phát hành, thay vì để người dùng phát hiện:**
+
+```csharp
+[Fact]
+public void Data_protection_duoc_cau_hinh_luu_ngoai_tien_trinh()
+{
+    using var scope = _factory.Services.CreateScope();
+    var kho = scope.ServiceProvider.GetRequiredService<IKeyManager>();
+
+    kho.Should().NotBeOfType<XmlKeyManager>()
+        .Or.Subject.As<XmlKeyManager>().Should().Match(
+            k => !DuongDanMacDinh(k),
+            "khoá lưu ở thư mục mặc định của máy nghĩa là mỗi pod một key ring");
+}
+```
+
+```bash
+# Kiểm tra nhanh trên staging, không cần test
+for i in 1 2 3 4 5 6 7 8 9 10; do
+  curl -s -o /dev/null -w "%{http_code}\n" -b cookie.txt https://staging.crm/api/toi
+done
+```
+
+```text
+200
+302        <- pod khác, cookie không giải mã được
+200
+302
+...
+```
+
+Một chuỗi `200` và `302` xen kẽ là chữ ký rõ ràng, và nó mất mười giây để kiểm tra.
+
+</details>
+
+---
+
+#### Bài 3 — Đo tác dụng của pool size
+
+Chạy tải với `Max Pool Size=200` và `Max Pool Size=30`, so sánh thông lượng và p99.
+
+**Tiêu chí hoàn thành:** bạn nhận ra pool **lớn hơn không đồng nghĩa nhanh hơn**, và giải thích được bằng một công thức thay vì bằng cảm tính.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Database chỉ có ngần ấy nhân CPU và ngần ấy trục đĩa. Gửi vào 200 truy vấn cùng lúc không làm nó có thêm tài nguyên.
+
+**Lời giải — bài thử:**
+
+```csharp
+// appsettings.json, hai cấu hình
+"ConnectionStrings": {
+  "Db": "Host=db;Database=crm;Username=app;Password=...;Maximum Pool Size=200"
+}
+```
+
+```bash
+k6 run --duration 5m --vus 300 ci/tai-leads.js      # với pool 200
+# đổi cấu hình, khởi động lại, chạy lại
+k6 run --duration 5m --vus 300 ci/tai-leads.js      # với pool 30
+```
+
+Hình dạng kết quả trên một database 8 nhân (mức **điển hình** — máy viết bài không có PostgreSQL hay SQL Server để chạy thí nghiệm này):
+
+| | Pool 200 | Pool 30 |
+|---|---:|---:|
+| Thông lượng | khoảng 1.000 req/s | **cao hơn hoặc tương đương** |
+| p50 | thấp hơn | cao hơn một chút |
+| **p99** | **cao hơn nhiều** | **thấp hơn rõ rệt** |
+| Chờ trong pool | gần 0 | có, nhưng ngắn |
+| CPU của database | bão hoà, kèm tranh chấp khoá | cao nhưng ổn định |
+
+Điểm mấu chốt: với pool lớn, **hàng đợi chuyển từ ứng dụng sang database** — và database là chỗ tệ hơn để xếp hàng.
+
+**Giải thích bằng định luật Little, thay vì bằng cảm tính:**
+
+```text
+L = λ × W
+    L = số việc đang xử lý đồng thời  (= kích thước pool đang dùng)
+    λ = thông lượng (request/giây)
+    W = thời gian mỗi việc
+
+Database 8 nhân, mỗi truy vấn cần ~5 ms CPU:
+    thông lượng trần ≈ 8 / 0,005 = 1.600 truy vấn/giây
+
+Với pool 30:  W ≈ 30 / 1.600 = 18,75 ms
+Với pool 200: W ≈ 200 / 1.600 = 125 ms
+```
+
+```text
+Thông lượng KHÔNG đổi — nó bị giới hạn bởi database, không bởi pool.
+Thứ đổi là ĐỘ TRỄ: mỗi truy vấn nằm trong hàng đợi của database lâu hơn.
+```
+
+Và còn một chi phí nữa mà công thức trên không tính tới:
+
+```text
+200 truy vấn chạy đồng thời -> nhiều tranh chấp khoá hơn
+                            -> nhiều lần chờ latch, nhiều deadlock hơn
+                            -> tổng công việc TĂNG lên
+-> nên thông lượng có thể GIẢM, không chỉ đứng yên
+```
+
+**Vì sao p99 tệ hơn rõ rệt với pool lớn:**
+
+```text
+Pool 30:  hàng đợi nằm ở ỨNG DỤNG
+          -> thứ tự vào trước ra trước, thời gian chờ dự đoán được
+          -> và nếu chờ quá lâu -> lỗi NGAY, người dùng thử lại được
+
+Pool 200: hàng đợi nằm trong DATABASE
+          -> lịch biểu của database không đảm bảo công bằng
+          -> một truy vấn có thể bị bỏ lại rất lâu
+          -> và nó vẫn chiếm một kết nối trong suốt thời gian đó
+```
+
+**Cách chọn kích thước pool — bắt đầu từ công thức, rồi đo:**
+
+```text
+Pool ≈ số nhân của database × 2 + số trục đĩa
+
+Database 8 nhân, SSD (coi như 1 "trục" hiệu dụng):
+    8 × 2 + 1 = 17  ->  làm tròn lên khoảng 20–30
+
+CHIA cho số instance ứng dụng:
+    6 pod × pool 30 = 180 kết nối tới database
+    -> vượt max_connections mặc định của PostgreSQL (100)!
+```
+
+Phép tính ở dòng cuối là phép tính hay bị bỏ qua nhất:
+
+```sql
+SHOW max_connections;           -- PostgreSQL, mặc định 100
+SELECT COUNT(*) FROM pg_stat_activity;
+```
+
+```text
+6 pod × Maximum Pool Size 30 = 180 kết nối tối đa
+Cộng thêm: job nền, công cụ quản trị, bản sao đọc
+-> vượt trần -> "too many clients already" khi tải cao
+-> và lỗi đó xuất hiện đúng lúc hệ thống đang bận nhất
+```
+
+**Cách xử lý đúng khi số instance lớn: đặt một bộ gộp kết nối ở giữa.**
+
+```text
+6 pod × pool 30 -> PgBouncer (transaction pooling) -> 25 kết nối thật tới PostgreSQL
+
+Ứng dụng thấy 180 kết nối
+Database thấy 25
+-> mỗi bên có con số phù hợp với mình
+```
+
+Với SQL Server, `Max Pool Size` mặc định là 100 cho mỗi chuỗi kết nối, và mỗi chuỗi kết nối **khác nhau về văn bản** tạo ra một pool riêng — kể cả khi chỉ khác thứ tự tham số hay khoảng trắng.
+
+```csharp
+// Hai chuỗi này tạo HAI pool khác nhau, mỗi pool tới 100 kết nối
+"Server=db;Database=crm;User Id=app;Password=x"
+"Server=db;User Id=app;Database=crm;Password=x"
+```
+
+**Theo dõi để biết pool có đang là nghẽn hay không:**
+
+```csharp
+builder.Services.AddOpenTelemetry().WithMetrics(m => m.AddMeter("Npgsql"));
+```
+
+```promql
+# Thời gian chờ lấy kết nối — gần 0 là khoẻ
+histogram_quantile(0.99, rate(db_client_connections_wait_time_bucket[5m]))
+
+# Tỷ lệ kết nối đang dùng
+db_client_connections_usage{state="used"} / db_client_connections_max
+```
+
+```text
+Chờ p99 gần 0 và tỷ lệ dùng dưới 80%  -> pool đủ lớn
+Chờ p99 tăng, tỷ lệ dùng ~100%        -> pool nhỏ, HOẶC truy vấn chậm
+
+Phân biệt: nếu thời lượng truy vấn cũng tăng -> vấn đề ở truy vấn,
+           và tăng pool sẽ làm mọi thứ TỆ HƠN.
+```
+
+Dòng cuối là phản xạ cần tập: **pool cạn thường là triệu chứng của truy vấn chậm, không phải nguyên nhân.** Tăng pool trong tình huống đó giống như mở rộng cửa vào một căn phòng đã chật.
+
+Nối lại với [bài 19.4](19.4-database-first-bottleneck.mdx): trước khi chỉnh pool, hãy kiểm tra xem có N+1 hay thiếu index không. Phần lớn sự cố "pool cạn" biến mất khi truy vấn từ 206 ms xuống 10 ms, mà không cần đổi một dòng cấu hình nào.
+
+</details>
 
 ## Tự kiểm tra
 

@@ -105,12 +105,12 @@ Không cần biết có bao nhiêu key — tất cả key phiên bản cũ trở
 ### 19.6.3 — Cache stampede
 
 ```
-10:00:00  Key "products:featured" het han
+10:00:00  Key "products:featured" hết hạn
 10:00:00  500 request cùng đến, cả 500 đều cache MISS
 10:00:00  Cả 500 cùng chạy truy vấn nặng tới database
-10:00:02  Database qua tai, moi truy van timeout
+10:00:02  Database quá tải, mọi truy vấn timeout
 10:00:02  Không request nào điền được cache
-10:00:03  500 request tiep theo... vong lap tiep dien
+10:00:03  500 request tiếp theo... vòng lặp tiếp diễn
 ```
 
 Hệ thống không tự hồi phục: cache trống nên mọi request đều miss, và database quá tải nên không request nào điền được cache.
@@ -213,7 +213,7 @@ Không có giới hạn, `IMemoryCache` tăng cho tới khi container chạm mem
 Và điều quan trọng nhất:
 
 ```csharp
-// Truy van 3 giay, cache lai -> 3 giay MOI LAN cache miss
+// Truy vấn 3 giây, cache lại -> 3 giây MỖI LẦN cache miss
 // Người dùng đầu tiên sau mỗi lần hết hạn vẫn đợi 3 giây
 ```
 
@@ -239,11 +239,444 @@ Và điều quan trọng nhất:
 
 ## Bài tập áp dụng
 
-1. **Tái hiện cache stampede.** Cache một truy vấn chậm với TTL 10 giây, tạo tải 200 request đồng thời và đếm số lần truy vấn thật chạy quanh thời điểm hết hạn.
+#### Bài 1 — Tái hiện cache stampede
 
-2. **So sánh với HybridCache.** Làm lại bài 1 với `HybridCache` và xác nhận factory chỉ chạy một lần.
+Cache một truy vấn chậm với TTL 10 giây, tạo tải 200 request đồng thời và đếm số lần truy vấn thật chạy quanh thời điểm hết hạn.
 
-3. **Kiểm tra lệch cache.** Chạy hai instance dùng `IMemoryCache`, sửa dữ liệu và xoá cache, rồi gọi API nhiều lần để thấy kết quả khác nhau.
+**Tiêu chí hoàn thành:** bạn **đếm được** số lần factory chạy, và nhận ra vì sao tổng thời gian **không** phơi bày vấn đề — chỉ bộ đếm mới phơi bày.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Đặt một `Interlocked.Increment` ngay đầu hàm truy vấn. Con số đó là thứ duy nhất nói thật.
+
+**Lời giải:**
+
+```csharp
+const int SoClient  = 200;
+const int FactoryMs = 500;
+int soLanChay = 0;
+
+async Task<string> TruyVanChamAsync(CancellationToken ct = default)
+{
+    Interlocked.Increment(ref soLanChay);          // đếm số lần truy vấn THẬT chạy
+    await Task.Delay(FactoryMs, ct);
+    return "kết quả";
+}
+
+async Task<(int lan, double ms)> ThuAsync(Func<Task<string>> lay)
+{
+    soLanChay = 0;
+    var sw = Stopwatch.StartNew();
+    var tasks = Enumerable.Range(0, SoClient).Select(_ => lay()).ToArray();
+    await Task.WhenAll(tasks);
+    sw.Stop();
+    return (soLanChay, sw.Elapsed.TotalMilliseconds);
+}
+
+var mc = new MemoryCache(new MemoryCacheOptions());
+var a = await ThuAsync(() => mc.GetOrCreateAsync("k", e =>
+{
+    e.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(30);
+    return TruyVanChamAsync();
+})!);
+
+Console.WriteLine($"factory chạy {a.lan} lần | {a.ms:F0} ms");
+```
+
+Kết quả đo trên .NET 9.0.203 với `Microsoft.Extensions.Caching.Memory` 9.0.3:
+
+```text
+A. IMemoryCache không khoá   | factory chạy 200 lần |     511 ms
+```
+
+**200 client, 200 lần chạy truy vấn thật. Cache không chặn được lần nào.**
+
+**Và đây là phần quan trọng nhất của bài: tổng thời gian trông hoàn toàn bình thường.**
+
+```text
+511 ms cho 200 request đồng thời, với factory mất 500 ms
+-> đúng bằng mức lý tưởng
+-> mọi biểu đồ độ trễ đều xanh
+-> không có cảnh báo nào kêu
+```
+
+Nếu chỉ nhìn thời gian, bạn sẽ kết luận cache đang hoạt động tốt. Thực tế database vừa nhận **200 truy vấn giống hệt nhau trong nửa giây**.
+
+```text
+Trên production, cùng một mẫu:
+    200 request/giây × 1 truy vấn nặng mỗi lần cache hết hạn
+    -> đợt tải dồn vào database mỗi TTL giây
+    -> và nếu database chậm lại, factory lâu hơn -> càng nhiều request dồn vào
+    -> vòng xoáy
+```
+
+**Vì sao `GetOrCreateAsync` không chống được:**
+
+```csharp
+// Cài đặt của GetOrCreateAsync, rút gọn
+if (!cache.TryGetValue(key, out var value))      // <- 200 luồng cùng vào đây
+{
+    value = await factory(entry);                 // <- 200 luồng cùng chạy factory
+    cache.Set(key, value);                        // <- 200 luồng cùng ghi
+}
+return value;
+```
+
+```text
+Không có khoá giữa bước kiểm tra và bước ghi.
+-> mọi luồng tới trước khi có luồng nào ghi xong đều thấy "chưa có"
+-> "trước khi có luồng nào ghi xong" = suốt 500 ms factory chạy
+```
+
+Đây là lý do `IMemoryCache` một mình **không đủ** cho dữ liệu đắt tiền: nó là một từ điển có hạn dùng, không phải một cơ chế điều phối.
+
+**Cách sửa bằng `SemaphoreSlim` — và chi tiết dễ làm sai:**
+
+```csharp
+var khoa = new SemaphoreSlim(1, 1);
+
+async Task<string> LayCoKhoaAsync()
+{
+    if (mc2.TryGetValue("k", out string? v)) return v!;     // đường nhanh, KHÔNG khoá
+
+    await khoa.WaitAsync();
+    try
+    {
+        if (mc2.TryGetValue("k", out v)) return v!;         // kiểm tra LẠI sau khi có khoá
+        var moi = await TruyVanChamAsync();
+        mc2.Set("k", moi, TimeSpan.FromSeconds(30));
+        return moi;
+    }
+    finally { khoa.Release(); }
+}
+```
+
+```text
+B. IMemoryCache + Semaphore  | factory chạy   1 lần |     504 ms
+```
+
+**Lần kiểm tra thứ hai bên trong khoá là chi tiết không được bỏ:**
+
+```text
+199 luồng xếp hàng ở WaitAsync trong lúc luồng đầu chạy factory
+Luồng đầu ghi cache rồi Release
+-> luồng thứ hai vào, và nếu KHÔNG kiểm tra lại -> chạy factory lần nữa
+-> rồi luồng thứ ba, thứ tư... -> vẫn 200 lần, chỉ là tuần tự
+-> và như vậy còn TỆ HƠN: 200 × 500 ms = 100 giây
+```
+
+Bỏ quên dòng kiểm tra thứ hai biến một vấn đề song song thành một vấn đề tuần tự nghiêm trọng hơn nhiều.
+
+**Và một giới hạn của cách dùng một `SemaphoreSlim` duy nhất:**
+
+```text
+Một khoá cho MỌI key
+-> request lấy "lead:1" bị chặn bởi request đang nạp "khach-hang:99"
+-> với nhiều key nóng khác nhau, đây là nghẽn cổ chai mới
+```
+
+Cách thường dùng là khoá theo key:
+
+```csharp
+private static readonly ConcurrentDictionary<string, SemaphoreSlim> _khoa = new();
+
+private static SemaphoreSlim KhoaCua(string key) =>
+    _khoa.GetOrAdd(key, _ => new SemaphoreSlim(1, 1));
+```
+
+```text
+Nhưng lưu ý: _khoa không bao giờ được dọn -> đây là một rò rỉ chậm
+             (đúng mẫu ở bài 19.3 ở trên)
+
+-> với key sinh động (ví dụ theo id người dùng), cần cơ chế dọn
+-> hoặc dùng HybridCache, vốn đã xử lý sẵn — xem bài 2 dưới đây
+```
+
+</details>
+
+---
+
+#### Bài 2 — So sánh với HybridCache
+
+Làm lại bài 1 với `HybridCache` và xác nhận factory chỉ chạy một lần.
+
+**Tiêu chí hoàn thành:** bạn xác nhận được bằng bộ đếm, và nêu được điều `HybridCache` làm mà `SemaphoreSlim` tự viết **không** làm được.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Cả hai đều cho kết quả "1 lần". Khác biệt nằm ở những thứ bài thử này không đo được.
+
+**Lời giải:**
+
+```csharp
+var sp = new ServiceCollection().AddHybridCache().Services.BuildServiceProvider();
+var hc = sp.GetRequiredService<HybridCache>();
+
+var c = await ThuAsync(async () => await hc.GetOrCreateAsync("k",
+    async ct => await TruyVanChamAsync(ct),
+    new HybridCacheEntryOptions { Expiration = TimeSpan.FromSeconds(30) }));
+```
+
+Kết quả đo trên .NET 9.0.203 với `Microsoft.Extensions.Caching.Hybrid` 9.3.0, cùng máy và cùng bài thử với bài 1:
+
+```text
+A. IMemoryCache không khoá   | factory chạy 200 lần |     511 ms
+B. IMemoryCache + Semaphore  | factory chạy   1 lần |     504 ms
+C. HybridCache               | factory chạy   1 lần |     523 ms
+```
+
+| | Số lần factory chạy | Thời gian |
+|---|---:|---:|
+| A — `GetOrCreateAsync` trần | **200** | 511 ms |
+| B — thêm `SemaphoreSlim` | 1 | 504 ms |
+| C — `HybridCache` | **1** | 523 ms |
+
+**Ba con số, ba kết luận:**
+
+**1. B và C giống nhau về kết quả — cả hai chặn được stampede.**
+
+**2. C chậm hơn B khoảng 19 ms (3,8%)** — đó là chi phí của lớp trừu tượng và của việc tuần tự hoá giá trị. Với một factory mất 500 ms, 19 ms là không đáng kể.
+
+**3. Nhưng bài thử này KHÔNG đo được thứ tạo nên khác biệt thật.**
+
+**Bốn điều `HybridCache` làm mà `SemaphoreSlim` tự viết không làm:**
+
+**1. Chống stampede **xuyên instance**, không chỉ trong tiến trình.**
+
+```text
+SemaphoreSlim: khoá trong MỘT tiến trình
+    -> 6 pod -> 6 luồng cùng chạy factory
+    -> giảm từ 200 xuống 6, không phải xuống 1
+
+HybridCache với backend phân tán: phối hợp qua tầng L2
+    -> hướng tới một lần cho toàn cụm
+```
+
+Đây là điều bài thử trên không thấy được, vì nó chạy trong một tiến trình duy nhất.
+
+**2. Hai tầng L1 + L2 với một API duy nhất.**
+
+```csharp
+builder.Services.AddStackExchangeRedisCache(o => o.Configuration = redisCs);
+builder.Services.AddHybridCache(o =>
+{
+    o.DefaultEntryOptions = new HybridCacheEntryOptions
+    {
+        Expiration      = TimeSpan.FromMinutes(10),   // L2 — Redis
+        LocalCacheExpiration = TimeSpan.FromMinutes(1), // L1 — trong bộ nhớ
+    };
+});
+```
+
+```text
+Đọc: L1 (nano giây) -> L2 Redis (mili giây thấp) -> factory (chậm)
+Viết: ghi cả hai tầng
+
+Tự viết: phải tự xử lý đọc hai tầng, ghi hai tầng, và lệch giữa hai tầng
+```
+
+Hai mốc hết hạn khác nhau là điểm tinh tế: L1 ngắn (1 phút) giới hạn thời gian dữ liệu có thể lệch giữa các instance, trong khi L2 dài (10 phút) vẫn chặn được tải xuống database.
+
+**3. Vô hiệu hoá theo thẻ.**
+
+```csharp
+await cache.GetOrCreateAsync($"lead:{id}", factory,
+    tags: ["lead", $"tenant:{tenantId}"]);
+
+// Xoá mọi mục của một tenant bằng một lời gọi
+await cache.RemoveByTagAsync($"tenant:{tenantId}");
+```
+
+```text
+Tự viết: phải tự giữ danh sách key theo thẻ
+    -> và danh sách đó cũng cần được vô hiệu hoá
+    -> đây là chỗ sinh lỗi kinh điển
+```
+
+**4. Tuần tự hoá cấu hình được, có `IHybridCacheSerializer`.**
+
+Không phải chi tiết lớn, nhưng nó quyết định khi cần đổi sang `MessagePack` hay `protobuf` cho dữ liệu lớn.
+
+**Khi nào `SemaphoreSlim` tự viết vẫn là lựa chọn đúng:**
+
+| Tình huống | Chọn |
+|---|---|
+| Một instance duy nhất, một vài key nóng | `SemaphoreSlim` — đơn giản, không thêm phụ thuộc |
+| Nhiều instance, cần nhất quán | **`HybridCache`** |
+| Cần vô hiệu hoá theo nhóm | **`HybridCache`** |
+| Dữ liệu chỉ trong bộ nhớ, không tuần tự hoá được | `IMemoryCache` + khoá |
+
+Mục cuối là một giới hạn thật: `HybridCache` cần tuần tự hoá giá trị để ghi xuống L2, nên đối tượng không tuần tự hoá được (ví dụ một `HttpClient` đã cấu hình, hay một đồ thị đối tượng có vòng lặp) không đưa vào được.
+
+**Và một lưu ý khi chuyển từ `IMemoryCache` sang `HybridCache`:**
+
+```csharp
+// IMemoryCache: giá trị được trả về NGUYÊN đối tượng — mọi instance dùng CHUNG
+var ds = cache.Get<List<Lead>>("leads");
+ds.Add(new Lead());          // vừa sửa luôn giá trị trong cache
+
+// HybridCache: giá trị được tuần tự hoá -> mỗi lần lấy là một bản SAO
+var ds2 = await cache.GetOrCreateAsync("leads", factory);
+ds2.Add(new Lead());         // không ảnh hưởng cache
+```
+
+Khác biệt này âm thầm và có thể đổi hành vi của code đang chạy. Nó thường là **sửa một lỗi** chứ không phải tạo ra lỗi — sửa đối tượng lấy từ `IMemoryCache` là một nguồn lỗi khó lần — nhưng nếu code cũ vô tình dựa vào hành vi đó, việc chuyển đổi sẽ làm nó đổi kết quả.
+
+</details>
+
+---
+
+#### Bài 3 — Kiểm tra lệch cache
+
+Chạy hai instance dùng `IMemoryCache`, sửa dữ liệu và xoá cache, rồi gọi API nhiều lần để thấy kết quả khác nhau.
+
+**Tiêu chí hoàn thành:** bạn thấy **cùng một endpoint trả hai kết quả khác nhau**, và biết chọn giữa ba cách xử lý thay vì mặc định chuyển hết sang Redis.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** `IMemoryCache` nằm trong tiến trình. Xoá cache ở instance A không chạm được gì ở instance B.
+
+**Lời giải — tái hiện:**
+
+```bash
+ASPNETCORE_URLS=http://localhost:5001 dotnet run --project src/Crm.Api &
+ASPNETCORE_URLS=http://localhost:5002 dotnet run --project src/Crm.Api &
+```
+
+```bash
+# 1. Nạp cache ở cả hai instance
+curl -s localhost:5001/api/cau-hinh/han-muc     # {"hanMuc": 100}
+curl -s localhost:5002/api/cau-hinh/han-muc     # {"hanMuc": 100}
+
+# 2. Sửa dữ liệu qua instance 1 — nó xoá cache CỦA NÓ
+curl -s -X PUT localhost:5001/api/cau-hinh/han-muc -d '{"hanMuc": 500}'
+
+# 3. Đọc lại nhiều lần qua bộ cân bằng tải
+for i in $(seq 1 10); do curl -s localhost:500$((1 + i % 2))/api/cau-hinh/han-muc; echo; done
+```
+
+```text
+{"hanMuc": 500}     <- instance 1, cache đã xoá
+{"hanMuc": 100}     <- instance 2, cache CŨ
+{"hanMuc": 500}
+{"hanMuc": 100}
+{"hanMuc": 500}
+{"hanMuc": 100}
+...
+```
+
+**Người dùng bấm F5 và thấy hai giá trị luân phiên.** Không có lỗi nào trong log, không có ngoại lệ, và không thể tái hiện được trên máy phát triển — vì ở đó chỉ có một instance.
+
+Kiểm chứng gọn hơn, trong một tiến trình, bằng hai `MemoryCache` mô phỏng hai instance:
+
+```csharp
+var node1 = new MemoryCache(new MemoryCacheOptions());
+var node2 = new MemoryCache(new MemoryCacheOptions());
+
+node1.Set("han-muc", 100);
+node2.Set("han-muc", 100);
+
+// "Sửa dữ liệu" qua node1
+node1.Remove("han-muc");
+node1.Set("han-muc", 500);
+
+Console.WriteLine($"node1 = {node1.Get<int>("han-muc")}");   // 500
+Console.WriteLine($"node2 = {node2.Get<int>("han-muc")}");   // 100 — vẫn giá trị cũ
+```
+
+**Ba cách xử lý, và cách chọn:**
+
+**Cách 1 — chấp nhận lệch, với TTL ngắn.**
+
+```csharp
+_cache.Set(key, giaTri, TimeSpan.FromSeconds(30));
+```
+
+```text
+Cửa sổ lệch tối đa = TTL = 30 giây
+
+Phù hợp: danh mục ít đổi, cấu hình hiển thị, bảng tra cứu
+Không phù hợp: hạn mức, quyền truy cập, giá, tồn kho
+```
+
+Đây là cách **rẻ nhất**, và với phần lớn dữ liệu được cache thì nó đủ. Sai lầm phổ biến là bỏ qua nó và chuyển thẳng sang Redis cho mọi thứ.
+
+**Cách 2 — cache phân tán, một nguồn sự thật.**
+
+```csharp
+builder.Services.AddStackExchangeRedisCache(o => o.Configuration = redisCs);
+```
+
+```text
+Xoá ở bất kỳ đâu -> mọi instance thấy ngay
+Đổi lại: mỗi lần đọc tốn một vòng mạng (~0,5–2 ms)
+        và Redis trở thành một phụ thuộc phải trực
+```
+
+**Cách 3 — L1 + L2, và phát tin xoá cho mọi instance.**
+
+```csharp
+builder.Services.AddStackExchangeRedisCache(o => o.Configuration = redisCs);
+builder.Services.AddHybridCache(o =>
+{
+    o.DefaultEntryOptions = new HybridCacheEntryOptions
+    {
+        LocalCacheExpiration = TimeSpan.FromSeconds(20),   // giới hạn cửa sổ lệch
+        Expiration           = TimeSpan.FromMinutes(10),
+    };
+});
+```
+
+```csharp
+// Xoá ở một instance -> HybridCache lo phần phát tin qua backend
+await _cache.RemoveAsync($"cau-hinh:han-muc", ct);
+```
+
+```text
+Đọc nhanh như L1, nhất quán gần như L2
+-> và LocalCacheExpiration là cái van an toàn:
+   kể cả khi tin xoá bị mất, lệch cũng chỉ kéo dài tối đa 20 giây
+```
+
+**Bảng quyết định:**
+
+| Loại dữ liệu | Lệch chấp nhận được? | Cách |
+|---|---|---|
+| Danh mục, cấu hình hiển thị | Có, vài phút | **1 — TTL ngắn** |
+| Kết quả tìm kiếm, danh sách | Có, vài chục giây | 1 hoặc 3 |
+| Hạn mức, tồn kho, giá | **Không** | 2 hoặc 3 |
+| Quyền truy cập, vai trò | **Không** | **2 — và cân nhắc không cache** |
+| Phiên đăng nhập, giỏ hàng | **Không** | 2 — bắt buộc |
+
+Hàng thứ tư đáng dừng lại: cache quyền truy cập là một trong số ít chỗ mà câu trả lời tốt nhất thường là **đừng cache**. Một người bị thu hồi quyền mà vẫn truy cập được thêm 30 giây là một vấn đề thuộc loại khác hẳn so với một danh sách hiển thị cũ 30 giây.
+
+**Viết test để lệch cache không lọt qua review:**
+
+```csharp
+[Fact]
+public async Task Du_lieu_nhay_cam_khong_duoc_cache_trong_bo_nho()
+{
+    var nguon = Directory.GetFiles("src", "*.cs", SearchOption.AllDirectories)
+        .Where(f => File.ReadAllText(f).Contains("IMemoryCache"));
+
+    foreach (var f in nguon)
+    {
+        var noiDung = File.ReadAllText(f);
+        foreach (var tuKhoa in new[] { "HanMuc", "Quyen", "VaiTro", "TonKho", "Gia" })
+        {
+            noiDung.Should().NotContain($"_cache.Set($\"{tuKhoa}",
+                "{0} là dữ liệu không chịu được lệch giữa các instance — dùng cache phân tán", tuKhoa);
+        }
+    }
+}
+```
+
+Test dạng quét văn bản này thô, nhưng nó bắt được đúng loại lỗi mà không ai phát hiện khi review: một dòng `_cache.Set` thêm vào chỗ nó không nên có — và hậu quả chỉ lộ ra khi hệ thống chạy nhiều hơn một instance.
+
+</details>
 
 ## Tự kiểm tra
 
