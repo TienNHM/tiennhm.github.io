@@ -229,11 +229,315 @@ Mảng truyền vào `withAutomaticReconnect` là các khoảng chờ trước m
 
 ## Bài tập áp dụng
 
-1. **Kiểm tra log.** Kết nối tới hub và tìm `access_token` trong access log của proxy. Cấu hình che rồi kiểm tra lại.
+#### Bài 1 — Tìm `access_token` trong access log của proxy
 
-2. **Thử phân quyền.** Gọi một phương thức hub có `[Authorize(Roles = ...)]` bằng tài khoản không có vai trò đó.
+Kết nối tới hub và tìm `access_token` trong access log của proxy. Cấu hình che rồi kiểm tra lại.
 
-3. **Kiểm tra IUserIdProvider.** Gửi thông báo bằng `Clients.User` và xác nhận nó tới đúng người, kể cả khi mở nhiều tab.
+**Tiêu chí hoàn thành:** bạn che được ở proxy **và** nêu được vì sao che ở proxy vẫn chưa đủ.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Access log của Nginx chỉ là **một** trong những nơi URL được ghi lại.
+
+**Lời giải — tìm token:**
+
+```bash
+sudo grep -o 'access_token=[^& ]*' /var/log/nginx/access.log | tail -1
+```
+
+```text
+access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4ZjNhMWIyYyIs...
+```
+
+Token nằm nguyên trong log vì API WebSocket của trình duyệt **không cho đặt header tuỳ chỉnh**, nên SignalR buộc phải đưa token vào query string:
+
+```js
+// HTTP thông thường — gửi header được
+fetch('/api/v1/leads', { headers: { Authorization: `Bearer ${token}` } });
+
+// WebSocket — API trình duyệt KHÔNG cho gửi header tuỳ chỉnh
+new WebSocket('wss://crm.company.com/hubs/notifications');
+//            ^^ không có chỗ để đặt header
+```
+
+**Che ở Nginx:**
+
+```nginx
+map $request_uri $masked_uri {
+    ~^(?<path>[^?]*)\?(.*)access_token=[^&]*(.*)$  "$path?***";
+    default                                         $request_uri;
+}
+
+log_format masked '$remote_addr - [$time_local] '
+                  '"$request_method $masked_uri $server_protocol" $status';
+
+location /hubs/ {
+    access_log /var/log/nginx/access.log masked;
+    proxy_pass http://crm;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+}
+```
+
+```text
+203.0.113.42 - [25/Sep/2026:09:20:11 +0700] "GET /hubs/notifications?*** HTTP/1.1" 101
+```
+
+**Vì sao che ở proxy vẫn chưa đủ — token còn đi qua bốn nơi khác:**
+
+1. **Log của ứng dụng.** Serilog request logging ghi lại query string theo mặc định:
+
+   ```csharp
+   app.UseSerilogRequestLogging(o =>
+   {
+       o.GetLevel = (ctx, _, _) =>
+           ctx.Request.Path.StartsWithSegments("/hubs")
+               ? LogEventLevel.Verbose
+               : LogEventLevel.Information;
+       // KHÔNG bao gồm RequestQuery
+   });
+   ```
+
+2. **Application Insights, Datadog và mọi APM.** Chúng ghi URL đầy đủ, và hệ thống giám sát thường có nhiều người truy cập hơn production.
+
+3. **HAR file người dùng gửi khi báo lỗi.** Xuất từ DevTools là kèm nguyên token.
+
+4. **Log của CDN hoặc load balancer của nhà cung cấp**, nơi bạn thường không đổi được định dạng log.
+
+**Vì vậy biện pháp thật sự hiệu quả là giảm thiệt hại, không phải che hết mọi nơi:**
+
+```csharp
+// Access token riêng cho việc mở kết nối, sống ngắn
+expires: DateTime.UtcNow.AddMinutes(5)
+```
+
+Token lọt vào log thì cũng hết hạn trước khi ai kịp dùng. Cộng thêm việc chỉ chấp nhận token từ query string cho **đúng đường dẫn hub**:
+
+```csharp
+options.Events = new JwtBearerEvents
+{
+    OnMessageReceived = ctx =>
+    {
+        var token = ctx.Request.Query["access_token"];
+        // CHỈ cho endpoint hub — không áp dụng cho API thường
+        if (!string.IsNullOrEmpty(token) &&
+            ctx.HttpContext.Request.Path.StartsWithSegments("/hubs"))
+            ctx.Token = token;
+        return Task.CompletedTask;
+    }
+};
+```
+
+Thiếu điều kiện đường dẫn thì **mọi** API đều nhận token qua query string — và lúc đó lập trình viên frontend sẽ vô tình dùng nó ở nơi lẽ ra phải dùng header.
+
+</details>
+
+---
+
+#### Bài 2 — Phân quyền theo vai trò trên Hub method
+
+Gọi một phương thức hub có `[Authorize(Roles = ...)]` bằng tài khoản không có vai trò đó.
+
+**Tiêu chí hoàn thành:** bạn nêu được client nhận được **gì** khi bị từ chối, và vì sao nó khác với `403` của HTTP.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** WebSocket không có mã trạng thái HTTP cho từng lời gọi. Vậy SignalR báo lỗi bằng cách nào?
+
+**Lời giải — Hub method có giới hạn vai trò:**
+
+```csharp
+[Authorize]
+public class AdminHub : Hub<IAdminClient>
+{
+    [Authorize(Roles = "Admin")]
+    public Task BroadcastMaintenance(string message)
+        => Clients.All.MaintenanceNotice(message);
+}
+```
+
+```js
+try {
+    await connection.invoke('BroadcastMaintenance', 'Hệ thống bảo trì lúc 22h');
+} catch (e) {
+    console.log(e.message);
+}
+```
+
+```text
+Failed to invoke 'BroadcastMaintenance' because user is unauthorized
+```
+
+**Client nhận một exception, không phải mã trạng thái.** Đây là khác biệt cần nêu: HTTP trả `403` trong header phản hồi, còn SignalR không có khái niệm đó cho từng lời gọi — nó gửi về một thông điệp lỗi, và thư viện client biến nó thành một `Promise` bị từ chối.
+
+**Hệ quả thực tế với client:**
+
+```js
+// HTTP — phân biệt được bằng mã số
+if (res.status === 401) await refresh();
+if (res.status === 403) showMessage('Không có quyền');
+
+// SignalR — chỉ có chuỗi
+catch (e) {
+    // phải so khớp chuỗi, và chuỗi có thể đổi giữa các phiên bản
+    if (e.message.includes('unauthorized')) showMessage('Không có quyền');
+}
+```
+
+So khớp chuỗi là cách làm mong manh. Cách tốt hơn là **tự ném `HubException` có mã** thay vì dựa vào thông điệp mặc định:
+
+```csharp
+public async Task BroadcastMaintenance(string message)
+{
+    if (!Context.User!.IsInRole("Admin"))
+        throw new HubException("FORBIDDEN: Bạn không có quyền gửi thông báo bảo trì");
+
+    await Clients.All.MaintenanceNotice(message);
+}
+```
+
+```js
+catch (e) {
+    const code = e.message.split(':')[0];
+    if (code === 'FORBIDDEN') showMessage('Bạn không có quyền thực hiện thao tác này');
+}
+```
+
+Nhớ dùng `HubException` chứ không phải exception thường — exception thường bị SignalR che thông điệp, như [bài 11.4](11.3-setup-signalr-server.mdx) đã chỉ ra.
+
+**Ba tầng phân quyền trong SignalR, và mỗi tầng chặn ở đâu:**
+
+| Đặt ở | Chặn khi | Client nhận |
+|---|---|---|
+| `[Authorize]` trên Hub | **Lúc kết nối** | Không kết nối được |
+| `[Authorize(Roles)]` trên method | Lúc gọi method | Exception |
+| Kiểm tra trong thân method | Lúc gọi, theo tài nguyên | `HubException` do bạn viết |
+
+**Tầng thứ ba là tầng không thể bỏ.** Hai tầng đầu chỉ kiểm **danh tính và vai trò**; chúng không biết tham số của lời gọi. Một người có vai trò `SalesRep` vẫn gọi được `JoinDealRoom(dealIdCuaNguoiKhac)` nếu bạn không kiểm trong thân phương thức — đúng lỗ hổng ở [bài 11.6](11.5-signalr-authentication.mdx).
+
+</details>
+
+---
+
+#### Bài 3 — `IUserIdProvider` và nhiều tab
+
+Gửi thông báo bằng `Clients.User` và xác nhận nó tới đúng người, kể cả khi mở nhiều tab.
+
+**Tiêu chí hoàn thành:** bạn biết `Context.UserIdentifier` lấy giá trị từ đâu, và điều gì xảy ra khi claim đó không tồn tại.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Nếu `Clients.User("42")` không gửi tới ai, câu hỏi đầu tiên là: SignalR đang so `"42"` với cái gì?
+
+**Lời giải — kiểm chứng nhiều tab:**
+
+```csharp
+// Gửi theo user id — SignalR tự tìm MỌI kết nối của người đó
+await _hub.Clients.User(userId.ToString()).ReceiveNotification(dto);
+```
+
+Mở 3 tab cùng một tài khoản:
+
+```text
+Tab 1: nhận thông báo
+Tab 2: nhận thông báo
+Tab 3: nhận thông báo
+```
+
+**Cả ba đều nhận**, vì SignalR giữ ánh xạ `userId -> tập ConnectionId` và tự gửi tới từng kết nối.
+
+**`Context.UserIdentifier` lấy từ đâu.** Mặc định nó đọc claim `ClaimTypes.NameIdentifier`:
+
+```csharp
+public override Task OnConnectedAsync()
+{
+    _logger.LogInformation("UserIdentifier = {Id}", Context.UserIdentifier ?? "(null)");
+    return base.OnConnectedAsync();
+}
+```
+
+Và đây là chỗ hay sai: handler JWT của .NET **ánh xạ lại** tên claim, biến `sub` trong token thành `ClaimTypes.NameIdentifier` — một URI dài của Microsoft. Nếu bạn đã tắt ánh xạ:
+
+```csharp
+options.MapInboundClaims = false;
+```
+
+thì claim giữ nguyên tên `sub`, và `ClaimTypes.NameIdentifier` **không còn tồn tại** — `Context.UserIdentifier` trả `null`.
+
+**Điều gì xảy ra khi đó:**
+
+```csharp
+await _hub.Clients.User("8f3a1b2c").ReceiveNotification(dto);
+```
+
+```text
+(không exception, không log, không ai nhận được gì)
+```
+
+Lại là một lỗi **hoàn toàn im lặng** — cùng họ với tên nhóm lệch ở [bài 11.7](11.6-groups-and-targeting.mdx). SignalR tìm trong ánh xạ, không thấy khoá nào khớp, và kết thúc bình thường.
+
+**Sửa bằng một `IUserIdProvider` tường minh:**
+
+```csharp
+public sealed class UserIdProvider : IUserIdProvider
+{
+    public string? GetUserId(HubConnectionContext connection) =>
+        connection.User.FindFirstValue("sub")
+        ?? connection.User.FindFirstValue(ClaimTypes.NameIdentifier);
+}
+```
+
+```csharp
+builder.Services.AddSingleton<IUserIdProvider, UserIdProvider>();
+```
+
+Viết tường minh như vậy có hai cái lợi: nó hoạt động bất kể cấu hình `MapInboundClaims`, và nó đặt quyết định ở một chỗ đọc được thay vì phụ thuộc vào một mặc định ẩn.
+
+**Thêm một lớp bảo vệ — từ chối kết nối khi không xác định được người dùng:**
+
+```csharp
+public override async Task OnConnectedAsync()
+{
+    if (string.IsNullOrEmpty(Context.UserIdentifier))
+    {
+        _logger.LogError("Kết nối không xác định được UserIdentifier — kiểm tra IUserIdProvider");
+        Context.Abort();
+        return;
+    }
+
+    await Groups.AddToGroupAsync(Context.ConnectionId,
+        HubGroups.Tenant(Context.User!.FindFirstValue("tenant_id")!));
+    await base.OnConnectedAsync();
+}
+```
+
+Thà đóng kết nối và ghi một dòng lỗi rõ ràng, còn hơn để hệ thống chạy trong trạng thái "kết nối thành công nhưng không bao giờ nhận được gì" — thứ tốn hàng giờ để gỡ.
+
+**Một bài test chặn lỗi này từ CI:**
+
+```csharp
+[Fact]
+public async Task GuiTheoUserId_ToiMoiTabCuaNguoiDo()
+{
+    await using var c1 = await ConnectAsync(userId: "8f3a1b2c");
+    await using var c2 = await ConnectAsync(userId: "8f3a1b2c");
+    await using var c3 = await ConnectAsync(userId: "7c1d9e4f");   // người khác
+
+    await _hub.Clients.User("8f3a1b2c").ReceiveNotification(dto);
+
+    Assert.Equal(1, await c1.CountReceivedAsync());
+    Assert.Equal(1, await c2.CountReceivedAsync());
+    Assert.Equal(0, await c3.CountReceivedAsync());     // KHÔNG rò sang người khác
+}
+```
+
+Dòng cuối quan trọng ngang hai dòng trên: nó bắt được trường hợp `IUserIdProvider` trả về một giá trị dùng chung cho mọi người, ví dụ khi claim bị null và bạn lỡ trả chuỗi rỗng thay vì `null`.
+
+</details>
 
 ## Tự kiểm tra
 

@@ -289,11 +289,684 @@ Và **một validator mỗi command**. Validator dùng chung cho nhiều command
 
 ## Bài tập áp dụng
 
-1. **Bất biến đặt sai chỗ.** Đặt một quy tắc nghiệp vụ vào validator, rồi tạo dữ liệu qua một job import bỏ qua tầng API. Xác nhận quy tắc bị bỏ qua hoàn toàn.
+#### Bài 1 — Bất biến đặt sai chỗ
 
-2. **Race condition.** Bỏ ràng buộc `UNIQUE` và chỉ kiểm tra trùng bằng truy vấn. Bắn 20 request đồng thời cùng email và đếm số bản ghi được tạo.
+Đặt một quy tắc nghiệp vụ vào validator, rồi tạo dữ liệu qua một job import bỏ qua tầng API. Xác nhận quy tắc bị bỏ qua hoàn toàn.
 
-3. **Đo chi phí validator gọi database.** Thêm một `MustAsync` truy vấn database, gửi request **thiếu trường bắt buộc khác**, và xác nhận truy vấn vẫn chạy.
+**Tiêu chí hoàn thành:** bạn nêu được ranh giới giữa **validation đầu vào** và **bất biến domain**, và có một câu hỏi để phân loại bất kỳ quy tắc nào.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Validator chạy khi nào? Job import có đi qua đó không?
+
+**Lời giải — quy tắc đặt sai chỗ:**
+
+```csharp
+public class TaoLeadValidator : AbstractValidator<TaoLeadRequest>
+{
+    public TaoLeadValidator()
+    {
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.Email).NotEmpty().EmailAddress();
+
+        // BẤT BIẾN NGHIỆP VỤ đặt trong validator
+        RuleFor(x => x.Value)
+            .LessThanOrEqualTo(500_000_000)
+            .When(x => !x.DaDuyet)
+            .WithMessage("Lead trên 500 triệu cần được duyệt trước");
+    }
+}
+```
+
+```bash
+curl -X POST http://localhost:8080/leads -d '{"name":"ABC","value":600000000,"daDuyet":false}'
+```
+
+```text
+HTTP 400
+{"errors":{"Value":["Lead trên 500 triệu cần được duyệt trước"]}}
+```
+
+Đường API hoạt động đúng. Nhưng:
+
+```csharp
+public class ImportLeadJob
+{
+    public async Task ChayAsync(Stream csv, CancellationToken ct)
+    {
+        await foreach (var row in DocCsvAsync(csv, ct))
+        {
+            var lead = new Lead
+            {
+                Name = row.Name,
+                Email = row.Email,
+                Value = row.Value,          // 900 triệu, chưa duyệt — KHÔNG ai kiểm tra
+                DaDuyet = false,
+            };
+            _db.Leads.Add(lead);
+        }
+        await _db.SaveChangesAsync(ct);
+    }
+}
+```
+
+```sql
+SELECT COUNT(*) FROM Leads WHERE Value > 500000000 AND DaDuyet = 0;
+```
+
+```text
+1.847
+```
+
+1.847 lead vi phạm quy tắc, tất cả đến từ import. Và không đường nào báo lỗi.
+
+Liệt kê mọi đường đi vòng qua validator:
+
+```text
+1. Job import CSV                 -> không qua validator
+2. Message consumer đồng bộ       -> không qua
+3. Migration có seed data         -> không qua
+4. Unit test tạo dữ liệu mẫu      -> không qua
+5. ExecuteUpdate cập nhật Value   -> không qua
+6. Script SQL chạy tay            -> không qua
+7. Một endpoint khác quên gắn validator -> không qua
+```
+
+**Ranh giới giữa validation đầu vào và bất biến domain:**
+
+| | Validation đầu vào | Bất biến domain |
+|---|---|---|
+| Trả lời câu hỏi | "Request này **có đọc được** không?" | "Trạng thái này **có hợp lệ** không?" |
+| Nằm ở | Validator, DTO | **Entity, value object** |
+| Chạy khi nào | Mỗi request HTTP | **Mọi lần thay đổi trạng thái** |
+| Ví dụ | Email đúng định dạng, tên không rỗng, số dương | Lead trên ngưỡng cần duyệt, đơn đã giao không huỷ được |
+| Nếu vi phạm | HTTP 400, thông điệp cho người dùng | **Exception hoặc Result — không được phép xảy ra** |
+| Đường vòng | **Có** — mọi đường không qua HTTP | **Không** — nếu entity được viết đúng |
+
+**Câu hỏi để phân loại bất kỳ quy tắc nào:**
+
+> **"Nếu dữ liệu này đến từ một nguồn KHÔNG phải HTTP, quy tắc có còn phải đúng không?"**
+
+```text
+Có  -> BẤT BIẾN DOMAIN -> đặt trong entity
+Không -> validation đầu vào -> đặt trong validator
+```
+
+Áp dụng:
+
+```text
+"Email phải đúng định dạng"
+    -> job import cũng phải có email hợp lệ -> CÓ -> nhưng...
+```
+
+Trường hợp email đáng bàn kỹ vì nó **thuộc cả hai**:
+
+```csharp
+// Validator — kiểm tra ĐẦU VÀO, cho thông điệp thân thiện
+RuleFor(x => x.Email).NotEmpty().EmailAddress()
+    .WithMessage("Email không đúng định dạng");
+
+// Value object — bảo vệ BẤT BIẾN, không thể tạo Email sai
+public readonly record struct Email
+{
+    public string Value { get; }
+
+    private Email(string value) => Value = value;
+
+    public static Result<Email> Tao(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return Result<Email>.Loi("Email không được rỗng");
+        if (!MailAddress.TryCreate(value, out _))
+            return Result<Email>.Loi("Email không đúng định dạng");
+        return Result<Email>.ThanhCong(new Email(value.Trim().ToLowerInvariant()));
+    }
+}
+```
+
+Hai lớp này **không thừa nhau**:
+
+```text
+Validator:     trả về 400 với thông điệp đọc được, cho MỌI lỗi cùng lúc
+               -> trải nghiệm người dùng tốt
+
+Value object:  bảo đảm không tồn tại Email không hợp lệ trong hệ thống
+               -> đúng đắn, cho mọi đường ghi
+```
+
+Không có validator, người dùng nhận một exception xấu xí và chỉ thấy lỗi đầu tiên. Không có value object, job import tạo được email rác.
+
+**Bản sửa cho quy tắc ngưỡng duyệt:**
+
+```csharp
+// Crm.Domain/Entities/Lead.cs
+public class Lead
+{
+    public static readonly Money NguongCanDuyet = Money.VND(500_000_000);
+
+    public Money Value { get; private set; }
+    public bool DaDuyet { get; private set; }
+
+    private Lead() { }
+
+    public static Result<Lead> Tao(string ten, Email email, Money giaTri, bool daDuyet)
+    {
+        if (string.IsNullOrWhiteSpace(ten))
+            return Result<Lead>.Loi("Tên lead là bắt buộc");
+
+        if (giaTri >= NguongCanDuyet && !daDuyet)
+            return Result<Lead>.Loi($"Lead trên {NguongCanDuyet} cần được duyệt trước");
+
+        return Result<Lead>.ThanhCong(new Lead
+        {
+            Name = ten, Email = email, Value = giaTri, DaDuyet = daDuyet,
+        });
+    }
+}
+```
+
+```csharp
+// Job import giờ BUỘC phải xử lý
+await foreach (var row in DocCsvAsync(csv, ct))
+{
+    var email = Email.Tao(row.Email);
+    if (!email.ThanhCong) { GhiLoi(row, email.Loi); continue; }
+
+    var lead = Lead.Tao(row.Name, email.Value, Money.VND(row.Value), row.DaDuyet);
+    if (!lead.ThanhCong) { GhiLoi(row, lead.Loi); continue; }
+
+    _db.Leads.Add(lead.Value);
+}
+
+_logger.LogInformation("Import xong: {ThanhCong} thành công, {Loi} lỗi", soThanhCong, soLoi);
+```
+
+Dòng log cuối đáng chú ý: trước đây job im lặng tạo dữ liệu sai; giờ nó báo cáo. Bạn có thể phát hiện rằng 12% file import vốn đã không hợp lệ — thông tin nghiệp vụ quan trọng mà trước đó không ai biết.
+
+**Validator giữ lại phần thuộc về nó:**
+
+```csharp
+public class TaoLeadValidator : AbstractValidator<TaoLeadRequest>
+{
+    public TaoLeadValidator()
+    {
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.Email).NotEmpty().EmailAddress();
+        RuleFor(x => x.Value).GreaterThan(0);
+        // Quy tắc ngưỡng duyệt ĐÃ CHUYỂN sang Lead.Tao()
+    }
+}
+```
+
+**Và lớp thứ ba: ràng buộc database:**
+
+```sql
+ALTER TABLE Leads ADD CONSTRAINT CK_Leads_NguongDuyet
+    CHECK (Value < 500000000 OR DaDuyet = 1);
+```
+
+Ba lớp, ba vai trò:
+
+```text
+Validator:        trải nghiệm người dùng — thông điệp rõ, nhiều lỗi cùng lúc
+Entity:           đúng đắn cho mọi đường ghi TRONG ứng dụng
+Ràng buộc DB:     đúng đắn cho mọi đường ghi, kể cả NGOÀI ứng dụng
+```
+
+Không lớp nào thừa, và mỗi lớp bắt được một tập vấn đề mà hai lớp kia không bắt được.
+
+**Rà soát validator hiện có:**
+
+```bash
+grep -rn "WithMessage" --include="*Validator.cs" src/ | wc -l
+```
+
+Đọc từng thông điệp và hỏi câu hỏi phân loại ở trên. Thông điệp nào nghe như một **quy tắc nghiệp vụ** — có nhắc tới ngưỡng, trạng thái, vai trò, hay điều kiện phụ thuộc dữ liệu khác — thì gần như chắc chắn đang ở sai chỗ.
+
+</details>
+
+---
+
+#### Bài 2 — Race condition khi kiểm tra trùng
+
+Bỏ ràng buộc `UNIQUE` và chỉ kiểm tra trùng bằng truy vấn. Bắn 20 request đồng thời cùng email và đếm số bản ghi được tạo.
+
+**Tiêu chí hoàn thành:** bạn giải thích được vì sao **không có** mức cô lập transaction nào sửa được điều này một cách thực dụng, và biết cách kết hợp hai lớp.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Bạn đang khoá **sự vắng mặt** của một dòng. Khoá được không?
+
+**Lời giải — validator kiểm tra trùng:**
+
+```csharp
+public class TaoLeadValidator : AbstractValidator<TaoLeadRequest>
+{
+    public TaoLeadValidator(CrmDbContext db)
+    {
+        RuleFor(x => x.Email)
+            .MustAsync(async (email, ct) =>
+                !await db.Leads.AnyAsync(l => l.Email == email, ct))
+            .WithMessage("Email đã tồn tại");
+    }
+}
+```
+
+```bash
+for i in $(seq 1 20); do
+  curl -s -X POST http://localhost:8080/leads \
+       -d '{"name":"ABC","email":"an@abc.com","value":1000000}' &
+done; wait
+```
+
+```sql
+SELECT COUNT(*) FROM Leads WHERE Email = 'an@abc.com';
+```
+
+```text
+14
+```
+
+14 bản ghi trùng. Và số này đổi theo mỗi lần chạy — dấu hiệu kinh điển của race condition.
+
+**Vì sao:**
+
+```text
+t=0,000  Request 1..20 cùng chạy SELECT -> tất cả thấy "chưa tồn tại"
+t=0,015  Request 1..20 cùng chạy INSERT -> tất cả thành công
+```
+
+Đây lại là mẫu **kiểm-tra-rồi-hành-động** ([bài 13.8](../../stage-04-database-production/module-13-entity-framework-core/13.8-concurrency-control.mdx), [bài 14.9](../../stage-04-database-production/module-14-caching-background-jobs/14.9-idempotency-and-retry.mdx)), lần này ở tầng validation.
+
+**Vì sao không mức cô lập nào sửa được một cách thực dụng** — đây là phần chính của bài.
+
+Bạn đang cố khoá thứ **chưa tồn tại**. Với một dòng đã có, database khoá được chính dòng đó. Với sự vắng mặt của một dòng, không có gì để khoá — cần **khoá phạm vi** (range lock).
+
+```csharp
+await using var tx = await _db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+
+if (await _db.Leads.AnyAsync(l => l.Email == email, ct))
+    return Result.Loi("Email đã tồn tại");
+
+_db.Leads.Add(lead);
+await _db.SaveChangesAsync(ct);
+await tx.CommitAsync(ct);
+```
+
+`Serializable` **có** ngăn được trùng, nhưng với ba cái giá:
+
+**1. Deadlock thay vì trùng lặp:**
+
+```text
+Msg 1205: Transaction (Process ID 58) was deadlocked on lock resources...
+```
+
+Hai giao dịch cùng lấy khoá phạm vi chia sẻ trên cùng khoảng, rồi cùng muốn nâng lên khoá độc quyền để `INSERT`. Đây là **deadlock chuyển đổi khoá** ở [bài 12.10](../../stage-04-database-production/module-12-sql-deep-dive/12.10-mini-case-study.mdx).
+
+Bạn đổi "14 bản ghi trùng" lấy "hầu hết request nhận lỗi 1205" — không tốt hơn.
+
+**2. Khoá phạm vi chặn rất rộng.** Không có index trên `Email`, SQL Server khoá **toàn bộ bảng**:
+
+```text
+Một người tạo lead -> mọi người khác chờ
+-> throughput sụp đổ
+```
+
+**3. `Serializable` áp cho cả transaction**, nên mọi truy vấn khác trong cùng transaction cũng chịu chi phí đó.
+
+Có một cách thực dụng hơn `Serializable` — khoá tường minh trên key:
+
+```csharp
+await _db.Database.ExecuteSqlInterpolatedAsync($@"
+    EXEC sp_getapplock @Resource = {$"lead-email-{email}"},
+                       @LockMode = 'Exclusive', @LockOwner = 'Transaction'", ct);
+```
+
+Nó hoạt động, nhưng thêm một khái niệm phải hiểu và bảo trì. So với một dòng `CREATE UNIQUE INDEX`, đó là đánh đổi tệ.
+
+**Bản sửa — hai lớp:**
+
+**Lớp 1 — ràng buộc database, đây mới là thứ bảo đảm:**
+
+```sql
+CREATE UNIQUE INDEX UX_Leads_Email ON Leads(Email) WHERE IsDeleted = 0;
+```
+
+```csharp
+builder.Entity<Lead>()
+    .HasIndex(l => l.Email)
+    .IsUnique()
+    .HasFilter("[IsDeleted] = 0");
+```
+
+Index có lọc là chi tiết quan trọng với soft delete: không có nó, một email đã xoá mềm vẫn chiếm chỗ và không tạo lại được.
+
+**Lớp 2 — bắt lỗi và trả thông điệp đọc được:**
+
+```csharp
+public async Task<Result> Handle(TaoLeadCommand c, CancellationToken ct)
+{
+    var lead = Lead.Tao(c.Name, c.Email, c.Value);
+    if (!lead.ThanhCong) return lead;
+
+    _db.Leads.Add(lead.Value);
+
+    try
+    {
+        await _db.SaveChangesAsync(ct);
+        return Result.ThanhCong();
+    }
+    catch (DbUpdateException ex) when (LaViPhamUnique(ex, "UX_Leads_Email"))
+    {
+        return Result.Loi("Email đã tồn tại");
+    }
+}
+
+private static bool LaViPhamUnique(DbUpdateException ex, string tenIndex)
+    => ex.InnerException is SqlException { Number: 2601 or 2627 } sql
+       && sql.Message.Contains(tenIndex, StringComparison.OrdinalIgnoreCase);
+```
+
+```text
+20 request đồng thời -> 1 bản ghi, 19 request nhận "Email đã tồn tại"
+```
+
+Kiểm tra tên index trong thông điệp lỗi là chi tiết đáng làm: một entity có thể có nhiều unique index, và bạn muốn trả thông điệp đúng cho từng cái.
+
+**Vậy còn validator kiểm tra trùng — có nên giữ không?**
+
+```csharp
+RuleFor(x => x.Email)
+    .MustAsync(async (email, ct) => !await db.Leads.AnyAsync(l => l.Email == email, ct))
+    .WithMessage("Email đã tồn tại");
+```
+
+**Giữ, nhưng hiểu đúng vai trò của nó:**
+
+| | Validator | Unique index |
+|---|---|---|
+| Bảo đảm không trùng | **Không** | **Có** |
+| Thông điệp lỗi | **Đẹp, cùng lúc với lỗi khác** | Exception phải bắt và dịch |
+| Bắt được ở đường nào | Chỉ HTTP | **Mọi đường** |
+| Chi phí | Một truy vấn mỗi request | Gần như không |
+| Vai trò | **Trải nghiệm người dùng** | **Đúng đắn** |
+
+Validator cho người dùng thấy lỗi **cùng lúc** với các lỗi khác của form:
+
+```json
+{"errors":{
+  "email":["Email đã tồn tại"],
+  "value":["Giá trị phải lớn hơn 0"],
+  "name":["Tên không được vượt quá 200 ký tự"]
+}}
+```
+
+Không có validator, người dùng sửa tên, gửi lại, rồi mới biết email trùng — hai vòng thay vì một.
+
+Nhưng nếu phải chọn một, **chọn unique index**. Trải nghiệm kém hơn một chút; dữ liệu vẫn đúng.
+
+**Và một lưu ý về hiệu năng của validator gọi database** — xem bài 3: nó chạy **kể cả khi** các quy tắc khác đã thất bại, trừ khi bạn cấu hình đúng.
+
+**Danh sách những gì phải có ràng buộc database, không chỉ validator:**
+
+```text
+- Trùng lặp (unique)
+- Khoá ngoại (dữ liệu tham chiếu phải tồn tại)
+- Giá trị nằm trong tập hợp cho phép (check constraint)
+- Không âm, trong khoảng (check constraint)
+- Bất biến liên quan nhiều cột (check constraint)
+```
+
+Mỗi mục là một thứ mà validator **không thể** bảo đảm, vì luôn có đường ghi không đi qua nó.
+
+**Kiểm chứng bằng test đồng thời thật:**
+
+```csharp
+[Fact]
+public async Task Hai_muoi_request_cung_email_chi_tao_mot_lead()
+{
+    var email = $"test-{Guid.NewGuid():N}@abc.com";
+
+    var ketQua = await Task.WhenAll(Enumerable.Range(0, 20).Select(_ =>
+        _client.PostAsJsonAsync("/leads", new { name = "ABC", email, value = 1_000_000 })));
+
+    ketQua.Count(r => r.IsSuccessStatusCode).Should().Be(1);
+    (await DemLeadTheoEmailAsync(email)).Should().Be(1);
+}
+```
+
+Test này cần database **thật** — provider in-memory không thực thi unique index theo cách có khoá, nên nó cho test xanh ngay cả với bản có lỗi.
+
+</details>
+
+---
+
+#### Bài 3 — Chi phí của validator gọi database
+
+Thêm một `MustAsync` truy vấn database, gửi request **thiếu trường bắt buộc khác**, và xác nhận truy vấn vẫn chạy.
+
+**Tiêu chí hoàn thành:** bạn đo được số truy vấn thừa, và biết **ba** cách cấu hình để tránh.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** FluentValidation mặc định chạy mọi rule để báo mọi lỗi cùng lúc. Điều đó tốt cho trải nghiệm — và tệ cho cái gì?
+
+**Lời giải:**
+
+```csharp
+public class TaoLeadValidator : AbstractValidator<TaoLeadRequest>
+{
+    public TaoLeadValidator(CrmDbContext db)
+    {
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.Value).GreaterThan(0);
+
+        RuleFor(x => x.Email)
+            .NotEmpty()
+            .EmailAddress()
+            .MustAsync(async (email, ct) =>
+                !await db.Leads.AnyAsync(l => l.Email == email, ct))
+            .WithMessage("Email đã tồn tại");
+    }
+}
+```
+
+```bash
+curl -X POST http://localhost:8080/leads -d '{"name":"","email":"","value":0}'
+```
+
+```text
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (14ms)
+      SELECT CASE WHEN EXISTS (SELECT 1 FROM [Leads] WHERE [Email] = @__email_0)
+             THEN CAST(1 AS bit) ELSE CAST(0 AS bit) END
+```
+
+**Truy vấn vẫn chạy**, mặc dù:
+
+- `Name` rỗng — request chắc chắn bị từ chối
+- `Email` rỗng — truy vấn tìm email rỗng, luôn vô nghĩa
+- `Value` bằng 0 — cũng sai
+
+```text
+Request không hợp lệ:  1 truy vấn database vô ích, 14 ms
+10.000 request/giờ, 15% không hợp lệ:  1.500 truy vấn vô ích mỗi giờ
+```
+
+Và nó tệ hơn khi có nhiều rule gọi database:
+
+```csharp
+RuleFor(x => x.Email).MustAsync(KiemTraTrung);
+RuleFor(x => x.CustomerId).MustAsync(KiemTraKhachTonTai);
+RuleFor(x => x.AssignedTo).MustAsync(KiemTraNguoiDungTonTai);
+```
+
+```text
+Một request rỗng hoàn toàn -> 3 truy vấn database
+```
+
+Đây cũng là một bề mặt tấn công: kẻ tấn công gửi request rỗng liên tục và mỗi cái tốn ba truy vấn.
+
+**Ba cách cấu hình để tránh:**
+
+**Cách 1 — `CascadeMode.Stop` cho từng rule chain:**
+
+```csharp
+RuleFor(x => x.Email)
+    .Cascade(CascadeMode.Stop)          // dừng ngay khi một rule thất bại
+    .NotEmpty()
+    .EmailAddress()
+    .MustAsync(async (email, ct) => !await db.Leads.AnyAsync(l => l.Email == email, ct));
+```
+
+```text
+Email rỗng -> NotEmpty thất bại -> DỪNG -> không chạy EmailAddress, không chạy MustAsync
+```
+
+Nhưng nó chỉ dừng **trong cùng một chain**. `Name` rỗng vẫn không ngăn được chain của `Email` chạy.
+
+**Cách 2 — `RuleLevelCascadeMode` và `ClassLevelCascadeMode`:**
+
+```csharp
+public TaoLeadValidator(CrmDbContext db)
+{
+    RuleLevelCascadeMode  = CascadeMode.Stop;    // dừng trong mỗi chain
+    ClassLevelCascadeMode = CascadeMode.Stop;    // dừng ở rule ĐẦU TIÊN thất bại
+
+    RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
+    RuleFor(x => x.Value).GreaterThan(0);
+    RuleFor(x => x.Email).NotEmpty().EmailAddress().MustAsync(...);
+}
+```
+
+```text
+Name rỗng -> DỪNG toàn bộ -> không truy vấn nào chạy
+```
+
+Nhưng `ClassLevelCascadeMode = Stop` có cái giá: người dùng chỉ thấy **một** lỗi mỗi lần gửi:
+
+```json
+{"errors":{"name":["Tên không được rỗng"]}}
+```
+
+Sửa tên, gửi lại, mới biết `Value` cũng sai. Với một form 15 trường, đó là trải nghiệm tệ.
+
+**Cách 3 — tách hai giai đoạn, và đây là cách tốt nhất:**
+
+```csharp
+// Giai đoạn 1 — quy tắc rẻ, KHÔNG chạm database
+public class TaoLeadValidator : AbstractValidator<TaoLeadRequest>
+{
+    public TaoLeadValidator()
+    {
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.Email).Cascade(CascadeMode.Stop).NotEmpty().EmailAddress();
+        RuleFor(x => x.Value).GreaterThan(0);
+        RuleFor(x => x.CustomerId).NotEmpty();
+    }
+}
+
+// Giai đoạn 2 — quy tắc CẦN database, chỉ chạy khi giai đoạn 1 đã qua
+public class TaoLeadDbValidator : AbstractValidator<TaoLeadRequest>
+{
+    public TaoLeadDbValidator(CrmDbContext db)
+    {
+        RuleFor(x => x.CustomerId)
+            .MustAsync(async (id, ct) => await db.Customers.AnyAsync(c => c.Id == id, ct))
+            .WithMessage("Khách hàng không tồn tại");
+    }
+}
+```
+
+```csharp
+public class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
+{
+    public async Task<TResponse> Handle(TRequest request,
+        RequestHandlerDelegate<TResponse> next, CancellationToken ct)
+    {
+        // Giai đoạn 1 — mọi validator rẻ, chạy SONG SONG, báo MỌI lỗi
+        var loiCoBan = (await Task.WhenAll(_validatorCoBan
+                .Select(v => v.ValidateAsync(request, ct))))
+            .SelectMany(r => r.Errors).ToList();
+
+        if (loiCoBan.Count > 0) throw new ValidationException(loiCoBan);
+
+        // Giai đoạn 2 — chỉ chạy khi giai đoạn 1 sạch
+        var loiDb = (await Task.WhenAll(_validatorDb
+                .Select(v => v.ValidateAsync(request, ct))))
+            .SelectMany(r => r.Errors).ToList();
+
+        if (loiDb.Count > 0) throw new ValidationException(loiDb);
+
+        return await next();
+    }
+}
+```
+
+```text
+Request rỗng:       0 truy vấn, và người dùng thấy MỌI lỗi định dạng cùng lúc
+Request hợp lệ:     truy vấn chạy, như mong đợi
+```
+
+Cách này có cả hai: không truy vấn thừa, và trải nghiệm người dùng tốt.
+
+**Nhưng câu hỏi sâu hơn: validator có nên gọi database không?**
+
+Ba lý do nói không:
+
+**1. Nó không bảo đảm được gì** — race condition ở bài 2.
+
+**2. Nó trộn hai mối quan tâm.** Validator lẽ ra là hàm thuần tuý trên đầu vào; gọi database biến nó thành thứ phụ thuộc trạng thái hệ thống, khó test và khó suy luận.
+
+**3. Nó làm test validator cần database:**
+
+```csharp
+// Test validator thuần tuý — không cần gì
+[Theory]
+[InlineData("", false)]
+[InlineData("khong-phai-email", false)]
+[InlineData("an@abc.com", true)]
+public void Kiem_tra_email(string email, bool hopLe)
+{
+    var kq = new TaoLeadValidator().TestValidate(new TaoLeadRequest { Email = email, ... });
+    if (hopLe) kq.ShouldNotHaveValidationErrorFor(x => x.Email);
+    else       kq.ShouldHaveValidationErrorFor(x => x.Email);
+}
+```
+
+Thêm `MustAsync` gọi database và test này cần dựng `DbContext` — thứ đã mổ xẻ ở [bài 16.1](16.1-when-growth-exposes-architecture.mdx).
+
+**Khi nào gọi database trong validator là chấp nhận được:**
+
+```text
+CHẤP NHẬN:  kiểm tra tồn tại để cho thông điệp lỗi đẹp
+            (khách hàng, người dùng được gán, sản phẩm)
+            -> vẫn phải có khoá ngoại ở database làm lớp bảo đảm
+
+KHÔNG:      kiểm tra trùng (race condition -> dùng unique index)
+            quy tắc nghiệp vụ (đường vòng -> đặt trong entity, bài 1)
+            phân quyền (đặt trong AuthorizationBehavior, chạy TRƯỚC validation)
+```
+
+**Đo trên dự án của bạn:**
+
+```bash
+grep -rn "MustAsync\|WhenAsync\|CustomAsync" --include="*Validator.cs" src/
+```
+
+Mỗi kết quả là một truy vấn database chạy trên **mọi** request tới endpoint đó. Với mỗi cái, hỏi hai câu:
+
+```text
+1. Nó có bảo đảm được gì không, hay chỉ cho thông điệp đẹp?
+2. Có ràng buộc database tương ứng làm lớp bảo đảm chưa?
+```
+
+Nếu câu 1 là "chỉ cho thông điệp đẹp" và câu 2 là "chưa", bạn đang có một lỗ hổng tính đúng đắn kèm một chi phí hiệu năng — và cả hai cùng biến mất khi thêm ràng buộc database.
+
+</details>
 
 ## Tự kiểm tra
 

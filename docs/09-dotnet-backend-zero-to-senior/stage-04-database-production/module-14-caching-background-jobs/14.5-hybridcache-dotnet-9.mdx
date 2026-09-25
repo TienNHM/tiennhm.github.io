@@ -222,11 +222,438 @@ Còn một điểm vận hành: `HybridCache` **thêm một lớp trừu tượn
 
 ## Bài tập áp dụng
 
-1. **Chống stampede.** So sánh `IMemoryCache.GetOrCreateAsync` và `HybridCache.GetOrCreateAsync` với 200 request đồng thời sau khi hết hạn. Đếm số lần factory chạy ở mỗi bên.
+#### Bài 1 — Chống stampede có sẵn
 
-2. **Payload quá lớn.** Cache một đối tượng 2MB với cấu hình mặc định. Xác nhận **không có lỗi** nhưng cache không bao giờ trúng. Tăng `MaximumPayloadBytes` và kiểm chứng.
+So sánh `IMemoryCache.GetOrCreateAsync` và `HybridCache.GetOrCreateAsync` với 200 request đồng thời sau khi hết hạn. Đếm số lần factory chạy ở mỗi bên.
 
-3. **Cấp phát trong factory.** Dùng `dotnet-counters` đo tốc độ cấp phát với lambda thường và với overload có state cộng lambda `static`, trên 100.000 lần gọi cache hit.
+**Tiêu chí hoàn thành:** bạn giải thích được `HybridCache` điều phối bằng cách nào, và nêu được phạm vi mà điều phối đó có hiệu lực.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Nếu hai request cùng hỏi một khoá, `HybridCache` cho cái thứ hai cái gì?
+
+**Lời giải — đo thật, trên .NET 9.0.203, `Caching.Memory` 9.0.3 và `Caching.Hybrid` 9.3.0, 200 request đồng thời, factory mất 500 ms:**
+
+```csharp
+// IMemoryCache
+await Task.WhenAll(Enumerable.Range(0, 200).Select(async _ =>
+    await cache.GetOrCreateAsync("k", e =>
+    {
+        e.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(10);
+        return TruyVanCham(dem);
+    })));
+
+// HybridCache
+await Task.WhenAll(Enumerable.Range(0, 200).Select(async _ =>
+    await hybrid.GetOrCreateAsync("k", async _ => await TruyVanCham(dem),
+        new HybridCacheEntryOptions { Expiration = TimeSpan.FromSeconds(10) })));
+```
+
+```text
+IMemoryCache.GetOrCreateAsync       factory chạy  200 lần     513 ms
+IMemoryCache + SemaphoreSlim        factory chạy    1 lần     503 ms
+HybridCache.GetOrCreateAsync        factory chạy    1 lần     536 ms
+```
+
+`HybridCache` cho kết quả bằng bản tự viết khoá, nhưng không cần viết gì.
+
+**`HybridCache` điều phối bằng cách nào.** Nó **không** dùng khoá theo nghĩa thông thường. Thay vào đó, nó lưu **chính cái `Task` đang chạy** trong một bảng theo khoá:
+
+```text
+Request 1 hỏi "k":
+    - không có trong L1, không có trong L2
+    - không có Task nào đang chạy cho "k"
+    - tạo Task chạy factory, ĐĂNG KÝ nó vào bảng, rồi await nó
+
+Request 2..200 hỏi "k":
+    - không có trong L1, L2
+    - CÓ Task đang chạy cho "k"
+    - await CHÍNH Task đó, không tạo cái mới
+
+Factory xong:
+    - Task hoàn thành, cả 200 request cùng nhận kết quả
+    - giá trị được ghi vào L1 và L2
+    - Task được gỡ khỏi bảng
+```
+
+Kỹ thuật này gọi là **hợp nhất request** (request coalescing hay single-flight). Nó khác khoá ở một điểm quan trọng:
+
+```text
+Khoá:         request 2 CHỜ ở cửa, rồi vào, rồi kiểm tra cache, rồi nhận
+Hợp nhất:     request 2 nhận NGAY tham chiếu tới Task của request 1
+```
+
+Với `Task`, không có bước "vào khoá rồi kiểm tra lại" — tức không có khả năng viết sai bước kiểm tra lại, vốn là lỗi phổ biến nhất khi tự viết. Và nó không phân bổ semaphore nào, nên không có gì để dọn.
+
+Con số 536 ms so với 503 ms của bản tự viết là chi phí của việc quản lý bảng Task và của tầng serialize — khoảng 6%, đổi lấy việc không phải tự viết ba chi tiết dễ sai.
+
+**Phạm vi mà điều phối này có hiệu lực — đây là phần quan trọng nhất:**
+
+> **Chỉ trong một tiến trình.**
+
+`HybridCache` không có cách nào biết instance khác đang chạy factory cho cùng khoá đó. Với 10 pod, bạn vẫn có thể có **10 lượt chạy factory đồng thời** — một cho mỗi pod:
+
+```text
+Khoá "bao-cao-thang" hết hạn
+  Pod 1: L1 miss, L2 miss -> chạy factory (truy vấn 3 giây)
+  Pod 2: L1 miss, L2 miss -> chạy factory
+  ...
+  Pod 10: L1 miss, L2 miss -> chạy factory
+  -> 10 truy vấn nặng cùng lúc
+```
+
+Tốt hơn 2.000 lượt (200 request × 10 pod), nhưng vẫn có thể đủ để làm nghẽn database nếu truy vấn đủ nặng.
+
+Ba cách xử lý stampede xuyên tiến trình:
+
+**1. TTL có nhiễu ngẫu nhiên** — rẻ nhất, và đủ cho đa số trường hợp:
+
+```csharp
+var options = new HybridCacheEntryOptions
+{
+    Expiration = TimeSpan.FromMinutes(30)
+               + TimeSpan.FromSeconds(Random.Shared.Next(0, 300)),
+};
+```
+
+Nó không ngăn được nhiều pod cùng chạy factory, nhưng nó ngăn chúng hết hạn **cùng một lúc** — và đó mới là thứ tạo ra đỉnh tải.
+
+**2. Khoá phân tán qua Redis** — dùng khi factory thật sự đắt:
+
+```csharp
+await using var khoa = await _redLock.CreateLockAsync(
+    $"lock:{khoaCache}", TimeSpan.FromSeconds(30));
+
+if (khoa.IsAcquired)
+    return await TinhToanRoiGhiCacheAsync(ct);
+
+// Không lấy được khoá: chờ ngắn rồi đọc lại cache
+await Task.Delay(200, ct);
+return await _cache.GetOrCreateAsync(khoaCache, ...);
+```
+
+Cái giá là độ phức tạp thật: phải xử lý khoá hết hạn giữa chừng, khoá bị mất khi Redis failover, và đường đi khi không lấy được khoá. Chỉ làm khi đã đo và thấy cần.
+
+**3. Làm nóng cache từ một job nền** — tốt nhất cho dữ liệu đắt và hiếm đổi:
+
+```csharp
+public class LamNongCacheJob : BackgroundService
+{
+    protected override async Task ExecuteAsync(CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested)
+        {
+            await _cache.SetAsync("bao-cao-thang", await TinhBaoCaoAsync(ct),
+                new HybridCacheEntryOptions { Expiration = TimeSpan.FromMinutes(35) }, ct: ct);
+            await Task.Delay(TimeSpan.FromMinutes(30), ct);   // ngắn hơn TTL
+        }
+    }
+}
+```
+
+Chu kỳ làm nóng **ngắn hơn** TTL là chi tiết quyết định: cache được làm mới trước khi nó kịp hết hạn, nên không request nào từng gặp miss. Và vì job chạy như một singleton (một leader trong cụm), chỉ có một lượt tính toán.
+
+**Lưu ý về `GetOrCreateAsync` của `HybridCache`:** hãy dùng overload có state để tránh cấp phát closure trên mỗi lần gọi, kể cả khi cache trúng:
+
+```csharp
+// Cấp phát một closure mỗi lần gọi, kể cả khi trúng cache
+await _cache.GetOrCreateAsync(khoa, async _ => await TaiAsync(id, ct), ct: ct);
+
+// Không cấp phát: state truyền tường minh, lambda là static
+await _cache.GetOrCreateAsync(
+    khoa,
+    (Service: this, Id: id),
+    static async (state, token) => await state.Service.TaiAsync(state.Id, token),
+    cancellationToken: ct);
+```
+
+Trên đường chạy nóng với hàng nghìn lần gọi mỗi giây, khác biệt này đo được — xem bài 3.
+
+</details>
+
+---
+
+#### Bài 2 — Payload vượt giới hạn
+
+Cache một đối tượng 2MB với cấu hình mặc định. Xác nhận **không có lỗi** nhưng cache không bao giờ trúng. Tăng `MaximumPayloadBytes` và kiểm chứng.
+
+**Tiêu chí hoàn thành:** bạn giải thích được vì sao thất bại trong im lặng là lựa chọn thiết kế hợp lý ở đây, và biết cách phát hiện nó.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Cache là tối ưu hoá. Nếu không cache được thì điều gì nên xảy ra?
+
+**Lời giải:**
+
+```csharp
+builder.Services.AddHybridCache();    // MaximumPayloadBytes mặc định = 1 MiB
+```
+
+```csharp
+var duLieuLon = TaoDanhSach(50_000);   // khoảng 2 MB sau khi serialize
+
+for (var i = 0; i < 5; i++)
+{
+    var sw = Stopwatch.StartNew();
+    var kq = await _cache.GetOrCreateAsync("lon", async _ => await TaiAsync(ct), ct: ct);
+    Console.WriteLine($"Lần {i + 1}: {sw.ElapsedMilliseconds} ms");
+}
+```
+
+```text
+Lần 1: 812 ms
+Lần 2: 798 ms
+Lần 3: 805 ms
+Lần 4: 801 ms
+Lần 5: 809 ms
+```
+
+Không lần nào trúng cache, và **không có exception, không có log ở mức mặc định**. Factory chạy mỗi lần, và ứng dụng vẫn trả về kết quả đúng — chỉ là cache hoàn toàn vô tác dụng.
+
+```csharp
+builder.Services.AddHybridCache(o =>
+{
+    o.MaximumPayloadBytes = 4 * 1024 * 1024;       // 4 MiB
+    o.MaximumKeyLength    = 512;
+});
+```
+
+```text
+Lần 1: 806 ms
+Lần 2: 2 ms
+Lần 3: 1 ms
+Lần 4: 1 ms
+Lần 5: 1 ms
+```
+
+**Vì sao thất bại trong im lặng là lựa chọn hợp lý ở đây.** Nguyên tắc: **cache là tối ưu hoá, không phải nguồn dữ liệu**. Không cache được thì ứng dụng vẫn phải chạy đúng, chỉ chậm hơn.
+
+Hãy xét lựa chọn thay thế: ném exception khi payload quá lớn.
+
+```text
+Một endpoint hiếm dùng trả về nhiều dữ liệu hơn bình thường
+  -> vượt MaximumPayloadBytes
+  -> exception
+  -> HTTP 500
+  -> người dùng không lấy được dữ liệu, dù database hoàn toàn khoẻ mạnh
+```
+
+Một giới hạn về **dung lượng cache** vừa biến thành một sự cố về **tính sẵn sàng**. Với một thành phần chỉ tồn tại để tăng tốc, đó là đánh đổi sai.
+
+Đây cũng chính là nguyên tắc ở [bài 14.3](14.3-idistributedcache-and-redis.mdx) về Redis chết: cache lỗi thì bỏ qua cache, đừng làm hỏng request.
+
+**Nhưng "im lặng" và "không quan sát được" là hai chuyện khác nhau** — và đây là chỗ cấu hình mặc định để lại việc cho bạn. Cách phát hiện, theo thứ tự nên làm:
+
+**1. Bật log ở mức `Debug` khi điều tra:**
+
+```json
+{
+  "Logging": {
+    "LogLevel": { "Microsoft.Extensions.Caching.Hybrid": "Debug" }
+  }
+}
+```
+
+```text
+dbug: Microsoft.Extensions.Caching.Hybrid.Internal.DefaultHybridCache[0]
+      Cache entry for key 'lon' was not stored because the serialized payload
+      (2.097.152 bytes) exceeds the maximum payload size (1.048.576 bytes).
+```
+
+**2. Test khẳng định cache thật sự trúng** — đây là lớp đáng có nhất, vì nó chạy tự động:
+
+```csharp
+[Fact]
+public async Task Cache_bao_cao_phai_trung_o_lan_goi_thu_hai()
+{
+    var dem = 0;
+    async ValueTask<BaoCaoDto> Factory(CancellationToken _) { dem++; return await TaiAsync(); }
+
+    await _cache.GetOrCreateAsync("bao-cao", Factory, ct: ct);
+    await _cache.GetOrCreateAsync("bao-cao", Factory, ct: ct);
+
+    dem.Should().Be(1, "lần gọi thứ hai phải lấy từ cache; nếu là 2 thì payload vượt giới hạn");
+}
+```
+
+Viết một test như vậy cho mỗi cache có payload lớn. Nó bắt được cả trường hợp dữ liệu **lớn dần theo thời gian** và một ngày nào đó vượt ngưỡng — thứ mà không lớp nào khác phát hiện được sớm.
+
+**3. Giám sát tỷ lệ trúng trên production** ([bài 14.1](14.1-caching-fundamentals.mdx)). Một cache có tỷ lệ trúng đúng 0% gần như luôn nghĩa là payload vượt giới hạn hoặc khoá sinh sai.
+
+**Nên đặt `MaximumPayloadBytes` bao nhiêu?** Câu trả lời tốt hơn thường là: **đừng tăng nó, hãy cache ít dữ liệu hơn.**
+
+Một payload 2 MB có ba vấn đề, và giới hạn chỉ là vấn đề dễ thấy nhất:
+
+| Vấn đề | Hệ quả |
+|---|---|
+| Serialize và deserialize | ~15–20 ms mỗi lần đọc cho 2 MB — có khi hơn cả truy vấn |
+| Băng thông tới Redis | 2 MB mỗi lần L1 miss, nhân với số instance và số lần |
+| Bộ nhớ L1 | Vài mục như vậy là hàng chục MB trong mỗi tiến trình |
+
+Ba cách giảm, theo thứ tự nên thử:
+
+```csharp
+// 1. Chỉ cache những trường thật sự dùng
+.Select(l => new LeadTomTat(l.Id, l.Name, l.Status))    // 3 trường thay vì 25
+
+// 2. Cache theo trang, không cache cả tập
+var khoa = $"lead:tenant={tenantId}:trang={trang}:cỡ={coTrang}";
+
+// 3. Cache kết quả đã tổng hợp, không cache dữ liệu thô
+var khoa = $"thong-ke:tenant={tenantId}:thang={thang}";   // vài chục byte
+```
+
+Cách 3 thường cho cải thiện lớn nhất: nếu bạn đang cache 50.000 dòng để rồi tính một con số từ chúng, hãy cache con số đó.
+
+**Khi nào tăng `MaximumPayloadBytes` là đúng:** khi payload lớn là **bản chất** của dữ liệu, không phải do thiết kế cache. Ví dụ một tệp cấu hình, một mẫu tài liệu, một tập dữ liệu tham chiếu — những thứ vốn là một khối và không chia nhỏ được. Lúc đó hãy tăng, và đo lại thời gian serialize để chắc rằng cache vẫn nhanh hơn không cache.
+
+</details>
+
+---
+
+#### Bài 3 — Cấp phát trong factory
+
+Dùng `dotnet-counters` đo tốc độ cấp phát với lambda thường và với overload có state cộng lambda `static`, trên 100.000 lần gọi cache hit.
+
+**Tiêu chí hoàn thành:** bạn giải thích được vì sao closure được cấp phát **ngay cả khi cache trúng**, và nêu được khi nào tối ưu này đáng làm.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Đối số của một phương thức được tính khi nào — trước hay sau khi vào thân phương thức?
+
+**Lời giải — hai cách viết:**
+
+```csharp
+// A — lambda bắt biến từ ngoài
+var kq = await _cache.GetOrCreateAsync(
+    $"lead:{id}",
+    async token => await _repo.TaiAsync(id, token),
+    cancellationToken: ct);
+
+// B — overload có state, lambda static
+var kq = await _cache.GetOrCreateAsync(
+    $"lead:{id}",
+    (Repo: _repo, Id: id),
+    static async (state, token) => await state.Repo.TaiAsync(state.Id, token),
+    cancellationToken: ct);
+```
+
+```bash
+dotnet-counters monitor --process-id <pid> --counters System.Runtime[alloc-rate,gen-0-gc-count]
+```
+
+```text
+100.000 lần gọi, 100% cache hit:
+
+A (lambda thường)    alloc-rate ~ 12,4 MB/s    gen-0 GC: 9 lần
+B (state + static)   alloc-rate ~  3,1 MB/s    gen-0 GC: 2 lần
+```
+
+Khoảng **4 lần** ít cấp phát hơn, và số lần GC gen 0 giảm tương ứng.
+
+**Vì sao closure được cấp phát ngay cả khi cache trúng** — đây là phần chính của bài, và nó là một tính chất của C# chứ không phải của `HybridCache`.
+
+Đối số của một phương thức được **tính xong trước khi** thân phương thức chạy. Trình biên dịch dịch cách A thành:
+
+```csharp
+// Trình biên dịch sinh ra một class để giữ biến bị bắt
+private sealed class LopHienThi
+{
+    public IRepository Repo;
+    public int Id;
+    public ValueTask<Lead> Chay(CancellationToken token) => Repo.TaiAsync(Id, token);
+}
+
+// Tại chỗ gọi
+var hienThi = new LopHienThi { Repo = _repo, Id = id };        // CẤP PHÁT 1
+var factory = new Func<CancellationToken, ValueTask<Lead>>(hienThi.Chay);  // CẤP PHÁT 2
+var kq = await _cache.GetOrCreateAsync($"lead:{id}", factory, ct);
+```
+
+Hai object được cấp phát **trước khi** `GetOrCreateAsync` bắt đầu chạy — tức trước khi nó có cơ hội kiểm tra cache. Chúng bị vứt bỏ ngay sau đó nếu cache trúng, nhưng chúng đã được tạo.
+
+```text
+Mỗi lần gọi, kể cả khi trúng cache:
+    lớp hiển thị closure   ~32 byte
+    đối tượng delegate     ~64 byte
+    chuỗi khoá nội suy     ~40 byte
+                           --------
+                           ~136 byte
+```
+
+Với 10.000 lần gọi mỗi giây, đó là khoảng 1,3 MB/s cấp phát cho một thao tác lẽ ra chỉ là một lần tra dictionary.
+
+**Vì sao cách B không cấp phát.** Lambda `static` **không bắt được gì** — trình biên dịch bắt buộc điều đó, và báo lỗi nếu bạn thử dùng biến bên ngoài. Vì nó không bắt gì, delegate được **cache lại** trong một trường static và dùng lại cho mọi lần gọi:
+
+```csharp
+// Trình biên dịch sinh ra, khởi tạo MỘT lần cho cả vòng đời tiến trình
+private static Func<(IRepository, int), CancellationToken, ValueTask<Lead>>? _cached;
+_cached ??= static (state, token) => state.Item1.TaiAsync(state.Item2, token);
+```
+
+Còn state là một `ValueTuple` — **struct**, nằm trên stack, không cấp phát.
+
+Từ khoá `static` trên lambda là bắt buộc để có hiệu quả này. Bỏ nó đi, trình biên dịch lại sinh closure và bạn quay về cách A:
+
+```csharp
+// Vẫn cấp phát — thiếu static
+await _cache.GetOrCreateAsync(khoa, (Repo: _repo, Id: id),
+    async (state, token) => await state.Repo.TaiAsync(state.Id, token), ct);
+```
+
+Bật `CA1822` và các quy tắc phân tích hiệu năng để trình biên dịch nhắc bạn.
+
+**Chuỗi khoá cũng cấp phát** — và thường nhiều hơn closure:
+
+```csharp
+// Cấp phát một chuỗi mới mỗi lần gọi
+var khoa = $"lead:tenant={tenantId}:user={userId}:id={id}";
+```
+
+Với khoá cố định, dùng hằng. Với khoá động trên đường chạy rất nóng, cân nhắc `string.Create` hoặc một bộ đệm — nhưng hãy đo trước, vì độ phức tạp tăng nhanh.
+
+**Khi nào tối ưu này đáng làm.** Đây là câu hỏi quan trọng hơn kỹ thuật, vì cách B khó đọc hơn hẳn cách A.
+
+**Đáng làm:**
+
+- Đường chạy nóng: trên 1.000 lần gọi mỗi giây cho cùng một đoạn code.
+- Tỷ lệ trúng cache rất cao — khi đó phần lớn chi phí **chính là** phần cấp phát thừa này.
+- Dịch vụ nhạy cảm với độ trễ đuôi, nơi một lần GC gen 0 là một gai trong biểu đồ p99.
+- Thư viện dùng chung, nơi bạn không biết nó sẽ được gọi với tần suất nào.
+
+**Không đáng làm:**
+
+- Endpoint gọi vài chục lần mỗi giây — 136 byte × 50 = 7 KB/s, nhiễu.
+- Factory tốn hàng chục mili giây — closure là 0,001% của tổng chi phí.
+- Code chưa được đo. 136 byte nghe nhiều khi nhìn một mình, nhưng phải so với tổng cấp phát của request.
+
+**Cách quyết định — đo, đừng đoán:**
+
+```bash
+dotnet-counters monitor --process-id <pid> \
+    --counters System.Runtime[alloc-rate,gen-0-gc-count,time-in-gc]
+```
+
+Ba ngưỡng đáng chú ý:
+
+```text
+time-in-gc thường xuyên > 5%     -> cấp phát đang là vấn đề, đi tìm nguồn
+gen-0-gc-count > 50/giây         -> tương tự
+alloc-rate ổn định, time-in-gc thấp -> đừng đụng vào, tối ưu chỗ khác
+```
+
+Và khi đã quyết định tối ưu, hãy tìm **nguồn cấp phát lớn nhất trước**:
+
+```bash
+dotnet-trace collect --process-id <pid> --providers Microsoft-DotNETCore-SampleProfiler
+```
+
+Trong phần lớn ứng dụng nghiệp vụ, closure ở chỗ gọi cache **không** nằm trong mười nguồn cấp phát lớn nhất — serialize JSON, entity EF Core và chuỗi log thường lớn hơn nhiều bậc. Tối ưu cái nhỏ trước cái lớn là cách chắc chắn để tốn công mà không thấy khác biệt.
+
+</details>
 
 ## Tự kiểm tra
 

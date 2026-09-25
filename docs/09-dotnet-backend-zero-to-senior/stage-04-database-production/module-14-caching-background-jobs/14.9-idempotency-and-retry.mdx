@@ -297,11 +297,523 @@ Retry im lặng là retry bạn chỉ biết khi nó đã vượt giới hạn.
 
 ## Bài tập áp dụng
 
-1. **Thundering herd.** Mô phỏng 500 client gọi một API trả 503, có và không có jitter. Vẽ biểu đồ số request theo thời gian ở mỗi trường hợp.
+#### Bài 1 — Thundering herd và jitter
 
-2. **Retry chồng tầng.** Dựng ba tầng service mỗi tầng retry 3 lần, và đếm số request thật sự tới tầng cuối cho một request gốc.
+Mô phỏng 500 client gọi một API trả 503, có và không có jitter. Vẽ biểu đồ số request theo thời gian ở mỗi trường hợp.
 
-3. **Idempotency key.** Cài endpoint tạo đơn hàng với `Idempotency-Key`, bắn 10 request đồng thời với **cùng** một key, và xác nhận chỉ một đơn hàng được tạo.
+**Tiêu chí hoàn thành:** bạn giải thích được vì sao backoff theo cấp số nhân **một mình** không đủ, và chọn được kiểu jitter phù hợp.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** 500 client cùng thất bại tại t=0, rồi cùng chờ đúng 1 giây. Chuyện gì xảy ra lúc t=1?
+
+**Lời giải — mô phỏng 500 client, backoff nhân đôi từ 1 giây, 5 lần thử:**
+
+```python
+def mo_phong(jitter):
+    moc = []
+    for _ in range(500):
+        t = 0.0
+        for lan in range(5):
+            d = 1.0 * (2 ** lan)                       # 1, 2, 4, 8, 16 giây
+            if jitter == 'full':
+                d = random.uniform(0, d)
+            elif jitter == 'equal':
+                d = d / 2 + random.uniform(0, d / 2)
+            t += d
+            moc.append(t)
+    return moc
+```
+
+```text
+Chỉ tính các lần THỬ LẠI (bỏ lần gọi đầu), gom theo cửa sổ 0,25 giây:
+
+Không jitter   đỉnh  500 req/0,25s (2.000 req/s)   trải trên   1,2s   kết thúc 31,0s
+Equal jitter   đỉnh  257 req/0,25s (1.028 req/s)   trải trên  24,2s   kết thúc 29,7s
+Full jitter    đỉnh  193 req/0,25s   (772 req/s)   trải trên  27,2s   kết thúc 27,8s
+```
+
+Nhìn vào vị trí các đỉnh khi không có jitter:
+
+```text
+t =  0s   500 request
+t =  1s   500 request      <- đúng bằng đỉnh ban đầu
+t =  3s   500 request
+t =  7s   500 request
+t = 15s   500 request
+t = 31s   500 request
+```
+
+**Sáu đợt sóng, mỗi đợt lớn bằng đợt đầu.** Dịch vụ đang quá tải nhận đúng cùng một mức tải, lặp lại sáu lần, trong 31 giây.
+
+**Vì sao backoff theo cấp số nhân một mình không đủ.** Backoff giải quyết bài toán *"mỗi client gọi lại quá nhanh"* — nó kéo giãn các lần thử của **một** client.
+
+Nhưng bài toán thật là *"mọi client gọi lại cùng lúc"*, và backoff tất định **không đụng tới** nó. Ngược lại, nó còn làm mọi client **đồng bộ hoá** với nhau: tất cả đều chờ đúng 1 giây, rồi đúng 2 giây, rồi đúng 4 giây.
+
+```text
+Backoff giải quyết:  mỗi client gọi lại quá nhanh       (trục thời gian của một client)
+Backoff KHÔNG giải:  mọi client gọi lại cùng thời điểm  (trục đồng bộ giữa các client)
+```
+
+Điều làm nó tệ hơn: **sự cố ban đầu chính là thứ đồng bộ hoá các client.** Trước sự cố, 500 client gọi rải rác ngẫu nhiên. Sau khi dịch vụ trả 503 cho tất cả trong cùng một khoảnh khắc, chúng được **căn chỉnh** vào cùng một đồng hồ — và giữ nguyên sự căn chỉnh đó qua mọi lần thử lại.
+
+Hậu quả thực tế: dịch vụ vừa hồi phục lúc t=0,5s sẽ bị dội 500 request lúc t=1s và sập lại. Chu kỳ này có thể lặp nhiều lần, và mỗi lần hệ thống chỉ "gần như" hồi phục.
+
+**Ba kiểu jitter:**
+
+```csharp
+// Full jitter — ngẫu nhiên trong toàn khoảng [0, delay]
+var delay = TimeSpan.FromSeconds(Random.Shared.NextDouble() * Math.Pow(2, lan));
+
+// Equal jitter — nửa cố định, nửa ngẫu nhiên
+var coBan = Math.Pow(2, lan);
+var delay = TimeSpan.FromSeconds(coBan / 2 + Random.Shared.NextDouble() * coBan / 2);
+
+// Decorrelated jitter — dựa trên độ trễ TRƯỚC ĐÓ, không dựa trên số lần thử
+var delay = TimeSpan.FromSeconds(
+    Math.Min(maxDelay, Random.Shared.NextDouble() * (truocDo * 3 - coBan) + coBan));
+```
+
+| Kiểu | Đỉnh tải | Thời gian hoàn tất | Dùng khi |
+|---|---:|---|---|
+| Không jitter | 2.000 req/s | 31,0 s | Không bao giờ |
+| Equal jitter | 1.028 req/s | 29,7 s | **Mặc định tốt** — vẫn giữ tính chất backoff |
+| Full jitter | 772 req/s | 27,8 s | Tải rất cao, muốn phân tán tối đa |
+| Decorrelated | Thấp nhất | Thay đổi | Nhiều client, cần thích nghi động |
+
+**Equal jitter là lựa chọn mặc định tốt**, vì nó giữ được điều quan trọng của backoff: độ trễ **luôn tăng** theo số lần thử. Với full jitter, lần thử thứ năm có thể rơi vào 0,1 giây — nhanh hơn cả lần thử đầu — nên một client xui xẻo có thể thử lại dồn dập dù đã thất bại nhiều lần.
+
+Đổi lại, full jitter phân tán tốt hơn (772 so với 1.028 req/s) vì nó không có "sàn" cố định.
+
+**Trong .NET, dùng Polly, đừng tự viết:**
+
+```csharp
+services.AddHttpClient<IEmailClient, EmailClient>()
+    .AddResilienceHandler("email", builder =>
+    {
+        builder.AddRetry(new HttpRetryStrategyOptions
+        {
+            MaxRetryAttempts = 3,
+            BackoffType = DelayBackoffType.Exponential,
+            UseJitter = true,                          // <- một dòng, và nó là dòng quan trọng nhất
+            Delay = TimeSpan.FromSeconds(1),
+        });
+    });
+```
+
+`UseJitter = true` là mặc định nên bật ở **mọi** chính sách retry. Không có lý do chính đáng nào để tắt nó.
+
+**Và jitter không chỉ dành cho retry.** Mọi lúc nhiều tiến trình làm cùng một việc theo cùng một lịch, bạn cần jitter:
+
+```csharp
+// TTL cache — tránh mọi instance cùng hết hạn (bài 14.1)
+var ttl = TimeSpan.FromMinutes(10) + TimeSpan.FromSeconds(Random.Shared.Next(0, 120));
+
+// Job định kỳ — tránh mọi pod cùng chạy lúc đúng phút tròn
+await Task.Delay(TimeSpan.FromSeconds(Random.Shared.Next(0, 30)), ct);
+
+// Health check — tránh mọi pod cùng gọi database lúc 0 giây
+services.AddHealthChecks().AddCheck<DbCheck>("db", tags: ["ready"]);
+```
+
+**Đo trên production, đừng chỉ mô phỏng.** Dấu hiệu thiếu jitter rất dễ nhận:
+
+```text
+Biểu đồ request theo thời gian có các ĐỈNH ĐỀU ĐẶN cách nhau đúng
+1s, 2s, 4s, 8s... sau mỗi lần có sự cố
+```
+
+Nếu bạn thấy hình răng cưa đều đặn như vậy sau một sự cố, có một chính sách retry ở đâu đó chưa bật jitter — và nó đang kéo dài mọi sự cố của bạn.
+
+</details>
+
+---
+
+#### Bài 2 — Retry chồng tầng
+
+Dựng ba tầng service mỗi tầng retry 3 lần, và đếm số request thật sự tới tầng cuối cho một request gốc.
+
+**Tiêu chí hoàn thành:** bạn tính được con số trước khi chạy, và nêu được nguyên tắc quyết định **tầng nào** được retry.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Mỗi lần tầng A gọi B, B thử C mấy lần?
+
+**Lời giải — tính trước:**
+
+```text
+Tầng A gọi B:  1 lần đầu + 3 retry = 4 lần
+Mỗi lần A gọi B, B gọi C:           4 lần
+Mỗi lần B gọi C, C gọi database:    4 lần
+
+Tổng số lần chạm database = 4 × 4 × 4 = 64
+```
+
+**Một request của người dùng trở thành 64 truy vấn database.**
+
+```text
+Gateway  -> API      -> Service  -> Database
+   4×          4×          4×
+   
+1 request người dùng = 4 lời gọi API = 16 lời gọi Service = 64 truy vấn database
+```
+
+Con số **nhân lên**, không cộng lại — và đó là chỗ trực giác sai. Bốn tầng, mỗi tầng retry 3 lần, cho **256** truy vấn.
+
+**Thời gian cũng nhân lên:**
+
+```text
+Backoff 1s, 2s, 4s ở mỗi tầng
+Tầng C:  1 + 2 + 4 = 7 giây cho một chuỗi
+Tầng B:  4 chuỗi của C, cộng backoff riêng = khoảng 40 giây
+Tầng A:  4 chuỗi của B = khoảng 3 phút
+
+Người dùng đã đóng tab từ 2 phút 50 giây trước.
+```
+
+Và đây là phần tệ nhất: **toàn bộ 64 truy vấn vẫn được thực hiện**, tiêu tài nguyên cho một request mà không ai còn chờ kết quả.
+
+**Nguyên tắc quyết định tầng nào được retry:**
+
+> **Retry ở tầng gần nhất với nguyên nhân lỗi, và chỉ ở đúng một tầng trong mỗi chuỗi.**
+
+Cụ thể:
+
+```text
+Gateway  -> KHÔNG retry (hoặc chỉ cho lỗi kết nối tới API, không cho lỗi nghiệp vụ)
+API      -> KHÔNG retry
+Service  -> KHÔNG retry
+Database -> CÓ retry, cho lỗi thoáng qua của chính nó
+```
+
+Lý do: tầng trong cùng là tầng **biết rõ nhất** lỗi đó có đáng thử lại không. Tầng ngoài chỉ thấy "lời gọi thất bại" và không phân biệt được timeout mạng với vi phạm ràng buộc.
+
+```csharp
+// Tầng trong cùng — biết rõ mình đang nói chuyện với ai
+services.AddDbContext<CrmDbContext>(o =>
+    o.UseSqlServer(conn, sql => sql.EnableRetryOnFailure(
+        maxRetryCount: 3,
+        maxRetryDelay: TimeSpan.FromSeconds(5),
+        errorNumbersToAdd: null)));     // chỉ retry các mã lỗi thoáng qua đã biết
+```
+
+```csharp
+// Các tầng ngoài — không retry, chỉ truyền lỗi lên
+services.AddHttpClient<IServiceClient, ServiceClient>()
+    .AddResilienceHandler("service", b =>
+    {
+        b.AddTimeout(TimeSpan.FromSeconds(10));
+        b.AddCircuitBreaker(new HttpCircuitBreakerStrategyOptions { FailureRatio = 0.5 });
+        // KHÔNG có AddRetry
+    });
+```
+
+**Nhưng "chỉ retry ở tầng trong cùng" đôi khi không đủ**, vì tầng ngoài cũng gặp lỗi mạng thật giữa nó và tầng kế tiếp. Ba cách xử lý:
+
+**1. Ngân sách retry (retry budget)** — giới hạn tổng số retry theo tỷ lệ lưu lượng:
+
+```csharp
+// Chỉ cho phép retry tối đa 10% tổng số request
+if (_demRetry.TyLe() > 0.10)
+{
+    _logger.LogWarning("Đã vượt ngân sách retry, không thử lại");
+    throw;
+}
+```
+
+Đây là cách các hệ thống lớn dùng, vì nó đặt trần cho **tổng** tải retry bất kể có bao nhiêu tầng.
+
+**2. Truyền hạn chót (deadline propagation)** — mỗi tầng biết còn bao nhiêu thời gian:
+
+```csharp
+var hanChot = context.Request.Headers["X-Deadline"];
+var conLai = DateTime.Parse(hanChot) - DateTime.UtcNow;
+
+if (conLai <= TimeSpan.Zero)
+    return Results.StatusCode(StatusCodes.Status504GatewayTimeout);
+
+using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+cts.CancelAfter(conLai);
+await GoiTangTiepTheoAsync(cts.Token);
+```
+
+```csharp
+// Truyền tiếp xuống tầng dưới, đã trừ thời gian đã tiêu
+request.Headers.Add("X-Deadline", DateTime.UtcNow.Add(conLai).ToString("O"));
+```
+
+Cách này giải quyết vấn đề triệt để hơn ngân sách: khi người dùng đã bỏ đi, **không tầng nào còn thử lại**, vì hạn chót đã qua. Nó biến 3 phút vô ích thành một lỗi trả về sau 10 giây.
+
+**3. Circuit breaker ở mỗi tầng** — không ngăn chồng tầng, nhưng chặn nó **sớm** khi sự cố đã rõ:
+
+```csharp
+b.AddCircuitBreaker(new HttpCircuitBreakerStrategyOptions
+{
+    FailureRatio = 0.5,
+    SamplingDuration = TimeSpan.FromSeconds(30),
+    BreakDuration = TimeSpan.FromSeconds(15),
+});
+```
+
+Sau vài chục lời gọi thất bại, mạch ngắt và 64 lời gọi trở thành 0.
+
+**Ba cách này bổ sung nhau**, và một hệ thống nhiều tầng nên có cả ba: hạn chót cắt theo thời gian, ngân sách cắt theo khối lượng, circuit breaker cắt theo tỷ lệ lỗi.
+
+**Và trước hết, hãy đếm xem bạn đang có bao nhiêu tầng retry:**
+
+```bash
+grep -rn "AddRetry\|WaitAndRetry\|EnableRetryOnFailure\|UseMessageRetry\|AutomaticRetry" \
+     --include="*.cs" src/
+```
+
+Mỗi kết quả là một hệ số nhân. Vẽ chúng lên một sơ đồ theo đường đi của request, nhân các hệ số lại, và bạn sẽ có con số thật — nó thường lớn hơn nhiều so với dự đoán của cả nhóm.
+
+**Một cảnh báo đặc biệt về `EnableRetryOnFailure` của EF Core:** nó im lặng và dễ quên. Nhiều nhóm bật nó theo mẫu có sẵn trong tài liệu, rồi thêm Polly ở tầng HTTP mà không nhớ rằng database cũng đang retry. Với ba tầng HTTP mỗi tầng 3 lần và EF Core 3 lần, con số là 4 × 4 × 4 × 4 = **256**.
+
+Nó còn có một tác dụng phụ ít ai biết: khi bật retry, EF Core **không cho bạn dùng transaction do người dùng khởi tạo** theo cách thông thường, và bắt bạn phải bọc trong một execution strategy:
+
+```csharp
+var strategy = _db.Database.CreateExecutionStrategy();
+await strategy.ExecuteAsync(async () =>
+{
+    await using var tx = await _db.Database.BeginTransactionAsync(ct);
+    // ...
+    await tx.CommitAsync(ct);
+});
+```
+
+Nếu bạn chưa bao giờ viết đoạn này mà đã bật `EnableRetryOnFailure`, hãy kiểm tra lại — có thể có chỗ đang ném exception lúc chạy mà chưa ai gặp.
+
+</details>
+
+---
+
+#### Bài 3 — Idempotency key
+
+Cài endpoint tạo đơn hàng với `Idempotency-Key`, bắn 10 request đồng thời với **cùng** một key, và xác nhận chỉ một đơn hàng được tạo.
+
+**Tiêu chí hoàn thành:** bạn nêu được vì sao kiểm tra "đã tồn tại chưa" bằng `SELECT` rồi `INSERT` **không** đủ, và thiết kế được hành vi cho request thứ hai.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Mười request đồng thời cùng chạy `SELECT`. Tất cả thấy gì?
+
+**Lời giải — bản có lỗi:**
+
+```csharp
+app.MapPost("/don-hang", async (TaoDonRequest req, HttpContext http,
+                                CrmDbContext db, CancellationToken ct) =>
+{
+    var key = http.Request.Headers["Idempotency-Key"].FirstOrDefault();
+    if (string.IsNullOrEmpty(key)) return Results.BadRequest("Thiếu Idempotency-Key");
+
+    // KIỂM TRA
+    if (await db.DonHang.AnyAsync(d => d.IdempotencyKey == key, ct))
+        return Results.Ok(await db.DonHang.FirstAsync(d => d.IdempotencyKey == key, ct));
+
+    // rồi HÀNH ĐỘNG — có khe hở ở giữa
+    var don = new DonHang { IdempotencyKey = key, TongTien = req.TongTien };
+    db.DonHang.Add(don);
+    await db.SaveChangesAsync(ct);
+    return Results.Created($"/don-hang/{don.Id}", don);
+});
+```
+
+```bash
+for i in $(seq 1 10); do
+  curl -s -X POST http://localhost:5000/don-hang \
+       -H "Idempotency-Key: abc-123" \
+       -d '{"tongTien": 5000000}' &
+done; wait
+```
+
+```sql
+SELECT COUNT(*) FROM DonHang WHERE IdempotencyKey = 'abc-123';
+-- 7
+```
+
+Bảy đơn hàng, và khách hàng bị trừ tiền bảy lần.
+
+**Vì sao `SELECT` rồi `INSERT` không đủ.** Đây lại là mẫu **kiểm-tra-rồi-hành-động** ở [bài 13.8](../module-13-entity-framework-core/13.8-concurrency-control.mdx), lần này ở tầng HTTP:
+
+```text
+t=0,000  Request 1..10 cùng chạy SELECT -> tất cả thấy "chưa tồn tại"
+t=0,010  Request 1..10 cùng chạy INSERT -> tất cả thành công
+```
+
+Kết quả của `SELECT` là một **ảnh chụp đã cũ** tại thời điểm `INSERT`. Và khoảng cách giữa hai lệnh không cần lớn — vài mili giây là đủ cho mười request đồng thời chen vào.
+
+Nâng mức cô lập transaction lên `Serializable` cũng không giúp, vì không có dòng nào để khoá — bạn đang khoá sự **vắng mặt** của một dòng, và điều đó cần khoá phạm vi (range lock), vốn dễ gây deadlock.
+
+**Bản sửa — unique constraint, để database quyết định:**
+
+```csharp
+builder.Entity<DonHang>().HasIndex(d => d.IdempotencyKey).IsUnique();
+```
+
+```csharp
+app.MapPost("/don-hang", async (TaoDonRequest req, HttpContext http,
+                                CrmDbContext db, CancellationToken ct) =>
+{
+    var key = http.Request.Headers["Idempotency-Key"].FirstOrDefault();
+    if (string.IsNullOrEmpty(key)) return Results.BadRequest("Thiếu Idempotency-Key");
+
+    var don = new DonHang { IdempotencyKey = key, TongTien = req.TongTien };
+    db.DonHang.Add(don);
+
+    try
+    {
+        await db.SaveChangesAsync(ct);
+        return Results.Created($"/don-hang/{don.Id}", don);
+    }
+    catch (DbUpdateException ex) when (LaViPhamUnique(ex))
+    {
+        // Ai đó đã tạo với key này — trả về đơn hàng của họ
+        var daCo = await db.DonHang.AsNoTracking()
+            .FirstAsync(d => d.IdempotencyKey == key, ct);
+        return Results.Ok(daCo);
+    }
+});
+```
+
+```text
+10 request đồng thời -> 1 đơn hàng, 9 request nhận lại chính đơn đó
+```
+
+Phép kiểm tra được đẩy xuống database, nơi nó **nguyên tử**. Unique index bảo đảm đúng một `INSERT` thành công, bất kể bao nhiêu luồng cùng thử — và đó là bảo đảm mà không mức cô lập nào ở tầng ứng dụng cho được.
+
+**Thiết kế hành vi cho request thứ hai — ba câu hỏi:**
+
+**1. Trả mã gì?**
+
+```text
+201 Created    cho request ĐẦU TIÊN
+200 OK         cho các request sau, kèm kết quả đã tạo
+```
+
+Đừng trả `409 Conflict`: từ góc nhìn của client, nó **không xung đột** với ai cả — nó chỉ đang thử lại chính request của mình, và nó muốn biết kết quả. Trả 409 buộc client phải xử lý một nhánh lỗi cho một tình huống thành công.
+
+**2. Nếu request đầu tiên vẫn đang chạy thì sao?** Đây là trường hợp khó nhất, và cách xử lý đúng là ghi nhận trạng thái "đang xử lý":
+
+```csharp
+public class BanGhiIdempotency
+{
+    public string    Khoa       { get; set; } = null!;   // unique
+    public string    TrangThai  { get; set; } = null!;   // DangXuLy | HoanTat | ThatBai
+    public string?   KetQuaJson { get; set; }
+    public DateTime  TaoLuc     { get; set; }
+    public string    HashRequest { get; set; } = null!;
+}
+```
+
+```csharp
+if (banGhi.TrangThai == "DangXuLy")
+{
+    http.Response.Headers.RetryAfter = "1";
+    return Results.StatusCode(StatusCodes.Status409Conflict);
+}
+```
+
+Ở đây `409` **là đúng**, vì client thật sự cần thử lại sau. Kèm `Retry-After` để client biết chờ bao lâu.
+
+**3. Nếu cùng key nhưng body khác nhau thì sao?** Đây là lỗi của client, và phải báo rõ:
+
+```csharp
+var hash = Convert.ToHexString(SHA256.HashData(
+    JsonSerializer.SerializeToUtf8Bytes(req)));
+
+if (banGhi.HashRequest != hash)
+    return Results.BadRequest(new ProblemDetails
+    {
+        Title = "Idempotency-Key đã được dùng với nội dung khác",
+        Detail = "Mỗi Idempotency-Key chỉ dùng cho đúng một nội dung request.",
+    });
+```
+
+Không có kiểm tra này, một client sinh key sai — ví dụ dùng lại key cho mọi request — sẽ nhận về kết quả của một đơn hàng hoàn toàn khác, và tin rằng đơn mới đã được tạo.
+
+**Hai chi tiết vận hành:**
+
+**1. Key phải có hạn.** Không dọn thì bảng lớn vô hạn:
+
+```sql
+DELETE FROM BanGhiIdempotency WHERE TaoLuc < DATEADD(DAY, -1, SYSUTCDATETIME());
+```
+
+24 giờ là mốc thường dùng (Stripe dùng đúng con số này), và nó dài hơn mọi chuỗi retry hợp lý.
+
+**2. Client phải sinh key, không phải server.** Và key phải **ổn định qua các lần thử lại của cùng một thao tác**:
+
+```csharp
+// Đúng — sinh một lần, dùng cho mọi lần thử lại
+var key = Guid.NewGuid().ToString();
+for (var lan = 0; lan < 3; lan++)
+{
+    try { return await GoiApiAsync(req, key, ct); }
+    catch (HttpRequestException) { await Task.Delay(1000 * (lan + 1), ct); }
+}
+
+// Sai — key mới mỗi lần thử -> mỗi lần thử tạo một đơn hàng
+for (var lan = 0; lan < 3; lan++)
+    try { return await GoiApiAsync(req, Guid.NewGuid().ToString(), ct); } catch { }
+```
+
+Đoạn sai ở dưới là lỗi phổ biến nhất khi tích hợp, và nó **vô hiệu hoá hoàn toàn** cơ chế idempotency trong khi trông như đang dùng nó đúng cách.
+
+**Đưa vào middleware để mọi endpoint ghi được hưởng:**
+
+```csharp
+app.UseMiddleware<IdempotencyMiddleware>();
+```
+
+```csharp
+public class IdempotencyMiddleware
+{
+    private static readonly string[] PhuongThucCanKhoa = ["POST", "PUT", "PATCH"];
+
+    public async Task InvokeAsync(HttpContext ctx, CrmDbContext db)
+    {
+        if (!PhuongThucCanKhoa.Contains(ctx.Request.Method))
+        {
+            await _next(ctx);
+            return;
+        }
+        // ... kiểm tra key, ghi bản ghi, chạy _next, lưu kết quả
+    }
+}
+```
+
+**Và một test đồng thời thật — đây là loại lỗi mà chỉ đồng thời thật mới phát hiện:**
+
+```csharp
+[Fact]
+public async Task Muoi_request_cung_key_chi_tao_mot_don_hang()
+{
+    var key = Guid.NewGuid().ToString();
+
+    var ketQua = await Task.WhenAll(Enumerable.Range(0, 10).Select(_ =>
+    {
+        var req = new HttpRequestMessage(HttpMethod.Post, "/don-hang")
+        {
+            Content = JsonContent.Create(new { tongTien = 5_000_000 }),
+        };
+        req.Headers.Add("Idempotency-Key", key);
+        return _client.SendAsync(req);
+    }));
+
+    ketQua.Count(r => r.StatusCode == HttpStatusCode.Created).Should().Be(1);
+    ketQua.Count(r => r.StatusCode == HttpStatusCode.OK).Should().Be(9);
+
+    (await DemDonHangAsync(key)).Should().Be(1);
+}
+```
+
+Test này cần database thật — in-memory provider không thực thi unique index theo cách có khoá, nên nó sẽ cho test xanh ngay cả với bản có lỗi ở đầu bài.
+
+</details>
 
 ## Tự kiểm tra
 

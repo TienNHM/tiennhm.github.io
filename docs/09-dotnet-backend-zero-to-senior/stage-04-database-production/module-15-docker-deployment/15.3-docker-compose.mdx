@@ -293,11 +293,561 @@ docker compose down -v                   # dừng, XOÁ volume — CẨN THẬN
 
 ## Bài tập áp dụng
 
-1. **`depends_on` không đủ.** Dựng stack API cộng SQL Server chỉ với `depends_on` dạng danh sách. Chạy `docker compose up` và xác nhận API chết vì không kết nối được. Thêm healthcheck và kiểm chứng.
+#### Bài 1 — `depends_on` không chờ dịch vụ sẵn sàng
 
-2. **Cổng mở ra ngoài.** Chạy `docker compose` có `"1433:1433"` trên máy có IP công khai, rồi từ máy khác thử `telnet <ip> 1433`. Đổi sang `127.0.0.1:1433:1433` và kiểm chứng lại.
+Dựng stack API cộng SQL Server chỉ với `depends_on` dạng danh sách. Chạy `docker compose up` và xác nhận API chết vì không kết nối được. Thêm healthcheck và kiểm chứng.
 
-3. **Log đầy đĩa.** Chạy container ghi log liên tục **không** có `max-size`, và theo dõi kích thước file trong `/var/lib/docker/containers/`.
+**Tiêu chí hoàn thành:** bạn phân biệt được "container đã khởi động" và "dịch vụ đã sẵn sàng", và nêu được vì sao healthcheck cũng chưa phải giải pháp đầy đủ.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** SQL Server mất bao lâu từ lúc tiến trình khởi động tới lúc nhận được kết nối đầu tiên?
+
+**Lời giải — bản có lỗi:**
+
+```yaml
+services:
+  api:
+    build: .
+    depends_on:
+      - sqlserver          # chỉ chờ container KHỞI ĐỘNG
+    environment:
+      ConnectionStrings__Default: "Server=sqlserver;Database=Crm;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=true"
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${SA_PASSWORD}
+```
+
+```bash
+docker compose up
+```
+
+```text
+sqlserver_1  | SQL Server is starting up...
+api_1        | Microsoft.Data.SqlClient.SqlException (0x80131904):
+api_1        |   A network-related or instance-specific error occurred while
+api_1        |   establishing a connection to SQL Server.
+api_1        | Unhandled exception. Application startup exception.
+api_1 exited with code 134
+```
+
+API khởi động sau chưa đầy một giây; SQL Server cần khoảng 20–40 giây để sẵn sàng.
+
+**Phân biệt hai trạng thái:**
+
+```text
+Container đã khởi động:  tiến trình PID 1 đang chạy
+                         -> Docker biết điều này ngay lập tức
+
+Dịch vụ đã sẵn sàng:     tiến trình đã nghe cổng, đã nạp xong dữ liệu,
+                         đã phục hồi log, và trả lời được truy vấn
+                         -> chỉ DỊCH VỤ mới biết, Docker không có cách nào biết
+```
+
+`depends_on` dạng danh sách chỉ bảo đảm **thứ tự khởi động**, không bảo đảm gì về tình trạng sẵn sàng. Và đó là giới hạn có lý do: Docker không biết "sẵn sàng" nghĩa là gì với một image tuỳ ý. Với SQL Server đó là nhận được truy vấn; với RabbitMQ là các exchange đã được tạo; với một ứng dụng là migration đã chạy xong.
+
+Thời gian khởi động điển hình:
+
+| Dịch vụ | Từ khởi động tới sẵn sàng |
+|---|---|
+| Redis | dưới 1 giây |
+| PostgreSQL | 2–5 giây |
+| RabbitMQ | 10–20 giây |
+| **SQL Server** | **20–40 giây** |
+| Elasticsearch | 30–60 giây |
+
+**Bản sửa — healthcheck cộng `condition`:**
+
+```yaml
+services:
+  api:
+    build: .
+    depends_on:
+      sqlserver:
+        condition: service_healthy        # chờ healthcheck PASS
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${SA_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+```
+
+```text
+sqlserver_1  | SQL Server is now ready for client connections.
+api_1        | Now listening on: http://[::]:8080
+```
+
+Bốn tham số và ý nghĩa:
+
+| Tham số | Nghĩa |
+|---|---|
+| `interval` | Bao lâu kiểm tra một lần |
+| `timeout` | Một lần kiểm tra chờ tối đa bao lâu |
+| `retries` | Thất bại liên tiếp bao nhiêu lần thì coi là unhealthy |
+| `start_period` | **Khoảng đầu mà thất bại không bị tính vào `retries`** |
+
+`start_period` là tham số hay bị bỏ sót nhất. Không có nó, SQL Server sẽ bị đánh dấu `unhealthy` sau 10 lần thất bại trong 100 giây đầu — trước cả khi nó kịp sẵn sàng.
+
+**Vì sao healthcheck cũng chưa phải giải pháp đầy đủ** — bốn lý do, và đây là phần chính của bài:
+
+**1. Healthcheck chỉ chạy lúc khởi động stack.** Nếu SQL Server restart **sau khi** API đã chạy, Compose không khởi động lại API:
+
+```text
+t=0    stack lên, API chờ SQL Server healthy rồi khởi động — OK
+t=1h   SQL Server restart vì OOM
+t=1h   API vẫn chạy, nhưng mọi truy vấn thất bại
+       -> depends_on không giúp gì ở đây
+```
+
+**2. Nó không tồn tại ngoài Compose.** Kubernetes không có `depends_on`. Pod khởi động theo thứ tự tuỳ ý, và một pod có thể khởi động lại bất cứ lúc nào.
+
+**3. Nó làm chậm khởi động.** Chờ SQL Server healthy nghĩa là API mất 40 giây để lên, kể cả khi API có thể khởi động trước và kết nối sau.
+
+**4. Nó không xử lý được mất kết nối tạm thời** — mạng chập chờn, failover, scale.
+
+**Giải pháp thật: ứng dụng phải chịu được việc dịch vụ phụ thuộc chưa sẵn sàng.** Đây là yêu cầu kiến trúc, không phải cấu hình:
+
+```csharp
+// 1. Retry cho lỗi kết nối thoáng qua — hoạt động ở MỌI môi trường
+builder.Services.AddDbContext<CrmDbContext>(o =>
+    o.UseSqlServer(conn, sql => sql.EnableRetryOnFailure(
+        maxRetryCount: 5,
+        maxRetryDelay: TimeSpan.FromSeconds(10),
+        errorNumbersToAdd: null)));
+```
+
+```csharp
+// 2. Đừng chạm database lúc khởi động — để nó lên rồi kết nối khi có request đầu tiên
+// Nếu buộc phải chạy migration lúc khởi động, hãy retry tường minh:
+var strategy = db.Database.CreateExecutionStrategy();
+await strategy.ExecuteAsync(async () => await db.Database.MigrateAsync(ct));
+```
+
+```csharp
+// 3. Health check báo Unhealthy khi database chết -> nền tảng không gửi traffic
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<CrmDbContext>("database", tags: ["ready"]);
+```
+
+Ba thứ này cùng nhau giải quyết vấn đề ở mọi môi trường, và chúng khiến `depends_on` trở thành một tiện ích cho dev chứ không phải một phụ thuộc.
+
+**Trên Kubernetes, tương đương gần nhất là init container:**
+
+```yaml
+initContainers:
+  - name: cho-database
+    image: busybox:1.36
+    command: ['sh', '-c', 'until nc -z sqlserver 1433; do echo chờ; sleep 2; done']
+```
+
+Nhưng nó có cùng giới hạn số 1: chỉ chạy lúc pod khởi động. Nếu database chết sau đó, init container không chạy lại.
+
+**Kết luận đáng mang theo:**
+
+> **`depends_on` và init container làm cho việc khởi động dễ chịu hơn. Chúng không thay thế được việc ứng dụng phải chịu được lỗi.**
+
+Cách kiểm chứng dứt khoát: dừng database khi ứng dụng đang chạy, rồi bật lại. Nếu ứng dụng tự hồi phục mà không cần restart, bạn đã làm đúng. Nếu không, `depends_on` chỉ đang che giấu vấn đề cho tới lần sự cố đầu tiên.
+
+</details>
+
+---
+
+#### Bài 2 — Cổng mở ra internet
+
+Chạy `docker compose` có `"1433:1433"` trên máy có IP công khai, rồi từ máy khác thử `telnet <ip> 1433`. Đổi sang `127.0.0.1:1433:1433` và kiểm chứng lại.
+
+**Tiêu chí hoàn thành:** bạn giải thích được vì sao tường lửa **không** chặn được cổng Docker, và biết cách kiểm tra cổng nào đang mở ra ngoài.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Docker và `ufw` cùng ghi vào iptables. Quy tắc của ai được đánh giá trước?
+
+**Lời giải:**
+
+```yaml
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    ports:
+      - "1433:1433"          # nghe trên MỌI giao diện
+```
+
+```bash
+# Từ một máy khác
+telnet <ip-cong-khai> 1433
+```
+
+```text
+Trying <ip-cong-khai>...
+Connected to <ip-cong-khai>.
+Escape character is '^]'.
+```
+
+Database của bạn đang mở ra internet. Và điều gây sốc nhất: **nó mở kể cả khi tường lửa đang bật và chặn cổng 1433**.
+
+```bash
+sudo ufw status
+```
+
+```text
+Status: active
+To                         Action      From
+--                         ------      ----
+22/tcp                     ALLOW       Anywhere
+80,443/tcp                 ALLOW       Anywhere
+```
+
+Cổng 1433 không có trong danh sách cho phép, nhưng vẫn kết nối được.
+
+**Vì sao tường lửa không chặn được cổng Docker.** Vì Docker và `ufw` cùng ghi vào `iptables`, nhưng ở **các chuỗi khác nhau**, và chuỗi của Docker được đánh giá **trước**:
+
+```text
+Gói tin đến
+    │
+    ├─> bảng nat, chuỗi PREROUTING
+    │       └─> DOCKER          <- Docker chèn DNAT ở đây, chuyển hướng vào container
+    │
+    ├─> bảng filter, chuỗi FORWARD
+    │       ├─> DOCKER-USER     <- chuỗi dành cho NGƯỜI DÙNG, đánh giá TRƯỚC
+    │       └─> DOCKER          <- quy tắc của Docker
+    │
+    └─> bảng filter, chuỗi INPUT
+            └─> ufw             <- quy tắc của ufw ở ĐÂY
+```
+
+Gói tin tới container đi qua chuỗi `FORWARD`, **không** đi qua `INPUT`. Mà `ufw` chỉ quản lý `INPUT`. Nên quy tắc của `ufw` không bao giờ được đánh giá cho traffic tới container.
+
+Đây không phải bug mà là hệ quả của việc Docker tự quản lý phần mạng của nó. Nhưng nó là một trong những nguồn lộ dịch vụ phổ biến nhất trên VPS.
+
+**Ba cách sửa:**
+
+**1. Bind vào localhost — cách đơn giản và đúng nhất:**
+
+```yaml
+services:
+  sqlserver:
+    ports:
+      - "127.0.0.1:1433:1433"      # chỉ máy chủ truy cập được
+```
+
+```bash
+telnet <ip-cong-khai> 1433
+```
+
+```text
+telnet: Unable to connect to remote host: Connection refused
+```
+
+Từ máy chủ vẫn dùng được, để chạy migration hoặc mở SSMS qua SSH tunnel:
+
+```bash
+ssh -L 1433:localhost:1433 user@server
+```
+
+**2. Đừng map cổng nếu không cần.** API và database nói chuyện qua **mạng nội bộ của Compose**, không cần `ports` gì cả:
+
+```yaml
+services:
+  api:
+    ports:
+      - "127.0.0.1:8080:8080"      # chỉ API cần ra ngoài, và cũng qua Nginx
+    environment:
+      ConnectionStrings__Default: "Server=sqlserver;Database=Crm;..."
+                                        # ^^^^^^^^^ tên dịch vụ, không phải localhost
+
+  sqlserver:
+    # KHÔNG có ports — chỉ container khác trong cùng mạng truy cập được
+```
+
+Đây là cấu hình nên dùng mặc định: chỉ những dịch vụ **thật sự** cần tiếp xúc bên ngoài mới có `ports`, và chúng bind vào `127.0.0.1` để Nginx làm cổng vào duy nhất.
+
+**3. Dùng chuỗi `DOCKER-USER` nếu buộc phải mở ra ngoài:**
+
+```bash
+sudo iptables -I DOCKER-USER -i eth0 ! -s 10.0.0.0/8 -p tcp --dport 1433 -j DROP
+```
+
+`DOCKER-USER` là chuỗi duy nhất mà Docker **không ghi đè** khi khởi động lại. Quy tắc đặt ở các chuỗi khác sẽ biến mất sau `systemctl restart docker`.
+
+**Kiểm tra cổng nào đang mở ra ngoài:**
+
+```bash
+# 1. Cổng đang nghe, và trên giao diện nào
+sudo ss -tlnp | grep -v "127.0.0.1\|::1"
+```
+
+```text
+LISTEN  0  4096  0.0.0.0:1433   0.0.0.0:*  users:(("docker-proxy",pid=2841))
+LISTEN  0  4096  0.0.0.0:8080   0.0.0.0:*  users:(("docker-proxy",pid=2903))
+LISTEN  0  128   0.0.0.0:22     0.0.0.0:*  users:(("sshd",pid=891))
+```
+
+`0.0.0.0` nghĩa là **mọi giao diện**, tức mở ra ngoài. `127.0.0.1` là chỉ máy chủ.
+
+```bash
+# 2. Cổng Docker đang map
+docker ps --format 'table {{.Names}}\t{{.Ports}}'
+```
+
+```text
+NAMES        PORTS
+sqlserver    0.0.0.0:1433->1433/tcp, :::1433->1433/tcp     <- MỞ RA NGOÀI
+api          127.0.0.1:8080->8080/tcp                      <- chỉ localhost
+```
+
+```bash
+# 3. Xác minh từ BÊN NGOÀI — đây là kiểm tra duy nhất đáng tin
+nmap -Pn -p 22,80,443,1433,5432,6379,27017 <ip-cong-khai>
+```
+
+```text
+PORT      STATE    SERVICE
+22/tcp    open     ssh
+80/tcp    open     http
+443/tcp   open     https
+1433/tcp  filtered ms-sql-s
+5432/tcp  closed   postgresql
+6379/tcp  closed   redis
+```
+
+Chạy `nmap` từ một máy khác là cách duy nhất biết chắc, vì nó kiểm tra kết quả thật chứ không kiểm tra cấu hình.
+
+**Danh sách cổng không bao giờ được mở ra internet:**
+
+```text
+1433  SQL Server        3306  MySQL          5432  PostgreSQL
+6379  Redis             27017 MongoDB        9200  Elasticsearch
+5672  RabbitMQ          15672 RabbitMQ UI    2375  Docker API (!!)
+```
+
+Cổng 2375 đáng sợ nhất: Docker API **không xác thực** ở cổng đó, và ai kết nối được thì có toàn quyền root trên máy chủ.
+
+Redis và MongoDB đứng thứ hai: cả hai theo mặc định **không yêu cầu mật khẩu**. Các bot quét internet tìm chúng liên tục, và thời gian từ lúc mở cổng tới lúc bị khai thác thường tính bằng phút, không phải ngày.
+
+**Một quy tắc đơn giản để không bao giờ mắc lỗi này:**
+
+> **Mọi mục `ports` trong `docker-compose.yml` phải có tiền tố `127.0.0.1:`, trừ cổng của reverse proxy.**
+
+Và một kiểm tra tự động:
+
+```bash
+#!/usr/bin/env bash
+# Cảnh báo nếu có cổng nào bind ra mọi giao diện, ngoài 80 và 443
+if grep -E '^\s+- "[0-9]+:' docker-compose*.yml | grep -vE '"(80|443):'; then
+  echo "Có cổng bind ra mọi giao diện — hãy thêm tiền tố 127.0.0.1:"
+  exit 1
+fi
+```
+
+</details>
+
+---
+
+#### Bài 3 — Log làm đầy đĩa
+
+Chạy container ghi log liên tục **không** có `max-size`, và theo dõi kích thước file trong `/var/lib/docker/containers/`.
+
+**Tiêu chí hoàn thành:** bạn giải thích được vì sao đầy đĩa gây hậu quả nặng hơn dự đoán, và biết cấu hình mặc định ở đúng chỗ.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Khi đĩa đầy, những thành phần nào khác cần ghi vào đĩa?
+
+**Lời giải:**
+
+```bash
+docker run -d --name noisy crm-api
+watch -n 10 'du -sh /var/lib/docker/containers/*/*-json.log'
+```
+
+```text
+Sau 1 giờ:    218M
+Sau 6 giờ:    1.3G
+Sau 24 giờ:   5.2G
+Sau 7 ngày:   36G
+```
+
+```bash
+df -h /
+```
+
+```text
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sda1        40G   39G  0.1G 100% /
+```
+
+Docker **không giới hạn log mặc định** với driver `json-file`. File lớn cho tới khi hết đĩa.
+
+**Vì sao đầy đĩa gây hậu quả nặng hơn dự đoán** — vì nó phá **mọi thứ cùng một lúc**:
+
+```text
+Đĩa đầy
+  ├─> Database không ghi được transaction log     -> mọi lệnh ghi thất bại
+  ├─> Ứng dụng không ghi được file tạm            -> upload, xuất file lỗi
+  ├─> systemd không ghi được journal              -> MẤT LUÔN bằng chứng chẩn đoán
+  ├─> Docker không pull được image mới            -> không deploy được
+  ├─> Docker không khởi động container mới        -> không restart được để cứu
+  ├─> SSH có thể không đăng nhập được             -> không vào máy được
+  └─> apt, yum không chạy được                    -> không cài công cụ để sửa
+```
+
+Hai dòng cuối là chỗ biến một sự cố thành một sự cố kéo dài: bạn mất khả năng **vào máy để sửa**. Và dòng thứ ba nghĩa là khi vào được, log giải thích chuyện gì đã xảy ra cũng không còn.
+
+Thêm một đặc điểm: đầy đĩa không suy giảm dần. Ở 95% mọi thứ bình thường; ở 100% mọi thứ hỏng cùng lúc. Không có giai đoạn cảnh báo tự nhiên.
+
+**Cấu hình giới hạn — ba chỗ, theo thứ tự ưu tiên:**
+
+**1. Mặc định toàn máy chủ — chỗ quan trọng nhất, vì nó áp cho cả container bạn quên cấu hình:**
+
+```json
+// /etc/docker/daemon.json
+{
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "10m",
+    "max-file": "3",
+    "compress": "true"
+  }
+}
+```
+
+```bash
+sudo systemctl restart docker
+```
+
+Mỗi container tối đa 30 MB log, xoay vòng qua 3 file.
+
+**Quan trọng: cấu hình này chỉ áp cho container được tạo SAU khi restart Docker.** Container đang chạy giữ nguyên cấu hình cũ:
+
+```bash
+docker inspect <container> --format '{{.HostConfig.LogConfig}}'
+```
+
+```text
+{json-file map[]}          <- không có giới hạn, phải tạo lại container
+```
+
+**2. Trong Compose, cho từng dịch vụ:**
+
+```yaml
+x-logging: &mac-dinh-log
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  api:
+    build: .
+    logging: *mac-dinh-log
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    logging: *mac-dinh-log
+```
+
+Dùng anchor YAML (`&`/`*`) để không lặp lại cấu hình — và để không ai thêm dịch vụ mới mà quên.
+
+**3. Chuyển hẳn sang driver khác** — đúng đắn nhất cho production:
+
+```json
+{
+  "log-driver": "local",
+  "log-opts": { "max-size": "10m", "max-file": "3" }
+}
+```
+
+Driver `local` mặc định có giới hạn, nén tốt hơn, và ghi nhanh hơn `json-file`. Đổi lại, `docker logs` vẫn hoạt động nhưng công cụ đọc trực tiếp file JSON thì không.
+
+Hoặc gửi log ra hệ thống tập trung:
+
+```yaml
+logging:
+  driver: loki
+  options:
+    loki-url: "http://loki:3100/loki/api/v1/push"
+```
+
+**Dọn dẹp khi đã lỡ:**
+
+```bash
+# Xem container nào ngốn nhiều nhất
+sudo du -h /var/lib/docker/containers/*/*-json.log | sort -rh | head -10
+
+# Cắt file log mà không cần dừng container
+sudo truncate -s 0 /var/lib/docker/containers/<id>/<id>-json.log
+```
+
+Dùng `truncate`, **không dùng `rm`**: xoá file trong khi Docker đang giữ file descriptor sẽ khiến dung lượng **không được giải phóng** cho tới khi container dừng — và bạn vẫn đầy đĩa, nhưng giờ không thấy file nào để xoá.
+
+**Và dọn cả những thứ khác của Docker:**
+
+```bash
+docker system df
+```
+
+```text
+TYPE            TOTAL   ACTIVE   SIZE     RECLAIMABLE
+Images          47      3        28.4GB   24.1GB (84%)
+Containers      12      3        1.2GB    980MB (81%)
+Local Volumes   18      2        8.7GB    7.9GB (90%)
+Build Cache     284     0        12.3GB   12.3GB (100%)
+```
+
+```bash
+docker system prune -af --volumes    # CẨN THẬN: --volumes xoá cả volume không dùng
+```
+
+Chạy `docker system df` trước và đọc kỹ — `--volumes` có thể xoá dữ liệu database của một container đã dừng.
+
+An toàn hơn, chạy định kỳ:
+
+```bash
+# Chỉ xoá image và build cache cũ hơn 7 ngày, không đụng volume
+docker image prune -af --filter "until=168h"
+docker builder prune -af --filter "until=168h"
+```
+
+**Giám sát — và đặt ngưỡng đủ sớm để còn kịp hành động:**
+
+```bash
+# /etc/cron.d/kiem-tra-dia
+0 * * * * root df -h / | awk 'NR==2 && $5+0 > 80 {print "Đĩa đầy " $5}' | \
+          xargs -r -I{} curl -s -X POST -d "text={}" $SLACK_WEBHOOK
+```
+
+Ngưỡng 80% cho bạn khoảng thời gian thật để xử lý. Ngưỡng 95% thường là quá muộn, vì tốc độ ghi log không tuyến tính — một sự cố làm tăng lượng log, và 95% tới 100% có thể chỉ mất vài phút.
+
+**Và giảm lượng log sinh ra ngay từ đầu — thường là cách tốt nhất:**
+
+```json
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Warning",
+      "Microsoft.AspNetCore": "Warning",
+      "Microsoft.EntityFrameworkCore.Database.Command": "Warning"
+    }
+  }
+}
+```
+
+Dòng cuối đáng chú ý: ở mức `Information`, EF Core ghi **mọi câu SQL** ra log. Trên một API xử lý 100 request mỗi giây, đó là vài GB mỗi ngày cho thứ gần như không ai đọc.
+
+</details>
 
 ## Tự kiểm tra
 

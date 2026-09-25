@@ -238,11 +238,319 @@ Với "hoạt động lần cuối", cập nhật một cột trong database **t
 
 ## Bài tập áp dụng
 
-1. **Presence rò rỉ.** Dùng dictionary trong bộ nhớ, kết nối vài client rồi kill tiến trình bằng `SIGKILL`. Khởi động lại và xác nhận... không còn gì — rồi giải thích vì sao trên production với dictionary `static` thì vấn đề lại khác.
+#### Bài 1 — Presence lưu trong bộ nhớ tiến trình
 
-2. **Nhiều tab.** Mở 3 tab, đóng một tab, và đếm số sự kiện `UserPresenceChanged` mà các client khác nhận. Thêm hai lần kiểm tra ở mục 11.10.4 và kiểm chứng lại.
+Dùng dictionary trong bộ nhớ, kết nối vài client rồi kill tiến trình bằng `SIGKILL`. Khởi động lại và quan sát. Sau đó giải thích vì sao trên production vấn đề lại khác.
 
-3. **Bão deploy.** Tạo 300 kết nối, restart server, và đếm số sự kiện presence phát ra cùng lưu lượng Redis. Thêm hoãn 10 giây và so sánh.
+**Tiêu chí hoàn thành:** bạn nêu được vì sao restart **không** phải tình huống tệ nhất của cách lưu này.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Mất sạch dữ liệu nghe có vẻ tệ, nhưng ít nhất nó **nhất quán**. Hãy nghĩ tới trường hợp dữ liệu còn lại nhưng sai.
+
+**Lời giải — bản trong bộ nhớ:**
+
+```csharp
+public sealed class PresenceTracker
+{
+    private static readonly ConcurrentDictionary<string, HashSet<string>> _online = new();
+
+    public void Connect(string userId, string connectionId) =>
+        _online.AddOrUpdate(userId, [connectionId], (_, set) => { set.Add(connectionId); return set; });
+
+    public void Disconnect(string userId, string connectionId)
+    {
+        if (_online.TryGetValue(userId, out var set))
+        {
+            set.Remove(connectionId);
+            if (set.Count == 0) _online.TryRemove(userId, out _);
+        }
+    }
+}
+```
+
+```bash
+# Kết nối 3 client rồi kill
+kill -9 $(pgrep -f Crm.Api)
+dotnet run
+```
+
+```bash
+curl -s .../api/v1/presence/online | jq length
+# 0
+```
+
+**Mất sạch — nhưng đây chưa phải vấn đề thật.** Client tự kết nối lại sau vài giây, `OnConnectedAsync` chạy lại, và danh sách được dựng lại đúng. Trạng thái sai chỉ tồn tại trong khoảng thời gian rất ngắn, và nó sai theo hướng **an toàn**: báo offline nhầm rồi tự đúng lại.
+
+**Hai tình huống tệ hơn hẳn:**
+
+**1. Nhiều instance — mỗi cái thấy một phần sự thật.**
+
+```text
+Instance A: giữ kết nối của An, Bình      -> _online = { An, Bình }
+Instance B: giữ kết nối của Cường          -> _online = { Cường }
+
+An hỏi "ai đang online?" -> request rơi vào A -> trả về [An, Bình]
+An hỏi lại               -> request rơi vào B -> trả về [Cường]
+```
+
+Danh sách **đổi mỗi lần tải lại trang**, tuỳ vào pod nào nhận request. Đây không phải mất dữ liệu — nó là dữ liệu **sai một cách không ổn định**, thứ rất khó gỡ rối vì không tái hiện được.
+
+**2. `OnDisconnectedAsync` không chạy khi mạng đứt đột ngột.** Người dùng rút mạng, đóng nắp laptop, hoặc bị mất sóng: kết nối chết nhưng server không nhận được gói đóng nào. Bản ghi nằm lại trong dictionary cho tới khi timeout phát hiện — và nếu tiến trình có lỗi ở nhánh dọn dẹp thì nằm lại **vĩnh viễn**.
+
+Kết quả là danh sách online tích luỹ dần những người đã rời đi từ lâu. Nó không tự sửa, vì không có gì ép nó sửa.
+
+**Cách đúng — Redis với TTL, để dữ liệu tự hết hạn:**
+
+```csharp
+public async Task ConnectAsync(string userId, string connectionId)
+{
+    var db = _redis.GetDatabase();
+
+    // Khoá một kết nối — TỰ HẾT HẠN
+    await db.StringSetAsync($"conn:{connectionId}", userId, TimeSpan.FromSeconds(90));
+
+    // Tập kết nối của người dùng — cũng có TTL để không rò rỉ
+    await db.SetAddAsync($"user:{userId}:conns", connectionId);
+    await db.KeyExpireAsync($"user:{userId}:conns", TimeSpan.FromHours(24));
+}
+```
+
+```csharp
+// Gia hạn TTL cho mọi kết nối mà INSTANCE NÀY đang giữ
+using var timer = new PeriodicTimer(TimeSpan.FromSeconds(30));
+while (await timer.WaitForNextTickAsync(ct))
+    foreach (var id in _localConnections)
+        await db.KeyExpireAsync($"conn:{id}", TimeSpan.FromSeconds(90));
+```
+
+**TTL giải quyết cả ba vấn đề cùng lúc:**
+
+| Vấn đề | TTL xử lý thế nào |
+|---|---|
+| Tiến trình chết | Khoá hết hạn sau 90 giây, tự biến mất |
+| Nhiều instance | Mọi instance đọc cùng một Redis |
+| `OnDisconnectedAsync` không chạy | Không gia hạn nữa là tự hết hạn |
+
+**Nguyên tắc rút ra:** với trạng thái phản ánh một kết nối đang sống, hãy chọn cơ chế **tự hết hạn** thay vì cơ chế **phải dọn tay**. Dọn tay chỉ đúng khi mọi đường thoát đều chạy — mà mạng thì không bảo đảm điều đó.
+
+</details>
+
+---
+
+#### Bài 2 — Ba tab, một người, và những sự kiện thừa
+
+Mở 3 tab, đóng một tab, và đếm số sự kiện `UserPresenceChanged` mà các client khác nhận. Thêm hai lần kiểm tra ở mục 11.10.4 và kiểm chứng lại.
+
+**Tiêu chí hoàn thành:** bạn nêu được **hai** điều kiện phải kiểm, và vì sao thiếu một trong hai là sai.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** "Online" là trạng thái của **người**, còn kết nối là của **tab**. Một người có nhiều tab.
+
+**Lời giải — bản phát sự kiện vô điều kiện:**
+
+```csharp
+public override async Task OnConnectedAsync()
+{
+    await _presence.ConnectAsync(UserId, Context.ConnectionId);
+    await Clients.Others.UserPresenceChanged(UserId, true);      // luôn phát
+    await base.OnConnectedAsync();
+}
+
+public override async Task OnDisconnectedAsync(Exception? ex)
+{
+    await _presence.DisconnectAsync(UserId, Context.ConnectionId);
+    await Clients.Others.UserPresenceChanged(UserId, false);     // luôn phát
+    await base.OnDisconnectedAsync(ex);
+}
+```
+
+```text
+Mở tab 1 -> UserPresenceChanged(An, true)
+Mở tab 2 -> UserPresenceChanged(An, true)      <- thừa
+Mở tab 3 -> UserPresenceChanged(An, true)      <- thừa
+Đóng tab 1 -> UserPresenceChanged(An, false)   <- SAI, An vẫn còn 2 tab
+```
+
+**Sự kiện cuối là lỗi thật:** những người khác thấy An chuyển sang offline trong khi An vẫn đang dùng.
+
+**Bản sửa — hai lần kiểm tra:**
+
+```csharp
+public override async Task OnConnectedAsync()
+{
+    var isFirst = await _presence.ConnectAsync(UserId, Context.ConnectionId);
+
+    // CHỈ báo khi chuyển từ offline sang online
+    if (isFirst)
+        await Clients.Others.UserPresenceChanged(UserId, true);
+
+    await base.OnConnectedAsync();
+}
+
+public override async Task OnDisconnectedAsync(Exception? ex)
+{
+    var isLast = await _presence.DisconnectAsync(UserId, Context.ConnectionId);
+
+    // CHỈ báo khi KHÔNG CÒN kết nối nào
+    if (isLast)
+        await Clients.Others.UserPresenceChanged(UserId, false);
+
+    await base.OnDisconnectedAsync(ex);
+}
+```
+
+```csharp
+public async Task<bool> ConnectAsync(string userId, string connectionId)
+{
+    var db = _redis.GetDatabase();
+    var countBefore = await db.SetLengthAsync($"user:{userId}:conns");
+    await db.SetAddAsync($"user:{userId}:conns", connectionId);
+    return countBefore == 0;                    // đây là kết nối ĐẦU TIÊN
+}
+
+public async Task<bool> DisconnectAsync(string userId, string connectionId)
+{
+    var db = _redis.GetDatabase();
+    await db.SetRemoveAsync($"user:{userId}:conns", connectionId);
+    return await db.SetLengthAsync($"user:{userId}:conns") == 0;   // kết nối CUỐI
+}
+```
+
+```text
+Mở tab 1 -> UserPresenceChanged(An, true)
+Mở tab 2 -> (im lặng)
+Mở tab 3 -> (im lặng)
+Đóng tab 1 -> (im lặng)
+Đóng tab 2 -> (im lặng)
+Đóng tab 3 -> UserPresenceChanged(An, false)
+```
+
+**Hai điều kiện, và vì sao cần cả hai:**
+
+| Kiểm | Nếu thiếu |
+|---|---|
+| `isFirst` khi kết nối | Sự kiện thừa — mỗi tab một lần, client khác cập nhật lại giao diện vô ích |
+| `isLast` khi ngắt | Sự kiện **sai** — báo offline trong khi người dùng vẫn đang online |
+
+Thiếu cái đầu chỉ gây lãng phí. Thiếu cái sau gây **thông tin sai**, và người dùng nhìn thấy nó ngay.
+
+**Một cái bẫy về tính nguyên tử.** Đoạn `ConnectAsync` ở trên đọc số lượng rồi mới thêm — hai bước riêng. Hai tab mở gần như đồng thời có thể cùng thấy `countBefore == 0` và cùng phát sự kiện. Dùng giá trị trả về của chính lệnh thêm sẽ nguyên tử:
+
+```csharp
+var added = await db.SetAddAsync($"user:{userId}:conns", connectionId);
+var count = await db.SetLengthAsync($"user:{userId}:conns");
+return added && count == 1;
+```
+
+Hoặc chắc chắn hơn nữa thì gói cả hai bước vào một Lua script — Redis chạy script nguyên tử.
+
+**Và nhớ rằng `OnDisconnectedAsync` không phải lúc nào cũng chạy.** Với mạng đứt đột ngột, sự kiện offline chỉ đến khi TTL hết hạn. Nên giao diện nên hiển thị "hoạt động 2 phút trước" thay vì một chấm xanh tuyệt đối — trạng thái gần đúng và thành thật thì tốt hơn trạng thái chính xác giả tạo.
+
+</details>
+
+---
+
+#### Bài 3 — Bão sự kiện presence khi deploy
+
+Tạo 300 kết nối, restart server, và đếm số sự kiện presence phát ra cùng lưu lượng Redis. Thêm hoãn 10 giây và so sánh.
+
+**Tiêu chí hoàn thành:** bạn tính được số sự kiện theo công thức, và nêu được vì sao hoãn lại giải quyết được.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Mỗi người rời đi được báo cho **mọi người còn lại**. Đó là một phép nhân, không phải phép cộng.
+
+**Lời giải — đo khi restart:**
+
+```bash
+# 300 kết nối đang mở
+kubectl rollout restart deployment/crm-api
+```
+
+```text
+Sự kiện offline: 300 người × 299 người nhận = 89.700 tin
+Sự kiện online:  300 người × 299 người nhận = 89.700 tin
+Tổng: ~180.000 tin trong khoảng 20 giây
+
+Lưu lượng Redis backplane: tăng vọt
+CPU server: 88% trong lúc rollout
+```
+
+**Công thức:** với `N` kết nối, mỗi lần restart sinh ra `2 × N × (N−1)` tin — tăng theo **bình phương** số người dùng.
+
+| N | Số tin mỗi lần restart |
+|---|---|
+| 100 | ~19.800 |
+| 300 | ~179.400 |
+| 1.000 | **~2.000.000** |
+
+Với 1.000 người dùng, một lần deploy thường lệ tạo ra hai triệu tin — đủ để làm nghẽn backplane và khiến chính đợt deploy trông như một sự cố.
+
+**Và phần lớn số tin đó là vô nghĩa.** Người dùng không rời đi thật; họ mất kết nối vài giây rồi quay lại. Giao diện của mọi người nhấp nháy đỏ rồi xanh trở lại.
+
+**Bản sửa — hoãn trước khi báo offline:**
+
+```csharp
+public override async Task OnDisconnectedAsync(Exception? ex)
+{
+    var isLast = await _presence.DisconnectAsync(UserId, Context.ConnectionId);
+
+    if (isLast)
+    {
+        var userId = UserId;
+
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(TimeSpan.FromSeconds(10));
+
+            // Sau 10 giây, kiểm tra lại; còn online thì bỏ qua
+            if (!await _presence.IsOnlineAsync(userId))
+                await _hub.Clients.All.UserPresenceChanged(userId, false);
+        });
+    }
+
+    await base.OnDisconnectedAsync(ex);
+}
+```
+
+```text
+Restart với hoãn 10 giây:
+  300 kết nối đứt -> 300 tác vụ hoãn được hẹn
+  ~5 giây sau, client tự kết nối lại
+  10 giây sau, kiểm tra lại: cả 300 đều ONLINE -> không phát tin nào
+
+Tổng sự kiện phát ra: 0
+CPU server trong lúc rollout: 24%
+```
+
+**Vì sao hoãn giải quyết được.** Nó tách hai tình huống mà `OnDisconnectedAsync` không phân biệt nổi:
+
+```text
+Mất kết nối tạm thời (deploy, wifi chập chờn) -> quay lại trong vài giây
+Rời đi thật (đóng tab, tắt máy)                -> không quay lại
+```
+
+Chờ 10 giây rồi kiểm tra lại là cách rẻ nhất để phân biệt. Cái giá là người rời đi thật bị hiển thị online thêm 10 giây — hoàn toàn chấp nhận được với một chỉ báo presence.
+
+**Ba biện pháp bổ sung đáng cân nhắc:**
+
+1. **Đừng gửi cho `Clients.All`.** Chỉ gửi cho người thật sự quan tâm — cùng phòng, cùng deal đang mở. Với nhóm 10 người thay vì 300, phép nhân nhỏ đi rất nhiều.
+2. **Gom thay đổi thành một tin.** Thay vì 300 tin riêng, gửi một tin mang danh sách:
+
+   ```csharp
+   await _hub.Clients.All.PresenceBatchChanged(changedUsers);
+   ```
+
+3. **Để client tự hỏi thay vì đẩy.** Với presence, một endpoint `GET /presence/online` mà client gọi mỗi 30 giây thường rẻ hơn hẳn việc đẩy — vì chi phí không tăng theo bình phương.
+
+**Một cảnh báo nên đặt:** số sự kiện presence mỗi phút. Nếu nó tăng vọt ngoài giờ deploy, gần như chắc chắn có kết nối đang chập chờn — thứ đáng điều tra trước khi người dùng phàn nàn.
+
+</details>
 
 ## Tự kiểm tra
 

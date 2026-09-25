@@ -224,11 +224,515 @@ Cách cài đơn giản: mỗi lần chạy thành công thì cập nhật một
 
 ## Bài tập áp dụng
 
-1. **Tái hiện sự cố.** Chạy hai instance có cùng `BackgroundService` theo lịch và đếm số lần công việc được thực hiện.
+#### Bài 1 — Tái hiện sự cố
 
-2. **Làm job idempotent.** Thêm bảng theo dõi với unique constraint, chạy lại bài 1 và xác nhận chỉ thực hiện một lần.
+Chạy hai instance có cùng `BackgroundService` theo lịch và đếm số lần công việc được thực hiện.
 
-3. **Kiểm tra múi giờ.** Chạy một job cron trong container và ghi lại thời điểm nó thực sự chạy.
+**Tiêu chí hoàn thành:** bạn giải thích được vì sao lỗi này **không thể** phát hiện trên máy dev, và nêu được ba thay đổi hạ tầng làm nó xuất hiện.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Máy dev chạy mấy instance?
+
+**Lời giải:**
+
+```csharp
+public class GuiEmailHangNgayJob : BackgroundService
+{
+    protected override async Task ExecuteAsync(CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested)
+        {
+            var bayGio = DateTime.Now;
+            var lanToi = bayGio.Date.AddDays(bayGio.Hour >= 8 ? 1 : 0).AddHours(8);
+            await Task.Delay(lanToi - bayGio, ct);
+
+            var khachHang = await LayKhachHangCanGuiAsync(ct);
+            foreach (var kh in khachHang)
+                await _emailSender.GuiAsync(kh.Email, "Bản tin hàng ngày", NoiDung(kh));
+
+            _logger.LogInformation("Đã gửi {SoLuong} email", khachHang.Count);
+        }
+    }
+}
+```
+
+```bash
+dotnet run --urls http://localhost:5001 &
+dotnet run --urls http://localhost:5002 &
+```
+
+```text
+[instance-1] 08:00:00  Đã gửi 12000 email
+[instance-2] 08:00:00  Đã gửi 12000 email
+```
+
+24.000 email cho 12.000 khách hàng. Với ba instance, 36.000.
+
+**Vì sao lỗi này không thể phát hiện trên máy dev.** Vì điều kiện gây lỗi — **nhiều instance cùng chạy** — không tồn tại trên máy dev:
+
+```text
+Máy dev:          dotnet run      -> 1 tiến trình
+Unit test:                        -> 0 tiến trình chạy BackgroundService
+Integration test: WebApplicationFactory -> 1 tiến trình
+Docker Compose:   thường 1 replica
+Production:       3–10 pod
+```
+
+Và `BackgroundService` **không có gì sai** khi chạy một mình. Code hoàn toàn đúng, dễ đọc, không có race condition nội bộ, không ném exception. Nó chỉ sai khi có **bản sao thứ hai của chính nó**, và bản sao đó do hạ tầng tạo ra chứ không do code.
+
+Đây là một loại lỗi đặc biệt: **lỗi nằm ở giả định về môi trường triển khai, không nằm ở code.** Không có công cụ phân tích tĩnh nào phát hiện được, và không có test nào trong quy trình thông thường tái hiện được.
+
+Điều làm nó tệ hơn: lỗi thường xuất hiện **sau khi mọi thứ đã chạy tốt nhiều tháng**. Hệ thống ban đầu triển khai một instance, chạy ổn định, rồi một ngày có người scale lên hai — vì lưu lượng tăng, hoặc vì bật rolling update, hoặc vì thêm một vùng nữa. Không ai nghĩ tới job nền lúc đó.
+
+**Ba thay đổi hạ tầng làm nó xuất hiện:**
+
+**1. Scale lên nhiều replica.** Rõ ràng nhất:
+
+```yaml
+spec:
+  replicas: 3          # từ 1 lên 3
+```
+
+**2. Bật rolling update — và đây là trường hợp bất ngờ nhất.** Kể cả với `replicas: 1`, trong lúc triển khai có **hai pod cùng sống**:
+
+```yaml
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 1            # pod mới lên TRƯỚC khi pod cũ xuống
+    maxUnavailable: 0
+```
+
+```text
+t=0    pod cũ đang chạy
+t=1    pod mới khởi động  -> HAI pod cùng chạy trong 30–60 giây
+t=2    pod cũ nhận SIGTERM
+```
+
+Nếu job chạy đúng trong cửa sổ đó, nó chạy hai lần. Với job hằng ngày lúc 8 giờ và một lần deploy lúc 8 giờ, bạn có một sự cố — và nó không lặp lại ở lần deploy sau, nên gần như không thể chẩn đoán.
+
+**3. Triển khai nhiều vùng hoặc blue-green.** Hai môi trường cùng trỏ vào một database, mỗi bên chạy job của mình.
+
+Ngoài ra còn có: Kubernetes tự khởi động lại pod sau OOM trong khi pod cũ chưa thoát hẳn, autoscaler tăng replica lúc cao điểm, và một pod bị treo không phản hồi SIGTERM nhưng vẫn chạy được job.
+
+**Cách sửa — theo thứ tự nên áp dụng, và nên có cả ba:**
+
+**1. Job idempotent** — lớp nền, không thể bị bỏ qua (bài 2).
+
+**2. Khoá phân tán** — ngăn chạy song song:
+
+```csharp
+await using var khoa = await _redLock.CreateLockAsync(
+    "job:email-hang-ngay", TimeSpan.FromMinutes(30), TimeSpan.Zero, TimeSpan.Zero);
+
+if (!khoa.IsAcquired)
+{
+    _logger.LogInformation("Instance khác đang chạy, bỏ qua");
+    return;
+}
+```
+
+**3. Tách worker ra khỏi API** — cách sạch nhất về kiến trúc:
+
+```yaml
+# API: scale theo lưu lượng
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: crm-api }
+spec: { replicas: 5 }
+
+---
+# Worker: đúng một, và không rolling update
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: crm-worker }
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate          # dừng hẳn pod cũ TRƯỚC khi tạo pod mới
+```
+
+`strategy: Recreate` là chi tiết quyết định ở đây: nó loại bỏ hẳn cửa sổ hai pod cùng sống trong lúc triển khai. Cái giá là một khoảng gián đoạn ngắn của worker — chấp nhận được, vì job nền không phục vụ request trực tiếp.
+
+Tách worker còn ba lợi ích ngoài chuyện này: scale hai thành phần độc lập, job nặng không ảnh hưởng độ trễ của API, và tài nguyên cấp riêng cho từng loại.
+
+**Và một dòng code nên có trong mọi job nền:**
+
+```csharp
+_logger.LogInformation("Job {Ten} bắt đầu trên instance {Instance} lúc {Luc:O}",
+    nameof(GuiEmailHangNgayJob), Environment.MachineName, DateTime.UtcNow);
+```
+
+Không có `Environment.MachineName` trong log, hai lần chạy trên hai pod trông y hệt hai lần chạy trên một pod — và bạn mất dấu vết duy nhất có thể dẫn tới nguyên nhân.
+
+</details>
+
+---
+
+#### Bài 2 — Làm job idempotent bằng unique constraint
+
+Thêm bảng theo dõi với unique constraint, chạy lại bài 1 và xác nhận chỉ thực hiện một lần.
+
+**Tiêu chí hoàn thành:** bạn chọn được khoá idempotency đúng mức chi tiết, và giải thích được vì sao unique constraint mạnh hơn khoá phân tán.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Khoá idempotency nên định danh "một lần chạy job" hay "một email cho một khách hàng"?
+
+**Lời giải — mức thô, một khoá cho cả lần chạy:**
+
+```csharp
+public class LanChayJob
+{
+    public int      Id      { get; set; }
+    public string   Khoa    { get; set; } = null!;     // unique
+    public DateTime BatDau  { get; set; }
+    public DateTime? KetThuc { get; set; }
+}
+```
+
+```csharp
+builder.Entity<LanChayJob>().HasIndex(x => x.Khoa).IsUnique();
+```
+
+```csharp
+var khoa = $"email-hang-ngay:{DateTime.UtcNow:yyyy-MM-dd}";
+
+_db.LanChayJob.Add(new LanChayJob { Khoa = khoa, BatDau = DateTime.UtcNow });
+try
+{
+    await _db.SaveChangesAsync(ct);
+}
+catch (DbUpdateException ex) when (LaViPhamUnique(ex))
+{
+    _logger.LogInformation("Job {Khoa} đã chạy hôm nay, bỏ qua", khoa);
+    return;
+}
+
+await GuiEmailChoTatCaAsync(ct);
+```
+
+```text
+[instance-1] 08:00:00  Đã gửi 12000 email
+[instance-2] 08:00:00  Job email-hang-ngay:2026-09-25 đã chạy hôm nay, bỏ qua
+```
+
+**Nhưng mức thô có một lỗ hổng nghiêm trọng:** nếu instance 1 chết sau khi gửi 3.000 email, khoá đã tồn tại và **không ai gửi 9.000 email còn lại**. Job "thành công" theo nghĩa không chạy hai lần, nhưng 9.000 khách hàng không nhận được gì.
+
+**Mức chi tiết — một khoá cho mỗi đơn vị công việc:**
+
+```csharp
+public class EmailDaGui
+{
+    public int      Id        { get; set; }
+    public string   Khoa      { get; set; } = null!;   // unique
+    public int      KhachHangId { get; set; }
+    public DateTime GuiLuc    { get; set; }
+}
+```
+
+```csharp
+foreach (var kh in await LayKhachHangCanGuiAsync(ct))
+{
+    var khoa = $"ban-tin:{kh.Id}:{DateTime.UtcNow:yyyy-MM-dd}";
+
+    _db.EmailDaGui.Add(new EmailDaGui
+    {
+        Khoa = khoa, KhachHangId = kh.Id, GuiLuc = DateTime.UtcNow,
+    });
+
+    try
+    {
+        await _db.SaveChangesAsync(ct);
+    }
+    catch (DbUpdateException ex) when (LaViPhamUnique(ex))
+    {
+        _db.ChangeTracker.Clear();
+        continue;                        // khách này đã nhận rồi
+    }
+
+    await _emailSender.GuiAsync(kh.Email, "Bản tin hàng ngày", NoiDung(kh));
+}
+```
+
+```text
+[instance-1] gửi khách 1..3000, rồi CHẾT
+[instance-1 khởi động lại] khách 1..3000 đã có khoá -> bỏ qua
+                           khách 3001..12000 -> gửi
+Tổng: đúng 12.000 email, mỗi khách đúng một lần
+```
+
+**Chọn mức chi tiết theo hai câu hỏi:**
+
+| Câu hỏi | Nếu có |
+|---|---|
+| Job có thể chết giữa chừng và cần tiếp tục được không? | **Mức chi tiết** |
+| Mỗi đơn vị công việc có tác dụng phụ ra ngoài không? | **Mức chi tiết** |
+| Job rất nhanh và nguyên tử? | Mức thô là đủ |
+| Job chỉ đọc và tổng hợp, không gửi gì ra ngoài? | Mức thô là đủ |
+
+Quy tắc: **mức chi tiết phải bằng mức của tác dụng phụ không thể hoàn tác.** Gửi email không thể hoàn tác, và nó xảy ra ở mức từng khách hàng — nên khoá phải ở mức từng khách hàng.
+
+Chi phí: một `INSERT` cho mỗi đơn vị. Với 12.000 khách, đó là 12.000 lần đi về database. Cải thiện bằng cách chèn hàng loạt trước rồi lọc:
+
+```csharp
+var khachCanGui = await LayKhachHangCanGuiAsync(ct);
+var ngay = DateTime.UtcNow.Date;
+
+// Lấy danh sách đã gửi trong MỘT truy vấn
+var daGui = await _db.EmailDaGui
+    .Where(e => e.GuiLuc >= ngay)
+    .Select(e => e.KhachHangId)
+    .ToHashSetAsync(ct);
+
+foreach (var kh in khachCanGui.Where(k => !daGui.Contains(k.Id)))
+{
+    // vẫn INSERT trước khi gửi — HashSet chỉ để giảm số lần thử
+    // ...
+}
+```
+
+`HashSet` là một bộ lọc rẻ; unique constraint vẫn là thứ bảo đảm đúng đắn. Đừng bỏ `INSERT` đi và chỉ dựa vào `HashSet` — đó lại là kiểm-tra-rồi-hành-động.
+
+**Vì sao unique constraint mạnh hơn khoá phân tán** — đây là phần chính của bài:
+
+| | Khoá phân tán (Redis) | Unique constraint (database) |
+|---|---|---|
+| Nơi thực thi | Redis | **Chính database chứa dữ liệu** |
+| Hết hạn giữa chừng | **Có** — job dài hơn TTL thì khoá tự mở | Không bao giờ |
+| Mất khi hạ tầng lỗi | **Có** — Redis failover, restart, evict | Không |
+| Network partition | **Có thể cấp cho hai bên** | Không thể |
+| Sống sót khi restart ứng dụng | Tuỳ TTL | **Có, vĩnh viễn** |
+| Theo dõi được đã làm gì | Không | **Có — bảng là bản ghi** |
+
+Ba dòng đầu là những cách khoá phân tán thất bại **trong im lặng**:
+
+```text
+Khoá TTL 10 phút, job hôm nay mất 12 phút vì dữ liệu tăng
+-> phút thứ 10, khoá tự mở
+-> instance 2 lấy được khoá và bắt đầu chạy
+-> hai instance chạy song song, đúng vấn đề ban đầu
+```
+
+Và bạn không biết điều đó đã xảy ra, vì không có gì ghi lại.
+
+Unique constraint không có khái niệm hết hạn. Một dòng đã được chèn là đã được chèn, vĩnh viễn, và nó được bảo vệ bởi cùng cơ chế bảo đảm tính toàn vẹn của mọi dữ liệu nghiệp vụ khác.
+
+Và nó còn cho bạn một thứ mà khoá không bao giờ cho: **bản ghi của những gì đã làm**.
+
+```sql
+-- Hôm nay đã gửi cho ai?
+SELECT COUNT(*) FROM EmailDaGui WHERE GuiLuc >= CAST(GETUTCDATE() AS DATE);
+
+-- Khách nào lẽ ra phải nhận mà chưa nhận?
+SELECT k.Id, k.Email
+FROM   KhachHang k
+LEFT   JOIN EmailDaGui e
+       ON e.KhachHangId = k.Id AND e.GuiLuc >= CAST(GETUTCDATE() AS DATE)
+WHERE  k.NhanBanTin = 1 AND e.Id IS NULL;
+```
+
+Câu thứ hai là thứ bạn cần lúc 9 giờ sáng khi có người hỏi "sao tôi không nhận được bản tin?" — và khoá phân tán không trả lời được câu đó.
+
+**Cách phối hợp đúng — hai cơ chế cho hai mục đích khác nhau:**
+
+```csharp
+// Khoá phân tán: TRÁNH LÃNG PHÍ — hai instance không cùng làm việc vô ích
+await using var khoa = await _redLock.CreateLockAsync("job:email", TimeSpan.FromMinutes(30));
+if (!khoa.IsAcquired) return;
+
+// Unique constraint: BẢO ĐẢM ĐÚNG ĐẮN — không ai nhận email hai lần
+foreach (var kh in khachHang)
+{
+    if (!await DanhDauDaGuiAsync(kh.Id, ct)) continue;
+    await _emailSender.GuiAsync(kh.Email, ...);
+}
+```
+
+Khoá là **tối ưu hoá**; unique constraint là **bảo đảm**. Nếu khoá thất bại, bạn tốn thêm chút tài nguyên. Nếu unique constraint thất bại — nó không thất bại.
+
+Đây là cùng một nguyên tắc với cache ở [bài 14.3](14.3-idistributedcache-and-redis.mdx): thành phần tối ưu hoá không bao giờ được là thứ duy nhất giữ cho hệ thống đúng.
+
+**Và nhớ dọn bảng:**
+
+```sql
+DELETE FROM EmailDaGui WHERE GuiLuc < DATEADD(DAY, -90, SYSUTCDATETIME());
+```
+
+Giữ đủ lâu để phục vụ việc điều tra, đủ ngắn để bảng không lớn vô hạn. Với dữ liệu dùng cho đối soát hoặc tuân thủ, hãy hỏi bộ phận nghiệp vụ trước khi chọn con số.
+
+</details>
+
+---
+
+#### Bài 3 — Múi giờ trong container
+
+Chạy một job cron trong container và ghi lại thời điểm nó thực sự chạy.
+
+**Tiêu chí hoàn thành:** bạn nêu được **ba** chỗ múi giờ có thể sai lệch trong một hệ thống container hoá, và biết cách xác minh từng chỗ.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Đồng hồ của container, cấu hình của ứng dụng, và dữ liệu trong database — cả ba đều có múi giờ.
+
+**Lời giải:**
+
+```dockerfile
+FROM mcr.microsoft.com/dotnet/aspnet:9.0
+# Không đặt TZ
+```
+
+```csharp
+_logger.LogInformation("Job chạy lúc {Now:O}, TZ hệ thống = {Tz}",
+    DateTime.Now, TimeZoneInfo.Local.Id);
+```
+
+```text
+Máy dev:    Job chạy lúc 2026-09-25T08:00:00.0000000+07:00, TZ hệ thống = Asia/Ho_Chi_Minh
+Container:  Job chạy lúc 2026-09-25T08:00:00.0000000Z,      TZ hệ thống = UTC
+```
+
+Cùng dòng log, cùng "8 giờ", hai thời điểm cách nhau bảy tiếng.
+
+**Ba chỗ múi giờ có thể sai lệch:**
+
+**Chỗ 1 — múi giờ của hệ điều hành trong container.**
+
+Ảnh .NET chính thức mặc định `TZ=UTC`. Với ảnh Alpine hoặc một số ảnh slim, gói `tzdata` **không được cài**, nên `TimeZoneInfo.FindSystemTimeZoneById` ném exception:
+
+```text
+System.TimeZoneNotFoundException: The time zone ID 'Asia/Ho_Chi_Minh' was not found
+on the local computer.
+```
+
+**Xác minh:**
+
+```bash
+docker exec <container> date
+docker exec <container> cat /etc/timezone
+docker exec <container> ls /usr/share/zoneinfo/Asia/Ho_Chi_Minh
+```
+
+```dockerfile
+FROM mcr.microsoft.com/dotnet/aspnet:9.0
+RUN apt-get update && apt-get install -y --no-install-recommends tzdata \
+    && rm -rf /var/lib/apt/lists/*
+ENV TZ=Asia/Ho_Chi_Minh
+```
+
+Với Alpine:
+
+```dockerfile
+RUN apk add --no-cache tzdata
+ENV TZ=Asia/Ho_Chi_Minh
+```
+
+**Chỗ 2 — múi giờ mà scheduler dùng.**
+
+Kể cả khi `TZ` của container đúng, scheduler có thể được cấu hình riêng:
+
+```csharp
+// Hangfire: mặc định UTC bất kể TZ của hệ thống
+RecurringJob.AddOrUpdate<Job>("bao-cao", j => j.ChayAsync(), "0 8 * * *",
+    new RecurringJobOptions { TimeZone = mgVietNam });
+
+// Quartz: mặc định giờ hệ thống — khác Hangfire!
+.WithCronSchedule("0 0 8 * * ?", x => x.InTimeZone(mgVietNam))
+```
+
+Hai thư viện có hai mặc định **khác nhau**, và đó là nguồn nhầm lẫn thường xuyên: chuyển từ Hangfire sang Quartz (hoặc ngược lại) mà giữ nguyên chuỗi cron sẽ đổi giờ chạy.
+
+**Xác minh — in ra lần chạy kế tiếp lúc khởi động:**
+
+```csharp
+var lich = Cronos.CronExpression.Parse("0 8 * * *");
+var ke = lich.GetNextOccurrence(DateTimeOffset.UtcNow, _mgVietNam);
+
+_logger.LogInformation("Lần chạy kế tiếp: {Utc:O} UTC = {Vn:O} giờ VN",
+    ke, TimeZoneInfo.ConvertTime(ke!.Value, _mgVietNam));
+```
+
+Dòng log này ở mỗi lần khởi động là cách rẻ nhất để phát hiện sai lệch — bạn thấy ngay, không phải chờ tới giờ chạy.
+
+**Chỗ 3 — múi giờ của dữ liệu trong database.**
+
+Kể cả khi job chạy đúng 8 giờ sáng giờ Việt Nam, nó có thể đọc sai dữ liệu:
+
+```csharp
+// SAI — DateTime.Today theo giờ container (UTC)
+var homNay = DateTime.Today;
+var don = await _db.DonHang.Where(d => d.CreatedAt >= homNay).ToListAsync(ct);
+```
+
+```text
+Job chạy 08:00 giờ VN = 01:00 UTC
+DateTime.Today ở container UTC = 2026-09-25 00:00 UTC = 07:00 giờ VN ngày 25
+
+-> "hôm nay" bắt đầu từ 07:00 sáng giờ VN
+-> đơn hàng từ 00:00 tới 07:00 giờ VN bị TÍNH VÀO NGÀY HÔM TRƯỚC
+```
+
+Báo cáo "doanh số hôm nay" thiếu bảy tiếng đầu ngày, mỗi ngày. Và con số vẫn **trông hợp lý**, nên không ai phát hiện cho tới khi đối chiếu với sổ sách.
+
+**Bản đúng:**
+
+```csharp
+var bayGioVn = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, _mgVietNam);
+var dauNgayVn = bayGioVn.Date;
+
+// Chuyển ranh giới ngày theo giờ VN sang UTC để so với cột lưu UTC
+var tu  = TimeZoneInfo.ConvertTimeToUtc(dauNgayVn, _mgVietNam);
+var den = TimeZoneInfo.ConvertTimeToUtc(dauNgayVn.AddDays(1), _mgVietNam);
+
+var don = await _db.DonHang
+    .Where(d => d.CreatedAt >= tu && d.CreatedAt < den)
+    .ToListAsync(ct);
+```
+
+**Quy tắc:** xác định ranh giới ngày **theo giờ nghiệp vụ**, rồi chuyển ranh giới đó sang UTC để truy vấn. Đừng lấy ranh giới theo giờ hệ thống rồi hy vọng chúng trùng nhau.
+
+**Danh sách xác minh cho một hệ thống container hoá:**
+
+```csharp
+// Ghi ra lúc khởi động — bốn dòng, và chúng tiết kiệm nhiều giờ điều tra
+_logger.LogInformation("""
+    Cấu hình thời gian:
+      TZ biến môi trường:     {TzEnv}
+      TimeZoneInfo.Local:     {TzLocal}
+      DateTime.Now:           {Now:O}
+      DateTime.UtcNow:        {UtcNow:O}
+      Múi giờ nghiệp vụ:      {TzNghiepVu}
+      Giờ nghiệp vụ hiện tại: {GioNghiepVu:O}
+    """,
+    Environment.GetEnvironmentVariable("TZ") ?? "(chưa đặt)",
+    TimeZoneInfo.Local.Id,
+    DateTime.Now, DateTime.UtcNow,
+    _mgNghiepVu.Id,
+    TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, _mgNghiepVu));
+```
+
+**Và khuyến nghị cuối, đơn giản nhất và hiệu quả nhất:**
+
+> **Đặt `TZ=UTC` trong mọi container, và khai múi giờ nghiệp vụ tường minh ở mọi chỗ cần nó.**
+
+Nghe ngược đời, nhưng nó đúng vì hai lý do:
+
+1. **`TZ=UTC` loại bỏ mọi khác biệt giữa các môi trường.** Không còn chuyện "chạy đúng trên máy dev, sai trên production" — nếu code phụ thuộc vào `TZ` hệ thống, nó sẽ sai ở **cả hai nơi** và bạn phát hiện ngay.
+2. **Nó buộc mọi chỗ cần giờ địa phương phải khai tường minh.** `DateTime.Now` trở nên rõ ràng là sai, và người đọc code thấy `_mgVietNam` ở đúng những chỗ nghiệp vụ thật sự cần giờ địa phương.
+
+Kèm theo đó, một quy tắc cấm để không ai vô tình dùng lại:
+
+```bash
+grep -rn "DateTime\.Now\|DateTime\.Today\|DateTimeOffset\.Now" --include="*.cs" src/
+```
+
+Mỗi kết quả phải được thay bằng `DateTime.UtcNow` (cho thời điểm) hoặc một phép chuyển tường minh sang múi giờ nghiệp vụ (cho ranh giới ngày và giờ hiển thị). Đưa quy tắc này vào analyzer, và bạn loại bỏ hẳn một nhóm lỗi mà việc kiểm thử thông thường không bao giờ bắt được.
+
+</details>
 
 ## Tự kiểm tra
 

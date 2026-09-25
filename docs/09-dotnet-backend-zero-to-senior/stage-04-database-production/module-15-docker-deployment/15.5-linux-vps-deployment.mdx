@@ -299,11 +299,625 @@ Và **sao lưu phải được kiểm tra khôi phục** — một bản backup 
 
 ## Bài tập áp dụng
 
-1. **Dò mật khẩu SSH.** Trên một VPS mới bật, chạy `sudo journalctl -u ssh | grep -c "Failed password"` sau 24 giờ. Tắt đăng nhập mật khẩu và so sánh sau 24 giờ nữa.
+#### Bài 1 — Đếm số lần dò mật khẩu SSH
 
-2. **Quên forwarded headers.** Bỏ `UseForwardedHeaders` nhưng bật `UseHttpsRedirection`, và quan sát vòng lặp chuyển hướng. Log `RemoteIpAddress` để xác nhận nó là IP của Nginx.
+Trên một VPS mới bật, chạy `sudo journalctl -u ssh | grep -c "Failed password"` sau 24 giờ. Tắt đăng nhập mật khẩu và so sánh sau 24 giờ nữa.
 
-3. **Rollback.** Deploy một image cố tình fail health check và xác nhận script tự quay về phiên bản cũ, dịch vụ không gián đoạn.
+**Tiêu chí hoàn thành:** bạn giải thích được vì sao đổi cổng SSH **không** phải biện pháp bảo mật, và nêu được thứ tự ưu tiên khi làm cứng SSH.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Bot quét internet mất bao lâu để tìm ra một cổng đang mở?
+
+**Lời giải:**
+
+```bash
+sudo journalctl -u ssh --since "24 hours ago" | grep -c "Failed password"
+```
+
+```text
+14827
+```
+
+```bash
+# Tài khoản nào bị thử nhiều nhất
+sudo journalctl -u ssh --since "24 hours ago" \
+  | grep "Failed password" | awk '{print $(NF-5)}' | sort | uniq -c | sort -rn | head
+```
+
+```text
+  8214 root
+  1203 admin
+   892 ubuntu
+   641 test
+   478 user
+   312 postgres
+```
+
+```bash
+# IP nguồn
+sudo journalctl -u ssh --since "24 hours ago" \
+  | grep "Failed password" | grep -oE "from [0-9.]+" | sort | uniq -c | sort -rn | head -5
+```
+
+```text
+  2841 from 45.xxx.xxx.12
+  1902 from 103.xxx.xxx.87
+  1455 from 194.xxx.xxx.203
+```
+
+Gần 15.000 lần thử trong 24 giờ, trên một máy **không ai biết địa chỉ**. Đây là mức nền của internet: bot quét toàn bộ không gian IPv4 liên tục, và một máy mới thường bị dò trong vòng vài phút sau khi có IP công khai.
+
+**Tắt đăng nhập mật khẩu:**
+
+```bash
+# /etc/ssh/sshd_config.d/99-lam-cung.conf
+PasswordAuthentication no
+PubkeyAuthentication yes
+PermitRootLogin no
+KbdInteractiveAuthentication no
+UsePAM yes
+MaxAuthTries 3
+AllowUsers deploy
+```
+
+```bash
+sudo sshd -t && sudo systemctl reload ssh
+```
+
+**Luôn chạy `sshd -t` trước khi reload**, và giữ phiên SSH hiện tại mở cho tới khi bạn xác minh được phiên mới — một lỗi cú pháp trong `sshd_config` có thể khoá bạn ra khỏi máy vĩnh viễn.
+
+```bash
+sudo journalctl -u ssh --since "24 hours ago" | grep -c "Failed password"
+```
+
+```text
+0
+```
+
+Bot vẫn kết nối, nhưng không còn cơ chế nào để chúng thử:
+
+```bash
+sudo journalctl -u ssh --since "24 hours ago" | grep -c "Connection closed by authenticating user"
+```
+
+```text
+11204
+```
+
+11.204 lần thử, **0 lần** có cơ hội thành công.
+
+**Vì sao đổi cổng SSH không phải biện pháp bảo mật** — đây là phần chính của bài:
+
+```bash
+Port 2222        # "không ai tìm ra đâu"
+```
+
+```bash
+nmap -p- <ip> --min-rate 5000
+```
+
+```text
+PORT     STATE SERVICE
+2222/tcp open  ssh
+```
+
+Quét toàn bộ 65.535 cổng của một máy mất **vài giây** với công cụ hiện đại. Và `masscan` quét cả internet cho một cổng trong vài phút. Cổng 2222 nằm trong danh sách mà mọi bot đều thử trước.
+
+Nó là **security through obscurity**: nó dựa vào việc kẻ tấn công không biết, trong khi việc biết là chuyện tầm thường.
+
+```text
+Đổi cổng:              giảm TIẾNG ỒN trong log
+                       KHÔNG giảm rủi ro trước kẻ tấn công có chủ đích
+
+Tắt mật khẩu:          loại bỏ HẲN một lớp tấn công
+                       kẻ tấn công cần khoá riêng, không thể đoán ra
+```
+
+Đổi cổng vẫn có một lợi ích thật: log sạch hơn, nên bạn **thấy được** lần thử có chủ đích giữa đống nhiễu. Nhưng đó là lợi ích về khả năng quan sát, không phải về bảo mật — và nó có cái giá là mọi thành viên phải nhớ cổng, và mọi script phải cấu hình thêm.
+
+**Thứ tự ưu tiên khi làm cứng SSH:**
+
+```text
+1. Tắt đăng nhập mật khẩu           <- hiệu quả nhất, làm trước tiên
+2. Tắt đăng nhập root
+3. Khoá SSH có passphrase, dùng ssh-agent
+4. AllowUsers hoặc AllowGroups      <- giới hạn ai được đăng nhập
+5. fail2ban                         <- giảm nhiễu, chặn IP dò dai dẳng
+6. Tường lửa chỉ cho IP tin cậy     <- nếu IP của bạn cố định
+7. Đổi cổng                         <- CUỐI CÙNG, và chỉ để giảm nhiễu
+```
+
+Mục 1 và 2 cho khoảng 95% lợi ích. Các mục sau là phòng thủ nhiều lớp.
+
+**`fail2ban` — vẫn hữu ích sau khi đã tắt mật khẩu:**
+
+```ini
+# /etc/fail2ban/jail.local
+[sshd]
+enabled  = true
+maxretry = 3
+findtime = 10m
+bantime  = 1h
+```
+
+Nó không ngăn được gì thêm (bot đã không thể vào), nhưng nó giảm tải CPU và giữ log đọc được.
+
+**Cấu hình khuyến nghị đầy đủ:**
+
+```bash
+# /etc/ssh/sshd_config.d/99-lam-cung.conf
+PasswordAuthentication no
+PubkeyAuthentication yes
+PermitRootLogin no
+PermitEmptyPasswords no
+KbdInteractiveAuthentication no
+MaxAuthTries 3
+MaxSessions 5
+LoginGraceTime 30
+AllowUsers deploy
+X11Forwarding no
+AllowAgentForwarding no
+ClientAliveInterval 300
+ClientAliveCountMax 2
+
+# Chỉ thuật toán hiện đại
+KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org
+Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com
+MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com
+```
+
+**Sinh khoá đúng cách:**
+
+```bash
+ssh-keygen -t ed25519 -C "deploy@crm" -f ~/.ssh/crm_deploy
+```
+
+`ed25519` thay vì RSA: khoá ngắn hơn, nhanh hơn, và không có tham số kích thước để chọn sai. Nếu buộc phải dùng RSA (hệ thống cũ), tối thiểu 4096 bit.
+
+**Kiểm chứng sau khi cấu hình:**
+
+```bash
+# Phải THẤT BẠI
+ssh -o PreferredAuthentications=password -o PubkeyAuthentication=no deploy@server
+```
+
+```text
+Permission denied (publickey).
+```
+
+```bash
+# Xem cấu hình thật mà sshd đang dùng
+sudo sshd -T | grep -E "^(passwordauthentication|permitrootlogin|pubkeyauthentication)"
+```
+
+```text
+passwordauthentication no
+permitrootlogin no
+pubkeyauthentication yes
+```
+
+`sshd -T` in ra **cấu hình đã được giải quyết**, kể cả những giá trị đến từ file include hay từ mặc định — nên nó là nguồn đáng tin duy nhất. Đọc `sshd_config` bằng mắt có thể bỏ sót một dòng ghi đè trong `sshd_config.d/`.
+
+**Và một điều dễ bị bỏ qua: cũng làm cứng những thứ khác đang mở.**
+
+```bash
+sudo ss -tlnp | grep -v "127.0.0.1\|::1"
+```
+
+SSH được làm cứng kỹ lưỡng không giúp được gì nếu cổng 1433 của SQL Server đang mở ra internet với mật khẩu `sa` mặc định — đúng vấn đề ở [bài 15.3](15.3-docker-compose.mdx).
+
+</details>
+
+---
+
+#### Bài 2 — Quên `UseForwardedHeaders`
+
+Bỏ `UseForwardedHeaders` nhưng bật `UseHttpsRedirection`, và quan sát vòng lặp chuyển hướng. Log `RemoteIpAddress` để xác nhận nó là IP của Nginx.
+
+**Tiêu chí hoàn thành:** bạn giải thích được vòng lặp hình thành thế nào, và nêu được ba thứ khác bị hỏng khi thiếu forwarded headers.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Nginx nhận HTTPS và chuyển tiếp bằng HTTP. Kestrel thấy giao thức gì?
+
+**Lời giải — cấu hình gây lỗi:**
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name crm.example.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;     # HTTP tới Kestrel
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+```csharp
+var app = builder.Build();
+app.UseHttpsRedirection();      // KHÔNG có UseForwardedHeaders trước đó
+```
+
+```bash
+curl -IL https://crm.example.com/health
+```
+
+```text
+HTTP/1.1 307 Temporary Redirect
+Location: https://crm.example.com/health
+
+HTTP/1.1 307 Temporary Redirect
+Location: https://crm.example.com/health
+
+...
+curl: (47) Maximum (50) redirects followed
+```
+
+Trình duyệt báo `ERR_TOO_MANY_REDIRECTS`.
+
+**Vòng lặp hình thành thế nào:**
+
+```text
+1. Trình duyệt -> https://crm.example.com/health
+2. Nginx nhận HTTPS, giải mã TLS
+3. Nginx -> http://127.0.0.1:8080/health          <- HTTP, không mã hoá
+4. Kestrel thấy Request.Scheme == "http"
+5. UseHttpsRedirection: "chưa HTTPS!" -> 307 tới https://crm.example.com/health
+6. Nginx trả 307 về trình duyệt
+7. Trình duyệt đi tới https://crm.example.com/health
+8. Quay lại bước 2 — vòng lặp vô hạn
+```
+
+Mắt xích sai là **bước 4**. Nginx đã gửi `X-Forwarded-Proto: https`, nhưng ASP.NET Core **không tự đọc header đó** — vì tin một header tuỳ ý từ client là một lỗ hổng bảo mật.
+
+```text
+Nếu ASP.NET Core tự tin X-Forwarded-Proto:
+    kẻ tấn công gửi "X-Forwarded-Proto: https" tới một endpoint HTTP
+    -> ứng dụng tưởng kết nối đã mã hoá
+    -> gửi cookie có cờ Secure qua kết nối KHÔNG mã hoá
+```
+
+Nên bạn phải **bật tường minh**, và khai báo proxy nào đáng tin:
+
+```csharp
+builder.Services.Configure<ForwardedHeadersOptions>(o =>
+{
+    o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+
+    // Nginx chạy trên cùng máy — chỉ tin nó
+    o.KnownProxies.Clear();
+    o.KnownNetworks.Clear();
+    o.KnownProxies.Add(IPAddress.Parse("127.0.0.1"));
+    o.KnownProxies.Add(IPAddress.IPv6Loopback);
+});
+```
+
+```csharp
+var app = builder.Build();
+
+app.UseForwardedHeaders();      // PHẢI đứng đầu, trước mọi middleware khác
+app.UseHttpsRedirection();
+app.UseAuthentication();
+app.UseAuthorization();
+```
+
+Thứ tự là quyết định: `UseForwardedHeaders` sửa `Request.Scheme` và `Connection.RemoteIpAddress`, nên mọi middleware đọc hai giá trị đó phải chạy **sau** nó.
+
+```bash
+curl -IL https://crm.example.com/health
+```
+
+```text
+HTTP/1.1 200 OK
+```
+
+**Ba thứ khác bị hỏng khi thiếu forwarded headers:**
+
+**1. `RemoteIpAddress` là IP của Nginx, không phải của người dùng.**
+
+```csharp
+_logger.LogInformation("Request từ {Ip}", context.Connection.RemoteIpAddress);
+```
+
+```text
+Thiếu:  Request từ 127.0.0.1        <- mọi request đều giống nhau
+Có:     Request từ 203.0.113.42
+```
+
+Hậu quả dây chuyền:
+
+```text
+Rate limiting theo IP    -> MỌI người dùng chung một "IP" -> giới hạn toàn cục
+                            một người dùng nặng chặn tất cả những người khác
+Chặn IP độc hại          -> chặn 127.0.0.1 = chặn toàn bộ traffic
+Audit log                -> không truy được ai làm gì
+Geo-location             -> mọi người dùng đều ở vị trí của máy chủ
+Phát hiện bất thường     -> không phân biệt được 1 người gọi 10.000 lần
+                            với 10.000 người mỗi người gọi 1 lần
+```
+
+Dòng đầu là nguy hiểm nhất, vì nó biến rate limiting từ một biện pháp bảo vệ thành một lỗ hổng từ chối dịch vụ.
+
+**2. URL sinh ra dùng sai scheme.**
+
+```csharp
+var url = Url.Action("XacNhan", "Email", new { token }, Request.Scheme);
+await _emailSender.GuiAsync(email, "Xác nhận", $"Bấm vào đây: {url}");
+```
+
+```text
+Thiếu:  http://crm.example.com/email/xac-nhan?token=abc    <- HTTP!
+Có:     https://crm.example.com/email/xac-nhan?token=abc
+```
+
+Token xác nhận đi qua kết nối không mã hoá. Và trình duyệt hiện đại chặn nội dung hỗn hợp, nên link trong email có thể không hoạt động.
+
+Điều tương tự xảy ra với OAuth redirect URI — và ở đó, scheme sai khiến nhà cung cấp từ chối hẳn:
+
+```text
+The redirect_uri 'http://crm.example.com/signin-oidc' does not match
+the registered redirect URI 'https://crm.example.com/signin-oidc'.
+```
+
+**3. Cookie có cờ `Secure` không được gửi.**
+
+```csharp
+options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+```
+
+Với `Request.Scheme == "http"`, cookie được đặt **không có** cờ `Secure` — nên nó có thể bị gửi qua kết nối không mã hoá. Đây là một lỗ hổng thật, không chỉ là bất tiện.
+
+Sửa bằng cách đặt tường minh, đừng dựa vào scheme:
+
+```csharp
+options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+options.Cookie.HttpOnly = true;
+options.Cookie.SameSite = SameSiteMode.Lax;
+```
+
+**Cấu hình cho các tầng proxy khác nhau:**
+
+```csharp
+// Một Nginx trên cùng máy
+o.KnownProxies.Add(IPAddress.Loopback);
+
+// Nginx ở máy khác trong mạng nội bộ
+o.KnownNetworks.Add(new IPNetwork(IPAddress.Parse("10.0.0.0"), 8));
+
+// Sau Cloudflare rồi tới Nginx — HAI tầng
+o.ForwardLimit = 2;
+o.KnownNetworks.Add(new IPNetwork(IPAddress.Parse("173.245.48.0"), 20));   // dải Cloudflare
+```
+
+`ForwardLimit` mặc định là 1. Với hai tầng proxy mà không tăng nó, bạn lấy được IP của Nginx thay vì của người dùng cuối.
+
+**Và một cảnh báo về cấu hình lỏng:**
+
+```csharp
+// NGUY HIỂM — tin MỌI proxy
+o.KnownProxies.Clear();
+o.KnownNetworks.Clear();
+o.ForwardLimit = null;
+```
+
+Cấu hình này hay xuất hiện trong các bài hướng dẫn vì nó "làm cho nó chạy". Nhưng nếu ứng dụng có thể tiếp cận trực tiếp — không qua proxy — thì bất kỳ ai cũng giả mạo được IP của mình:
+
+```bash
+curl -H "X-Forwarded-For: 1.2.3.4" https://crm.example.com/api/...
+```
+
+Và rate limiting, audit log, chặn IP đều bị vô hiệu.
+
+Nếu bạn thật sự không biết trước IP của proxy (ví dụ trong Kubernetes với IP pod động), hãy dùng cấu hình lỏng **kèm** bảo đảm rằng ứng dụng **không thể** tiếp cận trực tiếp — chỉ nghe trên mạng nội bộ, và NetworkPolicy chỉ cho ingress controller gọi vào.
+
+**Kiểm chứng:**
+
+```csharp
+app.Use(async (ctx, next) =>
+{
+    _logger.LogInformation("Scheme={Scheme} IP={Ip} XFF={Xff} XFP={Xfp}",
+        ctx.Request.Scheme,
+        ctx.Connection.RemoteIpAddress,
+        ctx.Request.Headers["X-Forwarded-For"].ToString(),
+        ctx.Request.Headers["X-Forwarded-Proto"].ToString());
+    await next();
+});
+```
+
+```text
+Scheme=https IP=203.0.113.42 XFF=203.0.113.42 XFP=https      <- đúng
+Scheme=http  IP=127.0.0.1    XFF=203.0.113.42 XFP=https      <- header CÓ nhưng chưa được áp
+```
+
+Dòng thứ hai là triệu chứng đặc trưng: header có mặt, nhưng `UseForwardedHeaders` chưa chạy hoặc proxy chưa được tin.
+
+</details>
+
+---
+
+#### Bài 3 — Deploy có rollback tự động
+
+Deploy một image cố tình fail health check và xác nhận script tự quay về phiên bản cũ, dịch vụ không gián đoạn.
+
+**Tiêu chí hoàn thành:** script của bạn xử lý đúng **ba** tình huống mà bản viết vội thường bỏ sót.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Nếu health check chưa từng pass, "phiên bản cũ" là gì? Và nếu chính script chết giữa chừng?
+
+**Lời giải — script đầy đủ:**
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+IMAGE_MOI="$1"
+TEN="crm-api"
+TEN_CU="${TEN}-cu"
+CONG_MOI=8081
+CONG_CU=8080
+HEALTH_TIMEOUT=60
+
+log() { echo "[$(date +%H:%M:%S)] $*"; }
+
+# 1. Ghi lại image hiện tại ĐỂ QUAY VỀ
+IMAGE_CU=$(docker inspect "$TEN" --format '{{.Config.Image}}' 2>/dev/null || echo "")
+log "Phiên bản hiện tại: ${IMAGE_CU:-(chưa có)}"
+
+# 2. Dọn container tạm còn sót từ lần deploy hỏng trước
+docker rm -f "$TEN_CU" 2>/dev/null || true
+
+# 3. Khởi động phiên bản MỚI ở cổng khác — CHƯA nhận traffic
+log "Khởi động $IMAGE_MOI ở cổng $CONG_MOI"
+docker run -d --name "$TEN_CU" \
+    --restart unless-stopped \
+    --env-file /etc/crm/.env \
+    -p "127.0.0.1:${CONG_MOI}:8080" \
+    "$IMAGE_MOI"
+
+# 4. Chờ health check, có timeout
+log "Chờ health check (tối đa ${HEALTH_TIMEOUT}s)"
+KHOE=false
+for i in $(seq 1 "$HEALTH_TIMEOUT"); do
+    if curl -fsS --max-time 2 "http://127.0.0.1:${CONG_MOI}/health/ready" > /dev/null 2>&1; then
+        KHOE=true
+        log "Health check PASS sau ${i}s"
+        break
+    fi
+    # Container chết hẳn thì không cần chờ hết timeout
+    if ! docker ps -q -f name="$TEN_CU" | grep -q .; then
+        log "Container đã thoát — dừng chờ"
+        break
+    fi
+    sleep 1
+done
+
+# 5. Thất bại -> dọn dẹp và giữ nguyên phiên bản cũ
+if [ "$KHOE" = false ]; then
+    log "HEALTH CHECK THẤT BẠI. Log của phiên bản mới:"
+    docker logs --tail 50 "$TEN_CU" 2>&1 | sed 's/^/    /'
+    docker rm -f "$TEN_CU" 2>/dev/null || true
+    log "Đã huỷ triển khai. Phiên bản cũ ${IMAGE_CU} vẫn đang chạy."
+    exit 1
+fi
+
+# 6. Chuyển đổi — đổi tên và cổng
+log "Chuyển traffic sang phiên bản mới"
+docker rm -f "$TEN" 2>/dev/null || true
+docker rename "$TEN_CU" "$TEN"
+
+# Container không đổi cổng được lúc chạy -> tạo lại ở cổng đúng
+docker stop "$TEN" && docker rm "$TEN"
+docker run -d --name "$TEN" \
+    --restart unless-stopped \
+    --env-file /etc/crm/.env \
+    -p "127.0.0.1:${CONG_CU}:8080" \
+    "$IMAGE_MOI"
+
+# 7. Xác minh LẦN NỮA sau khi chuyển
+for i in $(seq 1 30); do
+    if curl -fsS --max-time 2 "http://127.0.0.1:${CONG_CU}/health/ready" > /dev/null 2>&1; then
+        log "Triển khai thành công: $IMAGE_MOI"
+        docker image prune -af --filter "until=168h" > /dev/null 2>&1 || true
+        exit 0
+    fi
+    sleep 1
+done
+
+# 8. Chuyển xong nhưng vẫn hỏng -> quay về image cũ
+log "Phiên bản mới hỏng sau khi chuyển. Quay về ${IMAGE_CU}"
+docker rm -f "$TEN" 2>/dev/null || true
+if [ -n "$IMAGE_CU" ]; then
+    docker run -d --name "$TEN" \
+        --restart unless-stopped \
+        --env-file /etc/crm/.env \
+        -p "127.0.0.1:${CONG_CU}:8080" \
+        "$IMAGE_CU"
+fi
+exit 1
+```
+
+**Ba tình huống mà bản viết vội thường bỏ sót:**
+
+**Tình huống 1 — deploy đầu tiên, chưa có phiên bản cũ.**
+
+```bash
+IMAGE_CU=$(docker inspect "$TEN" --format '{{.Config.Image}}')   # THẤT BẠI, script dừng
+```
+
+Với `set -e`, script chết ngay ở dòng này trong lần deploy đầu tiên. Bản đầy đủ xử lý bằng `2>/dev/null || echo ""` và kiểm tra `[ -n "$IMAGE_CU" ]` trước khi rollback.
+
+**Tình huống 2 — container mới chết ngay, nhưng script vẫn chờ hết 60 giây.**
+
+Vòng lặp chỉ kiểm tra HTTP. Nếu container thoát sau 2 giây vì thiếu cấu hình, script chờ thêm 58 giây vô ích — và trên một pipeline có nhiều môi trường, thời gian đó cộng dồn.
+
+```bash
+if ! docker ps -q -f name="$TEN_CU" | grep -q .; then break; fi
+```
+
+**Tình huống 3 — chuyển đổi xong rồi mới hỏng.**
+
+Đây là tình huống nguy hiểm nhất và hay bị bỏ sót nhất. Health check pass ở cổng 8081, nhưng sau khi tạo lại container ở cổng 8080, nó hỏng — có thể vì cấu hình khác, vì cổng đã bị chiếm, hoặc vì một điều kiện chỉ xuất hiện khi có traffic thật.
+
+Bản viết vội kết thúc ở bước 6 và báo "thành công", trong khi dịch vụ đang chết. Bước 7 và 8 là thứ biến script này từ "tự động hoá việc deploy" thành "tự động hoá việc deploy an toàn".
+
+**Ba thứ khác nên có:**
+
+**1. Khoá để không có hai lần deploy chồng nhau:**
+
+```bash
+exec 200>/var/lock/crm-deploy.lock
+flock -n 200 || { echo "Một lần deploy khác đang chạy"; exit 1; }
+```
+
+**2. Thông báo kết quả** — deploy im lặng là deploy không ai biết đã hỏng:
+
+```bash
+thong_bao() {
+    curl -sf -X POST "$SLACK_WEBHOOK" \
+        -H 'Content-Type: application/json' \
+        -d "{\"text\":\"$1\"}" > /dev/null || true
+}
+trap 'thong_bao ":x: Deploy $IMAGE_MOI THẤT BẠI trên $(hostname)"' ERR
+```
+
+**3. Dùng Nginx để chuyển traffic thay vì tạo lại container** — cách sạch hơn nhiều:
+
+```nginx
+upstream crm_backend {
+    server 127.0.0.1:8080;      # xanh
+    # server 127.0.0.1:8081;    # lam
+}
+```
+
+```bash
+# Chuyển bằng cách đổi file upstream rồi reload — KHÔNG gián đoạn
+sed -i 's/8080/8081/' /etc/nginx/conf.d/crm-upstream.conf
+nginx -t && systemctl reload nginx
+```
+
+`nginx -t` trước `reload` là bắt buộc, và `reload` (khác `restart`) hoàn tất các kết nối đang mở trước khi chuyển — nên thật sự không có request nào bị mất.
+
+**Và câu hỏi đáng hỏi cuối cùng: có nên tự viết script này không?**
+
+```text
+1 máy chủ, deploy vài lần một tuần       -> script như trên là hợp lý
+Nhiều máy chủ, deploy nhiều lần một ngày -> dùng công cụ có sẵn
+```
+
+Vì script tự viết sẽ dần cần: nhiều máy chủ, rolling update, canary, quan sát được, khôi phục sau khi chính script chết giữa chừng. Đó là những thứ Kubernetes, Nomad, hay một PaaS đã giải quyết — và giải quyết tốt hơn.
+
+Nhưng viết script này một lần vẫn đáng, vì nó cho bạn hiểu **chính xác** những gì một hệ thống triển khai phải xử lý — và ba tình huống ở trên chính là ba thứ mà một công cụ tốt làm đúng còn một công cụ tồi thì không.
+
+</details>
 
 ## Tự kiểm tra
 

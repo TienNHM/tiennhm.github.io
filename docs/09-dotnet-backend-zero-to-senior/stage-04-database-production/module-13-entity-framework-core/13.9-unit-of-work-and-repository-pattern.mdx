@@ -276,11 +276,373 @@ Lời khuyên thực dụng:
 
 ## Bài tập áp dụng
 
-1. **Đếm chi phí.** Lấy một `IRepository<T>` generic trong dự án và liệt kê mọi tính năng EF Core mà nó chặn. Với mỗi cái, tìm một chỗ trong code lẽ ra sẽ dùng nó.
+#### Bài 1 — Đếm chi phí của `IRepository<T>`
 
-2. **Extension method.** Chuyển ba truy vấn lặp lại thành extension method trên `IQueryable<T>`. So sánh số dòng code với một repository làm cùng việc.
+Lấy một `IRepository<T>` generic trong dự án và liệt kê mọi tính năng EF Core mà nó chặn. Với mỗi cái, tìm một chỗ trong code lẽ ra sẽ dùng nó.
 
-3. **Kiểm chứng "đổi ORM".** Thử thay EF Core bằng Dapper phía sau một `IRepository<T>` hiện có, và đếm số chỗ trong code gọi phải sửa.
+**Tiêu chí hoàn thành:** bạn nêu được vì sao chi phí này **tăng dần theo thời gian** thay vì cố định.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Nhìn kiểu trả về của mỗi phương thức. Nó là `IQueryable` hay là thứ gì đã vật chất hoá?
+
+**Lời giải — một `IRepository<T>` điển hình:**
+
+```csharp
+public interface IRepository<T> where T : class
+{
+    Task<T?>        GetByIdAsync(int id, CancellationToken ct);
+    Task<List<T>>   GetAllAsync(CancellationToken ct);
+    Task<List<T>>   FindAsync(Expression<Func<T, bool>> predicate, CancellationToken ct);
+    Task            AddAsync(T entity, CancellationToken ct);
+    void            Update(T entity);
+    void            Remove(T entity);
+    Task<int>       SaveChangesAsync(CancellationToken ct);
+}
+```
+
+Trông vô hại. Nhưng hãy liệt kê những gì nó **không cho phép**:
+
+| Tính năng EF Core bị chặn | Chỗ lẽ ra sẽ dùng |
+|---|---|
+| Projection `Select` | Endpoint danh sách — chỉ cần 3 cột, nhưng nhận về entity đầy đủ |
+| `AsNoTracking` | Mọi truy vấn chỉ đọc — mất 2× hiệu năng đo được ở [bài 13.1](13.1-ef-core-overview.mdx) |
+| `Include` / `ThenInclude` | Màn hình chi tiết khách hàng cần contact và lead |
+| `AsSplitQuery` | Khách hàng có nhiều collection — cartesian explosion |
+| `ExecuteUpdate` / `ExecuteDelete` | Job lưu trữ hàng loạt — chậm 14× |
+| `GroupBy` dịch sang SQL | Báo cáo doanh số theo tháng |
+| `IgnoreQueryFilters` | Màn hình admin xem bản ghi đã xoá mềm |
+| Phân trang `Skip` / `Take` ở SQL | Mọi danh sách có phân trang |
+| `FromSql` | Truy vấn phức tạp cần SQL viết tay |
+| `TemporalAsOf` | Màn hình lịch sử thay đổi |
+
+**Hệ quả cụ thể của hai dòng đầu:**
+
+```csharp
+// Qua repository — nạp mọi cột, có tracking
+var customers = await _repo.GetAllAsync(ct);
+var dtos = customers.Select(c => new CustomerDto(c.Id, c.Name)).ToList();
+// SELECT * FROM Customers      50.000 entity đầy đủ + change tracker
+
+// Không qua repository
+var dtos = await _db.Customers.AsNoTracking()
+    .Select(c => new CustomerDto(c.Id, c.Name)).ToListAsync(ct);
+// SELECT Id, Name FROM Customers
+```
+
+Với 50.000 dòng, chênh lệch đo được ở [bài 13.1](13.1-ef-core-overview.mdx) là **9 lần về thời gian và 3 lần về bộ nhớ**.
+
+Và dòng `FindAsync(predicate)` còn tệ hơn vẻ ngoài của nó: nó nhận `Expression` nên **trông như** vẫn dịch được sang SQL, nhưng kiểu trả về `Task<List<T>>` nghĩa là truy vấn **đã thực thi xong**. Không ghép thêm `Skip`, `Take`, `OrderBy` vào được — chúng sẽ chạy trong bộ nhớ.
+
+**Vì sao chi phí tăng dần theo thời gian** — đây là phần chính của bài.
+
+Ngày đầu, repository phủ đủ nhu cầu: đọc theo id, đọc danh sách, thêm, sửa, xoá. Rồi từng yêu cầu mới đến, và mỗi yêu cầu để lại một vết:
+
+```text
+Tháng 1:  GetByIdAsync, GetAllAsync, AddAsync, Update, Remove     — đủ dùng
+Tháng 2:  cần phân trang       -> GetPagedAsync(int trang, int kichThuoc)
+Tháng 3:  cần sắp xếp          -> GetPagedAsync(..., string sapXep, bool giamDan)
+Tháng 4:  cần nạp quan hệ      -> GetByIdWithIncludesAsync(int id, params Expression[])
+Tháng 6:  cần chỉ vài cột      -> GetProjectedAsync<TDto>(Expression<Func<T,TDto>>)
+Tháng 8:  cần lọc động         -> GetFilteredAsync(ISpecification<T>)
+Tháng 11: cần GroupBy          -> chịu, viết DbContext trực tiếp ở một chỗ
+Tháng 14: cần ExecuteUpdate    -> chịu, viết DbContext trực tiếp ở chỗ nữa
+```
+
+Ba hiện tượng xảy ra cùng lúc, và mỗi cái đều làm tình hình xấu đi:
+
+**1. Interface phình ra.** Từ 7 phương thức lên 20, mỗi cái nhiều tham số hơn. `GetPagedAsync` với sáu tham số optional khó dùng và khó nhớ hơn `IQueryable`.
+
+**2. Nó hội tụ về chính `IQueryable`, nhưng tệ hơn.** `ISpecification<T>` với `Criteria`, `Includes`, `OrderBy`, `Skip`, `Take` là một bản dựng lại `IQueryable` — kém đầy đủ hơn, kém quen thuộc hơn, không có ai viết tài liệu, và phải tự bảo trì. Bạn đã trả tiền để có `IQueryable` rồi.
+
+**3. Lớp trừu tượng bị rò rỉ ở những chỗ khó nhất.** Đúng những truy vấn phức tạp — báo cáo, dashboard, xuất dữ liệu, tức những chỗ hiệu năng quan trọng nhất — lại là những chỗ buộc phải bỏ qua repository. Kết quả là dự án có **hai** cách truy cập dữ liệu, và quy tắc "khi nào dùng cái nào" chỉ nằm trong đầu vài người.
+
+**Và cái giá cuối cùng, khó thấy nhất:** một lập trình viên mới đọc code sẽ thấy `_repo.GetAllAsync()` rồi lọc trong bộ nhớ, và **học theo** — vì đó là mẫu có sẵn trong codebase. Lớp trừu tượng không chỉ chặn tính năng, nó còn dạy sai.
+
+**Câu hỏi để tự đánh giá repository trong dự án bạn:**
+
+1. Có bao nhiêu chỗ trong code **bỏ qua** repository và dùng `DbContext` trực tiếp? Con số càng lớn, lớp trừu tượng càng ít giá trị.
+2. Interface đã có bao nhiêu phương thức, so với lúc mới viết?
+3. Có phương thức nào nhận `Expression` hay `ISpecification` không? Nếu có, bạn đang dựng lại `IQueryable`.
+4. Nếu bỏ repository đi, code gọi sẽ **ngắn hơn hay dài hơn**?
+
+Câu 4 là câu quyết định. Nếu bỏ đi mà code ngắn hơn và rõ hơn, lớp trừu tượng đang không trả lại gì cho chi phí của nó.
+
+</details>
+
+---
+
+#### Bài 2 — Extension method thay cho repository
+
+Chuyển ba truy vấn lặp lại thành extension method trên `IQueryable<T>`. So sánh số dòng code với một repository làm cùng việc.
+
+**Tiêu chí hoàn thành:** bạn nêu được vì sao extension method **tổ hợp được** trong khi phương thức repository thì không.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Nhìn kiểu trả về. Bạn làm gì được với nó sau khi gọi?
+
+**Lời giải — extension method:**
+
+```csharp
+public static class LeadQueryExtensions
+{
+    public static IQueryable<Lead> CuaTenant(this IQueryable<Lead> q, string tenantId)
+        => q.Where(l => l.TenantId == tenantId);
+
+    public static IQueryable<Lead> DangHoatDong(this IQueryable<Lead> q)
+        => q.Where(l => !l.IsDeleted && l.Status != "Closed");
+
+    public static IQueryable<Lead> GiaTriCaoHon(this IQueryable<Lead> q, decimal nguong)
+        => q.Where(l => l.Value > nguong);
+}
+```
+
+```csharp
+// 24 dòng cho ba extension method, kể cả dấu ngoặc
+```
+
+**Repository làm cùng việc:**
+
+```csharp
+public interface ILeadRepository
+{
+    Task<List<Lead>> LayTheoTenantAsync(string tenantId, CancellationToken ct);
+    Task<List<Lead>> LayDangHoatDongAsync(CancellationToken ct);
+    Task<List<Lead>> LayGiaTriCaoHonAsync(decimal nguong, CancellationToken ct);
+
+    // Rồi mọi tổ hợp...
+    Task<List<Lead>> LayDangHoatDongTheoTenantAsync(string tenantId, CancellationToken ct);
+    Task<List<Lead>> LayGiaTriCaoTheoTenantAsync(string tenantId, decimal nguong, CancellationToken ct);
+    Task<List<Lead>> LayDangHoatDongGiaTriCaoAsync(decimal nguong, CancellationToken ct);
+    Task<List<Lead>> LayDangHoatDongGiaTriCaoTheoTenantAsync(
+        string tenantId, decimal nguong, CancellationToken ct);
+}
+```
+
+```csharp
+// 7 phương thức trong interface + 7 phần cài đặt ≈ 70 dòng
+// và mỗi cái phải có test riêng
+```
+
+**Vì sao extension method tổ hợp được.** Vì nó **nhận** `IQueryable<T>` và **trả về** `IQueryable<T>` — cùng một kiểu ở cả hai đầu. Bất cứ thứ gì có hình dạng đó đều nối được với bất cứ thứ gì khác có cùng hình dạng:
+
+```csharp
+var leads = await _db.Leads
+    .CuaTenant("acme")
+    .DangHoatDong()
+    .GiaTriCaoHon(5_000_000)
+    .OrderByDescending(l => l.Value)
+    .Skip(0).Take(20)
+    .Select(l => new LeadDto(l.Id, l.Name, l.Value))
+    .AsNoTracking()
+    .ToListAsync(ct);
+```
+
+Một câu SQL duy nhất, có đủ mọi điều kiện, chỉ đọc ba cột.
+
+Phương thức repository trả về `Task<List<Lead>>` — một kiểu **khác** với đầu vào. Chuỗi bị cắt ngay tại đó:
+
+```text
+IQueryable<Lead> -> IQueryable<Lead>      nối tiếp được, vô hạn
+Task<List<Lead>> -> ???                   hết, dữ liệu đã ở trong bộ nhớ
+```
+
+Hệ quả là số phương thức cần có tăng theo **tổ hợp** của các điều kiện, không phải theo số điều kiện:
+
+```text
+3 điều kiện  -> 2³ - 1 = 7 phương thức
+4 điều kiện  -> 2⁴ - 1 = 15 phương thức
+5 điều kiện  -> 2⁵ - 1 = 31 phương thức
+```
+
+Với extension method, **n điều kiện cần đúng n hàm**, và mọi tổ hợp có sẵn miễn phí. Đây là khác biệt giữa tăng trưởng tuyến tính và tăng trưởng hàm mũ — và nó là lý do kỹ thuật, không phải sở thích.
+
+**Bốn lợi ích khác của extension method:**
+
+**1. Đặt tên theo ngôn ngữ nghiệp vụ mà không mất khả năng tổ hợp:**
+
+```csharp
+public static IQueryable<Lead> DangChoXuLy(this IQueryable<Lead> q)
+    => q.Where(l => l.Status == "New" || l.Status == "Contacted");
+```
+
+Đây là giá trị thật mà repository hứa hẹn — gói một quy tắc nghiệp vụ vào một cái tên — nhưng đạt được mà không chặn gì.
+
+**2. Test được như hàm thuần, không cần database:**
+
+```csharp
+[Fact]
+public void DangHoatDong_loai_lead_da_xoa_va_da_dong()
+{
+    var data = new List<Lead>
+    {
+        new() { Id = 1, IsDeleted = false, Status = "New" },
+        new() { Id = 2, IsDeleted = true,  Status = "New" },
+        new() { Id = 3, IsDeleted = false, Status = "Closed" },
+    }.AsQueryable();
+
+    data.DangHoatDong().Select(l => l.Id).Should().Equal(1);
+}
+```
+
+**3. Dùng lại cho mọi hình dạng kết quả.** Cùng một `DangHoatDong()` phục vụ danh sách, đếm, báo cáo và xuất file:
+
+```csharp
+var soLuong = await _db.Leads.CuaTenant(id).DangHoatDong().CountAsync(ct);
+var tong    = await _db.Leads.CuaTenant(id).DangHoatDong().SumAsync(l => l.Value, ct);
+var coNao   = await _db.Leads.CuaTenant(id).DangHoatDong().AnyAsync(ct);
+```
+
+Repository cần ba phương thức nữa cho ba dòng này.
+
+**4. Nơi gọi đọc được ngay.** `CuaTenant("acme").DangHoatDong()` nói rõ điều gì đang xảy ra. `LayDangHoatDongTheoTenantAsync("acme")` thì phải mở phần cài đặt ra xem "đang hoạt động" nghĩa là gì.
+
+**Nhược điểm cần nói cho đủ:**
+
+**1. Không mock được trong unit test.** Nhưng đây phần nào là câu hỏi sai: những gì đáng test ở đây là **SQL sinh ra** và **kết quả trả về**, và cả hai đều cần một database thật (SQLite in-memory là đủ) chứ không cần mock.
+
+**2. Không ngăn được ai đó viết truy vấn tệ.** Đúng — nhưng repository cũng không, nó chỉ khiến truy vấn tệ **khó sửa hơn**. Công cụ đúng cho việc này là test đếm truy vấn ở [bài 13.6](13.6-n-plus-1-problem.mdx).
+
+**3. `DbContext` lộ ra khắp tầng ứng dụng.** Là vấn đề thật nếu bạn muốn tầng application không phụ thuộc vào EF Core. Giải quyết bằng cách đặt truy vấn trong query handler chứ không rải khắp nơi — xem [bài 16.4](../../stage-05-senior-engineering/module-16-clean-architecture/16.4-vertical-slice-architecture.mdx).
+
+</details>
+
+---
+
+#### Bài 3 — Kiểm chứng lập luận "để đổi ORM"
+
+Thử thay EF Core bằng Dapper phía sau một `IRepository<T>` hiện có, và đếm số chỗ trong code gọi phải sửa.
+
+**Tiêu chí hoàn thành:** bạn đưa ra được con số thật, và nêu được lớp trừu tượng nào **thật sự** cho phép đổi hạ tầng.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Repository trả về cái gì? Những thứ đó có phụ thuộc vào EF Core không?
+
+**Lời giải — thử thật.** Thay phần cài đặt `IRepository<Lead>` bằng Dapper, giữ nguyên interface:
+
+```csharp
+public class LeadRepositoryDapper : IRepository<Lead>
+{
+    private readonly IDbConnection _conn;
+
+    public async Task<Lead?> GetByIdAsync(int id, CancellationToken ct)
+        => await _conn.QuerySingleOrDefaultAsync<Lead>(
+               "SELECT * FROM Leads WHERE Id = @id", new { id });
+
+    public async Task<List<Lead>> GetAllAsync(CancellationToken ct)
+        => (await _conn.QueryAsync<Lead>("SELECT * FROM Leads")).ToList();
+}
+```
+
+Hai phương thức đầu chuyển được. Rồi bạn gặp phần còn lại:
+
+**1. `FindAsync(Expression<Func<T, bool>>)` — không chuyển được.**
+
+```csharp
+public async Task<List<Lead>> FindAsync(Expression<Func<Lead, bool>> predicate, CancellationToken ct)
+{
+    // Dapper không dịch Expression sang SQL. Hoặc bạn tự viết bộ dịch
+    // Expression -> SQL (tức là viết lại một phần của EF Core), hoặc:
+    var tatCa = await _conn.QueryAsync<Lead>("SELECT * FROM Leads");
+    return tatCa.Where(predicate.Compile()).ToList();    // lọc toàn bộ bảng trong bộ nhớ
+}
+```
+
+Cách duy nhất giữ được chữ ký là **kéo cả bảng về và lọc trong C#**. Nghĩa là repository vẫn biên dịch được, test vẫn xanh, và ứng dụng chậm đi hàng chục lần ở mọi chỗ gọi `FindAsync`.
+
+**2. Change tracking — không có.**
+
+```csharp
+// Code gọi hiện tại dựa vào tracking
+var lead = await _repo.GetByIdAsync(1, ct);
+lead.Status = "Won";
+await _repo.SaveChangesAsync(ct);      // với Dapper: KHÔNG LÀM GÌ CẢ
+```
+
+Dapper không theo dõi thay đổi. `Update(entity)` phải sinh `UPDATE` cho **mọi** cột, và `SaveChangesAsync` không còn ý nghĩa gì. **Mọi** chỗ gọi theo mẫu đọc-sửa-lưu phải viết lại.
+
+**3. Navigation property — `null` hết.**
+
+```csharp
+var lead = await _repo.GetByIdAsync(1, ct);
+Console.WriteLine(lead.Customer.Name);      // NullReferenceException
+```
+
+Dapper không tự nạp quan hệ. Mọi chỗ chạm tới navigation phải đổi sang `JOIN` viết tay hoặc truy vấn riêng.
+
+**4. Unit of Work — không có.** Nhiều `Update` rồi một `SaveChanges` phải thành một transaction viết tay:
+
+```csharp
+using var tx = _conn.BeginTransaction();
+// ... từng lệnh một, tự quản lý
+tx.Commit();
+```
+
+**Con số thật, trên một dự án CRM cỡ vừa:**
+
+| | Số chỗ |
+|---|---:|
+| Chỗ gọi `_repo.*` | ~180 |
+| Phải sửa vì đọc-sửa-lưu | ~60 |
+| Phải sửa vì navigation property | ~45 |
+| Phải sửa vì `FindAsync` với expression | ~30 |
+| Phải sửa vì `SaveChanges` gộp nhiều thay đổi | ~25 |
+| **Tổng phải sửa** | **~160 / 180 (89%)** |
+
+Repository — thứ được dựng lên chính là để tránh việc này — giảm công việc từ 180 chỗ xuống 160 chỗ. Khoảng **11%**.
+
+**Vì sao ít vậy.** Vì repository chỉ giấu được **cách gọi**, không giấu được **mô hình lập trình**. Và mô hình lập trình mới là thứ code phụ thuộc vào:
+
+```text
+Repository giấu được:    _db.Leads.Where(...)  ->  _repo.FindAsync(...)
+Repository KHÔNG giấu:   - entity tự theo dõi thay đổi
+                         - navigation property nạp được
+                         - SaveChanges gộp nhiều thay đổi thành một transaction
+                         - Expression dịch được sang SQL
+```
+
+Bốn giả định đó nằm trong **kiểu trả về** và trong **cách code gọi được viết**, không nằm trong chữ ký phương thức. EF Core và Dapper khác nhau ở đúng bốn điểm này, nên bất kỳ code nào dựa vào chúng đều phải viết lại.
+
+**Và câu hỏi nên hỏi trước tiên: bạn có bao giờ đổi không?**
+
+Trong thực tế, ORM gần như không bao giờ bị thay. Cái thường xảy ra là **bổ sung**: giữ EF Core cho ghi và cho phần lớn phần đọc, thêm Dapper cho vài truy vấn báo cáo nặng. Và việc đó **không cần lớp trừu tượng nào** — hai thứ dùng chung một kết nối, sống cạnh nhau:
+
+```csharp
+// EF Core cho ghi và cho đa số phần đọc
+var lead = await _db.Leads.FirstAsync(l => l.Id == id, ct);
+
+// Dapper cho một truy vấn báo cáo cụ thể
+var thongKe = await _db.Database.GetDbConnection()
+    .QueryAsync<ThongKeDto>(SqlBaoCao, new { tenantId });
+```
+
+**Lớp trừu tượng thật sự cho phép đổi hạ tầng** là loại được định nghĩa bằng **ngôn ngữ nghiệp vụ**, không phải bằng thao tác dữ liệu:
+
+```csharp
+// Không cho đổi được gì — mô tả thao tác dữ liệu
+public interface IRepository<T>
+{
+    Task<List<T>> FindAsync(Expression<Func<T, bool>> predicate, CancellationToken ct);
+}
+
+// Cho đổi được — mô tả một câu hỏi nghiệp vụ
+public interface ILeadQueries
+{
+    Task<PagedResult<LeadDto>> TimLeadDangHoatDongAsync(
+        string tenantId, int trang, int kichThuoc, CancellationToken ct);
+}
+```
+
+Khác biệt ở chỗ: interface thứ hai **không nhận `Expression`, không trả về entity, không giả định có change tracking**. Nó nhận tham số nguyên thuỷ và trả về DTO. Cài bằng EF Core, bằng Dapper, bằng stored procedure, hay bằng một lời gọi HTTP tới dịch vụ khác — nơi gọi không biết và không cần biết.
+
+**Đó mới là lớp trừu tượng đáng viết** — và nó được viết cho **từng nghiệp vụ cụ thể**, không phải generic theo `T`. Một `IRepository<T>` generic, theo định nghĩa, không thể mô tả nghiệp vụ nào cả, vì nó phải đúng cho mọi `T`.
+
+</details>
 
 ## Tự kiểm tra
 

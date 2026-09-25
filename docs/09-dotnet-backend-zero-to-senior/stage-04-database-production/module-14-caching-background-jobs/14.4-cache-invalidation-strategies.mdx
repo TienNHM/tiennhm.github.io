@@ -262,11 +262,473 @@ TTL ngắn là lưới cho cả ba trường hợp.
 
 ## Bài tập áp dụng
 
-1. **Sót đường ghi.** Cài xoá cache ở endpoint `PUT` nhưng không ở `ExecuteUpdateAsync`. Chạy job cập nhật hàng loạt và xác nhận cache vẫn trả dữ liệu cũ tới hết TTL.
+#### Bài 1 — Sót một đường ghi
 
-2. **L1 lệch nhau.** Chạy 3 instance với `IMemoryCache`, cập nhật dữ liệu qua instance 1, và gọi API nhiều lần. Đếm tỷ lệ nhận được dữ liệu cũ.
+Cài xoá cache ở endpoint `PUT` nhưng không ở `ExecuteUpdateAsync`. Chạy job cập nhật hàng loạt và xác nhận cache vẫn trả dữ liệu cũ tới hết TTL.
 
-3. **Race condition.** Mô phỏng kịch bản ở mục 14.5.5 bằng cách thêm `Task.Delay` vào truy vấn, và xác nhận cache chứa dữ liệu cũ sau khi cập nhật. Sửa bằng ghi đè và kiểm chứng.
+**Tiêu chí hoàn thành:** bạn liệt kê được **mọi** đường ghi vào một bảng trong hệ thống thật, và nêu được cách duy nhất phủ hết tất cả.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Đừng hỏi "code nào gọi `SaveChanges`". Hỏi "cái gì có thể làm đổi một dòng trong bảng này".
+
+**Lời giải — tái hiện:**
+
+```csharp
+// Đường 1 — có xoá cache
+app.MapPut("/leads/{id}", async (int id, CapNhatRequest req, CrmDbContext db,
+                                 ICacheService cache, CancellationToken ct) =>
+{
+    var lead = await db.Leads.FirstAsync(l => l.Id == id, ct);
+    lead.Status = req.Status;
+    await db.SaveChangesAsync(ct);
+    await cache.XoaAsync($"lead:{id}", ct);            // có
+    return Results.NoContent();
+});
+
+// Đường 2 — KHÔNG xoá cache
+public async Task LuuTruLeadCuAsync(CancellationToken ct)
+{
+    await _db.Leads
+        .Where(l => l.UpdatedUtc < DateTime.UtcNow.AddMonths(-6))
+        .ExecuteUpdateAsync(s => s.SetProperty(l => l.Status, "Archived"), ct);
+    // quên xoá cache
+}
+```
+
+```bash
+curl http://localhost:5000/leads/123      # {"status": "New"}
+# chạy job lưu trữ
+curl http://localhost:5000/leads/123      # {"status": "New"}   <- SAI, database đã là Archived
+# ...tới hết TTL 30 phút
+```
+
+**Mọi đường ghi vào một bảng trong hệ thống thật** — mười nhóm, sắp theo mức độ dễ bị bỏ sót:
+
+| # | Đường ghi | Có gọi `SaveChanges` |
+|---|---|---|
+| 1 | Endpoint `POST`/`PUT`/`PATCH`/`DELETE` | Có |
+| 2 | Command handler, domain service | Có |
+| 3 | `ExecuteUpdateAsync` / `ExecuteDeleteAsync` | **Không** |
+| 4 | Bulk extension (`BulkInsert`, `BulkUpdate`) | **Không** |
+| 5 | `FromSql` với `UPDATE`/`DELETE`, `ExecuteSqlRaw` | **Không** |
+| 6 | Background job — Hangfire, Quartz, `BackgroundService` | Tuỳ |
+| 7 | Message consumer | Tuỳ |
+| 8 | Migration có `migrationBuilder.Sql(...)` | **Không** |
+| 9 | Trigger, stored procedure, job của database | **Không** |
+| 10 | Script chạy tay trong SSMS, ETL, hệ thống khác | **Không** |
+
+Bảy trên mười nhóm **không đi qua `SaveChanges`**, nên mọi cơ chế móc vào `SaveChanges` — interceptor, override — đều mù với chúng.
+
+Ba nhóm cuối đáng sợ nhất vì chúng nằm **ngoài code C#** của bạn. Không có cách nào để một lập trình viên đọc code mà phát hiện ra rằng có một job SQL Agent đang cập nhật bảng lúc 2 giờ sáng.
+
+**Bốn cách, và vì sao ba cách đầu không đủ:**
+
+**Cách 1 — xoá thủ công ở mỗi đường ghi.** Rõ ràng, nhưng phủ được nhóm 1, 2, 3, 4, 6, 7 và phụ thuộc hoàn toàn vào việc nhớ. Mỗi lần ai đó thêm một đường ghi mới là một cơ hội để quên.
+
+**Cách 2 — interceptor tự động.** Bắt được những gì đi qua `SaveChanges`:
+
+```csharp
+public class XoaCacheInterceptor : SaveChangesInterceptor
+{
+    public override async ValueTask<int> SavedChangesAsync(
+        SaveChangesCompletedEventData e, int result, CancellationToken ct = default)
+    {
+        // SAU khi commit, không phải trước
+        foreach (var entry in e.Context!.ChangeTracker.Entries<ICacheable>()
+                                        .Where(x => x.State is EntityState.Modified
+                                                            or EntityState.Deleted))
+        {
+            await _cache.XoaAsync(entry.Entity.KhoaCache, ct);
+        }
+        return result;
+    }
+}
+```
+
+Dùng `SavedChangesAsync` (đã lưu) chứ không phải `SavingChangesAsync` (đang lưu): xoá trước khi commit tạo ra một khe hở để request khác nạp lại dữ liệu cũ vào cache, và nếu transaction rollback thì bạn vừa xoá cache vô ích.
+
+Phủ nhóm 1, 2, 6, 7. Vẫn mù với 3, 4, 5, 8, 9, 10.
+
+**Cách 3 — TTL ngắn.** Phủ **mọi** đường, kể cả nhóm 9 và 10, vì nó không cần biết ai ghi. Cái giá là dữ liệu cũ tồn tại tới hết TTL và tỷ lệ trúng giảm.
+
+Đây là **lưới an toàn**, không phải giải pháp: nó không ngăn dữ liệu cũ, chỉ giới hạn thời gian tồn tại của nó.
+
+**Cách 4 — thay đổi phát ra từ database.** Cách duy nhất phủ hết mười nhóm:
+
+```csharp
+// SQL Server — SqlDependency / Query Notifications
+var lenh = new SqlCommand("SELECT Id, Status FROM dbo.Leads", ketNoi);
+var phuThuoc = new SqlDependency(lenh);
+phuThuoc.OnChange += async (s, e) => await _cache.XoaTheoTagAsync("lead", ct);
+```
+
+```csharp
+// PostgreSQL — LISTEN/NOTIFY, kèm trigger phát thông báo
+await using var conn = new NpgsqlConnection(chuoiKetNoi);
+conn.Notification += async (s, e) => await _cache.XoaAsync(e.Payload, ct);
+await conn.ExecuteAsync("LISTEN cache_invalidate");
+```
+
+```sql
+CREATE OR REPLACE FUNCTION thong_bao_doi_lead() RETURNS trigger AS $$
+BEGIN
+    PERFORM pg_notify('cache_invalidate', 'lead:' || NEW.id);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER tr_lead_cache AFTER INSERT OR UPDATE OR DELETE ON leads
+    FOR EACH ROW EXECUTE FUNCTION thong_bao_doi_lead();
+```
+
+Vì thông báo phát ra từ **database**, nó bắt được cả script chạy tay và job của hệ thống khác. Đổi lại: thêm một thành phần phải vận hành, trigger làm chậm ghi, và `SqlDependency` có tiếng là khó dùng ở quy mô lớn.
+
+**Cách phối hợp nên dùng trong thực tế:**
+
+```text
+Tầng 1 — TTL ngắn:      lưới an toàn cho mọi đường, kể cả những đường bạn không biết
+Tầng 2 — Interceptor:   tự động cho mọi đường qua SaveChanges
+Tầng 3 — Xoá thủ công:  cho ExecuteUpdate, bulk, SQL thô — kèm analyzer bắt buộc
+Tầng 4 — Từ database:   chỉ khi có đường ghi ngoài ứng dụng và dữ liệu cũ là không chấp nhận được
+```
+
+**Và trước khi làm gì, hãy liệt kê thật.** Đây là bài tập đáng làm một lần cho mỗi bảng được cache:
+
+```sql
+-- Ai đã ghi vào bảng này gần đây, từ ứng dụng nào?
+SELECT TOP 50 t.name AS bang, s.last_user_update, s.user_updates
+FROM   sys.dm_db_index_usage_stats s
+JOIN   sys.tables t ON t.object_id = s.object_id
+WHERE  s.database_id = DB_ID() AND s.user_updates > 0
+ORDER  BY s.last_user_update DESC;
+```
+
+```sql
+-- Có job nào của SQL Agent đụng vào bảng này không?
+SELECT j.name, st.command
+FROM   msdb.dbo.sysjobs j
+JOIN   msdb.dbo.sysjobsteps st ON st.job_id = j.job_id
+WHERE  st.command LIKE '%Leads%';
+```
+
+Câu thứ hai thường cho ra kết quả bất ngờ — và mỗi kết quả là một đường ghi mà không ai trong nhóm phát triển biết.
+
+</details>
+
+---
+
+#### Bài 2 — Cache L1 lệch nhau giữa các instance
+
+Chạy 3 instance với `IMemoryCache`, cập nhật dữ liệu qua instance 1, và gọi API nhiều lần. Đếm tỷ lệ nhận được dữ liệu cũ.
+
+**Tiêu chí hoàn thành:** bạn tính trước được tỷ lệ, và nêu được vì sao pub/sub **giảm** chứ không **loại bỏ** vấn đề.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Load balancer chia request cho 3 instance. Instance nào có cache đúng?
+
+**Lời giải — tính trước:**
+
+```text
+Instance 1: cập nhật dữ liệu và tự xoá cache của mình  -> cache ĐÚNG
+Instance 2: không biết gì                              -> cache CŨ
+Instance 3: không biết gì                              -> cache CŨ
+
+Load balancer chia đều -> 2/3 số request nhận dữ liệu cũ
+```
+
+```bash
+for i in $(seq 1 90); do curl -s http://localhost:5000/leads/123 | jq -r .status; done | sort | uniq -c
+```
+
+```text
+     30 Won        <- instance 1
+     60 New        <- instance 2 và 3, dữ liệu cũ
+```
+
+**Đúng 66,7%.** Công thức: với N instance, tỷ lệ dữ liệu cũ là `(N-1)/N`. Càng nhiều instance, càng tệ — và nó tiến tới 100%.
+
+Điều khiến bug này đặc biệt khó chịu: **người dùng nhấn F5 và thấy dữ liệu nhảy qua lại** giữa cũ và mới, vì mỗi lần tải là một instance khác. Báo cáo lỗi đến dưới dạng "dữ liệu lúc đúng lúc sai", và trên máy dev một instance thì không bao giờ tái hiện được.
+
+**Bản sửa — pub/sub qua Redis:**
+
+```csharp
+public class CacheDongBo : IHostedService
+{
+    private readonly IConnectionMultiplexer _redis;
+    private readonly IMemoryCache _l1;
+    private readonly string _idInstance = Guid.NewGuid().ToString("N");
+
+    public async Task StartAsync(CancellationToken ct)
+    {
+        var sub = _redis.GetSubscriber();
+        await sub.SubscribeAsync(RedisChannel.Literal("cache-invalidate"), (_, message) =>
+        {
+            var (nguoiGui, khoa) = TachThongDiep(message!);
+            if (nguoiGui == _idInstance) return;        // bỏ qua thông điệp của chính mình
+            _l1.Remove(khoa);
+        });
+    }
+
+    public async Task XoaAsync(string khoa, CancellationToken ct)
+    {
+        _l1.Remove(khoa);                                                  // xoá cục bộ ngay
+        await _redis.GetDatabase().KeyDeleteAsync(khoa);                   // xoá L2
+        await _redis.GetSubscriber().PublishAsync(
+            RedisChannel.Literal("cache-invalidate"), $"{_idInstance}|{khoa}");  // báo instance khác
+    }
+}
+```
+
+```text
+     88 Won
+      2 New        <- 2,2% dữ liệu cũ, trong cửa sổ vài mili giây
+```
+
+Từ 66,7% xuống khoảng 2%.
+
+**Vì sao pub/sub giảm chứ không loại bỏ** — bốn lý do, và chúng đều nằm trong bản chất của Redis pub/sub:
+
+**1. Redis pub/sub là fire-and-forget.** Nó không lưu thông điệp và không bảo đảm giao hàng. Instance nào đang mất kết nối tại thời điểm publish sẽ **không bao giờ** nhận được thông điệp đó — không có retry, không có hàng đợi, không có cách nào biết là đã lỡ.
+
+```text
+t=0,0   instance 2 mất kết nối Redis 3 giây
+t=0,5   instance 1 publish "xoá lead:123"
+t=3,0   instance 2 kết nối lại
+        -> thông điệp đã mất vĩnh viễn
+        -> cache của instance 2 cũ cho tới hết TTL
+```
+
+**2. Có độ trễ lan truyền.** Publish tới Redis, Redis đẩy tới các subscriber, mỗi subscriber xử lý — tổng cộng 1–10 ms trên mạng LAN. Request đến trong cửa sổ đó vẫn nhận dữ liệu cũ. Đây là nguồn của con số 2,2% ở trên.
+
+**3. Race condition giữa xoá và nạp lại** — chính kịch bản ở mục 14.5.5:
+
+```text
+t=0   instance 2 nhận request, cache miss, bắt đầu truy vấn
+t=1   instance 1 cập nhật, publish xoá
+t=2   instance 2 nhận thông điệp, xoá cache (đang rỗng, không làm gì)
+t=3   instance 2 truy vấn XONG với dữ liệu của t=0, GHI vào cache
+      -> cache chứa dữ liệu cũ, và không có thông điệp nào nữa để xoá nó
+```
+
+Pub/sub không giúp gì ở đây, vì thông điệp đến **trước** lúc dữ liệu cũ được ghi vào.
+
+**4. Instance mới khởi động không có lịch sử.** Một pod vừa scale-up nạp cache từ database — nếu nó nạp đúng lúc có một giao dịch chưa commit hoặc chưa kịp lan truyền, nó bắt đầu vòng đời với một mục cache sai.
+
+**Kết luận về kiến trúc:**
+
+> **Cache L1 cục bộ về bản chất là nhất quán cuối cùng. Pub/sub thu hẹp cửa sổ, không đóng nó.**
+
+Bốn hệ quả thực tế:
+
+**1. TTL của L1 phải ngắn** — vài giây tới vài phút. Nó là lưới cho mọi trường hợp pub/sub bỏ lọt:
+
+```csharp
+_l1.Set(khoa, giaTri, TimeSpan.FromSeconds(30));    // L1: ngắn
+await _l2.SetAsync(khoa, bytes, TimeSpan.FromMinutes(30), ct);   // L2: dài
+```
+
+**2. Dữ liệu không chịu được cũ thì đừng để ở L1.** Số dư tài khoản, tồn kho, quyền truy cập — đọc thẳng L2 hoặc database.
+
+**3. Dùng `HybridCache`, đừng tự viết.** Nó cài sẵn L1 + L2 + đồng bộ qua backplane, và đã xử lý đúng những chi tiết ở trên ([bài 14.5](14.5-hybridcache-dotnet-9.mdx)).
+
+**4. Giám sát độ lệch, đừng giả định nó nhỏ:**
+
+```csharp
+// Mỗi instance báo cáo phiên bản dữ liệu nó đang có trong L1
+_meter.CreateObservableGauge("cache.l1.version",
+    () => new Measurement<long>(_phienBanHienTai,
+        new KeyValuePair<string, object?>("instance", _idInstance)));
+```
+
+Trên dashboard, nếu các đường của các instance tách nhau lâu hơn vài giây, pub/sub đang không hoạt động — và bạn biết trước khi người dùng báo.
+
+</details>
+
+---
+
+#### Bài 3 — Race condition giữa xoá và nạp lại
+
+Mô phỏng kịch bản ở mục 14.5.5 bằng cách thêm `Task.Delay` vào truy vấn, và xác nhận cache chứa dữ liệu cũ sau khi cập nhật. Sửa bằng ghi đè và kiểm chứng.
+
+**Tiêu chí hoàn thành:** bạn giải thích được vì sao ghi đè đóng được khe hở mà xoá không đóng được, và nêu được giới hạn của cách ghi đè.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Vẽ đường thời gian. Sau bước cuối cùng, cache chứa giá trị của thời điểm nào?
+
+**Lời giải — tái hiện:**
+
+```csharp
+public async Task<LeadDto?> DocAsync(int id, CancellationToken ct)
+{
+    if (_cache.TryGetValue($"lead:{id}", out LeadDto? v)) return v;
+
+    await Task.Delay(2000, ct);                      // giả lập truy vấn chậm
+    var lead = await _db.Leads.AsNoTracking()
+        .Where(l => l.Id == id)
+        .Select(l => new LeadDto(l.Id, l.Status))
+        .FirstOrDefaultAsync(ct);
+
+    _cache.Set($"lead:{id}", lead, TimeSpan.FromMinutes(30));
+    return lead;
+}
+
+public async Task CapNhatAsync(int id, string trangThai, CancellationToken ct)
+{
+    var lead = await _db.Leads.FirstAsync(l => l.Id == id, ct);
+    lead.Status = trangThai;
+    await _db.SaveChangesAsync(ct);
+    _cache.Remove($"lead:{id}");
+}
+```
+
+```csharp
+_cache.Remove("lead:123");                                  // bắt đầu từ cache rỗng
+
+var doc = Task.Run(() => DocAsync(123, ct));                // t=0
+await Task.Delay(500, ct);
+await CapNhatAsync(123, "Won", ct);                         // t=0,5
+await doc;                                                  // t=2,0
+
+Console.WriteLine(_cache.Get<LeadDto>("lead:123")?.Status); // "New"
+Console.WriteLine((await _db.Leads.AsNoTracking()
+    .FirstAsync(l => l.Id == 123, ct)).Status);             // "Won"
+```
+
+```text
+Cache:    New       <- và sẽ ở đó 30 phút
+Database: Won
+```
+
+**Đường thời gian:**
+
+```text
+t=0,0   DocAsync: cache miss, bắt đầu truy vấn
+t=0,1   truy vấn đọc được Status = "New"
+t=0,5   CapNhatAsync: ghi "Won", xoá cache  (cache đang rỗng, xoá không làm gì)
+t=2,0   DocAsync ghi "New" vào cache        <- GHI DỮ LIỆU CŨ VÀO CACHE ĐÃ ĐƯỢC XOÁ
+```
+
+Lệnh xoá ở t=0,5 **đến quá sớm**. Nó xoá một mục chưa tồn tại, còn mục sẽ tồn tại thì được ghi vào 1,5 giây sau — mang theo giá trị của t=0,1.
+
+**Bản sửa — ghi đè thay vì xoá:**
+
+```csharp
+public async Task CapNhatAsync(int id, string trangThai, CancellationToken ct)
+{
+    var lead = await _db.Leads.FirstAsync(l => l.Id == id, ct);
+    lead.Status = trangThai;
+    await _db.SaveChangesAsync(ct);
+
+    // Ghi đè bằng giá trị MỚI, không xoá
+    _cache.Set($"lead:{id}", new LeadDto(id, trangThai), TimeSpan.FromMinutes(30));
+}
+```
+
+```text
+t=0,0   DocAsync: cache miss, bắt đầu truy vấn
+t=0,5   CapNhatAsync: ghi "Won", GHI ĐÈ cache = "Won"
+t=2,0   DocAsync ghi "New" vào cache        <- vẫn ghi đè mất!
+```
+
+**Vẫn sai.** Và điều này quan trọng: ghi đè **không tự nó** đủ. Nó đóng được khe hở **chỉ khi** lệnh ghi đến sau.
+
+**Bản sửa đầy đủ — ghi đè cộng kiểm tra phiên bản:**
+
+```csharp
+public async Task<LeadDto?> DocAsync(int id, CancellationToken ct)
+{
+    var khoa = $"lead:{id}";
+    if (_cache.TryGetValue(khoa, out MucCache<LeadDto>? muc)) return muc!.GiaTri;
+
+    var lead = await _db.Leads.AsNoTracking()
+        .Where(l => l.Id == id)
+        .Select(l => new { Dto = new LeadDto(l.Id, l.Status), l.RowVersion })
+        .FirstOrDefaultAsync(ct);
+    if (lead is null) return null;
+
+    var phienBan = BitConverter.ToUInt64(lead.RowVersion.Reverse().ToArray());
+
+    // Chỉ ghi nếu phiên bản này MỚI HƠN thứ đang có trong cache
+    _cache.Set(khoa, new MucCache<LeadDto>(lead.Dto, phienBan),
+               new MemoryCacheEntryOptions
+               {
+                   AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30),
+               });
+    return lead.Dto;
+}
+```
+
+Trong thực tế, cách này khá nặng. Hai lựa chọn thực dụng hơn:
+
+**1. Xoá hai lần, lần sau có độ trễ** (delayed double delete):
+
+```csharp
+await _db.SaveChangesAsync(ct);
+await _cache.XoaAsync(khoa, CancellationToken.None);
+
+// Xoá lại sau khi mọi truy vấn đang bay đã kịp ghi xong
+_ = Task.Run(async () =>
+{
+    await Task.Delay(TimeSpan.FromSeconds(3));
+    await _cache.XoaAsync(khoa, CancellationToken.None);
+});
+```
+
+Độ trễ phải **dài hơn truy vấn chậm nhất**. Đây là một heuristic chứ không phải bảo đảm — nếu có truy vấn chậm hơn 3 giây, khe hở vẫn còn. Nhưng nó đơn giản, không cần đổi mô hình dữ liệu, và giải quyết được đại đa số trường hợp.
+
+**2. `HybridCache`, vì nó điều phối factory:**
+
+```csharp
+await _cache.RemoveAsync($"lead:{id}", ct);
+```
+
+`HybridCache` bảo đảm chỉ một factory chạy cho mỗi khoá tại một thời điểm, nên khe hở hẹp hơn nhiều. Nó không loại bỏ hoàn toàn, nhưng thu hẹp từ "thời gian truy vấn" xuống "thời gian giữa lúc factory xong và lúc ghi cache".
+
+**Vì sao ghi đè tốt hơn xoá trong trường hợp thông thường:**
+
+```text
+Xoá:     cache rỗng -> request tiếp theo phải truy vấn -> có khe hở để ghi dữ liệu cũ
+Ghi đè:  cache có giá trị mới ngay -> không ai phải truy vấn -> ít cơ hội ghi dữ liệu cũ
+```
+
+Thêm vào đó, ghi đè tránh được một cơn stampede nhỏ: sau khi xoá, mọi request đồng thời đều miss và cùng chạy factory.
+
+**Ba giới hạn của cách ghi đè:**
+
+**1. Chỉ dùng được khi bạn biết chính xác giá trị cache mới.** Nếu cache chứa kết quả tổng hợp từ nhiều bảng, bạn không có sẵn nó sau khi cập nhật một bảng:
+
+```csharp
+// Cache chứa: thống kê tổng hợp từ Leads, Customers, Orders
+// Sau khi cập nhật một Lead, không biết thống kê mới là gì mà không truy vấn lại
+```
+
+Lúc đó: xoá, hoặc truy vấn lại rồi ghi đè — và truy vấn lại có thể đắt hơn cả lợi ích.
+
+**2. Ghi đè có thể ghi **nhiều hơn** mức cần.** Với một bản ghi được cập nhật 100 lần mỗi giây, bạn ghi cache 100 lần mỗi giây — trên Redis đó là 100 lệnh `SET` không ai đọc. Xoá một lần rồi để lần đọc tiếp theo nạp lại có thể rẻ hơn.
+
+**3. Ghi đè trên nhiều instance vẫn cần pub/sub.** Instance 1 ghi đè L1 của nó; instance 2 và 3 không biết gì — đúng vấn đề ở bài 2.
+
+**Bảng chọn:**
+
+| Tình huống | Cách |
+|---|---|
+| Cache chứa đúng một bản ghi, biết giá trị mới | **Ghi đè** |
+| Cache chứa kết quả tổng hợp | Xoá, kèm xoá lại có độ trễ |
+| Ghi rất thường xuyên | Xoá, để lần đọc sau nạp lại |
+| Dữ liệu không chịu được cũ chút nào | Đừng cache, hoặc TTL vài giây |
+| Nhiều instance | `HybridCache` hoặc pub/sub, kèm mọi thứ ở trên |
+
+**Và điều đáng nhớ nhất của cả bài:** race condition này **không sửa triệt để được** bằng bất kỳ cách nào ở trên. Mọi cách đều thu hẹp cửa sổ, không đóng nó. Cửa sổ duy nhất bằng không là không cache.
+
+Nên hãy thiết kế với giả định **cache sẽ có lúc sai**, và đặt TTL ở mức mà một lần sai không gây hậu quả nghiêm trọng. TTL không phải là cơ chế dự phòng — nó là cơ chế chính, và những thứ khác chỉ làm nó ít bị cần tới hơn.
+
+</details>
 
 ## Tự kiểm tra
 

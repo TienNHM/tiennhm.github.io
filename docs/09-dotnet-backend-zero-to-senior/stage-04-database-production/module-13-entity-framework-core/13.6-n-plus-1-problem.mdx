@@ -232,11 +232,402 @@ Với dữ liệu ít khi cần, **nạp theo yêu cầu**: danh sách trả v�
 
 ## Bài tập áp dụng
 
-1. **Đo N+1.** Tạo 500 khách hàng, mỗi người 5 contact. Chạy vòng lặp đếm contact và đo tổng thời gian cùng số truy vấn. Sửa bằng projection và đo lại.
+#### Bài 1 — Đo N+1
 
-2. **N+1 qua AutoMapper.** Map `List<Customer>` sang `List<CustomerDto>` có `ContactCount`, với lazy loading bật. Đếm số truy vấn. Chuyển sang `ProjectTo` và so sánh.
+Tạo 500 khách hàng, mỗi người 5 contact. Chạy vòng lặp đếm contact và đo tổng thời gian cùng số truy vấn. Sửa bằng projection và đo lại.
 
-3. **Test đếm truy vấn.** Cài `QueryCountingInterceptor` và viết một test khẳng định endpoint danh sách không vượt 2 truy vấn. Sau đó thêm một trường vào DTO gây thêm truy vấn và xác nhận test đỏ.
+**Tiêu chí hoàn thành:** bạn giải thích được vì sao con số đo trên máy mình **nói giảm** mức độ nghiêm trọng thật.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Mỗi truy vấn phải đi tới database và quay về. Đường đi đó dài bao nhiêu trên máy bạn?
+
+**Lời giải — đo thật, trên .NET 9.0.203, EF Core 9.0.0, SQLite cùng máy, 500 khách hàng × 5 lead:**
+
+```csharp
+// N+1
+var customers = db.Customers.AsNoTracking().ToList();          // 1 truy vấn
+var total = 0;
+foreach (var c in customers)
+    total += db.Leads.AsNoTracking().Count(l => l.CustomerId == c.Id);   // 500 truy vấn
+
+// Projection
+var rows = db.Customers.AsNoTracking()
+    .Select(c => new { c.Id, c.Name, ContactCount = c.Leads.Count() })
+    .ToList();                                                  // 1 truy vấn
+
+// Include — nạp hết entity con về rồi đếm trong bộ nhớ
+var rows2 = db.Customers.AsNoTracking().Include(c => c.Leads).ToList();
+```
+
+```text
+vòng lặp (N+1)           201 ms     501 truy vấn
+projection                42 ms       1 truy vấn
+Include (nạp hết)        102 ms       1 truy vấn
+```
+
+| | Truy vấn | Thời gian | So với N+1 |
+|---|---:|---:|---|
+| Vòng lặp | 501 | 201 ms | — |
+| `Include` | 1 | 102 ms | nhanh 2× |
+| Projection | 1 | 42 ms | **nhanh 4,8×** |
+
+Projection nhanh hơn `Include` vì nó để database làm phép `COUNT` và chỉ trả về một số, thay vì kéo cả 2.500 dòng lead về rồi đếm trong C#.
+
+**Vì sao con số này nói giảm mức độ nghiêm trọng thật** — đây là phần chính của bài.
+
+Phép đo trên chạy với SQLite, **trên file, cùng máy, cùng tiến trình**. Chi phí mỗi truy vấn gần như chỉ là chi phí CPU: khoảng 0,4 ms. Production không như vậy.
+
+```text
+SQLite cùng tiến trình     ~0,4 ms mỗi truy vấn
+SQL Server trên localhost  ~0,5–1 ms
+SQL Server cùng mạng LAN   ~1–3 ms
+Azure SQL cùng vùng        ~3–8 ms
+Azure SQL khác vùng        ~30–80 ms
+```
+
+Áp vào 501 truy vấn:
+
+| Môi trường | N+1 | Projection | Chênh lệch |
+|---|---:|---:|---:|
+| SQLite cùng máy (đo được) | 201 ms | 42 ms | 4,8× |
+| SQL Server LAN, 2 ms/truy vấn | ~1,0 s | ~45 ms | **22×** |
+| Azure SQL cùng vùng, 5 ms | ~2,5 s | ~50 ms | **50×** |
+| Azure SQL khác vùng, 50 ms | ~25 s | ~95 ms | **260×** |
+
+Lý do chênh lệch giãn ra: độ trễ mạng nhân với **số truy vấn**. Bản N+1 trả 501 lần chi phí đó; bản projection trả **một** lần. Độ trễ càng cao, khoảng cách càng lớn — và độ trễ trên production luôn cao hơn trên máy bạn.
+
+**Ba lý do nữa khiến phép đo cục bộ nói giảm:**
+
+1. **Dữ liệu thử nhỏ.** 500 khách hàng là một trang danh sách. Production có 50.000, và N+1 tăng **tuyến tính theo số dòng** trong khi projection gần như không đổi.
+2. **Không có tải đồng thời.** Trên máy bạn, một request chạy một mình. Trên production, 100 request đồng thời, mỗi cái 501 truy vấn, là 50.100 truy vấn — đủ để **cạn connection pool** (mặc định 100). Lúc đó triệu chứng không phải "chậm" mà là `Timeout expired. The timeout period elapsed prior to obtaining a connection from the pool`.
+3. **Cache còn ấm.** Lần chạy thứ hai trên cùng dữ liệu đọc từ buffer pool. Production có dữ liệu lớn hơn bộ nhớ, nên nhiều truy vấn phải chạm đĩa.
+
+**Hệ quả thực tế:** một N+1 chạy 200 ms trên máy dev — đủ nhanh để không ai để ý trong review — có thể là 2,5 giây trên production, và trở thành sự cố khi có tải.
+
+Đây là lý do **không nên dùng thời gian đo cục bộ làm tiêu chí**. Tiêu chí đúng là **số truy vấn**, vì nó không phụ thuộc môi trường:
+
+```csharp
+[Fact]
+public async Task Endpoint_danh_sach_khach_hang_khong_vuot_2_truy_van()
+{
+    var dem = new QueryCountingInterceptor();
+    // ... dựng context với interceptor
+    await _service.LayDanhSachAsync(ct);
+    dem.SoTruyVan.Should().BeLessThanOrEqualTo(2);
+}
+```
+
+Một test như vậy đỏ ngay trên máy dev — nơi N+1 chỉ tốn 200 ms và không ai nhận ra có gì sai.
+
+</details>
+
+---
+
+#### Bài 2 — N+1 qua AutoMapper
+
+Map `List<Customer>` sang `List<CustomerDto>` có `ContactCount`, với lazy loading bật. Đếm số truy vấn. Chuyển sang `ProjectTo` và so sánh.
+
+**Tiêu chí hoàn thành:** bạn giải thích được vì sao N+1 dạng này **không nhìn thấy được** khi đọc code, và nêu được điều kiện để `ProjectTo` hoạt động.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Tìm trong code đoạn nào gây ra truy vấn. Nó có nằm ở chỗ bạn đang nhìn không?
+
+**Lời giải — bản có N+1:**
+
+```csharp
+public class CustomerProfile : Profile
+{
+    public CustomerProfile()
+    {
+        CreateMap<Customer, CustomerDto>()
+            .ForMember(d => d.ContactCount, o => o.MapFrom(s => s.Contacts.Count));
+    }
+}
+```
+
+```csharp
+var customers = await _db.Customers.ToListAsync(ct);      // 1 truy vấn
+var dtos = _mapper.Map<List<CustomerDto>>(customers);     // 500 truy vấn nữa
+```
+
+```text
+Tổng: 501 truy vấn
+```
+
+**Vì sao nó không nhìn thấy được khi đọc code.** Hãy đọc lại hai dòng trên. Không có vòng lặp. Không có `foreach`. Không có lời gọi database nào ngoài `ToListAsync`. Dòng `_mapper.Map<...>` trông như một phép biến đổi thuần tuý trong bộ nhớ — và với mọi mapping khác, nó **đúng là** như vậy.
+
+Truy vấn thật sự sinh ra ở **ba tầng cách xa chỗ bạn đang nhìn**:
+
+```text
+1. Code ứng dụng:   _mapper.Map<List<CustomerDto>>(customers)
+                         │
+2. Mapping profile: MapFrom(s => s.Contacts.Count)      <- ở file khác
+                         │
+3. Lazy loading proxy:  truy cập s.Contacts  ->  SELECT * FROM Contacts WHERE ...
+                         │
+4. Nhân 500 lần vì Map chạy cho từng phần tử
+```
+
+Bốn yếu tố phải **cùng lúc** đúng thì lỗi mới xảy ra: mapping chạm navigation, lazy loading bật, entity đang được theo dõi, và danh sách có nhiều phần tử. Mỗi yếu tố riêng lẻ đều vô hại và hợp lý. Người viết mapping profile không biết nó sẽ được gọi trên danh sách 500 phần tử; người viết dòng `Map` không mở file profile ra xem.
+
+Đây là **vấn đề của sự đóng gói**: AutoMapper che giấu chi tiết phép biến đổi, và đó chính là giá trị của nó — nhưng thứ bị che giấu ở đây là một lời gọi database.
+
+**Bản sửa — `ProjectTo`:**
+
+```csharp
+var dtos = await _mapper.ProjectTo<CustomerDto>(_db.Customers).ToListAsync(ct);
+```
+
+```sql
+SELECT [c].[Id], [c].[Name],
+       (SELECT COUNT(*) FROM [Contacts] AS [t] WHERE [c].[Id] = [t].[CustomerId])
+FROM [Customers] AS [c]
+-- 1 truy vấn
+```
+
+| | Truy vấn | Cột đọc |
+|---|---:|---|
+| `Map` sau `ToListAsync` | 501 | mọi cột của `Customer` + mọi cột của `Contact` |
+| `ProjectTo` | 1 | đúng các cột trong `CustomerDto` |
+
+**Khác biệt cốt lõi:**
+
+```text
+Map:        IQueryable -> ToList -> ENTITY trong bộ nhớ -> DTO
+                                    ^^^^^^ database đã bị truy vấn xong
+                                           mọi thứ sau đây phải lazy load
+
+ProjectTo:  IQueryable -> IQueryable<DTO> -> ToList
+                          ^^^^^^^^^^^^^^^ mapping trở thành một phần của biểu thức SQL
+```
+
+`ProjectTo` dịch mapping profile thành **cây biểu thức LINQ**, ghép vào truy vấn, để EF Core sinh SQL cho toàn bộ. Không có bước "entity trong bộ nhớ", nên không có gì để lazy load.
+
+**Điều kiện để `ProjectTo` hoạt động — và đây là nửa còn lại của câu hỏi:**
+
+**1. Mọi `MapFrom` phải dịch được sang SQL.** Gọi phương thức C# sẽ ném exception:
+
+```csharp
+// KHÔNG dịch được — hàm C# tuỳ ý
+.ForMember(d => d.DisplayName, o => o.MapFrom(s => TinhTenHienThi(s)))
+
+// Dịch được — biểu thức mà EF Core hiểu
+.ForMember(d => d.DisplayName, o => o.MapFrom(s => s.FirstName + " " + s.LastName))
+```
+
+```text
+System.InvalidOperationException: The LINQ expression could not be translated.
+```
+
+**2. Không dùng `AfterMap`, `BeforeMap`, hay custom resolver.** Chúng chạy trên object đã vật chất hoá — khái niệm không tồn tại trong `ProjectTo`. AutoMapper **bỏ qua chúng trong im lặng**, và đây là cái bẫy đáng sợ nhất của `ProjectTo`:
+
+```csharp
+CreateMap<Customer, CustomerDto>()
+    .AfterMap((s, d) => d.FullAddress = $"{d.Street}, {d.City}");
+// Với Map:       FullAddress được điền
+// Với ProjectTo: FullAddress là null, KHÔNG có cảnh báo nào
+```
+
+Chuyển từ `Map` sang `ProjectTo` để sửa N+1 có thể **âm thầm làm hỏng** một trường trong DTO. Luôn kiểm tra profile có `AfterMap` không trước khi chuyển.
+
+**3. DTO phải là kiểu AutoMapper khởi tạo được bằng biểu thức** — property có setter, hoặc constructor mà AutoMapper ánh xạ được. `record` với positional parameters hoạt động tốt.
+
+**4. Không dùng `Include` cùng `ProjectTo`.** Thừa và gây nhầm lẫn — `ProjectTo` tự sinh `JOIN` cần thiết, còn `Include` sẽ bị bỏ qua như đã thấy ở [bài 13.5](13.5-query-patterns.mdx).
+
+**Và cách phòng bền vững nhất — tắt lazy loading.** Nó biến một lỗi hiệu năng im lặng thành một exception rõ ràng:
+
+```csharp
+// KHÔNG cài Microsoft.EntityFrameworkCore.Proxies,
+// hoặc nếu đã có thì không gọi UseLazyLoadingProxies()
+```
+
+```text
+System.NullReferenceException: Object reference not set to an instance of an object.
+```
+
+Exception khó chịu hơn một truy vấn chậm, nhưng nó xuất hiện **ngay ở máy dev, trong lần chạy đầu tiên**, thay vì ở production sau sáu tháng. Với navigation không được nạp, `null` là sự thật; lazy loading che sự thật đó bằng một truy vấn mà bạn không yêu cầu.
+
+**Kiểm chứng bằng test cho cả hai hướng:**
+
+```csharp
+[Fact]
+public async Task ProjectTo_chi_sinh_dung_mot_truy_van()
+{
+    var dem = new QueryCountingInterceptor();
+    var dtos = await _mapper.ProjectTo<CustomerDto>(_db.Customers).ToListAsync(ct);
+
+    dem.SoTruyVan.Should().Be(1);
+    dtos.Should().OnlyContain(d => d.FullAddress != null);   // bắt bẫy AfterMap
+}
+```
+
+Khẳng định thứ hai quan trọng ngang khẳng định thứ nhất: nó bắt đúng trường hợp `ProjectTo` sửa được hiệu năng nhưng làm hỏng dữ liệu.
+
+</details>
+
+---
+
+#### Bài 3 — Test đếm truy vấn
+
+Cài `QueryCountingInterceptor` và viết một test khẳng định endpoint danh sách không vượt 2 truy vấn. Sau đó thêm một trường vào DTO gây thêm truy vấn và xác nhận test đỏ.
+
+**Tiêu chí hoàn thành:** bạn giải thích được vì sao đếm **số truy vấn** là tiêu chí tốt hơn đo **thời gian**, và nêu được cách chọn ngưỡng.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Một trong hai con số đó thay đổi khi bạn chạy test trên máy khác. Cái nào?
+
+**Lời giải — interceptor:**
+
+```csharp
+public class QueryCountingInterceptor : DbCommandInterceptor
+{
+    private int _soTruyVan;
+    private readonly List<string> _cauLenh = new();
+
+    public int SoTruyVan => _soTruyVan;
+    public IReadOnlyList<string> CauLenh => _cauLenh;
+
+    public void DatLai()
+    {
+        Interlocked.Exchange(ref _soTruyVan, 0);
+        lock (_cauLenh) _cauLenh.Clear();
+    }
+
+    private void Ghi(DbCommand command)
+    {
+        Interlocked.Increment(ref _soTruyVan);
+        lock (_cauLenh) _cauLenh.Add(command.CommandText);
+    }
+
+    public override InterceptionResult<DbDataReader> ReaderExecuting(
+        DbCommand command, CommandEventData eventData, InterceptionResult<DbDataReader> result)
+    {
+        Ghi(command);
+        return base.ReaderExecuting(command, eventData, result);
+    }
+
+    public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
+        DbCommand command, CommandEventData eventData,
+        InterceptionResult<DbDataReader> result, CancellationToken ct = default)
+    {
+        Ghi(command);
+        return base.ReaderExecutingAsync(command, eventData, result, ct);
+    }
+}
+```
+
+Phải override **cả bản đồng bộ lẫn bất đồng bộ**: nếu chỉ có bản async, một `ToList()` đồng bộ lọt qua mà không bị đếm — và bạn có một test xanh vô nghĩa.
+
+**Test:**
+
+```csharp
+[Fact]
+public async Task Endpoint_danh_sach_khach_hang_khong_vuot_2_truy_van()
+{
+    var dem = new QueryCountingInterceptor();
+    await using var db = TaoContextVoiInterceptor(dem);
+    var service = new CustomerService(db, _mapper);
+
+    await service.LayDanhSachAsync(trang: 1, kichThuoc: 20, ct);
+
+    dem.SoTruyVan.Should().BeLessThanOrEqualTo(2,
+        $"đã sinh {dem.SoTruyVan} truy vấn:\n{string.Join("\n", dem.CauLenh)}");
+}
+```
+
+Thông điệp lỗi in ra **toàn bộ SQL** — nếu không, người sửa test chỉ biết "23 thay vì 2" mà không biết truy vấn nào thừa.
+
+**Gây lỗi để xác nhận test hoạt động:**
+
+```csharp
+public record CustomerDto(int Id, string Name, int ContactCount, string? LeadGanNhat);
+```
+
+```csharp
+.ForMember(d => d.LeadGanNhat, o => o.MapFrom(
+    s => s.Leads.OrderByDescending(l => l.CreatedAt).First().Name))
+```
+
+```text
+Expected dem.SoTruyVan to be less than or equal to 2, but found 22
+đã sinh 22 truy vấn:
+SELECT [c].[Id], [c].[Name] FROM [Customers] AS [c] ORDER BY [c].[Id] OFFSET ...
+SELECT TOP(1) [l].[Name] FROM [Leads] AS [l] WHERE [l].[CustomerId] = @__p_0 ...
+SELECT TOP(1) [l].[Name] FROM [Leads] AS [l] WHERE [l].[CustomerId] = @__p_0 ...
+...
+```
+
+**Vì sao đếm truy vấn tốt hơn đo thời gian:**
+
+| | Số truy vấn | Thời gian |
+|---|---|---|
+| Đổi theo máy chạy test | Không | **Có** — CPU, đĩa, tải nền |
+| Đổi theo kích thước dữ liệu thử | Không | **Có** |
+| Đổi giữa lần chạy đầu và các lần sau | Không | **Có** — JIT, cache |
+| Đổi khi chạy song song với test khác | Không | **Có** |
+| Cần ngưỡng nới rộng để tránh test rung | Không | **Có** |
+| Phản ánh trực tiếp nguyên nhân | **Có** | Không — chỉ là triệu chứng |
+
+Dòng cuối là lý do quan trọng nhất. Một test thời gian nói *"chậm hơn 500 ms"* — bạn vẫn phải đi tìm vì sao. Một test đếm truy vấn nói *"22 truy vấn thay vì 2"* và in ra chính xác 20 câu lệnh thừa. Nó vừa phát hiện vừa chẩn đoán.
+
+Test thời gian còn có một vấn đề thực tế: để không **rung** (lúc xanh lúc đỏ trên CI), ngưỡng phải nới rộng — và ngưỡng nới rộng thì không bắt được hồi quy vừa phải. Cuối cùng người ta tăng ngưỡng cho đến khi test không bao giờ đỏ, lúc đó nó chỉ còn là chi phí.
+
+**Cách chọn ngưỡng — nguyên tắc: ngưỡng phải là một con số bạn giải thích được.**
+
+```csharp
+// Tốt — mỗi truy vấn có lý do
+dem.SoTruyVan.Should().Be(2, "1 đếm tổng số dòng cho phân trang, 1 lấy dữ liệu trang");
+
+// Kém — con số tuỳ tiện, không ai biết vì sao là 5
+dem.SoTruyVan.Should().BeLessThan(5);
+```
+
+Quy trình đặt ngưỡng:
+
+1. Chạy test, xem số thật và **đọc từng câu lệnh** trong `CauLenh`.
+2. Với mỗi truy vấn, hỏi: *"tại sao cần nó?"* Cái nào không trả lời được là cái cần sửa.
+3. Đặt ngưỡng bằng đúng số còn lại sau khi sửa, và viết lý do vào thông điệp.
+
+Dùng `Be(n)` thay vì `BeLessThanOrEqualTo(n)` khi bạn biết chính xác — nó bắt được cả trường hợp ai đó **giảm** số truy vấn bằng cách bỏ mất một phần chức năng.
+
+**Ngưỡng điển hình cho các loại endpoint:**
+
+| Endpoint | Ngưỡng | Lý do |
+|---|---:|---|
+| `GET` một bản ghi theo id | 1 | Một truy vấn có projection |
+| `GET` danh sách có phân trang | 2 | Một `COUNT`, một trang dữ liệu |
+| `GET` danh sách có nhiều collection con | 1 + số collection | Split query |
+| `POST` tạo mới | 2 | Một kiểm tra trùng, một `INSERT` |
+| `PUT` cập nhật | 2 | Một `SELECT`, một `UPDATE` |
+
+**Mở rộng — khẳng định cả nội dung SQL, không chỉ số lượng:**
+
+```csharp
+[Fact]
+public async Task Danh_sach_khach_hang_khong_duoc_quet_bang()
+{
+    var dem = new QueryCountingInterceptor();
+    await using var db = TaoContextVoiInterceptor(dem);
+
+    await new CustomerService(db, _mapper).LayDanhSachAsync(1, 20, ct);
+
+    dem.SoTruyVan.Should().Be(2);
+    dem.CauLenh.Should().NotContain(sql => sql.Contains("SELECT *"));
+    dem.CauLenh.Should().OnlyContain(sql => sql.Contains("WHERE") || sql.Contains("COUNT"));
+}
+```
+
+Khẳng định cuối bắt được truy vấn đọc cả bảng mà không lọc — một lỗi không làm số truy vấn tăng, nên test đếm đơn thuần không thấy.
+
+**Đưa vào CI như một test bình thường.** Nó không cần database thật (SQLite in-memory là đủ để đếm truy vấn), chạy trong vài trăm mili giây, và bắt được đúng loại hồi quy mà code review hay bỏ sót — vì nguyên nhân thường nằm ở một file khác với file đang được review.
+
+</details>
 
 ## Tự kiểm tra
 

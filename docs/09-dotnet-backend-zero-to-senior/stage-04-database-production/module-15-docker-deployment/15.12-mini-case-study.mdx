@@ -203,11 +203,550 @@ Chỉ số thứ ba đáng để ý riêng: `Restart Count` tăng dần là dấ
 
 ## Bài tập áp dụng
 
-1. **So sánh hai chế độ GC.** Chạy cùng bài test tải trong container 512Mi với Server GC và Workstation GC, so sánh RSS và thông lượng.
+#### Bài 1 — Server GC và Workstation GC trong container nhỏ
 
-2. **Đo khoảng cách.** Với ứng dụng của bạn, so sánh `GC Heap Size` và `VmRSS` của tiến trình.
+Chạy cùng bài test tải trong container 512Mi với Server GC và Workstation GC, so sánh RSS và thông lượng.
 
-3. **Thử giới hạn heap.** Đặt `DOTNET_GCHeapHardLimitPercent` và quan sát RSS thay đổi.
+**Tiêu chí hoàn thành:** bạn giải thích được vì sao Server GC dùng nhiều bộ nhớ hơn, và nêu được ngưỡng để chọn giữa hai chế độ.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Server GC tạo bao nhiêu heap? Mỗi heap có ngân sách riêng không?
+
+**Lời giải — đo thật trên .NET 9.0.203, máy 4 CPU logic, cùng một khối lượng công việc:**
+
+```csharp
+var info = GC.GetGCMemoryInfo();
+Console.WriteLine($"ServerGC             : {GCSettings.IsServerGC}");
+Console.WriteLine($"ProcessorCount       : {Environment.ProcessorCount}");
+Console.WriteLine($"TotalAvailableMemory : {info.TotalAvailableMemoryBytes / 1048576} MB");
+
+var giu = new List<byte[]>();
+for (var i = 0; i < 2000; i++)
+{
+    giu.Add(new byte[50 * 1024]);
+    for (var j = 0; j < 20; j++) _ = new byte[50 * 1024];
+}
+```
+
+```text
+=== Server GC ===
+ServerGC             : True
+ProcessorCount       : 4
+GC.GetTotalMemory    : 97,8 MB
+WorkingSet (RSS)     : 136,9 MB
+Khoảng cách RSS-heap : 39,1 MB
+Gen0/1/2 collections : 27/5/3
+
+=== Workstation GC ===
+ServerGC             : False
+GC.GetTotalMemory    : 97,8 MB
+WorkingSet (RSS)     : 134,1 MB
+Khoảng cách RSS-heap : 36,3 MB
+Gen0/1/2 collections : 32/8/3
+```
+
+Với khối lượng công việc nhỏ trên máy 4 core và 8 GB RAM, khác biệt là **khoảng 2%** — không đáng kể. Đây là một kết quả trung thực và nó nói lên điều quan trọng: **khác biệt chỉ lớn khi có áp lực bộ nhớ và nhiều core.**
+
+Đo lại với giới hạn heap để mô phỏng container:
+
+```text
+Server GC, không giới hạn       TotalAvailableMemory 7937 MB   gen0 GC 25 lần
+Server GC, giới hạn 256 MB      TotalAvailableMemory  256 MB   gen0 GC 36 lần
+Server GC, giới hạn 128 MB      TotalAvailableMemory  128 MB   gen0 GC 42 lần
+```
+
+Đây mới là cơ chế quan trọng: khi GC **biết** nó có ít bộ nhớ, nó thu gom thường xuyên hơn và giữ heap nhỏ. Khi nó **không biết**, nó để heap lớn dần tới khi cgroup giết container.
+
+**Vì sao Server GC dùng nhiều bộ nhớ hơn** — ba cơ chế:
+
+**1. Một heap cho mỗi CPU logic.** Đây là cơ chế chính:
+
+```text
+Workstation GC:  1 heap
+Server GC:       N heap, với N = Environment.ProcessorCount
+```
+
+Mỗi heap có **ngân sách gen0 riêng**, và GC chỉ thu gom khi ngân sách đó đầy:
+
+```text
+Máy 16 core, ngân sách gen0 khoảng 64 MB mỗi heap:
+    Workstation:  1 × 64 MB  =   64 MB trước lần gen0 đầu tiên
+    Server:      16 × 64 MB  = 1024 MB
+```
+
+Trên một container giới hạn 512 Mi, con số thứ hai nghĩa là container bị giết **trước khi** GC lần đầu chạy.
+
+**2. Ngân sách gen0 lớn hơn.** Server GC được thiết kế để tối ưu **thông lượng**, nên nó chấp nhận dùng nhiều bộ nhớ để giảm số lần thu gom.
+
+**3. Segment lớn hơn.** Server GC cấp phát vùng nhớ theo khối lớn hơn để giảm chi phí quản lý.
+
+**Và điều nguy hiểm nhất: Server GC là MẶC ĐỊNH cho ASP.NET Core.**
+
+```xml
+<!-- Không khai gì -> ServerGarbageCollection = true cho web app -->
+```
+
+Nghĩa là cấu hình mặc định của một ứng dụng ASP.NET Core trong container là cấu hình có nhiều khả năng gây OOM nhất.
+
+**Ngưỡng chọn giữa hai chế độ:**
+
+| Tình huống | Chọn |
+|---|---|
+| Container dưới 1 GB bộ nhớ | **Workstation** |
+| Container 1–2 GB, dưới 4 core | **Workstation** |
+| Container trên 2 GB, từ 4 core trở lên | **Server** |
+| Nhiều replica nhỏ | **Workstation** |
+| Ít replica lớn | **Server** |
+| Job xử lý theo lô, cần thông lượng tối đa | **Server** |
+| API tối ưu độ trễ đuôi | Đo cả hai |
+
+Quy tắc rút gọn:
+
+```text
+Bộ nhớ / số core < 512 MB  ->  Workstation GC
+Bộ nhớ / số core > 1 GB    ->  Server GC
+Ở giữa                     ->  đo cả hai với tải thật
+```
+
+**Cấu hình — ba cách, theo thứ tự ưu tiên:**
+
+```xml
+<!-- 1. Trong csproj — rõ ràng nhất, đi cùng code -->
+<PropertyGroup>
+  <ServerGarbageCollection>false</ServerGarbageCollection>
+  <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+</PropertyGroup>
+```
+
+```json
+// 2. runtimeconfig — đổi được mà không cần build lại
+{ "configProperties": { "System.GC.Server": false } }
+```
+
+```yaml
+# 3. Biến môi trường — đổi được lúc chạy, tiện để thử nghiệm
+env:
+  - { name: DOTNET_gcServer, value: "0" }
+```
+
+**Và bất kể chọn chế độ nào, hãy đặt giới hạn heap:**
+
+```yaml
+env:
+  - name: DOTNET_GCHeapHardLimitPercent
+    value: "0x4B"           # 75%, dạng HEX
+```
+
+**Giá trị phải ở dạng hex** — đây là chi tiết gây nhầm lẫn nhất:
+
+```text
+"75"   -> 0x75 = 117 thập phân -> 117% -> vô nghĩa, GC bỏ qua hoặc hành xử lạ
+"0x4B" -> 75 thập phân -> 75%  -> ĐÚNG
+```
+
+Nếu dùng `DOTNET_GCHeapHardLimit` (giá trị tuyệt đối), cũng là hex và tính bằng byte:
+
+```text
+0x10000000 = 268.435.456 byte = 256 MB
+```
+
+**Vì sao 75% chứ không phải 100%:** phần còn lại dành cho những thứ **không nằm trong managed heap**:
+
+```text
+Managed heap        <- GCHeapHardLimit giới hạn PHẦN NÀY
++ Runtime, mã JIT
++ Stack của mỗi luồng (1 MB mặc định × số luồng)
++ Bộ nhớ native của thư viện
++ Buffer của kết nối mạng
++ Bộ nhớ phân mảnh
+= RSS thật, và cgroup giới hạn CÁI NÀY
+```
+
+Khoảng cách này đo được ở đầu bài: **RSS 136,9 MB trong khi managed heap chỉ 97,8 MB** — chênh 39,1 MB, tức khoảng 40% thêm vào. Đặt `GCHeapHardLimitPercent` là 100% nghĩa là managed heap một mình đã có thể chiếm hết giới hạn container, và phần native đẩy tổng vượt qua.
+
+Với container rất nhỏ, tỷ lệ này còn cao hơn vì phần cố định (runtime, JIT) không co lại theo:
+
+```text
+Container 2 GB:   phần native ≈ 100 MB  ->  5%   -> 90% là an toàn
+Container 512 MB: phần native ≈ 80 MB   -> 16%   -> 75% là hợp lý
+Container 256 MB: phần native ≈ 70 MB   -> 27%   -> 65% hoặc thấp hơn
+```
+
+**Cấu hình khuyến nghị cho container nhỏ:**
+
+```yaml
+env:
+  - { name: DOTNET_gcServer,                 value: "0"    }
+  - { name: DOTNET_GCHeapHardLimitPercent,   value: "0x4B" }
+  - { name: DOTNET_GCConserveMemory,         value: "5"    }
+  - { name: DOTNET_TieredPGO,                value: "1"    }
+resources:
+  requests: { memory: "512Mi", cpu: "200m" }
+  limits:   { memory: "512Mi" }
+```
+
+`DOTNET_GCConserveMemory` nhận giá trị 0–9; 5 là mức cân bằng, đánh đổi một ít thông lượng lấy heap nhỏ hơn và ít phân mảnh hơn.
+
+</details>
+
+---
+
+#### Bài 2 — Khoảng cách giữa heap và RSS
+
+Với ứng dụng của bạn, so sánh `GC Heap Size` và `VmRSS` của tiến trình.
+
+**Tiêu chí hoàn thành:** bạn liệt kê được những gì nằm trong khoảng cách đó, và biết chỉ số nào là chỉ số cgroup thật sự dùng để quyết định giết container.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** cgroup đếm cái gì — bộ nhớ .NET quản lý, hay toàn bộ bộ nhớ tiến trình?
+
+**Lời giải — đo cả hai:**
+
+```csharp
+var proc = Process.GetCurrentProcess();
+proc.Refresh();
+var heap = GC.GetTotalMemory(false);
+
+Console.WriteLine($"GC.GetTotalMemory : {heap / 1048576.0:F1} MB");
+Console.WriteLine($"WorkingSet (RSS)  : {proc.WorkingSet64 / 1048576.0:F1} MB");
+Console.WriteLine($"Khoảng cách       : {(proc.WorkingSet64 - heap) / 1048576.0:F1} MB");
+```
+
+```text
+GC.GetTotalMemory : 97,8 MB
+WorkingSet (RSS)  : 136,9 MB
+Khoảng cách       : 39,1 MB          <- 40% thêm vào so với managed heap
+```
+
+Trên Linux, đọc thẳng từ `/proc`:
+
+```bash
+grep -E "VmRSS|VmSize|RssAnon|RssFile" /proc/$(pgrep -f Crm.Api)/status
+```
+
+```text
+VmSize:  4821304 kB        <- bộ nhớ ảo đã đặt chỗ, KHÔNG phải bộ nhớ thật
+VmRSS:    140192 kB        <- bộ nhớ vật lý đang dùng
+RssAnon:  118340 kB        <- heap, stack — phần thật sự của tiến trình
+RssFile:   21852 kB        <- file được mmap: nhị phân, thư viện
+```
+
+**`VmSize` 4,8 GB nhưng `VmRSS` chỉ 140 MB.** Đây là chỗ gây hoảng loạn không cần thiết: .NET **đặt chỗ** (reserve) một vùng địa chỉ ảo rất lớn nhưng chỉ **cam kết** (commit) phần đang dùng. Bộ nhớ ảo không tốn RAM thật, và cgroup không đếm nó.
+
+**Những gì nằm trong khoảng cách 39 MB:**
+
+```text
+Managed heap (GC.GetTotalMemory)                 97,8 MB
++ Runtime CLR, metadata, type system              ~12 MB
++ Mã đã JIT (code heap)                            ~8 MB
++ Stack của mỗi luồng (1 MB × số luồng)            ~6 MB
++ Loader heap, AppDomain                           ~4 MB
++ Bộ nhớ native của thư viện (SqlClient, OpenSSL)  ~5 MB
++ Buffer socket và pipe                            ~2 MB
++ Phân mảnh và overhead cấp phát                   ~2 MB
+                                                 ---------
+= RSS                                             136,9 MB
+```
+
+Sáu nguồn đáng chú ý vì chúng **không nằm trong tầm kiểm soát của GC**:
+
+**1. Stack của luồng** — 1 MB mỗi luồng theo mặc định trên Linux. Một ứng dụng có 50 luồng ThreadPool là 50 MB:
+
+```csharp
+ThreadPool.GetAvailableThreads(out var w, out var io);
+ThreadPool.GetMaxThreads(out var wMax, out var ioMax);
+Console.WriteLine($"ThreadPool: {wMax - w}/{wMax} worker, {ioMax - io}/{ioMax} I/O");
+```
+
+**2. Bộ nhớ native của thư viện.** `SqlClient`, `Npgsql`, OpenSSL, và mọi thư viện có phần native cấp phát ngoài managed heap. GC không thấy, không thu gom.
+
+**3. Mã đã JIT.** Lớn dần khi có thêm đường code được chạy lần đầu. Đây là lý do RSS tăng trong những phút đầu sau khi deploy rồi ổn định.
+
+**4. Phân mảnh.** Heap 100 MB dữ liệu thật có thể chiếm 130 MB địa chỉ nếu phân mảnh.
+
+**5. `RssFile`** — nhị phân và thư viện được mmap. Phần này **được chia sẻ** giữa các tiến trình dùng chung thư viện, nhưng cgroup vẫn tính nó.
+
+**6. Buffer I/O** — mỗi kết nối HTTP và mỗi kết nối database giữ buffer.
+
+**Chỉ số nào cgroup thật sự dùng** — đây là câu hỏi chính của bài:
+
+```bash
+cat /sys/fs/cgroup/memory.current        # cgroup v2
+cat /sys/fs/cgroup/memory.max
+```
+
+```text
+147849216        # 141 MB đang dùng
+536870912        # giới hạn 512 MB
+```
+
+**cgroup dùng `memory.current`, và nó lớn hơn cả `VmRSS`:**
+
+```text
+memory.current = RssAnon + RssFile + page cache của file tiến trình mở
+                 + bộ nhớ nhân dùng cho tiến trình (socket buffer, ...)
+```
+
+Chi tiết:
+
+```bash
+cat /sys/fs/cgroup/memory.stat | head -12
+```
+
+```text
+anon 121143296        <- heap, stack
+file 22380544         <- page cache
+kernel_stack 917504
+slab 3244032          <- cấu trúc dữ liệu của nhân
+sock 1114112          <- buffer socket
+```
+
+Dòng `file` đáng chú ý: **page cache được tính vào giới hạn container.** Một ứng dụng đọc nhiều file sẽ thấy `memory.current` tăng dù managed heap không đổi. Nhân sẽ thu hồi page cache trước khi OOM, nên thường không gây chết — nhưng nó làm cho con số giám sát khó đọc.
+
+Kubernetes dùng một chỉ số khác một chút cho quyết định đuổi pod:
+
+```text
+container_memory_working_set_bytes = memory.current - inactive_file
+```
+
+Nó trừ đi page cache không hoạt động, nên nó gần với "bộ nhớ thật sự cần" hơn. **Đây là chỉ số nên dùng khi đặt cảnh báo:**
+
+```promql
+container_memory_working_set_bytes{pod=~"crm-api.*"}
+  / container_spec_memory_limit_bytes > 0.85
+```
+
+**Tóm tắt bốn chỉ số và ý nghĩa:**
+
+| Chỉ số | Đo gì | Dùng để |
+|---|---|---|
+| `GC.GetTotalMemory()` | Managed heap | Phát hiện rò rỉ trong code C# |
+| `VmRSS` | Bộ nhớ vật lý của tiến trình | Xem tổng thể một tiến trình |
+| `memory.current` | Toàn bộ cgroup, kể cả page cache | **Cơ sở của OOM kill** |
+| `container_memory_working_set_bytes` | `memory.current` trừ page cache nguội | **Cơ sở đặt cảnh báo** |
+
+**Chẩn đoán khi RSS cao mà managed heap thấp** — dấu hiệu rò rỉ native:
+
+```bash
+dotnet-counters monitor --process-id <pid> --counters \
+    System.Runtime[gc-heap-size,working-set,gen-0-gc-count,gen-2-gc-count]
+```
+
+```text
+gc-heap-size    98 MB     <- ổn định
+working-set    420 MB     <- tăng đều
+```
+
+Khoảng cách lớn dần nghĩa là rò rỉ **ngoài** managed heap. Bốn nguyên nhân thường gặp:
+
+```text
+1. Luồng không bao giờ kết thúc          -> mỗi luồng 1 MB stack
+2. Kết nối database không được dispose   -> buffer native
+3. Đối tượng native không dispose         -> SafeHandle, MemoryMappedFile
+4. Phân mảnh Large Object Heap            -> đối tượng trên 85 KB
+```
+
+```bash
+dotnet-gcdump collect -p <pid>          # xem managed heap
+dotnet-dump collect -p <pid>            # xem toàn bộ, kể cả native
+```
+
+Với dump đầy đủ, `dotnet-dump analyze` và lệnh `eeheap -gc` cho thấy phân bố segment, còn `dumpheap -stat` cho thấy loại đối tượng nào chiếm chỗ.
+
+**Và với LOH, có một cấu hình đáng biết:**
+
+```json
+{ "configProperties": { "System.GC.RetainVM": false } }
+```
+
+Mặc định .NET **giữ lại** vùng nhớ ảo đã dùng để tái sử dụng, khiến RSS không giảm sau khi tải cao điểm qua đi. Đặt `RetainVM: false` trả vùng nhớ về hệ điều hành — chậm hơn một chút, nhưng RSS phản ánh đúng nhu cầu thật và container ít có khả năng chạm trần.
+
+</details>
+
+---
+
+#### Bài 3 — Thử giới hạn heap
+
+Đặt `DOTNET_GCHeapHardLimitPercent` và quan sát RSS thay đổi.
+
+**Tiêu chí hoàn thành:** bạn đo được tác động thật, và nêu được điều gì xảy ra khi ứng dụng **thật sự** cần nhiều hơn giới hạn.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Nếu GC không thu gom đủ chỗ, nó làm gì tiếp theo?
+
+**Lời giải — đo thật trên .NET 9.0.203, cùng một khối lượng công việc:**
+
+```bash
+DOTNET_gcServer=1 dotnet run -c Release
+DOTNET_gcServer=1 DOTNET_GCHeapHardLimit=10000000 dotnet run -c Release   # 256 MB
+DOTNET_gcServer=1 DOTNET_GCHeapHardLimit=8000000  dotnet run -c Release   # 128 MB
+```
+
+```text
+Không giới hạn    TotalAvailableMemory 7937 MB   RSS 149,5 MB   gen0 GC 25 lần
+Giới hạn 256 MB   TotalAvailableMemory  256 MB   RSS 142,0 MB   gen0 GC 36 lần
+Giới hạn 128 MB   TotalAvailableMemory  128 MB   RSS 139,5 MB   gen0 GC 42 lần
+```
+
+Ba điều quan sát được:
+
+1. **`TotalAvailableMemoryBytes` phản ánh đúng giới hạn** — GC thật sự nhận thông tin này.
+2. **Số lần gen0 GC tăng** khi giới hạn giảm: 25 → 36 → 42. GC thu gom thường xuyên hơn để giữ heap trong ngân sách.
+3. **RSS giảm nhẹ** — với khối lượng công việc này heap chưa chạm trần, nên tác động chủ yếu thể hiện ở tần suất GC.
+
+Với khối lượng công việc lớn hơn, khác biệt về RSS sẽ rõ hơn nhiều: không có giới hạn, GC để heap lớn tới khi cgroup giết container; có giới hạn, GC ép heap ở lại dưới trần.
+
+**Điều gì xảy ra khi ứng dụng thật sự cần nhiều hơn giới hạn** — đây là phần chính của bài, và nó là tin tốt:
+
+```text
+1. Heap tiến gần giới hạn
+2. GC chạy thường xuyên hơn, tốn CPU hơn
+3. GC chạy gen2 đầy đủ, nén heap để giảm phân mảnh
+4. Vẫn không đủ chỗ
+5. .NET ném OutOfMemoryException
+```
+
+```text
+System.OutOfMemoryException: Insufficient memory to continue the execution of the program.
+   at System.Collections.Generic.List`1.set_Capacity(Int32 value)
+   at Crm.Api.BaoCaoService.TaoBaoCaoAsync(...) in BaoCaoService.cs:line 42
+```
+
+**So sánh với trường hợp không đặt giới hạn:**
+
+| | Có `GCHeapHardLimit` | Không có |
+|---|---|---|
+| Khi hết bộ nhớ | `OutOfMemoryException` | `SIGKILL` từ nhân |
+| Có stack trace | **Có** | Không |
+| Bắt được bằng `try`/`catch` | **Có** | Không |
+| Ghi được log | **Có** | Không |
+| Trả được HTTP 503 cho request đó | **Có** | Không |
+| Các request khác | **Vẫn chạy** | Chết theo |
+| Exit code | 134 (nếu không bắt) | 137 |
+
+Khác biệt này là lý do chính để đặt `GCHeapHardLimit`: nó biến một **cái chết im lặng** thành một **exception có thể xử lý**.
+
+```csharp
+try
+{
+    return await _baoCao.TaoAsync(thamSo, ct);
+}
+catch (OutOfMemoryException ex)
+{
+    _logger.LogError(ex, "Hết bộ nhớ khi tạo báo cáo cho tenant {Tenant}, {SoDong} dòng",
+                     tenantId, soDong);
+    return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+}
+```
+
+Dòng log này nói **chính xác** request nào và tham số nào gây ra vấn đề. Với OOM kill, bạn chỉ có exit code 137 và một khoảng trống trong log.
+
+**Một cảnh báo quan trọng về `OutOfMemoryException`:** nó không phải lúc nào cũng an toàn để bắt và tiếp tục. Nếu nó xảy ra trong lúc runtime đang ở trạng thái dở dang, tiến trình có thể không còn nhất quán. Thực hành đúng:
+
+```csharp
+// Bắt, ghi log, trả lỗi cho request đó — nhưng cân nhắc kết thúc tiến trình
+// một cách có trật tự nếu OOM lặp lại nhiều lần
+catch (OutOfMemoryException ex)
+{
+    _logger.LogCritical(ex, "Hết bộ nhớ");
+    if (Interlocked.Increment(ref _soLanOom) > 3)
+        _lifetime.StopApplication();        // dừng MƯỢT, để pod được thay
+    return Results.StatusCode(503);
+}
+```
+
+Dừng mượt tốt hơn bị `SIGKILL`: request đang chạy hoàn tất, kết nối được đóng, và Kubernetes thay pod theo quy trình bình thường.
+
+**Chọn giá trị `GCHeapHardLimitPercent`:**
+
+```text
+Container 2 GB trở lên:  0x5A (90%)
+Container 512 MB – 2 GB: 0x4B (75%)
+Container dưới 512 MB:   0x41 (65%)
+```
+
+Cách tính chính xác hơn, dựa trên đo thật:
+
+```text
+Phần native = RSS - managed heap        (đo ở bài 2: 39 MB)
+Giới hạn heap = (giới hạn container - phần native - biên 10%) / giới hạn container
+
+Ví dụ container 512 MB, phần native 80 MB:
+    (512 - 80 - 51) / 512 = 74%  ->  0x4A
+```
+
+**Và nếu `OutOfMemoryException` xảy ra thường xuyên, giới hạn heap không phải câu trả lời** — nó chỉ làm triệu chứng dễ chẩn đoán hơn. Ba nguyên nhân gốc, theo thứ tự nên kiểm tra:
+
+**1. Truy vấn nạp quá nhiều:**
+
+```csharp
+// Nạp toàn bộ bảng vào bộ nhớ
+var tatCa = await _db.Leads.ToListAsync(ct);
+
+// Xử lý theo luồng, không giữ tất cả
+await foreach (var lead in _db.Leads.AsAsyncEnumerable().WithCancellation(ct))
+    await XuLyAsync(lead);
+```
+
+**2. Cache không giới hạn** — [bài 14.2](../module-14-caching-background-jobs/14.2-imemorycache.mdx):
+
+```csharp
+services.AddMemoryCache(o => o.SizeLimit = 10_000);
+```
+
+**3. Tạo file hoặc chuỗi lớn trong bộ nhớ:**
+
+```csharp
+// Dựng cả file trong RAM
+var csv = new StringBuilder();
+foreach (var lead in leads) csv.AppendLine($"{lead.Id},{lead.Name}");
+return File(Encoding.UTF8.GetBytes(csv.ToString()), "text/csv");
+
+// Ghi thẳng ra response stream — bộ nhớ không đổi theo số dòng
+Response.ContentType = "text/csv";
+await using var writer = new StreamWriter(Response.Body);
+await foreach (var lead in _db.Leads.AsAsyncEnumerable().WithCancellation(ct))
+    await writer.WriteLineAsync($"{lead.Id},{lead.Name}");
+```
+
+Mẫu thứ hai là cải thiện lớn nhất trong ba cái: nó biến bộ nhớ từ `O(số dòng)` thành `O(1)`, và cùng đoạn code đó phục vụ được mọi kích thước dữ liệu.
+
+**Cấu hình đầy đủ khuyến nghị cho container:**
+
+```yaml
+env:
+  - { name: DOTNET_gcServer,               value: "0"    }
+  - { name: DOTNET_GCHeapHardLimitPercent, value: "0x4B" }
+  - { name: DOTNET_GCConserveMemory,       value: "5"    }
+resources:
+  requests: { memory: "512Mi", cpu: "200m" }
+  limits:   { memory: "512Mi" }
+```
+
+Và ghi cấu hình thật ra log lúc khởi động, để xác minh nó có hiệu lực:
+
+```csharp
+var info = GC.GetGCMemoryInfo();
+_logger.LogInformation(
+    "GC: Server={Server}, giới hạn heap={Limit} MB, CPU={Cpu}",
+    GCSettings.IsServerGC,
+    info.TotalAvailableMemoryBytes / 1048576,
+    Environment.ProcessorCount);
+```
+
+```text
+GC: Server=False, giới hạn heap=384 MB, CPU=1
+```
+
+Nếu dòng này in ra `Server=True` hoặc giới hạn bằng RAM của máy chủ, cấu hình chưa có hiệu lực — và bạn biết ngay lúc khởi động thay vì lúc pod bị giết lần thứ ba.
+
+</details>
 
 ## Tự kiểm tra
 

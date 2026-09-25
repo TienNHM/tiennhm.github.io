@@ -262,11 +262,442 @@ Bảng audit và bảng tham chiếu không nên có filter — chúng không th
 
 ## Bài tập áp dụng
 
-1. **Tenant id bị đóng băng.** Cài filter gọi `tenant.Id` trực tiếp trong biểu thức, gửi request với hai tenant khác nhau trên cùng tiến trình, và xác nhận request thứ hai thấy dữ liệu của tenant đầu. Sửa bằng field và kiểm chứng.
+#### Bài 1 — Tenant id bị đóng băng trong mô hình
 
-2. **`IgnoreQueryFilters` rò rỉ.** Viết một endpoint admin dùng `IgnoreQueryFilters()` để xem bản ghi đã xoá, và xác nhận nó trả về dữ liệu của **mọi** tenant.
+Cài filter gọi `tenant.Id` trực tiếp trong biểu thức, gửi request với hai tenant khác nhau trên cùng tiến trình, và xác nhận request thứ hai thấy dữ liệu của tenant đầu. Sửa bằng field và kiểm chứng.
 
-3. **Navigation thành `null`.** Xoá mềm một `Customer`, rồi truy vấn `Contacts` với `Include(c => c.Customer)`. Xác nhận `Customer` là `null` dù khoá ngoại bắt buộc.
+**Tiêu chí hoàn thành:** bạn giải thích được **chính xác** cái gì bị đóng băng, và vì sao lỗi không xuất hiện khi test một request đơn lẻ.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** `OnModelCreating` chạy bao nhiêu lần trong vòng đời một tiến trình?
+
+**Lời giải — bản có lỗi:**
+
+```csharp
+public class CrmDbContext : DbContext
+{
+    private readonly ITenantProvider _tenant;
+
+    public CrmDbContext(DbContextOptions<CrmDbContext> options, ITenantProvider tenant)
+        : base(options) => _tenant = tenant;
+
+    protected override void OnModelCreating(ModelBuilder builder)
+    {
+        builder.Entity<Lead>().HasQueryFilter(l => l.TenantId == _tenant.Id);
+        //                                                       ^^^^^^^^^^
+        //                                                       giá trị bị đóng băng
+    }
+}
+```
+
+```bash
+curl -H "X-Tenant: acme"  http://localhost:5000/leads    # 120 lead của acme  — ĐÚNG
+curl -H "X-Tenant: globex" http://localhost:5000/leads   # 120 lead của acme  — SAI
+```
+
+Tenant `globex` thấy toàn bộ dữ liệu của `acme`. Đây là rò rỉ dữ liệu giữa khách hàng — loại sự cố nghiêm trọng nhất trong một hệ thống multi-tenant.
+
+**Chính xác cái gì bị đóng băng.** Không phải `_tenant` (đối tượng), mà là **giá trị `_tenant.Id` tại thời điểm mô hình được dựng lần đầu**.
+
+`OnModelCreating` chạy **đúng một lần mỗi tiến trình**, không phải mỗi request. EF Core dựng `IModel` rồi **cache theo kiểu `DbContext`**, vì dựng mô hình là việc rất tốn kém.
+
+```text
+Request 1 (acme):    DbContext được tạo -> mô hình CHƯA có trong cache
+                     -> OnModelCreating chạy
+                     -> đọc _tenant.Id = "acme"
+                     -> BIÊN DỊCH biểu thức lọc thành: l => l.TenantId == "acme"
+                     -> cache mô hình đã biên dịch
+
+Request 2 (globex):  DbContext được tạo -> mô hình ĐÃ có trong cache
+                     -> OnModelCreating KHÔNG chạy
+                     -> filter vẫn là: l => l.TenantId == "acme"
+```
+
+Điểm tinh tế: `_tenant.Id` trong biểu thức lambda được đánh giá **khi cây biểu thức được dựng**, không phải khi truy vấn chạy. Nó trở thành một **hằng số** nằm trong mô hình đã cache.
+
+```sql
+-- Mọi request, mọi tenant, mãi mãi
+SELECT [l].[Id], [l].[Name] FROM [Leads] AS [l] WHERE [l].[TenantId] = N'acme'
+```
+
+**Bản sửa — trỏ tới một field của `DbContext` thay vì đọc giá trị:**
+
+```csharp
+public class CrmDbContext : DbContext
+{
+    private readonly string _tenantId;      // field, không phải thuộc tính của dịch vụ khác
+
+    public CrmDbContext(DbContextOptions<CrmDbContext> options, ITenantProvider tenant)
+        : base(options) => _tenantId = tenant.Id;
+
+    protected override void OnModelCreating(ModelBuilder builder)
+    {
+        builder.Entity<Lead>().HasQueryFilter(l => l.TenantId == _tenantId);
+    }
+}
+```
+
+Khác biệt trông nhỏ đến mức khó tin, nhưng nó quyết định. EF Core nhận ra `_tenantId` là **field của chính `DbContext` instance**, nên nó không nhúng giá trị vào mô hình mà sinh một **tham số** đọc từ instance tại thời điểm truy vấn:
+
+```sql
+SELECT [l].[Id], [l].[Name] FROM [Leads] AS [l] WHERE [l].[TenantId] = @__ef_filter__tenantId_0
+```
+
+```bash
+curl -H "X-Tenant: acme"   http://localhost:5000/leads   # 120 lead của acme
+curl -H "X-Tenant: globex" http://localhost:5000/leads   # 43 lead của globex  — ĐÚNG
+```
+
+Ba quy tắc rút ra:
+
+| Viết | Kết quả |
+|---|---|
+| `l.TenantId == _tenant.Id` | Đọc **thuộc tính của dịch vụ khác** → giá trị bị nhúng vào mô hình |
+| `l.TenantId == _tenantId` | Đọc **field của `DbContext`** → thành tham số, đúng |
+| `l.TenantId == LayTenantId()` | Gọi phương thức → EF Core không dịch được hoặc gọi một lần rồi đóng băng |
+
+**Vì sao lỗi không xuất hiện khi test một request đơn lẻ** — đây là phần quan trọng nhất:
+
+Vì với **request đầu tiên trong tiến trình**, giá trị đóng băng **đúng là** giá trị đúng. Mô hình vừa được dựng với tenant của chính request đó.
+
+```text
+Test đơn lẻ:            1 request, 1 tenant -> đúng, test XANH
+Integration test:       mỗi test một WebApplicationFactory mới
+                        -> tiến trình mới -> mô hình mới -> đúng, test XANH
+Chạy tay trên dev:      một người, một tenant -> đúng
+Production:             nhiều tenant, cùng tiến trình -> SAI
+```
+
+Bốn lớp kiểm thử thông thường đều bỏ lọt, vì tất cả đều tình cờ thoả mãn điều kiện "chỉ một tenant trong vòng đời tiến trình". Lỗi chỉ lộ ra khi có **tenant thứ hai gọi vào cùng một tiến trình** — tức trên production, sau khi deploy, với khách hàng thật.
+
+**Test bắt được nó — hai request, hai tenant, cùng một factory:**
+
+```csharp
+[Fact]
+public async Task Hai_tenant_tren_cung_tien_trinh_phai_thay_du_lieu_rieng()
+{
+    await using var factory = new WebApplicationFactory<Program>();
+    var client = factory.CreateClient();          // cùng MỘT tiến trình cho cả hai request
+
+    client.DefaultRequestHeaders.Remove("X-Tenant");
+    client.DefaultRequestHeaders.Add("X-Tenant", "acme");
+    var cuaAcme = await client.GetFromJsonAsync<List<LeadDto>>("/leads");
+
+    client.DefaultRequestHeaders.Remove("X-Tenant");
+    client.DefaultRequestHeaders.Add("X-Tenant", "globex");
+    var cuaGlobex = await client.GetFromJsonAsync<List<LeadDto>>("/leads");
+
+    cuaGlobex.Should().NotBeEquivalentTo(cuaAcme);
+    cuaGlobex.Should().OnlyContain(l => l.TenantId == "globex");
+}
+```
+
+Điểm mấu chốt là **dùng chung một `WebApplicationFactory`** cho cả hai request. Nếu bạn tạo factory mới cho request thứ hai, test sẽ xanh cả khi code sai.
+
+**Và một kiểm tra ở tầng mô hình, chạy một lần cho mọi entity:**
+
+```csharp
+[Fact]
+public void Filter_theo_tenant_phai_sinh_tham_so_chu_khong_phai_hang_so()
+{
+    using var db = TaoContext(tenantId: "acme");
+
+    var sql = db.Leads.ToQueryString();
+
+    sql.Should().NotContain("'acme'", "tenant id bị nhúng thành hằng số trong mô hình");
+    sql.Should().Contain("@__ef_filter__");
+}
+```
+
+Test này không cần hai request và chạy trong vài mili giây — nên nó là thứ nên có trong CI.
+
+</details>
+
+---
+
+#### Bài 2 — `IgnoreQueryFilters` rò rỉ
+
+Viết một endpoint admin dùng `IgnoreQueryFilters()` để xem bản ghi đã xoá, và xác nhận nó trả về dữ liệu của **mọi** tenant.
+
+**Tiêu chí hoàn thành:** bạn giải thích được vì sao `IgnoreQueryFilters` không tắt được **từng** filter, và nêu được cách giữ lại filter tenant.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Entity có hai filter. `IgnoreQueryFilters()` nhận tham số nào để chọn tắt cái nào?
+
+**Lời giải — endpoint có lỗi:**
+
+```csharp
+builder.Entity<Lead>().HasQueryFilter(l => !l.IsDeleted && l.TenantId == _tenantId);
+```
+
+```csharp
+app.MapGet("/admin/leads/da-xoa", async (CrmDbContext db, CancellationToken ct) =>
+    await db.Leads
+        .IgnoreQueryFilters()            // ý định: xem cả bản ghi đã xoá mềm
+        .Where(l => l.IsDeleted)
+        .ToListAsync(ct));
+```
+
+```bash
+curl -H "X-Tenant: acme" http://localhost:5000/admin/leads/da-xoa
+```
+
+```json
+[
+  { "id": 12, "name": "Lead của acme",   "tenantId": "acme"   },
+  { "id": 98, "name": "Lead của globex", "tenantId": "globex" },
+  { "id": 41, "name": "Lead của initech","tenantId": "initech"}
+]
+```
+
+Admin của `acme` nhìn thấy dữ liệu của mọi khách hàng khác.
+
+**Vì sao `IgnoreQueryFilters` không tắt được từng filter.** Vì nó không nhận tham số nào — chữ ký của nó là:
+
+```csharp
+public static IQueryable<TEntity> IgnoreQueryFilters<TEntity>(this IQueryable<TEntity> source)
+```
+
+Không có cách nào nói "chỉ tắt phần soft delete". Nó tắt **toàn bộ** biểu thức lọc.
+
+Lý do nằm ở cách EF Core lưu trữ filter: mỗi entity type có **đúng một** query filter, là một cây biểu thức duy nhất. Gọi `HasQueryFilter` lần thứ hai **thay thế** lần thứ nhất, không cộng thêm:
+
+```csharp
+builder.Entity<Lead>().HasQueryFilter(l => !l.IsDeleted);
+builder.Entity<Lead>().HasQueryFilter(l => l.TenantId == _tenantId);
+// -> chỉ còn filter tenant; soft delete BIẾN MẤT
+```
+
+Đó là lý do người ta buộc phải nối bằng `&&` vào một biểu thức. Và khi đã nối rồi, hai điều kiện không còn danh tính riêng để tắt riêng — chúng là hai nhánh của cùng một cây.
+
+```text
+Mô hình lưu:   Lead -> QueryFilter: (l => !l.IsDeleted && l.TenantId == @tenant)
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                     một biểu thức, không tách được
+
+IgnoreQueryFilters()  ->  bỏ cả cây
+```
+
+**Ba cách giữ lại filter tenant:**
+
+**1. Thêm lại điều kiện tenant bằng tay** — đơn giản nhất, nhưng dễ quên:
+
+```csharp
+app.MapGet("/admin/leads/da-xoa", async (CrmDbContext db, ITenantProvider tenant, CancellationToken ct) =>
+    await db.Leads
+        .IgnoreQueryFilters()
+        .Where(l => l.TenantId == tenant.Id)      // phải nhớ dòng này
+        .Where(l => l.IsDeleted)
+        .ToListAsync(ct));
+```
+
+**2. Một extension method gói cả hai việc lại** — nên dùng thay cho cách 1:
+
+```csharp
+public static IQueryable<T> BoQuaSoftDelete<T>(this IQueryable<T> q, string tenantId)
+    where T : class, ISoftDelete, IHasTenant
+    => q.IgnoreQueryFilters().Where(e => e.TenantId == tenantId);
+```
+
+```csharp
+await db.Leads.BoQuaSoftDelete(tenant.Id).Where(l => l.IsDeleted).ToListAsync(ct);
+```
+
+Kèm một quy tắc analyzer cấm gọi `IgnoreQueryFilters()` trực tiếp ngoài file này. Đây là cách duy nhất khiến việc quên trở nên **không thể**, thay vì chỉ **không nên**.
+
+**3. Tách tenant ra khỏi query filter, đưa lên tầng kết nối.** Cách triệt để nhất, và là cách mà hệ thống multi-tenant nghiêm túc thường chọn:
+
+```csharp
+// Mỗi tenant một database hoặc một schema riêng
+options.UseSqlServer(_tenantProvider.ChuoiKetNoi);
+```
+
+```sql
+-- Hoặc row-level security của chính database
+CREATE SECURITY POLICY TenantFilter
+    ADD FILTER PREDICATE dbo.fn_TenantAccess(TenantId) ON dbo.Leads
+    WITH (STATE = ON);
+```
+
+Với hai cách này, `IgnoreQueryFilters()` **không thể** vượt qua ranh giới tenant, vì ranh giới đó không nằm trong EF Core nữa. Không cần ai phải nhớ gì cả.
+
+**Ba nguyên tắc rút ra:**
+
+**1. Đừng trộn hai mối quan tâm có mức độ nghiêm trọng khác nhau vào một filter.** Bỏ lọt soft delete là hiển thị một bản ghi đã xoá — khó chịu. Bỏ lọt tenant là **rò rỉ dữ liệu giữa khách hàng** — có thể là vi phạm hợp đồng và nghĩa vụ pháp lý. Hai thứ đó không nên chung số phận.
+
+**2. `IgnoreQueryFilters` phải được coi như một thao tác đặc quyền.** Mỗi lần dùng nên có lý do viết ngay tại chỗ:
+
+```csharp
+// Màn hình khôi phục của admin nội bộ — cần thấy bản ghi đã xoá mềm.
+// Đã lọc lại theo tenant ở dòng dưới; KHÔNG bỏ dòng đó.
+```
+
+**3. Rà toàn bộ code base định kỳ:**
+
+```bash
+grep -rn "IgnoreQueryFilters" --include="*.cs" src/ | wc -l
+```
+
+Mỗi kết quả là một chỗ phải đọc lại. Trong một hệ thống multi-tenant, con số này nên **đếm được trên một bàn tay** — và mọi chỗ nên nằm trong cùng một file.
+
+**Test chặn — chạy cho mọi endpoint admin:**
+
+```csharp
+[Fact]
+public async Task Endpoint_admin_khong_duoc_tra_ve_du_lieu_cua_tenant_khac()
+{
+    await TaoLeadDaXoaAsync(tenantId: "acme");
+    await TaoLeadDaXoaAsync(tenantId: "globex");
+
+    var client = TaoClient(tenantId: "acme");
+    var ketQua = await client.GetFromJsonAsync<List<LeadDto>>("/admin/leads/da-xoa");
+
+    ketQua.Should().OnlyContain(l => l.TenantId == "acme");
+    ketQua.Should().NotBeEmpty("nếu rỗng thì test không chứng minh được gì");
+}
+```
+
+Khẳng định cuối quan trọng hơn vẻ ngoài của nó: `OnlyContain` trên một danh sách rỗng luôn **đúng**, nên nếu không có nó, một endpoint hỏng hoàn toàn cũng cho test xanh.
+
+</details>
+
+---
+
+#### Bài 3 — Navigation property thành `null`
+
+Xoá mềm một `Customer`, rồi truy vấn `Contacts` với `Include(c => c.Customer)`. Xác nhận `Customer` là `null` dù khoá ngoại bắt buộc.
+
+**Tiêu chí hoàn thành:** bạn giải thích được vì sao filter được áp cho navigation, và nêu được hậu quả với `LEFT JOIN` trong SQL sinh ra.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** `Include` sinh ra một `JOIN`. Query filter của `Customer` xuất hiện ở đâu trong `JOIN` đó?
+
+**Lời giải:**
+
+```csharp
+builder.Entity<Customer>().HasQueryFilter(c => !c.IsDeleted);
+```
+
+```csharp
+// Contact có khoá ngoại BẮT BUỘC tới Customer
+public class Contact
+{
+    public int Id { get; set; }
+    public int CustomerId { get; set; }             // không nullable
+    public Customer Customer { get; set; } = null!; // C# nói: không bao giờ null
+}
+```
+
+```csharp
+await _db.Customers.Where(c => c.Id == 1)
+    .ExecuteUpdateAsync(s => s.SetProperty(c => c.IsDeleted, true), ct);
+
+var contacts = await _db.Contacts
+    .Include(c => c.Customer)
+    .Where(c => c.CustomerId == 1)
+    .ToListAsync(ct);
+
+Console.WriteLine(contacts.Count);              // 5 — contact vẫn còn
+Console.WriteLine(contacts[0].Customer is null); // True
+Console.WriteLine(contacts[0].Customer.Name);   // NullReferenceException
+```
+
+Contact vẫn trả về đầy đủ, nhưng `Customer` là `null` — dù `CustomerId` là `int` không nullable, dù ràng buộc khoá ngoại trong database vẫn nguyên, và dù C# khai báo `= null!`.
+
+**Vì sao filter được áp cho navigation.** Query filter gắn với **entity type**, không gắn với `DbSet`. Mọi lần `Customer` xuất hiện trong một truy vấn — làm gốc, làm `Include`, làm đích của một `JOIN` — filter của nó đều được áp.
+
+Đây là hành vi **đúng và cần thiết**. Nếu filter chỉ áp khi truy vấn trực tiếp `_db.Customers`, thì bất kỳ ai cũng đi vòng qua được:
+
+```csharp
+// Nếu filter KHÔNG áp cho navigation, đây là một cửa hậu
+var khachDaXoa = await _db.Contacts.Select(c => c.Customer).ToListAsync(ct);
+```
+
+Với multi-tenant, một cửa hậu như vậy là rò rỉ dữ liệu. Nên EF Core áp filter ở mọi nơi entity type xuất hiện — và cái giá là tình huống ở đầu bài.
+
+**Hậu quả với SQL — `INNER JOIN` trở thành `LEFT JOIN`:**
+
+```sql
+-- Không có query filter trên Customer
+SELECT [c].[Id], [c].[CustomerId], [t].[Id], [t].[Name]
+FROM [Contacts] AS [c]
+INNER JOIN [Customers] AS [t] ON [c].[CustomerId] = [t].[Id]
+WHERE [c].[CustomerId] = 1
+```
+
+```sql
+-- Có query filter trên Customer
+SELECT [c].[Id], [c].[CustomerId], [t].[Id], [t].[Name]
+FROM [Contacts] AS [c]
+LEFT JOIN (
+    SELECT [c0].[Id], [c0].[Name] FROM [Customers] AS [c0] WHERE [c0].[IsDeleted] = CAST(0 AS bit)
+) AS [t] ON [c].[CustomerId] = [t].[Id]
+WHERE [c].[CustomerId] = 1
+```
+
+Hai thay đổi:
+
+1. **Bảng `Customers` trở thành một subquery đã lọc** — chỉ chứa khách hàng chưa xoá.
+2. **`INNER JOIN` thành `LEFT JOIN`.**
+
+Thay đổi thứ hai là thứ quyết định. Với `INNER JOIN`, một contact không khớp sẽ **biến mất khỏi kết quả**. EF Core không muốn `Include` làm mất dòng ở bảng gốc — `Include` phải là "nạp thêm", không phải "lọc bớt" — nên nó dùng `LEFT JOIN`. Contact được giữ lại, và cột của `Customer` là `NULL`.
+
+```text
+INNER JOIN:  contact biến mất  -> Include vô tình trở thành bộ lọc -> tệ hơn
+LEFT JOIN:   contact còn, Customer null -> đúng ngữ nghĩa của Include
+```
+
+Nói cách khác, `null` ở đây không phải lỗi — nó là câu trả lời trung thực cho câu hỏi "khách hàng của contact này, trong phạm vi bạn được phép thấy, là ai?". Câu trả lời là: không có ai.
+
+**Điều gây bối rối nhất: C# nói dối.** `Customer { get; set; } = null!` tuyên bố với trình biên dịch rằng thuộc tính này không bao giờ `null`. Nullable reference types không cảnh báo gì, và code `contact.Customer.Name` trông hoàn toàn an toàn khi đọc. Nhưng `= null!` chỉ là một lời hứa của lập trình viên, và query filter vừa phá vỡ lời hứa đó.
+
+**Ba cách xử lý:**
+
+**1. Lọc luôn cả phía `Contact`** — thường là thứ bạn thật sự muốn:
+
+```csharp
+builder.Entity<Contact>()
+    .HasQueryFilter(c => !c.IsDeleted && !c.Customer.IsDeleted);
+```
+
+Khi khách hàng bị xoá mềm, contact của họ cũng biến mất khỏi mọi truy vấn. Nhất quán, và không còn `null` bất ngờ.
+
+Lưu ý: filter tham chiếu tới navigation như vậy **chỉ hoạt động cho quan hệ bắt buộc**, và EF Core sẽ cảnh báo nếu `Customer` là optional.
+
+**2. `IgnoreQueryFilters` cho đúng truy vấn đó** — khi màn hình cần thấy cả khách hàng đã xoá:
+
+```csharp
+var contacts = await _db.Contacts
+    .IgnoreQueryFilters()
+    .Where(c => c.TenantId == tenantId)     // nhớ lọc lại tenant, như bài 2
+    .Include(c => c.Customer)
+    .ToListAsync(ct);
+```
+
+**3. Khai báo trung thực trong C#** — rẻ nhất, và nên làm bất kể chọn cách nào ở trên:
+
+```csharp
+public Customer? Customer { get; set; }
+```
+
+Trình biên dịch lập tức cảnh báo ở mọi chỗ truy cập `contact.Customer.Name`, và bạn được nhắc xử lý trường hợp `null` ngay lúc viết code thay vì lúc chạy.
+
+**Và đây là lý do đáng nhớ nhất của cả bài:** bất cứ khi nào bạn thêm một query filter, **mọi navigation trỏ tới entity đó đều trở thành nullable trên thực tế** — kể cả những navigation mà khoá ngoại là `NOT NULL`. Đó là một thay đổi lan rộng khắp mô hình, và nó không xuất hiện ở đâu trong migration.
+
+```bash
+# Rà mọi navigation trỏ tới entity có query filter
+grep -rn "public Customer Customer" --include="*.cs" src/
+```
+
+Mỗi kết quả là một chỗ có thể ném `NullReferenceException` sau khi bạn bật soft delete cho `Customer`.
+
+</details>
 
 ## Tự kiểm tra
 

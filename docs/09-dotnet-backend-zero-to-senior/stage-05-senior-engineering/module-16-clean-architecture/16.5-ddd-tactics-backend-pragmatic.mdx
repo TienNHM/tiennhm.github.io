@@ -287,11 +287,655 @@ Ba thứ đó cho phần lớn lợi ích với rất ít chi phí. Aggregate đ
 
 ## Bài tập áp dụng
 
-1. **Value object chặn lỗi.** Đổi một phương thức nhận hai `Guid` thành nhận hai kiểu id khác nhau. Cố tình truyền nhầm thứ tự và xác nhận **lỗi biên dịch**.
+#### Bài 1 — Value object chặn lỗi ở thời điểm biên dịch
 
-2. **Collection bị lộ.** Tìm một entity lộ `List<T>` công khai, `grep` mọi chỗ gọi `.Add()` trực tiếp trên nó. Mỗi chỗ là một nơi bất biến có thể bị bỏ qua.
+Đổi một phương thức nhận hai `Guid` thành nhận hai kiểu id khác nhau. Cố tình truyền nhầm thứ tự và xác nhận **lỗi biên dịch**.
 
-3. **Aggregate quá lớn.** Chọn aggregate lớn nhất và đếm số bảng một `SaveChanges` của nó chạm tới. Cân nhắc tách theo câu hỏi "cái gì phải đúng ngay lập tức".
+**Tiêu chí hoàn thành:** bạn giải thích được vì sao lỗi ở thời điểm biên dịch rẻ hơn lỗi lúc chạy **theo bậc độ lớn**, và biết cấu hình EF Core cho kiểu id riêng.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Truyền nhầm hai `Guid` thì chuyện gì xảy ra? Khi nào bạn phát hiện?
+
+**Lời giải — trước:**
+
+```csharp
+public async Task GanLeadAsync(Guid leadId, Guid nguoiDungId, CancellationToken ct)
+{
+    var lead = await _db.Leads.FirstAsync(l => l.Id == leadId, ct);
+    lead.Gan(nguoiDungId);
+    await _db.SaveChangesAsync(ct);
+}
+```
+
+```csharp
+await _svc.GanLeadAsync(nguoiDungId, leadId, ct);      // NHẦM THỨ TỰ
+```
+
+```text
+Biên dịch: THÀNH CÔNG
+Chạy:      SqlException: Sequence contains no elements
+           hoặc tệ hơn: tìm thấy một lead có id trùng với id người dùng
+           -> gán sai lead cho sai người, KHÔNG có lỗi nào
+```
+
+**Sau — kiểu id riêng:**
+
+```csharp
+public readonly record struct LeadId(Guid Value)
+{
+    public static LeadId Moi() => new(Guid.CreateVersion7());
+    public static LeadId Parse(string s) => new(Guid.Parse(s));
+    public override string ToString() => Value.ToString();
+}
+
+public readonly record struct NguoiDungId(Guid Value)
+{
+    public static NguoiDungId Moi() => new(Guid.CreateVersion7());
+    public override string ToString() => Value.ToString();
+}
+```
+
+```csharp
+public async Task GanLeadAsync(LeadId leadId, NguoiDungId nguoiDungId, CancellationToken ct)
+```
+
+```csharp
+await _svc.GanLeadAsync(nguoiDungId, leadId, ct);
+```
+
+```text
+error CS1503: Argument 1: cannot convert from 'NguoiDungId' to 'LeadId'
+error CS1503: Argument 2: cannot convert from 'LeadId' to 'NguoiDungId'
+```
+
+**Vì sao lỗi ở thời điểm biên dịch rẻ hơn theo bậc độ lớn:**
+
+| Phát hiện ở | Chi phí sửa | Ai phát hiện | Phạm vi ảnh hưởng |
+|---|---|---|---|
+| **Biên dịch** | **Vài giây** | Trình biên dịch, trong IDE | Không ai |
+| Unit test | Vài phút | Người viết code | Không ai |
+| Code review | Vài chục phút | Đồng nghiệp | Không ai |
+| QA / staging | Vài giờ | Tester | Không ai |
+| **Production** | **Vài giờ tới vài ngày** | **Người dùng** | **Dữ liệu sai** |
+
+Khoảng cách giữa dòng đầu và dòng cuối là **bốn bậc độ lớn** về thời gian, và khác biệt về phạm vi thì không đo bằng thời gian được: lỗi ở production để lại **dữ liệu sai** phải đi dọn.
+
+Với trường hợp cụ thể này, hậu quả đặc biệt tệ vì lỗi **không ném exception**:
+
+```text
+Nếu id người dùng tình cờ trùng id của một lead nào đó:
+    -> gán lead SAI cho người SAI
+    -> không có exception
+    -> không có log bất thường
+    -> phát hiện khi có người hỏi "sao tôi có lead này?"
+```
+
+Và `readonly record struct` không có chi phí runtime: nó là struct, không cấp phát trên heap, và trình biên dịch nội tuyến các phép so sánh. Bạn được an toàn kiểu mà không trả gì.
+
+**Cấu hình EF Core:**
+
+```csharp
+public class LeadIdConverter : ValueConverter<LeadId, Guid>
+{
+    public LeadIdConverter() : base(id => id.Value, value => new LeadId(value)) { }
+}
+```
+
+```csharp
+protected override void ConfigureConventions(ModelConfigurationBuilder builder)
+{
+    builder.Properties<LeadId>().HaveConversion<LeadIdConverter>();
+    builder.Properties<NguoiDungId>().HaveConversion<NguoiDungIdConverter>();
+}
+```
+
+`ConfigureConventions` áp cho **mọi** thuộc tính kiểu đó trong mô hình, kể cả entity thêm sau này — nên không ai phải nhớ cấu hình từng cột.
+
+**Bốn chỗ khác cần cấu hình:**
+
+```csharp
+// 1. JSON
+public class LeadIdJsonConverter : JsonConverter<LeadId>
+{
+    public override LeadId Read(ref Utf8JsonReader r, Type t, JsonSerializerOptions o)
+        => new(r.GetGuid());
+
+    public override void Write(Utf8JsonWriter w, LeadId v, JsonSerializerOptions o)
+        => w.WriteStringValue(v.Value);
+}
+```
+
+```csharp
+// 2. Route binding trong ASP.NET Core
+public readonly record struct LeadId(Guid Value)
+{
+    public static bool TryParse(string? s, IFormatProvider? p, out LeadId kq)
+    {
+        if (Guid.TryParse(s, out var g)) { kq = new LeadId(g); return true; }
+        kq = default; return false;
+    }
+}
+```
+
+```csharp
+app.MapGet("/leads/{id}", (LeadId id) => ...);     // hoạt động nhờ TryParse
+```
+
+```csharp
+// 3. Dapper
+SqlMapper.AddTypeHandler(new LeadIdTypeHandler());
+
+// 4. OpenAPI — để tài liệu hiển thị string thay vì object
+options.MapType<LeadId>(() => new OpenApiSchema { Type = "string", Format = "uuid" });
+```
+
+**Giảm mã lặp bằng source generator:**
+
+```xml
+<PackageReference Include="StronglyTypedId" Version="..." PrivateAssets="all" />
+```
+
+```csharp
+[StronglyTypedId(Template.Guid,
+    "guid-efcore", "guid-dapper", "guid-newtonsoft-json", "guid-systemtextjson")]
+public partial struct LeadId { }
+```
+
+Một attribute sinh ra toàn bộ: struct, converter cho EF Core, Dapper, JSON, `TryParse`, và `TypeConverter`.
+
+**Và `Guid.CreateVersion7()` đáng dùng thay cho `Guid.NewGuid()`** — có từ .NET 9:
+
+```text
+Guid.NewGuid()        -> hoàn toàn ngẫu nhiên
+                      -> chèn vào giữa clustered index -> phân mảnh trang
+                      -> đo được: chèn chậm hơn 3–5 lần trên bảng lớn
+
+Guid.CreateVersion7() -> 48 bit đầu là dấu thời gian, phần còn lại ngẫu nhiên
+                      -> tăng dần theo thời gian -> chèn vào cuối index
+                      -> vẫn không đoán được, vẫn duy nhất
+```
+
+**Nên tạo kiểu id riêng cho những gì:**
+
+```text
+NÊN:   mọi id của aggregate root — LeadId, CustomerId, OrderId
+       khái niệm nghiệp vụ dễ nhầm — Email, PhoneNumber, TenantId, MaKhachHang
+
+KHÔNG: id của entity con trong cùng aggregate (ít khi truyền qua nhiều tầng)
+       khoá kỹ thuật thuần tuý — id của bảng log, bảng outbox
+```
+
+**Đo lợi ích trên dự án thật** — bài tập đáng làm một lần:
+
+```bash
+# Có bao nhiêu phương thức nhận từ hai Guid trở lên?
+grep -rnE "\(([^)]*Guid [a-zA-Z]+,\s*){1,}[^)]*Guid [a-zA-Z]+" --include="*.cs" src/ | wc -l
+```
+
+```text
+34
+```
+
+34 phương thức, mỗi cái là một chỗ có thể truyền nhầm thứ tự mà trình biên dịch không phát hiện. Sau khi chuyển sang kiểu id riêng, con số đó về 0 — và trình biên dịch sẽ chỉ cho bạn chính xác những chỗ **đang** truyền nhầm.
+
+</details>
+
+---
+
+#### Bài 2 — Collection bị lộ ra ngoài
+
+Tìm một entity lộ `List<T>` công khai, `grep` mọi chỗ gọi `.Add()` trực tiếp trên nó. Mỗi chỗ là một nơi bất biến có thể bị bỏ qua.
+
+**Tiêu chí hoàn thành:** bạn nêu được vì sao `IReadOnlyList<T>` một mình **chưa đủ**, và biết cấu hình EF Core cho backing field.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** `IReadOnlyList<T>` ngăn được `Add`. Nó có ngăn được ép kiểu không?
+
+**Lời giải — trước:**
+
+```csharp
+public class Order
+{
+    public List<OrderItem> Items { get; set; } = new();
+    public Money Total { get; set; } = Money.Zero;
+}
+```
+
+```bash
+grep -rn "\.Items\.Add(\|\.Items\.Remove(\|\.Items\.Clear()" --include="*.cs" src/
+```
+
+```text
+src/Crm.Api/Controllers/OrdersController.cs:78
+src/Crm.Application/Services/OrderService.cs:142
+src/Crm.Application/Services/OrderService.cs:201
+src/Crm.Infrastructure/Jobs/ImportOrderJob.cs:94
+src/Crm.Api/Features/Orders/ThemMatHang.cs:33
+```
+
+Năm chỗ, và mỗi chỗ có thể phá vỡ bất biến:
+
+```csharp
+order.Items.Add(new OrderItem { ... });
+// Total KHÔNG được cập nhật
+// Không kiểm tra order đã xác nhận chưa
+// Không kiểm tra giới hạn số mặt hàng
+// Không kiểm tra trùng sản phẩm
+```
+
+```sql
+SELECT COUNT(*) FROM Orders o
+WHERE o.Total <> (SELECT ISNULL(SUM(i.Quantity * i.UnitPrice), 0)
+                  FROM OrderItems i WHERE i.OrderId = o.Id);
+```
+
+```text
+2.847
+```
+
+**2.847 đơn hàng có tổng tiền không khớp với các dòng của nó** — và mỗi dòng là một báo cáo doanh thu sai.
+
+**Sau — đóng gói đúng cách:**
+
+```csharp
+public class Order
+{
+    private readonly List<OrderItem> _items = new();
+    public IReadOnlyList<OrderItem> Items => _items.AsReadOnly();
+
+    public Money Total { get; private set; } = Money.Zero;
+    public OrderStatus Status { get; private set; }
+
+    private const int SoMatHangToiDa = 100;
+
+    public Result ThemMatHang(ProductId sanPhamId, int soLuong, Money donGia)
+    {
+        if (Status != OrderStatus.Draft)
+            return Result.Loi("Chỉ sửa được đơn hàng ở trạng thái nháp");
+
+        if (soLuong <= 0)
+            return Result.Loi("Số lượng phải lớn hơn 0");
+
+        if (_items.Count >= SoMatHangToiDa)
+            return Result.Loi($"Đơn hàng tối đa {SoMatHangToiDa} mặt hàng");
+
+        var daCo = _items.FirstOrDefault(i => i.ProductId == sanPhamId);
+        if (daCo is not null)
+        {
+            daCo.TangSoLuong(soLuong);
+        }
+        else
+        {
+            _items.Add(new OrderItem(sanPhamId, soLuong, donGia));
+        }
+
+        TinhLaiTong();                       // bất biến LUÔN được giữ
+        return Result.ThanhCong();
+    }
+
+    public Result XoaMatHang(ProductId sanPhamId)
+    {
+        if (Status != OrderStatus.Draft)
+            return Result.Loi("Chỉ sửa được đơn hàng ở trạng thái nháp");
+
+        var item = _items.FirstOrDefault(i => i.ProductId == sanPhamId);
+        if (item is null) return Result.Loi("Không tìm thấy mặt hàng");
+
+        _items.Remove(item);
+        TinhLaiTong();
+        return Result.ThanhCong();
+    }
+
+    private void TinhLaiTong()
+        => Total = _items.Aggregate(Money.Zero, (tong, i) => tong + i.ThanhTien);
+}
+```
+
+```text
+error CS0200: Property or indexer 'Order.Items' cannot be assigned to — it is read only
+error CS1061: 'IReadOnlyList<OrderItem>' does not contain a definition for 'Add'
+```
+
+Năm lỗi biên dịch, và mỗi lỗi chỉ đúng một chỗ cần sửa.
+
+**Vì sao `IReadOnlyList<T>` một mình chưa đủ** — đây là phần chính của bài.
+
+`IReadOnlyList<T>` là một **giao diện**, không phải một bảo đảm. Nếu object phía sau vẫn là `List<T>`, ép kiểu về là phá được:
+
+```csharp
+public IReadOnlyList<OrderItem> Items => _items;      // KHÔNG có AsReadOnly()
+```
+
+```csharp
+((List<OrderItem>)order.Items).Add(new OrderItem(...));      // biên dịch được, chạy được
+```
+
+Không có exception, không có cảnh báo. Và nó xuất hiện trong code thật thường xuyên hơn bạn nghĩ, vì ai đó gặp `IReadOnlyList` và "sửa" bằng cách ép kiểu.
+
+Ba mức bảo vệ:
+
+```csharp
+// Mức 1 — yếu: ép kiểu về List<T> được
+public IReadOnlyList<OrderItem> Items => _items;
+
+// Mức 2 — tốt: AsReadOnly() trả về ReadOnlyCollection<T>, ép kiểu về List<T> ném exception
+public IReadOnlyList<OrderItem> Items => _items.AsReadOnly();
+
+// Mức 3 — tốt nhất cho .NET 8+: trả về bản sao chỉ đọc, không chia sẻ tham chiếu nào
+public ImmutableArray<OrderItem> Items => [.._items];
+```
+
+Mức 2 là điểm cân bằng tốt cho phần lớn trường hợp. Mức 3 an toàn tuyệt đối nhưng cấp phát một mảng mới mỗi lần đọc — chỉ dùng cho collection nhỏ và ít được đọc.
+
+`AsReadOnly()` trong .NET 8+ **không cấp phát mới mỗi lần gọi** nếu bạn cache nó:
+
+```csharp
+private readonly List<OrderItem> _items = new();
+private ReadOnlyCollection<OrderItem>? _itemsView;
+public IReadOnlyList<OrderItem> Items => _itemsView ??= _items.AsReadOnly();
+```
+
+`ReadOnlyCollection<T>` là một **wrapper** trỏ tới list gốc, nên thay đổi trong `_items` vẫn hiện ra qua view — bạn cache được an toàn.
+
+**Còn một lỗ hổng nữa: phần tử bên trong.**
+
+```csharp
+foreach (var item in order.Items)
+    item.Quantity = 999;                  // collection chỉ đọc, nhưng PHẦN TỬ thì không
+```
+
+Phần tử phải tự bảo vệ mình:
+
+```csharp
+public class OrderItem
+{
+    public ProductId ProductId { get; private set; }
+    public int Quantity { get; private set; }
+    public Money UnitPrice { get; private set; }
+    public Money ThanhTien => UnitPrice * Quantity;
+
+    private OrderItem() { }
+
+    internal OrderItem(ProductId sanPhamId, int soLuong, Money donGia)
+    {
+        ProductId = sanPhamId; Quantity = soLuong; UnitPrice = donGia;
+    }
+
+    internal void TangSoLuong(int them) => Quantity += them;
+}
+```
+
+`internal` cho constructor và cho phương thức sửa đổi là chi tiết quan trọng: chỉ code **trong cùng assembly Domain** tạo hoặc sửa `OrderItem` được. Tầng Application không thể tạo một `OrderItem` rời rồi nhét vào đâu đó.
+
+**Cấu hình EF Core cho backing field:**
+
+```csharp
+builder.Entity<Order>(b =>
+{
+    b.HasMany(o => o.Items)
+        .WithOne()
+        .HasForeignKey("OrderId")
+        .OnDelete(DeleteBehavior.Cascade);
+
+    // Bảo EF Core ghi thẳng vào field, không qua property
+    b.Metadata.FindNavigation(nameof(Order.Items))!
+        .SetPropertyAccessMode(PropertyAccessMode.Field);
+});
+```
+
+Hoặc đặt mặc định cho cả mô hình:
+
+```csharp
+protected override void ConfigureConventions(ModelConfigurationBuilder builder)
+    => builder.Properties<object>().HavePropertyAccessMode(PropertyAccessMode.Field);
+```
+
+EF Core tìm backing field theo quy ước: `_items`, `_Items`, `m_items`. Nếu tên field khác, phải chỉ rõ:
+
+```csharp
+b.Navigation(o => o.Items).HasField("_danhSachMatHang");
+```
+
+**Và một lưu ý về truy vấn:**
+
+```csharp
+// Vẫn hoạt động — EF Core dịch qua navigation
+var don = await _db.Orders.Include(o => o.Items).FirstAsync(o => o.Id == id, ct);
+
+// Vẫn hoạt động — dịch sang SQL, không đụng tới collection trong bộ nhớ
+var coHang = await _db.Orders.Where(o => o.Items.Any(i => i.ProductId == sp)).ToListAsync(ct);
+```
+
+`IReadOnlyList<T>` không cản trở EF Core, vì nó làm việc với metadata của navigation chứ không với kiểu C# của property.
+
+**Rà toàn bộ entity:**
+
+```csharp
+[Fact]
+public void Entity_khong_duoc_lo_collection_co_the_sua()
+{
+    var viPham = typeof(Order).Assembly.GetTypes()
+        .Where(t => t.IsSubclassOf(typeof(EntityBase)) && !t.IsAbstract)
+        .SelectMany(t => t.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+        .Where(p =>
+        {
+            if (!p.PropertyType.IsGenericType) return false;
+            var def = p.PropertyType.GetGenericTypeDefinition();
+            return def == typeof(List<>) || def == typeof(ICollection<>)
+                || def == typeof(IList<>) || def == typeof(HashSet<>);
+        })
+        .Select(p => $"{p.DeclaringType!.Name}.{p.Name} ({p.PropertyType.Name})")
+        .ToList();
+
+    viPham.Should().BeEmpty(
+        "entity phải lộ IReadOnlyList<T> và sửa collection qua phương thức domain");
+}
+```
+
+Chạy test này lần đầu trên một dự án đang chạy thường cho ra hàng chục vi phạm. Dùng mẫu ratchet ở [bài 16.2](16.2-layered-architecture-still-useful.mdx) để giảm dần thay vì sửa hết một lúc.
+
+</details>
+
+---
+
+#### Bài 3 — Aggregate quá lớn
+
+Chọn aggregate lớn nhất và đếm số bảng một `SaveChanges` của nó chạm tới. Cân nhắc tách theo câu hỏi "cái gì phải đúng ngay lập tức".
+
+**Tiêu chí hoàn thành:** bạn áp dụng được câu hỏi đó cho từng quan hệ, và nêu được **bốn** hậu quả cụ thể của aggregate quá lớn.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Aggregate là ranh giới của **tính nhất quán tức thời**. Cái gì thật sự cần nhất quán tức thời?
+
+**Lời giải — đếm bảng bị chạm:**
+
+```csharp
+var don = await _db.Orders
+    .Include(o => o.Items)
+    .Include(o => o.Payments)
+    .Include(o => o.Shipments).ThenInclude(s => s.TrackingEvents)
+    .Include(o => o.Customer).ThenInclude(c => c.Addresses)
+    .Include(o => o.Discounts)
+    .Include(o => o.AuditLogs)
+    .FirstAsync(o => o.Id == id, ct);
+
+don.ThemMatHang(sanPhamId, 2, donGia);
+await _db.SaveChangesAsync(ct);
+```
+
+```csharp
+var soBang = _db.ChangeTracker.Entries()
+    .Select(e => e.Metadata.GetTableName())
+    .Distinct().Count();
+```
+
+```text
+8 bảng, 1.847 entity được nạp — để thêm MỘT mặt hàng
+```
+
+```text
+SELECT sinh ra:  1 truy vấn với 6 JOIN, trả về 1.847 dòng
+Thời gian nạp:   840 ms
+Bộ nhớ:          ~14 MB cho một request
+Khoá giữ:        trên 8 bảng, suốt thời gian transaction
+```
+
+**Áp dụng câu hỏi "cái gì phải đúng ngay lập tức" cho từng quan hệ:**
+
+| Quan hệ | Nếu lệch 5 giây, ai thiệt hại? | Kết luận |
+|---|---|---|
+| `Order` ↔ `OrderItem` | Tổng tiền sai so với các dòng — **khách trả sai tiền** | **Cùng aggregate** |
+| `Order` ↔ `Discount` | Giảm giá áp sai — **khách trả sai tiền** | **Cùng aggregate** |
+| `Order` ↔ `Payment` | Đơn hiện "chưa thanh toán" thêm 5 giây | Tách |
+| `Order` ↔ `Shipment` | Trạng thái giao hàng cập nhật chậm 5 giây | Tách |
+| `Order` ↔ `Customer` | Thông tin khách hiển thị cũ 5 giây | **Tách** — là aggregate riêng |
+| `Order` ↔ `AuditLog` | Log ghi chậm 5 giây | Tách |
+
+Chỉ **hai** quan hệ cần nhất quán tức thời, vì chỉ chúng ảnh hưởng tới một bất biến không được phép vi phạm dù chỉ một khoảnh khắc: *"tổng tiền đơn hàng luôn bằng tổng các dòng đã trừ giảm giá"*.
+
+**Sau khi tách:**
+
+```csharp
+public class Order            // Aggregate root
+{
+    private readonly List<OrderItem> _items = new();
+    private readonly List<Discount> _discounts = new();
+
+    public IReadOnlyList<OrderItem> Items => _items.AsReadOnly();
+    public IReadOnlyList<Discount> Discounts => _discounts.AsReadOnly();
+
+    public CustomerId CustomerId { get; private set; }     // THAM CHIẾU BẰNG ID
+    public Money Total { get; private set; }
+}
+
+public class Payment          // Aggregate RIÊNG
+{
+    public PaymentId Id { get; private set; }
+    public OrderId OrderId { get; private set; }           // tham chiếu bằng id
+    public Money Amount { get; private set; }
+}
+
+public class Shipment { public OrderId OrderId { get; private set; } }
+public class Customer { public CustomerId Id { get; private set; } }
+```
+
+```csharp
+var don = await _db.Orders
+    .Include(o => o.Items)
+    .Include(o => o.Discounts)
+    .FirstAsync(o => o.Id == id, ct);
+
+don.ThemMatHang(sanPhamId, 2, donGia);
+await _db.SaveChangesAsync(ct);
+```
+
+```text
+2 bảng, 23 entity, 18 ms       (từ 840 ms)
+```
+
+**Quy tắc tham chiếu giữa aggregate — bằng id, không bằng navigation:**
+
+```csharp
+// SAI — kéo Customer vào ranh giới của Order
+public Customer Customer { get; private set; }
+
+// ĐÚNG — Order chỉ biết id
+public CustomerId CustomerId { get; private set; }
+```
+
+Điều này buộc nơi gọi phải tường minh khi cần dữ liệu của aggregate khác:
+
+```csharp
+var don = await _orderRepo.LayAsync(orderId, ct);
+var khach = await _customerRepo.LayAsync(don.CustomerId, ct);
+```
+
+Trông dài hơn, nhưng nó làm hai điều: ngăn việc vô tình nạp cả đồ thị, và làm cho ranh giới aggregate **hiện rõ trong code** thay vì chỉ tồn tại trong tài liệu.
+
+**Bốn hậu quả cụ thể của aggregate quá lớn:**
+
+**1. Hiệu năng.** 1.847 entity nạp về để sửa một dòng — cộng với chi phí change tracker đo được ở [bài 13.1](../../stage-04-database-production/module-13-entity-framework-core/13.1-ef-core-overview.mdx), và `Include` nhiều collection gây cartesian explosion ([bài 13.5](../../stage-04-database-production/module-13-entity-framework-core/13.5-query-patterns.mdx)).
+
+**2. Tranh chấp concurrency tăng vọt.** Với `RowVersion` trên `Order`, **mọi** thay đổi ở bất kỳ bảng con nào cũng làm phiên bản đổi:
+
+```text
+Nhân viên kho cập nhật Shipment  -> RowVersion của Order đổi
+Nhân viên kế toán đang sửa Items -> DbUpdateConcurrencyException
+                                 -> xung đột GIẢ, hai người làm hai việc không liên quan
+```
+
+Với aggregate nhỏ, hai thao tác đó chạm hai aggregate khác nhau và không xung đột.
+
+**3. Transaction dài, khoá rộng.** Một `SaveChanges` chạm 8 bảng giữ khoá trên cả 8 bảng cho tới khi commit. Điều này tăng xác suất deadlock — đặc biệt khi hai giao dịch chạm cùng tập bảng theo thứ tự khác nhau ([bài 12.10](../../stage-04-database-production/module-12-sql-deep-dive/12.10-mini-case-study.mdx)).
+
+**4. Không tách dịch vụ được về sau.** Nếu `Order` và `Shipment` nằm trong một aggregate, chúng phải ở cùng một database và cùng một transaction. Muốn tách module giao hàng thành dịch vụ riêng, bạn phải gỡ ranh giới aggregate trước — và đó là thay đổi lớn hơn nhiều so với việc tách từ đầu.
+
+**Ba dấu hiệu aggregate quá lớn:**
+
+```text
+1. Truy vấn nạp nó có trên 3 Include
+2. Một SaveChanges chạm trên 3 bảng
+3. Có collection không giới hạn kích thước   <- dấu hiệu rõ nhất
+```
+
+Dấu hiệu 3 đáng nhấn mạnh:
+
+```csharp
+public IReadOnlyList<AuditLog> AuditLogs => _auditLogs.AsReadOnly();
+```
+
+Một đơn hàng hoạt động lâu có hàng nghìn dòng audit log. Nạp cả aggregate nghĩa là nạp cả chúng — mỗi lần, cho mọi thao tác. Collection trong aggregate phải có **giới hạn tự nhiên**: một đơn hàng có tối đa vài chục mặt hàng, nhưng số dòng log thì không có trần.
+
+**Tính nhất quán cuối cùng giữa các aggregate — qua domain event:**
+
+```csharp
+public Result GhiNhanThanhToan(Money soTien)
+{
+    var thanhToan = Payment.Tao(Id, soTien);
+    Raise(new ThanhToanDaGhiNhan(Id, soTien));
+    return Result.ThanhCong();
+}
+```
+
+```csharp
+public class CapNhatTrangThaiDonHangHandler : INotificationHandler<ThanhToanDaGhiNhan>
+{
+    public async Task Handle(ThanhToanDaGhiNhan e, CancellationToken ct)
+    {
+        var don = await _repo.LayAsync(e.OrderId, ct);
+        var daTra = await _paymentRepo.TongDaTraAsync(e.OrderId, ct);
+
+        if (daTra >= don.Total) don.DanhDauDaThanhToan();
+        await _db.SaveChangesAsync(ct);
+    }
+}
+```
+
+Trạng thái "đã thanh toán" cập nhật sau vài chục mili giây thay vì tức thời — và đó là đánh đổi đúng, vì không ai thiệt hại nếu nó lệch trong khoảnh khắc đó.
+
+**Và một điều cần nói cho cân bằng: aggregate quá nhỏ cũng có vấn đề.**
+
+```csharp
+// Tách OrderItem thành aggregate riêng
+public class OrderItem { public OrderId OrderId { get; private set; } }
+```
+
+```text
+-> tổng tiền đơn hàng KHÔNG còn được bảo vệ bởi transaction
+-> phải tự đồng bộ bằng event
+-> có khoảnh khắc tổng tiền sai
+-> và với tiền, "khoảnh khắc sai" là không chấp nhận được
+```
+
+Câu hỏi "cái gì phải đúng ngay lập tức" cắt cả hai chiều: nó nói cho bạn biết cái gì phải **tách ra**, và cũng nói cái gì phải **giữ lại**.
+
+</details>
 
 ## Tự kiểm tra
 

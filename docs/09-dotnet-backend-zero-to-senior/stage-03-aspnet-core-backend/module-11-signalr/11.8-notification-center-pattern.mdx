@@ -283,11 +283,296 @@ Nhớ khoá phân tán nếu chạy nhiều instance ([bài 9.10](../module-09-w
 
 ## Bài tập áp dụng
 
-1. **Trùng lặp.** Đẩy một thông báo qua push **và** để nó xuất hiện trong lần đồng bộ REST kế tiếp. Xác nhận client hiển thị **hai** lần. Thêm khử trùng theo `Id` và kiểm chứng.
+#### Bài 1 — Thông báo hiện hai lần
 
-2. **Bộ đếm âm.** Đánh dấu đã đọc từ hai thiết bị gần như đồng thời và xác nhận bộ đếm chưa đọc xuống dưới 0. Thêm kiểm tra `!item.readAt` và kiểm chứng.
+Đẩy một thông báo qua push **và** để nó xuất hiện trong lần đồng bộ REST kế tiếp. Xác nhận client hiển thị **hai** lần. Thêm khử trùng theo `Id` và kiểm chứng.
 
-3. **Gom nhóm.** Sinh 50 thông báo cùng `GroupKey` và xác nhận chỉ một bản ghi tồn tại với `Count = 50`. Đo số dòng trong database so với khi không gom.
+**Tiêu chí hoàn thành:** bạn nêu được vì sao trùng lặp là hệ quả **tất yếu** của thiết kế hai đường, chứ không phải một lỗi cần sửa ở phía server.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Server không biết client đã nhận được push hay chưa. Nếu nó biết, bạn đã không cần đường đồng bộ REST.
+
+**Lời giải — tái hiện:**
+
+```js
+connection.on('ReceiveNotification', n => store.push(n));    // đường 1
+
+async function sync() {
+    const items = await fetch('/api/v1/notifications?unreadOnly=true').then(r => r.json());
+    items.forEach(n => store.push(n));                       // đường 2
+}
+
+setInterval(sync, 30000);
+```
+
+```text
+09:00:00  push tới  -> store: [018f3a1b...]
+09:00:30  sync chạy -> store: [018f3a1b..., 018f3a1b...]
+```
+
+**Cùng một thông báo, hai bản ghi, hai dòng trên giao diện.**
+
+**Câu trả lời cho tiêu chí.** Hai đường tồn tại vì chúng bù cho nhau:
+
+```text
+Push:  nhanh, nhưng MẤT khi client offline
+Sync:  chậm, nhưng KHÔNG BAO GIỜ mất
+```
+
+Để tránh trùng, server phải biết client đã nhận push thành công hay chưa — nghĩa là cần cơ chế xác nhận cho từng thông báo, cho từng thiết bị, và phải nhớ trạng thái đó. Đó chính là thứ mà đường đồng bộ REST đang thay thế, chỉ đơn giản hơn nhiều.
+
+Nên trùng lặp không phải lỗi: nó là **cái giá cố ý** của việc chọn "không bao giờ mất" thay vì "không bao giờ trùng". Và giữa hai loại lỗi, trùng là loại **sửa được ở client** bằng vài dòng, còn mất thì không.
+
+**Khử trùng theo `Id`:**
+
+```ts
+const seen = new Set<string>();
+
+function add(n: Notification) {
+    if (seen.has(n.id)) return;       // trùng thì bỏ qua
+    seen.add(n.id);
+    store.push(n);
+}
+
+connection.on('ReceiveNotification', add);
+```
+
+Hoặc dùng `Map` để vừa khử trùng vừa cập nhật được bản ghi đã có:
+
+```ts
+const items = new Map<string, Notification>();
+
+function upsert(n: Notification) {
+    items.set(n.id, { ...items.get(n.id), ...n });     // đến hai lần cũng chỉ một bản
+}
+```
+
+**`Map` tốt hơn `Set` ở một chỗ quan trọng:** khi thông báo được **cập nhật** — ví dụ đếm gom nhóm tăng từ 3 lên 4 — bản mới ghi đè bản cũ thay vì bị bỏ qua.
+
+**Hai điều kiện để khử trùng hoạt động:**
+
+1. **`Id` phải do server sinh**, không phải client. Server là nơi duy nhất biết hai đường đang nói về cùng một bản ghi.
+2. **`Id` phải ổn định.** Cùng một thông báo phải mang cùng `Id` qua cả push lẫn REST — tức là push phải gửi bản ghi **đã lưu**, không phải một DTO dựng tạm:
+
+```csharp
+_db.Notifications.Add(notification);
+await _db.SaveChangesAsync(ct);                       // lưu trước, có Id
+
+await _hub.Clients.User(userId).ReceiveNotification(Map(notification));   // push CÙNG bản ghi
+```
+
+**Dùng `Guid.CreateVersion7()` cho `Id`** vì nó sắp xếp được theo thời gian — cần cho truy vấn `WHERE Id > @lastSeen` ở đường đồng bộ, như [bài 11.5](11.4-client-side-integration.mdx) trình bày.
+
+</details>
+
+---
+
+#### Bài 2 — Bộ đếm chưa đọc xuống dưới 0
+
+Đánh dấu đã đọc từ hai thiết bị gần như đồng thời và xác nhận bộ đếm chưa đọc xuống dưới 0. Thêm kiểm tra `!item.readAt` và kiểm chứng.
+
+**Tiêu chí hoàn thành:** bạn nêu được vì sao bài này là một dạng của lost update, và vì sao sửa ở client vẫn chưa đủ.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Hai thiết bị cùng giảm một bộ đếm dựa trên giá trị chúng đang thấy.
+
+**Lời giải — tái hiện:**
+
+```ts
+// Client giảm bộ đếm khi đánh dấu đã đọc
+async function markRead(id: string) {
+    await fetch(`/api/v1/notifications/${id}/read`, { method: 'POST' });
+    unreadCount.value--;                    // giảm VÔ ĐIỀU KIỆN
+}
+```
+
+```text
+Thiết bị A: markRead(X) -> unreadCount 3 -> 2
+Thiết bị B: markRead(X) -> unreadCount 3 -> 2      (cùng thông báo X)
+
+Server phát NotificationRead(X) cho CẢ HAI thiết bị
+Thiết bị A: nhận sự kiện -> giảm tiếp -> 1
+Thiết bị B: nhận sự kiện -> giảm tiếp -> 1
+
+Thực tế chỉ có 1 thông báo được đọc, nhưng bộ đếm giảm 4 lần
+-> unreadCount = -1
+```
+
+**Vì sao đây là lost update.** Mỗi thiết bị đọc giá trị hiện tại, tính giá trị mới từ đó, rồi ghi đè — đúng mẫu "đọc rồi ghi" ở [bài 13.9](../../stage-04-database-production/module-13-entity-framework-core/13.8-concurrency-control.mdx). Khác biệt duy nhất là trạng thái nằm trong bộ nhớ trình duyệt thay vì trong database, nên không có transaction nào bảo vệ.
+
+**Sửa ở client — kiểm tra trạng thái trước khi giảm:**
+
+```ts
+function markReadLocal(id: string) {
+    const item = items.get(id);
+    if (!item || item.readAt) return;       // đã đọc rồi -> không giảm nữa
+
+    item.readAt = new Date().toISOString();
+    unreadCount.value = Math.max(0, unreadCount.value - 1);
+}
+
+connection.on('NotificationRead', markReadLocal);
+```
+
+Giờ thao tác **idempotent**: gọi bao nhiêu lần cho cùng một `id` cũng chỉ giảm một lần.
+
+**Nhưng sửa ở client chưa đủ — và đây là phần quan trọng của bài.** Trạng thái trong bộ nhớ trình duyệt luôn có thể lệch với database vì những lý do nằm ngoài tầm kiểm soát của bạn:
+
+- người dùng mở tab mới, trạng thái bắt đầu từ đầu;
+- mất kết nối một lúc rồi quay lại, bỏ lỡ vài sự kiện;
+- một thiết bị thứ ba đánh dấu đã đọc hàng loạt.
+
+**Nên bộ đếm phải lấy từ server làm chuẩn:**
+
+```csharp
+[HttpGet("unread-count")]
+public async Task<ActionResult<int>> GetUnreadCount(CancellationToken ct)
+    => Ok(await _db.Notifications
+        .CountAsync(n => n.UserId == User.GetUserId() && n.ReadAt == null, ct));
+```
+
+```ts
+connection.on('NotificationRead', async id => {
+    markReadLocal(id);
+    unreadCount.value = await fetchUnreadCount();     // server là nguồn sự thật
+});
+```
+
+**Và phía server cũng phải idempotent:**
+
+```csharp
+[HttpPost("{id:guid}/read")]
+public async Task<IActionResult> MarkRead(Guid id, CancellationToken ct)
+{
+    var affected = await _db.Notifications
+        .Where(n => n.Id == id && n.UserId == User.GetUserId() && n.ReadAt == null)
+        .ExecuteUpdateAsync(s => s.SetProperty(n => n.ReadAt, DateTime.UtcNow), ct);
+
+    if (affected > 0)                                  // CHỈ phát sự kiện khi thật sự đổi
+        await _hub.Clients.User(User.GetUserId().ToString()).NotificationRead(id);
+
+    return NoContent();
+}
+```
+
+Điều kiện `n.ReadAt == null` nằm **trong** câu `UPDATE`, nên hai request đồng thời chỉ có một cái ảnh hưởng dòng — và chỉ một sự kiện được phát. Đây là mẫu "làm tất cả trong một câu lệnh" ở [bài 12.7](../../stage-04-database-production/module-12-sql-deep-dive/12.6-transactions-and-locking.mdx), áp dụng cho một bài toán rất đời thường.
+
+</details>
+
+---
+
+#### Bài 3 — Gom nhóm thông báo
+
+Sinh 50 thông báo cùng `GroupKey` và xác nhận chỉ một bản ghi tồn tại với `Count = 50`. Đo số dòng trong database so với khi không gom.
+
+**Tiêu chí hoàn thành:** bạn nêu được **hai** lợi ích của gom nhóm, và một trường hợp không nên gom.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Một lợi ích thuộc về người dùng, lợi ích kia thuộc về hệ thống.
+
+**Lời giải — logic gom:**
+
+```csharp
+public async Task NotifyAsync(Guid userId, string groupKey, string text, CancellationToken ct)
+{
+    // 1. Gom nhóm nếu đã có thông báo tương tự chưa đọc
+    var existing = await _db.Notifications
+        .FirstOrDefaultAsync(n => n.UserId == userId
+                               && n.GroupKey == groupKey
+                               && n.ReadAt == null, ct);
+
+    if (existing is not null)
+    {
+        existing.Count++;
+        existing.Text = text;
+        existing.UpdatedUtc = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+
+        await _hub.Clients.User(userId.ToString()).NotificationUpdated(Map(existing));
+        return;
+    }
+
+    // 2. Tạo mới và LƯU trước
+    var notification = new Notification
+    {
+        Id = Guid.CreateVersion7(), UserId = userId,
+        GroupKey = groupKey, Text = text, Count = 1,
+        CreatedUtc = DateTime.UtcNow
+    };
+    _db.Notifications.Add(notification);
+    await _db.SaveChangesAsync(ct);
+
+    // 3. Push sau khi đã lưu
+    await _hub.Clients.User(userId.ToString()).ReceiveNotification(Map(notification));
+}
+```
+
+**Kiểm chứng:**
+
+```csharp
+for (int i = 1; i <= 50; i++)
+    await _service.NotifyAsync(userId, $"deal:{dealId}:comment",
+                               $"{i} người đã bình luận", ct);
+```
+
+```sql
+SELECT Id, GroupKey, Count, Text FROM Notifications WHERE UserId = '8f3a...';
+```
+
+```text
+018f3a1b...  deal:7c1d:comment  50  "50 người đã bình luận"
+```
+
+**Một dòng thay vì 50.**
+
+**Hai lợi ích:**
+
+**1. Với người dùng — danh sách đọc được.** Không gom thì mở chuông thông báo ra thấy 50 dòng giống hệt nhau, và thông báo quan trọng khác bị đẩy xuống dưới. Gom lại thành "50 người đã bình luận" là đúng thứ người ta muốn biết.
+
+**2. Với hệ thống — số dòng và số lần push giảm theo cùng tỷ lệ.**
+
+| | Không gom | Có gom |
+|---|---|---|
+| Dòng trong database | 50 | **1** |
+| Tin đẩy qua SignalR | 50 | 50 (nhưng loại `NotificationUpdated`) |
+| Dòng client phải render | 50 | **1** |
+
+Với một deal sôi nổi có 20 người theo dõi, con số là 1.000 dòng thành 20 dòng.
+
+**Thiết kế `GroupKey` quyết định chất lượng việc gom:**
+
+```csharp
+$"deal:{dealId}:comment"        // gom bình luận theo từng deal
+$"lead:{leadId}:assigned"       // gom việc gán lead
+$"invoice:overdue"              // gom mọi hoá đơn quá hạn
+```
+
+Quá hẹp thì không gom được gì; quá rộng thì gộp nhầm những việc không liên quan.
+
+**Khi nào KHÔNG nên gom.** Khi mỗi sự kiện là một **hành động riêng biệt cần phản hồi riêng**:
+
+```text
+KHÔNG gom: "Hợp đồng A cần bạn duyệt", "Hợp đồng B cần bạn duyệt"
+```
+
+Gom thành "2 hợp đồng cần duyệt" thì người dùng mất luôn đường dẫn tới từng cái, và phải tự đi tìm. Quy tắc phân biệt: nếu người dùng cần **làm gì đó khác nhau** cho từng thông báo thì đừng gom.
+
+**Một chi tiết cài đặt.** Đoạn "tìm rồi cập nhật" ở trên có race condition khi hai thông báo tới gần như đồng thời — cả hai cùng thấy chưa có bản ghi và cùng tạo mới. Với thông báo thì hậu quả nhẹ (hai nhóm thay vì một), nhưng nếu muốn chặt chẽ thì thêm ràng buộc:
+
+```sql
+CREATE UNIQUE INDEX UX_Notifications_Group ON Notifications(UserId, GroupKey)
+    WHERE ReadAt IS NULL;
+```
+
+rồi bắt `DbUpdateException` và thử lại nhánh cập nhật — cùng mẫu với idempotency ở [bài 9.13](../module-09-web-api-professional/9.12-quick-real-world-example.mdx).
+
+</details>
 
 ## Tự kiểm tra
 

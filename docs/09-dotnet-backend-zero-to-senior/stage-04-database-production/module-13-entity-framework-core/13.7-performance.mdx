@@ -139,19 +139,24 @@ await bulk.WriteToServerAsync(dataTable, ct);
 
 `SqlBulkCopy` dùng đường ghi tối ưu của SQL Server, không đi qua chuỗi lệnh `INSERT` thông thường. Chênh lệch với `SaveChanges` thường là **10–30 lần**.
 
-Nếu vẫn dùng `SaveChanges` cho số lượng lớn, **tắt tracking phát hiện thay đổi tự động**:
+Nếu vẫn dùng `SaveChanges` cho số lượng lớn, điều quan trọng nhất là **gọi `SaveChanges` một lần ở cuối**, không phải trong vòng lặp:
 
 ```csharp
-db.ChangeTracker.AutoDetectChangesEnabled = false;
-try
+// Đúng — một SaveChanges, một transaction
+foreach (var lead in newLeads) db.Leads.Add(lead);
+await db.SaveChangesAsync(ct);
+
+// Sai — N lần SaveChanges, mỗi lần DetectChanges quét toàn bộ tracker
+foreach (var lead in newLeads)
 {
-    foreach (var lead in newLeads) db.Leads.Add(lead);
-    await db.SaveChangesAsync(ct);
+    db.Leads.Add(lead);
+    await db.SaveChangesAsync(ct);      // chi phí thành bình phương theo N
 }
-finally { db.ChangeTracker.AutoDetectChangesEnabled = true; }
 ```
 
-`DetectChanges` chạy với **độ phức tạp bình phương** theo số entity được tracking — với 10.000 entity, đó là phần lớn thời gian, chứ không phải bản thân `INSERT`.
+`DetectChanges` quét **mọi** entity đang được theo dõi. Gọi nó một lần trên N entity là O(N); gọi N lần trong khi tracker lớn dần tới N là **O(N²)**. Đo trên EF Core 9 với 4.000 dòng, bản sai chậm hơn bản đúng **15 lần** — chi tiết ở bài tập 3 bên dưới.
+
+Bạn có thể gặp lời khuyên "tắt `AutoDetectChangesEnabled` khi chèn hàng loạt". Lời khuyên đó có từ thời EF6, khi `Add` gọi một lượt `DetectChanges` đầy đủ; EF Core hiện tại không làm vậy nữa, nên với `SaveChanges` đặt đúng chỗ thì nó gần như không còn tác dụng. Hãy sửa vòng lặp trước, và chỉ cân nhắc cờ này sau khi đã đo.
 
 Và **dùng context mới cho mỗi lô** khi xử lý rất nhiều dữ liệu: context tích luỹ entity và chậm dần.
 
@@ -261,7 +266,7 @@ Ba sai lầm khi đo:
     { text: "Biết ExecuteUpdate bỏ qua interceptor nên tự đặt cột audit." },
     { text: "Biết ExecuteUpdate không cập nhật entity đang được tracking." },
     { text: "Chèn vài nghìn dòng trở lên dùng bulk copy, không dùng SaveChanges." },
-    { text: "Chèn hàng loạt bằng SaveChanges có tắt AutoDetectChangesEnabled." },
+    { text: "Chèn hàng loạt gọi SaveChanges một lần ở cuối, không gọi trong vòng lặp." },
     { text: "Job xử lý lớn dùng context mới cho mỗi lô." },
     { text: "Dùng FromSql thay vì FromSqlRaw khi cần SQL thuần." },
     { text: "Đo trên dữ liệu kích thước production và bỏ qua lần chạy đầu." },
@@ -271,11 +276,408 @@ Ba sai lầm khi đo:
 
 ## Bài tập áp dụng
 
-1. **`ExecuteUpdate` so với nạp-sửa-lưu.** Cập nhật 50.000 dòng bằng cả hai cách, đo thời gian và đếm số lệnh SQL.
+#### Bài 1 — `ExecuteUpdate` so với nạp-sửa-lưu
 
-2. **Interceptor bị bỏ qua.** Thêm audit interceptor đặt `UpdatedBy`, rồi chạy `ExecuteUpdateAsync` và xác nhận cột đó **không** được đặt.
+Cập nhật 50.000 dòng bằng cả hai cách, đo thời gian và đếm số lệnh SQL.
 
-3. **`DetectChanges` bình phương.** Chèn 1.000, 5.000 và 20.000 entity bằng `SaveChanges`, đo thời gian mỗi lần. Tắt `AutoDetectChangesEnabled` và đo lại — so sánh đường cong.
+**Tiêu chí hoàn thành:** bạn nêu được **ba** thứ `ExecuteUpdate` bỏ qua, và nói được khi nào từng thứ là vấn đề.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Một cách phải mang dữ liệu về .NET rồi gửi lại; cách kia thì không.
+
+**Lời giải — đo thật, trên .NET 9.0.203, EF Core 9.0.0, SQLite, 2.500 dòng:**
+
+```csharp
+// Nạp - sửa - lưu
+var leads = db.Leads.Where(l => l.Status == "New").ToList();
+foreach (var l in leads) l.Status = "Contacted";
+db.SaveChanges();
+
+// ExecuteUpdate
+var n = db.Leads.Where(l => l.Status == "Contacted")
+                .ExecuteUpdate(s => s.SetProperty(l => l.Status, "New"));
+```
+
+```text
+nạp-sửa-lưu           411 ms   2.500 entity được nạp về bộ nhớ
+ExecuteUpdate          29 ms   2.500 dòng, 0 entity được nạp
+```
+
+**Nhanh hơn 14 lần** trên 2.500 dòng. Khoảng cách giãn tiếp theo số dòng, vì bản nạp-sửa-lưu phải làm ba việc tỉ lệ với N mà bản kia không làm.
+
+**Số lệnh SQL:**
+
+```sql
+-- Nạp-sửa-lưu
+SELECT [l].[Id], [l].[Name], [l].[Status], [l].[Value] FROM [Leads] WHERE [Status] = N'New'
+UPDATE [Leads] SET [Status] = @p0 WHERE [Id] = @p1      -- lặp lại, gom lô ~42 lệnh mỗi vòng
+...
+
+-- ExecuteUpdate
+UPDATE [Leads] SET [Status] = N'New' WHERE [Status] = N'Contacted'
+-- đúng 1 lệnh
+```
+
+**Chi phí của bản nạp-sửa-lưu nằm ở đâu:**
+
+```text
+1. SELECT 2.500 dòng, truyền qua kết nối
+2. Dựng 2.500 object Lead
+3. Tạo 2.500 EntityEntry + 2.500 bản sao OriginalValues     <- tốn nhất
+4. DetectChanges so sánh 2.500 × số thuộc tính
+5. Sinh và gửi hàng trăm lệnh UPDATE
+```
+
+`ExecuteUpdate` bỏ hết năm bước và gửi một câu lệnh.
+
+**Ba thứ `ExecuteUpdate` bỏ qua:**
+
+**1. Change tracker — nên entity đang được theo dõi trở nên cũ.** Đây là thứ nguy hiểm nhất vì nó im lặng:
+
+```csharp
+var lead = await _db.Leads.FirstAsync(l => l.Id == 1, ct);   // Status = "New"
+
+await _db.Leads.Where(l => l.Id == 1)
+    .ExecuteUpdateAsync(s => s.SetProperty(l => l.Status, "Won"), ct);
+
+Console.WriteLine(lead.Status);      // "New" — database đã là "Won"
+
+lead.Value = 999;
+await _db.SaveChangesAsync(ct);      // UPDATE ... SET Value = 999, Status = 'New'
+                                     // GHI ĐÈ NGƯỢC thay đổi vừa rồi
+```
+
+Là vấn đề khi `ExecuteUpdate` và code đọc-sửa-lưu dùng **cùng một `DbContext` scope**, tức trong cùng một request. Phòng bằng cách gọi `ExecuteUpdate` ở đầu, hoặc `_db.ChangeTracker.Clear()` ngay sau nó.
+
+**2. Interceptor, override `SaveChanges`, và mọi thứ móc vào đó** — audit, soft delete, outbox:
+
+```csharp
+await _db.Leads.Where(l => l.Status == "Stale")
+    .ExecuteUpdateAsync(s => s.SetProperty(l => l.Status, "Archived"), ct);
+// UpdatedUtc, UpdatedBy: KHÔNG được đặt
+```
+
+Là vấn đề với mọi entity `IAuditable`. Ba cách xử lý đã nêu ở [bài 13.2](13.2-dbcontext-and-entity-configuration.mdx); cách đơn giản nhất là đặt tay ngay trong lệnh:
+
+```csharp
+.ExecuteUpdateAsync(s => s
+    .SetProperty(l => l.Status,     "Archived")
+    .SetProperty(l => l.UpdatedUtc, _clock.GetUtcNow().UtcDateTime)
+    .SetProperty(l => l.UpdatedBy,  _currentUser.Id), ct);
+```
+
+**3. Kiểm tra concurrency (`RowVersion`)** — và đây là thứ ít người biết nhất:
+
+```csharp
+// Đọc-sửa-lưu: UPDATE ... WHERE Id = @p AND RowVersion = @rv
+//              -> 0 dòng bị ảnh hưởng -> DbUpdateConcurrencyException
+await _db.SaveChangesAsync(ct);
+
+// ExecuteUpdate: UPDATE ... WHERE Status = 'New'
+//                -> không có điều kiện RowVersion, ghi đè mọi thứ
+await _db.Leads.Where(...).ExecuteUpdateAsync(...);
+```
+
+Là vấn đề khi entity có concurrency token và nhiều người cùng sửa. `ExecuteUpdate` không ném `DbUpdateConcurrencyException` bao giờ — nó không có gì để so sánh, vì nó không đọc giá trị cũ.
+
+**Nghịch lý hữu ích:** chính vì bỏ qua kiểm tra concurrency mà `ExecuteUpdate` lại là cách **an toàn nhất** cho cập nhật nguyên tử, khi bạn đưa điều kiện vào `Where`:
+
+```csharp
+var thanhCong = await _db.Products
+    .Where(p => p.Id == id && p.Stock >= soLuong)          // điều kiện trong WHERE
+    .ExecuteUpdateAsync(s => s.SetProperty(p => p.Stock, p => p.Stock - soLuong), ct);
+
+if (thanhCong == 0) throw new KhongDuHangException();
+```
+
+Database tự kiểm tra và trừ trong **một câu lệnh nguyên tử**. Không có khe hở giữa đọc và ghi, nên không cần concurrency token. Xem [bài 13.8](13.8-concurrency-control.mdx).
+
+**Bảng chọn:**
+
+| Tình huống | Dùng |
+|---|---|
+| Cập nhật nhiều dòng theo điều kiện, giá trị giống nhau | `ExecuteUpdate` |
+| Cập nhật nguyên tử có điều kiện (trừ kho, trừ số dư) | `ExecuteUpdate` |
+| Mỗi dòng một giá trị khác nhau | Nạp-sửa-lưu |
+| Cần audit, domain event, outbox | Nạp-sửa-lưu, hoặc `ExecuteUpdate` + đặt tay |
+| Cần phát hiện xung đột concurrency | Nạp-sửa-lưu |
+| Logic nghiệp vụ phức tạp trên từng entity | Nạp-sửa-lưu |
+
+</details>
+
+---
+
+#### Bài 2 — Interceptor bị bỏ qua
+
+Thêm audit interceptor đặt `UpdatedBy`, rồi chạy `ExecuteUpdateAsync` và xác nhận cột đó **không** được đặt.
+
+**Tiêu chí hoàn thành:** bạn nêu được vì sao đây là thiết kế **có chủ ý** của EF Core chứ không phải thiếu sót, và chọn được cách phòng phù hợp với dự án.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Interceptor móc vào đâu? `ExecuteUpdate` có đi qua chỗ đó không?
+
+**Lời giải:**
+
+```csharp
+public class AuditInterceptor : SaveChangesInterceptor
+{
+    public override ValueTask<InterceptionResult<int>> SavingChangesAsync(
+        DbContextEventData e, InterceptionResult<int> r, CancellationToken ct = default)
+    {
+        foreach (var entry in e.Context!.ChangeTracker.Entries<IAuditable>()
+                                        .Where(x => x.State == EntityState.Modified))
+        {
+            entry.Entity.UpdatedUtc = DateTime.UtcNow;
+            entry.Entity.UpdatedBy  = "user-42";
+        }
+        return base.SavingChangesAsync(e, r, ct);
+    }
+}
+```
+
+```csharp
+// Đường A — qua SaveChanges
+var lead = await _db.Leads.FirstAsync(l => l.Id == 1, ct);
+lead.Status = "Won";
+await _db.SaveChangesAsync(ct);
+
+// Đường B — ExecuteUpdate
+await _db.Leads.Where(l => l.Id == 2)
+    .ExecuteUpdateAsync(s => s.SetProperty(l => l.Status, "Won"), ct);
+```
+
+```sql
+SELECT Id, Status, UpdatedUtc, UpdatedBy FROM Leads WHERE Id IN (1, 2);
+```
+
+```text
+Id   Status   UpdatedUtc                UpdatedBy
+1    Won      2026-09-25 08:14:22.123   user-42
+2    Won      NULL                      NULL
+```
+
+**Vì sao đây là thiết kế có chủ ý.** `SaveChangesInterceptor` móc vào phương thức `SaveChanges`, và mọi thứ nó làm đều dựa trên `ChangeTracker.Entries()` — nó cần **entity trong bộ nhớ** để đặt thuộc tính.
+
+`ExecuteUpdateAsync` **không đi qua `SaveChanges`** và **không nạp entity nào**. Nó dịch `IQueryable` thành một câu `UPDATE` và gửi thẳng xuống database.
+
+```text
+SaveChanges:     entity -> ChangeTracker -> interceptor -> sinh SQL -> gửi
+ExecuteUpdate:   IQueryable -> sinh SQL -> gửi
+                              ^^^^^^^^^ không có entity, không có tracker,
+                                        nên không có chỗ nào để interceptor chen vào
+```
+
+Đây chính là **lý do tồn tại** của `ExecuteUpdate`. Nếu nó phải nạp entity để chạy interceptor, nó sẽ mất toàn bộ lợi thế — và lợi thế đó đo được là 14 lần ở bài 1. Không thể có cả hai: hoặc bạn nạp entity và trả giá, hoặc bạn không nạp và mất những gì cần entity.
+
+Có một interceptor **có** bắt được `ExecuteUpdate`, nhưng ở tầng thấp hơn:
+
+```csharp
+public class SqlLoggingInterceptor : DbCommandInterceptor
+{
+    public override ValueTask<InterceptionResult<int>> NonQueryExecutingAsync(
+        DbCommand command, CommandEventData e, InterceptionResult<int> r, CancellationToken ct = default)
+    {
+        _logger.LogInformation("SQL: {Sql}", command.CommandText);
+        return base.NonQueryExecutingAsync(command, e, r, ct);
+    }
+}
+```
+
+`DbCommandInterceptor` thấy **mọi** câu lệnh, kể cả của `ExecuteUpdate`. Nhưng ở tầng đó bạn chỉ có chuỗi SQL, không có entity — nên nó dùng được để **log** và **đo**, không dùng được để **điền giá trị**.
+
+Đây là sự đánh đổi thật, không phải thiếu sót:
+
+| | Thấy entity | Thấy `ExecuteUpdate` |
+|---|---|---|
+| `SaveChangesInterceptor` | Có | Không |
+| `DbCommandInterceptor` | Không | Có |
+
+**Chọn cách phòng theo đặc điểm dự án:**
+
+**Dự án nhỏ, ít chỗ gọi `ExecuteUpdate` (dưới 10) — đặt tay:**
+
+```csharp
+await _db.Leads.Where(l => l.Status == "Stale")
+    .ExecuteUpdateAsync(s => s
+        .SetProperty(l => l.Status,     "Archived")
+        .SetProperty(l => l.UpdatedUtc, _clock.GetUtcNow().UtcDateTime)
+        .SetProperty(l => l.UpdatedBy,  _currentUser.Id), ct);
+```
+
+Rõ ràng, không có ma thuật, người đọc thấy ngay audit được đặt ở đâu. Nhược điểm: phải nhớ, và sẽ có lúc quên.
+
+**Dự án vừa — extension method bắt buộc truyền audit:**
+
+```csharp
+public static Task<int> ExecuteUpdateWithAuditAsync<T>(
+    this IQueryable<T> query,
+    Expression<Func<SetPropertyCalls<T>, SetPropertyCalls<T>>> setters,
+    IAuditContext audit, CancellationToken ct) where T : class, IAuditable
+    => query.ExecuteUpdateAsync(
+           s => setters.Compile()(s)
+                 .SetProperty(e => e.UpdatedUtc, audit.Now)
+                 .SetProperty(e => e.UpdatedBy,  audit.UserId), ct);
+```
+
+Kèm một quy tắc analyzer cấm gọi `ExecuteUpdateAsync` trần trên entity `IAuditable`. Không thể quên, và chi phí dựng chỉ là một file.
+
+**Dự án có nhiều đường ghi ngoài ứng dụng — trigger trong database:**
+
+```sql
+CREATE TRIGGER TR_Leads_Audit ON Leads AFTER UPDATE AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE l SET UpdatedUtc = SYSUTCDATETIME()
+    FROM Leads l INNER JOIN inserted i ON l.Id = i.Id;
+END;
+```
+
+Bắt được **mọi** đường: `ExecuteUpdate`, `SaveChanges`, script chạy tay trong SSMS, job của hệ thống khác. Đây là cách duy nhất phủ hết khi database không chỉ có ứng dụng của bạn ghi vào.
+
+Đổi lại: logic nằm ngoài code, không thấy khi đọc C#, khó test, và trigger còn có thể làm hỏng `ExecuteUpdate` nếu nó trả về số dòng khác mong đợi. Và trigger **không biết** ai đang thực hiện, nên nó điền được `UpdatedUtc` chứ không điền được `UpdatedBy` — trừ khi bạn truyền `SESSION_CONTEXT` xuống, và lúc đó độ phức tạp tăng đáng kể.
+
+**Và bất kể chọn cách nào, một test chặn:**
+
+```csharp
+[Fact]
+public async Task ExecuteUpdate_phai_dat_thong_tin_audit()
+{
+    await _service.LuuTruLeadCuAsync(ct);
+
+    var leads = await _db.Leads.Where(l => l.Status == "Archived")
+                               .AsNoTracking().ToListAsync(ct);
+    leads.Should().OnlyContain(l => l.UpdatedUtc != null && l.UpdatedBy != null);
+}
+```
+
+Viết một test như vậy cho mỗi thao tác hàng loạt. Nó rẻ, và nó bắt được đúng lúc ai đó thêm một `ExecuteUpdate` mới mà quên hai dòng `SetProperty`.
+
+</details>
+
+---
+
+#### Bài 3 — Đường cong của `DetectChanges`
+
+Chèn 1.000, 5.000 và 20.000 entity bằng `SaveChanges`, đo thời gian mỗi lần. Tắt `AutoDetectChangesEnabled` và đo lại — so sánh đường cong.
+
+**Tiêu chí hoàn thành:** bạn xác định được **điều kiện thật sự** làm chi phí trở thành bình phương, và chỉ ra cách sửa hiệu quả hơn hẳn việc tắt `AutoDetectChangesEnabled`.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** `DetectChanges` quét **mọi** entity đang được theo dõi. Câu hỏi là: nó được gọi bao nhiêu lần?
+
+**Lời giải — đo thật, trên .NET 9.0.203, EF Core 9.0.0, SQLite. Hai kịch bản:**
+
+```csharp
+// A — Add trong vòng lặp, SaveChanges MỘT lần ở cuối
+for (var i = 1; i <= n; i++) db.Leads.Add(new Lead { ... });
+db.SaveChanges();
+
+// B — SaveChanges BÊN TRONG vòng lặp
+for (var i = 1; i <= n; i++) { db.Leads.Add(new Lead { ... }); db.SaveChanges(); }
+```
+
+```text
+--- A. Add trong vòng lặp, rồi SaveChanges một lần ---
+A n=  2000 auto=bật       380 ms
+A n=  2000 auto=tắt       278 ms
+A n=  8000 auto=bật       861 ms
+A n=  8000 auto=tắt       593 ms
+A n= 32000 auto=bật      1616 ms
+A n= 32000 auto=tắt      1584 ms
+
+--- B. SaveChanges bên trong vòng lặp ---
+B n=   500 auto=bật       613 ms
+B n=   500 auto=tắt       494 ms
+B n=  1000 auto=bật      1338 ms
+B n=  1000 auto=tắt       933 ms
+B n=  2000 auto=bật      3140 ms
+B n=  2000 auto=tắt      1756 ms
+B n=  4000 auto=bật      8813 ms
+B n=  4000 auto=tắt      4013 ms
+```
+
+**Đọc hai đường cong:**
+
+**Kịch bản A là tuyến tính, và tắt `AutoDetectChangesEnabled` gần như không giúp gì.** Dữ liệu gấp 4 lần (8.000 → 32.000) chỉ tốn thêm chưa tới 2 lần thời gian. Ở n = 32.000, bật và tắt chênh nhau 2% — trong khoảng nhiễu đo.
+
+**Kịch bản B là bình phương khi `auto` bật.** Nhân đôi n thì thời gian tăng hơn gấp đôi, và tỉ lệ đó **tăng dần**:
+
+```text
+n:  500 -> 1000    613 -> 1338 ms    x2,18
+n: 1000 -> 2000   1338 -> 3140 ms    x2,35
+n: 2000 -> 4000   3140 -> 8813 ms    x2,81
+```
+
+Với `auto` tắt, các tỉ lệ là 1,89 / 1,88 / 2,29 — gần tuyến tính hơn hẳn.
+
+**Điều kiện thật sự làm chi phí trở thành bình phương** không phải "`AutoDetectChangesEnabled` bật", mà là:
+
+> **`DetectChanges` được gọi N lần, trong khi số entity đang được theo dõi tăng dần tới N.**
+
+```text
+SaveChanges lần 1:   quét    1 entity
+SaveChanges lần 2:   quét    2 entity
+SaveChanges lần 3:   quét    3 entity
+...
+SaveChanges lần N:   quét    N entity
+                     ------------------
+Tổng:                N(N+1)/2 = O(N²)
+```
+
+Ở kịch bản A, `DetectChanges` chỉ chạy **một lần** trên N entity — chi phí O(N). Không có gì để bình phương.
+
+**Và đây là điểm mà lời khuyên phổ biến đã cũ.** Câu "tắt `AutoDetectChangesEnabled` để chèn hàng loạt nhanh hơn" có từ thời EF6 và EF Core đời đầu, khi `DbSet.Add` gọi một lượt `DetectChanges` đầy đủ trên toàn bộ tracker. EF Core hiện tại **không làm vậy nữa**: `Add` chỉ duyệt đồ thị của entity vừa thêm. Đó là lý do kịch bản A tuyến tính, và là lý do phép đo không cho thấy cải thiện đáng kể.
+
+**Cách sửa hiệu quả hơn hẳn — đưa `SaveChanges` ra khỏi vòng lặp.** So sánh trực tiếp ở cùng n = 4.000:
+
+| Cách | Thời gian | So với B/bật |
+|---|---:|---:|
+| B — `SaveChanges` trong vòng lặp, `auto` bật | 9.251 ms | — |
+| B — `SaveChanges` trong vòng lặp, `auto` tắt | 4.143 ms | nhanh 2,2× |
+| A — `SaveChanges` một lần, `auto` bật | **606 ms** | **nhanh 15,3×** |
+| A — `SaveChanges` một lần, `auto` tắt | 454 ms | nhanh 20,4× |
+
+**Tắt `AutoDetectChangesEnabled` cho 2,2 lần; sửa cấu trúc vòng lặp cho 15,3 lần.** Và cách thứ hai còn đúng đắn hơn về mặt nghiệp vụ: một `SaveChanges` nghĩa là một transaction, tức 4.000 dòng được ghi **toàn bộ hoặc không dòng nào**. Với `SaveChanges` trong vòng lặp, lỗi ở dòng 2.500 để lại 2.499 dòng đã commit và không có cách nào quay lại.
+
+Nói cách khác: tắt `AutoDetectChangesEnabled` là **bù đắp cho một cấu trúc code sai**, còn đưa `SaveChanges` ra ngoài là **sửa cấu trúc đó**.
+
+**Với số lượng thật sự lớn, chia lô** — để transaction không quá dài và bộ nhớ không phình:
+
+```csharp
+const int KichThuocLo = 1_000;
+
+foreach (var lo in nguon.Chunk(KichThuocLo))
+{
+    await using var db = await _factory.CreateDbContextAsync(ct);
+    db.Leads.AddRange(lo);
+    await db.SaveChangesAsync(ct);
+}
+```
+
+Dựng `DbContext` mới cho mỗi lô là chi tiết then chốt: nếu dùng lại một context, tracker tích luỹ qua mọi lô và bạn quay về đúng bài toán bình phương — chỉ chậm hơn một chút.
+
+**Và với hàng trăm nghìn dòng trở lên, đừng dùng EF Core:**
+
+```csharp
+using var bulk = new SqlBulkCopy(connectionString)
+{
+    DestinationTableName = "Leads",
+    BatchSize = 5_000
+};
+await bulk.WriteToServerAsync(bang, ct);
+```
+
+`SqlBulkCopy` dùng giao thức nạp hàng loạt của SQL Server, nhanh hơn `SaveChanges` khoảng **một bậc độ lớn**. Thư viện `EFCore.BulkExtensions` bọc nó lại với API quen thuộc hơn, nhưng vẫn mang đúng những đánh đổi của `ExecuteUpdate` ở bài 1: không interceptor, không change tracker, không query filter.
+
+**Kết luận đáng mang theo:** trước khi áp dụng một mẹo tối ưu, hãy **đo lại trên phiên bản đang dùng**. Lời khuyên về `AutoDetectChangesEnabled` từng đúng và được lặp lại nhiều năm; trên EF Core 9 nó gần như không còn giá trị, trong khi vấn đề thật — `SaveChanges` đặt sai chỗ — vẫn nguyên đó và tốn gấp bảy lần.
+
+</details>
 
 ## Tự kiểm tra
 
@@ -291,7 +693,7 @@ Ba sai lầm khi đo:
     },
     {
       question: "Vì sao chèn hàng loạt bằng SaveChanges lại chậm?",
-      answer: "Một phần vì số lệnh, nhưng phần lớn là do DetectChanges chạy với độ phức tạp bình phương theo số entity được tracking. Với 10.000 entity thì đó là phần lớn thời gian chứ không phải bản thân lệnh INSERT; tắt AutoDetectChangesEnabled giúp rất nhiều."
+      answer: "Một phần vì số lệnh, nhưng phần lớn là do vị trí của SaveChanges. DetectChanges quét mọi entity đang được theo dõi: gọi một lần trên N entity là O(N), còn gọi SaveChanges trong vòng lặp khiến nó chạy N lần trên tracker lớn dần, thành O(N bình phương). Đo trên EF Core 9 với 4.000 dòng, đưa SaveChanges ra khỏi vòng lặp nhanh hơn 15 lần, trong khi tắt AutoDetectChangesEnabled chỉ nhanh hơn 2,2 lần."
     },
     {
       question: "Connection pooling khác DbContext pooling thế nào?",
