@@ -184,11 +184,361 @@ Mỗi giá trị mong đợi trong bảng này đã được **tính tay trướ
 
 ## Bài tập áp dụng
 
-1. **Đổi quy tắc.** Sửa hàm sang cách hiểu thứ hai (toàn bộ doanh số nhân tỷ lệ của bậc cao nhất) và so sánh kết quả với 600 triệu.
+#### Bài 1 — Đổi quy tắc
 
-2. **Thêm ràng buộc.** Thêm quy tắc "hoa hồng tối đa 100 triệu mỗi tháng" và viết test cho mốc đó.
+Sửa hàm sang cách hiểu thứ hai (toàn bộ doanh số nhân tỷ lệ của bậc cao nhất) và so sánh kết quả với 600 triệu.
 
-3. **Tìm chỗ mơ hồ.** Lấy một yêu cầu nghiệp vụ thật trong công việc của bạn và liệt kê mọi chỗ có thể hiểu theo hai cách.
+**Tiêu chí hoàn thành:** bạn có **hai hàm cùng chạy được** và một bảng so sánh, và chỉ ra được cách hiểu thứ hai tạo ra một vấn đề mà cách hiểu thứ nhất không có.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** So sánh không chỉ ở mốc 600 triệu. Hãy thử ngay dưới và ngay trên mỗi ngưỡng.
+
+**Lời giải — cách hiểu thứ hai:**
+
+```csharp
+public static decimal TinhHoaHongToanBo(decimal doanhSo, bool thuViec)
+{
+    if (doanhSo < 0)
+        throw new ArgumentException("Doanh số không được âm", nameof(doanhSo));
+
+    decimal tyLe = doanhSo switch
+    {
+        < 100_000_000m => 0.02m,
+        <= 500_000_000m => 0.05m,
+        _ => 0.08m,
+    };
+
+    var hoaHong = doanhSo * tyLe;
+    return thuViec ? hoaHong * 0.5m : hoaHong;
+}
+```
+
+**Bảng so sánh hai cách hiểu:**
+
+| Doanh số | Luỹ tiến (cách 1) | Toàn bộ (cách 2) | Chênh lệch |
+|---:|---:|---:|---:|
+| 80 triệu | 1,6 triệu | 1,6 triệu | 0 |
+| 99 triệu | 1,98 triệu | 1,98 triệu | 0 |
+| **100 triệu** | **2,0 triệu** | **5,0 triệu** | **+3,0 triệu** |
+| 300 triệu | 12,0 triệu | 15,0 triệu | +3,0 triệu |
+| **500 triệu** | **22,0 triệu** | **25,0 triệu** | **+3,0 triệu** |
+| **501 triệu** | **22,08 triệu** | **40,08 triệu** | **+18,0 triệu** |
+| 600 triệu | 30,0 triệu | 48,0 triệu | +18,0 triệu |
+
+**Và đây là vấn đề mà cách hiểu thứ hai tạo ra — nhìn hai hàng liền nhau:**
+
+```text
+Doanh số 500 triệu -> hoa hồng 25,0 triệu
+Doanh số 501 triệu -> hoa hồng 40,08 triệu
+
+Bán thêm 1 TRIỆU -> hoa hồng tăng 15,08 TRIỆU
+```
+
+```text
+Và chiều ngược lại còn tệ hơn:
+    99.999.999 đồng -> hoa hồng 1.999.999 đồng
+   100.000.000 đồng -> hoa hồng 5.000.000 đồng
+
+Chênh 1 ĐỒNG doanh số -> chênh 3 TRIỆU hoa hồng
+```
+
+**Đây gọi là "vách đá" ở ngưỡng, và nó gây ra ba hậu quả thật:**
+
+**1. Nhân viên có động cơ thao túng con số.**
+
+```text
+Cuối tháng đang ở 498 triệu -> cố ép thêm một đơn nhỏ bằng mọi giá
+-> kể cả giảm giá sâu, vì 2 triệu doanh số đổi lấy 15 triệu hoa hồng
+-> công ty LỖ vì chính chính sách của mình
+```
+
+**2. Nó không công bằng theo cách khó giải thích.**
+
+```text
+Hai nhân viên: một người 499 triệu, một người 501 triệu
+-> chênh 0,4% doanh số
+-> chênh 82% hoa hồng
+```
+
+**3. Và nó làm mọi tranh chấp về số liệu trở nên gay gắt.**
+
+```text
+Với cách luỹ tiến: một đơn hàng bị tính nhầm -> lệch vài trăm nghìn
+Với cách toàn bộ:  cùng đơn đó, nếu nó đẩy qua ngưỡng -> lệch hàng chục triệu
+```
+
+**Cách hiểu thứ nhất không có vấn đề này:**
+
+```csharp
+499 triệu -> 21,95 triệu
+500 triệu -> 22,00 triệu
+501 triệu -> 22,08 triệu
+```
+
+```text
+Hàm LIÊN TỤC: doanh số tăng một chút thì hoa hồng tăng một chút.
+Không có chỗ nào nhảy vọt.
+```
+
+Đây chính là lý do gần như mọi hệ thống thuế và hoa hồng trong thực tế dùng cách luỹ tiến — không phải vì nó dễ tính hơn, mà vì nó **không tạo ra vách đá**.
+
+**Và một mẹo kiểm chứng nhanh, dùng được cho mọi hàm có ngưỡng:**
+
+```csharp
+[Theory]
+[InlineData(100_000_000)]
+[InlineData(500_000_000)]
+public void Khong_co_buoc_nhay_tai_nguong(decimal moc)
+{
+    var duoi = TinhHoaHong(moc - 1, false);
+    var tai  = TinhHoaHong(moc, false);
+    var tren = TinhHoaHong(moc + 1, false);
+
+    (tai - duoi).Should().BeLessThan(1_000,
+        "chênh 1 đồng doanh số không được làm hoa hồng nhảy vọt");
+    (tren - tai).Should().BeLessThan(1_000);
+}
+```
+
+Test này chạy với hàm luỹ tiến thì xanh, với hàm "toàn bộ theo bậc" thì đỏ — và nó biến một tính chất của nghiệp vụ thành một thứ kiểm chứng tự động được.
+
+</details>
+
+---
+
+#### Bài 2 — Thêm ràng buộc
+
+Thêm quy tắc "hoa hồng tối đa 100 triệu mỗi tháng" và viết test cho mốc đó.
+
+**Tiêu chí hoàn thành:** bạn xác định được **thứ tự áp dụng** giữa trần và hệ số thử việc, và giải thích được vì sao thứ tự đó phải hỏi lại thay vì tự quyết.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Với nhân viên thử việc, "trần 100 triệu" nghĩa là gì? Trần trước khi chia đôi, hay sau?
+
+**Lời giải — hai cách, hai kết quả khác nhau:**
+
+```csharp
+// Cách A: trần TRƯỚC, rồi mới chia đôi
+public static decimal TinhHoaHongA(decimal doanhSo, bool thuViec)
+{
+    var hoaHong = TinhLuyTien(doanhSo);
+    hoaHong = Math.Min(hoaHong, TranMoiThang);        // trần 100 triệu
+    return thuViec ? hoaHong * 0.5m : hoaHong;        // rồi chia đôi
+}
+
+// Cách B: chia đôi TRƯỚC, rồi mới áp trần
+public static decimal TinhHoaHongB(decimal doanhSo, bool thuViec)
+{
+    var hoaHong = TinhLuyTien(doanhSo);
+    if (thuViec) hoaHong *= 0.5m;                      // chia đôi trước
+    return Math.Min(hoaHong, TranMoiThang);            // rồi trần 100 triệu
+}
+```
+
+**Với nhân viên chính thức, hai cách giống hệt nhau. Với thử việc thì không:**
+
+| Doanh số | Hoa hồng thô | Cách A (trần trước) | Cách B (chia trước) |
+|---:|---:|---:|---:|
+| 1 tỷ | 62 triệu | 31 triệu | 31 triệu |
+| 2 tỷ | 142 triệu | **50 triệu** | **71 triệu** |
+| 5 tỷ | 382 triệu | **50 triệu** | **100 triệu** |
+
+```text
+Cách A: trần thực tế cho nhân viên thử việc là 50 TRIỆU
+Cách B: trần thực tế cho nhân viên thử việc là 100 TRIỆU
+
+Chênh nhau tới 50 triệu cho một người.
+```
+
+**Vì sao phải hỏi lại thay vì tự quyết:**
+
+```text
+Câu chữ "hoa hồng tối đa 100 triệu mỗi tháng" KHÔNG nói rõ áp cho
+số nào — số trước hay sau khi giảm cho thử việc.
+
+Cả hai cách đều đọc xuôi tai. Cả hai đều có lập luận hợp lý:
+    A: "trần là trần của chính sách hoa hồng, áp cho mọi người như nhau"
+    B: "trần là trần của SỐ TIỀN NHẬN, nên áp lên con số cuối cùng"
+
+Chọn bừa -> 50% khả năng sai -> và sai ở đây là sai tiền lương.
+```
+
+Đây đúng là bài học của mục 1.10.1: **chỗ mơ hồ phải hỏi trước khi viết dòng code nào.** Bài tập này chỉ thêm một chỗ mơ hồ nữa vào cùng một yêu cầu.
+
+**Giả sử câu trả lời là cách A. Test cho mốc đó:**
+
+```csharp
+public class HoaHongTests
+{
+    private const decimal Tran = 100_000_000m;
+
+    [Fact]
+    public void Chinh_thuc_khong_vuot_tran()
+        => TinhHoaHong(5_000_000_000m, thuViec: false).Should().Be(Tran);
+
+    [Fact]
+    public void Thu_viec_bi_tran_TRUOC_khi_chia_doi()
+        => TinhHoaHong(5_000_000_000m, thuViec: true).Should().Be(Tran * 0.5m);
+
+    [Theory]
+    [InlineData(1_000_000_000)]     // hoa hồng 62 triệu — chưa chạm trần
+    [InlineData(1_800_000_000)]     // hoa hồng 126 triệu — vượt trần
+    public void Khong_bao_gio_vuot_tran(decimal doanhSo)
+    {
+        TinhHoaHong(doanhSo, false).Should().BeLessThanOrEqualTo(Tran);
+        TinhHoaHong(doanhSo, true).Should().BeLessThanOrEqualTo(Tran);
+    }
+
+    [Fact]
+    public void Tim_dung_diem_cham_tran()
+    {
+        // Doanh số nào làm hoa hồng đúng bằng 100 triệu?
+        // 100tr×2% + 400tr×5% + x×8% = 100tr  ->  x = 975 triệu
+        // => doanh số = 500 + 975 = 1.475 triệu
+        TinhHoaHong(1_475_000_000m, false).Should().Be(Tran);
+        TinhHoaHong(1_474_000_000m, false).Should().BeLessThan(Tran);
+        TinhHoaHong(1_476_000_000m, false).Should().Be(Tran);
+    }
+}
+```
+
+**Test cuối là test đáng giá nhất, vì nó buộc bạn tính ra điểm chạm trần:**
+
+```text
+Không tính ra được điểm đó -> bạn chưa thật sự hiểu hàm mình viết
+Tính ra được -> bạn có một mốc kiểm tra chính xác, không phải "một số lớn"
+```
+
+Và nó bắt được một lỗi tinh vi: nếu ai đó đổi tỷ lệ bậc 3 từ 8% sang 10%, điểm chạm trần dịch từ 1.475 sang 1.280 triệu — test `1_474` sẽ đỏ, buộc người sửa phải nhìn lại con số.
+
+**Và một câu hỏi nữa mà ràng buộc mới làm lộ ra:**
+
+```text
+"Tối đa 100 triệu MỖI THÁNG"
+
+-> hàm hiện tại không biết gì về tháng. Nó nhận một con số doanh số.
+-> nếu một nhân viên có nhiều lần tính trong tháng thì sao?
+-> trần áp cho từng lần, hay cho tổng cả tháng?
+```
+
+Câu này không trả lời được bằng cách sửa hàm — nó đòi hỏi biết **hàm được gọi như thế nào**. Và đó là một dấu hiệu tốt: một ràng buộc mới thường kéo theo một câu hỏi về ngữ cảnh rộng hơn, không chỉ về công thức.
+
+</details>
+
+---
+
+#### Bài 3 — Tìm chỗ mơ hồ
+
+Lấy một yêu cầu nghiệp vụ thật trong công việc của bạn và liệt kê mọi chỗ có thể hiểu theo hai cách.
+
+**Tiêu chí hoàn thành:** bạn có danh sách kèm **hậu quả bằng số** cho mỗi chỗ mơ hồ, và xếp hạng chúng theo mức độ nghiêm trọng.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Với mỗi chỗ mơ hồ, hãy tính ra hai kết quả bằng một ví dụ cụ thể. Con số chênh lệch cho biết nó có đáng hỏi không.
+
+**Lời giải — sáu loại từ ngữ hay gây mơ hồ:**
+
+| Loại | Ví dụ | Hai cách hiểu |
+|---|---|---|
+| Khoảng | "từ 100 đến 500" | Có bao gồm hai đầu không? |
+| Thời gian | "trong 30 ngày" | 30 ngày làm việc hay 30 ngày lịch? Tính từ lúc nào? |
+| Phủ định | "khách chưa mua hàng" | Chưa bao giờ, hay chưa mua trong kỳ này? |
+| Liên từ | "khách VIP và ở Hà Nội" | Cả hai điều kiện, hay một trong hai? |
+| Mặc định | "nếu không chọn thì lấy mặc định" | Mặc định là gì, và ai đặt? |
+| Làm tròn | "chia đều cho 3 người" | Phần lẻ về ai? |
+
+**Ví dụ áp dụng cho một yêu cầu thật:**
+
+> "Gửi email nhắc cho khách hàng chưa phản hồi sau 3 ngày. Không gửi vào cuối tuần. Mỗi khách tối đa 3 lần nhắc."
+
+```markdown
+## Chỗ mơ hồ — tính năng nhắc khách hàng
+
+| # | Chỗ mơ hồ | Cách 1 | Cách 2 | Hậu quả nếu chọn sai |
+|---|---|---|---|---|
+| 1 | "sau 3 ngày" tính từ đâu? | Từ lúc tạo lead | Từ lần liên hệ cuối | Lệch vài ngày, khách nhận nhắc quá sớm hoặc quá muộn |
+| 2 | "3 ngày" là ngày gì? | Ngày lịch | Ngày làm việc | Lead tạo thứ năm: nhắc chủ nhật hay thứ ba — lệch 2 ngày |
+| 3 | "chưa phản hồi" nghĩa là gì? | Không có email trả lời | Không có bất kỳ hoạt động nào | Khách đã gọi điện vẫn bị nhắc — gây khó chịu |
+| 4 | "không gửi cuối tuần" | Hoãn sang thứ hai | Bỏ qua lượt đó | Bỏ qua = khách không bao giờ được nhắc nếu rơi vào T7 |
+| 5 | "tối đa 3 lần" tính theo gì? | Mỗi lead 3 lần | Mỗi khách 3 lần | Khách có 5 lead: 15 email hay 3 email |
+| 6 | Múi giờ nào? | Giờ máy chủ (UTC) | Giờ Việt Nam | Email gửi lúc 7 giờ sáng hay 2 giờ chiều |
+
+### Xếp hạng theo mức độ nghiêm trọng
+
+**Nghiêm trọng — hỏi trước khi viết code:**
+- #5: chênh **5 lần** số email. Khách có 5 lead nhận 15 email trong một tuần
+  -> nhiều khả năng bị báo cáo là spam, ảnh hưởng uy tín tên miền gửi
+- #3: gửi nhắc cho khách vừa gọi điện hôm qua -> khách khó chịu, và
+  nhân viên bán hàng mất uy tín với khách của mình
+
+**Trung bình — nêu giả định, xác nhận sau:**
+- #2: lệch tối đa 2 ngày
+- #4: ảnh hưởng khoảng 2/7 số lead
+
+**Nhẹ — chọn mặc định hợp lý và ghi lại:**
+- #1: giả định "từ lần liên hệ cuối"
+- #6: giả định giờ Việt Nam, gửi trong giờ hành chính
+```
+
+**Ba điều làm danh sách này hữu ích, thay vì thành một danh sách dài vô ích:**
+
+**1. Mỗi chỗ mơ hồ có HẬU QUẢ BẰNG SỐ, không chỉ mô tả.**
+
+```text
+Kém: "#5 có thể hiểu theo hai cách"
+Tốt: "#5 chênh 5 lần số email — khách 5 lead nhận 15 thay vì 3"
+```
+
+Con số quyết định người đọc có coi trọng câu hỏi hay không.
+
+**2. Có xếp hạng, nên người trả lời biết phải ưu tiên gì.**
+
+```text
+Gửi 6 câu hỏi ngang hàng -> người nhận trả lời qua loa, hoặc không trả lời
+Gửi 2 câu "chặn" + 4 câu "đã giả định" -> dễ trả lời, và thường được trả lời ngay
+```
+
+**3. Chỗ nhẹ được ghi là GIẢ ĐỊNH, không phải câu hỏi.**
+
+```text
+"Tôi giả định tính từ lần liên hệ cuối, giờ Việt Nam. Nếu khác, cho tôi biết."
+
+-> không chặn việc làm
+-> nhưng vẫn ghi lại, nên sáu tháng sau không ai phải đoán vì sao code như vậy
+```
+
+**Cách kiểm chứng rẻ nhất: viết ba ví dụ cụ thể và hỏi "kết quả đúng là gì?"**
+
+```text
+Thay vì hỏi: "3 ngày là ngày làm việc hay ngày lịch?"
+
+Hãy hỏi:     "Lead tạo lúc 16:00 thứ Năm, khách không phản hồi.
+              Email nhắc gửi lúc nào?
+                 a) Chủ nhật 16:00
+                 b) Thứ Hai 09:00
+                 c) Thứ Ba 09:00"
+```
+
+Người không quen nói chuyện kỹ thuật trả lời câu hỏi thứ hai dễ hơn nhiều — và câu trả lời của họ xác định luôn cả #2 lẫn #4 trong một lần.
+
+**Và một dấu hiệu cho biết bạn đã liệt kê đủ:**
+
+```text
+Viết được bộ test từ danh sách đó mà KHÔNG phải đoán thêm điều gì
+-> danh sách đã đủ
+
+Còn phải đoán -> vẫn còn chỗ mơ hồ chưa liệt kê
+```
+
+Đây là cùng một ý tưởng với bảng quyết định ở mục 1.10.2: viết quy tắc ra dạng có cấu trúc **trước khi** viết code, vì cấu trúc phơi bày chỗ thiếu rõ hơn văn xuôi.
+
+</details>
 
 ## Tự kiểm tra
 
