@@ -323,11 +323,685 @@ Kiến trúc là **đầu tư**, và như mọi đầu tư, nó có thể lỗ k
 
 ## Bài tập áp dụng
 
-1. **Phát hiện Anemic Domain Model.** Mở một entity bất kỳ trong dự án của bạn và đếm số phương thức nghiệp vụ. Nếu bằng 0, tìm quy tắc liên quan tới entity đó đang nằm ở đâu và có bao nhiêu bản sao.
+#### Bài 1 — Phát hiện Anemic Domain Model
 
-2. **Kiến trúc test.** Thêm `NetArchTest.Rules` và viết test chặn Domain phụ thuộc `Microsoft.EntityFrameworkCore`. Chạy trên dự án thật và ghi lại số vi phạm.
+Mở một entity bất kỳ trong dự án của bạn và đếm số phương thức nghiệp vụ. Nếu bằng 0, tìm quy tắc liên quan tới entity đó đang nằm ở đâu và có bao nhiêu bản sao.
 
-3. **Gỡ God Service một bước.** Chọn một phương thức trong service lớn nhất, kéo ra thành handler riêng, để service cũ uỷ quyền. Đo số dependency của service sau khi gỡ.
+**Tiêu chí hoàn thành:** bạn phân biệt được anemic **do thiếu sót** với anemic **có chủ ý**, và biết gỡ theo thứ tự nào.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Không phải mọi entity đều cần phương thức. Câu hỏi là quy tắc đang ở đâu.
+
+**Lời giải — đếm tự động:**
+
+```csharp
+[Fact]
+public void Bao_cao_so_phuong_thuc_nghiep_vu_cua_tung_entity()
+{
+    var bangKe = typeof(Lead).Assembly.GetTypes()
+        .Where(t => t.IsSubclassOf(typeof(EntityBase)) && !t.IsAbstract)
+        .Select(t => new
+        {
+            Ten = t.Name,
+            SoPhuongThuc = t.GetMethods(BindingFlags.Public | BindingFlags.Instance
+                                      | BindingFlags.DeclaredOnly)
+                            .Count(m => !m.IsSpecialName),      // bỏ getter/setter
+            SoPublicSetter = t.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                              .Count(p => p.SetMethod is { IsPublic: true }),
+        })
+        .OrderBy(x => x.SoPhuongThuc)
+        .ToList();
+
+    foreach (var e in bangKe)
+        _output.WriteLine($"{e.Ten,-24} {e.SoPhuongThuc,3} phương thức, {e.SoPublicSetter,3} public setter");
+}
+```
+
+```text
+Lead                       0 phương thức,  12 public setter
+Order                      0 phương thức,   9 public setter
+Customer                   0 phương thức,  14 public setter
+Invoice                    1 phương thức,   8 public setter
+TinhThanh                  0 phương thức,   3 public setter
+AuditLog                   0 phương thức,   6 public setter
+```
+
+**Tìm quy tắc đang nằm ở đâu:**
+
+```bash
+grep -rn "\.Status\s*=\|\.Total\s*=\|\.ClosedUtc\s*=" --include="*.cs" src/ | grep -v "=="
+```
+
+```text
+src/Crm.Api/Controllers/LeadsController.cs:94,142
+src/Crm.Application/Services/LeadService.cs:211,348,402
+src/Crm.Infrastructure/Jobs/ImportLeadJob.cs:122
+src/Crm.Infrastructure/Consumers/LeadSyncConsumer.cs:71
+src/Crm.Api/Features/Leads/ChotLead.cs:38
+```
+
+```bash
+grep -rn "500_000_000" --include="*.cs" src/ | wc -l
+```
+
+```text
+7
+```
+
+Quy tắc chuyển trạng thái nằm ở **8 chỗ**; ngưỡng duyệt nằm ở **7 chỗ**.
+
+**Phân biệt anemic do thiếu sót với anemic có chủ ý:**
+
+| | Do thiếu sót | Có chủ ý |
+|---|---|---|
+| Quy tắc nghiệp vụ | **Có, nhưng nằm ở nơi khác** | **Không có quy tắc nào** |
+| Số bản sao của quy tắc | Nhiều, thường sai lệch | Không áp dụng |
+| Trạng thái không hợp lệ có tồn tại được không | **Có** | Không — vì không có khái niệm "không hợp lệ" |
+| Ví dụ | `Lead`, `Order`, `Invoice` | `TinhThanh`, `AuditLog`, bảng đọc |
+
+**Câu hỏi phân biệt:**
+
+> **"Có tổ hợp giá trị nào của entity này là KHÔNG HỢP LỆ về mặt nghiệp vụ không?"**
+
+```text
+Lead:      "Status = Won mà ClosedUtc = null" -> KHÔNG HỢP LỆ
+           -> anemic do thiếu sót -> cần gỡ
+
+TinhThanh: mọi tổ hợp (Id, Ten, Ma) đều hợp lệ
+           -> anemic có chủ ý -> để nguyên, thêm phương thức là chi phí thừa
+```
+
+Áp vào bảng ở trên:
+
+```text
+Lead      -> do thiếu sót, ưu tiên cao  (quy tắc ở 8 chỗ)
+Order     -> do thiếu sót, ưu tiên cao  (tổng tiền phải khớp các dòng)
+Customer  -> do thiếu sót, ưu tiên vừa
+Invoice   -> do thiếu sót, ưu tiên cao  (hoá đơn đã phát hành không sửa được)
+TinhThanh -> CÓ CHỦ Ý, để nguyên
+AuditLog  -> CÓ CHỦ Ý, để nguyên
+```
+
+**Thứ tự gỡ — bốn bước, mỗi bước commit được riêng:**
+
+**Bước 1 — thêm phương thức domain, GIỮ public setter.** Không có gì hỏng, không ai phải sửa gì:
+
+```csharp
+public class Lead
+{
+    public LeadStatus Status { get; set; }          // vẫn public
+    public DateTime? ClosedUtc { get; set; }
+
+    // MỚI — chưa ai gọi
+    public Result ChuyenSangWon(NguoiDung nguoiThucHien, DateTime bayGio)
+    {
+        if (Status is LeadStatus.Won or LeadStatus.Lost)
+            return Result.Loi($"Lead đã ở trạng thái cuối: {Status}");
+        if (AssignedTo is null)
+            return Result.Loi("Lead chưa được gán cho ai");
+        if (Value >= NguongCanDuyet && !nguoiThucHien.LaTruongPhong)
+            return Result.Loi($"Lead trên {NguongCanDuyet} cần trưởng phòng duyệt");
+
+        Status = LeadStatus.Won;
+        ClosedUtc = bayGio;
+        Raise(new LeadDaChot(Id, Value));
+        return Result.ThanhCong();
+    }
+}
+```
+
+**Bước 2 — chuyển từng nơi gọi sang dùng phương thức mới.** Mỗi nơi là một commit nhỏ, có thể review riêng:
+
+```csharp
+// Trước
+lead.Status = "Won";
+lead.ClosedUtc = DateTime.UtcNow;
+
+// Sau
+var kq = lead.ChuyenSangWon(nguoiDung, _clock.GetUtcNow().UtcDateTime);
+if (!kq.ThanhCong) return Results.BadRequest(kq.Loi);
+```
+
+Trong bước này bạn sẽ phát hiện những chỗ **không thể** chuyển — vì chúng đang cố tình làm điều mà quy tắc cấm. Mỗi chỗ như vậy là một cuộc trò chuyện với nghiệp vụ, không phải một vấn đề kỹ thuật.
+
+**Bước 3 — đổi sang `private set`.** Trình biên dịch chỉ ra mọi chỗ còn sót:
+
+```csharp
+public LeadStatus Status { get; private set; }
+public DateTime? ClosedUtc { get; private set; }
+```
+
+```bash
+dotnet build 2>&1 | grep -c CS0272
+```
+
+```text
+3
+```
+
+Ba chỗ còn sót mà bước 2 bỏ qua — thường là seeder, test, hoặc một đường code ít dùng.
+
+**Bước 4 — thêm ràng buộc database làm lớp cuối:**
+
+```sql
+ALTER TABLE Leads ADD CONSTRAINT CK_Leads_Won_ClosedUtc
+    CHECK (Status <> 'Won' OR ClosedUtc IS NOT NULL);
+```
+
+Phải dọn dữ liệu cũ trước, và con số dòng phải dọn cho bạn biết quy mô thiệt hại:
+
+```sql
+SELECT COUNT(*) FROM Leads WHERE Status = 'Won' AND ClosedUtc IS NULL;
+```
+
+```text
+1.284
+```
+
+**Vì sao thứ tự này quan trọng:** mỗi bước **không phá vỡ** code hiện có, nên bạn dừng lại được ở bất kỳ đâu mà không để lại trạng thái dở dang. Cách ngược lại — đổi `private set` trước — làm hỏng 8 chỗ cùng lúc và buộc bạn phải sửa hết trong một PR khổng lồ.
+
+**Đo tiến độ:**
+
+```markdown
+## Gỡ Anemic Domain Model
+
+| Entity | Phương thức | Public setter | Nơi gán trực tiếp | Trạng thái |
+|---|---:|---:|---:|---|
+| Lead | 0 → 4 | 12 → 0 | 8 → 0 | Xong |
+| Order | 0 → 3 | 9 → 1 | 6 → 2 | Đang làm |
+| Customer | 0 | 14 | 11 | Chưa |
+| Invoice | 1 | 8 | 4 | Chưa |
+```
+
+Cột "nơi gán trực tiếp" là cột quan trọng nhất — nó đo đúng thứ bạn đang cố loại bỏ.
+
+**Và một cảnh báo: đừng gỡ hết cùng lúc.** Với 40 entity, đây là công việc nhiều tháng. Chọn theo thứ tự:
+
+```text
+1. Entity có nhiều quy tắc nhất và nhiều bản sao nhất
+2. Entity mà bạn SẮP PHẢI SỬA cho một tính năng mới
+3. Phần còn lại, dần dần
+```
+
+Mục 2 đáng ưu tiên hơn vẻ ngoài: gỡ một entity ngay trước khi sửa nó nghĩa là bạn trả chi phí refactor một lần và thu lợi ích ngay lập tức — thay vì làm một dự án refactor riêng mà nghiệp vụ không thấy giá trị.
+
+</details>
+
+---
+
+#### Bài 2 — Kiến trúc test trên dự án thật
+
+Thêm `NetArchTest.Rules` và viết test chặn Domain phụ thuộc `Microsoft.EntityFrameworkCore`. Chạy trên dự án thật và ghi lại số vi phạm.
+
+**Tiêu chí hoàn thành:** bạn chạy được trên dự án thật, và có chiến lược xử lý khi số vi phạm lớn.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Test đỏ với 87 vi phạm thì bạn làm gì? Sửa hết, hay tắt test?
+
+**Lời giải:**
+
+```bash
+dotnet new xunit -o tests/Crm.ArchitectureTests
+dotnet add tests/Crm.ArchitectureTests package NetArchTest.Rules
+dotnet add tests/Crm.ArchitectureTests reference src/Crm.Domain src/Crm.Application src/Crm.Infrastructure
+```
+
+```csharp
+public class KienTrucTests
+{
+    private static readonly Assembly Domain = typeof(Lead).Assembly;
+
+    [Fact]
+    public void Domain_khong_duoc_phu_thuoc_EF_Core()
+    {
+        var kq = Types.InAssembly(Domain)
+            .ShouldNot().HaveDependencyOn("Microsoft.EntityFrameworkCore")
+            .GetResult();
+
+        kq.IsSuccessful.Should().BeTrue(
+            "Domain phụ thuộc EF Core ở {0} kiểu: {1}",
+            kq.FailingTypeNames?.Count() ?? 0,
+            string.Join(", ", kq.FailingTypeNames?.Take(10) ?? []));
+    }
+}
+```
+
+```text
+Xpect: Domain phụ thuộc EF Core ở 87 kiểu: Lead, Customer, Order, Invoice, ...
+```
+
+**87 vi phạm.** Đây là tình huống mà phần lớn người gặp khi chạy lần đầu trên một dự án đang chạy — và nó là khoảnh khắc quyết định xem kiến trúc test sẽ sống hay bị tắt.
+
+**Ba phản ứng, và chỉ một cái đúng:**
+
+```text
+1. Sửa hết 87 chỗ ngay      -> PR khổng lồ, rủi ro cao, nhóm phản đối
+2. Tắt test, để sau         -> "sau" không bao giờ đến
+3. Ratchet                  -> chặn hồi quy ngay, giảm dần  <- ĐÚNG
+```
+
+**Chiến lược ratchet:**
+
+```csharp
+public class KienTrucTests
+{
+    // Ngưỡng hiện tại — CHỈ ĐƯỢC GIẢM.
+    // Mỗi lần giảm, cập nhật con số này trong cùng PR.
+    private const int NguongViPhamEfCore = 87;
+
+    [Fact]
+    public void Domain_phu_thuoc_EF_Core_chi_duoc_giam()
+    {
+        var kq = Types.InAssembly(Domain)
+            .ShouldNot().HaveDependencyOn("Microsoft.EntityFrameworkCore")
+            .GetResult();
+
+        var soViPham = kq.FailingTypeNames?.Count() ?? 0;
+
+        soViPham.Should().BeLessThanOrEqualTo(NguongViPhamEfCore,
+            "số vi phạm tăng từ {0} lên {1}. Các kiểu vi phạm: {2}. " +
+            "Nếu bạn cần thêm phụ thuộc mới, hãy định nghĩa interface trong Domain.",
+            NguongViPhamEfCore, soViPham,
+            string.Join(", ", kq.FailingTypeNames ?? []));
+
+        // Nhắc cập nhật ngưỡng khi đã giảm được
+        if (soViPham < NguongViPhamEfCore)
+            _output.WriteLine(
+                $"Đã giảm còn {soViPham} vi phạm — hãy cập nhật NguongViPhamEfCore " +
+                $"từ {NguongViPhamEfCore} xuống {soViPham} trong PR này.");
+    }
+}
+```
+
+Bốn lợi ích của cách này:
+
+1. **Test xanh ngay hôm nay** — không ai phải sửa gì để merge.
+2. **Hồi quy bị chặn ngay lập tức** — thêm một vi phạm mới làm CI đỏ.
+3. **Tiến độ hiện rõ** — con số trong code, ai cũng thấy.
+4. **Không cần dự án refactor riêng** — giảm dần trong công việc hằng ngày.
+
+**Và quan trọng: thông điệp lỗi phải nói phải làm gì.** Người gặp test đỏ thường không phải người viết test, và họ đang vội.
+
+**Cách giảm 87 vi phạm — phân loại trước, sửa sau:**
+
+```csharp
+[Fact]
+public void Bao_cao_loai_vi_pham()
+{
+    var viPham = Domain.GetTypes()
+        .SelectMany(t => t.GetCustomAttributes(inherit: false)
+            .Select(a => (Kieu: t.Name, Attribute: a.GetType().Name)))
+        .Where(x => x.Attribute.StartsWith("Table") || x.Attribute.StartsWith("Column")
+                 || x.Attribute.StartsWith("Key")   || x.Attribute.StartsWith("Index"))
+        .GroupBy(x => x.Attribute)
+        .Select(g => $"{g.Key}: {g.Count()} chỗ")
+        .ToList();
+
+    foreach (var v in viPham) _output.WriteLine(v);
+}
+```
+
+```text
+TableAttribute:             38 chỗ
+ColumnAttribute:            24 chỗ
+KeyAttribute:               19 chỗ
+DatabaseGeneratedAttribute:  6 chỗ
+```
+
+Phân loại này cho thấy phần lớn vi phạm là **attribute ánh xạ**, không phải code gọi EF Core. Đó là tin tốt — chúng sửa được một cách cơ học:
+
+```csharp
+// Trước — trong Crm.Domain
+[Table("Leads")]
+public class Lead
+{
+    [Key] public int Id { get; set; }
+    [Column("lead_name", TypeName = "nvarchar(200)")] public string Name { get; set; } = null!;
+}
+```
+
+```csharp
+// Sau — Domain sạch
+public class Lead
+{
+    public int Id { get; private set; }
+    public string Name { get; private set; } = null!;
+}
+```
+
+```csharp
+// Crm.Infrastructure/Configurations/LeadConfiguration.cs
+public class LeadConfiguration : IEntityTypeConfiguration<Lead>
+{
+    public void Configure(EntityTypeBuilder<Lead> b)
+    {
+        b.ToTable("Leads");
+        b.HasKey(l => l.Id);
+        b.Property(l => l.Name).HasColumnName("lead_name").HasMaxLength(200);
+    }
+}
+```
+
+```csharp
+protected override void OnModelCreating(ModelBuilder builder)
+    => builder.ApplyConfigurationsFromAssembly(typeof(CrmDbContext).Assembly);
+```
+
+Sửa 10–15 entity mỗi sprint, cập nhật ngưỡng, và sau ba sprint con số về 0.
+
+**Bảy quy tắc nên có, theo thứ tự thêm vào:**
+
+```csharp
+// 1. Dễ nhất, thêm trước
+[Fact] public void Domain_khong_phu_thuoc_EF_Core() { }
+
+// 2.
+[Fact] public void Domain_khong_phu_thuoc_AspNetCore() { }
+
+// 3.
+[Fact] public void Application_khong_phu_thuoc_Infrastructure() { }
+
+// 4.
+[Fact] public void Handler_phai_kin_va_dat_ten_ket_thuc_bang_Handler() { }
+
+// 5. Khó hơn — thường nhiều vi phạm
+[Fact] public void Entity_khong_co_public_setter() { }
+
+// 6.
+[Fact] public void Khong_dung_DateTime_Now_truc_tiep() { }
+
+// 7. Khó nhất — thêm sau cùng
+[Fact] public void Domain_chi_phu_thuoc_BCL() { }
+```
+
+Thêm từng quy tắc một, mỗi cái với ngưỡng riêng. Thêm cả bảy cùng lúc cho ra một báo cáo dài đến mức không ai đọc.
+
+**Cho phép ngoại lệ có tên, có lý do, có hạn:**
+
+```csharp
+private static readonly Dictionary<string, string> NgoaiLe = new()
+{
+    ["Crm.Domain.Legacy.BaoCaoCu"] = "sẽ gỡ ở CRM-4821, hạn 2026-12-31",
+    ["Crm.Domain.Import.RowMapper"] = "cần EF Core bulk, đang tìm cách thay",
+};
+
+var viPham = (kq.FailingTypeNames ?? []).Except(NgoaiLe.Keys).ToList();
+```
+
+Không có cơ chế này, người ta sẽ tắt hẳn test khi gặp một trường hợp chính đáng — và bạn mất cả bộ quy tắc thay vì một ngoại lệ.
+
+**Và một test kiểm tra chính danh sách ngoại lệ:**
+
+```csharp
+[Fact]
+public void Ngoai_le_kien_truc_khong_duoc_qua_han()
+{
+    var quaHan = NgoaiLe
+        .Where(kv => Regex.Match(kv.Value, @"hạn (\d{4}-\d{2}-\d{2})") is { Success: true } m
+                  && DateOnly.Parse(m.Groups[1].Value) < DateOnly.FromDateTime(DateTime.UtcNow))
+        .Select(kv => kv.Key)
+        .ToList();
+
+    quaHan.Should().BeEmpty("các ngoại lệ sau đã quá hạn, cần xử lý hoặc gia hạn có lý do");
+}
+```
+
+Test này biến "sẽ sửa sau" thành một cam kết có thời hạn — và đó là khác biệt giữa một danh sách nợ kỹ thuật được quản lý và một danh sách bị lãng quên.
+
+</details>
+
+---
+
+#### Bài 3 — Gỡ God Service một bước
+
+Chọn một phương thức trong service lớn nhất, kéo ra thành handler riêng, để service cũ uỷ quyền. Đo số dependency của service sau khi gỡ.
+
+**Tiêu chí hoàn thành:** bạn thực hiện được mà **không phá vỡ** code gọi hiện có, và nêu được vì sao cách "uỷ quyền" tốt hơn cách "sửa hết nơi gọi".
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Nếu bạn đổi chữ ký của một phương thức được gọi ở 40 chỗ, PR của bạn có bao nhiêu file?
+
+**Lời giải — hiện trạng:**
+
+```csharp
+public class LeadService : ILeadService
+{
+    private readonly CrmDbContext _db;
+    private readonly IEmailSender _email;
+    private readonly ICacheService _cache;
+    private readonly IHttpContextAccessor _http;
+    private readonly IConfiguration _config;
+    private readonly ILogger<LeadService> _logger;
+    private readonly IMapper _mapper;
+    private readonly IPublishEndpoint _bus;
+    private readonly IFileStorage _storage;
+    private readonly IPdfGenerator _pdf;
+    private readonly ISmsSender _sms;
+    private readonly IExcelExporter _excel;
+    private readonly ITenantProvider _tenant;
+    private readonly IBackgroundJobClient _jobs;
+
+    // 14 dependency, 687 dòng, 14 phương thức public
+}
+```
+
+```bash
+grep -c "private readonly" src/Crm.Application/Services/LeadService.cs
+grep -c "public async Task" src/Crm.Application/Services/LeadService.cs
+wc -l src/Crm.Application/Services/LeadService.cs
+```
+
+```text
+14
+14
+687
+```
+
+```bash
+grep -rn "_leadService\.\|ILeadService" --include="*.cs" src/ | wc -l
+```
+
+```text
+43
+```
+
+43 nơi gọi. Đổi chữ ký nghĩa là một PR chạm 43 file.
+
+**Ba bước gỡ, không phá vỡ gì:**
+
+**Bước 1 — tạo handler mới, sao chép logic:**
+
+```csharp
+// src/Crm.Application/Leads/ChotLead/ChotLeadCommand.cs
+public record ChotLeadCommand(LeadId Id) : IRequest<Result>;
+
+// src/Crm.Application/Leads/ChotLead/ChotLeadHandler.cs
+public sealed class ChotLeadHandler : IRequestHandler<ChotLeadCommand, Result>
+{
+    private readonly CrmDbContext _db;
+    private readonly ICurrentUser _user;
+    private readonly TimeProvider _clock;
+    // ĐÚNG 3 dependency — chỉ những gì use case này cần
+
+    public ChotLeadHandler(CrmDbContext db, ICurrentUser user, TimeProvider clock)
+        => (_db, _user, _clock) = (db, user, clock);
+
+    public async Task<Result> Handle(ChotLeadCommand c, CancellationToken ct)
+    {
+        var lead = await _db.Leads.FirstOrDefaultAsync(l => l.Id == c.Id, ct);
+        if (lead is null) return Result.KhongTimThay();
+
+        var kq = lead.ChuyenSangWon(_user.ToNguoiDung(), _clock.GetUtcNow().UtcDateTime);
+        if (!kq.ThanhCong) return kq;
+
+        await _db.SaveChangesAsync(ct);
+        return Result.ThanhCong();
+    }
+}
+```
+
+Chú ý: trong lúc sao chép, bạn sẽ thấy **logic nào thật sự cần** và logic nào là tàn dư. Phương thức cũ có thể gọi `_email`, `_sms`, `_pdf` — và khi tách ra, những việc đó trở thành domain event hoặc bước riêng.
+
+**Bước 2 — service cũ uỷ quyền, KHÔNG đổi chữ ký:**
+
+```csharp
+public class LeadService : ILeadService
+{
+    private readonly IMediator _mediator;
+
+    // Chữ ký GIỮ NGUYÊN — 43 nơi gọi không phải sửa gì
+    public async Task<Result> ChotLeadAsync(LeadId id, CancellationToken ct)
+        => await _mediator.Send(new ChotLeadCommand(id), ct);
+
+    // 13 phương thức còn lại giữ nguyên phần cài đặt cũ
+}
+```
+
+```bash
+dotnet build && dotnet test
+```
+
+```text
+Build succeeded.
+Passed! - Failed: 0, Passed: 412
+```
+
+Không file gọi nào phải sửa. PR này chạm **3 file**: hai file mới và `LeadService.cs`.
+
+**Bước 3 — chuyển dần nơi gọi, và xoá dependency thừa:**
+
+```csharp
+// Mỗi lần bạn chạm vào một nơi gọi cho việc khác, chuyển luôn
+app.MapPost("/leads/{id}/chot", async (LeadId id, IMediator m, CancellationToken ct) =>
+{
+    var kq = await m.Send(new ChotLeadCommand(id), ct);
+    return kq.ThanhCong ? Results.NoContent() : Results.BadRequest(kq.Loi);
+});
+```
+
+Khi không còn ai gọi `ChotLeadAsync`, xoá nó — và xoá những dependency chỉ nó dùng:
+
+```bash
+# Dependency nào chỉ còn được dùng ở một chỗ?
+grep -c "_pdf\." src/Crm.Application/Services/LeadService.cs
+```
+
+**Đo sau khi gỡ 5 phương thức:**
+
+```text
+              Trước    Sau
+Dòng           687     284
+Phương thức     14       9
+Dependency      14       6
+Người chạm/tháng 11       4
+```
+
+Và các handler mới:
+
+```text
+ChotLeadHandler        38 dòng, 3 dependency
+GanLeadHandler         31 dòng, 2 dependency
+HuyLeadHandler         34 dòng, 3 dependency
+XuatExcelLeadHandler   52 dòng, 3 dependency
+GuiBaoGiaHandler       47 dòng, 4 dependency
+```
+
+**Vì sao "uỷ quyền" tốt hơn "sửa hết nơi gọi" — năm lý do:**
+
+**1. PR nhỏ, review được.**
+
+```text
+Uỷ quyền:        3 file, khoảng 60 dòng -> review trong 10 phút
+Sửa hết nơi gọi: 46 file, khoảng 400 dòng -> không ai review kỹ được
+```
+
+**2. Rủi ro thấp và dừng được bất cứ lúc nào.** Nếu sau ba phương thức bạn phải chuyển sang việc khác, trạng thái hiện tại vẫn hoàn toàn nhất quán — service cũ vẫn hoạt động, handler mới vẫn hoạt động.
+
+**3. Không xung đột merge.** PR khổng lồ chạm 46 file gần như chắc chắn xung đột với mọi PR khác đang mở ([bài 16.4](16.4-vertical-slice-architecture.mdx)).
+
+**4. Không cần thuyết phục ai.** "Tôi cần hai tuần để refactor" là một cuộc trò chuyện khó. "Tôi gỡ phương thức này ra khi sửa nó" thì không cần trò chuyện gì.
+
+**5. Hành vi được bảo toàn và kiểm chứng được.** Test cũ vẫn chạy qua `LeadService` và vẫn xanh — chúng trở thành lưới an toàn xác nhận handler mới hành xử giống hệt.
+
+**Chọn phương thức nào để gỡ trước:**
+
+```text
+Ưu tiên 1: phương thức bạn SẮP PHẢI SỬA cho một tính năng
+           -> trả chi phí refactor một lần, thu lợi ích ngay
+Ưu tiên 2: phương thức có nhiều lỗi nhất trong lịch sử
+Ưu tiên 3: phương thức dài nhất
+Ưu tiên 4: phương thức có nhiều dependency nhất
+```
+
+Ưu tiên 1 là chiến lược duy nhất bền vững, vì nó không đòi hỏi thời gian riêng cho refactor.
+
+```bash
+# Phương thức nào hay bị sửa nhất?
+git log --since='1 year ago' -L :ChotLeadAsync:src/Crm.Application/Services/LeadService.cs \
+  --format='%h %ad' --date=short | grep -c '^commit'
+```
+
+**Bẫy cần tránh — đừng chỉ đổi chỗ:**
+
+```csharp
+// SAI — handler nhận cả 14 dependency, chỉ là God Service đổi tên
+public class ChotLeadHandler : IRequestHandler<ChotLeadCommand, Result>
+{
+    public ChotLeadHandler(CrmDbContext db, IEmailSender email, ICacheService cache,
+                           IHttpContextAccessor http, IConfiguration config, ...)
+}
+```
+
+Khi tách, hãy hỏi với **từng** dependency: *"use case này có thật sự cần nó không?"*
+
+```text
+IPdfGenerator ở ChotLeadHandler?  -> không, chốt lead không sinh PDF
+                                  -> nó thuộc về GuiBaoGiaHandler
+
+IEmailSender ở ChotLeadHandler?   -> gửi email là phản ứng phụ
+                                  -> chuyển thành domain event handler
+
+IConfiguration cho ngưỡng duyệt?  -> đó là quy tắc nghiệp vụ
+                                  -> chuyển vào Lead (bài 16.1)
+```
+
+**Ngưỡng cho một handler khoẻ mạnh:**
+
+```text
+Dòng:        dưới 60
+Dependency:  dưới 5
+Phương thức public: đúng 1 (Handle)
+```
+
+Nếu một handler vượt các ngưỡng này, nó đang làm nhiều hơn một việc — và câu hỏi đầu tiên nên là liệu một phần của nó có thuộc về entity hay không.
+
+**Theo dõi tiến độ:**
+
+```bash
+#!/usr/bin/env bash
+for f in $(find src -name "*Service.cs"); do
+  d=$(grep -c "private readonly" "$f")
+  m=$(grep -c "public async Task\|public Task" "$f")
+  l=$(wc -l < "$f")
+  [ "$d" -gt 6 ] && printf "%-50s %3d dòng, %2d dep, %2d phương thức\n" "$(basename $f)" "$l" "$d" "$m"
+done | sort -k2 -rn
+```
+
+```text
+LeadService.cs            284 dòng,  6 dep,  9 phương thức
+OrderService.cs           512 dòng, 11 dep, 12 phương thức
+CustomerService.cs        398 dòng,  9 dep, 10 phương thức
+```
+
+Chạy script này hằng tuần và ghi lại. Đường cong đi xuống là bằng chứng khách quan rằng công việc đang tiến triển — và nó hữu ích hơn nhiều so với cảm giác "code đang tốt dần".
+
+</details>
 
 ## Tự kiểm tra
 
