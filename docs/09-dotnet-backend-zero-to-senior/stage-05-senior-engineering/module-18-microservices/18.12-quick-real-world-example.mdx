@@ -27,11 +27,11 @@ Sau bài này bạn có thể:
 
 ```
 14:02:10  Database chuyển dự phòng, mọi truy vấn chậm ~12 giây
-14:02:25  livenessProbe cua moi pod TIMEOUT (probe goi /health co check DB)
-14:02:40  Kubernetes giet TAT CA pod cua 6 service
-14:02:55  Pod moi khoi dong, lai goi /health, lai timeout
-14:03:10  Kubernetes giet tiep — CrashLoopBackOff
-14:02:22  <- database DA HOI PHUC tu luc nay
+14:02:25  livenessProbe của mọi pod TIMEOUT (probe gọi /health có check DB)
+14:02:40  Kubernetes giết TẤT CẢ pod của 6 service
+14:02:55  Pod mới khởi động, lại gọi /health, lại timeout
+14:03:10  Kubernetes giết tiếp — CrashLoopBackOff
+14:02:22  <- database ĐÃ HỒI PHỤC từ lúc này
 14:06:30  Sau khi sửa cấu hình probe, hệ thống trở lại
 ```
 
@@ -104,7 +104,7 @@ livenessProbe:
 
 readinessProbe:
   httpGet:
-    path: /health/ready      # co cham database
+    path: /health/ready      # có chạm database
     port: 8080
   periodSeconds: 5
   failureThreshold: 2
@@ -114,7 +114,7 @@ startupProbe:
     path: /health/live
     port: 8080
   periodSeconds: 5
-  failureThreshold: 30       # cho toi 150 giay de khoi dong
+  failureThreshold: 30       # cho tới 150 giây để khởi động
 ```
 
 Với cấu hình này, cùng sự cố database chậm 12 giây sẽ diễn ra như sau: readiness thất bại → pod bị gỡ khỏi load balancer → **không pod nào bị giết** → database hồi phục → readiness thành công → pod quay lại phục vụ. Tổng gián đoạn: 12 giây, đúng bằng thời gian database chậm.
@@ -193,11 +193,555 @@ Trên 100ms là dấu hiệu có truy vấn nặng bên trong.
 
 ## Bài tập áp dụng
 
-1. **Tái hiện vòng lặp.** Cấu hình liveness trỏ vào endpoint có kiểm tra database, tắt database, và quan sát pod chuyển sang `CrashLoopBackOff`.
+#### Bài 1 — Tái hiện vòng lặp
 
-2. **Sửa và so sánh.** Tách thành `/health/live` và `/health/ready`, lặp lại bài 1 và xác nhận pod chỉ bị gỡ khỏi service chứ không bị giết.
+Cấu hình liveness trỏ vào endpoint có kiểm tra database, tắt database, và quan sát pod chuyển sang `CrashLoopBackOff`.
 
-3. **Đo chi phí health check.** Đo thời gian phản hồi của endpoint readiness hiện tại và tính tổng số lần gọi mỗi phút với số pod đang chạy.
+**Tiêu chí hoàn thành:** bạn thấy pod bị **giết** chứ không phải bị gỡ, và giải thích được vì sao thời gian gián đoạn dài hơn thời gian database hỏng.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Cần một cụm để thấy hành vi thật. `kind` dựng được một cụm trên máy cá nhân trong khoảng một phút.
+
+**Lời giải — dựng cụm và tái hiện:**
+
+```bash
+kind create cluster --name thu-nghiem-probe
+```
+
+Ứng dụng có đúng một endpoint health, và nó chạm database:
+
+```csharp
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddHealthChecks()
+    .AddNpgSql(builder.Configuration.GetConnectionString("Db")!);
+
+var app = builder.Build();
+app.MapHealthChecks("/health");                 // <- dùng cho CẢ liveness lẫn readiness
+app.MapGet("/api/ping", () => "pong");          // endpoint không chạm database
+app.Run();
+```
+
+```yaml
+# sai.yaml — cấu hình gây lỗi
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crm-api
+spec:
+  replicas: 3
+  selector:
+    matchLabels: { app: crm-api }
+  template:
+    metadata:
+      labels: { app: crm-api }
+    spec:
+      containers:
+        - name: api
+          image: crm-api:thu-nghiem
+          ports: [{ containerPort: 8080 }]
+          livenessProbe:
+            httpGet: { path: /health, port: 8080 }   # <- chạm database
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet: { path: /health, port: 8080 }
+            periodSeconds: 5
+            failureThreshold: 2
+```
+
+```bash
+kubectl apply -f sai.yaml
+kubectl get pods -w &
+
+# Tắt database — ở đây là dừng container postgres trong cụm
+kubectl scale statefulset postgres --replicas=0
+```
+
+Trình tự quan sát được:
+
+```text
+t+0s    postgres dừng
+t+5s    readiness thất bại lần 1
+t+10s   readiness thất bại lần 2 -> 3/3 pod bị GỠ khỏi service  (đúng)
+t+10s   liveness thất bại lần 1
+t+20s   liveness thất bại lần 2
+t+30s   liveness thất bại lần 3 -> vượt failureThreshold
+t+30s   Kubernetes GIẾT cả 3 pod                                (sai)
+t+35s   pod mới khởi động, chạy migration -> hỏng vì không có database
+t+40s   CrashLoopBackOff, chờ 10 giây rồi thử lại
+t+60s   CrashLoopBackOff, chờ 20 giây
+t+90s   CrashLoopBackOff, chờ 40 giây
+```
+
+```bash
+kubectl get pods
+```
+
+```text
+NAME                       READY   STATUS             RESTARTS      AGE
+crm-api-7d4b9c5f8-2xk4p    0/1     CrashLoopBackOff   4 (31s ago)   3m12s
+crm-api-7d4b9c5f8-9mn7q    0/1     CrashLoopBackOff   4 (28s ago)   3m12s
+crm-api-7d4b9c5f8-vq2lt    0/1     CrashLoopBackOff   3 (12s ago)   3m12s
+```
+
+```bash
+kubectl describe pod crm-api-7d4b9c5f8-2xk4p | grep -A3 "Events:"
+```
+
+```text
+Events:
+  Warning  Unhealthy  3m    kubelet  Liveness probe failed: HTTP probe failed with statuscode: 503
+  Normal   Killing    3m    kubelet  Container api failed liveness probe, will be restarted
+  Warning  BackOff    12s   kubelet  Back-off restarting failed container
+```
+
+Dòng `Killing ... failed liveness probe, will be restarted` là bằng chứng trực tiếp: pod **bị giết**, không phải bị gỡ.
+
+**Vì sao gián đoạn dài hơn thời gian database hỏng:**
+
+```bash
+kubectl scale statefulset postgres --replicas=1   # database hồi phục sau 60 giây
+```
+
+```text
+t+60s   database hồi phục
+t+60s   nhưng 3 pod đang ở CrashLoopBackOff với backoff 40 giây
+t+100s  pod thử lại, khởi động thành công
+t+110s  readiness thành công, pod quay lại service
+
+Database hỏng:    60 giây
+Hệ thống gián đoạn: 110 giây  — gấp gần hai lần
+```
+
+**Ba cơ chế cộng dồn tạo ra phần chênh đó:**
+
+**1. Khởi động lại mất thời gian, và thời gian đó không liên quan gì đến database.**
+
+```text
+Kéo image (nếu chưa có) + khởi động runtime + nạp cấu hình
++ mở pool kết nối + làm nóng JIT
+-> mỗi lần khởi động lại là một lần trả toàn bộ chi phí này
+```
+
+**2. Backoff tăng theo cấp số nhân, và nó không biết database đã hồi phục.**
+
+```text
+10s -> 20s -> 40s -> 80s -> 160s -> tối đa 300s
+
+Sau 5 lần thất bại, pod chờ 5 PHÚT trước khi thử lại
+-> database hồi phục ở giây thứ 60 cũng phải chờ hết 5 phút đó
+```
+
+Đây là phần nguy hiểm nhất: **hệ thống càng hỏng lâu, nó càng chậm phục hồi** — ngược hẳn với điều ta muốn.
+
+**3. Mất hết trạng thái nóng.**
+
+```text
+Cache trong bộ nhớ: rỗng
+Pool kết nối: phải mở lại
+-> pod vừa quay lại đã phải chịu tải lạnh
+-> p99 cao trong vài phút đầu, có thể lại làm probe thất bại
+```
+
+**Và một hệ quả ở quy mô lớn, tệ hơn cả ba điều trên:**
+
+```text
+Cả 3 pod cùng bị giết trong cùng một giây
+-> 3 pod cùng khởi động lại
+-> 3 pod cùng mở pool kết nối tới database vừa hồi phục
+-> database nhận cú sốc kết nối ngay lúc yếu nhất
+-> có thể chậm lại lần nữa -> vòng lặp lặp lại
+```
+
+Đây là thundering herd ([bài 17.6](../module-17-distributed-systems/17.6-retry-and-backoff.mdx)) xuất hiện ở tầng điều phối thay vì tầng ứng dụng, và nó chính là lý do sự cố 12 giây trong bài này kéo thành 4 phút.
+
+**Nếu không dựng được cụm, vẫn tái hiện được bằng Docker Compose:**
+
+```yaml
+services:
+  api:
+    build: .
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      retries: 3
+    restart: always          # <- tương đương hành vi giết-và-khởi-động-lại
+```
+
+```bash
+docker compose up -d
+docker compose stop postgres
+watch -n1 'docker compose ps'
+```
+
+Cột `STATUS` sẽ nhảy qua lại giữa `Up` và `Restarting` — cùng một cơ chế, chỉ khác tên gọi.
+
+</details>
+
+---
+
+#### Bài 2 — Sửa và so sánh
+
+Tách thành `/health/live` và `/health/ready`, lặp lại bài 1 và xác nhận pod chỉ bị gỡ khỏi service chứ không bị giết.
+
+**Tiêu chí hoàn thành:** cột `RESTARTS` **không tăng** trong suốt sự cố, và bạn giải thích được vì sao `startupProbe` cần thiết ngay cả khi liveness đã đúng.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Bằng chứng gọn nhất cho "đã sửa đúng" là một con số không đổi: `RESTARTS`.
+
+**Lời giải — sửa cả code lẫn cấu hình:**
+
+```csharp
+builder.Services.AddHealthChecks()
+    .AddNpgSql(chuoiKetNoi, name: "postgres", tags: ["ready"]);
+
+// Liveness: không kiểm tra gì — chỉ cần tiến trình còn trả lời được HTTP
+app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
+
+// Readiness: kiểm tra phụ thuộc thật sự chặn
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = c => c.Tags.Contains("ready"),
+});
+```
+
+```yaml
+# dung.yaml
+livenessProbe:
+  httpGet: { path: /health/live, port: 8080 }
+  periodSeconds: 10
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet: { path: /health/ready, port: 8080 }
+  periodSeconds: 5
+  failureThreshold: 2
+
+startupProbe:
+  httpGet: { path: /health/live, port: 8080 }
+  periodSeconds: 5
+  failureThreshold: 30        # cho tới 150 giây để khởi động
+```
+
+```bash
+kubectl apply -f dung.yaml
+kubectl scale statefulset postgres --replicas=0
+kubectl get pods -w
+```
+
+```text
+NAME                       READY   STATUS    RESTARTS   AGE
+crm-api-6f8d4c7b9-4rt2m    1/1     Running   0          2m14s
+crm-api-6f8d4c7b9-8kp5n    1/1     Running   0          2m14s
+crm-api-6f8d4c7b9-jw9xc    1/1     Running   0          2m14s
+
+... sau 10 giây ...
+
+crm-api-6f8d4c7b9-4rt2m    0/1     Running   0          2m24s
+crm-api-6f8d4c7b9-8kp5n    0/1     Running   0          2m24s
+crm-api-6f8d4c7b9-jw9xc    0/1     Running   0          2m24s
+```
+
+**Hai cột cần nhìn:**
+
+```text
+READY    1/1 -> 0/1   : pod bị GỠ khỏi service  (đúng, phản ứng hợp lý)
+STATUS   Running      : pod KHÔNG bị giết
+RESTARTS 0            : không tăng, dù database đã tắt 2 phút
+```
+
+Khi database quay lại:
+
+```bash
+kubectl scale statefulset postgres --replicas=1
+```
+
+```text
+NAME                       READY   STATUS    RESTARTS   AGE
+crm-api-6f8d4c7b9-4rt2m    1/1     Running   0          4m30s
+```
+
+**So sánh hai lần đo:**
+
+| | Cấu hình sai | Cấu hình đúng |
+|---|---|---|
+| Database hỏng | 60 s | 60 s |
+| **Hệ thống gián đoạn** | **110 s** | **~65 s** |
+| `RESTARTS` | 4 | **0** |
+| Cache trong bộ nhớ | Mất hết | **Giữ nguyên** |
+| Pool kết nối | Mở lại từ đầu | Giữ, tự kết nối lại |
+| Phục hồi sau khi DB về | Chờ hết backoff | **Ngay lần probe kế tiếp** |
+
+Phần chênh 45 giây hoàn toàn là do cơ chế tự phục hồi gây ra — và nó biến mất khi probe được phân vai đúng.
+
+**Vì sao `startupProbe` vẫn cần, dù liveness đã đúng:**
+
+```text
+Ứng dụng khởi động chậm: chạy migration, nạp cấu hình, làm nóng cache
+-> có thể mất 40–90 giây trước khi phục vụ được
+
+Không có startupProbe:
+    liveness bắt đầu đếm ngay từ giây đầu
+    periodSeconds 10 × failureThreshold 3 = 30 giây
+    -> pod bị giết ở giây 30, TRONG LÚC đang khởi động bình thường
+    -> khởi động lại, lại bị giết ở giây 30
+    -> CrashLoopBackOff mà không có lỗi nào cả
+```
+
+`startupProbe` tạm dừng cả liveness lẫn readiness cho tới khi nó thành công lần đầu:
+
+```text
+startupProbe: 5s × 30 lần = tối đa 150 giây để khởi động
+Sau khi nó thành công -> liveness và readiness mới bắt đầu
+```
+
+**Cách đặt `failureThreshold` cho startupProbe, bằng số đo thật:**
+
+```bash
+# Đo thời gian khởi động qua 10 lần gần nhất
+kubectl get events --field-selector reason=Started -o json \
+  | jq -r '.items[] | "\(.involvedObject.name) \(.firstTimestamp)"'
+```
+
+```text
+Thời gian khởi động: p50 = 22 giây, p99 = 68 giây
+
+failureThreshold = (p99 × 3) / periodSeconds
+                 = (68 × 3) / 5
+                 ≈ 41
+```
+
+Nhân ba cho p99 nghe có vẻ rộng, nhưng đây là ngưỡng **một chiều**: đặt quá rộng thì một pod hỏng thật mất thêm vài phút mới được phát hiện; đặt quá hẹp thì pod **lành** bị giết trong lúc khởi động — và điều đó tạo ra CrashLoopBackOff không có nguyên nhân nào để tìm.
+
+**Ba lỗi cấu hình probe còn lại, thường gặp hơn người ta nghĩ:**
+
+**1. `readinessProbe` gọi service khác.**
+
+```yaml
+readinessProbe:
+  httpGet: { path: /health/ready, port: 8080 }   # và /health/ready gọi billing-api
+```
+
+```text
+billing-api chậm -> mọi pod của api bị gỡ -> toàn hệ thống ngừng
+-> sự cố lan truyền qua health check, nhanh hơn cả qua lưu lượng thật
+```
+
+Đây đúng là điều đã rà ở [bài 18.9](18.9-crm-context.mdx).
+
+**2. `periodSeconds` của liveness quá ngắn.**
+
+```yaml
+livenessProbe:
+  periodSeconds: 1
+  failureThreshold: 1        # giết sau MỘT lần thất bại
+```
+
+```text
+Một lần GC dừng 1,2 giây -> probe timeout -> pod bị giết
+-> pod hoàn toàn khoẻ mạnh bị giết vì một lần GC bình thường
+```
+
+**3. Không đặt `timeoutSeconds`, và mặc định là 1 giây.**
+
+```text
+/health/ready đo được p99 = 9 ms khi khoẻ
+nhưng khi database chậm, nó có thể mất 5–10 giây
+
+timeoutSeconds mặc định = 1
+-> probe báo thất bại vì TIMEOUT, không phải vì kết quả
+-> và log không cho biết phụ thuộc nào hỏng
+```
+
+```yaml
+readinessProbe:
+  timeoutSeconds: 3        # đặt tường minh, lớn hơn p99 vài lần
+```
+
+**Cuối cùng, một thói quen đáng có: thử probe trước khi tin vào nó.**
+
+```bash
+kubectl exec -it crm-api-6f8d4c7b9-4rt2m -- curl -sv http://localhost:8080/health/live
+kubectl exec -it crm-api-6f8d4c7b9-4rt2m -- curl -s  http://localhost:8080/health/ready | jq
+```
+
+Nếu `/health/live` mất hơn vài mili-giây, nó đang kiểm tra thứ gì đó mà nó không nên kiểm tra.
+
+</details>
+
+---
+
+#### Bài 3 — Đo chi phí health check
+
+Đo thời gian phản hồi của endpoint readiness hiện tại và tính tổng số lần gọi mỗi phút với số pod đang chạy.
+
+**Tiêu chí hoàn thành:** bạn có **con số đo được** cho cả hai endpoint, tính được tải mà probe tạo ra, và nhận ra chi phí thật không nằm ở CPU của chính probe.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Probe gọi mỗi 5 giây nghe có vẻ rất nhẹ. Nhân nó với số pod, rồi nhân với số phụ thuộc mà mỗi lần gọi chạm tới.
+
+**Lời giải — đo hai endpoint:**
+
+```csharp
+var http = new HttpClient();
+
+async Task<(double p50, double p99)> DoAsync(string duong, int n)
+{
+    var ms = new List<double>(n);
+    for (int i = 0; i < n; i++)
+    {
+        var sw = Stopwatch.StartNew();
+        (await http.GetAsync($"http://127.0.0.1:5211{duong}")).EnsureSuccessStatusCode();
+        ms.Add(sw.Elapsed.TotalMilliseconds);
+    }
+    ms.Sort();
+    return (ms[n / 2], ms[(int)(n * 0.99)]);
+}
+
+await DoAsync("/health/ready", 50);        // làm nóng
+await DoAsync("/health/live", 50);
+
+var r = await DoAsync("/health/ready", 1000);
+var l = await DoAsync("/health/live", 1000);
+Console.WriteLine($"/health/ready  p50={r.p50:F2} ms  p99={r.p99:F2} ms");
+Console.WriteLine($"/health/live   p50={l.p50:F2} ms  p99={l.p99:F2} ms");
+```
+
+Đo trên .NET 9.0.203, readiness gồm một truy vấn SQLite thật cộng hai kiểm tra giả lập 1 ms và 2 ms:
+
+```text
+/health/ready  p50=2,80 ms  p99=9,07 ms
+/health/live   p50=0,14 ms  p99=0,40 ms
+```
+
+| Endpoint | p50 | p99 | Tỉ lệ |
+|---|---:|---:|---:|
+| `/health/ready` | 2,80 ms | 9,07 ms | **20×** |
+| `/health/live` | 0,14 ms | 0,40 ms | 1× |
+
+Khoảng cách 20 lần này là lý do trực tiếp để tách hai endpoint: liveness chạy thường xuyên hơn và **không được** trả cái giá của readiness.
+
+**Tính tải mà probe tạo ra:**
+
+```text
+Cấu hình:  liveness mỗi 10s, readiness mỗi 5s
+Quy mô:    6 service × 3 pod = 18 pod
+
+Liveness:   18 pod × (60 / 10) = 108 lần/phút
+Readiness:  18 pod × (60 / 5)  = 216 lần/phút
+                                 ------------
+Tổng:                            324 lần/phút = 5,4 lần/giây
+```
+
+Chi phí CPU:
+
+```text
+216 × 2,80 ms + 108 × 0,14 ms = 620 ms mỗi phút
+-> khoảng 1% của một lõi, trải trên 18 pod
+-> không đáng kể
+```
+
+**Nhưng chi phí thật không nằm ở đó.** Mỗi lần gọi readiness chạm vào các phụ thuộc:
+
+```text
+216 lần/phút × 1 truy vấn database = 216 truy vấn/phút
+                                   = 311.040 truy vấn/ngày
+
+Chỉ để hỏi "database còn sống không".
+```
+
+Và nếu readiness kiểm tra nhiều phụ thuộc:
+
+```text
+216 lần/phút × 4 phụ thuộc (db, redis, rabbit, blob)
+    = 864 lần gọi phụ thuộc mỗi phút
+    = 1,24 triệu lần mỗi ngày
+```
+
+**Ba cách giảm, theo thứ tự nên làm:**
+
+**1. Bỏ phụ thuộc không chặn khỏi readiness.**
+
+```text
+4 phụ thuộc -> 1 phụ thuộc (chỉ database)
+= giảm 75% số lần gọi, và không mất gì
+```
+
+Đây là bài tập đã làm ở [bài 18.9](18.9-crm-context.mdx) — và ở đây nó có thêm một lý do bằng số.
+
+**2. Cache kết quả health check trong thời gian ngắn hơn chu kỳ probe.**
+
+```csharp
+builder.Services.AddSingleton<IHealthCheckPublisher, CacheKetQua>();
+builder.Services.Configure<HealthCheckPublisherOptions>(o =>
+{
+    o.Delay  = TimeSpan.FromSeconds(2);
+    o.Period = TimeSpan.FromSeconds(10);   // chạy check nền mỗi 10 giây
+});
+
+// Endpoint chỉ đọc kết quả đã có trong bộ nhớ -> không chạm phụ thuộc
+app.MapGet("/health/ready", (CacheKetQua c) =>
+    c.KetQuaMoiNhat?.Status == HealthStatus.Healthy
+        ? Results.Ok("Healthy")
+        : Results.StatusCode(503));
+```
+
+```text
+Probe mỗi 5 giây, check nền mỗi 10 giây
+-> số lần chạm database giảm một nửa
+-> và endpoint phản hồi ở mức của /health/live
+```
+
+**3. Nới `periodSeconds` của readiness khi hợp lý.**
+
+```text
+periodSeconds 5  -> phát hiện sau tối đa 10 giây (failureThreshold 2)
+periodSeconds 15 -> phát hiện sau tối đa 30 giây
+
+Đánh đổi: chậm phát hiện hơn, đổi lấy ít tải hơn.
+Với service nội bộ, 30 giây thường chấp nhận được.
+Với service ở đường đi của người dùng, giữ 5 giây.
+```
+
+**Và một cạm bẫy đáng nhớ: readiness đắt tiền tự nó gây ra sự cố.**
+
+```text
+Database bắt đầu chậm
+-> readiness chậm theo (vì nó truy vấn database)
+-> probe timeout -> pod bị gỡ
+-> lưu lượng dồn sang pod còn lại
+-> pod còn lại tải nặng hơn -> readiness của nó cũng chậm
+-> bị gỡ nốt -> KHÔNG CÒN pod nào phục vụ
+
+Trong khi database chỉ chậm, chưa hề chết.
+```
+
+Cách này hỏng theo kiểu tệ nhất: hệ thống tự gỡ hết pod của mình trong lúc vẫn còn phục vụ được ở mức suy giảm. Ba biện pháp ở trên — bỏ bớt phụ thuộc, cache kết quả, và đặt `timeoutSeconds` tường minh — đều nhắm vào đúng chuỗi này.
+
+**Theo dõi chính probe, để biết khi nào nó thành vấn đề:**
+
+```csharp
+builder.Services.AddHealthChecks()
+    .AddNpgSql(chuoiKetNoi, name: "postgres", tags: ["ready"])
+    .AddCheck<DoThoiGianCheck>("thoi-gian-health-check", tags: ["ready"]);
+```
+
+```promql
+# Health check nào đang chậm dần?
+histogram_quantile(0.99,
+  rate(aspnetcore_healthcheck_duration_seconds_bucket[5m])) > 0.1
+```
+
+Ngưỡng 100 ms cho một health check là rộng rãi so với số đo 9,07 ms ở trên — nên khi nó vượt, gần như chắc chắn có một phụ thuộc đang xuống cấp, và cảnh báo đó thường đến **trước** khi người dùng thấy chậm.
+
+</details>
 
 ## Tự kiểm tra
 

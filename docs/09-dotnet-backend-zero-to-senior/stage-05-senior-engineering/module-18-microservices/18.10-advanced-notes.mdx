@@ -169,11 +169,567 @@ Hai mục đáng làm sớm bất kể quy mô: **.NET Aspire** (cải thiện t
 
 ## Bài tập áp dụng
 
-1. **Thử Aspire.** Dựng một AppHost cho API, worker, Redis và SQL Server, chạy bằng một lệnh và xem dashboard.
+#### Bài 1 — Thử Aspire
 
-2. **Viết anti-corruption layer.** Chọn một tích hợp bên ngoài trong dự án và tách lớp dịch mô hình ra khỏi code nghiệp vụ.
+Dựng một AppHost cho API, worker, Redis và SQL Server, chạy bằng một lệnh và xem dashboard.
 
-3. **Tái hiện thiếu bulkhead.** Cho một phụ thuộc trả về chậm 30 giây, tạo tải, và quan sát các endpoint không liên quan cũng chậm theo.
+**Tiêu chí hoàn thành:** bạn chạy được toàn bộ hệ thống bằng **một lệnh**, và nói được Aspire thay thế phần nào của `docker-compose` — và phần nào thì không.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** AppHost không phải một service. Nó là một chương trình mô tả hệ thống của bạn, và chạy được như code.
+
+**Lời giải — cài và dựng:**
+
+```bash
+dotnet new install Aspire.ProjectTemplates
+dotnet new aspire-apphost -o Crm.AppHost
+dotnet new aspire-servicedefaults -o Crm.ServiceDefaults
+```
+
+AppHost mô tả toàn bộ hệ thống:
+
+```csharp
+// Crm.AppHost/Program.cs
+var builder = DistributedApplication.CreateBuilder(args);
+
+// Hạ tầng — Aspire tự khởi động container
+var redis = builder.AddRedis("cache")
+                   .WithRedisCommander();          // giao diện quản trị kèm theo
+
+var sql = builder.AddSqlServer("sql")
+                 .WithDataVolume()                 // giữ dữ liệu giữa các lần chạy
+                 .AddDatabase("crmdb");
+
+var rabbit = builder.AddRabbitMQ("broker")
+                    .WithManagementPlugin();
+
+// Service của mình
+var api = builder.AddProject<Projects.Crm_Api>("api")
+                 .WithReference(sql)
+                 .WithReference(redis)
+                 .WithReference(rabbit)
+                 .WithReplicas(2);                 // chạy 2 bản để thử cân bằng tải
+
+builder.AddProject<Projects.Crm_Worker>("worker")
+       .WithReference(sql)
+       .WithReference(rabbit);
+
+builder.AddProject<Projects.Crm_BaoCao>("bao-cao")
+       .WithReference(sql)
+       .WithReference(api);                        // phụ thuộc: khởi động sau api
+
+builder.Build().Run();
+```
+
+Mỗi service gọi `AddServiceDefaults()` để có sẵn OpenTelemetry, health check và service discovery:
+
+```csharp
+// Crm.Api/Program.cs
+var builder = WebApplication.CreateBuilder(args);
+builder.AddServiceDefaults();                      // tracing, metrics, health, discovery
+
+// Chuỗi kết nối do AppHost tiêm vào — không có chuỗi nào trong appsettings
+builder.AddSqlServerDbContext<CrmDbContext>("crmdb");
+builder.AddRedisDistributedCache("cache");
+
+// Gọi service khác bằng TÊN, không bằng URL
+builder.Services.AddHttpClient<ILeadApi, LeadApi>(
+    c => c.BaseAddress = new Uri("https+http://api"));
+
+var app = builder.Build();
+app.MapDefaultEndpoints();                         // /health/live và /health/ready
+app.Run();
+```
+
+```bash
+dotnet run --project Crm.AppHost
+```
+
+```text
+Building...
+Login to the dashboard at https://localhost:17176/login?t=...
+```
+
+Dashboard cho thấy mọi service trong một trang: trạng thái, log gộp, trace xuyên service, và metric — không cần cài thêm gì.
+
+**Aspire thay thế phần nào của `docker-compose`, và phần nào thì không:**
+
+| | `docker-compose` | Aspire AppHost |
+|---|---|---|
+| Ngôn ngữ | YAML | **C#** — có IntelliSense, có refactor, có kiểu |
+| Chuỗi kết nối | Viết tay trong `environment:` | **Tự tiêm** từ tài nguyên đã khai báo |
+| Service discovery | Tên container | `https+http://api`, dịch tự động |
+| Quan sát | Phải tự dựng Jaeger, Prometheus, Grafana | **Dashboard sẵn có** |
+| Thứ tự khởi động | `depends_on` + healthcheck viết tay | Suy ra từ `WithReference` |
+| **Triển khai production** | **Có dùng được** | **Không — chỉ cho môi trường phát triển** |
+
+Dòng cuối là dòng quan trọng nhất. Aspire AppHost **không chạy trên production**. Nó sinh ra manifest, rồi công cụ khác biến manifest thành thứ chạy được:
+
+```bash
+# Sinh manifest mô tả hệ thống
+dotnet run --project Crm.AppHost -- --publisher manifest --output-path aspire-manifest.json
+
+# Rồi triển khai bằng công cụ phù hợp với hạ tầng của bạn
+azd up                                   # Azure Container Apps
+aspirate generate                        # Kubernetes (dự án cộng đồng)
+```
+
+**Ba điều Aspire giải quyết thật sự tốt:**
+
+**1. Người mới vào đội chạy được hệ thống trong 5 phút.**
+
+```text
+Trước: README 40 dòng, cài SQL Server, cài Redis, sửa 6 chuỗi kết nối,
+       chạy migration, và thường vẫn hỏng ở bước nào đó
+
+Sau:   git clone && dotnet run --project Crm.AppHost
+```
+
+**2. Quan sát có từ ngày đầu, không phải thêm vào sau sự cố.**
+
+Đây chính là điều kiện tiên quyết ở [bài 18.8](18.8-roadmap-sh-supplement.mdx) — và Aspire làm nó thành mặc định thay vì một dự án riêng.
+
+**3. Chuỗi kết nối không còn nằm trong file cấu hình.**
+
+```text
+0 chuỗi kết nối trong appsettings.Development.json
+-> không còn nguy cơ commit nhầm mật khẩu
+-> không còn "chạy trên máy tôi thì được"
+```
+
+**Và ba điều cần biết trước khi dùng:**
+
+**1. Nó vẫn cần Docker.** Aspire khởi động container cho Redis và SQL Server — nó không thay thế Docker, chỉ điều khiển Docker thay bạn.
+
+**2. `WithReplicas` không phải cân bằng tải production.** Nó tiện để thử hành vi nhiều instance ở máy phát triển, không phải một chiến lược scale.
+
+**3. `AddServiceDefaults()` là nơi đáng đọc kỹ nhất.** Nó chỉ là một file trong solution của bạn — mở ra, xem nó cấu hình gì, và sửa cho hợp với hệ thống của mình. Nó không phải hộp đen.
+
+**Khi nào KHÔNG cần Aspire:**
+
+```text
+Một API + một database
+-> docker-compose 15 dòng là đủ
+-> thêm Aspire là thêm một khái niệm không giải quyết vấn đề nào
+```
+
+Aspire bắt đầu có lãi từ khoảng **ba tiến trình trở lên**, hoặc khi đội có người mới vào thường xuyên.
+
+</details>
+
+---
+
+#### Bài 2 — Viết anti-corruption layer
+
+Chọn một tích hợp bên ngoài trong dự án và tách lớp dịch mô hình ra khỏi code nghiệp vụ.
+
+**Tiêu chí hoàn thành:** kiểu dữ liệu của hệ thống bên ngoài **không xuất hiện** ở bất kỳ đâu ngoài lớp dịch, và bạn có kiến trúc test chặn điều đó quay lại.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Nếu `HoaDonResponseDto` của nhà cung cấp xuất hiện trong domain, thì mỗi lần họ đổi API là một lần bạn sửa domain.
+
+**Lời giải — trước khi có lớp dịch:**
+
+```csharp
+// TRƯỚC — mô hình của bên ngoài rò vào khắp nơi
+public class DichVuKeToan
+{
+    public async Task<InvoiceApiResponse> TaoHoaDonAsync(Guid leadId)
+    {
+        var res = await _http.PostAsJsonAsync("/api/v2/invoices", new
+        {
+            customer_ref = leadId.ToString(),
+            line_items   = /* ... */,
+        });
+        return await res.Content.ReadFromJsonAsync<InvoiceApiResponse>();
+    }
+}
+
+// Và rồi InvoiceApiResponse xuất hiện ở:
+public class LeadService
+{
+    public async Task ChotAsync(Guid id)
+    {
+        InvoiceApiResponse hoaDon = await _keToan.TaoHoaDonAsync(id);
+
+        // Domain phải hiểu mã trạng thái của nhà cung cấp
+        if (hoaDon.status_code == "PEND" || hoaDon.status_code == "PENDING_APPROVAL")
+            lead.TrangThai = TrangThaiLead.ChoDuyet;
+
+        // và định dạng tiền của họ
+        lead.GiaTri = decimal.Parse(hoaDon.total_amount_str, CultureInfo.InvariantCulture);
+    }
+}
+```
+
+**Sau khi có lớp dịch:**
+
+```csharp
+// 1. Domain định nghĩa thứ NÓ cần — bằng ngôn ngữ của NÓ
+namespace Crm.Leads.Domain;
+
+public interface IKeToan
+{
+    Task<KetQuaXuatHoaDon> XuatHoaDonAsync(Guid leadId, Tien soTien, CancellationToken ct);
+}
+
+public sealed record KetQuaXuatHoaDon(
+    string      MaHoaDon,
+    TrangThaiHoaDon TrangThai,
+    Tien        SoTien);
+
+public enum TrangThaiHoaDon { ChoDuyet, DaDuyet, DaHuy }
+```
+
+```csharp
+// 2. Lớp dịch — nơi DUY NHẤT biết đến mô hình bên ngoài
+namespace Crm.Leads.Infrastructure.KeToan;
+
+internal sealed class KeToanAcl : IKeToan
+{
+    private readonly HttpClient _http;
+    private readonly ILogger<KeToanAcl> _log;
+
+    public KeToanAcl(HttpClient http, ILogger<KeToanAcl> log)
+        => (_http, _log) = (http, log);
+
+    public async Task<KetQuaXuatHoaDon> XuatHoaDonAsync(
+        Guid leadId, Tien soTien, CancellationToken ct)
+    {
+        var yeuCau = new InvoiceCreateRequest(
+            customer_ref:     leadId.ToString("N"),
+            total_amount_str: soTien.GiaTri.ToString("F2", CultureInfo.InvariantCulture),
+            currency_code:    soTien.DonVi.ToString());
+
+        var res = await _http.PostAsJsonAsync("/api/v2/invoices", yeuCau, ct);
+        res.EnsureSuccessStatusCode();
+
+        var ngoai = await res.Content.ReadFromJsonAsync<InvoiceApiResponse>(ct)
+                    ?? throw new KeToanException("Phản hồi rỗng từ dịch vụ kế toán");
+
+        return Dich(ngoai);
+    }
+
+    // Toàn bộ "sự lạ" của bên ngoài bị nhốt trong hàm này
+    private KetQuaXuatHoaDon Dich(InvoiceApiResponse ngoai)
+    {
+        var trangThai = ngoai.status_code switch
+        {
+            "PEND" or "PENDING_APPROVAL" or "WAITING" => TrangThaiHoaDon.ChoDuyet,
+            "APPR" or "APPROVED"                      => TrangThaiHoaDon.DaDuyet,
+            "CANC" or "CANCELLED" or "VOID"           => TrangThaiHoaDon.DaHuy,
+            var khac => throw new KeToanException($"Mã trạng thái lạ: {khac}"),
+        };
+
+        if (!decimal.TryParse(ngoai.total_amount_str,
+                              NumberStyles.Any, CultureInfo.InvariantCulture, out var giaTri))
+            throw new KeToanException($"Số tiền không đọc được: {ngoai.total_amount_str}");
+
+        return new KetQuaXuatHoaDon(ngoai.invoice_no, trangThai,
+                                    new Tien(giaTri, Enum.Parse<DonViTien>(ngoai.currency_code)));
+    }
+}
+
+// 3. Kiểu của bên ngoài để internal — trình biên dịch chặn nó rò ra
+internal sealed record InvoiceCreateRequest(
+    string customer_ref, string total_amount_str, string currency_code);
+
+internal sealed record InvoiceApiResponse(
+    string invoice_no, string status_code, string total_amount_str, string currency_code);
+```
+
+```csharp
+// 4. Domain không còn biết gì về nhà cung cấp
+public async Task ChotAsync(Guid id, CancellationToken ct)
+{
+    var ketQua = await _keToan.XuatHoaDonAsync(id, lead.GiaTri, ct);
+
+    lead.TrangThai = ketQua.TrangThai == TrangThaiHoaDon.DaDuyet
+        ? TrangThaiLead.DaChot
+        : TrangThaiLead.ChoDuyet;
+}
+```
+
+**Kiến trúc test chặn nó quay lại:**
+
+```csharp
+[Fact]
+public void Kieu_cua_ben_ngoai_khong_duoc_ro_ra_khoi_lop_dich()
+{
+    var ketQua = Types.InAssembly(typeof(KeToanAcl).Assembly)
+        .That().ResideInNamespace("Crm.Leads.Domain")
+        .Or().ResideInNamespace("Crm.Leads.Application")
+        .ShouldNot()
+        .HaveDependencyOn("Crm.Leads.Infrastructure.KeToan")
+        .GetResult();
+
+    ketQua.IsSuccessful.Should().BeTrue(
+        "mô hình của nhà cung cấp chỉ được tồn tại trong lớp dịch: {0}",
+        string.Join(", ", ketQua.FailingTypeNames ?? []));
+}
+
+[Fact]
+public void Moi_kieu_DTO_cua_ben_ngoai_deu_la_internal()
+{
+    var loKieu = typeof(KeToanAcl).Assembly.GetTypes()
+        .Where(t => t.Name.EndsWith("ApiResponse") || t.Name.EndsWith("ApiRequest"))
+        .Where(t => t.IsPublic);
+
+    loKieu.Should().BeEmpty("DTO của bên ngoài để public là mời nó rò ra");
+}
+
+[Theory]
+[InlineData("PEND",             TrangThaiHoaDon.ChoDuyet)]
+[InlineData("PENDING_APPROVAL", TrangThaiHoaDon.ChoDuyet)]
+[InlineData("WAITING",          TrangThaiHoaDon.ChoDuyet)]
+[InlineData("APPROVED",         TrangThaiHoaDon.DaDuyet)]
+[InlineData("VOID",             TrangThaiHoaDon.DaHuy)]
+public void Dich_dung_moi_ma_trang_thai(string maNgoai, TrangThaiHoaDon mongDoi)
+    => Dich(maNgoai).TrangThai.Should().Be(mongDoi);
+
+[Fact]
+public void Ma_trang_thai_la_thi_nem_loi_ro_rang()
+    => FluentActions.Invoking(() => Dich("SOMETHING_NEW"))
+        .Should().Throw<KeToanException>()
+        .WithMessage("*SOMETHING_NEW*");
+```
+
+**Bốn thứ lớp dịch mang lại — và cái thứ tư là cái ít người nghĩ tới:**
+
+**1. Nhà cung cấp đổi API thì chỉ sửa một file.**
+
+```text
+Không có ACL: v2 -> v3 đổi "total_amount_str" thành "amount"
+              -> sửa 23 chỗ trong 9 file, có domain
+Có ACL:       sửa 1 record và 1 hàm Dich
+```
+
+**2. Test domain không cần giả lập HTTP.**
+
+```csharp
+var keToanGia = Substitute.For<IKeToan>();
+keToanGia.XuatHoaDonAsync(default, default, default)
+         .ReturnsForAnyArgs(new KetQuaXuatHoaDon("HD-1", TrangThaiHoaDon.DaDuyet, Tien.Vnd(1_000_000)));
+```
+
+**3. Ba mã trạng thái cho cùng một ý nghĩa bị xử lý một lần, đúng một chỗ.**
+
+`"PEND"`, `"PENDING_APPROVAL"`, `"WAITING"` là chuyện của nhà cung cấp. Domain chỉ biết `ChoDuyet`.
+
+**4. Nó cho bạn một chỗ để đặt kiểm chứng đầu vào.**
+
+```text
+Không có ACL: dữ liệu lạ từ bên ngoài đi thẳng vào domain
+              -> lỗi xuất hiện ở chỗ cách xa nguồn, khó lần ngược
+Có ACL:       mã trạng thái lạ -> ném lỗi NGAY, kèm tên mã
+              -> log chỉ thẳng vào nhà cung cấp, không phải vào code của bạn
+```
+
+Trong thực tế, đây thường là giá trị thu về sớm nhất: khi tích hợp hỏng, bạn biết ngay ai hỏng.
+
+**Và một dấu hiệu bạn cần ACL nhưng chưa có:**
+
+```bash
+grep -rn "snake_case\|_str\"\|_code\"" --include="*.cs" src/*/Domain/ | wc -l
+```
+
+Bất kỳ kết quả nào lớn hơn 0 đều đáng xem lại — đặt tên kiểu snake_case trong domain gần như luôn có nghĩa là một mô hình bên ngoài đã rò vào.
+
+</details>
+
+---
+
+#### Bài 3 — Tái hiện thiếu bulkhead
+
+Cho một phụ thuộc trả về chậm 30 giây, tạo tải, và quan sát các endpoint không liên quan cũng chậm theo.
+
+**Tiêu chí hoàn thành:** bạn **đo được** độ trễ của endpoint không liên quan trong hai trường hợp, và giải thích được cơ chế lan truyền bằng một con số cụ thể.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** `HttpClient` dùng chung một pool kết nối. Pool đầy thì request tiếp theo **xếp hàng** — kể cả khi nó đi tới một endpoint hoàn toàn khác.
+
+**Lời giải — đo thật:**
+
+```csharp
+// Server giả lập: /cham trễ 5 giây, /nhanh trả ngay
+var builder = WebApplication.CreateBuilder(args);
+builder.WebHost.UseUrls("http://127.0.0.1:5199");
+var app = builder.Build();
+app.MapGet("/cham",  async () => { await Task.Delay(5000); return "cham"; });
+app.MapGet("/nhanh", () => "nhanh");
+_ = app.RunAsync();
+
+HttpClient TaoClient(int maxConn) => new(new SocketsHttpHandler
+{
+    MaxConnectionsPerServer  = maxConn,
+    PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+}) { Timeout = TimeSpan.FromSeconds(60) };
+
+async Task<double> DoNhanhAsync(HttpClient c)
+{
+    var sw = Stopwatch.StartNew();
+    await c.GetStringAsync("http://127.0.0.1:5199/nhanh");
+    return sw.Elapsed.TotalMilliseconds;
+}
+
+// A — dùng CHUNG một HttpClient cho cả hai phụ thuộc
+{
+    var c = TaoClient(maxConn: 10);
+    await DoNhanhAsync(c);                       // làm nóng
+    var nen = await DoNhanhAsync(c);
+
+    var cham = Enumerable.Range(0, 30)
+        .Select(_ => c.GetStringAsync("http://127.0.0.1:5199/cham")).ToArray();
+    await Task.Delay(500);
+
+    Console.WriteLine($"A | /nhanh khi rảnh           : {nen:F1} ms");
+    Console.WriteLine($"A | /nhanh khi 30 request chậm: {await DoNhanhAsync(c):F1} ms");
+    await Task.WhenAll(cham);
+}
+
+// B — mỗi phụ thuộc một HttpClient RIÊNG
+{
+    var cCham  = TaoClient(maxConn: 10);
+    var cNhanh = TaoClient(maxConn: 10);
+    await DoNhanhAsync(cNhanh);
+    var nen = await DoNhanhAsync(cNhanh);
+
+    var cham = Enumerable.Range(0, 30)
+        .Select(_ => cCham.GetStringAsync("http://127.0.0.1:5199/cham")).ToArray();
+    await Task.Delay(500);
+
+    Console.WriteLine($"B | /nhanh khi rảnh           : {nen:F1} ms");
+    Console.WriteLine($"B | /nhanh khi 30 request chậm: {await DoNhanhAsync(cNhanh):F1} ms");
+    await Task.WhenAll(cham);
+}
+```
+
+Kết quả đo trên .NET 9.0.203, một máy, không qua mạng thật:
+
+```text
+A | dùng chung client (MaxConnectionsPerServer=10)
+A | /nhanh khi rảnh           : 7,7 ms
+A | /nhanh khi 30 request chậm: 14.509,5 ms
+
+B | client riêng cho phụ thuộc chậm
+B | /nhanh khi rảnh           : 0,6 ms
+B | /nhanh khi 30 request chậm: 0,8 ms
+```
+
+| | Khi rảnh | Khi phụ thuộc chậm | Tỉ lệ |
+|---|---:|---:|---:|
+| **A — dùng chung** | 7,7 ms | **14.509,5 ms** | **1.884×** |
+| **B — tách riêng** | 0,6 ms | 0,8 ms | 1,3× |
+
+**Giải thích con số 14.509,5 ms — nó không phải ngẫu nhiên:**
+
+```text
+30 request chậm, mỗi request 5 giây
+Pool chỉ có 10 kết nối
+-> 30 / 10 = 3 đợt, mỗi đợt 5 giây = 15 giây
+
+/nhanh xếp hàng sau toàn bộ 30 request đó
+-> phải chờ ~15 giây, đo được 14,5 giây
+```
+
+Đây là điểm đáng nhớ nhất của bài này: **độ trễ của endpoint nhanh không phụ thuộc vào chính nó, mà phụ thuộc vào ĐỘ SÂU HÀNG ĐỢI của phụ thuộc chậm.** Càng nhiều request chậm, endpoint nhanh càng chậm — tuyến tính.
+
+Với phụ thuộc trễ 30 giây như đề bài, cùng một phép tính cho khoảng 90 giây — vượt xa mọi timeout hợp lý của client, nên với người dùng thì endpoint `/nhanh` coi như **hỏng hoàn toàn**, dù bản thân nó chưa bao giờ chạy sai.
+
+**Bulkhead là gì, nói bằng kết quả đo này:** chia tài nguyên thành các ngăn, để một ngăn đầy không kéo theo ngăn khác. Kịch bản B chính là bulkhead ở dạng đơn giản nhất — mỗi phụ thuộc một pool kết nối.
+
+**Cách làm trong ứng dụng thật — `AddHttpClient` theo kiểu, không dùng chung:**
+
+```csharp
+// SAI — một client cho mọi thứ
+builder.Services.AddHttpClient();   // rồi IHttpClientFactory.CreateClient() ở khắp nơi
+
+// ĐÚNG — mỗi phụ thuộc một client có tên, có giới hạn riêng
+builder.Services.AddHttpClient<IKeToan, KeToanAcl>(c =>
+{
+    c.BaseAddress = new Uri(cauHinh.KeToanUrl);
+    c.Timeout     = TimeSpan.FromSeconds(10);          // KHÔNG để mặc định 100 giây
+})
+.ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+{
+    MaxConnectionsPerServer  = 20,                      // ngăn riêng cho kế toán
+    PooledConnectionLifetime = TimeSpan.FromMinutes(2),
+})
+.AddStandardResilienceHandler(o =>
+{
+    o.AttemptTimeout.Timeout       = TimeSpan.FromSeconds(3);
+    o.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(30);
+    o.CircuitBreaker.FailureRatio  = 0.3;
+});
+```
+
+Và một ngăn thứ hai ở tầng cao hơn, giới hạn số lời gọi đồng thời:
+
+```csharp
+// Giới hạn concurrency riêng cho từng phụ thuộc
+builder.Services.AddResiliencePipeline("ke-toan", b => b
+    .AddConcurrencyLimiter(permitLimit: 20, queueLimit: 10)
+    .AddTimeout(TimeSpan.FromSeconds(10)));
+
+// Khi hàng đợi đầy -> thất bại NGAY, thay vì chờ
+var pipeline = _provider.GetPipeline("ke-toan");
+try
+{
+    return await pipeline.ExecuteAsync(async ct => await _keToan.XuatHoaDonAsync(id, tien, ct), ct);
+}
+catch (RateLimiterRejectedException)
+{
+    // Thất bại nhanh giữ cho phần còn lại của hệ thống vẫn phục vụ được
+    return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+}
+```
+
+**`queueLimit` là tham số quan trọng nhất ở đây, và nó thường bị đặt quá cao:**
+
+```text
+queueLimit = 1000 -> request thứ 1000 chờ rất lâu rồi cũng hỏng
+                  -> tốn tài nguyên để tạo ra một lỗi CHẬM
+
+queueLimit = 10   -> request thứ 11 hỏng NGAY
+                  -> người dùng thấy lỗi sau 50 ms, thử lại được
+```
+
+Một lỗi nhanh gần như luôn tốt hơn một lỗi chậm — vì lỗi chậm còn giữ luôn cả kết nối, luồng và bộ nhớ trong lúc chờ.
+
+**Ba chỗ khác cũng cần bulkhead, không chỉ HttpClient:**
+
+| Tài nguyên dùng chung | Triệu chứng khi cạn | Cách chia ngăn |
+|---|---|---|
+| Pool kết nối database | Mọi truy vấn chờ, kể cả truy vấn nhanh | `Max Pool Size` riêng cho tác vụ nền |
+| Thread pool | Toàn bộ request chậm dần | Không chặn luồng: `async` suốt chuỗi |
+| Bộ nhớ | GC chạy liên tục, độ trễ răng cưa | Giới hạn kích thước cache, phân trang |
+
+**Cách phát hiện trên hệ thống thật, trước khi nó gây sự cố:**
+
+```csharp
+// Metric này cho biết pool có đang cạn không
+builder.Services.AddOpenTelemetry().WithMetrics(m => m
+    .AddMeter("System.Net.Http")
+    .AddMeter("Microsoft.AspNetCore.Hosting"));
+```
+
+```promql
+# Thời gian nằm trong hàng đợi — gần 0 là khoẻ, tăng lên là pool sắp cạn
+histogram_quantile(0.99,
+  rate(http_client_connection_duration_seconds_bucket[5m]))
+```
+
+Chỉ số này thường tăng **trước** khi người dùng thấy chậm — nó là cảnh báo sớm tốt hơn nhiều so với độ trễ endpoint.
+
+Nối lại với [bài 18.7](18.7-anti-pattern-distributed-monolith.mdx): thiếu bulkhead là một trong những cách distributed monolith biểu hiện ra. Sáu service riêng biệt nhưng dùng chung một pool kết nối thì vẫn hỏng **cùng nhau** — và đó đúng là điều việc tách service muốn tránh.
+
+</details>
 
 ## Tự kiểm tra
 
