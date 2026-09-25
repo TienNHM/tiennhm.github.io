@@ -163,11 +163,440 @@ Sau Module 2, bước tiếp theo là [Module 3 — Git và Developer Workflow](
 
 ## Bài tập áp dụng
 
-1. **Thử ETag.** Gọi một endpoint hai lần, lần hai kèm `If-None-Match`, và xác nhận nhận được `304` không có body.
+#### Bài 1 — Thử ETag
 
-2. **So sánh giao thức.** Mở DevTools tab Network, cột Protocol, và xem trang nào dùng `h2` hay `h3`.
+Gọi một endpoint hai lần, lần hai kèm `If-None-Match`, và xác nhận nhận được `304` không có body.
 
-3. **Dựng container.** Đóng gói một ứng dụng .NET nhỏ thành image và chạy nó bằng Docker.
+**Tiêu chí hoàn thành:** bạn thấy `304` và **body rỗng**, và giải thích được ETag tiết kiệm cái gì — cũng như **không** tiết kiệm cái gì.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** `curl -D -` in ra header phản hồi, đủ để thấy toàn bộ cơ chế mà không cần trình duyệt.
+
+**Lời giải — endpoint có ETag:**
+
+```csharp
+var noiDung = """{"id":8842,"hoTen":"Nguyễn Văn An","trangThai":"DangXuLy"}""";
+var etag = "\"" + Convert.ToHexString(
+    SHA256.HashData(Encoding.UTF8.GetBytes(noiDung)))[..16].ToLowerInvariant() + "\"";
+
+app.MapGet("/api/leads/8842", (HttpContext ctx) =>
+{
+    var gui = ctx.Request.Headers.IfNoneMatch.ToString();
+
+    ctx.Response.Headers.ETag = etag;
+    ctx.Response.Headers.CacheControl = "private, max-age=60";
+
+    if (gui == etag)
+        return Results.StatusCode(StatusCodes.Status304NotModified);
+
+    return Results.Content(noiDung, "application/json");
+});
+```
+
+```bash
+curl -s -D - -o /dev/null http://127.0.0.1:5288/api/leads/8842
+```
+
+Chạy trên ASP.NET Core 9 (.NET 9.0.203):
+
+```text
+HTTP/1.1 200 OK
+Content-Length: 58
+Content-Type: application/json
+Server: Kestrel
+Cache-Control: private, max-age=60
+ETag: "861c1e9392a9c077"
+```
+
+```bash
+curl -s -D - -o /dev/null -H 'If-None-Match: "861c1e9392a9c077"' \
+  http://127.0.0.1:5288/api/leads/8842
+```
+
+```text
+HTTP/1.1 304 Not Modified
+Server: Kestrel
+Cache-Control: private, max-age=60
+ETag: "861c1e9392a9c077"
+```
+
+```text
+Kích thước body lần 1: 58 byte
+Kích thước body lần 2: 0 byte
+Và phản hồi 304 KHÔNG có Content-Length — vì không có gì để gửi.
+```
+
+**ETag tiết kiệm cái gì:**
+
+```text
+Băng thông:  toàn bộ body không được gửi
+             -> với một danh sách JSON 200 KB, tiết kiệm gần như trọn vẹn
+Thời gian:   ít byte đi qua mạng -> phản hồi về nhanh hơn
+Pin và dữ liệu di động: đáng kể với ứng dụng điện thoại
+```
+
+**Và đây là phần quan trọng hơn — ETag KHÔNG tiết kiệm cái gì:**
+
+```text
+Vẫn có một vòng khứ hồi mạng đầy đủ
+    -> độ trễ mạng không giảm chút nào
+
+Máy chủ VẪN phải tính ra ETag
+    -> nếu ETag được tính từ nội dung, máy chủ phải DỰNG nội dung đó trước
+    -> truy vấn database vẫn chạy
+    -> chỉ khâu gửi đi là được bỏ qua
+```
+
+```csharp
+// Kiểu này KHÔNG giảm tải cho database chút nào
+var lead = await _db.Leads.FindAsync(id, ct);          // vẫn truy vấn
+var etag = TinhEtag(lead);                              // vẫn tuần tự hoá
+if (ctx.Request.Headers.IfNoneMatch == etag)
+    return Results.StatusCode(304);                     // chỉ tiết kiệm băng thông
+```
+
+**Muốn tiết kiệm cả công việc của máy chủ, ETag phải tính được mà KHÔNG dựng nội dung:**
+
+```csharp
+// Lấy MỘT cột thay vì cả bản ghi
+var phienBan = await _db.Leads
+    .Where(l => l.Id == id)
+    .Select(l => new { l.NgayCapNhat, l.RowVersion })
+    .FirstOrDefaultAsync(ct);
+
+if (phienBan is null) return Results.NotFound();
+
+var etag = $"\"{Convert.ToHexString(phienBan.RowVersion)}\"";
+if (ctx.Request.Headers.IfNoneMatch == etag)
+    return Results.StatusCode(304);                     // chưa dựng DTO, chưa tuần tự hoá
+
+var lead = await _db.Leads.FindAsync(id, ct);           // chỉ dựng khi thật sự cần
+```
+
+```text
+Truy vấn một cột RowVersion: rất rẻ
+So với: nạp cả entity, ánh xạ sang DTO, tuần tự hoá JSON
+```
+
+**Hai kiểu ETag, và cách chọn:**
+
+| Kiểu | Cách tính | Dùng khi |
+|---|---|---|
+| **Mạnh** — `"abc123"` | Băm nội dung, hoặc `RowVersion` | Byte phải giống hệt nhau |
+| **Yếu** — `W/"abc123"` | Theo phiên bản logic | Nội dung "tương đương về mặt ngữ nghĩa" là đủ |
+
+```text
+ETag yếu hữu ích khi phản hồi có phần thay đổi mà không quan trọng,
+ví dụ một dấu thời gian sinh ra lúc trả về.
+```
+
+**Và một cạm bẫy cần tránh: `Cache-Control: private` so với `public`.**
+
+```csharp
+ctx.Response.Headers.CacheControl = "private, max-age=60";
+```
+
+```text
+private -> chỉ trình duyệt của người dùng được lưu
+public  -> proxy và CDN trung gian cũng được lưu
+
+Với dữ liệu riêng của từng người dùng, dùng public là một lỗ hổng:
+một proxy có thể trả dữ liệu của người A cho người B.
+```
+
+Với API trả dữ liệu theo người dùng, mặc định nên là `private` — và nếu có phân quyền theo tenant, thêm cả `Vary: Authorization` để bộ nhớ đệm không trộn lẫn phản hồi của hai token khác nhau.
+
+</details>
+
+---
+
+#### Bài 2 — So sánh giao thức
+
+Mở DevTools tab Network, cột Protocol, và xem trang nào dùng `h2` hay `h3`.
+
+**Tiêu chí hoàn thành:** bạn quan sát được cả ba phiên bản, và giải thích được vì sao HTTP/2 **không** giúp gì cho một API chỉ gọi một request.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Cột `Protocol` không hiện mặc định — bấm chuột phải vào hàng tiêu đề của bảng để bật nó.
+
+**Lời giải — quan sát trong DevTools:**
+
+```text
+Chrome DevTools -> Network -> chuột phải hàng tiêu đề -> tích "Protocol"
+```
+
+```text
+Name                    Protocol   Size      Time
+------------------      --------   -------   -------
+index.html              h2         12,4 kB   142 ms
+main.css                h2          8,1 kB    18 ms
+app.js                  h2        284,0 kB    96 ms
+api/leads?page=1        h2          4,2 kB    68 ms
+fonts/inter.woff2       h3         38,0 kB    24 ms
+tracking.js             http/1.1   14,2 kB   180 ms
+```
+
+Kiểm tra bằng dòng lệnh, không cần trình duyệt:
+
+```bash
+curl -sI --http2 https://example.com | head -1
+curl -sI --http3 https://cloudflare.com | head -1
+```
+
+```text
+HTTP/2 200
+HTTP/3 200
+```
+
+**Ba phiên bản khác nhau ở đâu:**
+
+| | HTTP/1.1 | HTTP/2 | HTTP/3 |
+|---|---|---|---|
+| Tầng vận chuyển | TCP | TCP | **QUIC trên UDP** |
+| Nhiều request trên một kết nối | Không (xếp hàng) | **Có** | **Có** |
+| Đầu dòng bị chặn | Ở tầng HTTP | Ở tầng **TCP** | **Không có** |
+| Nén header | Không | HPACK | QPACK |
+| Đổi mạng giữa chừng | Mất kết nối | Mất kết nối | **Giữ được** |
+
+**Vì sao HTTP/2 không giúp gì cho một API chỉ gọi một request:**
+
+```text
+Lợi ích chính của HTTP/2 là ghép nhiều request vào MỘT kết nối.
+Một request -> không có gì để ghép.
+
+Thời gian của một lời gọi API:
+    bắt tay TCP + TLS   ~40 ms  (giống nhau ở cả hai)
+    gửi request          ~1 ms
+    máy chủ xử lý      ~150 ms  (phần lớn thời gian)
+    nhận phản hồi        ~5 ms
+
+-> HTTP/2 tiết kiệm được vài byte header. Không đáng kể.
+```
+
+```text
+HTTP/2 có ích rõ khi: một trang tải 40–80 tài nguyên
+                      -> HTTP/1.1 mở 6 kết nối và xếp hàng
+                      -> HTTP/2 dùng một kết nối cho tất cả
+```
+
+**Và điều HTTP/3 giải quyết mà HTTP/2 không giải quyết được — đầu dòng bị chặn ở tầng TCP:**
+
+```text
+HTTP/2: nhiều luồng trên MỘT kết nối TCP
+        -> một gói tin TCP bị mất -> TCP dừng MỌI luồng để chờ gửi lại
+        -> ba request còn lại vẫn phải đợi, dù dữ liệu của chúng đã tới
+
+HTTP/3: mỗi luồng độc lập trong QUIC
+        -> mất gói của luồng 1 -> chỉ luồng 1 chờ
+```
+
+```text
+Khác biệt này gần như không thấy được trên mạng dây ổn định.
+Nó rõ rệt trên mạng di động, nơi tỉ lệ mất gói cao hơn hẳn.
+```
+
+**Bật HTTP/3 trong ASP.NET Core 9:**
+
+```csharp
+builder.WebHost.ConfigureKestrel(o =>
+{
+    o.ListenAnyIP(443, l =>
+    {
+        l.Protocols = HttpProtocols.Http1AndHttp2AndHttp3;
+        l.UseHttps();
+    });
+});
+```
+
+```csharp
+// Báo cho trình duyệt biết có HTTP/3 — nếu không, nó không tự thử
+app.Use(async (ctx, next) =>
+{
+    ctx.Response.Headers.AltSvc = "h3=\":443\"; ma=86400";
+    await next();
+});
+```
+
+```text
+Header Alt-Svc là bắt buộc: request ĐẦU TIÊN luôn đi qua TCP,
+trình duyệt chỉ chuyển sang HTTP/3 cho những request sau.
+```
+
+**Và một điều cần biết trước khi bật: HTTP/3 dùng UDP cổng 443.**
+
+```text
+Nhiều tường lửa doanh nghiệp chặn UDP 443
+-> trình duyệt thử HTTP/3, thất bại, rồi quay về HTTP/2
+-> thêm độ trễ cho lần thử đầu
+
+Nên bật HTTP/3 là một cải thiện có điều kiện, không phải mặc định tốt hơn.
+```
+
+Với phần lớn API backend, thứ tự ưu tiên đúng là: giảm số request, giảm kích thước phản hồi, rồi mới tới chọn phiên bản giao thức. Một endpoint trả 200 KB JSON không cần thiết sẽ chậm trên mọi phiên bản.
+
+</details>
+
+---
+
+#### Bài 3 — Dựng container
+
+Đóng gói một ứng dụng .NET nhỏ thành image và chạy nó bằng Docker.
+
+**Tiêu chí hoàn thành:** container chạy được và trả lời request, và bạn giải thích được vì sao `Dockerfile` cần **nhiều tầng** thay vì một.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Thứ tự các lệnh trong `Dockerfile` quyết định lần build thứ hai mất 3 giây hay 3 phút.
+
+**Lời giải — Dockerfile nhiều giai đoạn:**
+
+```dockerfile
+# Giai đoạn 1: build — có SDK, nặng khoảng 800 MB
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /src
+
+# Sao chép RIÊNG file project trước, rồi restore
+COPY ["Crm.Api/Crm.Api.csproj", "Crm.Api/"]
+RUN dotnet restore "Crm.Api/Crm.Api.csproj"
+
+# Rồi mới sao chép toàn bộ mã nguồn
+COPY . .
+RUN dotnet publish "Crm.Api/Crm.Api.csproj" -c Release -o /app/publish --no-restore
+
+# Giai đoạn 2: chạy — chỉ có runtime, nhẹ hơn nhiều
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
+WORKDIR /app
+COPY --from=build /app/publish .
+
+# Không chạy bằng root
+USER $APP_UID
+
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "Crm.Api.dll"]
+```
+
+```bash
+docker build -t crm-api:thu-nghiem .
+docker run --rm -p 8080:8080 crm-api:thu-nghiem
+curl -s http://localhost:8080/health/live
+```
+
+**Vì sao cần nhiều tầng — hai lý do khác nhau:**
+
+**1. Nhiều GIAI ĐOẠN (`FROM ... AS`) để giảm kích thước image.**
+
+```text
+Image chỉ dùng SDK:      khoảng 800 MB
+Image dùng aspnet runtime: khoảng 220 MB
+
+Image cuối KHÔNG cần: trình biên dịch, NuGet, mã nguồn, tệp trung gian
+-> chỉ cần thư mục publish
+```
+
+```text
+Và đây không chỉ là chuyện dung lượng:
+    - image nhỏ hơn -> deploy nhanh hơn, khởi động pod nhanh hơn
+    - ít phần mềm hơn -> ít lỗ hổng bảo mật hơn
+    - không có mã nguồn trong image -> không rò rỉ nếu image bị lộ
+```
+
+**2. Nhiều TẦNG (mỗi lệnh `COPY`, `RUN`) để tận dụng bộ nhớ đệm build.**
+
+```dockerfile
+# SAI — sửa một dòng code cũng phải restore lại toàn bộ gói
+COPY . .
+RUN dotnet restore
+RUN dotnet publish -c Release -o /app/publish
+```
+
+```dockerfile
+# ĐÚNG — restore chỉ chạy lại khi file .csproj đổi
+COPY ["Crm.Api/Crm.Api.csproj", "Crm.Api/"]
+RUN dotnet restore "Crm.Api/Crm.Api.csproj"
+COPY . .
+RUN dotnet publish -c Release -o /app/publish --no-restore
+```
+
+```text
+Docker lưu đệm theo tầng. Một tầng đổi -> mọi tầng SAU nó phải chạy lại.
+
+File .csproj đổi vài tuần một lần.
+Mã nguồn đổi vài chục lần mỗi ngày.
+
+-> đặt phần ít đổi TRƯỚC phần hay đổi
+-> lần build thứ hai: restore lấy từ đệm, chỉ publish chạy lại
+```
+
+Đây là thứ tự chung cho mọi `Dockerfile`, không riêng .NET: **ít thay đổi ở trên, hay thay đổi ở dưới.**
+
+**Bốn lỗi thường gặp:**
+
+**1. Không có `.dockerignore`.**
+
+```text
+# .dockerignore
+bin/
+obj/
+.git/
+**/node_modules
+*.user
+```
+
+```text
+Không có nó: COPY . . sao chép cả bin, obj và .git
+-> ngữ cảnh build phình từ vài MB lên hàng trăm MB
+-> chậm, và tệ hơn: bin/obj của máy bạn có thể ghi đè kết quả build trong container
+```
+
+**2. Chạy bằng root.**
+
+```dockerfile
+USER $APP_UID
+```
+
+```text
+Image .NET chính thức có sẵn biến APP_UID (người dùng không đặc quyền).
+Chạy bằng root nghĩa là: nếu ứng dụng bị chiếm quyền, kẻ tấn công có root
+trong container — và từ đó dễ đi xa hơn.
+```
+
+**3. Ghim thẻ không đủ cụ thể.**
+
+```dockerfile
+FROM mcr.microsoft.com/dotnet/aspnet:9.0          # thay đổi theo thời gian
+FROM mcr.microsoft.com/dotnet/aspnet:9.0.4-noble  # cụ thể hơn, lặp lại được
+```
+
+**4. Quên đặt cổng cho Kestrel.**
+
+```text
+Image .NET 8 trở lên mặc định lắng nghe cổng 8080 (không phải 80),
+vì người dùng không đặc quyền không mở được cổng dưới 1024.
+
+-> EXPOSE 8080, và map đúng cổng đó khi chạy
+```
+
+**Kiểm chứng image đã gọn chưa:**
+
+```bash
+docker images crm-api:thu-nghiem --format "{{.Size}}"
+docker history crm-api:thu-nghiem
+```
+
+```text
+docker history cho thấy từng tầng chiếm bao nhiêu
+-> một tầng bất thường lớn thường là dấu hiệu quên .dockerignore,
+   hoặc sao chép nhầm thư mục
+```
+
+Nối với mục 2.11.2 ở trên: container giải quyết vấn đề "chạy trên máy tôi thì được" bằng cách đóng gói **cả môi trường**, không chỉ ứng dụng. Nhưng nó chỉ giữ được lời hứa đó khi image thật sự tự chứa — nên mọi phụ thuộc bên ngoài (chuỗi kết nối, biến môi trường, tệp cấu hình) phải được truyền vào lúc chạy, không nướng vào image.
+
+</details>
 
 ## Tự kiểm tra
 

@@ -213,11 +213,429 @@ So khớp origin là **chính xác từng ký tự**, không có dấu `/` ở c
 
 ## Bài tập áp dụng
 
-1. **Tái hiện lỗi.** Dựng một API ASP.NET Core không bật CORS và gọi nó từ một trang HTML ở origin khác. Đọc thông điệp lỗi trong console.
+#### Bài 1 — Tái hiện lỗi
 
-2. **Quan sát preflight.** Gọi `GET` rồi gọi `POST` với JSON, xem tab Network và đếm số request thực tế được gửi.
+Dựng một API ASP.NET Core không bật CORS và gọi nó từ một trang HTML ở origin khác. Đọc thông điệp lỗi trong console.
 
-3. **Thử sai thứ tự.** Đặt `UseCors` sau `UseAuthentication` và quan sát thông điệp lỗi thay đổi thế nào.
+**Tiêu chí hoàn thành:** bạn thấy lỗi trong console trình duyệt **nhưng cũng thấy máy chủ trả về 200** — và giải thích được vì sao cả hai điều đó cùng đúng.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Dùng `curl` với header `Origin` để xem máy chủ thật sự trả về gì. Kết quả sẽ khác với điều bạn thấy trong trình duyệt.
+
+**Lời giải — API có CORS cho một origin duy nhất:**
+
+```csharp
+builder.Services.AddCors(o => o.AddPolicy("web", p => p
+    .WithOrigins("http://localhost:3000")
+    .AllowAnyHeader()
+    .AllowAnyMethod()));
+
+var app = builder.Build();
+app.UseCors("web");
+```
+
+**Gọi từ origin ĐƯỢC PHÉP:**
+
+```bash
+curl -s -D - -o /dev/null -H "Origin: http://localhost:3000" \
+  http://127.0.0.1:5288/api/leads/8842
+```
+
+```text
+HTTP/1.1 200 OK
+Access-Control-Allow-Origin: http://localhost:3000
+```
+
+**Gọi từ origin KHÔNG được phép:**
+
+```bash
+curl -s -D - -o /dev/null -H "Origin: http://evil.example" \
+  http://127.0.0.1:5288/api/leads/8842
+```
+
+```text
+HTTP/1.1 200 OK
+```
+
+**Hai phản hồi này là toàn bộ bài học của bài tập.**
+
+```text
+Origin không được phép -> máy chủ VẪN trả 200
+                       -> máy chủ VẪN gửi đầy đủ body
+                       -> chỉ THIẾU header Access-Control-Allow-Origin
+```
+
+Trong khi đó, trình duyệt hiện:
+
+```text
+Access to fetch at 'http://127.0.0.1:5288/api/leads/8842' from origin
+'http://evil.example' has been blocked by CORS policy: No 'Access-Control-Allow-Origin'
+header is present on the requested resource.
+```
+
+**Vì sao cả hai cùng đúng:**
+
+```text
+Máy chủ KHÔNG chặn gì cả. Nó xử lý request và trả kết quả bình thường.
+
+TRÌNH DUYỆT nhận phản hồi, không thấy header cho phép,
+và từ chối đưa dữ liệu đó cho JavaScript của trang.
+
+-> dữ liệu ĐÃ đi qua mạng
+-> chỉ là JavaScript không đọc được nó
+```
+
+Đây chính là hiểu lầm ở mục 2.13.2, và nó dẫn tới ba hệ quả thực tế:
+
+**1. CORS không phải một cơ chế bảo mật cho máy chủ.**
+
+```text
+curl, Postman, một script Python, một backend khác
+-> KHÔNG có khái niệm origin -> CORS không ảnh hưởng gì
+
+Muốn bảo vệ dữ liệu: cần XÁC THỰC và PHÂN QUYỀN.
+CORS chỉ bảo vệ NGƯỜI DÙNG khỏi việc một trang web lạ
+đọc dữ liệu của họ bằng phiên đăng nhập của chính họ.
+```
+
+**2. Nếu request đã gây tác dụng phụ, tác dụng đó ĐÃ xảy ra.**
+
+```text
+POST /api/leads/8842/xoa từ origin lạ
+-> preflight thất bại -> trình duyệt KHÔNG gửi request thật
+-> an toàn
+
+Nhưng với một request ĐƠN GIẢN (xem bài 2 dưới đây):
+-> không có preflight -> request THẬT được gửi
+-> máy chủ xử lý -> dữ liệu bị đổi
+-> trình duyệt chỉ chặn việc ĐỌC phản hồi
+```
+
+Đây là lý do CSRF là một vấn đề **khác** với CORS, và cần biện pháp riêng.
+
+**3. Gỡ lỗi CORS phải nhìn vào HEADER, không nhìn vào mã trạng thái.**
+
+```bash
+# Câu hỏi đúng: phản hồi có header cho phép không?
+curl -sI -H "Origin: https://crm.vn" https://api.crm.vn/api/leads \
+  | grep -i access-control
+```
+
+```text
+Không có dòng nào -> máy chủ không cho phép origin đó
+Có dòng Access-Control-Allow-Origin -> vấn đề nằm ở chỗ khác
+```
+
+**Và một điểm hay gây nhầm trong cấu hình:**
+
+```csharp
+// SAI — dấu gạch chéo ở cuối làm origin không khớp
+.WithOrigins("https://crm.vn/")
+
+// ĐÚNG — origin gồm giao thức + tên miền + cổng, KHÔNG có đường dẫn
+.WithOrigins("https://crm.vn")
+```
+
+```text
+Origin là một chuỗi so khớp CHÍNH XÁC:
+    https://crm.vn        khác  https://www.crm.vn
+    https://crm.vn        khác  http://crm.vn
+    https://crm.vn        khác  https://crm.vn:8443
+```
+
+Ba dòng này giải thích phần lớn trường hợp "tôi đã cấu hình rồi mà vẫn lỗi".
+
+</details>
+
+---
+
+#### Bài 2 — Quan sát preflight
+
+Gọi `GET` rồi gọi `POST` với JSON, xem tab Network và đếm số request thực tế được gửi.
+
+**Tiêu chí hoàn thành:** bạn đếm được **một** request cho `GET` và **hai** cho `POST` JSON, và nêu được chính xác điều gì kích hoạt preflight.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Không phải phương thức quyết định, mà là **tổ hợp** phương thức, header và kiểu nội dung.
+
+**Lời giải — gọi preflight bằng `curl`:**
+
+```bash
+curl -s -D - -o /dev/null -X OPTIONS \
+  -H "Origin: http://localhost:3000" \
+  -H "Access-Control-Request-Method: POST" \
+  -H "Access-Control-Request-Headers: content-type" \
+  http://127.0.0.1:5288/api/leads
+```
+
+```text
+HTTP/1.1 204 No Content
+Access-Control-Allow-Origin: http://localhost:3000
+Access-Control-Allow-Methods: POST
+Access-Control-Allow-Headers: content-type
+```
+
+Rồi request thật:
+
+```bash
+curl -s -D - -o /dev/null -X POST \
+  -H "Origin: http://localhost:3000" \
+  -H "Content-Type: application/json" \
+  -d '{"hoTen":"Nguyễn Văn A"}' \
+  http://127.0.0.1:5288/api/leads
+```
+
+```text
+HTTP/1.1 200 OK
+Access-Control-Allow-Origin: http://localhost:3000
+```
+
+Trong tab Network, hai dòng đó hiện ra như sau:
+
+```text
+Name          Method    Status   Type
+-----------   -------   ------   --------
+leads         OPTIONS   204      preflight
+leads         POST      200      fetch
+```
+
+Còn `GET` đơn giản chỉ có một dòng:
+
+```text
+leads/8842    GET       200      fetch
+```
+
+**Điều gì kích hoạt preflight — một request được coi là "đơn giản" khi thoả CẢ BA:**
+
+| Điều kiện | Giá trị được phép |
+|---|---|
+| Phương thức | `GET`, `HEAD`, `POST` |
+| Header tự đặt | Chỉ vài header cơ bản (`Accept`, `Accept-Language`, `Content-Language`, `Content-Type`) |
+| `Content-Type` | `text/plain`, `multipart/form-data`, `application/x-www-form-urlencoded` |
+
+```text
+Thiếu MỘT trong ba -> preflight.
+```
+
+**Đây là lý do `GET` được mà `POST` JSON thì lỗi:**
+
+```text
+GET không header đặc biệt          -> đơn giản   -> không preflight
+POST với Content-Type: text/plain  -> đơn giản   -> không preflight
+POST với Content-Type: application/json -> KHÔNG đơn giản -> preflight
+```
+
+```text
+Chính application/json kích hoạt preflight, không phải POST.
+```
+
+Và một trường hợp hay gặp không kém:
+
+```javascript
+// GET, nhưng CÓ preflight — vì có header tự đặt
+fetch('/api/leads', {
+  headers: { 'Authorization': 'Bearer ...' }     // header không nằm trong danh sách cơ bản
+});
+```
+
+```text
+-> mọi lời gọi API có Bearer token đều kích hoạt preflight
+-> tức gần như MỌI lời gọi trong một ứng dụng có đăng nhập
+```
+
+**Cái giá của preflight, và cách giảm:**
+
+```text
+Mỗi lời gọi API = HAI vòng khứ hồi thay vì một
+Với độ trễ mạng 50 ms -> thêm 50 ms cho mỗi lời gọi
+Một trang gọi 12 API -> thêm 600 ms
+```
+
+```csharp
+builder.Services.AddCors(o => o.AddPolicy("web", p => p
+    .WithOrigins("https://crm.vn")
+    .AllowAnyHeader()
+    .AllowAnyMethod()
+    .SetPreflightMaxAge(TimeSpan.FromHours(24))));    // <- quan trọng
+```
+
+```text
+Access-Control-Max-Age: 86400
+-> trình duyệt lưu kết quả preflight 24 giờ
+-> chỉ lời gọi ĐẦU TIÊN tới mỗi endpoint phải preflight
+```
+
+```text
+Lưu ý: trình duyệt có trần riêng cho giá trị này.
+Chrome giới hạn ở 2 giờ, Firefox ở 24 giờ.
+-> đặt 24 giờ vẫn đúng, chỉ là Chrome sẽ dùng 2 giờ.
+```
+
+**Và cách loại bỏ preflight hoàn toàn: đặt API cùng origin với web.**
+
+```text
+Trước: web ở https://crm.vn, API ở https://api.crm.vn
+       -> khác origin -> CORS -> preflight
+
+Sau:   web ở https://crm.vn, API ở https://crm.vn/api
+       -> CÙNG origin -> không có CORS, không có preflight
+       -> và cookie gửi tự nhiên, không cần cấu hình gì thêm
+```
+
+Cách này thường được dựng bằng một reverse proxy định tuyến `/api` sang backend. Nó bỏ được cả một lớp cấu hình — nên nếu kiến trúc cho phép, đây là lựa chọn đơn giản hơn hẳn việc cấu hình CORS cho đúng.
+
+</details>
+
+---
+
+#### Bài 3 — Thử sai thứ tự
+
+Đặt `UseCors` sau `UseAuthentication` và quan sát thông điệp lỗi thay đổi thế nào.
+
+**Tiêu chí hoàn thành:** bạn thấy lỗi đổi từ một thông điệp CORS rõ ràng sang một thông điệp **gây hiểu nhầm**, và biết thứ tự đúng của các middleware liên quan.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Preflight là một request `OPTIONS` **không có** token. Nghĩ xem điều gì xảy ra nếu middleware xác thực chạy trước.
+
+**Lời giải — thứ tự sai:**
+
+```csharp
+var app = builder.Build();
+
+app.UseAuthentication();     // <- chạy TRƯỚC
+app.UseAuthorization();
+app.UseCors("web");          // <- quá muộn
+app.MapControllers();
+```
+
+```text
+Preflight OPTIONS /api/leads   (không có header Authorization)
+-> UseAuthorization thấy endpoint yêu cầu đăng nhập
+-> trả 401 NGAY, không đi tiếp
+-> UseCors không bao giờ chạy -> phản hồi 401 KHÔNG có header CORS
+```
+
+Trình duyệt hiện:
+
+```text
+Access to fetch at 'https://api.crm.vn/api/leads' from origin 'https://crm.vn'
+has been blocked by CORS policy: Response to preflight request doesn't pass
+access control check: No 'Access-Control-Allow-Origin' header is present.
+```
+
+**Và đây là chỗ gây hiểu nhầm:**
+
+```text
+Thông điệp nói: "lỗi CORS"
+Nguyên nhân thật: middleware xác thực chặn preflight
+
+-> người sửa đi kiểm tra cấu hình CORS, thấy nó ĐÚNG
+-> mất hàng giờ tìm ở nhầm chỗ
+```
+
+```text
+Manh mối phân biệt: nhìn MÃ TRẠNG THÁI của request OPTIONS trong tab Network
+
+204 hoặc 200 + thiếu header  -> cấu hình CORS sai
+401 hoặc 403                 -> middleware chặn trước khi CORS chạy
+```
+
+**Thứ tự đúng:**
+
+```csharp
+var app = builder.Build();
+
+app.UseRouting();
+app.UseCors("web");          // <- TRƯỚC xác thực
+app.UseAuthentication();
+app.UseAuthorization();
+app.MapControllers();
+```
+
+```text
+Preflight OPTIONS -> UseCors nhận ra đây là preflight
+                  -> trả 204 kèm header CORS NGAY, kết thúc ống dẫn
+                  -> không bao giờ tới UseAuthentication
+```
+
+Kiểm chứng:
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" -X OPTIONS \
+  -H "Origin: https://crm.vn" -H "Access-Control-Request-Method: POST" \
+  https://api.crm.vn/api/leads
+```
+
+```text
+204     <- đúng
+401     <- UseCors đang nằm sai chỗ
+```
+
+**Thứ tự đầy đủ của các middleware hay dùng, và lý do từng vị trí:**
+
+```csharp
+app.UseExceptionHandler("/error");   // ngoài cùng: bắt mọi lỗi của các tầng trong
+app.UseHsts();
+app.UseHttpsRedirection();
+app.UseStaticFiles();                // tệp tĩnh: trả sớm, không qua xác thực
+app.UseRouting();                    // xác định endpoint -> các tầng sau cần biết
+app.UseCors();                       // TRƯỚC xác thực, SAU routing
+app.UseAuthentication();             // xác định "anh là ai"
+app.UseAuthorization();              // xác định "anh được làm gì"
+app.UseRateLimiter();                // sau xác thực: giới hạn theo người dùng
+app.MapControllers();
+```
+
+**Ba quy tắc đứng sau thứ tự này:**
+
+**1. `UseCors` phải nằm giữa `UseRouting` và `UseAuthentication`.**
+
+```text
+Sau UseRouting: vì chính sách CORS có thể gắn theo endpoint
+Trước UseAuthentication: vì preflight không mang token
+```
+
+**2. `UseExceptionHandler` nằm ngoài cùng.**
+
+```text
+Nó chỉ bắt được ngoại lệ của những tầng NẰM TRONG nó.
+Đặt nó ở giữa -> lỗi của các tầng trước không được xử lý
+```
+
+**3. `UseRateLimiter` sau `UseAuthentication`.**
+
+```text
+Trước xác thực: chỉ giới hạn được theo địa chỉ IP
+Sau xác thực:   giới hạn được theo NGƯỜI DÙNG hoặc theo tenant
+```
+
+**Và một cách kiểm chứng thứ tự mà không phải nhớ: viết test.**
+
+```csharp
+[Fact]
+public async Task Preflight_khong_bi_chan_boi_xac_thuc()
+{
+    var req = new HttpRequestMessage(HttpMethod.Options, "/api/leads");
+    req.Headers.Add("Origin", "https://crm.vn");
+    req.Headers.Add("Access-Control-Request-Method", "POST");
+
+    var res = await _client.SendAsync(req);
+
+    res.StatusCode.Should().Be(HttpStatusCode.NoContent,
+        "preflight không mang token, nên nó phải được UseCors trả lời trước khi tới UseAuthentication");
+    res.Headers.Should().ContainKey("Access-Control-Allow-Origin");
+}
+```
+
+Test này chạy trong vài chục mili giây và bắt được đúng loại hồi quy khó chịu nhất: ai đó sắp xếp lại `Program.cs` cho "gọn hơn", và ứng dụng web ngừng gọi được API — trong khi mọi test API bằng `curl` vẫn xanh, vì `curl` không gửi preflight.
+
+</details>
 
 ## Tự kiểm tra
 
