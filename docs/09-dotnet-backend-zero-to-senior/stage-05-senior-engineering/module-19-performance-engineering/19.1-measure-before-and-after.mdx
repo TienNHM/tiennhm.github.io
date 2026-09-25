@@ -62,9 +62,9 @@ Chênh lệch giữa hàng đầu và hàng cuối là chín bậc độ lớn. 
 SLO cho /api/leads/search:
   - p95 < 200ms
   - p99 < 500ms
-  - ty le loi < 0,1%
-  - o muc tai 100 request/giay
-  - voi 2 trieu lead trong database
+  - tỷ lệ lỗi < 0,1%
+  - ở mức tải 100 request/giây
+  - với 2 triệu lead trong database
 ```
 
 Năm thành phần đều cần: **hai phân vị**, **tỷ lệ lỗi**, **mức tải**, và **kích thước dữ liệu**. Thiếu hai cái cuối, con số không so sánh được với gì cả — 200ms với 1.000 bản ghi và 200ms với 2 triệu bản ghi là hai kết quả khác hẳn nhau.
@@ -143,7 +143,7 @@ Cùng một truy vấn lặp lại sẽ nằm trong cache sau lần đầu, và 
 **1. Đo và ghi lại baseline.**
 
 ```
-/api/leads/search, 2 trieu ban ghi, 100 rps:
+/api/leads/search, 2 triệu bản ghi, 100 rps:
   p50 = 180ms   p95 = 1200ms   p99 = 3400ms
   CPU = 45%     alloc = 120 MB/s
 ```
@@ -157,7 +157,7 @@ Ghi đủ ngữ cảnh: kích thước dữ liệu, mức tải, cấu hình. S�
 **4. Đo lại đúng điều kiện cũ.**
 
 ```
-Sau khi them index tren (TenantId, CreatedAt):
+Sau khi thêm index trên (TenantId, CreatedAt):
   p50 = 45ms    p95 = 120ms    p99 = 280ms
   CPU = 20%     alloc = 118 MB/s
 
@@ -176,14 +176,14 @@ Nhận xét cuối quan trọng: khi một chỉ số **không đổi** đúng n
 | **bombardier** | Một lệnh, kiểm tra nhanh | Không có kịch bản phức tạp |
 
 ```javascript
-// k6 — tang tai dan de tim diem gay
+// k6 — tăng tải dần để tìm điểm gãy
 export const options = {
   stages: [
-    { duration: '2m', target: 50 },    // tang dan
+    { duration: '2m', target: 50 },    // tăng dần
     { duration: '5m', target: 50 },    // giữ ổn định
-    { duration: '2m', target: 200 },   // tang manh
+    { duration: '2m', target: 200 },   // tăng mạnh
     { duration: '5m', target: 200 },
-    { duration: '2m', target: 0 },     // giam dan
+    { duration: '2m', target: 0 },     // giảm dần
   ],
   thresholds: {
     http_req_duration: ['p(95)<200', 'p(99)<500'],

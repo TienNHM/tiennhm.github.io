@@ -74,7 +74,7 @@ try
 }
 finally
 {
-    ArrayPool<byte>.Shared.Return(buffer);    // BAT BUOC tra lai
+    ArrayPool<byte>.Shared.Return(buffer);    // BẮT BUỘC trả lại
 }
 ```
 
@@ -167,11 +167,437 @@ Năm mục trong bài này nằm ở vị trí thứ **bảy trở đi**. Làm c
 
 ## Bài tập áp dụng
 
-1. **So sánh hai chế độ GC.** Chạy cùng bài test tải với `ServerGarbageCollection` bật và tắt trong container 512Mi, so sánh bộ nhớ và thông lượng.
+#### Bài 1 — So sánh hai chế độ GC
 
-2. **Đo tác dụng của Span.** Benchmark một hàm parse dùng `Split` và một hàm dùng `ReadOnlySpan<char>`, so sánh cột `Allocated`.
+Chạy cùng bài test tải với `ServerGarbageCollection` bật và tắt trong container 512Mi, so sánh bộ nhớ và thông lượng.
 
-3. **Thử source generator.** Thêm `JsonSerializerContext` cho một DTO và benchmark serialize trước/sau.
+**Tiêu chí hoàn thành:** bạn đo được cả hai chế độ, và nhận ra **số nhân mà runtime nhìn thấy** quan trọng hơn cả việc chọn chế độ.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Server GC tạo một heap và một luồng thu gom cho mỗi nhân. Trong container giới hạn CPU, "mỗi nhân" có thể không phải con số bạn nghĩ.
+
+**Lời giải — đo cùng một khối lượng công việc ở hai chế độ:**
+
+```bash
+dotnet run -c Release                                  # Workstation (mặc định cho console)
+DOTNET_gcServer=1 dotnet run -c Release                # Server GC
+DOTNET_GCHeapHardLimit=10000000 dotnet run -c Release  # giới hạn heap 256 MB (hex)
+```
+
+```csharp
+var info = GC.GetGCMemoryInfo();
+Console.WriteLine($"ServerGC             : {System.Runtime.GCSettings.IsServerGC}");
+Console.WriteLine($"ProcessorCount       : {Environment.ProcessorCount}");
+Console.WriteLine($"TotalAvailableMemory : {info.TotalAvailableMemoryBytes / 1048576} MB");
+Console.WriteLine($"GC.GetTotalMemory    : {GC.GetTotalMemory(false) / 1048576.0:F1} MB");
+Console.WriteLine($"WorkingSet (RSS)     : {Process.GetCurrentProcess().WorkingSet64 / 1048576.0:F1} MB");
+Console.WriteLine($"Gen0/1/2 collections : {GC.CollectionCount(0)}/{GC.CollectionCount(1)}/{GC.CollectionCount(2)}");
+```
+
+Kết quả đo trên .NET 9.0.203, máy 4 nhân, cùng khối lượng cấp phát:
+
+```text
+--- Workstation GC (mặc định) ---
+ProcessorCount       : 4
+TotalAvailableMemory : 7937 MB
+GC.GetTotalMemory    : 97,8 MB
+WorkingSet (RSS)     : 134,0 MB
+Gen0/1/2 collections : 32/8/3
+
+--- Server GC (DOTNET_gcServer=1) ---
+ProcessorCount       : 4
+TotalAvailableMemory : 7937 MB
+GC.GetTotalMemory    : 97,8 MB
+WorkingSet (RSS)     : 136,6 MB
+Gen0/1/2 collections : 27/5/3
+
+--- Workstation + DOTNET_GCHeapHardLimit=0x10000000 ---
+TotalAvailableMemory : 256 MB        <- runtime biết trần của nó
+GC.GetTotalMemory    : 97,8 MB
+WorkingSet (RSS)     : 133,7 MB
+Gen0/1/2 collections : 32/8/3
+```
+
+| | Workstation | Server | Chênh |
+|---|---:|---:|---|
+| Heap quản lý | 97,8 MB | 97,8 MB | bằng nhau |
+| RSS | 134,0 MB | 136,6 MB | +2,6 MB |
+| Gen-0 collections | 32 | **27** | ít hơn 16% |
+| Gen-1 collections | 8 | **5** | ít hơn |
+
+**Ba kết luận từ ba lần đo:**
+
+**1. Server GC gom ít lần hơn (27 so với 32) nhưng tốn thêm bộ nhớ (+2,6 MB).**
+
+```text
+Server GC: heap riêng cho mỗi nhân -> ngưỡng gom cao hơn -> ít lần gom hơn
+           -> ít lần tạm dừng hơn -> thông lượng tốt hơn khi có nhiều nhân
+
+Đổi lại: mỗi heap có phần dự phòng riêng -> RSS cao hơn
+```
+
+Trên máy 4 nhân, chênh lệch nhỏ. Với 16 hoặc 32 nhân, khoảng cách này lớn hơn rõ rệt theo cả hai chiều.
+
+**2. Khoảng cách giữa RSS và heap quản lý là 36,2 MB — và nó không phải rác.**
+
+```text
+RSS 134,0 MB − heap 97,8 MB = 36,2 MB
+
+Phần đó gồm: mã đã JIT, stack của các luồng, bộ đệm native,
+             metadata của runtime, và phân mảnh
+
+-> khi đặt memory limit cho container, phải cộng phần này vào
+-> heap 400 MB KHÔNG đồng nghĩa container 400 MB là đủ
+```
+
+**3. Và đây là phần quan trọng nhất: `TotalAvailableMemoryBytes` mặc định là 7937 MB — toàn bộ RAM của máy.**
+
+```text
+Trong container giới hạn 512Mi mà runtime KHÔNG nhận biết giới hạn:
+    -> GC tưởng có 8 GB
+    -> nó để heap lớn dần, gom muộn
+    -> chạm 512Mi -> container bị OOM kill (exit code 137)
+    -> và KHÔNG có OutOfMemoryException nào trong log, vì tiến trình bị
+       kernel giết, không phải runtime ném lỗi
+```
+
+Khi đặt `DOTNET_GCHeapHardLimit`, `TotalAvailableMemoryBytes` đổi từ 7937 MB xuống 256 MB — runtime **biết** trần của nó và gom sớm hơn thay vì để container bị giết.
+
+**Cấu hình đúng cho container:**
+
+```xml
+<PropertyGroup>
+  <ServerGarbageCollection>true</ServerGarbageCollection>
+  <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+</PropertyGroup>
+```
+
+```yaml
+resources:
+  limits:   { memory: "512Mi", cpu: "1000m" }
+  requests: { memory: "256Mi", cpu: "500m" }
+env:
+  # Dùng 75% giới hạn container làm trần heap
+  - name: DOTNET_GCHeapHardLimitPercent
+    value: "4B"          # 0x4B = 75
+```
+
+```text
+DOTNET_GCHeapHardLimitPercent tốt hơn DOTNET_GCHeapHardLimit:
+    - tự động theo giới hạn container
+    - không phải sửa khi đổi memory limit
+    - và nó tính theo cgroup, nên đúng cả khi giới hạn thay đổi
+```
+
+**Và chi tiết ảnh hưởng lớn nhất trong container, lớn hơn cả việc chọn chế độ GC:**
+
+```text
+cpu limit 1000m  ->  Environment.ProcessorCount = 1
+-> Server GC chỉ tạo MỘT heap
+-> gần như không khác Workstation, nhưng vẫn tốn phần dự phòng
+
+cpu limit 4000m  ->  ProcessorCount = 4 -> Server GC phát huy tác dụng
+```
+
+```csharp
+// Kiểm tra runtime đang nhìn thấy gì — nên log lúc khởi động
+_log.LogInformation("GC: Server={Server}, Cores={Cores}, HeapLimit={Limit} MB",
+    GCSettings.IsServerGC,
+    Environment.ProcessorCount,
+    GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / 1048576);
+```
+
+Dòng log này mất một giây để thêm và trả lời ngay câu hỏi "vì sao pod cứ bị OOM kill" — thường vì runtime đang nghĩ nó có 8 GB trong một container 512Mi.
+
+**Quy tắc chọn:**
+
+| Tình huống | Chế độ |
+|---|---|
+| API server, từ 2 nhân trở lên | **Server GC** |
+| Container 1 nhân | **Workstation** — Server GC không giúp gì |
+| Công cụ dòng lệnh, job ngắn | **Workstation** — khởi động nhanh hơn |
+| Bộ nhớ rất chặt (dưới 256Mi) | **Workstation** + `GCHeapHardLimitPercent` |
+
+</details>
+
+---
+
+#### Bài 2 — Đo tác dụng của Span
+
+Benchmark một hàm parse dùng `Split` và một hàm dùng `ReadOnlySpan<char>`, so sánh cột `Allocated`.
+
+**Tiêu chí hoàn thành:** bạn đạt 0 byte cấp phát, và biết vì sao con số đó quan trọng hơn con số thời gian ở bối cảnh này.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Bài này đã được làm ở [bài 19.2](19.2-benchmarkdotnet.mdx) — ở đây hãy nối nó với phần GC vừa đo ở bài 1.
+
+**Lời giải — nhắc lại kết quả đo trên .NET 9.0.203:**
+
+```text
+| Method       |      Mean |   Gen0 | Allocated | Alloc Ratio |
+|------------- |----------:|-------:|----------:|------------:|
+| string.Split | 284,69 ns | 0.0205 |     392 B |        1.00 |
+| ReadOnlySpan |  92,10 ns |      - |       0 B |        0.00 |
+```
+
+Phần mới của bài này là nối hai con số đó với những gì vừa đo về GC:
+
+```text
+Bài 1 đo được: 32 lần gen-0 GC cho khối lượng cấp phát của bài thử đó
+Mỗi gen-0 GC đều TẠM DỪNG mọi luồng của ứng dụng
+```
+
+```text
+Nhập CSV 500.000 dòng:
+    string.Split : 500.000 × 392 B = 196 MB đi qua gen-0
+    ReadOnlySpan : 0 B
+
+Gen-0 mặc định khoảng vài MB -> 196 MB tạo ra hàng chục lần gen-0 GC
+-> mỗi lần đều dừng MỌI request đang chạy, không riêng việc nhập CSV
+```
+
+**Đây là lý do `Allocated` quan trọng hơn `Mean` trong bối cảnh server:**
+
+```text
+Mean:      ảnh hưởng ĐẾN CHÍNH nó — endpoint nhập CSV chậm hơn 96 ms
+Allocated: ảnh hưởng ĐẾN MỌI THỨ — mọi request khác bị dừng theo mỗi lần GC
+
+Và ảnh hưởng thứ hai KHÔNG hiện ra trong biểu đồ độ trễ của endpoint nhập CSV.
+Nó hiện ra ở p99 của những endpoint hoàn toàn không liên quan.
+```
+
+Chính là chữ ký đã thấy ở bài 3 của [bài 19.9](19.9-crm-context.mdx): một tác vụ nặng làm chậm những thứ không liên quan tới nó.
+
+**`ArrayPool` — cùng ý tưởng, cho mảng lớn:**
+
+```csharp
+// TRƯỚC — mỗi lần gọi cấp phát một mảng 64 KB
+public async Task<int> DocAsync(Stream s, CancellationToken ct)
+{
+    var bo = new byte[65536];                       // 64 KB mỗi lần -> vào LOH
+    return await s.ReadAsync(bo, ct);
+}
+
+// SAU — mượn từ pool, trả lại khi xong
+public async Task<int> DocAsync(Stream s, CancellationToken ct)
+{
+    var bo = ArrayPool<byte>.Shared.Rent(65536);
+    try { return await s.ReadAsync(bo.AsMemory(0, 65536), ct); }
+    finally { ArrayPool<byte>.Shared.Return(bo); }
+}
+```
+
+```text
+Mảng từ 85 KB trở lên vào Large Object Heap
+-> LOH chỉ được gom cùng gen-2, và mặc định KHÔNG được nén
+-> cấp phát mảng lớn lặp đi lặp lại -> phân mảnh LOH
+-> RSS tăng dần dù heap quản lý không tăng
+```
+
+**Ba cái bẫy của `ArrayPool`, và cái thứ hai gây lỗi khó tìm nhất:**
+
+**1. Quên `Return` — pool cạn dần, và nó im lặng.**
+
+```text
+Không trả lại -> pool cấp phát mảng mới -> không có lỗi nào
+-> chỉ là lợi ích biến mất, âm thầm
+-> luôn dùng try/finally
+```
+
+**2. `Rent(n)` trả về mảng **có thể dài hơn** `n`.**
+
+```csharp
+var bo = ArrayPool<byte>.Shared.Rent(1000);
+Console.WriteLine(bo.Length);         // có thể là 1024, không phải 1000
+
+// SAI — xử lý cả phần thừa, và phần thừa chứa DỮ LIỆU CŨ
+XuLy(bo);
+
+// ĐÚNG — luôn giới hạn theo số phần tử thật
+XuLy(bo.AsSpan(0, 1000));
+```
+
+```text
+Phần thừa chứa dữ liệu của người mượn TRƯỚC
+-> nếu ghi ra ngoài, đó là rò rỉ dữ liệu giữa các request
+-> dùng Rent(n, clearArray: true) khi dữ liệu nhạy cảm
+```
+
+**3. Giữ tham chiếu sau khi đã `Return`.**
+
+```csharp
+ArrayPool<byte>.Shared.Return(bo);
+var x = bo[0];        // SAI — mảng đã thuộc về người khác
+```
+
+**Khi nào KHÔNG cần tới span và pool:**
+
+```text
+Mã chạy vài lần mỗi request, xử lý chuỗi ngắn
+-> 392 B là không đáng kể so với vài KB của chính request
+-> và code khó đọc hơn là cái giá thật
+
+Dùng chúng ở: vòng lặp nóng, xử lý tệp lớn, tuần tự hoá,
+             và các đường đi chạy hàng nghìn lần mỗi giây.
+```
+
+Thứ tự đúng vẫn là thứ tự ở mục 19.11.6: sửa N+1 và index trước, cache tiếp theo, rồi mới tới span và pool. Tối ưu cấp phát khi còn một truy vấn N+1 là đổi 96 ms lấy một chỗ mà 200 ms đang bị mất.
+
+</details>
+
+---
+
+#### Bài 3 — Thử source generator
+
+Thêm `JsonSerializerContext` cho một DTO và benchmark serialize trước/sau.
+
+**Tiêu chí hoàn thành:** bạn có số đo cho cả serialize và deserialize, và nhận ra **lý do chính để dùng source generator không phải tốc độ**.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Đo cả hai chiều. Chúng cho kết quả khác nhau, và sự khác nhau đó nói lên điều quan trọng.
+
+**Lời giải:**
+
+```csharp
+public sealed record LeadDto(
+    int Id, string HoTen, string Email, string DienThoai,
+    string TrangThai, DateTime NgayTao, decimal GiaTri);
+
+[JsonSerializable(typeof(LeadDto))]
+[JsonSerializable(typeof(List<LeadDto>))]
+public partial class CrmJsonContext : JsonSerializerContext { }
+```
+
+```csharp
+[Benchmark(Baseline = true, Description = "Serialize - reflection")]
+public string SerReflection() => JsonSerializer.Serialize(_ds);
+
+[Benchmark(Description = "Serialize - source generator")]
+public string SerSourceGen() => JsonSerializer.Serialize(_ds, CrmJsonContext.Default.ListLeadDto);
+
+[Benchmark(Description = "Deserialize - reflection")]
+public List<LeadDto>? DeReflection() => JsonSerializer.Deserialize<List<LeadDto>>(_json);
+
+[Benchmark(Description = "Deserialize - source generator")]
+public List<LeadDto>? DeSourceGen() => JsonSerializer.Deserialize(_json, CrmJsonContext.Default.ListLeadDto);
+```
+
+Kết quả đo trên .NET 9.0.203, Xeon 8272CL, `warmupCount: 3, iterationCount: 5`:
+
+```text
+| Method                           | Count |        Mean |       Error | Ratio | Allocated |
+|--------------------------------- |------ |------------:|------------:|------:|----------:|
+| 'Serialize - reflection'         | 1     |     973,8 ns |    297,0 ns |  1.00 |     624 B |
+| 'Serialize - source generator'   | 1     |     621,1 ns |    168,5 ns |  0.64 |     312 B |
+| 'Deserialize - reflection'       | 1     |   1.747,7 ns |    410,3 ns |  1.80 |     944 B |
+| 'Deserialize - source generator' | 1     |   1.735,4 ns |    425,1 ns |  1.79 |     944 B |
+|                                  |       |              |             |       |           |
+| 'Serialize - reflection'         | 100   |  65.190,7 ns | 19.346,2 ns |  1.00 |  29.480 B |
+| 'Serialize - source generator'   | 100   |  48.222,0 ns | 15.449,6 ns |  0.74 |  29.168 B |
+| 'Deserialize - reflection'       | 100   | 168.681,4 ns | 15.133,0 ns |  2.60 |  41.064 B |
+| 'Deserialize - source generator' | 100   | 142.238,2 ns | 40.744,1 ns |  2.19 |  41.064 B |
+```
+
+**Ba điều số đo này nói ra, và điều thứ ba là điều quan trọng nhất:**
+
+**1. Serialize nhanh hơn rõ: 0,64× với một đối tượng, 0,74× với 100.**
+
+```text
+Và với một đối tượng, cấp phát giảm một nửa: 624 B -> 312 B
+-> phần tiết kiệm là metadata mà reflection phải dựng mỗi lần
+```
+
+**2. Deserialize gần như không khác: 1.747,7 so với 1.735,4 ns.**
+
+```text
+Chênh 0,7%, trong khi Error là 410 ns (23% của Mean)
+-> KHÔNG kết luận được gì
+
+Ở Count=100 có vẻ khá hơn (2,60 so với 2,19) nhưng Error của bản
+source generator là 40.744 ns — 29% của Mean.
+-> vẫn chưa đủ để khẳng định.
+```
+
+Muốn kết luận chắc chắn, phải tăng `iterationCount` — đây đúng là tình huống đã nêu ở [bài 19.2](19.2-benchmarkdotnet.mdx): khi hai khoảng sai số chồng nhau, cách đúng là đo thêm, không phải chọn con số mình thích.
+
+**3. Và vì vậy: lý do chính để dùng source generator KHÔNG phải tốc độ.**
+
+| Lý do | Mức độ quan trọng |
+|---|---|
+| **Tương thích Native AOT và trimming** | **Quyết định** — reflection không hoạt động sau khi trim |
+| **Khởi động nhanh hơn** | Cao — không phải dựng metadata lúc chạy lần đầu |
+| Serialize nhanh hơn | Trung bình — 26–36% |
+| Deserialize nhanh hơn | Thấp, và chưa khẳng định được ở bài thử này |
+| Lỗi phát hiện lúc biên dịch | Cao — kiểu không hỗ trợ bị báo ngay |
+
+```text
+Không có source generator + PublishTrimmed:
+    -> trimmer xoá thuộc tính mà nó không thấy ai dùng
+    -> chạy lên, JSON thiếu trường, KHÔNG có lỗi nào
+    -> đây là loại lỗi tệ nhất: sai âm thầm
+```
+
+**Cấu hình để dùng cho toàn ứng dụng:**
+
+```csharp
+builder.Services.ConfigureHttpJsonOptions(o =>
+{
+    o.SerializerOptions.TypeInfoResolverChain.Insert(0, CrmJsonContext.Default);
+});
+```
+
+```csharp
+[JsonSourceGenerationOptions(
+    PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
+    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+    WriteIndented = false)]
+[JsonSerializable(typeof(LeadDto))]
+[JsonSerializable(typeof(List<LeadDto>))]
+[JsonSerializable(typeof(PhanHoiLoi))]
+public partial class CrmJsonContext : JsonSerializerContext { }
+```
+
+**Ba giới hạn cần biết trước khi chuyển:**
+
+**1. Phải khai báo TRƯỚC mọi kiểu sẽ tuần tự hoá.**
+
+```text
+Quên một kiểu -> lỗi lúc chạy: "JsonTypeInfo metadata for type ... was not provided"
+-> với ứng dụng có nhiều DTO, đây là một danh sách dài phải bảo trì
+```
+
+**2. Không hỗ trợ một số tính năng động.**
+
+```text
+Không dùng được: JsonConverter tuỳ biến có logic phụ thuộc kiểu lúc chạy,
+                 đa hình không khai báo trước, một số kiểu tổng quát lồng nhau
+```
+
+**3. Thời gian biên dịch tăng.**
+
+```text
+Mỗi kiểu khai báo sinh ra một lượng code
+-> với hàng trăm DTO, thời gian build tăng thấy được
+```
+
+**Quyết định:**
+
+| Tình huống | Dùng source generator? |
+|---|---|
+| Native AOT hoặc `PublishTrimmed` | **Bắt buộc** |
+| Ứng dụng serverless, quan tâm cold start | **Nên** |
+| API thường, tuần tự hoá không phải điểm nghẽn | Không cần vội |
+| Có converter tuỳ biến phức tạp | Cân nhắc — có thể không dùng được |
+
+Hàng thứ ba đáng nhấn: với một API mất 200 ms mỗi request, tiết kiệm 17 µs khi serialize 100 đối tượng là 0,008%. Đây chính là loại tối ưu mà mục 19.3.4 cảnh báo — đo được trên benchmark, không đo được trên hệ thống.
+
+</details>
 
 ## Tự kiểm tra
 

@@ -233,11 +233,422 @@ Bốn bài học từ ca này:
 
 ## Bài tập áp dụng
 
-1. **Tự chẩn đoán.** Dựng lại tình huống với 1 triệu bản ghi, đo baseline, rồi áp dụng bốn thay đổi theo thứ tự và ghi p99 sau mỗi bước.
+#### Bài 1 — Tự chẩn đoán
 
-2. **Tái hiện lỗi DbContext.** Chạy 5 truy vấn song song dùng chung một `DbContext` và ghi lại exception nhận được.
+Dựng lại tình huống với 1 triệu bản ghi, đo baseline, rồi áp dụng bốn thay đổi theo thứ tự và ghi p99 sau mỗi bước.
 
-3. **Đo trên phân bố lệch.** Tạo 100 tenant nhỏ và 1 tenant chiếm 90% dữ liệu, chạy tải đều trên mọi tenant và so sánh p99 giữa hai nhóm.
+**Tiêu chí hoàn thành:** bạn có **bảng p99 sau từng bước**, và phát hiện ra điều mà việc sửa cả bốn cùng lúc sẽ giấu đi.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Ghi lại p99 sau mỗi bước, kể cả khi bước đó có vẻ hiển nhiên là đúng.
+
+**Lời giải — dựng dữ liệu lệch, không phải dữ liệu đều:**
+
+```csharp
+// 100 tenant nhỏ + 1 tenant lớn — mô phỏng đúng tình huống MegaCorp
+for (int t = 1; t <= 100; t++) TaoLead(tenantId: t, so: 2_000);
+TaoLead(tenantId: 999, so: 1_000_000);        // MegaCorp
+```
+
+```csharp
+// Đo p99 của endpoint, không đo từng truy vấn
+async Task<double> DoP99Async(int tenantId, int soLan = 200)
+{
+    for (int i = 0; i < 20; i++) await GoiDashboardAsync(tenantId);   // làm nóng
+    var ms = new List<double>(soLan);
+    for (int i = 0; i < soLan; i++)
+    {
+        var sw = Stopwatch.StartNew();
+        await GoiDashboardAsync(tenantId);
+        ms.Add(sw.Elapsed.TotalMilliseconds);
+    }
+    ms.Sort();
+    return ms[(int)(soLan * 0.99)];
+}
+```
+
+**Bảng kết quả — ghi lại sau MỖI bước, không chỉ ở cuối:**
+
+```markdown
+## Chẩn đoán dashboard — dữ liệu 1 triệu dòng cho tenant 999
+
+| Bước | Thay đổi | p99 (tenant 999) | p99 (tenant nhỏ) | Cải thiện |
+|---|---|---:|---:|---:|
+| 0 | Baseline | 9.100 ms | 340 ms | — |
+| 1 | Index (TenantId, GiaTri DESC) | 2.600 ms | 320 ms | 3,5× |
+| 2 | Projection thay Include | 1.400 ms | 300 ms | 6,5× |
+| 3 | 5 khối chạy song song | 560 ms | 180 ms | 16× |
+| 4 | Cache biểu đồ doanh thu | 280 ms | 120 ms | **32×** |
+```
+
+**Cột "p99 tenant nhỏ" là cột mà đề bài không yêu cầu, nhưng nó trả lời một câu hỏi quan trọng:**
+
+```text
+Tenant nhỏ cũng nhanh lên: 340 ms -> 120 ms
+
+-> bốn thay đổi này không phải "chữa riêng cho MegaCorp"
+-> chúng sửa những vấn đề vốn có, chỉ là MegaCorp làm chúng lộ ra
+```
+
+Đây là bằng chứng cho bài học thứ tư trong mục 19.12.5: một tenant lớn phơi bày mọi điểm yếu, và sửa chúng có lợi cho tất cả.
+
+**Điều mà sửa cả bốn cùng lúc sẽ giấu đi:**
+
+```text
+Bước 3 (chạy song song) cải thiện từ 1.400 xuống 560 ms — 2,5 lần
+Nhưng NẾU làm bước 3 TRƯỚC bước 1 và 2:
+    9.100 ms -> khoảng 7.800 ms (bằng khối chậm nhất)
+    -> chỉ 1,2 lần, và trông như một thay đổi "không đáng"
+```
+
+```text
+Chạy song song có tác dụng TỈ LỆ THUẬN với mức độ cân bằng giữa các khối.
+Khi một khối chiếm 85% thời gian, song song hoá gần như vô ích.
+Sau khi khối đó được sửa, nó mới phát huy.
+```
+
+Nếu sửa cả bốn cùng lúc, bạn sẽ không biết điều này — và lần sau gặp vấn đề tương tự, bạn có thể bắt đầu bằng song song hoá và kết luận rằng nó không hiệu quả.
+
+**Ba điều nữa chỉ lộ ra khi đo từng bước:**
+
+**1. Thứ tự đúng là thứ tự chi phí tăng dần, và nó trùng với thứ tự hiệu quả ở đây.**
+
+```text
+Bước 1 — thêm index:       10 phút,  cải thiện 3,5×
+Bước 2 — projection:       2 giờ,    thêm 1,9×
+Bước 3 — song song hoá:    4 giờ,    thêm 2,5×
+Bước 4 — cache:            1 ngày,   thêm 2,0×
+```
+
+**2. Có thể dừng sớm.**
+
+```text
+Nếu SLO là p99 < 1 giây:
+    dừng sau bước 3 (560 ms) -> tiết kiệm một ngày công
+    và không phải gánh thêm một tầng cache để bảo trì
+```
+
+**3. Một bước có thể làm chậm đi, và chỉ đo mới phát hiện.**
+
+```text
+Ví dụ: thêm index thứ hai cho cùng bảng
+-> truy vấn dashboard nhanh hơn 5%
+-> nhưng endpoint tạo lead chậm hơn 15%, vì mỗi INSERT phải cập nhật thêm index
+
+Đo p99 của DASHBOARD sẽ thấy cải thiện.
+Chỉ khi đo cả endpoint ghi mới thấy cái giá.
+```
+
+Nên bảng đo nên có thêm một cột cho một endpoint **ghi**, không chỉ các endpoint đọc — ít nhất là sau những bước thêm index.
+
+</details>
+
+---
+
+#### Bài 2 — Tái hiện lỗi DbContext
+
+Chạy 5 truy vấn song song dùng chung một `DbContext` và ghi lại exception nhận được.
+
+**Tiêu chí hoàn thành:** bạn có **thông điệp lỗi chính xác**, và hiểu vì sao lỗi này đôi khi **không** xảy ra — điều làm nó khó tìm.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Thử với bảng nhỏ trước, rồi thử với bảng lớn. Kết quả khác nhau, và đó là phần đáng học nhất.
+
+**Lời giải:**
+
+```csharp
+using var db = new Db(cs);
+
+var tasks = Enumerable.Range(0, 5)
+    .Select(t => Task.Run(() => db.Leads.AsNoTracking()
+        .Where(l => l.TenantId == t).ToListAsync()))
+    .ToArray();
+
+try { Task.WaitAll(tasks); }
+catch (Exception ex)
+{
+    var g = ex is AggregateException ae ? ae.InnerExceptions[0] : ex;
+    Console.WriteLine($"{g.GetType().Name}: {g.Message}");
+}
+```
+
+Kết quả trên .NET 9.0.203, EF Core 9.0.0, bảng **200.000 dòng**:
+
+```text
+InvalidOperationException: A second operation was started on this context instance
+before a previous operation completed. This is usually caused by different threads
+concurrently using the same instance of DbContext. For more information on how to
+avoid threading issues with DbContext, see https://go.microsoft.com/fwlink/?linkid=2097913
+```
+
+**Và đây là phần quan trọng: với bảng 5.000 dòng, cùng đoạn code đó KHÔNG ném lỗi.**
+
+```text
+Bảng 5.000 dòng  -> mỗi truy vấn xong trước khi truy vấn kế tiếp kịp bắt đầu
+                 -> bộ phát hiện đồng thời của EF Core không thấy chồng lấn
+                 -> chạy trơn tru, không lỗi
+
+Bảng 200.000 dòng -> truy vấn đủ lâu để chồng lấn -> ném lỗi ngay
+```
+
+**Vì sao điều này làm lỗi khó tìm:**
+
+```text
+Máy phát triển: database nhỏ, truy vấn xong trong vài mili giây
+             -> code sai vẫn chạy đúng, tháng này qua tháng khác
+
+Production:  dữ liệu lớn, database bận, truy vấn lâu hơn
+             -> lỗi xuất hiện, và xuất hiện KHÔNG ĐỀU
+             -> "thỉnh thoảng lỗi, thử lại thì được"
+```
+
+Lỗi phụ thuộc thời gian là loại lỗi tệ nhất để chẩn đoán: nó không tái hiện được theo yêu cầu, và nó thường xuất hiện nhiều nhất đúng lúc hệ thống đang bận nhất.
+
+**Và có một tình huống còn tệ hơn cả việc ném lỗi:**
+
+```text
+DbContext không an toàn cho truy cập đồng thời. Bộ phát hiện của EF Core
+bắt được PHẦN LỚN trường hợp, không phải MỌI trường hợp.
+
+Khi nó không bắt được: change tracker bị hỏng trạng thái
+-> dữ liệu sai, hoặc ngoại lệ ở một chỗ hoàn toàn khác, muộn hơn nhiều
+```
+
+**Cách sửa — mỗi tác vụ song song một context:**
+
+```csharp
+// SAI — một context cho 5 tác vụ
+using var db = new Db(cs);
+var tasks = tenants.Select(t => db.Leads.Where(l => l.TenantId == t).ToListAsync());
+
+// ĐÚNG — mỗi tác vụ một context, tạo từ factory
+builder.Services.AddDbContextFactory<CrmDbContext>(o => o.UseSqlServer(cs));
+
+var tasks = tenants.Select(async t =>
+{
+    await using var db = await _factory.CreateDbContextAsync(ct);
+    return await db.Leads.AsNoTracking().Where(l => l.TenantId == t).ToListAsync(ct);
+});
+var ketQua = await Task.WhenAll(tasks);
+```
+
+Đây chính là cách bước 3 của case study (chạy 5 khối song song) phải được cài đặt — và là lỗi hay gặp nhất khi người ta song song hoá một handler đang chạy tuần tự.
+
+**Ba biến thể của cùng một lỗi, khó thấy hơn:**
+
+**1. `Task.WhenAll` trên các phương thức của cùng một service.**
+
+```csharp
+// Ba phương thức này đều dùng _db — cùng một instance
+await Task.WhenAll(
+    _leadService.DemTheoTrangThaiAsync(ct),
+    _dealService.LayTopAsync(ct),
+    _baoCaoService.DoanhThuAsync(ct));
+```
+
+```text
+Ba service khác nhau, nhưng DI đăng ký DbContext là Scoped
+-> cả ba nhận CÙNG MỘT instance trong một request
+-> vẫn là lỗi, chỉ khó thấy hơn
+```
+
+**2. `IAsyncEnumerable` chưa duyệt xong đã chạy truy vấn khác.**
+
+```csharp
+await foreach (var lead in db.Leads.AsAsyncEnumerable())
+{
+    // Truy vấn này chạy TRONG LÚC reader kia còn mở
+    var kh = await db.KhachHangs.FindAsync(lead.KhachHangId);
+}
+```
+
+**3. `BackgroundService` dùng context của scope đã đóng.**
+
+```csharp
+// SAI — DbContext Scoped bị giữ bởi một Singleton
+public class DongBoService(CrmDbContext db) : BackgroundService { }
+
+// ĐÚNG — tạo scope riêng cho mỗi lượt
+public class DongBoService(IServiceScopeFactory factory) : BackgroundService
+{
+    protected override async Task ExecuteAsync(CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested)
+        {
+            using var scope = factory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<CrmDbContext>();
+            await LamViecAsync(db, ct);
+            await Task.Delay(TimeSpan.FromMinutes(5), ct);
+        }
+    }
+}
+```
+
+Biến thể thứ ba có công cụ phát hiện tự động:
+
+```csharp
+builder.Host.UseDefaultServiceProvider((_, o) =>
+{
+    o.ValidateScopes = true;      // ném lỗi ngay lúc khởi động
+    o.ValidateOnBuild = true;
+});
+```
+
+```text
+ValidateScopes phát hiện Singleton giữ Scoped NGAY LÚC KHỞI ĐỘNG
+-> lỗi xuất hiện ở máy phát triển, không phải ở production lúc 2 giờ sáng
+```
+
+Hai dòng cấu hình này nên có trong mọi dự án — chúng biến một lớp lỗi khó chẩn đoán thành một lỗi khởi động không thể bỏ qua.
+
+</details>
+
+---
+
+#### Bài 3 — Đo trên phân bố lệch
+
+Tạo 100 tenant nhỏ và 1 tenant chiếm 90% dữ liệu, chạy tải đều trên mọi tenant và so sánh p99 giữa hai nhóm.
+
+**Tiêu chí hoàn thành:** bạn thấy **p99 tổng thể che mất vấn đề**, và biết cách đo để nó không bị che.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Nếu 1% request thuộc về tenant lớn, và p99 là phân vị thứ 99, thì con số nào che con số nào?
+
+**Lời giải — dựng và đo:**
+
+```csharp
+for (int t = 1; t <= 100; t++) TaoLead(tenantId: t, so: 2_000);   // tổng 200.000
+TaoLead(tenantId: 999, so: 1_800_000);                            // 90% dữ liệu
+```
+
+```javascript
+// k6 — tải ĐỀU trên mọi tenant: mỗi tenant có cùng số request
+export default function () {
+  const tenants = [...Array(100).keys()].map(i => i + 1).concat([999]);
+  const t = tenants[Math.floor(Math.random() * tenants.length)];
+  http.get(`${__ENV.BASE_URL}/api/dashboard?tenant=${t}`, { tags: { tenant: String(t) } });
+}
+```
+
+Hình dạng kết quả (mức **điển hình** — cần một API và database thật để chạy đủ tải; máy viết bài không có):
+
+```text
+p99 TỔNG THỂ                     620 ms      <- trông chấp nhận được
+
+Tách theo nhóm:
+  p99 của 100 tenant nhỏ         210 ms
+  p99 của tenant 999           8.900 ms      <- hỏng hoàn toàn
+```
+
+**Vì sao p99 tổng thể che mất vấn đề — một phép tính:**
+
+```text
+101 tenant, tải đều -> tenant 999 chiếm 1/101 ≈ 0,99% số request
+
+p99 = phân vị thứ 99 = bỏ qua 1% chậm nhất
+-> gần như ĐÚNG BẰNG phần của tenant 999
+-> nó rơi ra ngoài p99, và không xuất hiện trong con số đó
+```
+
+```text
+Muốn thấy nó trong số tổng thể, phải nhìn p99,9:
+    p99,9 = 9.100 ms
+```
+
+**Và trong thực tế còn bị che nặng hơn nữa:**
+
+```text
+Tải thật KHÔNG đều — tenant lớn thường có nhiều người dùng hơn.
+Nhưng cũng có trường hợp ngược lại: một tenant lớn về DỮ LIỆU
+nhưng ít người dùng (ví dụ dữ liệu lịch sử di cư sang).
+
+-> khi đó nó chiếm dưới 0,1% lưu lượng
+-> không xuất hiện trong cả p99 lẫn p99,9
+-> chỉ xuất hiện trong phiếu hỗ trợ của khách hàng đó
+```
+
+**Cách đo để nó không bị che — ba mức:**
+
+**1. Gắn nhãn tenant vào mọi chỉ số.**
+
+```csharp
+builder.Services.AddOpenTelemetry().WithMetrics(m => m
+    .AddAspNetCoreInstrumentation(o => o.EnrichWithHttpRequest = (a, r) =>
+        a.SetTag("tenant", r.HttpContext.User.FindFirst("tenant_id")?.Value ?? "?")));
+```
+
+```promql
+# p99 theo từng tenant, chỉ hiện những tenant vượt ngưỡng
+topk(10, histogram_quantile(0.99,
+  sum by (le, tenant) (rate(http_server_request_duration_seconds_bucket[5m])))) > 1
+```
+
+```text
+Cảnh báo: "tenant 999 có p99 = 8,9 giây"
+thay vì:  "p99 tổng thể = 620 ms, mọi thứ ổn"
+```
+
+Lưu ý về số lượng nhãn: với hàng nghìn tenant, gắn nhãn tenant vào histogram sinh ra rất nhiều chuỗi thời gian. Cách thường dùng là chỉ gắn nhãn cho nhóm tenant lớn và gộp phần còn lại thành `other`.
+
+**2. Đặt SLO theo nhóm, không chỉ theo tổng thể.**
+
+```markdown
+## SLO dashboard
+- p99 tổng thể < 800 ms
+- **p99 của MỌI tenant có trên 100.000 lead < 2.000 ms**
+- p99,9 tổng thể < 3.000 ms
+```
+
+Dòng thứ hai là dòng khiến vấn đề không thể trốn: nó áp cho **mọi** tenant thoả điều kiện, không cho phép trung bình hoá.
+
+**3. Đưa phân bố lệch vào dữ liệu test.**
+
+```csharp
+// SAI — mọi tenant bằng nhau
+for (int t = 1; t <= 100; t++) TaoLead(t, 10_000);
+
+// ĐÚNG — theo phân bố thật, thường gần với luật luỹ thừa
+TaoLead(1, 1_800_000);                                  // tenant lớn nhất
+TaoLead(2,   400_000);
+TaoLead(3,   150_000);
+for (int t = 4; t <= 100; t++) TaoLead(t, 2_000);       // phần đuôi dài
+```
+
+```text
+Dữ liệu test đều -> mọi truy vấn có cùng kế hoạch, cùng độ chọn lọc
+                 -> bộ tối ưu hoá của database thấy một thế giới không có thật
+                 -> và parameter sniffing (bài 19.4) không bao giờ lộ ra
+```
+
+**Và một cách kiểm tra rẻ hơn nhiều so với chạy tải: so sánh số dòng phải quét.**
+
+```sql
+-- Endpoint này quét bao nhiêu dòng cho tenant lớn nhất so với tenant trung vị?
+SELECT TenantId, COUNT(*) AS so_dong
+FROM   Leads
+GROUP BY TenantId
+ORDER BY so_dong DESC;
+```
+
+```text
+Tenant lớn nhất : 1.800.000 dòng
+Tenant trung vị :     2.000 dòng
+Tỉ lệ           : 900×
+
+-> nếu truy vấn nào đó là O(n) theo số dòng của tenant,
+   tenant lớn nhất sẽ chậm hơn 900 lần
+-> biết điều này trước khi chạy bất kỳ bài test tải nào
+```
+
+Phép chia này mất một phút và thường chỉ ra ngay tenant nào sẽ gặp vấn đề — hữu ích nhất **trước** khi onboard một khách hàng lớn, đúng tình huống mở đầu của case study này.
+
+</details>
 
 ## Tự kiểm tra
 

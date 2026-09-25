@@ -118,16 +118,16 @@ var size = Math.Clamp(request.PageSize, 1, 100);   // không cho ?pageSize=99999
 Import 50.000 dòng từ Excel là nghiệp vụ CRM rất phổ biến, và cách làm ngây thơ gây hai vấn đề cùng lúc.
 
 ```csharp
-// SAI — 50.000 lan SaveChanges, va change tracker phinh to
+// SAI — 50.000 lần SaveChanges, và change tracker phình to
 foreach (var row in rows)
 {
     _db.Leads.Add(MapToLead(row));
-    await _db.SaveChangesAsync(ct);        // moi lan mot round-trip
+    await _db.SaveChangesAsync(ct);        // mỗi lần một round-trip
 }
 ```
 
 ```csharp
-// DUNG — theo lo, va DUNG context moi moi lo
+// ĐÚNG — theo lô, và DÙNG context mới mỗi lô
 const int batchSize = 1000;
 
 foreach (var chunk in rows.Chunk(batchSize))
@@ -141,7 +141,7 @@ foreach (var chunk in rows.Chunk(batchSize))
 }
 ```
 
-Dùng `DbContext` mới cho mỗi lô là chi tiết quan trọng: change tracker giữ **mọi** entity đã thêm, nên một context dùng cho 50.000 entity sẽ chậm dần theo cấp số và ngốn bộ nhớ ([bài 13.8](../../stage-04-database-production/module-13-entity-framework-core/13.7-performance.mdx)).
+Dùng `DbContext` mới cho mỗi lô là chi tiết quan trọng: change tracker giữ **mọi** entity đã thêm, nên một context dùng cho 50.000 entity sẽ chậm dần theo cấp số và ngốn bộ nhớ ([bài 13.7](../../stage-04-database-production/module-13-entity-framework-core/13.7-performance.mdx)).
 
 Với lượng rất lớn, `SqlBulkCopy` nhanh hơn nhiều — nhưng nó **bỏ qua** EF Core nên không kích hoạt interceptor, không sinh domain event, và không áp global query filter. Chỉ dùng cho dữ liệu không có ý nghĩa nghiệp vụ phức tạp.
 
@@ -187,11 +187,452 @@ Với tenant lớn tách database riêng, nhớ cân nhắc chi phí vận hành
 
 ## Bài tập áp dụng
 
-1. **So sánh hai kiểu phân trang.** Tạo 500.000 bản ghi, đo thời gian lấy trang 1 và trang 5000 bằng `Skip/Take` rồi bằng keyset.
+#### Bài 1 — So sánh hai kiểu phân trang
 
-2. **Đo tác dụng của lô.** Import 20.000 bản ghi bằng vòng lặp `SaveChanges` từng dòng và bằng lô 1.000, so sánh thời gian và bộ nhớ.
+Tạo 500.000 bản ghi, đo thời gian lấy trang 1 và trang 5000 bằng `Skip/Take` rồi bằng keyset.
 
-3. **Tái hiện noisy neighbour.** Chạy một truy vấn báo cáo nặng của một tenant và đo p99 của endpoint danh sách của tenant khác trong lúc đó.
+**Tiêu chí hoàn thành:** bạn thấy `Skip/Take` **chậm dần theo số trang** còn keyset thì không, và biết cái giá phải trả khi đổi sang keyset.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** `OFFSET 100000` không nhảy thẳng tới dòng thứ 100.001. Database phải đi qua 100.000 dòng đầu rồi bỏ chúng đi.
+
+**Lời giải:**
+
+```csharp
+// Skip/Take — OFFSET tăng theo số trang
+var st = db.Leads.AsNoTracking().Where(l => l.TenantId == 1)
+    .OrderBy(l => l.NgayTao).ThenBy(l => l.Id)
+    .Skip((trang - 1) * 20).Take(20).ToList();
+
+// Keyset — luôn bắt đầu từ một MỐC, không bỏ qua dòng nào
+var ks = db.Leads.AsNoTracking()
+    .Where(l => l.TenantId == 1 &&
+               (l.NgayTao > moc.NgayTao || (l.NgayTao == moc.NgayTao && l.Id > moc.Id)))
+    .OrderBy(l => l.NgayTao).ThenBy(l => l.Id)
+    .Take(20).ToList();
+```
+
+Kết quả đo trên .NET 9.0.203, EF Core 9.0.0, SQLite, 500.000 dòng, có index `(TenantId, NgayTao, Id)`:
+
+```text
+--- Phân trang trên 500.000 dòng ---
+  trang     1 | Skip/Take     0,34 ms | keyset   0,37 ms
+  trang   100 | Skip/Take     0,41 ms | keyset   0,40 ms
+  trang  1000 | Skip/Take     1,26 ms | keyset   0,40 ms
+  trang  5000 | Skip/Take     6,79 ms | keyset   0,39 ms
+```
+
+| Trang | `Skip/Take` | Keyset | Tỉ lệ |
+|---:|---:|---:|---:|
+| 1 | 0,34 ms | 0,37 ms | keyset **chậm hơn một chút** |
+| 100 | 0,41 ms | 0,40 ms | bằng nhau |
+| 1.000 | 1,26 ms | 0,40 ms | 3,2× |
+| 5.000 | **6,79 ms** | **0,39 ms** | **17,4×** |
+
+**Ba điều bảng này nói ra:**
+
+**1. Keyset có thời gian gần như HẰNG SỐ: 0,37 → 0,40 → 0,40 → 0,39 ms.**
+
+```text
+Trang 1 và trang 5.000 tốn như nhau
+-> vì cả hai đều là "nhảy tới một vị trí trong index rồi đọc 20 dòng"
+-> O(log n) cho phần nhảy, O(20) cho phần đọc
+```
+
+**2. `Skip/Take` tăng tuyến tính theo số trang.**
+
+```text
+trang 1.000  -> bỏ qua  19.980 dòng -> 1,26 ms
+trang 5.000  -> bỏ qua  99.980 dòng -> 6,79 ms
+
+Tỉ lệ gần đúng: 5 lần số dòng bỏ qua -> 5,4 lần thời gian
+```
+
+**3. Ở trang 1, keyset còn chậm hơn một chút (0,37 so với 0,34 ms).**
+
+```text
+Điều kiện keyset phức tạp hơn: (a > x) OR (a = x AND b > y)
+-> tốn thêm một chút so với OFFSET 0
+
+Nên nếu người dùng gần như không bao giờ đi quá trang 5,
+Skip/Take vẫn là lựa chọn hợp lý — và đơn giản hơn nhiều.
+```
+
+**Cái giá phải trả khi đổi sang keyset — bốn thứ:**
+
+**1. Không nhảy tới một trang bất kỳ được.**
+
+```text
+Skip/Take:  "trang 250" -> đi thẳng
+Keyset:     chỉ có "trang tiếp theo" và "trang trước"
+
+-> mất giao diện phân trang dạng [1] [2] [3] ... [250]
+-> đổi thành nút "Tải thêm" hoặc cuộn vô hạn
+```
+
+Đây thường là điều khiến việc đổi bị chặn — và nó là quyết định về giao diện, không phải về kỹ thuật.
+
+**2. Cần một thứ tự có tính duy nhất.**
+
+```csharp
+// SAI — NgayTao có thể trùng -> bỏ sót hoặc lặp bản ghi khi sang trang
+.OrderBy(l => l.NgayTao)
+
+// ĐÚNG — thêm khoá chính để phá thế hoà
+.OrderBy(l => l.NgayTao).ThenBy(l => l.Id)
+```
+
+```text
+Hai lead cùng NgayTao, nằm ở ranh giới giữa hai trang
+-> không có tiêu chí phá hoà -> database tự chọn thứ tự
+-> một lead xuất hiện hai lần, một lead biến mất
+```
+
+**3. Mốc phải được truyền qua lại giữa client và server.**
+
+```csharp
+// Mã hoá mốc thành con trỏ mờ, để client không phụ thuộc vào cấu trúc
+public static string TaoConTro(DateTime ngayTao, int id) =>
+    Convert.ToBase64String(Encoding.UTF8.GetBytes($"{ngayTao:O}|{id}"));
+```
+
+```json
+{
+  "items": [ ... ],
+  "conTroTiep": "MjAyNi0wOS0yNVQxMDowMDowMC4wMDAwMDAwWnw4ODQy"
+}
+```
+
+Con trỏ mờ cho phép bạn đổi cột sắp xếp sau này mà không phá vỡ client.
+
+**4. Tổng số trang không còn tính được rẻ.**
+
+```text
+Skip/Take: thường kèm một COUNT(*) -> biết tổng số trang
+Keyset:    không có khái niệm "tổng số trang"
+
+Và thực ra COUNT(*) trên 500.000 dòng cũng không rẻ
+-> nhiều hệ thống bỏ luôn con số tổng, hoặc hiển thị "hơn 1.000 kết quả"
+```
+
+**Khi nào dùng cái nào:**
+
+| Tình huống | Chọn |
+|---|---|
+| Danh sách quản trị, người dùng hiếm khi qua trang 10 | **`Skip/Take`** — đơn giản |
+| Cuộn vô hạn, ứng dụng di động | **Keyset** |
+| Xuất dữ liệu, duyệt toàn bộ bảng | **Keyset** — bắt buộc |
+| API công khai cho bên thứ ba | **Keyset** — tránh bị quét bằng offset lớn |
+
+Hàng thứ ba đáng nhấn: duyệt toàn bộ 500.000 dòng bằng `Skip/Take` là O(n²) tính trên toàn bộ quá trình — mỗi trang lại đi lại từ đầu. Với keyset nó là O(n).
+
+**Và một lưu ý về số đo ở trên:** SQLite chạy trong cùng tiến trình, không có mạng và không có tranh chấp. Trên PostgreSQL hay SQL Server với dữ liệu lớn hơn và bộ nhớ đệm không chứa hết bảng, chênh lệch ở trang sâu thường **lớn hơn** nhiều, vì `OFFSET` lớn còn kéo theo đọc đĩa.
+
+</details>
+
+---
+
+#### Bài 2 — Đo tác dụng của lô
+
+Import 20.000 bản ghi bằng vòng lặp `SaveChanges` từng dòng và bằng lô 1.000, so sánh thời gian và bộ nhớ.
+
+**Tiêu chí hoàn thành:** bạn đo được cả hai, và nhận ra **lô lớn hơn không phải lúc nào cũng tốt hơn**.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Mỗi `SaveChanges` là một transaction và một vòng khứ hồi. Đừng đo chỉ hai kích thước — đo bốn.
+
+**Lời giải:**
+
+```csharp
+foreach (var kichThuocLo in new[] { 1, 100, 1000, 20000 })
+{
+    GC.Collect(2, GCCollectionMode.Forced, true, true);
+    var truoc = GC.GetTotalAllocatedBytes();
+
+    using var db = new Db(cs);
+    db.Database.EnsureCreated();
+    var sw = Stopwatch.StartNew();
+
+    for (int i = 0; i < 20_000; i++)
+    {
+        db.Leads.Add(new Lead { /* ... */ });
+        if ((i + 1) % kichThuocLo == 0)
+        {
+            db.SaveChanges();
+            db.ChangeTracker.Clear();          // giải phóng entity đã lưu
+        }
+    }
+    db.SaveChanges();
+    sw.Stop();
+
+    var cap = (GC.GetTotalAllocatedBytes() - truoc) / 1048576.0;
+    Console.WriteLine($"lô {kichThuocLo,6} | {sw.Elapsed.TotalMilliseconds,9:F0} ms | cấp phát {cap,8:F1} MB");
+}
+```
+
+Kết quả đo trên .NET 9.0.203, EF Core 9.0.0, SQLite:
+
+```text
+--- Import 20.000 dòng ---
+  lô      1 |     19.345 ms | cấp phát    309,4 MB
+  lô    100 |      1.155 ms | cấp phát    181,6 MB
+  lô   1000 |        809 ms | cấp phát    180,1 MB
+  lô  20000 |      1.065 ms | cấp phát    183,4 MB
+```
+
+| Kích thước lô | Thời gian | So với lô 1 | Cấp phát |
+|---:|---:|---:|---:|
+| 1 (từng dòng) | 19.345 ms | 1× | 309,4 MB |
+| 100 | 1.155 ms | 16,8× | 181,6 MB |
+| **1.000** | **809 ms** | **23,9×** | 180,1 MB |
+| 20.000 (một lần) | 1.065 ms | 18,2× | 183,4 MB |
+
+**Ba điều đáng chú ý:**
+
+**1. Bước nhảy lớn nhất nằm giữa lô 1 và lô 100 — 16,8 lần.**
+
+```text
+20.000 transaction -> 200 transaction
+-> chi phí mở/đóng transaction giảm 100 lần
+-> và với database qua mạng, 20.000 vòng khứ hồi cũng giảm theo
+```
+
+Phần lớn lợi ích đến từ bước đầu tiên. Từ lô 100 lên lô 1.000 chỉ thêm 1,4 lần nữa.
+
+**2. Lô 20.000 CHẬM HƠN lô 1.000 — 1.065 ms so với 809 ms.**
+
+Đây là điều bài tập muốn bạn thấy:
+
+```text
+Một transaction giữ 20.000 entity trong change tracker
+-> DetectChanges phải quét toàn bộ tracker
+-> transaction dài giữ khoá lâu hơn
+-> và với database thật, nhật ký giao dịch phình to
+```
+
+Điều này khớp với kết quả ở [bài 13.7](../../stage-04-database-production/module-13-entity-framework-core/13.7-performance.mdx): chi phí của change tracker tăng theo bình phương số entity đang theo dõi.
+
+**3. Cấp phát gần như không đổi từ lô 100 trở đi: 181,6 → 180,1 → 183,4 MB.**
+
+```text
+Lô 1 cấp phát 309,4 MB — nhiều hơn 71%
+-> vì 20.000 lần SaveChanges cũng là 20.000 lần dựng câu lệnh,
+   mở transaction, và sinh đối tượng nội bộ của EF
+
+Từ lô 100 trở đi: phần cấp phát chủ yếu là chính 20.000 entity
+-> không giảm thêm được bằng cách tăng kích thước lô
+```
+
+**`ChangeTracker.Clear()` là dòng dễ bỏ quên nhất, và hậu quả rất lớn:**
+
+```csharp
+db.SaveChanges();
+db.ChangeTracker.Clear();      // <- không có dòng này, tracker giữ cả 20.000 entity
+```
+
+```text
+Không có Clear():
+    entity đã lưu vẫn nằm trong tracker
+    -> mỗi SaveChanges kế tiếp phải quét toàn bộ tracker đang lớn dần
+    -> O(n²), và bộ nhớ tăng tuyến tính tới hết vòng lặp
+```
+
+**Kích thước lô nên chọn: bắt đầu từ 500–1.000, rồi đo.**
+
+```text
+Quá nhỏ (dưới 100):   chi phí transaction chiếm ưu thế
+Vừa (500–2.000):      thường là điểm tốt nhất
+Quá lớn (trên 10.000): change tracker và nhật ký giao dịch trở thành vấn đề
+```
+
+**Và khi cần nhanh hơn nữa, EF Core không phải công cụ đúng:**
+
+```csharp
+// Bulk copy — nhanh hơn EF Core một bậc cho việc nạp dữ liệu thuần
+using var bulk = new SqlBulkCopy(connection)
+{
+    DestinationTableName = "Leads",
+    BatchSize = 5000,
+};
+await bulk.WriteToServerAsync(bang, ct);
+```
+
+```text
+EF Core: sinh INSERT, theo dõi thay đổi, chạy trình chặn, cập nhật khoá sinh ra
+Bulk copy: ghi thẳng vào database, bỏ qua toàn bộ những thứ đó
+
+-> nhanh hơn nhiều, nhưng KHÔNG chạy logic nghiệp vụ và không sinh sự kiện
+```
+
+Với PostgreSQL, tương đương là `COPY` qua `NpgsqlBinaryImporter`. Chọn bulk copy khi dữ liệu đã được kiểm chứng trước và không cần domain logic — ví dụ nạp dữ liệu ban đầu hoặc đồng bộ từ hệ thống khác.
+
+**Và một điều thường bị quên khi import lớn: chạy nó ở đâu.**
+
+```text
+Import 20.000 dòng trong một HTTP request:
+    - request kéo dài 800 ms tới vài giây
+    - chiếm một luồng và một kết nối suốt thời gian đó
+    - client timeout -> người dùng bấm lại -> import chạy hai lần
+
+Đúng: nhận tệp -> ghi vào hàng đợi -> trả 202 Accepted
+      -> worker xử lý theo lô -> báo tiến độ qua một endpoint riêng
+```
+
+</details>
+
+---
+
+#### Bài 3 — Tái hiện noisy neighbour
+
+Chạy một truy vấn báo cáo nặng của một tenant và đo p99 của endpoint danh sách của tenant khác trong lúc đó.
+
+**Tiêu chí hoàn thành:** bạn thấy p99 của tenant **không liên quan** tăng lên, và nêu được ba tài nguyên dùng chung gây ra hiện tượng đó.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Hai tenant dùng chung database, chung pool kết nối, chung bộ nhớ đệm. Ranh giới tenant nằm ở tầng ứng dụng, không nằm ở tầng tài nguyên.
+
+**Lời giải — bài thử:**
+
+```bash
+# Nền: tenant B gọi endpoint danh sách đều đặn
+k6 run --duration 5m --rps 50 --env TENANT=B ci/tai-danh-sach.js &
+
+# Sau 1 phút, tenant A chạy báo cáo nặng
+sleep 60
+curl -s "https://crm/api/bao-cao/tong-hop?tenant=A&tu=2024-01-01&den=2026-09-25"
+```
+
+Hình dạng kết quả (mức **điển hình** — thí nghiệm này cần một database thật có tranh chấp tài nguyên, không tái hiện được bằng SQLite trên máy viết bài):
+
+```text
+Thời điểm       p99 của tenant B (endpoint danh sách)
+--------------  -------------------------------------
+t+0 → t+60s                    180 ms     <- nền, bình thường
+t+60s (A bắt đầu báo cáo)      2.400 ms   <- tăng vọt
+t+60s → t+95s                  2.100 ms
+t+95s (báo cáo xong)             190 ms   <- trở lại bình thường
+```
+
+**Tenant B không làm gì khác thường, và không có code nào của B bị đổi.**
+
+**Ba tài nguyên dùng chung gây ra hiện tượng này:**
+
+**1. Bộ nhớ đệm của database — tác nhân lớn nhất.**
+
+```text
+Báo cáo của A quét 2 triệu dòng
+-> 2 triệu dòng đó được nạp vào buffer pool
+-> ĐẨY dữ liệu đang nóng của B ra khỏi bộ nhớ đệm
+
+Sau đó truy vấn của B, vốn đọc từ bộ nhớ, phải đọc từ ĐĨA
+-> chậm hơn hàng chục lần, dù chính truy vấn đó không đổi
+```
+
+Đây là lý do p99 của B **vẫn cao thêm một lúc** sau khi báo cáo đã xong: bộ nhớ đệm cần thời gian để nóng lại.
+
+**2. CPU và I/O của database.**
+
+```text
+Báo cáo chiếm phần lớn CPU và băng thông đĩa
+-> truy vấn của B xếp hàng sau nó
+```
+
+**3. Pool kết nối của ứng dụng.**
+
+```text
+Báo cáo giữ một kết nối trong 35 giây
+-> pool còn ít kết nối hơn cho phần còn lại
+-> nếu có vài báo cáo cùng lúc, pool cạn -> mọi request chờ
+```
+
+Cơ chế thứ ba chính là bulkhead ở [bài 18.10](../module-18-microservices/18.10-advanced-notes.mdx), lần này xuất hiện ở tầng database.
+
+**Bốn cách xử lý, theo thứ tự chi phí:**
+
+**1. Giới hạn phạm vi truy vấn — rẻ nhất, hiệu quả nhất.**
+
+```csharp
+// Chặn khoảng thời gian quá rộng ngay ở tầng API
+if ((den - tu).TotalDays > 366)
+    return Results.BadRequest("Khoảng báo cáo tối đa 12 tháng");
+```
+
+```text
+Phần lớn báo cáo "nặng" thật ra là báo cáo KHÔNG GIỚI HẠN
+-> người dùng chọn "từ đầu tới nay" vì đó là mặc định
+-> đặt mặc định 3 tháng thường loại bỏ phần lớn vấn đề
+```
+
+**2. Pool kết nối riêng cho báo cáo.**
+
+```csharp
+builder.Services.AddDbContext<BaoCaoDbContext>(o =>
+    o.UseNpgsql(cauHinh.BaoCaoConnectionString));   // Maximum Pool Size = 5
+```
+
+```text
+Báo cáo tối đa 5 kết nối -> không bao giờ làm cạn pool chính
+-> báo cáo thứ 6 xếp hàng, nhưng API nghiệp vụ không bị ảnh hưởng
+```
+
+**3. Bản sao đọc riêng cho báo cáo.**
+
+```text
+Báo cáo đọc từ replica -> buffer pool của primary không bị đẩy ra
+-> tách hoàn toàn hai loại tải
+
+Đổi lại: dữ liệu trễ vài giây, và một database nữa phải vận hành
+```
+
+**4. Tách database cho tenant lớn.**
+
+```text
+Tenant chiếm trên 30% dữ liệu -> database riêng
+-> hết noisy neighbour cho tenant đó, và cho cả những tenant khác
+```
+
+**Phát hiện noisy neighbour trên hệ thống thật:**
+
+```promql
+# p99 theo tenant — tenant nào đang làm phiền tenant nào?
+histogram_quantile(0.99,
+  sum by (le, tenant) (rate(http_server_request_duration_seconds_bucket[5m])))
+
+# Tương quan: p99 của mọi tenant cùng tăng vào một thời điểm
+# -> không phải lỗi của tenant nào cả, mà là tài nguyên dùng chung
+```
+
+```sql
+-- Truy vấn nào đang chạy lâu nhất, và của tenant nào?
+SELECT pid, now() - query_start AS chay_duoc, state,
+       LEFT(query, 100) AS truy_van
+FROM   pg_stat_activity
+WHERE  state = 'active' AND now() - query_start > INTERVAL '5 seconds'
+ORDER BY chay_duoc DESC;
+```
+
+**Và một biện pháp phòng ngừa đáng có, độc lập với bốn cách trên: đặt `statement_timeout`.**
+
+```sql
+-- PostgreSQL, cho riêng vai trò chạy báo cáo
+ALTER ROLE crm_baocao SET statement_timeout = '30s';
+```
+
+```text
+Một truy vấn chạy sai không thể làm phiền cả hệ thống quá 30 giây
+-> và người viết truy vấn đó nhận được phản hồi ngay,
+   thay vì phát hiện qua một sự cố lúc giờ cao điểm
+```
+
+Đây là loại biện pháp nên có **trước** khi cần tới — nó không sửa được truy vấn chậm, nhưng nó giới hạn thiệt hại mà một truy vấn chậm có thể gây ra.
+
+</details>
 
 ## Tự kiểm tra
 
