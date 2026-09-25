@@ -38,7 +38,7 @@ Sau bài này bạn có thể:
 ```
 
 ```csharp
-// Code hoan toan binh thuong
+// Code hoàn toàn bình thường
 var lead = await _db.Leads.FindAsync([id], ct);
 lead.Update(request.Name, request.Value, request.Note);
 await _db.SaveChangesAsync(ct);
@@ -245,11 +245,439 @@ Viết test kiểu này cho mỗi entity mà nhiều người có thể cùng s�
 
 ## Bài tập áp dụng
 
-1. **Tái hiện lost update.** Mở hai `DbContext`, đọc cùng bản ghi, sửa hai trường khác nhau và lưu lần lượt. Xác nhận thay đổi đầu bị mất.
+#### Bài 1 — Tái hiện lost update
 
-2. **Thêm row version.** Thêm `IsRowVersion()`, chạy lại bài 1 và xác nhận lần lưu thứ hai ném exception.
+Mở hai `DbContext`, đọc cùng bản ghi, sửa hai trường khác nhau và lưu lần lượt. Xác nhận thay đổi đầu bị mất.
 
-3. **Cài gộp tự động.** Cài cách 2 và xác nhận cả hai thay đổi đều được giữ khi chúng ở trường khác nhau.
+**Tiêu chí hoàn thành:** bạn giải thích được vì sao mất dữ liệu ngay cả khi hai người sửa **hai trường khác nhau**.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Nhìn vào lệnh `UPDATE` mà EF Core sinh ra. Nó đặt lại bao nhiêu cột?
+
+**Lời giải:**
+
+```csharp
+await using var dbAn   = await _factory.CreateDbContextAsync(ct);
+await using var dbBinh = await _factory.CreateDbContextAsync(ct);
+
+// 10:00 — cả hai mở cùng một lead
+var cuaAn   = await dbAn.Leads.FirstAsync(l => l.Id == 123, ct);
+var cuaBinh = await dbBinh.Leads.FirstAsync(l => l.Id == 123, ct);
+
+// 10:05 — An ghi chú
+cuaAn.Note = "Đã gọi điện, khách quan tâm";
+await dbAn.SaveChangesAsync(ct);
+
+// 10:07 — Bình cập nhật giá trị
+cuaBinh.Value = 8_000_000;
+await dbBinh.SaveChangesAsync(ct);
+```
+
+```sql
+SELECT Id, Value, Note FROM Leads WHERE Id = 123;
+```
+
+```text
+Id    Value      Note
+123   8000000    (rỗng)
+```
+
+Ghi chú của An biến mất. Không exception, không log, cả hai `SaveChangesAsync` đều trả về 1.
+
+**Vì sao mất dữ liệu dù hai người sửa hai trường khác nhau.** Điểm mấu chốt nằm ở `OriginalValues` — EF Core so sánh giá trị hiện tại với bản chụp lúc **nạp entity**, và bản chụp của Bình được tạo lúc 10:00:
+
+```text
+10:00  dbBinh nạp:  OriginalValues = { Value: 5tr,  Note: "" }
+                    CurrentValues  = { Value: 5tr,  Note: "" }
+
+10:05  An ghi:      database thành { Value: 5tr,  Note: "Đã gọi điện..." }
+                    dbBinh KHÔNG biết gì về việc này
+
+10:07  Bình sửa:    CurrentValues  = { Value: 8tr,  Note: "" }
+                    So với OriginalValues: chỉ Value đổi
+                    -> UPDATE Leads SET Value = 8000000 WHERE Id = 123
+```
+
+Ở đây có một chi tiết hay bị hiểu nhầm: EF Core **chỉ gửi cột đã đổi**, nên lệnh `UPDATE` không hề chạm tới `Note`. Vậy vì sao `Note` vẫn mất?
+
+Vì trong tình huống thực tế của một ứng dụng web, entity không sống qua hai request. Endpoint `PUT` nạp lại entity rồi gán **mọi** trường từ request body:
+
+```csharp
+var lead = await _db.Leads.FirstAsync(l => l.Id == id, ct);
+lead.Name  = req.Name;
+lead.Value = req.Value;
+lead.Note  = req.Note;          // form của Bình mang Note = "" — giá trị lúc 10:00
+await _db.SaveChangesAsync(ct);
+```
+
+```sql
+UPDATE Leads SET Value = @p0, Note = @p1 WHERE Id = @p2;   -- Note = ''
+```
+
+**Dữ liệu cũ không nằm trong `DbContext` của Bình — nó nằm trong form đang mở trên trình duyệt của Bình.** Form đó được tải lúc 10:00, mang theo `Note = ""`, và request `PUT` gửi lại nguyên vẹn giá trị đó.
+
+Đây là lý do vấn đề này không giải quyết được ở tầng database hay tầng EF Core: **thông tin bị lỗi thời được người dùng gửi lên**, và không ai ở phía máy chủ biết nó đã cũ.
+
+```text
+Không phải:  "EF Core ghi đè cột nó không nên ghi"
+Mà là:       "Bình gửi lên một bản sao của quá khứ, và máy chủ không có cách nào biết"
+```
+
+**Hai cách sửa, ở hai tầng khác nhau:**
+
+**1. `RowVersion` — phát hiện rằng bản sao đã cũ** (bài 2). Đây là cách tổng quát, bắt được mọi trường hợp.
+
+**2. Chỉ gửi những trường thật sự đổi** — dùng `PATCH` thay vì `PUT`:
+
+```http
+PATCH /leads/123
+Content-Type: application/json-patch+json
+
+[ { "op": "replace", "path": "/value", "value": 8000000 } ]
+```
+
+Request không nhắc tới `Note`, nên `Note` không bị chạm. Cách này giải quyết đúng trường hợp "hai người sửa hai trường khác nhau", nhưng **không** giải quyết được khi hai người sửa cùng một trường — lúc đó vẫn cần `RowVersion`.
+
+Trong thực tế nên có cả hai: `PATCH` giảm số xung đột, `RowVersion` bắt những cái còn lại.
+
+**Kiểm chứng bằng test:**
+
+```csharp
+[Fact]
+public async Task Hai_nguoi_sua_hai_truong_khac_nhau_khong_duoc_mat_du_lieu()
+{
+    var truoc = await _client.GetFromJsonAsync<LeadDto>("/leads/123");
+
+    // An ghi chú
+    await _client.PutAsJsonAsync("/leads/123",
+        truoc! with { Note = "Đã gọi điện" });
+
+    // Bình gửi form mở từ trước — Note vẫn là giá trị cũ
+    var res = await _client.PutAsJsonAsync("/leads/123",
+        truoc with { Value = 8_000_000 });
+
+    res.StatusCode.Should().Be(HttpStatusCode.Conflict);
+
+    var sau = await _client.GetFromJsonAsync<LeadDto>("/leads/123");
+    sau!.Note.Should().Be("Đã gọi điện");
+}
+```
+
+</details>
+
+---
+
+#### Bài 2 — Thêm row version
+
+Thêm `IsRowVersion()`, chạy lại bài 1 và xác nhận lần lưu thứ hai ném exception.
+
+**Tiêu chí hoàn thành:** bạn nêu được điều phải làm thêm ở tầng HTTP để `RowVersion` thật sự có tác dụng, và biết cách cấu hình tương đương trên PostgreSQL.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Bài 1 chạy hai `DbContext` trong cùng một tiến trình. Ứng dụng web thì không.
+
+**Lời giải:**
+
+```csharp
+public class Lead
+{
+    public int Id { get; set; }
+    public decimal Value { get; set; }
+    public string Note { get; set; } = "";
+
+    [Timestamp]
+    public byte[] RowVersion { get; set; } = null!;
+}
+```
+
+```csharp
+builder.Property(l => l.RowVersion).IsRowVersion();
+```
+
+```bash
+dotnet ef migrations add ThemRowVersion
+```
+
+```csharp
+migrationBuilder.AddColumn<byte[]>(
+    name: "RowVersion", table: "Leads", rowVersion: true, nullable: false,
+    defaultValue: new byte[0]);
+```
+
+```sql
+ALTER TABLE [Leads] ADD [RowVersion] rowversion NOT NULL;
+```
+
+Chạy lại bài 1:
+
+```text
+Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException:
+The database operation was expected to affect 1 row(s), but actually affected 0 row(s);
+data may have been modified or deleted since entities were loaded.
+```
+
+**Điều phải làm thêm ở tầng HTTP — đây là phần quyết định.**
+
+Bài 1 chạy hai `DbContext` trong **cùng một tiến trình**, nên cả hai giữ `OriginalValues` từ lúc nạp và `RowVersion` hoạt động ngay. Ứng dụng web không như vậy: mỗi request có `DbContext` riêng, và endpoint `PUT` **nạp lại entity từ database** — lúc đó `OriginalValues.RowVersion` đã là giá trị mới nhất, và điều kiện `WHERE` luôn khớp.
+
+```csharp
+// Không đủ — RowVersion đã khai báo nhưng không bao giờ phát hiện xung đột
+app.MapPut("/leads/{id}", async (int id, CapNhatLeadRequest req, CrmDbContext db, CancellationToken ct) =>
+{
+    var lead = await db.Leads.FirstAsync(l => l.Id == id, ct);
+    lead.Value = req.Value;
+    lead.Note  = req.Note;
+    await db.SaveChangesAsync(ct);          // luôn thành công
+    return Results.NoContent();
+});
+```
+
+```csharp
+// Đủ — nói cho EF Core biết người dùng đã nhìn thấy phiên bản nào
+app.MapPut("/leads/{id}", async (int id, CapNhatLeadRequest req, CrmDbContext db, CancellationToken ct) =>
+{
+    var lead = await db.Leads.FirstOrDefaultAsync(l => l.Id == id, ct);
+    if (lead is null) return Results.NotFound();
+
+    db.Entry(lead).Property(l => l.RowVersion).OriginalValue = req.RowVersion;
+
+    lead.Value = req.Value;
+    lead.Note  = req.Note;
+
+    try
+    {
+        await db.SaveChangesAsync(ct);
+        return Results.NoContent();
+    }
+    catch (DbUpdateConcurrencyException)
+    {
+        return Results.Conflict(new ProblemDetails
+        {
+            Status = StatusCodes.Status409Conflict,
+            Title  = "Dữ liệu đã thay đổi",
+            Detail = "Người khác vừa cập nhật bản ghi này. Vui lòng tải lại và thử lại.",
+        });
+    }
+});
+```
+
+Ba việc phải làm, thiếu một là cơ chế vô hiệu:
+
+1. **`GET` trả `RowVersion` xuống client.** Không có nó thì client không có gì để gửi lại.
+2. **`PUT` nhận lại và gán vào `OriginalValue`.** Đây là dòng mà mọi người hay quên.
+3. **Bắt `DbUpdateConcurrencyException` và trả `409`.** Không bắt thì người dùng nhận `500`.
+
+Chi tiết và biến thể dùng `ETag`/`If-Match` có ở [bài 13.8](13.8-concurrency-control.mdx).
+
+**PostgreSQL — không có kiểu `rowversion`.** Dùng cột hệ thống `xmin`, vốn đã tồn tại trên mọi bảng:
+
+```csharp
+builder.Entity<Lead>().UseXminAsConcurrencyToken();      // Npgsql
+```
+
+```sql
+UPDATE leads SET value = @p0, note = @p1 WHERE id = @p2 AND xmin = @p3;
+```
+
+`xmin` là id của transaction đã ghi dòng đó lần cuối, PostgreSQL tự duy trì. Ưu điểm lớn: **không cần thêm cột, không cần migration nào**.
+
+| | SQL Server `rowversion` | PostgreSQL `xmin` |
+|---|---|---|
+| Cần thêm cột | Có | **Không** |
+| Cần migration | Có | **Không** |
+| Kiểu trong C# | `byte[]` | `uint` |
+| Tự duy trì | Có | Có |
+| Chuyển qua JSON | Base64 | Số nguyên |
+
+Nếu dự án hỗ trợ cả hai database, tách phần cấu hình này ra theo provider:
+
+```csharp
+if (Database.IsNpgsql())
+    builder.Entity<Lead>().UseXminAsConcurrencyToken();
+else
+    builder.Entity<Lead>().Property(l => l.RowVersion).IsRowVersion();
+```
+
+**Hai giới hạn cần biết:**
+
+**1. `ExecuteUpdate` bỏ qua hoàn toàn** ([bài 13.7](13.7-performance.mdx)). Đừng dùng nó cho đường ghi cần phát hiện xung đột.
+
+**2. `RowVersion` đổi khi **bất kỳ** cột nào đổi.** Hai người sửa hai trường hoàn toàn không liên quan vẫn xung đột. Với bảng có nhiều cột được nhiều luồng ghi — một cột đếm lượt xem, một cờ đồng bộ — số xung đột giả có thể cao đến mức khó chịu.
+
+Khi đó, dùng concurrency token trên **đúng cột cần bảo vệ** thay vì cả dòng:
+
+```csharp
+builder.Property(l => l.Value).IsConcurrencyToken();
+```
+
+`UPDATE` kèm `WHERE Value = @giá-trị-cũ`, nên chỉ xung đột khi có người khác đổi chính `Value`. Đánh đổi: bạn phải chọn đúng tập cột, và cột nào không được đánh dấu thì không được bảo vệ.
+
+</details>
+
+---
+
+#### Bài 3 — Gộp tự động
+
+Cài cách 2 và xác nhận cả hai thay đổi đều được giữ khi chúng ở trường khác nhau.
+
+**Tiêu chí hoàn thành:** bạn nêu được **hai** trường hợp mà gộp tự động cho kết quả sai, và biết cách nhận ra chúng.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Gộp tự động giả định rằng các trường **độc lập với nhau**. Khi nào giả định đó sai?
+
+**Lời giải — phần cài đặt:**
+
+```csharp
+public async Task<Result> CapNhatAsync(int id, CapNhatLeadRequest req, CancellationToken ct)
+{
+    var lead = await _db.Leads.FirstOrDefaultAsync(l => l.Id == id, ct);
+    if (lead is null) return Result.NotFound();
+
+    _db.Entry(lead).Property(l => l.RowVersion).OriginalValue = req.RowVersion;
+
+    lead.Value = req.Value;
+    lead.Note  = req.Note;
+
+    for (var lan = 1; lan <= 3; lan++)
+    {
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+            return Result.ThanhCong();
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            var entry = ex.Entries.Single();
+            var duLieuDb = await entry.GetDatabaseValuesAsync(ct);
+
+            if (duLieuDb is null) return Result.NotFound("Bản ghi đã bị xoá");
+
+            foreach (var thuocTinh in entry.Metadata.GetProperties())
+            {
+                var banDau  = entry.OriginalValues[thuocTinh];
+                var hienTai = entry.CurrentValues[thuocTinh];
+                var tuDb    = duLieuDb[thuocTinh];
+
+                // Người dùng này KHÔNG đổi trường đó -> giữ giá trị của người kia
+                if (Equals(banDau, hienTai))
+                    entry.CurrentValues[thuocTinh] = tuDb;
+
+                // Cả hai cùng đổi một trường -> không gộp được
+                else if (!Equals(banDau, tuDb))
+                    return Result.Conflict(
+                        $"Trường '{thuocTinh.Name}' đã được người khác sửa. Vui lòng tải lại.");
+            }
+
+            entry.OriginalValues.SetValues(duLieuDb);     // lấy RowVersion mới, thử lại
+        }
+    }
+
+    return Result.Conflict("Bản ghi đang được sửa liên tục. Vui lòng thử lại sau.");
+}
+```
+
+Hai chi tiết dễ bỏ sót trong phần cài đặt:
+
+- **Nhánh `else if`** — nếu cả hai cùng đổi một trường thì phải báo xung đột, không được im lặng chọn một bên. Bản gộp thiếu nhánh này sẽ **âm thầm vứt bỏ** thay đổi của một người, tức là quay lại đúng vấn đề ban đầu.
+- **Vòng lặp có giới hạn** — sau khi gộp, `SaveChanges` có thể xung đột **lần nữa** với một người thứ ba. Không có giới hạn thì đây là vòng lặp vô hạn dưới tải cao.
+
+```text
+An:   Note  = "Đã gọi điện"
+Bình: Value = 8.000.000
+
+Kết quả: { Value: 8.000.000, Note: "Đã gọi điện" }  — giữ cả hai
+```
+
+**Hai trường hợp gộp tự động cho kết quả sai:**
+
+**Trường hợp 1 — các trường phụ thuộc lẫn nhau.**
+
+Gộp theo từng trường giả định mỗi trường độc lập. Khi có ràng buộc giữa chúng, kết quả gộp có thể **hợp lệ về từng trường nhưng vô nghĩa về nghiệp vụ**:
+
+```text
+Trạng thái đầu:  { Status: "New", AssignedTo: null, ClosedAt: null }
+
+An:   Status = "Won",  ClosedAt = 2026-09-25
+Bình: AssignedTo = "nhân viên B"
+
+Gộp:  { Status: "Won", ClosedAt: 2026-09-25, AssignedTo: "nhân viên B" }
+      -> Một lead ĐÃ CHỐT lại vừa được GÁN cho người đi chăm sóc
+```
+
+Không trường nào sai, nhưng tổ hợp thì sai. Ví dụ nghiêm trọng hơn:
+
+```text
+An:   Discount = 50%           (duyệt giảm giá cho đơn 10 triệu)
+Bình: TotalAmount = 200 triệu  (cập nhật giá trị hợp đồng)
+
+Gộp:  giảm 50% trên 200 triệu — không ai từng duyệt con số đó
+```
+
+**Cách nhận ra:** nếu bạn có thể viết ra một quy tắc dạng *"khi X thì Y phải..."*, thì X và Y phụ thuộc nhau và không được gộp độc lập. Hãy liệt kê các quy tắc đó cho entity của bạn — chúng thường đã nằm sẵn trong phương thức validate hoặc trong domain method.
+
+**Trường hợp 2 — trường chứa dữ liệu tích luỹ hoặc dạng tập hợp.**
+
+Gộp theo trường chọn **một trong hai** giá trị. Với dữ liệu tích luỹ, câu trả lời đúng là **kết hợp** cả hai:
+
+```text
+An:   Tags = ["quan-trọng", "b2b"]        (thêm "b2b")
+Bình: Tags = ["quan-trọng", "gấp"]        (thêm "gấp")
+
+Gộp theo trường: chọn một bên -> mất một nhãn
+Đúng ra phải là: ["quan-trọng", "b2b", "gấp"]
+```
+
+Tương tự với bộ đếm, danh sách, và trường văn bản được nối thêm:
+
+```text
+An:   ViewCount 100 -> 101
+Bình: ViewCount 100 -> 101
+Gộp:  101      (đúng ra phải là 102)
+```
+
+**Cách nhận ra:** hỏi *"thao tác này là ĐẶT hay là THÊM VÀO?"*. `Value = 8tr` là đặt — gộp được. `Tags.Add("gấp")` và `ViewCount++` là thêm vào — không gộp theo trường được.
+
+Với loại thứ hai, có hai cách đúng:
+
+```csharp
+// 1. Đẩy phép cộng xuống database, nguyên tử, không cần gộp
+await _db.Leads.Where(l => l.Id == id)
+    .ExecuteUpdateAsync(s => s.SetProperty(l => l.ViewCount, l => l.ViewCount + 1), ct);
+
+// 2. Tách ra bảng riêng — mỗi nhãn một dòng, hai người thêm hai dòng khác nhau
+public class LeadTag { public int LeadId; public string Tag; }
+```
+
+Cách 2 đáng cân nhắc hơn vẻ ngoài của nó: nhiều xung đột "gộp" biến mất khi mô hình dữ liệu tách đúng. Hai người thêm hai nhãn khác nhau thì thành hai `INSERT` vào hai dòng riêng, và không có gì để xung đột. Xem [bài 13.3](13.3-relationships.mdx).
+
+**Khi nào nên dùng gộp tự động:**
+
+| Điều kiện | Gộp tự động? |
+|---|---|
+| Trường độc lập, thao tác là "đặt giá trị" | **Có** |
+| Có ràng buộc nghiệp vụ giữa các trường | Không — báo xung đột |
+| Có trường tích luỹ (đếm, danh sách, nối chuỗi) | Không — sửa mô hình hoặc dùng `ExecuteUpdate` |
+| Dữ liệu tài chính, pháp lý, y tế | Không — luôn để con người quyết định |
+
+Dòng cuối là một nguyên tắc chứ không phải kỹ thuật: với dữ liệu mà sai sót có hậu quả nghiêm trọng, **để người dùng nhìn thấy cả hai phiên bản và chọn** (cách 3 trong bài học) tốt hơn bất kỳ phép gộp tự động nào — kể cả khi phép gộp gần như luôn đúng.
+
+**Và khi đã dùng gộp tự động, hãy ghi log mọi lần gộp:**
+
+```csharp
+_logger.LogInformation(
+    "Gộp xung đột trên {Entity} #{Id}: giữ {SoTruong} trường từ phiên bản trong database",
+    entry.Metadata.Name, id, soTruongGiuLai);
+```
+
+Log này cho bạn biết tần suất xung đột thật sự, và khi có báo cáo "dữ liệu của tôi tự đổi", nó là thứ duy nhất giải thích được chuyện gì đã xảy ra.
+
+</details>
 
 ## Tự kiểm tra
 
