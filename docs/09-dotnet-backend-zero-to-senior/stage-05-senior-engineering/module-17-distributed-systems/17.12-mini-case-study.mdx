@@ -114,7 +114,7 @@ CREATE UNIQUE INDEX UX_Invoices_Customer_Period
     WHERE Status <> 'VoidedDuplicate';
 ```
 
-Đây là tuyến phòng thủ **chắc chắn nhất**, vì nó do database đảm bảo chứ không phụ thuộc code nhớ kiểm tra ([bài 17.3](17.2-messaging-fears-lost-duplicates.mdx)).
+Đây là tuyến phòng thủ **chắc chắn nhất**, vì nó do database đảm bảo chứ không phụ thuộc code nhớ kiểm tra ([bài 17.2](17.2-messaging-fears-lost-duplicates.mdx)).
 
 ```csharp
 try
@@ -139,7 +139,7 @@ _db.InboxMessages.Add(new InboxMessage { MessageId = evt.EventId });
 try { await _db.SaveChangesAsync(ct); }
 catch (DbUpdateException ex) when (ex.IsUniqueViolation()) { return; }
 
-// ... nghiep vu ...
+// ... nghiệp vụ ...
 await tx.CommitAsync(ct);         // inbox + nghiệp vụ cùng commit
 ```
 
@@ -180,7 +180,7 @@ Test này chạy trên database thật qua Testcontainers, vì unique constraint
 
 ### 17.13.5 — Ba bài học
 
-**1. "Message chỉ giao một lần" là giả định sai.** Broker đảm bảo at-least-once, và đó là lựa chọn có chủ đích — thà giao hai lần còn hơn mất. Idempotency là trách nhiệm của consumer ([bài 17.3](17.2-messaging-fears-lost-duplicates.mdx)).
+**1. "Message chỉ giao một lần" là giả định sai.** Broker đảm bảo at-least-once, và đó là lựa chọn có chủ đích — thà giao hai lần còn hơn mất. Idempotency là trách nhiệm của consumer ([bài 17.2](17.2-messaging-fears-lost-duplicates.mdx)).
 
 **2. Phòng thủ nhiều lớp.** Trong ca này có ba lớp cùng thiếu: không inbox, không unique constraint, không idempotency key ở cổng thanh toán. Chỉ cần **một** lớp tồn tại là thiệt hại đã nhỏ hơn nhiều. Bảng dưới xếp theo mức độ chắc chắn:
 
@@ -212,11 +212,617 @@ Test này chạy trên database thật qua Testcontainers, vì unique constraint
 
 ## Bài tập áp dụng
 
-1. **Tái hiện sự cố.** Gửi cùng một message hai lần vào consumer hiện tại của bạn và đếm số bản ghi được tạo.
+#### Bài 1 — Tái hiện sự cố
 
-2. **Thêm lớp phòng thủ.** Thêm unique constraint cho khoá nghiệp vụ, chạy lại bài 1 và xác nhận chỉ còn một bản ghi.
+Gửi cùng một message hai lần vào consumer hiện tại của bạn và đếm số bản ghi được tạo.
 
-3. **Viết test cho mọi consumer.** Áp dụng mẫu test ở mục 17.13.4 cho từng consumer trong dự án và ghi lại cái nào thất bại.
+**Tiêu chí hoàn thành:** bạn kiểm tra được **mọi** consumer, không chỉ một, và phân loại được consumer theo mức độ thiệt hại khi xử lý trùng.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Một consumer xử lý trùng tạo hoá đơn thừa. Một consumer khác ghi log hai dòng. Hai mức thiệt hại khác nhau.
+
+**Lời giải — test tổng quát cho mọi consumer:**
+
+```csharp
+public class MoiConsumerPhaiIdempotentTests(IntegrationFixture fixture)
+{
+    public static IEnumerable<object[]> MoiConsumer()
+    {
+        yield return [typeof(TaoHoaDonConsumer),      TaoSuKienGiaHan(),   "Invoices"];
+        yield return [typeof(TaoSubscriptionConsumer), TaoSuKienConvert(),  "Subscriptions"];
+        yield return [typeof(TruTonKhoConsumer),       TaoSuKienDatHang(),  "TonKho"];
+        yield return [typeof(GuiEmailConsumer),        TaoSuKienConvert(),  "EmailDaGui"];
+        yield return [typeof(CapNhatThongKeConsumer),  TaoSuKienChotLead(), "ThongKe"];
+    }
+
+    [Theory]
+    [MemberData(nameof(MoiConsumer))]
+    public async Task Consumer_xu_ly_message_hai_lan_chi_tao_mot_ban_ghi(
+        Type kieuConsumer, object suKien, string tenBang)
+    {
+        await fixture.ResetAsync();
+
+        var truoc = await DemDongAsync(tenBang);
+
+        await GoiConsumerAsync(kieuConsumer, suKien);
+        await GoiConsumerAsync(kieuConsumer, suKien);      // CÙNG message
+
+        var sau = await DemDongAsync(tenBang);
+
+        (sau - truoc).Should().Be(1,
+            "{0} phải idempotent — at-least-once là mặc định, message SẼ tới hai lần",
+            kieuConsumer.Name);
+    }
+}
+```
+
+```text
+Passed:  TaoSubscriptionConsumer
+Passed:  GuiEmailConsumer
+
+Failed:  TaoHoaDonConsumer       — Expected 1, found 2
+Failed:  TruTonKhoConsumer       — Expected 1, found 2
+Failed:  CapNhatThongKeConsumer  — Expected 1, found 2
+```
+
+**Ba trên năm consumer không idempotent** — và mỗi cái có mức thiệt hại rất khác nhau.
+
+**Phân loại theo mức độ thiệt hại:**
+
+| Mức | Hậu quả khi xử lý trùng | Ví dụ |
+|---|---|---|
+| **Nghiêm trọng** | **Thiệt hại tài chính không hoàn tác được** | Tạo hoá đơn, trừ tiền, chuyển khoản |
+| **Cao** | Dữ liệu nghiệp vụ sai, cần dọn thủ công | Trừ tồn kho, tạo đơn hàng, cấp tài khoản |
+| **Trung bình** | Số liệu sai, người dùng khó chịu | Thống kê cộng dồn, gửi email/SMS |
+| **Thấp** | Nhiễu, không sai dữ liệu | Ghi log, cập nhật cache |
+
+Áp vào kết quả ở trên:
+
+```text
+TaoHoaDonConsumer        -> NGHIÊM TRỌNG  -> sửa NGAY trong ngày
+TruTonKhoConsumer        -> CAO           -> sửa trong sprint này
+CapNhatThongKeConsumer   -> TRUNG BÌNH    -> sửa trong sprint sau
+```
+
+**Đây là cách ưu tiên đúng** — không phải sửa theo thứ tự alphabet hay theo thứ tự trong file.
+
+**Kiểm chứng thiệt hại thật trên production:**
+
+```sql
+-- Hoá đơn trùng
+SELECT CustomerId, Period, COUNT(*) AS SoHoaDon, SUM(Total) AS TongTien
+FROM Invoices
+GROUP BY CustomerId, Period
+HAVING COUNT(*) > 1
+ORDER BY SUM(Total) DESC;
+```
+
+```text
+CustomerId   Period      SoHoaDon   TongTien
+cus-8421     2026-09            2   4.800.000
+cus-3102     2026-09            2   2.400.000
+cus-9918     2026-08            3   7.200.000
+...
+(142 dòng)
+```
+
+```sql
+-- Tổng thiệt hại
+SELECT COUNT(*) AS SoKhach, SUM(TienThua) AS TongThua
+FROM (
+    SELECT CustomerId, SUM(Total) - MAX(Total) AS TienThua
+    FROM Invoices GROUP BY CustomerId, Period HAVING COUNT(*) > 1
+) x;
+```
+
+```text
+SoKhach   TongThua
+    142   187.400.000
+```
+
+**187 triệu đồng tính thừa cho 142 khách hàng.** Đây là con số biến một nhiệm vụ kỹ thuật thành một ưu tiên của cả tổ chức.
+
+**Kiểm tra tồn kho:**
+
+```sql
+SELECT o.Id, o.ProductId, o.Quantity,
+       (SELECT COUNT(*) FROM TonKhoLog l
+        WHERE l.OrderId = o.Id AND l.ProductId = o.ProductId) AS SoLanTru
+FROM OrderItems o
+WHERE (SELECT COUNT(*) FROM TonKhoLog l
+       WHERE l.OrderId = o.Id AND l.ProductId = o.ProductId) > 1;
+```
+
+```sql
+-- Tồn kho âm — dấu hiệu rõ ràng
+SELECT ProductId, SoLuong FROM TonKho WHERE SoLuong < 0;
+```
+
+**Vì sao phải kiểm tra MỌI consumer, không chỉ một:**
+
+```text
+Sự cố xảy ra ở consumer hoá đơn -> đội sửa consumer hoá đơn
+-> ba tháng sau, sự cố tương tự ở consumer tồn kho
+-> sáu tháng sau, ở consumer khác
+
+Nguyên nhân gốc KHÔNG phải một consumer viết sai,
+mà là MẪU consumer trong codebase không có khử trùng lặp.
+Mẫu đó được sao chép cho mọi consumer mới.
+```
+
+Đây là điểm ở [bài 17.9](17.9-roadmap-sh-supplement.mdx): **mẫu code được sao chép nhanh hơn được sửa.**
+
+**Cách chặn tận gốc — lớp cơ sở bắt buộc:**
+
+```csharp
+public abstract class ConsumerIdempotent<TEvent> : IConsumer<TEvent> where TEvent : class
+{
+    protected abstract string LayKhoaIdempotency(TEvent e);
+    protected abstract Task XuLyAsync(TEvent e, CrmDbContext db, CancellationToken ct);
+
+    public async Task Consume(ConsumeContext<TEvent> ctx)
+    {
+        var khoa = LayKhoaIdempotency(ctx.Message);
+
+        _db.MessageDaXuLy.Add(new MessageDaXuLy
+        {
+            Khoa = khoa,
+            LoaiMessage = typeof(TEvent).Name,
+            XuLyLuc = _clock.GetUtcNow().UtcDateTime,
+        });
+
+        await XuLyAsync(ctx.Message, _db, ctx.CancellationToken);
+
+        try
+        {
+            await _db.SaveChangesAsync(ctx.CancellationToken);   // MỘT transaction
+        }
+        catch (DbUpdateException ex) when (LaViPhamKhoaChinh(ex))
+        {
+            _logger.LogInformation("Message {Khoa} đã xử lý, bỏ qua", khoa);
+            _demTrungLap.Add(1, new KeyValuePair<string, object?>("consumer", GetType().Name));
+        }
+    }
+}
+```
+
+```csharp
+public sealed class TaoHoaDonConsumer : ConsumerIdempotent<SubscriptionDaGiaHanV1>
+{
+    protected override string LayKhoaIdempotency(SubscriptionDaGiaHanV1 e)
+        => $"hoadon:{e.CustomerId}:{e.Period:yyyy-MM}";       // khoá NGHIỆP VỤ
+
+    protected override Task XuLyAsync(SubscriptionDaGiaHanV1 e, CrmDbContext db, CancellationToken ct)
+    {
+        db.Invoices.Add(Invoice.Tao(e.CustomerId, e.Period, e.SoTien));
+        return Task.CompletedTask;
+    }
+}
+```
+
+`LayKhoaIdempotency` là `abstract`, nên **trình biên dịch buộc** mọi consumer mới phải quyết định khoá của mình. Đây là cách biến một quy ước dễ quên thành một yêu cầu không thể bỏ qua.
+
+**Và kiến trúc test chặn consumer không kế thừa:**
+
+```csharp
+[Fact]
+public void Moi_consumer_phai_ke_thua_ConsumerIdempotent()
+{
+    var viPham = typeof(TaoHoaDonConsumer).Assembly.GetTypes()
+        .Where(t => !t.IsAbstract && t.GetInterfaces()
+            .Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IConsumer<>)))
+        .Where(t => !LaKeThuaTu(t, typeof(ConsumerIdempotent<>)))
+        .Select(t => t.Name)
+        .ToList();
+
+    viPham.Should().BeEmpty(
+        "consumer phải kế thừa ConsumerIdempotent<T> để buộc khai báo khoá idempotency");
+}
+```
+
+</details>
+
+---
+
+#### Bài 2 — Thêm lớp phòng thủ bằng unique constraint
+
+Thêm unique constraint cho khoá nghiệp vụ, chạy lại bài 1 và xác nhận chỉ còn một bản ghi.
+
+**Tiêu chí hoàn thành:** bạn dọn được dữ liệu cũ trước khi thêm ràng buộc, và nêu được thứ tự đúng của **ba** lớp phòng thủ.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** `ALTER TABLE ADD CONSTRAINT` trên bảng có dữ liệu vi phạm sẽ thất bại. Nhưng đó không phải vấn đề lớn nhất.
+
+**Lời giải — bước 1: đếm và phân loại dữ liệu vi phạm:**
+
+```sql
+SELECT CustomerId, Period, COUNT(*) AS SoBan, MIN(CreatedUtc) AS SomNhat,
+       MAX(CreatedUtc) AS MuonNhat, SUM(Total) AS TongTien,
+       MAX(CASE WHEN Status = 'Paid' THEN 1 ELSE 0 END) AS CoDaThanhToan
+FROM Invoices
+GROUP BY CustomerId, Period
+HAVING COUNT(*) > 1
+ORDER BY MuonNhat DESC;
+```
+
+```text
+CustomerId  Period    SoBan  SomNhat              MuonNhat             CoDaThanhToan
+cus-8421    2026-09       2  2026-09-01 02:14:11  2026-09-01 02:14:13              1
+cus-3102    2026-09       2  2026-09-01 02:14:22  2026-09-01 02:14:24              0
+...
+```
+
+**Cột `MuonNhat` quan trọng nhất:**
+
+```text
+MuonNhat = hôm qua  -> vi phạm VẪN đang được tạo
+                     -> sửa consumer TRƯỚC, dọn dữ liệu SAU
+                     -> dọn trước là công việc vô ích, nó sẽ quay lại
+
+MuonNhat = 3 tháng trước -> nguồn đã dừng, chỉ cần dọn
+```
+
+**Cột `CoDaThanhToan` quyết định cách dọn:**
+
+```text
+Hoá đơn trùng CHƯA thanh toán  -> xoá hoặc void, đơn giản
+Hoá đơn trùng ĐÃ thanh toán    -> KHÔNG xoá được
+                                -> phải hoàn tiền, và đó là quyết định của kế toán
+```
+
+**Bước 2 — sửa consumer trước:**
+
+```csharp
+protected override string LayKhoaIdempotency(SubscriptionDaGiaHanV1 e)
+    => $"hoadon:{e.CustomerId}:{e.Period:yyyy-MM}";
+```
+
+```bash
+# Deploy, theo dõi 3 ngày
+```
+
+```sql
+SELECT MAX(MuonNhat) FROM (
+    SELECT MAX(CreatedUtc) AS MuonNhat FROM Invoices
+    GROUP BY CustomerId, Period HAVING COUNT(*) > 1) x;
+```
+
+```text
+2026-09-25 02:14:13        <- không tiến thêm sau khi deploy -> nguồn đã dừng
+```
+
+**Bước 3 — quyết định nghiệp vụ, rồi dọn:**
+
+```markdown
+## Xử lý 142 hoá đơn trùng — quyết định ngày 2026-09-26
+
+Đã trao đổi với trưởng phòng kế toán:
+
+| Nhóm | Số lượng | Xử lý |
+|---|---:|---|
+| Trùng, chưa thanh toán | 118 | Đánh dấu Status = 'VoidedDuplicate' |
+| Trùng, đã thanh toán | 24 | Tạo phiếu hoàn tiền, thông báo khách hàng |
+
+Người phụ trách hoàn tiền: <tên>
+Thông báo khách hàng: mẫu email đã duyệt, gửi ngày 2026-09-28
+```
+
+```sql
+-- Nhóm 1: void bản trùng, GIỮ bản sớm nhất
+WITH XepHang AS (
+    SELECT Id, ROW_NUMBER() OVER (
+        PARTITION BY CustomerId, Period ORDER BY CreatedUtc) AS Thu
+    FROM Invoices WHERE Status <> 'Paid'
+)
+UPDATE Invoices
+SET Status = 'VoidedDuplicate',
+    UpdatedUtc = SYSUTCDATETIME(),
+    UpdatedBy = 'don-du-lieu-CRM-4821',
+    GhiChu = N'Hoá đơn trùng do sự cố xử lý message ngày 2026-09-01'
+WHERE Id IN (SELECT Id FROM XepHang WHERE Thu > 1);
+```
+
+```text
+(118 rows affected)
+```
+
+`UpdatedBy` và `GhiChu` là chi tiết đáng làm: sáu tháng sau, khi có người hỏi "sao 118 hoá đơn này bị void?", câu trả lời nằm ngay trong dữ liệu.
+
+**Bước 4 — thêm ràng buộc:**
+
+```sql
+CREATE UNIQUE INDEX UX_Invoices_Customer_Period
+    ON Invoices (CustomerId, Period)
+    WHERE Status <> 'VoidedDuplicate';
+```
+
+```csharp
+builder.Entity<Invoice>()
+    .HasIndex(i => new { i.CustomerId, i.Period })
+    .IsUnique()
+    .HasFilter("[Status] <> 'VoidedDuplicate'")
+    .HasDatabaseName("UX_Invoices_Customer_Period");
+```
+
+Index có lọc là chi tiết cần thiết: không có nó, các bản đã void vẫn chiếm chỗ và bạn không tạo lại hoá đơn đúng được.
+
+```bash
+dotnet test --filter "Consumer_xu_ly_message_hai_lan"
+```
+
+```text
+Passed:  TaoHoaDonConsumer
+```
+
+**Thứ tự đúng của ba lớp phòng thủ:**
+
+```text
+LỚP 1 — Ràng buộc database        <- làm TRƯỚC, mạnh nhất
+LỚP 2 — Khử trùng lặp trong code  <- thông điệp lỗi đẹp, không phải bảo đảm
+LỚP 3 — Idempotency key bên ngoài <- ngăn thiệt hại tài chính
+```
+
+**Vì sao ràng buộc database làm trước:**
+
+```text
+Nó là lớp DUY NHẤT không đi vòng qua được.
+Code có thể sai, có thể bị bỏ qua, có thể có đường ghi mới.
+Ràng buộc thì không.
+
+-> Thêm nó trước nghĩa là mọi lỗi sau đó đều bị chặn,
+   kể cả những lỗi bạn chưa biết là tồn tại.
+```
+
+**Và lớp 3 quan trọng hơn vẻ ngoài:**
+
+```csharp
+await _paymentGateway.ChargeAsync(new ChargeRequest
+{
+    Amount = invoice.Total,
+    CustomerId = invoice.CustomerId,
+    IdempotencyKey = $"invoice-{invoice.Id}",        // cổng thanh toán TỰ chặn trùng
+}, ct);
+```
+
+```text
+Ngay cả khi hoá đơn bị tạo trùng:
+    -> hai hoá đơn có hai Id khác nhau
+    -> nhưng nếu khoá là $"subscription-{subId}-{period}" thay vì invoice.Id,
+       cổng thanh toán chặn được lần thứ hai
+    -> TIỀN KHÔNG BỊ TRỪ HAI LẦN
+```
+
+Đây là lớp ngăn **thiệt hại không hoàn tác được**. Hai lớp trên ngăn dữ liệu sai; lớp này ngăn tiền đi sai — và tiền đã đi thì việc sửa đòi hỏi con người, giấy tờ, và thời gian.
+
+Chọn khoá cho cổng thanh toán theo **hành động nghiệp vụ**, không theo id của bản ghi:
+
+```csharp
+// Yếu — hai hoá đơn trùng có hai Id, hai khoá khác nhau
+IdempotencyKey = $"invoice-{invoice.Id}"
+
+// Mạnh — cùng một lần gia hạn thì cùng một khoá
+IdempotencyKey = $"renew-{subscriptionId}-{period:yyyy-MM}"
+```
+
+**Ba lớp cho ba loại lỗi:**
+
+| Lớp | Bắt được | Không bắt được |
+|---|---|---|
+| Ràng buộc database | Mọi đường ghi vào **database của bạn** | Lời gọi ra ngoài |
+| Khử trùng lặp trong code | Message trùng, cho thông điệp đẹp | Đường ghi không qua code đó |
+| Idempotency key bên ngoài | Lời gọi trùng tới **hệ thống khác** | Dữ liệu trong database của bạn |
+
+Ba lớp không thừa nhau — mỗi lớp bắt một tập lỗi mà hai lớp kia không bắt được.
+
+**Và giám sát sau khi sửa:**
+
+```csharp
+public class KiemTraToanVenJob : BackgroundService
+{
+    protected override async Task ExecuteAsync(CancellationToken ct)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromHours(6));
+        while (await timer.WaitForNextTickAsync(ct))
+        {
+            var trung = await _db.Database.SqlQuery<int>($@"
+                SELECT COUNT(*) FROM (
+                    SELECT CustomerId, Period FROM Invoices
+                    WHERE Status <> 'VoidedDuplicate'
+                    GROUP BY CustomerId, Period HAVING COUNT(*) > 1) x")
+                .FirstAsync(ct);
+
+            if (trung > 0)
+                _logger.LogError("Có {SoNhom} nhóm hoá đơn trùng — ràng buộc có thể đã bị tắt",
+                                 trung);
+        }
+    }
+}
+```
+
+Con số này phải luôn bằng 0. Nếu nó khác 0 sau khi đã có unique index, nghĩa là index bị xoá trong một migration, hoặc có một đường ghi dùng `IGNORE_DUP_KEY` — cả hai đều đáng biết ngay.
+
+</details>
+
+---
+
+#### Bài 3 — Áp dụng mẫu test cho mọi consumer
+
+Áp dụng mẫu test ở mục 17.13.4 cho từng consumer trong dự án và ghi lại cái nào thất bại.
+
+**Tiêu chí hoàn thành:** bạn có danh sách đầy đủ, và biến nó thành một kế hoạch có thứ tự ưu tiên.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Danh sách 12 consumer thất bại là một vấn đề. Danh sách 12 consumer kèm mức thiệt hại và ước lượng là một kế hoạch.
+
+**Lời giải — chạy test cho mọi consumer:**
+
+```csharp
+public static IEnumerable<object[]> MoiConsumer()
+{
+    var assembly = typeof(TaoHoaDonConsumer).Assembly;
+
+    return assembly.GetTypes()
+        .Where(t => !t.IsAbstract && t.GetInterfaces()
+            .Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IConsumer<>)))
+        .Select(t => new object[] { t });
+}
+
+[Theory]
+[MemberData(nameof(MoiConsumer))]
+public async Task Consumer_phai_idempotent(Type kieuConsumer)
+{
+    var kieuEvent = kieuConsumer.GetInterfaces()
+        .First(i => i.GetGenericTypeDefinition() == typeof(IConsumer<>))
+        .GetGenericArguments()[0];
+
+    var suKien = TaoSuKienMau(kieuEvent);
+
+    await fixture.ResetAsync();
+    var truoc = await ChupTrangThaiDatabaseAsync();
+
+    await GoiConsumerAsync(kieuConsumer, suKien);
+    var sauLan1 = await ChupTrangThaiDatabaseAsync();
+
+    await GoiConsumerAsync(kieuConsumer, suKien);
+    var sauLan2 = await ChupTrangThaiDatabaseAsync();
+
+    sauLan2.Should().BeEquivalentTo(sauLan1,
+        "{0} không idempotent — lần xử lý thứ hai đã thay đổi trạng thái",
+        kieuConsumer.Name);
+}
+```
+
+Phép so sánh "trạng thái sau lần 1 bằng trạng thái sau lần 2" tổng quát hơn việc đếm một bảng cụ thể — nó bắt được cả những thay đổi mà bạn không nghĩ tới.
+
+```text
+Passed:  4
+Failed:  8
+
+Failed: GuiEmailConsumer, CapNhatThongKeConsumer, DongBoErpConsumer,
+        TinhHoaHongConsumer, TaoHoaDonConsumer, GuiSmsConsumer,
+        CapNhatTonKhoConsumer, GhiAuditConsumer
+```
+
+**Biến danh sách thành kế hoạch:**
+
+```markdown
+## Consumer chưa idempotent — 2026-09-25
+
+| Consumer | Thiệt hại khi trùng | Mức | Khoá nên dùng | Ước lượng | Ưu tiên |
+|---|---|---|---|---:|:-:|
+| TaoHoaDonConsumer | Hoá đơn thừa, tiền sai | **Nghiêm trọng** | `{CustomerId}:{Period}` | 3h | **1** |
+| TinhHoaHongConsumer | Hoa hồng trả thừa | **Nghiêm trọng** | `{OrderId}:{NhanVienId}` | 3h | **2** |
+| CapNhatTonKhoConsumer | Tồn kho âm, bán quá | **Cao** | `{OrderId}:{ProductId}` | 2h | **3** |
+| DongBoErpConsumer | Bản ghi trùng ở ERP | **Cao** | `{LeadId}` | 4h | **4** |
+| GuiEmailConsumer | Khách nhận email hai lần | Trung bình | `{LoaiEmail}:{LeadId}` | 1h | 5 |
+| GuiSmsConsumer | Khách nhận SMS hai lần, tốn phí | Trung bình | `{LoaiSms}:{PhoneNumber}:{Ngay}` | 1h | 6 |
+| CapNhatThongKeConsumer | Số liệu sai | Trung bình | Tính lại thay vì cộng dồn | 2h | 7 |
+| GhiAuditConsumer | Log trùng | Thấp | `{EventId}` | 1h | 8 |
+
+**Tổng: 17 giờ, khoảng 2,5 ngày công**
+
+### Ghi chú
+- Ưu tiên 1–2 làm trong sprint này, có thiệt hại tài chính
+- CapNhatThongKeConsumer: thay vì thêm khoá, thiết kế lại để TÍNH LẠI
+  từ nguồn thay vì cộng dồn -> tự idempotent, không cần khoá
+- Sau khi sửa hết: thêm lớp cơ sở ConsumerIdempotent<T> và kiến trúc test
+```
+
+**Ba điều làm bảng này thành một kế hoạch chứ không phải một danh sách:**
+
+1. **Cột thiệt hại** — cho biết thứ tự ưu tiên có cơ sở, thay vì làm theo thứ tự alphabet.
+2. **Cột khoá nên dùng** — quyết định khó nhất đã được đưa ra trước, nên việc thực hiện là cơ học.
+3. **Cột ước lượng** — biến "cần sửa" thành "2,5 ngày công", con số đưa được vào kế hoạch sprint.
+
+**Dòng ghi chú về `CapNhatThongKeConsumer` đáng chú ý:**
+
+```csharp
+// Trước — cộng dồn, cần khoá khử trùng lặp
+thongKe.TongDoanhSo += e.GiaTri;
+
+// Sau — tính lại, tự idempotent
+var tong = await _db.Orders
+    .Where(o => o.ThangNam == thang && o.Status == OrderStatus.Completed)
+    .SumAsync(o => o.Total, ct);
+thongKe.DatTongDoanhSo(tong);
+```
+
+**Làm cho thao tác tự idempotent tốt hơn quản lý idempotency** — nó loại bỏ cả một lớp vấn đề thay vì thêm một cơ chế phải bảo trì. Với mọi consumer, hãy hỏi câu này trước khi thêm khoá:
+
+```text
+"Có cách nào viết lại để chạy hai lần cho cùng kết quả không?"
+
+Cộng dồn   -> tính lại từ nguồn
+Thêm vào   -> đặt trạng thái cuối
+Gửi đi     -> không tránh được, phải có khoá
+```
+
+**Chặn hồi quy — đưa test vào CI ngay, với mẫu ratchet:**
+
+```csharp
+private static readonly HashSet<string> ChuaIdempotentDaBiet =
+[
+    "GuiEmailConsumer",
+    "CapNhatThongKeConsumer",
+    "DongBoErpConsumer",
+    "TinhHoaHongConsumer",
+    "TaoHoaDonConsumer",
+    "GuiSmsConsumer",
+    "CapNhatTonKhoConsumer",
+    "GhiAuditConsumer",
+];
+
+[Theory]
+[MemberData(nameof(MoiConsumer))]
+public async Task Consumer_phai_idempotent(Type kieuConsumer)
+{
+    if (ChuaIdempotentDaBiet.Contains(kieuConsumer.Name))
+    {
+        // Đã biết, đang trong kế hoạch sửa — không chặn CI
+        return;
+    }
+
+    // ... phần test ...
+}
+
+[Fact]
+public void Danh_sach_consumer_chua_idempotent_chi_duoc_giam()
+{
+    ChuaIdempotentDaBiet.Count.Should().BeLessThanOrEqualTo(8,
+        "danh sách này chỉ được rút ngắn; consumer MỚI phải idempotent ngay");
+}
+```
+
+Hai lợi ích: **consumer thứ chín không bao giờ được thêm vào**, và tiến độ hiện rõ trong code — mỗi lần xoá một tên khỏi danh sách là một bước tiến ai cũng thấy.
+
+**Sau khi danh sách về rỗng, xoá cơ chế ratchet và bật test đầy đủ:**
+
+```csharp
+[Theory]
+[MemberData(nameof(MoiConsumer))]
+public async Task Consumer_phai_idempotent(Type kieuConsumer)
+{
+    // Không còn ngoại lệ nào
+}
+```
+
+**Và đây là bài học rộng hơn của cả module:** một sự cố như tính tiền hai lần không phải là một lỗi đơn lẻ cần sửa. Nó là **triệu chứng của việc thiếu một cơ chế** — và cách xử lý đúng gồm ba phần:
+
+```text
+1. Sửa sự cố hiện tại        (dọn dữ liệu, hoàn tiền)
+2. Sửa nguyên nhân gốc       (khử trùng lặp cho consumer đó)
+3. Chặn tái diễn             (lớp cơ sở + test + kiến trúc test)
+```
+
+Phần lớn đội dừng ở bước 1 và 2 — và gặp lại cùng sự cố ở một consumer khác sau vài tháng. Bước 3 là bước duy nhất biến một sự cố thành một cải tiến vĩnh viễn.
+
+</details>
 
 ## Tự kiểm tra
 

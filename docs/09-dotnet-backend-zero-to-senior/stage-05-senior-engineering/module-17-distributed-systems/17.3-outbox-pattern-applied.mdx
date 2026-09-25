@@ -9,7 +9,7 @@ import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 # 17.4 — 3. Outbox pattern (ứng dụng)
 
 <SummaryBox>
-Outbox giải dual write bằng một ý tưởng đơn giản: **đừng ghi vào hai nơi** — ghi message vào **chính database nghiệp vụ**, trong **chính transaction** đang chạy. Nếu transaction commit, message chắc chắn có; nếu rollback, message biến mất cùng thay đổi nghiệp vụ. Một worker đọc bảng đó và publish sau. Phải hiểu rõ giới hạn: outbox đảm bảo **không mất**, nó **không** loại bỏ trùng — worker có thể publish xong rồi chết trước khi đánh dấu, nên consumer vẫn cần idempotency ([bài 17.3](17.2-messaging-fears-lost-duplicates.mdx)). Hai chi tiết quyết định outbox chạy được trên production hay không, và cả hai đều hay bị bỏ qua: **dispatcher phải an toàn khi chạy nhiều instance** (dùng `SKIP LOCKED` hoặc `READPAST`), và **bảng phải được dọn**, nếu không nó sẽ thành bảng lớn nhất hệ thống.
+Outbox giải dual write bằng một ý tưởng đơn giản: **đừng ghi vào hai nơi** — ghi message vào **chính database nghiệp vụ**, trong **chính transaction** đang chạy. Nếu transaction commit, message chắc chắn có; nếu rollback, message biến mất cùng thay đổi nghiệp vụ. Một worker đọc bảng đó và publish sau. Phải hiểu rõ giới hạn: outbox đảm bảo **không mất**, nó **không** loại bỏ trùng — worker có thể publish xong rồi chết trước khi đánh dấu, nên consumer vẫn cần idempotency ([bài 17.2](17.2-messaging-fears-lost-duplicates.mdx)). Hai chi tiết quyết định outbox chạy được trên production hay không, và cả hai đều hay bị bỏ qua: **dispatcher phải an toàn khi chạy nhiều instance** (dùng `SKIP LOCKED` hoặc `READPAST`), và **bảng phải được dọn**, nếu không nó sẽ thành bảng lớn nhất hệ thống.
 </SummaryBox>
 
 ## Mục tiêu bài học
@@ -150,7 +150,7 @@ RETURNING id, type, payload;
 
 Mỗi instance lấy được **một bộ message khác nhau**, và các instance không chờ nhau.
 
-Lưu ý đánh đổi ở đây: đánh dấu `ProcessedOnUtc` **trước** khi publish nghĩa là nếu publish thất bại, message coi như đã xử lý và **mất**. Đánh dấu **sau** khi publish nghĩa là crash giữa chừng sẽ publish lại — **trùng**. Cùng một đánh đổi at-most-once và at-least-once ở [bài 17.3](17.2-messaging-fears-lost-duplicates.mdx). Chọn đánh dấu **sau**, và để consumer idempotent lo phần trùng.
+Lưu ý đánh đổi ở đây: đánh dấu `ProcessedOnUtc` **trước** khi publish nghĩa là nếu publish thất bại, message coi như đã xử lý và **mất**. Đánh dấu **sau** khi publish nghĩa là crash giữa chừng sẽ publish lại — **trùng**. Cùng một đánh đổi at-most-once và at-least-once ở [bài 17.2](17.2-messaging-fears-lost-duplicates.mdx). Chọn đánh dấu **sau**, và để consumer idempotent lo phần trùng.
 
 ```csharp
 public sealed class OutboxDispatcher(IServiceScopeFactory scopeFactory, ILogger<OutboxDispatcher> logger)
