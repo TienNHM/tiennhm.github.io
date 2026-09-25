@@ -236,11 +236,434 @@ Quy trình hỗ trợ trở thành: người dùng gửi mã, bạn truy vấn l
 
 ## Bài tập áp dụng
 
-1. **Kiểm tra rò rỉ.** Gây lỗi database trên môi trường staging và đọc kỹ phản hồi xem có thông tin nội bộ nào không.
+#### Bài 1 — Kiểm tra rò rỉ
 
-2. **Cài exception handler.** Thêm `IExceptionHandler` với ProblemDetails và xác nhận lỗi nghiệp vụ trả 400 còn lỗi hệ thống trả 500 không chi tiết.
+Gây lỗi database trên môi trường staging và đọc kỹ phản hồi xem có thông tin nội bộ nào không.
 
-3. **Nối log.** Gây một lỗi, lấy `traceId` từ phản hồi, và tìm đúng bản ghi log bằng mã đó.
+**Tiêu chí hoàn thành:** bạn biết chính xác **những gì bị lộ**, và nhận ra chúng lộ ra ở **ba chỗ khác nhau**, không chỉ trong thân phản hồi.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Đọc cả header phản hồi và mã trạng thái, không chỉ phần thân.
+
+**Lời giải — gây lỗi và xem toàn bộ phản hồi:**
+
+```bash
+curl -i https://staging.crm.vn/api/leads/999999999999
+```
+
+Phản hồi của một ứng dụng chưa xử lý lỗi tập trung, khi `DeveloperExceptionPage` bị bật nhầm:
+
+```text
+HTTP/1.1 500 Internal Server Error
+Server: Kestrel
+X-Powered-By: ASP.NET
+
+System.InvalidOperationException: Invalid object name 'Leads_Old'.
+   at Microsoft.Data.SqlClient.SqlCommand.ExecuteReader()
+   at Crm.Infrastructure.KhoLead.TimAsync(Int32 id) in
+      /src/Crm.Infrastructure/KhoLead.cs:line 42
+   ...
+Connection string: Server=prod-sql-01.crm.local;Database=CrmProd;User Id=sa;Password=...
+```
+
+**Ba chỗ rò rỉ, và mỗi chỗ cho kẻ tấn công một thứ khác nhau:**
+
+| Chỗ | Lộ cái gì | Dùng được để làm gì |
+|---|---|---|
+| **Thân phản hồi** | Tên bảng, đường dẫn mã nguồn, chuỗi kết nối | Dựng bản đồ hệ thống, đôi khi đăng nhập thẳng |
+| **Header** `Server`, `X-Powered-By` | Công nghệ và phiên bản | Tra danh sách lỗ hổng đã biết của phiên bản đó |
+| **Mã trạng thái và thời gian phản hồi** | Có tồn tại hay không | Dò xem id nào có thật |
+
+**Chỗ thứ ba tinh vi nhất, và hay bị bỏ qua:**
+
+```bash
+curl -s -o /dev/null -w "%{http_code} %{time_total}\n" https://staging.crm.vn/api/leads/1
+curl -s -o /dev/null -w "%{http_code} %{time_total}\n" https://staging.crm.vn/api/leads/999999
+```
+
+```text
+403 0.182    <- lead tồn tại, nhưng không thuộc tenant của tôi
+404 0.021    <- lead không tồn tại
+```
+
+```text
+Hai mã trạng thái khác nhau -> kẻ tấn công liệt kê được id nào CÓ THẬT
+-> và thời gian phản hồi cũng khác (0,182 so với 0,021 giây)
+-> kể cả khi thống nhất mã trạng thái, thời gian vẫn lộ
+```
+
+```csharp
+// Sửa: trả 404 cho cả hai trường hợp
+var lead = await _db.Leads
+    .Where(l => l.Id == id && l.TenantId == _nd.TenantId)     // lọc tenant TRONG truy vấn
+    .FirstOrDefaultAsync(ct);
+
+return lead is null ? Results.NotFound() : Results.Ok(ToDto(lead));
+```
+
+```text
+Lọc tenant nằm TRONG truy vấn, không phải kiểm tra sau khi lấy về
+-> cùng một đường đi, cùng thời gian, cùng mã trạng thái
+-> không phân biệt được "không có" với "không phải của anh"
+```
+
+**Xoá header không cần thiết:**
+
+```csharp
+builder.WebHost.ConfigureKestrel(o => o.AddServerHeader = false);
+```
+
+```xml
+<!-- web.config, nếu chạy sau IIS -->
+<httpProtocol>
+  <customHeaders><remove name="X-Powered-By" /></customHeaders>
+</httpProtocol>
+```
+
+**Và điều quan trọng nhất về `DeveloperExceptionPage`:**
+
+```csharp
+if (app.Environment.IsDevelopment())
+    app.UseDeveloperExceptionPage();
+```
+
+```text
+Dòng if này là thứ duy nhất ngăn stack trace ra production.
+Và nó phụ thuộc vào biến môi trường ASPNETCORE_ENVIRONMENT.
+
+-> đặt nhầm giá trị trên staging hoặc production -> lộ toàn bộ
+-> đây là một dòng cấu hình, không phải một dòng code — nên nó
+   không được test nào bảo vệ
+```
+
+```csharp
+// An toàn hơn: kiểm tra ngược, và dùng biến tường minh
+if (!app.Environment.IsProduction() && builder.Configuration.GetValue<bool>("BatTrangLoiChiTiet"))
+    app.UseDeveloperExceptionPage();
+else
+    app.UseExceptionHandler();
+```
+
+**Danh sách rà nhanh, chạy được trên staging trong hai phút:**
+
+```bash
+# 1. Header có lộ công nghệ không?
+curl -sI https://staging.crm.vn/api/leads | grep -iE "server|x-powered|x-aspnet"
+
+# 2. Lỗi 500 có lộ chi tiết không?
+curl -s https://staging.crm.vn/loi-co-y | grep -oE "at [A-Za-z.]+|Server=|Password=" | head
+
+# 3. Phân biệt được 403 với 404 không?
+for id in 1 999999999; do
+  curl -s -o /dev/null -w "$id: %{http_code} %{time_total}\n" https://staging.crm.vn/api/leads/$id
+done
+```
+
+</details>
+
+---
+
+#### Bài 2 — Cài exception handler
+
+Thêm `IExceptionHandler` với ProblemDetails và xác nhận lỗi nghiệp vụ trả 400 còn lỗi hệ thống trả 500 không chi tiết.
+
+**Tiêu chí hoàn thành:** bạn có **hai phản hồi thật** cho hai loại lỗi, và cả hai đều có `traceId`.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Phân biệt hai loại lỗi bằng KIỂU ngoại lệ, không bằng thông điệp.
+
+**Lời giải:**
+
+```csharp
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<XuLyNgoaiLe>();
+
+var app = builder.Build();
+app.UseExceptionHandler();
+```
+
+```csharp
+public class XuLyNgoaiLe(IProblemDetailsService pds) : IExceptionHandler
+{
+    public async ValueTask<bool> TryHandleAsync(
+        HttpContext ctx, Exception ex, CancellationToken ct)
+    {
+        var (ma, tieuDe, chiTiet) = ex switch
+        {
+            LoiNghiepVu       => (StatusCodes.Status400BadRequest, "Yêu cầu không hợp lệ", ex.Message),
+            KhongTimThayException => (StatusCodes.Status404NotFound, "Không tìm thấy", ex.Message),
+            KhongCoQuyenException => (StatusCodes.Status403Forbidden, "Không có quyền", ex.Message),
+            _ => (StatusCodes.Status500InternalServerError, "Lỗi hệ thống",
+                  "Đã xảy ra lỗi. Vui lòng liên hệ hỗ trợ kèm mã truy vết."),
+        };
+
+        ctx.Response.StatusCode = ma;
+
+        return await pds.TryWriteAsync(new ProblemDetailsContext
+        {
+            HttpContext = ctx,
+            ProblemDetails = new ProblemDetails { Status = ma, Title = tieuDe, Detail = chiTiet },
+        });
+    }
+}
+```
+
+Kết quả chạy trên ASP.NET Core 9 (.NET 9.0.203) — **lỗi nghiệp vụ:**
+
+```json
+{
+  "type": "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+  "title": "Yêu cầu không hợp lệ",
+  "status": 400,
+  "detail": "Lead đã được chốt, không sửa được",
+  "traceId": "0HNORA7C5PQOV:00000001"
+}
+```
+
+```text
+HTTP 400
+```
+
+**Lỗi hệ thống** — ngoại lệ gốc là `InvalidOperationException` với thông điệp
+`"Invalid object name 'Leads_Old'. Server=prod-sql-01;Database=CrmProd;User Id=sa"`:
+
+```json
+{
+  "type": "https://tools.ietf.org/html/rfc9110#section-15.6.1",
+  "title": "Lỗi hệ thống",
+  "status": 500,
+  "detail": "Đã xảy ra lỗi. Vui lòng liên hệ hỗ trợ kèm mã truy vết.",
+  "traceId": "0HNORA7C5PQP0:00000001"
+}
+```
+
+```text
+HTTP 500
+```
+
+**Tên bảng `Leads_Old`, tên máy chủ `prod-sql-01`, và tài khoản `sa` KHÔNG xuất hiện trong phản hồi.**
+
+**Ba điều thiết kế này làm đúng:**
+
+**1. Lỗi nghiệp vụ nói rõ vấn đề, lỗi hệ thống thì không.**
+
+```text
+"Lead đã được chốt, không sửa được"
+-> người dùng ĐỌC ĐƯỢC và biết phải làm gì
+-> và thông tin này không có giá trị gì với kẻ tấn công
+
+"Đã xảy ra lỗi..."
+-> người dùng không sửa được gì, nên chi tiết không giúp họ
+-> và chi tiết đó lại rất có giá trị với kẻ tấn công
+```
+
+**2. Phân loại bằng KIỂU ngoại lệ, không bằng thông điệp.**
+
+```csharp
+// SAI — giòn và dễ sai
+if (ex.Message.Contains("không tìm thấy")) return 404;
+
+// ĐÚNG — kiểu là hợp đồng
+KhongTimThayException => 404
+```
+
+**3. `traceId` có trong CẢ HAI phản hồi.**
+
+```text
+Nó là cầu nối duy nhất giữa "người dùng thấy lỗi" và "log ghi được gì"
+-> và với lỗi 500, nó là thứ DUY NHẤT người dùng có thể báo lại
+```
+
+**Tự động thêm thông tin vào mọi ProblemDetails:**
+
+```csharp
+builder.Services.AddProblemDetails(o =>
+{
+    o.CustomizeProblemDetails = ctx =>
+    {
+        ctx.ProblemDetails.Instance = $"{ctx.HttpContext.Request.Method} {ctx.HttpContext.Request.Path}";
+        ctx.ProblemDetails.Extensions["traceId"] =
+            Activity.Current?.Id ?? ctx.HttpContext.TraceIdentifier;
+        ctx.ProblemDetails.Extensions["thoiDiem"] = DateTimeOffset.UtcNow;
+    };
+});
+```
+
+**Và một điểm dễ bỏ sót: ghi log PHẢI nằm trong handler.**
+
+```csharp
+public async ValueTask<bool> TryHandleAsync(HttpContext ctx, Exception ex, CancellationToken ct)
+{
+    // Lỗi hệ thống -> log mức Error kèm toàn bộ ngoại lệ
+    // Lỗi nghiệp vụ -> log mức Information, không cần stack trace
+    if (ex is not LoiNghiepVu)
+        _log.LogError(ex, "Lỗi chưa xử lý tại {Path}", ctx.Request.Path);
+    else
+        _log.LogInformation("Lỗi nghiệp vụ tại {Path}: {ThongDiep}", ctx.Request.Path, ex.Message);
+
+    // ... phần trả phản hồi
+}
+```
+
+```text
+Không log ở đây -> chi tiết bị giấu khỏi người dùng VÀ khỏi cả đội vận hành
+-> tệ hơn cả việc lộ, vì không ai sửa được gì
+```
+
+Phân tách mức log cũng quan trọng: lỗi nghiệp vụ xảy ra hàng nghìn lần mỗi ngày và là chuyện bình thường. Ghi chúng ở mức `Error` làm biểu đồ lỗi vô dụng, và cảnh báo sẽ bị tắt.
+
+</details>
+
+---
+
+#### Bài 3 — Nối log
+
+Gây một lỗi, lấy `traceId` từ phản hồi, và tìm đúng bản ghi log bằng mã đó.
+
+**Tiêu chí hoàn thành:** bạn tìm được bản ghi log từ `traceId`, và hiểu vì sao mã đó phải **giống nhau xuyên suốt** nhiều service.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** `HttpContext.TraceIdentifier` là mã riêng của một tiến trình. `Activity.Current?.Id` là mã đi xuyên qua nhiều service.
+
+**Lời giải — lấy mã từ phản hồi:**
+
+```bash
+curl -s https://crm.vn/api/leads/8842 | jq -r .traceId
+```
+
+```text
+00-8f2c1a4b9e7d6c5a3f1e0d9c8b7a6543-1a2b3c4d5e6f7890-01
+```
+
+Tìm trong log:
+
+```bash
+# Với log dạng JSON
+grep '8f2c1a4b9e7d6c5a3f1e0d9c8b7a6543' /var/log/crm/*.json | jq
+```
+
+```json
+{
+  "@t": "2026-09-25T14:32:11.482Z",
+  "@l": "Error",
+  "@m": "Lỗi chưa xử lý tại /api/leads/8842",
+  "@x": "System.InvalidOperationException: Invalid object name 'Leads_Old'...",
+  "TraceId": "8f2c1a4b9e7d6c5a3f1e0d9c8b7a6543",
+  "SpanId": "1a2b3c4d5e6f7890",
+  "TenantId": 42,
+  "NguoiDungId": 1204,
+  "Path": "/api/leads/8842"
+}
+```
+
+**Người dùng gửi một chuỗi, và bạn có đủ ngữ cảnh: ngoại lệ, tenant, người dùng, đường dẫn, thời điểm.**
+
+**Định dạng của mã — và vì sao nó có cấu trúc:**
+
+```text
+00-8f2c1a4b9e7d6c5a3f1e0d9c8b7a6543-1a2b3c4d5e6f7890-01
+│  │                                │                │
+│  │                                │                └─ cờ (01 = được lấy mẫu)
+│  │                                └─ span id: một chặng
+│  └─ trace id: TOÀN BỘ hành trình, giống nhau ở mọi service
+└─ phiên bản
+```
+
+Đây là chuẩn [W3C Trace Context](https://www.w3.org/TR/trace-context/), và ASP.NET Core đọc ghi nó tự động qua header `traceparent`.
+
+**Vì sao mã phải giống nhau xuyên suốt nhiều service:**
+
+```text
+Request đi qua: Gateway -> API Leads -> API Billing -> database
+
+Mỗi service tự sinh mã riêng:
+    Gateway  : abc123
+    Leads    : def456
+    Billing  : ghi789
+-> ba mã không liên quan gì nhau
+-> muốn lần theo phải ghép thủ công bằng thời gian, và thường ghép sai
+
+Cùng một trace id:
+    cả ba service ghi 8f2c1a4b...
+-> một lần tìm ra toàn bộ hành trình
+```
+
+```csharp
+// ASP.NET Core tự truyền traceparent qua HttpClient — không cần làm gì
+builder.Services.AddHttpClient<IBillingApi, BillingApi>();
+```
+
+```text
+Nhưng với message bus, phải truyền TAY:
+```
+
+```csharp
+// Bên gửi
+var ctx = new Dictionary<string, string>();
+Propagators.DefaultTextMapPropagator.Inject(
+    new PropagationContext(Activity.Current!.Context, Baggage.Current),
+    ctx, (d, k, v) => d[k] = v);
+message.Headers = ctx;
+
+// Bên nhận
+var pc = Propagators.DefaultTextMapPropagator.Extract(
+    default, message.Headers, (d, k) => d.TryGetValue(k, out var v) ? [v] : []);
+using var activity = _source.StartActivity("xu-ly-message", ActivityKind.Consumer,
+    pc.ActivityContext);
+```
+
+**Đưa trace id vào MỌI dòng log tự động:**
+
+```csharp
+builder.Host.UseSerilog((ctx, cfg) => cfg
+    .Enrich.FromLogContext()
+    .Enrich.WithSpan()                       // Serilog.Enrichers.Span
+    .WriteTo.Console(new CompactJsonFormatter()));
+```
+
+```csharp
+// Và thêm ngữ cảnh nghiệp vụ cho từng request
+app.Use(async (ctx, next) =>
+{
+    using (LogContext.PushProperty("TenantId", ctx.User.FindFirst("tenant_id")?.Value))
+    using (LogContext.PushProperty("NguoiDungId", ctx.User.FindFirst("sub")?.Value))
+    {
+        await next();
+    }
+});
+```
+
+```text
+Giờ MỌI dòng log trong request đó đều có TraceId, TenantId, NguoiDungId
+-> tìm theo bất kỳ chiều nào:
+      theo trace id  -> một request cụ thể
+      theo tenant id -> mọi lỗi của một khách hàng
+      theo người dùng -> mọi việc một người đã làm
+```
+
+**Và một chi tiết làm việc hỗ trợ khách hàng dễ hơn nhiều: hiện mã lên giao diện.**
+
+```text
+"Đã xảy ra lỗi. Mã tham chiếu: 8f2c1a4b"
+                               ^^^^^^^^ 8 ký tự đầu là đủ để tìm
+```
+
+```text
+Người dùng đọc được 8 ký tự qua điện thoại.
+32 ký tự thì không.
+
+-> hiện 8 ký tự đầu cho người dùng, tìm bằng tiền tố trong log
+```
+
+Nối lại ba bài: bài 1 tìm ra cái gì đang rò rỉ, bài 2 chặn nó lại mà vẫn giữ được thông tin hữu ích cho người dùng, bài 3 đảm bảo thông tin bị giấu khỏi phản hồi vẫn đến được đúng người — đội vận hành. Thiếu bài 3, bài 2 chỉ là giấu lỗi đi.
+
+</details>
 
 ## Tự kiểm tra
 
