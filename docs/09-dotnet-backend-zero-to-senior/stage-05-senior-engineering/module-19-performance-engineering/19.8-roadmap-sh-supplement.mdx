@@ -63,9 +63,9 @@ Performance
 Module này tổ chức theo **quy trình chẩn đoán**:
 
 ```
-1. Do va dat SLO                 (19.2)
-2. Phan loai van de tu chi so    (19.4)
-3. Sua theo thu tu chi phi tang  (19.5 -> 19.6 -> 19.7)
+1. Đo và đặt SLO                 (19.2)
+2. Phân loại vấn đề từ chỉ số    (19.4)
+3. Sửa theo thứ tự chi phí tăng  (19.5 -> 19.6 -> 19.7)
 4. So sánh các cách sửa          (19.3)
 ```
 
@@ -119,11 +119,385 @@ Sau module này, phần còn lại của lộ trình là [Final Project](../fina
 
 ## Bài tập áp dụng
 
-1. **Tự đánh giá.** Đi qua danh sách rà soát ở trên và đánh dấu mục nào bạn chưa tự tin. Quay lại đúng bài tương ứng.
+#### Bài 1 — Tự đánh giá
 
-2. **Lập kế hoạch.** Chọn một hệ thống bạn đang làm, viết ba việc hiệu năng cần làm theo thứ tự chi phí tăng dần.
+Đi qua danh sách rà soát ở trên và đánh dấu mục nào bạn chưa tự tin. Quay lại đúng bài tương ứng.
 
-3. **Cài công cụ.** Cài `dotnet-counters` và `dotnet-trace`, bật Query Store, và chạy thử trên môi trường staging.
+**Tiêu chí hoàn thành:** với mỗi mục, bạn trả lời bằng **một câu chuyện có số liệu** từ hệ thống của mình, không bằng một định nghĩa.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** "Tôi biết cache stampede là gì" và "tôi đã đo được nó xảy ra trên hệ thống của tôi" là hai mức khác nhau.
+
+**Lời giải — tự chấm theo ba mức:**
+
+| Mức | Nghĩa |
+|---|---|
+| 1 — Biết | Giải thích được khái niệm |
+| 2 — Làm được | Đã áp dụng trên một hệ thống |
+| 3 — Đã đo | **Có số liệu trước và sau từ hệ thống thật** |
+
+```markdown
+## Tự đánh giá Module 19 — 2026-09-25
+
+| # | Mục | Mức | Bằng chứng | Bài |
+|---|---|:-:|---|---|
+| 1 | p99 quan trọng hơn trung bình | 3 | SLO có p95 và p99, cảnh báo theo p95 | 19.1 |
+| 2 | Phân loại từ CPU + độ trễ + queue | 2 | Hiểu bảng, chưa gặp ca thật | 19.3 |
+| 3 | Nhận ra thread pool starvation | **1** | Chỉ mới đọc | 19.3 |
+| 4 | Đọc execution plan | 2 | Đọc được, chưa dùng logical reads | 19.4 |
+| 5 | Cache stampede | 3 | Đo được 200 lần chạy factory, đã sửa | 19.5 |
+| 6 | Điều kiện scale out | **1** | Chưa rà trạng thái cục bộ bao giờ | 19.6 |
+| 7 | Khoá phân tán không tuyệt đối | 2 | Hiểu, nhưng chưa có ràng buộc dự phòng | 19.7 |
+| 8 | Đã cài dotnet-counters, Query Store | **1** | Chưa cài | 19.8 |
+```
+
+**Ba mục ở mức 1 là ba việc cụ thể phải làm, và chúng không tốn nhiều thời gian:**
+
+```text
+Mục 8 — cài công cụ:                30 phút (bài 3 dưới đây)
+Mục 3 — chạy thí nghiệm starvation: 1 giờ  (bài 1 của 19.3)
+Mục 6 — rà trạng thái cục bộ:       2 giờ  (bài 1 của 19.6)
+```
+
+**Cách kiểm chứng ba mục khó nhất — mỗi mục một câu hỏi:**
+
+**Mục 1 — vì sao p99 quan trọng hơn trung bình?**
+
+```text
+Câu trả lời ở mức định nghĩa:
+    "Vì trung bình che mất phần đuôi."
+
+Câu trả lời ở mức đã hiểu:
+    "Một lần tải trang gọi 20 API. Xác suất gặp ít nhất một request ở
+     mức p99 là 1 − 0,99²⁰ ≈ 18%. Nên gần một phần năm số lần tải trang
+     chạm vào cái đuôi đó, dù trung bình vẫn đẹp."
+```
+
+**Mục 3 — nhận ra thread pool starvation thế nào?**
+
+```text
+Ở mức định nghĩa:
+    "Khi thread pool hết thread."
+
+Ở mức đã đo:
+    "CPU thấp, độ trễ cao, queue length cao — ba chỉ số cùng lúc.
+     Tôi đo được 100 request qua endpoint dùng .Result mất 4.356 ms với
+     41 luồng, còn bản async mất 704 ms với 5 luồng."
+```
+
+**Mục 7 — vì sao khoá phân tán không an toàn tuyệt đối?**
+
+```text
+Ở mức định nghĩa:
+    "Vì khoá có thể hết hạn."
+
+Ở mức đã hiểu:
+    "Process có thể bị dừng bởi GC pause hoặc máy ảo bị di chuyển, lâu hơn
+     TTL, mà không biết. Nên tôi để khoá làm nhiệm vụ tối ưu hoá, còn tính
+     đúng đắn giao cho ràng buộc UNIQUE trong database."
+```
+
+Câu cuối là dấu hiệu rõ nhất của mức 3: **nó nói về cách phân vai, không về công cụ.**
+
+**Và một phép thử tổng thể, mất một giờ:**
+
+```text
+Chọn một endpoint chậm nhất trong hệ thống của bạn và trả lời:
+    1. p50, p95, p99 của nó là bao nhiêu? (nếu không biết -> mục 1)
+    2. Thời gian đó đi đâu: CPU, database, hay chờ? (không biết -> mục 2)
+    3. Nó chạy bao nhiêu truy vấn? (không biết -> mục 4)
+    4. Có cache không, và cache có đúng không? (không chắc -> mục 5)
+
+Trả lời được cả bốn -> bạn nắm được module này.
+Không -> bạn vừa có danh sách việc cần làm, theo đúng thứ tự.
+```
+
+</details>
+
+---
+
+#### Bài 2 — Lập kế hoạch
+
+Chọn một hệ thống bạn đang làm, viết ba việc hiệu năng cần làm theo thứ tự chi phí tăng dần.
+
+**Tiêu chí hoàn thành:** thứ tự của bạn dựa trên **chi phí so với lợi ích**, không dựa trên mức độ thú vị của công việc.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Thêm một index mất 10 phút. Dựng cache phân tán mất một tuần. Cả hai có thể giải quyết cùng một triệu chứng.
+
+**Lời giải — bảng chi phí so với lợi ích:**
+
+| Việc | Chi phí | Lợi ích điển hình | Rủi ro |
+|---|---|---|---|
+| Thêm index còn thiếu | **Giờ** | Rất cao | Thấp |
+| Sửa N+1 bằng projection | **Giờ** | Rất cao | Thấp |
+| Thêm `AsNoTracking` cho đường đọc | **Giờ** | Trung bình | Rất thấp |
+| Đặt timeout tường minh | **Giờ** | Ổn định hơn | Rất thấp |
+| Cache trong bộ nhớ có giới hạn | **Ngày** | Cao | Trung bình (lệch) |
+| Chuyển sync-over-async sang async | **Ngày** | Rất cao khi có starvation | Trung bình |
+| Cache phân tán (Redis) | **Tuần** | Cao | Trung bình |
+| Scale out + bỏ trạng thái cục bộ | **Tuần** | Cao | Cao |
+| Read replica | **Tuần** | Cao cho đường đọc | Cao (dữ liệu trễ) |
+| Sharding theo tenant | **Tháng** | Rất cao ở quy mô lớn | Rất cao |
+
+**Ví dụ kế hoạch ba việc:**
+
+```markdown
+## Kế hoạch hiệu năng — CRM, quý 4/2026
+
+### Việc 1 — Sửa N+1 và thêm index (1 tuần, 2 người)
+**Vì sao trước:** rẻ nhất, rủi ro thấp nhất, và nếu nó đủ thì
+hai việc sau không cần làm.
+
+Đo trước:
+| Endpoint | p99 | Số truy vấn |
+|---|---:|---:|
+| /api/leads/search | 3.400 ms | 1 |
+| /api/khach-hang | 2.100 ms | 84 |
+| /api/bao-cao | 11.200 ms | 312 |
+
+Việc cụ thể:
+- [ ] Thêm index (TenantId, TrangThai, NgayTao DESC) cho Leads
+- [ ] Sửa N+1 ở /api/khach-hang bằng projection
+- [ ] Sửa N+1 ở /api/bao-cao, gộp 312 truy vấn về 2
+- [ ] Thêm test đếm truy vấn cho cả ba endpoint
+
+Kỳ vọng: p99 của cả ba xuống dưới 800 ms.
+**Đánh giá lại sau việc 1 trước khi bắt đầu việc 2.**
+
+### Việc 2 — Cache có hệ thống (2 tuần, 1 người)
+**Chỉ làm nếu việc 1 chưa đủ.**
+- [ ] HybridCache cho danh mục và cấu hình
+- [ ] Đặt SizeLimit cho mọi IMemoryCache
+- [ ] Chống stampede cho ba key nóng nhất
+
+### Việc 3 — Scale out (4 tuần, 2 người)
+**Chỉ làm nếu một instance đã chạm trần sau việc 1 và 2.**
+- [ ] Rà và loại bỏ trạng thái cục bộ
+- [ ] Data Protection dùng key chung
+- [ ] Đưa session sang Redis
+- [ ] Autoscaling theo độ sâu hàng đợi, không theo CPU
+```
+
+**Bốn nguyên tắc đứng sau thứ tự này:**
+
+**1. Rẻ trước, và đánh giá lại giữa các bước.**
+
+```text
+Dòng "Đánh giá lại sau việc 1" là dòng quan trọng nhất trong kế hoạch.
+
+Rất thường xuyên: việc 1 giải quyết đủ vấn đề
+-> việc 2 và 3 không cần làm
+-> tiết kiệm sáu tuần
+```
+
+**2. Một thay đổi mỗi lần, đo lại sau mỗi thay đổi.**
+
+```text
+Làm cả index và cache cùng lúc -> p99 giảm 10 lần
+-> cái nào có tác dụng? Không biết.
+-> và nếu một trong hai đang làm chậm đi, nó bị che mất
+```
+
+Đây là bước 3 trong quy trình bốn bước ở mục 19.2.4.
+
+**3. Rủi ro tăng cùng chi phí — và đó không phải ngẫu nhiên.**
+
+```text
+Thêm index:      sai thì xoá đi, mất vài phút
+Scale out:       sai thì lệch dữ liệu, mất phiên đăng nhập, khó lần ngược
+Sharding:        sai thì phải làm lại việc di chuyển dữ liệu
+```
+
+**4. Và một nguyên tắc chống lại xu hướng tự nhiên của kỹ sư:**
+
+```text
+Việc thú vị nhất trong bảng là sharding.
+Việc hiệu quả nhất là thêm một index.
+
+Thứ tự của kế hoạch phải theo hiệu quả, không theo mức độ thú vị.
+```
+
+**Mỗi việc cần có tiêu chí "xong" bằng số:**
+
+```markdown
+### Việc 1 được coi là XONG khi:
+- [ ] p99 của cả ba endpoint dưới 800 ms ở mức tải 150 rps
+- [ ] Test đếm truy vấn chạy trong CI và đang xanh
+- [ ] Số truy vấn mỗi request: search ≤ 1, khách hàng ≤ 2, báo cáo ≤ 2
+```
+
+Không có tiêu chí bằng số, "tối ưu hiệu năng" là một việc không bao giờ kết thúc — luôn còn thứ gì đó nhanh hơn được.
+
+</details>
+
+---
+
+#### Bài 3 — Cài công cụ
+
+Cài `dotnet-counters` và `dotnet-trace`, bật Query Store, và chạy thử trên môi trường staging.
+
+**Tiêu chí hoàn thành:** bạn chạy được cả ba trên một hệ thống thật, và biết **thứ tự** dùng chúng khi có sự cố.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Cài lúc đang có sự cố là quá muộn. Cả ba nên được cài và thử **trước**.
+
+**Lời giải — cài và kiểm chứng:**
+
+```bash
+dotnet tool install -g dotnet-counters
+dotnet tool install -g dotnet-trace
+dotnet tool install -g dotnet-gcdump
+dotnet tool install -g dotnet-dump
+
+dotnet-counters --version && dotnet-trace --version
+```
+
+Trong container, cài sẵn vào image thay vì cài lúc có sự cố:
+
+```dockerfile
+FROM mcr.microsoft.com/dotnet/aspnet:9.0
+
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+ && rm -rf /var/lib/apt/lists/*
+
+# Công cụ chẩn đoán — cài sẵn, không cài lúc 2 giờ sáng
+RUN dotnet tool install -g dotnet-counters \
+ && dotnet tool install -g dotnet-trace \
+ && dotnet tool install -g dotnet-gcdump
+ENV PATH="${PATH}:/root/.dotnet/tools"
+```
+
+```text
+Chi phí: khoảng 30 MB mỗi image
+Đổi lại: chẩn đoán được ngay, không phải cài vào một pod đang gặp sự cố
+```
+
+Với Kubernetes, cách sạch hơn là dùng ephemeral container:
+
+```bash
+kubectl debug -it crm-api-7d4b9c5f8-2xk4p \
+  --image=mcr.microsoft.com/dotnet/nightly/monitor \
+  --target=api
+```
+
+**Bật Query Store:**
+
+```sql
+ALTER DATABASE CrmDb SET QUERY_STORE = ON
+(
+    OPERATION_MODE            = READ_WRITE,
+    DATA_FLUSH_INTERVAL_SECONDS = 900,
+    INTERVAL_LENGTH_MINUTES   = 15,
+    MAX_STORAGE_SIZE_MB       = 2048,
+    QUERY_CAPTURE_MODE        = AUTO,      -- bỏ qua truy vấn không đáng kể
+    SIZE_BASED_CLEANUP_MODE   = AUTO
+);
+```
+
+```sql
+-- Kiểm chứng nó đang thu thập
+SELECT actual_state_desc, readonly_reason, current_storage_size_mb, max_storage_size_mb
+FROM   sys.database_query_store_options;
+```
+
+```text
+actual_state_desc  readonly_reason  current_storage_size_mb  max_storage_size_mb
+-----------------  ---------------  -----------------------  -------------------
+READ_WRITE                    NULL                       14                 2048
+```
+
+Nếu `actual_state_desc` là `READ_ONLY`, `readonly_reason` cho biết vì sao — thường là đã đầy dung lượng, và lúc đó Query Store **ngừng thu thập** đúng vào lúc bạn cần nó nhất.
+
+**Chạy thử trên staging — ba lệnh cần quen tay:**
+
+```bash
+# 1. Xem tổng quan, gần như không tốn gì — LUÔN bắt đầu từ đây
+dotnet-counters monitor --process-id $(pgrep -f Crm.Api) \
+  --counters System.Runtime,Microsoft.AspNetCore.Hosting
+```
+
+```text
+[System.Runtime]
+    CPU Usage (%)                                 34
+    GC Heap Size (MB)                            412
+    Gen 2 GC Count (Count / 1 sec)                 0
+    ThreadPool Queue Length                        2
+    ThreadPool Thread Count                       12
+[Microsoft.AspNetCore.Hosting]
+    Current Requests                              18
+    Failed Requests                                0
+    Request Rate (Count / 1 sec)                 142
+```
+
+```bash
+# 2. Thu trace khi đã biết có vấn đề về CPU
+dotnet-trace collect --process-id $(pgrep -f Crm.Api) \
+  --duration 00:00:30 --profile cpu-sampling --format speedscope
+
+# 3. Chụp heap khi nghi ngờ rò rỉ
+dotnet-gcdump collect --process-id $(pgrep -f Crm.Api) --output lan-1.gcdump
+```
+
+**Thứ tự dùng khi có sự cố — và vì sao thứ tự này, không phải thứ tự khác:**
+
+```text
+1. dotnet-counters       (chi phí gần 0)
+   -> phân loại vấn đề bằng bảng ở mục 19.4.2
+   -> thường đủ để biết đi nhánh nào
+
+2. Nếu CPU cao:          dotnet-trace --profile cpu-sampling
+   Nếu CPU thấp + queue cao:  tìm sync-over-async, KHÔNG cần trace
+   Nếu bộ nhớ tăng đều:  dotnet-gcdump, hai lần cách nhau
+   Nếu độ trễ cao, CPU thấp, queue thấp:  Query Store — vấn đề ở database
+
+3. Chỉ khi cần: dotnet-dump để phân tích sâu
+   (chi phí cao, tiến trình bị dừng trong lúc chụp)
+```
+
+**Bước 2 là bước tiết kiệm nhiều thời gian nhất**, vì nó ngăn phản xạ "thu trace trước đã". Với thread pool starvation, một trace CPU gần như không chứa thông tin gì — vấn đề nằm đúng ở chỗ **không** tiêu CPU.
+
+**Kiểm chứng rằng mọi thứ đã sẵn sàng, bằng một bài diễn tập:**
+
+```markdown
+## Diễn tập chẩn đoán — staging, 30 phút
+
+- [ ] Tạo tải bằng k6 ở mức gấp đôi bình thường
+- [ ] Chạy dotnet-counters, đọc được cả 6 chỉ số
+- [ ] Thu một trace 30 giây, mở được bằng speedscope
+- [ ] Chụp một gcdump, mở được bằng PerfView
+- [ ] Mở Query Store, tìm được truy vấn tốn nhiều thời gian nhất
+- [ ] Ghi lại các lệnh vào runbook, kèm pid lấy thế nào
+
+Thời điểm phát hiện thiếu quyền, thiếu công cụ, hoặc thiếu cách lấy pid
+phải là BÂY GIỜ, không phải lúc đang có sự cố.
+```
+
+**Và một thứ nên có sẵn, quan trọng ngang bốn công cụ trên: một bảng theo dõi có sẵn bốn chỉ số phân loại.**
+
+```promql
+# 1. CPU
+rate(process_cpu_seconds_total[1m])
+
+# 2. Độ trễ p99
+histogram_quantile(0.99, rate(http_server_request_duration_seconds_bucket[5m]))
+
+# 3. Queue length của thread pool
+dotnet_threadpool_queue_length
+
+# 4. Thời gian chờ lấy kết nối database
+histogram_quantile(0.99, rate(db_client_connections_wait_time_bucket[5m]))
+```
+
+Bốn chỉ số này trên một màn hình trả lời được câu hỏi phân loại ở mục 19.4.2 trong vài giây — và trong một sự cố, vài giây đó quyết định bạn đi đúng nhánh hay mất nửa giờ đi nhầm.
+
+</details>
 
 ## Tự kiểm tra
 
