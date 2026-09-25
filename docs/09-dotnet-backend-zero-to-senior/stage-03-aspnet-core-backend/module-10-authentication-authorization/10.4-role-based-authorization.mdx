@@ -183,11 +183,273 @@ Cách tiến hoá thực dụng: giữ vai trò cho phân loại thô, và **đ�
 
 ## Bài tập áp dụng
 
-1. **AND bất ngờ.** Đặt `[Authorize(Roles = "SalesRep,Manager")]` trên controller và `[Authorize(Roles = "Manager")]` trên một action. Gọi bằng token `Admin` và ghi lại mã trạng thái. Giải thích kết quả.
+#### Bài 1 — Hai attribute xếp chồng thành AND
 
-2. **Quên attribute.** Tạo một controller không có `[Authorize]` nào, gọi nó không token, xác nhận nó mở công khai. Thêm `FallbackPolicy` và kiểm chứng lại.
+Đặt `[Authorize(Roles = "SalesRep,Manager")]` trên controller và `[Authorize(Roles = "Manager")]` trên một action. Gọi bằng token `Admin` và ghi lại mã trạng thái. Giải thích kết quả.
 
-3. **Vai trò cũ trong token.** Đăng nhập với vai trò `Admin`, gỡ vai trò đó trong database, rồi gọi endpoint chỉ dành cho `Admin` bằng token cũ. Ghi lại kết quả và thời gian tới khi nó hết hiệu lực.
+**Tiêu chí hoàn thành:** bạn nêu được quy tắc kết hợp, và vì sao vai trò `Admin` — vai trò cao nhất hệ thống — lại **không** qua được.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Dấu phẩy **bên trong một** attribute và việc **xếp chồng nhiều** attribute là hai phép toán khác nhau.
+
+**Lời giải — cấu hình:**
+
+```csharp
+[ApiController]
+[Route("api/v1/deals")]
+[Authorize(Roles = "SalesRep,Manager")]        // OR: SalesRep HOẶC Manager
+public class DealsController : ControllerBase
+{
+    [HttpPost("{id:guid}/approve")]
+    [Authorize(Roles = "Manager")]              // AND: VÀ phải là Manager
+    public IActionResult Approve(Guid id) => Ok();
+}
+```
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' -X POST \
+  -H "Authorization: Bearer $TOKEN_ADMIN" \
+  https://localhost:5001/api/v1/deals/8f3a.../approve
+# 403
+```
+
+**Admin bị từ chối.**
+
+**Quy tắc kết hợp — hai tầng:**
+
+| Cách viết | Phép toán | Nghĩa |
+|---|---|---|
+| `Roles = "A,B"` trong **một** attribute | **OR** | Có A **hoặc** B là qua |
+| Hai attribute **xếp chồng** | **AND** | Phải thoả **cả hai** |
+
+Nên điều kiện thật sự là:
+
+```text
+(SalesRep HOẶC Manager) VÀ (Manager)
+```
+
+Rút gọn lại chính là `Manager`. Admin không có vai trò `Manager` nên trượt ở vế thứ hai — dù nó là vai trò cao nhất, vì hệ thống vai trò **không có khái niệm thứ bậc**. `Admin` không "bao gồm" `Manager`; chúng chỉ là hai chuỗi khác nhau.
+
+**Đây là nguồn lỗi rất phổ biến**, vì trực giác nói rằng thêm một attribute là "nới thêm một lối vào", trong khi thực tế là "siết thêm một điều kiện".
+
+**Ba cách sửa, và đánh đổi của từng cách:**
+
+```csharp
+// 1. Liệt kê đủ — đơn giản, nhưng phải nhớ sửa mọi nơi khi thêm vai trò
+[Authorize(Roles = "Manager,Admin")]
+
+// 2. Policy — một nơi định nghĩa, nhiều nơi dùng
+options.AddPolicy("CanApproveDeal", p => p.RequireRole("Manager", "Admin"));
+[Authorize(Policy = "CanApproveDeal")]
+
+// 3. Gán nhiều vai trò cho người dùng lúc phát token
+claims.Add(new Claim(ClaimTypes.Role, "Admin"));
+claims.Add(new Claim(ClaimTypes.Role, "Manager"));    // Admin cũng là Manager
+```
+
+**Cách 2 là lựa chọn nên dùng.** Khi thêm vai trò `Director` được duyệt deal, bạn sửa **một dòng** thay vì đi tìm mọi `[Authorize(Roles = ...)]` rải rác. Và tên policy nói đúng ý định nghiệp vụ (`CanApproveDeal`) thay vì nói cấu trúc tổ chức (`Manager`).
+
+**Một chi tiết luôn thắng mọi `[Authorize]`:** `[AllowAnonymous]`. Nó vượt qua tất cả, ở mọi cấp, kể cả `FallbackPolicy` toàn cục. Nếu một endpoint "lẽ ra phải chặn" mà vẫn gọi được, hãy tìm `[AllowAnonymous]` trước tiên — kể cả trên lớp cha.
+
+</details>
+
+---
+
+#### Bài 2 — Endpoint mở công khai vì quên một dòng
+
+Tạo một controller không có `[Authorize]` nào, gọi nó không token, xác nhận nó mở công khai. Thêm `FallbackPolicy` và kiểm chứng lại.
+
+**Tiêu chí hoàn thành:** bạn nêu được vì sao "mặc định mở" là lựa chọn **sai** cho API nội bộ, và cái giá phải trả khi bật `FallbackPolicy`.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Hỏi: giữa hai kiểu lỗi — quên mở một endpoint, và quên đóng một endpoint — kiểu nào bạn phát hiện trong 5 phút?
+
+**Lời giải — trước khi có `FallbackPolicy`:**
+
+```csharp
+[ApiController]
+[Route("api/v1/reports")]
+public class ReportsController : ControllerBase       // KHÔNG có [Authorize]
+{
+    [HttpGet("revenue")]
+    public IActionResult Revenue() => Ok(_service.GetRevenueReport());
+}
+```
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' https://localhost:5001/api/v1/reports/revenue
+# 200
+```
+
+**Báo cáo doanh thu trả về cho bất kỳ ai trên Internet.**
+
+**Sau khi bật `FallbackPolicy`:**
+
+```csharp
+builder.Services.AddAuthorizationBuilder()
+    .SetFallbackPolicy(new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build());
+```
+
+```text
+401
+```
+
+**Vì sao "mặc định mở" là sai — nằm ở cách hai loại lỗi bộc lộ:**
+
+| Lỗi | Ai phát hiện | Sau bao lâu |
+|---|---|---|
+| Quên **mở** một endpoint | Người dùng hoặc chính bạn | **Vài phút** — tính năng không chạy |
+| Quên **đóng** một endpoint | Có thể không ai | **Có thể không bao giờ** |
+
+Quên mở gây khó chịu và tự sửa ngay. Quên đóng thì mọi thứ trông hoàn toàn bình thường — ứng dụng chạy, test xanh, không ai kêu — cho tới khi có người tình cờ tìm thấy. `FallbackPolicy` đảo chiều mặc định để lỗi luôn rơi vào loại thứ nhất.
+
+**Cái giá phải trả, và nó có thật:**
+
+Mọi endpoint **cần** mở công khai giờ phải khai báo tường minh:
+
+```csharp
+[HttpPost("login")]
+[AllowAnonymous]                    // bắt buộc, nếu không sẽ 401
+public Task<IActionResult> Login(LoginRequest req, CancellationToken ct);
+```
+
+Và bạn phải rà lại **mọi** endpoint hạ tầng, vì chúng rất dễ bị bỏ sót:
+
+```csharp
+app.MapHealthChecks("/health/live").AllowAnonymous();
+app.MapGet("/", () => Results.Redirect("/swagger")).AllowAnonymous();
+```
+
+**Bỏ sót health check là sự cố thật.** Kubernetes gọi `/health/live` không kèm token, nhận `401`, coi như pod chết, và **khởi động lại liên tục** — đúng ca ở [bài 8.12](../module-08-aspnet-core-fundamentals/8.11-mini-case-study.mdx). Triệu chứng là pod restart vòng lặp ngay sau khi bật `FallbackPolicy`, và nguyên nhân thì không hiện ra trong log ứng dụng.
+
+**Danh sách phải kiểm khi bật `FallbackPolicy`:**
+
+- health check (liveness và readiness),
+- endpoint đăng nhập, đăng ký, quên mật khẩu,
+- webhook nhận từ bên ngoài (chúng xác thực bằng chữ ký, không bằng token),
+- `/swagger` nếu bạn cố ý mở,
+- file tĩnh và trang lỗi.
+
+**Một bài test chặn được lỗi quên đóng, bổ sung cho `FallbackPolicy`:**
+
+```csharp
+[Fact]
+public void MoiEndpointDeuCoChinhSachPhanQuyen()
+{
+    var anonymous = _endpointDataSource.Endpoints
+        .OfType<RouteEndpoint>()
+        .Where(e => e.Metadata.GetMetadata<IAllowAnonymous>() is not null)
+        .Select(e => e.RoutePattern.RawText)
+        .ToList();
+
+    Assert.Equal(KnownPublicEndpoints, anonymous);   // danh sách trắng cố định
+}
+```
+
+Giờ thêm `[AllowAnonymous]` vào bất kỳ đâu sẽ làm test đỏ cho tới khi có người **chủ động** thêm nó vào danh sách trắng — tức là có một quyết định được ghi lại, thay vì một dòng lọt qua review.
+
+</details>
+
+---
+
+#### Bài 3 — Vai trò đã gỡ nhưng token cũ vẫn dùng được
+
+Đăng nhập với vai trò `Admin`, gỡ vai trò đó trong database, rồi gọi endpoint chỉ dành cho `Admin` bằng token cũ. Ghi lại kết quả và thời gian tới khi nó hết hiệu lực.
+
+**Tiêu chí hoàn thành:** bạn đo được **cửa sổ rủi ro** của hệ thống mình và nêu được cách thu hẹp nó.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Token là một tờ giấy đã ký và đã phát. Sửa database không làm tờ giấy đó thay đổi.
+
+**Lời giải — kịch bản:**
+
+```bash
+# 1. Đăng nhập với vai trò Admin
+TOKEN=$(curl -s -X POST .../auth/login -d '{"email":"an@...","password":"..."}' | jq -r .accessToken)
+
+# 2. Gỡ vai trò trong database
+psql -c "DELETE FROM AspNetUserRoles WHERE UserId = '8f3a...' AND RoleId = (SELECT Id FROM AspNetRoles WHERE Name = 'Admin');"
+
+# 3. Gọi lại bằng token cũ
+curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $TOKEN" \
+  https://localhost:5001/api/v1/admin/users
+# 200
+```
+
+**Vẫn 200.** Vai trò nằm trong token, và token đã được ký. Không lời gọi database nào xảy ra trong quá trình phân quyền.
+
+**Cửa sổ rủi ro:**
+
+```text
+Thời gian sống còn lại của access token
+  + ClockSkew (mặc định 5 phút)
+  = cửa sổ người đã bị gỡ quyền vẫn dùng được
+```
+
+Với access token 15 phút và `ClockSkew` mặc định, đó là **tối đa 20 phút**. Đo trong hệ thống của bạn bằng cách lặp lời gọi mỗi 30 giây cho tới khi nhận `401`.
+
+**Đây chính là sự cố ở [bài 10.13](10.12-mini-case-study.mdx)**, nhưng ở đó tệ hơn nhiều: endpoint `/refresh` không kiểm tra trạng thái tài khoản, nên người đã nghỉ việc cứ 15 phút lại tự gia hạn — cửa sổ 20 phút trở thành **vô hạn**.
+
+**Bốn cách thu hẹp, theo thứ tự nên áp dụng:**
+
+**1. Access token ngắn — rẻ nhất và hiệu quả nhất.**
+
+```csharp
+expires: DateTime.UtcNow.AddMinutes(5),
+ClockSkew = TimeSpan.FromSeconds(30)
+```
+
+Cửa sổ còn 5,5 phút. Không thêm hạ tầng gì, chỉ đổi một con số.
+
+**2. Kiểm tra trạng thái tài khoản ở `/refresh` — bắt buộc.**
+
+```csharp
+if (!user.IsActive || user.SecurityStamp != stored.SecurityStamp)
+{
+    await RevokeAllTokensAsync(stored.UserId, "Thông tin bảo mật đã thay đổi", ct);
+    return Result.Fail("Phiên đăng nhập không còn hợp lệ");
+}
+```
+
+Không có bước này, mọi cách khác đều vô nghĩa — người dùng tự gia hạn mãi mãi.
+
+**3. `SecurityStamp` — vô hiệu mọi token cũ khi quyền đổi.**
+
+```csharp
+await _userManager.UpdateSecurityStampAsync(user);    // gọi khi đổi vai trò, đổi mật khẩu
+```
+
+Đưa stamp vào token và đối chiếu khi xác thực. Đổi vai trò là mọi token phát trước đó thành vô hiệu ngay lần kiểm tiếp theo.
+
+**4. Danh sách chặn trong Redis — khi cần hiệu lực tức thì.**
+
+```csharp
+await _cache.SetStringAsync($"revoked:{jti}", "1",
+    new DistributedCacheEntryOptions { AbsoluteExpiration = tokenExpiry });
+```
+
+TTL đúng bằng thời gian còn lại của token, nên danh sách không phình. Đổi lại là **mỗi request thêm một lần chạm Redis** — bạn đánh mất tính không trạng thái, vốn là lý do chọn JWT ngay từ đầu.
+
+**Bảng đánh đổi:**
+
+| Cách | Cửa sổ rủi ro | Chi phí |
+|---|---|---|
+| Token 15 phút, mặc định | 20 phút | 0 |
+| Token 5 phút + skew 30s | 5,5 phút | Refresh thường xuyên hơn |
+| `SecurityStamp` | Tới lần refresh kế | Một cột trong token |
+| Danh sách chặn | **Tức thì** | Một lần chạm Redis mỗi request |
+
+**Khuyến nghị:** cách 1 + 2 + 3 cho phần lớn hệ thống. Chỉ thêm cách 4 cho những thao tác thật sự nhạy cảm — ví dụ endpoint chuyển tiền — chứ đừng áp cho toàn bộ API.
+
+</details>
 
 ## Tự kiểm tra
 
