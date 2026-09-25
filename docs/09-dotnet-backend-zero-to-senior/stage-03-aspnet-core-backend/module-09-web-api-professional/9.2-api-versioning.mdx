@@ -128,7 +128,7 @@ app.Use(async (ctx, next) =>
 **2. Đo lường.** Log version của mỗi request và dựng một biểu đồ. Bạn không gỡ được v1 nếu không biết ai còn dùng nó:
 
 ```csharp
-logger.LogInformation("API {Version} {Path} tu {ClientId}",
+logger.LogInformation("API {Version} {Path} từ {ClientId}",
     ctx.GetRequestedApiVersion()?.ToString(), ctx.Request.Path, clientId);
 ```
 
@@ -189,11 +189,194 @@ Và giữ số version còn sống ở mức tối thiểu: **hai** là con số
 
 ## Bài tập áp dụng
 
-1. **Phân loại thay đổi.** Lấy 10 thay đổi gần nhất trong API của bạn và phân loại breaking hay không theo bảng ở mục 9.3.1. Đếm bao nhiêu cái đã lên version mà lẽ ra không cần.
+#### Bài 1 — Phân loại thay đổi trong chính API của bạn
 
-2. **Đo ai còn dùng v1.** Thêm log version cho mỗi request, chạy một tuần, và dựng biểu đồ theo client. Viết danh sách client cần liên hệ.
+Lấy 10 thay đổi gần nhất trong API của bạn (đọc `git log` của thư mục DTO và controller). Phân loại từng cái là breaking hay không theo bảng ở mục 9.3.1. Đếm xem bao nhiêu cái đã lên version mới mà lẽ ra không cần, và bao nhiêu cái **không** lên version mà lẽ ra phải lên.
 
-3. **Brownout.** Trong môi trường staging, tắt v1 trong 5 phút rồi bật lại. Ghi lại client nào báo lỗi và bao lâu sau họ báo.
+**Tiêu chí hoàn thành:** với mỗi thay đổi, bạn nêu được **client cũ còn chạy đúng không** — chứ không chỉ nói "có sửa DTO".
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
+
+**Gợi ý.** Lọc lịch sử theo đúng những file tạo nên hợp đồng công khai:
+
+```bash
+git log --since="6 months ago" --oneline -p -- '*Dto.cs' '*Request.cs' '*Response.cs' \
+  | grep -E '^[-+]\s+public ' | sort | uniq -c | sort -rn
+```
+
+Dòng bắt đầu bằng `-` là trường **mất đi** — đó là nơi breaking change ẩn náu.
+
+**Lời giải — bảng phân loại điển hình sau khi rà 10 thay đổi thật:**
+
+| # | Thay đổi | Đã lên version? | Đúng ra | Vì sao |
+|---|---|---|---|---|
+| 1 | Thêm `Tags` vào `CustomerDto` | Có (v2) | **Không cần** | Client cũ bỏ qua trường lạ |
+| 2 | Thêm endpoint `GET /customers/search` | Có (v2) | **Không cần** | Không đụng endpoint cũ |
+| 3 | Thêm `?includeInactive` (tuỳ chọn) | Không | Đúng | Mặc định giữ nguyên hành vi cũ |
+| 4 | Đổi `Total` từ `decimal` sang `string` | Không | **Phải lên** | Client parse số sẽ hỏng |
+| 5 | Bắt buộc `TaxCode` khi tạo khách doanh nghiệp | Không | **Phải lên** | Request cũ thành 400 |
+| 6 | Đổi `MaxLength(200)` → `MaxLength(100)` cho `Name` | Không | **Phải lên** | Siết validation |
+| 7 | Đổi thứ tự mặc định sang cũ nhất trước | Không | **Phải lên** | Mọi màn hình danh sách đảo lộn |
+| 8 | Sửa lỗi chính tả trong `message` của lỗi 400 | Không | Đúng | Không ai nên parse chuỗi đó |
+| 9 | Đổi `404` thành `204` khi không có dữ liệu | Không | **Phải lên** | Client kiểm tra mã trạng thái |
+| 10 | Đổi `Total` từ chưa thuế sang đã thuế | Không | **Tệ nhất** | Không lỗi, chỉ **sai tiền** |
+
+**Hai con số rút ra:** 2 lần lên version thừa, 6 lần thiếu.
+
+**Vì sao chiều "thiếu" nguy hiểm hơn hẳn.** Lên version thừa chỉ tốn công bảo trì — khó chịu nhưng nhìn thấy được. Thiếu version thì client hỏng ở **môi trường của người khác**, thường vào lúc bạn không theo dõi, và log của bạn chỉ thấy tỉ lệ 4xx tăng mà không biết vì sao.
+
+**Riêng thay đổi số 10 không sửa được bằng version.** Đổi ý nghĩa mà giữ nguyên tên trường thì client chuyển sang v2 vẫn hiểu sai, vì họ đọc tên `Total` và tin vào nghĩa cũ. Cách đúng là **đổi tên trường**:
+
+```csharp
+// v1 — giữ nguyên, không đụng tới
+public record InvoiceDtoV1(Guid Id, decimal Total);          // chưa thuế
+
+// v2 — tên mới nói rõ nghĩa, cả hai cùng tồn tại một thời gian
+public record InvoiceDtoV2(Guid Id, decimal SubTotal, decimal TotalIncludingTax);
+```
+
+Giờ client không thể "vô tình đúng cú pháp nhưng sai nghĩa" nữa — trình biên dịch của họ báo thiếu trường.
+
+**Phép thử một câu cho mọi thay đổi:** *client cũ, không sửa một dòng nào, gửi đúng request cũ — có nhận được kết quả có nghĩa như cũ không?* Trả lời "không" ở bất kỳ vế nào là breaking.
+
+</details>
+
+---
+
+#### Bài 2 — Đo xem ai còn dùng v1
+
+Thêm log version cho mỗi request, chạy một tuần, rồi dựng bảng lưu lượng theo client. Viết danh sách client cần liên hệ trước khi tắt v1.
+
+**Tiêu chí hoàn thành:** bạn trả lời được câu *"tắt v1 ngày mai thì ai hỏng?"* bằng **tên cụ thể**, không phải bằng phần trăm.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
+
+**Gợi ý.** Phần trăm lưu lượng là con số **sai** để ra quyết định. Một client chiếm 0,1% lưu lượng có thể là hệ thống kế toán chạy một lần mỗi đêm — tắt nó đi là hỏng sổ sách.
+
+**Lời giải — middleware ghi log:**
+
+```csharp
+app.Use(async (ctx, next) =>
+{
+    await next(ctx);
+
+    var version = ctx.GetRequestedApiVersion()?.ToString() ?? "(không khai báo)";
+    var clientId = ctx.User.FindFirstValue("client_id")
+                   ?? ctx.Request.Headers.UserAgent.ToString();
+
+    logger.LogInformation(
+        "ApiVersion {Version} {Method} {Path} client={ClientId} status={Status}",
+        version, ctx.Request.Method, ctx.Request.Path, clientId, ctx.Response.StatusCode);
+});
+```
+
+Đặt nó **sau** `UseRouting` — trước đó `GetRequestedApiVersion()` chưa có giá trị, đúng như [bài 8.3](../module-08-aspnet-core-fundamentals/8.2-request-pipeline-and-middleware.mdx) giải thích.
+
+**Truy vấn tổng hợp sau một tuần:**
+
+```sql
+SELECT ClientId,
+       COUNT(*)                                   AS Requests,
+       COUNT(DISTINCT CAST(Timestamp AS date))    AS ActiveDays,
+       MAX(Timestamp)                             AS LastSeen
+FROM   ApiLogs
+WHERE  Version = '1.0' AND Timestamp > DATEADD(day, -7, SYSUTCDATETIME())
+GROUP  BY ClientId
+ORDER  BY Requests DESC;
+```
+
+**Kết quả điển hình:**
+
+| Client | Requests | Số ngày hoạt động | Lần cuối | Kết luận |
+|---|---|---|---|---|
+| `crm-web` | 412.900 | 7 | vài giây trước | Đội mình — nâng cấp được ngay |
+| `mobile-ios-3.2` | 88.410 | 7 | vài giây trước | Bản cũ còn trên máy người dùng — **chờ** |
+| `partner-erp` | 1.204 | 7 | 3 phút trước | Đối tác ngoài — **phải liên hệ** |
+| `accounting-nightly` | 7 | 7 | 02:00 hôm nay | **1 request/ngày** — dễ bỏ sót nhất |
+| `qa-postman` | 63 | 2 | 4 ngày trước | Bỏ qua |
+
+**Ba điều bảng này cho thấy mà biểu đồ phần trăm không cho thấy:**
+
+1. **`accounting-nightly` chiếm 0,001% lưu lượng** nhưng là job đối soát cuối ngày. Nhìn biểu đồ tròn thì nó vô hình.
+2. **Cột `ActiveDays` quan trọng hơn cột `Requests`.** Client chạy đủ 7/7 ngày là đang sống; client chỉ xuất hiện 2 ngày rồi im có thể đã bị bỏ.
+3. **`mobile-ios-3.2` không nâng cấp được bằng cách bảo họ sửa code** — bản cũ đã nằm trên máy người dùng. Nó quyết định mốc thời gian thật của cả kế hoạch.
+
+**Danh sách liên hệ rút ra:** `partner-erp` (email kỹ thuật), chủ sở hữu `accounting-nightly` (thường là đội nội bộ khác), và đội mobile để biết bao giờ tỉ lệ cài đặt bản cũ về gần 0.
+
+**Một chi tiết dễ quên:** log cả request **không khai version**. Chúng rơi vào version mặc định, nên khi bạn đổi mặc định từ 1.0 sang 2.0 thì chúng hỏng — dù chủ nhân của chúng tin rằng mình "không dùng v1".
+
+</details>
+
+---
+
+#### Bài 3 — Brownout: tắt v1 năm phút
+
+Trên staging, tắt v1 trong 5 phút rồi bật lại. Ghi lại client nào báo lỗi và bao lâu sau khi tắt thì họ báo.
+
+**Tiêu chí hoàn thành:** bạn đo được **độ trễ phát hiện** — khoảng cách giữa lúc tắt và lúc có người thật sự nhận ra.
+
+<details>
+<summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
+
+**Gợi ý.** Trả `410 Gone` chứ không phải `404`. `404` lẫn với "sai đường dẫn"; `410` nói rõ "từng có, đã gỡ" và giúp người gỡ rối tìm đúng nguyên nhân trong vài giây.
+
+**Lời giải — công tắc brownout:**
+
+```csharp
+app.Use(async (ctx, next) =>
+{
+    var brownout = config.GetValue<bool>("ApiV1Brownout");
+
+    if (brownout && ctx.GetRequestedApiVersion()?.MajorVersion == 1)
+    {
+        ctx.Response.StatusCode = StatusCodes.Status410Gone;
+        ctx.Response.Headers["Sunset"] = "Sat, 31 Dec 2026 23:59:59 GMT";
+        await ctx.Response.WriteAsJsonAsync(new ProblemDetails
+        {
+            Status = 410,
+            Title = "Phiên bản API này đang trong đợt brownout theo kế hoạch",
+            Detail = "v1 sẽ ngừng hoạt động vào 31/12/2026. Xem hướng dẫn chuyển sang v2.",
+            Type = "https://docs.example.com/migrate-v2"
+        });
+        return;
+    }
+
+    await next(ctx);
+});
+```
+
+Đặt cờ trong cấu hình đọc lại được (`IOptionsMonitor`, [bài 7.8](../../stage-02-csharp-professional/module-07-dependency-injection/7.7-options-pattern.mdx)) để bật tắt không cần deploy.
+
+**Kết quả điển hình của một đợt brownout 5 phút:**
+
+| Client | Phản ứng | Độ trễ phát hiện |
+|---|---|---|
+| `crm-web` | Màn hình báo lỗi ngay | **~15 giây** — có người đang dùng |
+| `mobile-ios-3.2` | Crash, không có thông báo | ~40 giây (qua Sentry) |
+| `partner-erp` | Retry 3 lần rồi bỏ, ghi log nội bộ | **Không ai báo** trong 5 phút |
+| `accounting-nightly` | Không chạy vào giờ đó | **Không phát hiện được** |
+
+**Đây mới là kết quả thật sự của bài tập.** Brownout 5 phút giữa ban ngày **không** chạm tới hai client cuối. Nếu bạn kết luận "không ai kêu, tắt được rồi", bạn sẽ làm hỏng job đối soát vào 2 giờ sáng hôm sau — và không ai biết cho tới khi kế toán đóng sổ.
+
+**Ba điều chỉnh làm brownout có ý nghĩa:**
+
+1. **Chạy đủ một chu kỳ 24 giờ**, không phải 5 phút. Job chạy theo lịch đêm chỉ lộ ra ở mốc này.
+2. **Đo từ phía server, đừng đợi người kêu.** Đếm số `410` theo client — nó cho bạn danh sách nạn nhân ngay lập tức, kể cả những client im lặng:
+
+   ```sql
+   SELECT ClientId, COUNT(*) AS Blocked, MIN(Timestamp) AS FirstHit
+   FROM   ApiLogs
+   WHERE  Status = 410 AND Timestamp > @brownoutStart
+   GROUP  BY ClientId;
+   ```
+
+3. **Lặp lại tăng dần.** 1 giờ → 1 ngày → 1 tuần. Mỗi vòng lộ ra một lớp client có chu kỳ dài hơn.
+
+**Vì sao brownout hiệu quả hơn email.** Email báo deprecation bị bỏ qua vì nó không gây hậu quả gì. Brownout tạo ra một sự cố **nhỏ, có kiểm soát, vào lúc bạn chọn** — thay cho một sự cố lớn, không kiểm soát, vào lúc bạn tắt hẳn. Đây chính là lý do Google và GitHub đều dùng brownout trước mỗi lần gỡ API.
+
+</details>
 
 ## Tự kiểm tra
 
