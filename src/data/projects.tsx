@@ -4,11 +4,13 @@ import { sortBy } from '@site/src/utils/jsUtils';
 import { Project } from '@site/src/shared/dto/Project';
 
 // prettier-ignore
+// preview: null -> dịch vụ ngoài tự chụp. Khai đường dẫn khi dịch vụ chụp hụt:
+// SPA render bằng JS ra ảnh trắng/đen (vievent, di-dau-day, create-simple-blog).
 const PROJECTS: Project[] = [
   {
     title: 'Đi Đâu Đây?',
     description: 'Decision engine for local experiences in Vietnam, starting with Ho Chi Minh City. Answer a few questions and get one concrete suggestion in about 15 seconds, with directions and a shareable link. Next.js 16 static export — no database, no API, no auth; the data is static JSON validated with Zod.',
-    preview: null,
+    preview: '/img/showcase/di-dau-day.webp',
     website: 'https://didauday.tiennhm.io.vn',
     source: 'https://github.com/TienNHM/di-dau-day',
     tags: ['favorite', 'opensource', 'personal'],
@@ -19,7 +21,7 @@ const PROJECTS: Project[] = [
     description: 'Event ticketing platform: seat-map ticket selection, VietQR payments with automatic reconciliation, refunds and organiser settlements, plus an AI chatbot. Separate portals for customers, artists, staff and admins. Built with ABP 9.2 / .NET 9 and Angular.',
     // Bản chạy trên VPS riêng. Production đặt ở vievent.io.vn (Vercel) — đổi
     // link sang đó nếu muốn khoe bản mới nhất.
-    preview: null,
+    preview: '/img/showcase/vievent.webp',
     website: 'https://vievent.tiennhm.io.vn',
     // Repo riêng tư (2thuancr/VIEvent), đặt link vào là khách ra 404.
     source: null,
@@ -30,10 +32,8 @@ const PROJECTS: Project[] = [
   // Cùng một bộ mã nguồn (theme cha + plugin lõi), mỗi ngành chỉ khác child
   // theme và file config khai trường dữ liệu riêng. Mô tả dưới đây lấy đúng
   // các trường đó chứ không viết chung chung.
-  //
-  // preview: null  → showcase tự chụp màn hình trang thật.
-  // source:  null  → repo woo-industry-starter đang RIÊNG TƯ, đặt link vào thì
-  //                  khách bấm ra 404. Điền lại khi nào repo công khai.
+  // source: null -> repo woo-industry-starter đang RIÊNG TƯ, link vào là 404.
+  //                  Điền lại khi nào repo công khai.
   {
     title: 'Tiệm Bánh',
     description: 'Bakery storefront. Made-to-order cakes show a prep-time notice; products carry shelf life, storage, servings, ingredients and allergen warnings.',
@@ -128,7 +128,6 @@ const PROJECTS: Project[] = [
   {
     title: 'TienNHM',
     description: 'My public template for GitHub profile page.',
-    // preview: require('./showcase/aispeaker.png'),
     preview: null,
     website: 'https://github.com/TienNHM',
     source: 'https://github.com/TienNHM/TienNHM',
@@ -162,7 +161,6 @@ const PROJECTS: Project[] = [
   {
     title: 'Youth ITUTE',
     description: 'A website for Youth ITUTE, an organization for students of faculty of Information Technology, HCMUTE, made with MERN stack.',
-    // preview: require('./showcase/apache-apisix.png'),
     preview: null,
     website: 'https://youth-itute.vercel.app',
     // source: 'https://github.com/ITUTE/youth',
@@ -172,7 +170,6 @@ const PROJECTS: Project[] = [
   {
     title: 'ITUTE SV5T',
     description: 'A website to provide information about the prize for Students of Five Merits of faculty of Information Technology, HCMUTE',
-    // preview: require('./showcase/apache-apisix.png'),
     preview: null,
     website: 'https://itute.github.io/SV5T/',
     // source: 'https://github.com/ITUTE/SV5T',
@@ -182,7 +179,6 @@ const PROJECTS: Project[] = [
   {
     title: 'Youth Quiz',
     description: 'A quiz game website where questions are about information technology, information tranformation, and general knowledge about student organizations, made with MEAN stack.',
-    // preview: require('./showcase/apexfp.png'),
     preview: null,
     website: 'https://youth-quiz.vercel.app/',
     // source: 'https://github.com/TienNHM/youth-quiz',
@@ -192,7 +188,6 @@ const PROJECTS: Project[] = [
   {
     title: 'Portfolio',
     description: 'Showcasing my projects and skills. There is also a blog section, where I write about my projects.',
-    // preview: require('./showcase/astronomer.png'),
     preview: null,
     website: 'https://tiennhm.github.io',
     source: 'https://github.com/TienNHM/tiennhm.github.io',
@@ -202,7 +197,6 @@ const PROJECTS: Project[] = [
   {
     title: 'Overco Loyalty',
     description: 'A website for Overco Loyalty, a loyalty program for Overco shop, made with MEAN stack and Firebase.',
-    // preview: require('./showcase/attobot.png'),
     preview: null,
     website: 'https://overcoloyalty.web.app/',
     // source: 'https://github.com/TienNHM/OvercoLoyalty',
@@ -212,7 +206,6 @@ const PROJECTS: Project[] = [
   {
     title: 'Virtual Mouse',
     description: 'A virtual mouse application for Windows, made with Python and Mediapipe.',
-    // preview: require('./showcase/avana-wallet.png'),
     preview: null,
     website: 'https://tiennhm.github.io/VirtualMouse/',
     // source: 'https://github.com/TienNHM/VirtualMouse',
@@ -222,8 +215,7 @@ const PROJECTS: Project[] = [
   {
     title: 'create-simple-blog',
     description: 'A npx script for scaffolding a personal blog quickly.',
-    // preview: require('./showcase/avana-wallet.png'),
-    preview: null,
+    preview: '/img/showcase/create-simple-blog.webp',
     website: 'https://www.npmjs.com/package/create-simple-blog',
     source: 'https://github.com/TienNHM/create-simple-blog',
     tags: ['opensource'],
@@ -252,14 +244,6 @@ const PROJECTS: Project[] = [
     source: 'https://github.com/TienNHM/welcome-bot-discord',
     tags: ['opensource'],
   },
-  // {
-  //   title: 'root-me-ctf',
-  //   description: 'My solutions for root-me.org challenges.',
-  //   preview: null,
-  //   website: 'https://tiennhm.github.io/root-me-ctf/',
-  //   source: 'https://github.com/TienNHM/root-me-ctf',
-  //   tags: ['opensource'],
-  // },
   {
     title: 'QuickDraw',
     description: 'A simple game made with Python, inspired by Google Quick Draw.',
@@ -346,14 +330,6 @@ const PROJECTS: Project[] = [
     tags: ['favorite', 'personal'],
     highlight: true,
   },
-  // {
-  //   title: 'aemi - AEMI',
-  //   description: 'A website for AEMI, a genuine cosmetics wholesale trading platform, made with PHP and Wordpress.',
-  //   preview: null,
-  //   website: 'https://www.aemi.beauty/',
-  //   source: null,
-  //   tags: ['product'],
-  // },
 ];
 
 function sortProjects() {
