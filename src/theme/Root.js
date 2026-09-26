@@ -29,11 +29,7 @@ export default function Root({children}) {
     <>
         <Robots />
         <SiteStructuredData />
-        {/*
-          * PHẢI đứng trước {children}: helmet lấy khai báo xử lý sau cùng, nên
-          * trang blog mới ghi đè được og:type thành "article".
-          * Xem ghi chú trong src/components/SEO/DefaultSocialMeta.tsx.
-          */}
+        {/* PHẢI đứng trước {children} — xem ghi chú trong DefaultSocialMeta. */}
         <DefaultSocialMeta />
         {children}
     </>

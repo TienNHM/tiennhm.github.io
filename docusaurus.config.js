@@ -434,27 +434,13 @@ const config = {
                         href: '/manifest.json', // your PWA manifest
                     },
                     /*
-                     * theme-color quyết định màu thanh địa chỉ trên Chrome
-                     * Android và màu vùng an toàn trên Safari iOS.
-                     *
-                     * Trước đây chỉ có MỘT thẻ, màu teal cố định. Ở chế độ
-                     * sáng, thanh điều hướng của site màu trắng còn thanh địa
-                     * chỉ ngay phía trên lại teal — thành một đường kẻ ngang
-                     * rõ rệt cắt ngang đầu màn hình. Ở chế độ tối thì ngược
-                     * lại: teal sáng chói trên nền #1b1b1d.
-                     *
-                     * Nay khai theo `prefers-color-scheme`, mỗi bản lấy đúng
-                     * màu nền thanh điều hướng của chế độ đó, nên phần khung
-                     * của trình duyệt liền mạch với trang.
+                     * theme-color: màu thanh địa chỉ Chrome Android / vùng an
+                     * toàn Safari iOS. Lấy đúng --ifm-background-surface-color
+                     * của từng chế độ để liền mạch với trang.
                      *
                      * THỨ TỰ CÓ Ý NGHĨA: trình duyệt lấy thẻ ĐẦU TIÊN có
-                     * `media` khớp. Thẻ không có `media` khớp với mọi thứ, nên
-                     * nó phải đứng CUỐI, làm giá trị dự phòng cho trình duyệt
-                     * chưa hiểu `prefers-color-scheme`. Đảo lại là hai thẻ
-                     * kia vô tác dụng.
-                     *
-                     * Giá trị lấy từ Infima: --ifm-background-surface-color
-                     * (#fff ở chế độ sáng, #242526 ở chế độ tối).
+                     * `media` khớp, nên thẻ không `media` phải đứng CUỐI làm
+                     * dự phòng. Đảo lại là hai thẻ kia vô tác dụng.
                      */
                     {
                         tagName: 'meta',

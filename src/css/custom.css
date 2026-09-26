@@ -18,55 +18,36 @@
  * (hoặc dùng bản unstyled), đừng đưa lại vào file global này.
  */
 
-/* ============================================================================
- * DESIGN TOKENS
- *
- * Trước đây các giá trị cỡ chữ / khoảng cách / bo góc / đổ bóng nằm rải rác
- * khắp file này và khắp các *.module.css, phần lớn là số viết thẳng kèm
- * `!important`. Hệ quả: đổi một nhịp thì phải đi sửa cả chục chỗ, và không
- * chỗ nào bảo đảm khớp với chỗ còn lại.
- *
- * Từ đây, mọi giá trị đó chỉ khai báo MỘT lần ở khối này. Quy tắc bên dưới
- * (và mọi CSS module) tham chiếu token thay vì viết số.
- * ========================================================================= */
+/* =========================== DESIGN TOKENS ===========================
+ * Nguồn duy nhất cho cỡ chữ / khoảng cách / bo góc / đổ bóng.
+ * Mọi quy tắc và CSS module tham chiếu token, không viết số thẳng.
+ * ==================================================================== */
 :root {
-  /* --------------------------------------------------------------------
-   * Cỡ chữ gốc.
-   *
-   * Từng là 85% — tức 13,6px trên mọi thiết bị. Trên điện thoại đó là dưới
-   * ngưỡng đọc thoải mái (16px) mà WCAG và cả hai hệ điều hành di động lấy
-   * làm mặc định; đồng thời nó kéo theo mọi kích thước tính bằng `rem` co
-   * lại 15%, nên các vùng bấm (nút liên hệ ở hero, mục trong menu) rơi
-   * xuống dưới 44px — nhỏ hơn khuyến nghị tối thiểu của WCAG 2.5.5.
-   *
-   * Nâng về 100%: chữ thân bài thành 16px, và `2.75rem` của nút liên hệ
-   * thành đúng 44px mà không phải sửa gì trong component.
-   *
-   * Bản in giữ nguyên 85% qua token riêng bên dưới, để số trang của PDF
-   * xuất từ trình duyệt không đổi so với trước.
-   * ------------------------------------------------------------------ */
+  /* Thân bài 16px. Bản in giữ 85% cũ để số trang PDF không đổi. */
   --site-root-font-scale: 100%;
   --site-print-font-scale: 85%;
 
   /* --------------------------------------------------------------------
-   * Thang cỡ chữ — fluid, mobile-first.
+   * Thang cỡ chữ — CẤP SỐ NHÂN, hệ số 1,15 ở 360px và 1,20 ở 1440px.
    *
-   * Mỗi bậc là một `clamp(nhỏ nhất, co giãn theo vw, lớn nhất)`: điện thoại
-   * lấy cận dưới, desktop lấy cận trên, ở giữa thì nội suy mượt. Nhờ vậy
-   * không còn cần media query nào chỉ để chỉnh cỡ chữ.
+   * Tiêu đề h1–h6 bước qua các bậc liền nhau, nên hệ số của thang CHÍNH LÀ
+   * khoảng cách giữa hai cấp tiêu đề. Sửa lẻ một bậc là phá thứ bậc.
+   * Muốn đổi cỡ tiêu đề: đổi hệ số, hoặc đổi bậc ở khối map Infima bên dưới.
    *
-   * ĐỪNG bỏ thành phần `rem` trong phần co giãn. `clamp(1rem, 2vw, 2rem)`
-   * thuần vw sẽ không phóng to khi người dùng tăng cỡ chữ của trình duyệt —
-   * đó là lỗi WCAG 1.4.4. Công thức `Arem + Bvw` vẫn nở theo cài đặt người dùng.
+   * `sm`/`xs` cố ý lệch công thức (đúng ra là 13,3 và 11,1px): chặn sàn cho
+   * đọc được.
+   *
+   * Phần co giãn phải giữ dạng `Arem + Bvw`. Thuần vw thì không phóng to
+   * theo cài đặt cỡ chữ của trình duyệt — lỗi WCAG 1.4.4.
    * ------------------------------------------------------------------ */
-  --site-font-size-xs: clamp(0.75rem, 0.72rem + 0.15vw, 0.8125rem);   /* 12 → 13 */
-  --site-font-size-sm: clamp(0.875rem, 0.85rem + 0.15vw, 0.9375rem);  /* 14 → 15 */
-  --site-font-size-base: 1rem;                                        /* 16      */
-  --site-font-size-lg: clamp(1.0625rem, 1.03rem + 0.18vw, 1.125rem);  /* 17 → 18 */
-  --site-font-size-xl: clamp(1.25rem, 1.18rem + 0.35vw, 1.5rem);      /* 20 → 24 */
-  --site-font-size-2xl: clamp(1.5rem, 1.38rem + 0.6vw, 1.875rem);     /* 24 → 30 */
-  --site-font-size-3xl: clamp(1.75rem, 1.55rem + 1vw, 2.25rem);       /* 28 → 36 */
-  --site-font-size-4xl: clamp(2rem, 1.7rem + 1.5vw, 2.75rem);         /* 32 → 44 */
+  --site-font-size-xs: 0.75rem;                                          /* 12       */
+  --site-font-size-sm: 0.875rem;                                         /* 14       */
+  --site-font-size-base: 1rem;                                           /* 16       */
+  --site-font-size-lg: clamp(1.15rem, 1.1333rem + 0.074vw, 1.2rem);      /* 18,4 → 19,2 */
+  --site-font-size-xl: clamp(1.3225rem, 1.2833rem + 0.174vw, 1.44rem);   /* 21,2 → 23,0 */
+  --site-font-size-2xl: clamp(1.5209rem, 1.4518rem + 0.307vw, 1.728rem); /* 24,3 → 27,6 */
+  --site-font-size-3xl: clamp(1.749rem, 1.6408rem + 0.481vw, 2.0736rem); /* 28,0 → 33,2 */
+  --site-font-size-4xl: clamp(2.0114rem, 1.8524rem + 0.707vw, 2.4883rem);/* 32,2 → 39,8 */
 
   /* Nhịp khoảng cách — bội số của 4px. Dùng cho margin/padding/gap. */
   --site-space-1: 0.25rem;
@@ -92,13 +73,9 @@
   --site-shadow-2: 0 4px 6px -1px rgb(0 0 0 / 8%), 0 2px 4px -2px rgb(0 0 0 / 6%);
   --site-shadow-3: 0 12px 24px -6px rgb(0 0 0 / 12%), 0 4px 8px -4px rgb(0 0 0 / 8%);
 
-  /*
-   * Vùng bấm tối thiểu — WCAG 2.5.5 (Target Size) khuyến nghị 44x44 CSS px.
-   * Chỉ áp dụng cho thiết bị cảm ứng, xem khối `@media (pointer: coarse)`.
-   */
+  /* WCAG 2.5.5 Target Size. Chỉ áp cho `pointer: coarse`. */
   --site-tap-target: 2.75rem;
 
-  /* Độ dài dòng chữ dễ đọc nhất cho văn xuôi. */
   --site-measure: 72ch;
 
   /*
@@ -120,34 +97,17 @@
   --ifm-menu-color-active: var(--ifm-color-primary-darker) !important;
 
   /* --------------------------------------------------------------------
-   * Nối token vào Infima.
+   * Nối token vào Infima — theme đi theo mà không cần `!important`.
    *
-   * Infima đã có sẵn biến cho tiêu đề, bo góc và đổ bóng. Gán token vào
-   * đúng những biến đó thì toàn bộ theme (kể cả component của Docusaurus mà
-   * site không swizzle) đi theo, và không cần một dòng `!important` nào —
-   * khác hẳn cách cũ là ghi đè `h1 { font-size: ... !important }`.
+   * Tiêu đề chiếm các bậc 2xl trở xuống:
+   *     1440px  h1 27,6  h2 23,0  h3 19,2  h4 16  h5 14  h6 12
+   *      360px  h1 24,3  h2 21,2  h3 18,4  h4 16  h5 14  h6 12
+   *
+   * h4 bằng thân bài, h5/h6 nhỏ hơn — giống mặc định Infima; ở độ sâu đó
+   * thứ bậc do độ đậm và khoảng cách gánh.
+   *
+   * 3xl/4xl để dành cho hero, đừng gán cho tiêu đề thân bài.
    * ------------------------------------------------------------------ */
-  /*
-   * Tiêu đề bắt đầu từ bậc 2xl — tức là ĐÃ DỜI XUỐNG HAI BẬC so với bản
-   * đầu tiên của thang này.
-   *
-   * Bản đầu gán h1 = 4xl (44px trên màn rộng). So với `2rem` cố định của
-   * bản cũ — 27,2px ở thang gốc 85% — đó là tăng 62%: một tiêu đề bài viết
-   * tiếng Việt dài thành ba dòng và nuốt trọn màn hình đầu tiên.
-   *
-   * Kết quả sau khi dời hai bậc:
-   *     màn rộng    h1 30  h2 24  h3 18  h4 16  h5 15  h6 13  (px)
-   *     điện thoại  h1 24  h2 20  h3 17  h4 16  h5 14  h6 13
-   *
-   * LƯU Ý về h4–h6: h4 bằng đúng cỡ thân bài, h5 và h6 nhỏ hơn thân bài.
-   * Nghe nghịch lý nhưng đó chính là tỉ lệ mặc định của Infima (h4 1rem,
-   * h5 0.875rem, h6 0.85rem) — ở độ sâu đó, thứ bậc do độ đậm và khoảng
-   * cách trên/dưới gánh, không phải do cỡ chữ. Tài liệu nào lồng sâu tới h5
-   * thường là dấu hiệu nên tách trang, chứ không phải nên tăng cỡ chữ.
-   *
-   * Hai bậc trên cùng (3xl, 4xl) giữ lại trong thang cho chữ cỡ lớn ở hero.
-   * Đừng gán chúng cho tiêu đề trong thân bài.
-   */
   --ifm-h1-font-size: var(--site-font-size-2xl);
   --ifm-h2-font-size: var(--site-font-size-xl);
   --ifm-h3-font-size: var(--site-font-size-lg);
@@ -169,11 +129,7 @@
 html {
   font-size: var(--site-root-font-scale);
 
-  /*
-   * Neo (#heading) nhảy tới sẽ bị thanh điều hướng dính che mất nếu không
-   * chừa chỗ. `scroll-padding-top` là cách khai báo một lần cho mọi lần cuộn
-   * do trình duyệt thực hiện, kể cả khi mở thẳng một URL có #hash.
-   */
+  /* Neo #heading không bị navbar dính che. */
   scroll-padding-top: calc(var(--ifm-navbar-height) + var(--site-space-4));
 
   /* Chặn co giãn chữ tự động của Safari iOS khi xoay ngang máy. */
@@ -181,10 +137,7 @@ html {
   text-size-adjust: 100%;
 }
 
-/*
- * Tôn trọng cài đặt "giảm chuyển động" của hệ điều hành — WCAG 2.3.3.
- * Đặt ở đây, cấp toàn cục, để không component nào phải tự nhớ.
- */
+/* WCAG 2.3.3 — đặt toàn cục để component không phải tự lo. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -202,10 +155,7 @@ html[data-theme='dark'] {
   --site-color-checkbox-checked-bg: hsl(167deg 56% 73% / 10%);
   --docusaurus-highlighted-code-line-bg: rgb(66 66 66 / 35%);
 
-  /*
-   * Bóng trên nền tối phải đậm hơn hẳn. Bộ alpha của bản sáng (6–12%) đặt
-   * lên nền #1b1b1d thì gần như tàng hình, nên các thẻ mất hết độ nổi.
-   */
+  /* Alpha của bản sáng (6–12%) gần như tàng hình trên nền #1b1b1d. */
   --site-shadow-1: 0 1px 2px rgb(0 0 0 / 30%), 0 1px 3px rgb(0 0 0 / 36%);
   --site-shadow-2: 0 4px 6px -1px rgb(0 0 0 / 40%), 0 2px 4px -2px rgb(0 0 0 / 32%);
   --site-shadow-3: 0 12px 24px -6px rgb(0 0 0 / 52%), 0 4px 8px -4px rgb(0 0 0 / 40%);
@@ -425,22 +375,15 @@ nav .navbar__items:not(.navbar__items--right) .navbar__item:hover {
 /* ====================== START markdown ====================== */
 
 /*
- * Căn lề thân bài.
- *
- * Trước đây là `text-align: justify` cho mọi bề ngang. Trên điện thoại, một
- * dòng chỉ chứa 35–45 ký tự, nên để dàn đều hai biên trình duyệt phải kéo
- * giãn khoảng trắng rất mạnh — tạo ra những "dòng sông trắng" chạy dọc đoạn
- * văn. Tiếng Việt bị nặng hơn tiếng Anh vì từ ngắn và nhiều, số khoảng trắng
- * phải giãn trên mỗi dòng lớn hơn hẳn.
- *
- * Nên: căn trái ở mặc định (tức là trên điện thoại — file này mobile-first),
- * chỉ bật justify từ 997px trở lên, nơi dòng đã đủ dài để giãn chữ không lộ.
+ * Justify chỉ bật từ 997px. Dòng 35–45 ký tự trên điện thoại mà dàn đều hai
+ * biên thì khoảng trắng giãn thành "sông trắng" — tiếng Việt nặng hơn vì từ
+ * ngắn và nhiều.
  */
 .markdown {
   text-align: left;
 }
 
-/* `pretty` chặn chữ mồ côi ở dòng cuối đoạn và các dấu gạch nối xấu. */
+/* Chặn chữ mồ côi ở dòng cuối đoạn. */
 .markdown p,
 .markdown li {
   text-wrap: pretty;
@@ -487,17 +430,9 @@ time::before {
 }
 
 /*
- * ĐÃ BỎ: `.markdown a::after { content: '🔗' }`.
- *
- * Quy tắc đó chèn một emoji sau MỌI liên kết trong bài. Ba vấn đề:
- *   1. Nhịp đọc bị vỡ — một đoạn có bốn, năm link thì đầy emoji.
- *   2. Trình đọc màn hình đọc luôn cả emoji ("link biểu tượng cảm xúc") sau
- *      mỗi liên kết, thành tiếng ồn với người dùng khiếm thị.
- *   3. Nó buộc phải có quy tắc thứ hai (`.markdown h2 a::after { content: ''
- *      !important }`) chỉ để huỷ chính nó ở tiêu đề — hai quy tắc đánh nhau.
- *
- * Liên kết đã có gạch chân gradient ở quy tắc ngay trên, cùng `font-weight`
- * đậm hơn: đủ để phân biệt mà không thêm ký tự nào vào dòng chữ.
+ * ĐÃ BỎ `.markdown a::after { content: '🔗' }` (và quy tắc huỷ nó ở h2):
+ * vỡ nhịp đọc, và trình đọc màn hình đọc luôn emoji sau mỗi liên kết.
+ * Gạch chân gradient ở quy tắc trên là đủ để phân biệt.
  */
 
 /* ====================== START markdown ====================== */
@@ -507,33 +442,19 @@ time::before {
   width: 100%;
 }
 
-/*
- * ĐÃ BỎ: `h1 { font-size: 2rem !important }` và `header h2 { ... !important }`.
- *
- * Hai quy tắc đó đóng cứng tiêu đề ở một cỡ duy nhất cho mọi màn hình, và
- * `!important` khiến không trang nào ghi đè được. Nay cỡ tiêu đề đến từ
- * `--ifm-h1-font-size`... trong khối token ở đầu file: vẫn một nguồn duy
- * nhất, nhưng co giãn theo bề ngang màn hình và vẫn ghi đè được khi cần.
- */
+/* Cỡ tiêu đề nay đến từ `--ifm-h*-font-size` trong khối token đầu file;
+   `h1 { ... !important }` và `header h2 { ... !important }` đã bỏ. */
 
-/* Tiêu đề không nên rơi một chữ lẻ xuống dòng cuối. `text-wrap: balance` chia
-   lại các dòng cho đều; trình duyệt chưa hỗ trợ thì bỏ qua, không hỏng gì. */
+/* Chia lại dòng cho đều, tránh một chữ lẻ rơi xuống dòng cuối. */
 h1, h2, h3, h4, h5, h6 {
   text-wrap: balance;
 }
 
 /* ====================== START article ====================== */
 /*
- * Mobile-first: giá trị mặc định là giá trị cho điện thoại, màn rộng mới nới ra.
- *
- * `!important` ở đây đã bỏ. Đã kiểm chứng trên stylesheet đã build: trong
- * toàn bộ CSS của site chỉ có ĐÚNG hai quy tắc đặt `padding`/`border-radius`
- * lên `article`, và cả hai đều là của chính file này. Không có gì để tranh
- * chấp, nên `!important` chẳng thắng ai cả — nó chỉ chặn các trang về sau
- * muốn tự chỉnh.
- *
- * Cách kiểm lại nếu nghi ngờ:
- *   grep -o '[^{}]*article[^{}]*{[^{}]*}' build/assets/css/styles.*.css
+ * Mobile-first: mặc định là giá trị cho điện thoại, màn rộng mới nới ra.
+ * Không cần `!important` — không quy tắc nào khác trong site đặt
+ * padding/border-radius lên `article`.
  */
 article {
   padding: var(--site-space-2);
@@ -560,19 +481,11 @@ article h1, article h2, article h3, article h4, article h5, article h6 {
 /* ====================== END article ====================== */
 
 /*
- * ĐÃ BỎ: `@media (max-width: 996px) { .navbar__brand { display: none } }`.
- *
- * Trên điện thoại, thanh điều hướng chỉ còn nút hamburger bên trái và ô tìm
- * kiếm bên phải — ẩn brand đi là bỏ luôn dấu hiệu nhận biết site VÀ đường về
- * trang chủ duy nhất nằm ngoài menu. Mọi mục điều hướng khác đã thu vào
- * sidebar nên chỗ trống thừa sức chứa logo + tên.
- *
- * Phần padding của `article` cho màn hẹp nay là giá trị mặc định ở quy tắc
- * `article` phía trên, không cần media query riêng nữa.
+ * ĐÃ BỎ `@media (max-width: 996px) { .navbar__brand { display: none } }`:
+ * trên điện thoại đó là đường về trang chủ duy nhất nằm ngoài menu.
  */
 
-/* Dưới 400px (iPhone SE, máy Android nhỏ) thì giấu phần CHỮ của brand, giữ
-   lại logo: vẫn còn đường về trang chủ mà không đẩy ô tìm kiếm ra rìa. */
+/* Dưới 400px giấu phần chữ, giữ logo — khỏi đẩy ô tìm kiếm ra rìa. */
 @media screen and (max-width: 400px) {
   .navbar__title {
     display: none;
@@ -608,27 +521,17 @@ article h1, article h2, article h3, article h4, article h5, article h6 {
 /* ====================== START tiêu đề bài blog ====================== */
 
 /*
- * Kéo tiêu đề bài blog về đúng thang token của site.
+ * theme-classic đóng cứng `.title { font-size: 3rem }` trong CSS module
+ * riêng, không qua `--ifm-h1-font-size` — thang token không với tới.
  *
- * theme-classic đóng cứng cỡ chữ này trong CSS module riêng của nó —
- * `.title { font-size: 3rem }`, và `2rem` dưới 576px — nên nó KHÔNG đi qua
- * `--ifm-h1-font-size` và thang token không với tới. Khi cỡ chữ gốc đổi
- * 85% -> 100%, tiêu đề bài blog lặng lẽ nhảy từ 40,8px lên 48px.
+ * Class `blog-post-title` do src/theme/BlogPostItem/Header/Title gắn vào.
  *
- * Class `blog-post-title` do src/theme/BlogPostItem/Header/Title gắn vào —
- * xem ghi chú trong file đó để biết vì sao phải bọc component.
+ * KÈM TÊN THẺ LÀ CỐ Ý: `.blog-post-title` đơn lẻ có độ đặc hiệu (0,1,0),
+ * bằng đúng `.title_XXXX` của theme, thắng thua sẽ do thứ tự gom CSS module
+ * quyết định. Kèm tên thẻ -> (0,1,1), thắng chắc.
  *
- * VIẾT KÈM TÊN THẺ LÀ CỐ Ý. `.blog-post-title` đơn lẻ có độ đặc hiệu (0,1,0),
- * đúng bằng `.title_XXXX` của theme, nên kết quả sẽ do thứ tự trong
- * stylesheet quyết định — mà thứ tự đó phụ thuộc cách Docusaurus gom CSS
- * module, không có gì bảo đảm. Thêm tên thẻ nâng lên (0,1,1), thắng chắc ở
- * mọi bề ngang màn hình (media query không cộng thêm độ đặc hiệu).
- *
- * Dùng cùng bậc `2xl` với h1 trong thân bài: 24px trên điện thoại, 30px trên
- * màn rộng. Muốn tiêu đề bài blog nổi hơn tài liệu thì đổi sang `3xl`
- * (28–36px) — nhưng đừng quay lại một con số rời rạc.
- *
- * Thẻ là h1 ở trang bài viết và h2 ở trang danh sách, nên liệt kê cả hai.
+ * h1 ở trang bài viết, h2 ở trang danh sách. Muốn nổi hơn tài liệu thì đổi
+ * sang `3xl`, đừng quay lại một con số rời rạc.
  */
 h1.blog-post-title,
 h2.blog-post-title {
@@ -641,16 +544,11 @@ h2.blog-post-title {
 /* ====================== START mobile & a11y ====================== */
 
 /*
- * Vùng bấm trên thiết bị cảm ứng.
+ * Chỉ bật cho ngón tay. Trên desktop, ép 44px sẽ kéo dài vô ích sidebar tài
+ * liệu hàng trăm mục.
  *
- * Chỉ bật trong `pointer: coarse` — tức là ngón tay, không phải chuột. Trên
- * desktop, ép mọi mục menu cao 44px sẽ làm sidebar tài liệu (hàng trăm mục)
- * dài ra vô ích; trên điện thoại thì đó đúng là ngưỡng tối thiểu của WCAG
- * 2.5.5, và cũng là ngưỡng Lighthouse chấm mục "Tap targets are sized
- * appropriately".
- *
- * Dùng `min-height` + `align-items: center` chứ không tăng `padding`: padding
- * làm chữ lệch khỏi đường chân của các mục bên cạnh khi một mục xuống hai dòng.
+ * `min-height` chứ không phải `padding`: padding làm chữ lệch đường chân khi
+ * một mục xuống hai dòng.
  */
 @media (pointer: coarse) {
   .navbar__item,
@@ -669,17 +567,14 @@ h2.blog-post-title {
     align-items: center;
   }
 
-  /* Nút/link chỉ chứa icon phải vuông, nếu không nó thành một dải dẹt. */
+  /* Link chỉ chứa icon phải vuông, không thì thành dải dẹt. */
   .header-github-link,
   .clean-btn {
     min-width: var(--site-tap-target);
     justify-content: center;
   }
 
-  /*
-   * Mục lục bên phải có thể xuống nhiều dòng; `min-height` là sàn chứ không
-   * phải chiều cao cố định, nên mục dài vẫn nở ra bình thường.
-   */
+  /* Mục lục có thể xuống nhiều dòng — `min-height` là sàn, không phải chiều cao. */
   .table-of-contents__link {
     align-items: flex-start;
     padding-block: var(--site-space-2);
@@ -687,32 +582,13 @@ h2.blog-post-title {
 }
 
 /*
- * Vòng focus thống nhất cho điều hướng bằng bàn phím — WCAG 2.4.7.
+ * Vòng focus bàn phím — WCAG 2.4.7. `outline` chứ không `box-shadow`:
+ * chế độ tương phản cao của Windows bỏ qua box-shadow.
  *
- * `:focus-visible` chứ không phải `:focus`: bấm chuột sẽ KHÔNG hiện vòng,
- * chỉ điều hướng bàn phím mới hiện. Nhờ vậy quy tắc này an toàn ở cấp toàn cục.
- *
- * `outline` chứ không phải `box-shadow`: ở chế độ tương phản cao của Windows,
- * box-shadow bị bỏ qua hoàn toàn còn outline thì không.
- *
- * ĐỪNG BỎ `:not(:disabled)` — nó không chỉ để cho đẹp.
- *
- * @docusaurus/theme-common có sẵn quy tắc dập tắt vòng focus:
- *
- *     body:not(.navigation-with-keyboard) *:not(input):focus { outline: 0 }
- *
- * Độ đặc hiệu của nó là (0,2,2), và trong stylesheet đã build nó nằm SAU
- * custom.css — nên một selector nhẹ hơn (kể cả `:where(...)` = (0,1,0)) sẽ
- * thua và vòng focus biến mất. Thêm `:not(:disabled)` nâng selector này lên
- * (0,3,0), vừa đủ thắng, mà vẫn là một điều kiện có nghĩa thật.
- *
- * Quy tắc của Docusaurus chỉ tắt vòng cho tới khi người dùng bấm Tab lần đầu
- * (lúc đó class `navigation-with-keyboard` mới được gắn vào body). Ở (0,3,0)
- * thì vòng hiện đúng theo `:focus-visible` ngay từ lần focus đầu tiên, kể cả
- * khi focus đến từ trình đọc màn hình chứ không từ phím Tab.
- *
- * Kiểm lại thứ tự nếu nâng cấp Docusaurus:
- *   grep -bo 'body:not(.navigation-with-keyboard)' build/assets/css/styles.*.css
+ * ĐỪNG BỎ `:not(:disabled)`. theme-common có
+ * `body:not(.navigation-with-keyboard) *:not(input):focus { outline: 0 }`
+ * ở độ đặc hiệu (0,2,2), nằm SAU custom.css trong stylesheet đã build.
+ * `:not(:disabled)` nâng selector này lên (0,3,0) để thắng.
  */
 :is(a, button, input, select, textarea, summary, [tabindex]):focus-visible:not(:disabled) {
   outline: 2px solid var(--ifm-color-primary);
@@ -721,37 +597,13 @@ h2.blog-post-title {
 }
 
 /*
- * KHÔNG thêm quy tắc chống tràn cho <table>, <pre> hay <img> ở đây.
+ * KHÔNG thêm quy tắc chống tràn cho <table>/<pre>/<img>. Infima đã lo, không
+ * điều kiện: `table { display: block }`, `pre,table { overflow: auto }`,
+ * `.markdown table { max-width: 100% }`, `img { max-width: 100% }`.
+ * Ép `display: table` ở desktop là gỡ mất đúng cơ chế cuộn ngang đó.
  *
- * Một bản trước của khối này có `.markdown table { display: block;
- * width: fit-content; overflow-x: auto }` kèm một quy tắc trả về
- * `display: table` từ 997px. Cả hai đều SAI, và quy tắc thứ hai còn gây lỗi:
- *
- * Infima đã lo sẵn việc này, không điều kiện:
- *     table            { display: block }
- *     pre, table       { overflow: auto }
- *     .markdown table  { max-width: 100% }
- *     img              { max-width: 100% }
- *
- * Tức là bảng vốn đã tự cuộn ngang trong khung của nó ở MỌI bề ngang màn
- * hình. Quy tắc `display: table` cho desktop gỡ mất đúng cơ chế đó, nên một
- * bảng nhiều cột sẽ chọc thủng cột nội dung trên màn rộng — đổi một thứ đang
- * chạy tốt lấy một lỗi mới.
- *
- * Kiểm lại trước khi thêm bất cứ thứ gì vào đây:
- *   grep -o '[^{}]*table[^{}]*{[^{}]*}' build/assets/css/styles.*.css
- *
- * Phần Infima KHÔNG lo, và chỉ phần đó, nằm ngay dưới.
- */
-
-/*
- * <iframe> và <video> nhúng (YouTube, CodeSandbox) không nằm trong quy tắc
- * `img { max-width: 100% }` của Infima, nên một khung nhúng khai width cứng
- * vẫn đẩy được cả trang lệch ngang trên điện thoại.
- *
- * `height: auto` cho <img> cũng là phần thêm: khi thẻ ảnh có sẵn thuộc tính
- * width/height (Docusaurus khuyến khích, để tránh nhảy bố cục), lúc bị thu
- * theo `max-width: 100%` mà chiều cao vẫn giữ nguyên thì ảnh bị bóp méo.
+ * Dưới đây chỉ là phần Infima KHÔNG lo: <iframe>/<video>, và `height: auto`
+ * cho <img> có sẵn thuộc tính width/height (không thì bị bóp méo).
  */
 .markdown iframe,
 .markdown video {
@@ -762,11 +614,7 @@ h2.blog-post-title {
   height: auto;
 }
 
-/*
- * Từ khoá kỹ thuật dài (tên class C#, chuỗi kết nối, URL) không xuống dòng
- * được và sẽ chọc thủng cột trên màn hẹp. `overflow-wrap` chỉ cắt khi KHÔNG
- * còn cách nào khác, nên chữ thường vẫn ngắt theo từ như bình thường.
- */
+/* Chuỗi kỹ thuật dài (tên class, URL) chọc thủng cột trên màn hẹp. */
 .markdown p,
 .markdown li,
 .markdown td,
@@ -779,17 +627,9 @@ h2.blog-post-title {
 }
 
 /*
- * CỐ Ý KHÔNG đặt `body { overflow-x: hidden }` làm lưới chặn cuối.
- *
- * Nó giấu triệu chứng chứ không sửa nguyên nhân: phần tử quá khổ vẫn còn đó,
- * chỉ là bị cắt mất phần thò ra, nên lỗi lặng lẽ hơn chứ không hết. Nặng hơn,
- * nó đổi phần tử cuộn của trang và làm hỏng `position: sticky` của thanh điều
- * hướng cùng mục lục bên phải ở một số trình duyệt.
- *
- * Các quy tắc ngay trên đã xử lý đúng ba nguồn gây tràn thật sự trên site này
- * (bảng, ảnh/iframe, chuỗi kỹ thuật dài). Nếu sau này vẫn thấy cuộn ngang,
- * hãy tìm phần tử thủ phạm bằng đoạn sau trong console, đừng thêm overflow:
- *
+ * CỐ Ý KHÔNG dùng `body { overflow-x: hidden }`: nó giấu triệu chứng và làm
+ * hỏng `position: sticky` của navbar/mục lục ở một số trình duyệt.
+ * Tìm thủ phạm trong console thay vì thêm overflow:
  *   [...document.querySelectorAll('*')]
  *     .filter(e => e.getBoundingClientRect().right > innerWidth + 1)
  */
@@ -806,12 +646,7 @@ h2.blog-post-title {
  * tiếp — phải bám vào cấu trúc và vào phần tiền tố còn đọc được của class.
  */
 @media print {
-  /*
-   * Bản in giữ thang 85% cũ (token riêng, không dùng chung với màn hình).
-   * Màn hình đã nâng lên 100% cho dễ đọc, nhưng in ở 100% thì mỗi PDF dài
-   * thêm khoảng một phần năm số trang mà không đọc dễ hơn — trên giấy khoảng
-   * cách mắt tới chữ gần hơn hẳn so với điện thoại cầm tay.
-   */
+  /* Bản in giữ thang 85%: in ở 100% chỉ làm PDF dài thêm ~1/5 số trang. */
   html {
     font-size: var(--site-print-font-scale) !important;
   }
