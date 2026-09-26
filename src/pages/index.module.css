@@ -159,9 +159,24 @@
   box-shadow: 0 1.5rem 3rem rgb(0 0 0 / 35%);
 }
 
+/*
+ * Cỡ chữ ở hero lấy từ thang token trong src/css/custom.css, không tự khai
+ * clamp riêng nữa.
+ *
+ * Bản trước là `clamp(2.4rem, 6vw, 3.4rem)`. Hai cận của clamp tính bằng
+ * `rem` nên chúng nở theo cỡ chữ gốc, mà cỡ chữ gốc vừa đổi 85% -> 100%:
+ * hero nhảy từ 32,6–46,2px lên 38,4–54,4px mà không ai chủ ý làm vậy.
+ * (Số hạng giữa `6vw` thì KHÔNG đổi — vw không phụ thuộc cỡ chữ gốc. Đó là
+ * lý do lỗi này chỉ lộ ra ở hai đầu, không lộ ở khoảng giữa.)
+ *
+ * Bậc `4xl` cho 32–44px, gần như đúng bằng kích thước cũ, và đây chính là
+ * bậc đã để dành sẵn cho chữ cỡ lớn ở hero — xem ghi chú ở khối map tiêu đề
+ * trong custom.css. Nhờ vậy hero lớn hơn h1 trong thân bài (24–30px) một
+ * cách có chủ đích chứ không phải do một con số rời rạc.
+ */
 .heroTitle {
   margin: 1rem 0 0;
-  font-size: clamp(2.4rem, 6vw, 3.4rem);
+  font-size: var(--site-font-size-4xl);
   font-weight: 900;
   line-height: 1.1;
   letter-spacing: -0.02em;
@@ -171,7 +186,11 @@
 .heroRole {
   margin: 0.35rem 0 0;
   font-family: 'Courier New', Courier, monospace;
-  font-size: 1.25rem;
+  /*
+   * Cùng lỗi với .heroTitle: `1.25rem` là 17px ở thang gốc 85% cũ, thành
+   * 20px ở thang 100%. Bậc `lg` (17–18px) trả về đúng cỡ cũ.
+   */
+  font-size: var(--site-font-size-lg);
   font-weight: 700;
   letter-spacing: 0.02em;
   color: hsl(var(--site-primary-hue-saturation) 68%);
@@ -180,7 +199,12 @@
 .heroPitch {
   margin: 1rem auto 0;
   max-width: 34rem;
-  font-size: 1rem;
+  /*
+   * CỐ Ý giữ nguyên cỡ thân bài. Dòng này từ 13,6px lên 16px — đó chính là
+   * phần cải thiện mong muốn của việc nâng cỡ chữ gốc, không phải lỗi như
+   * hai dòng trên.
+   */
+  font-size: var(--site-font-size-base);
   line-height: 1.65;
   color: rgb(255 255 255 / 74%);
 }
