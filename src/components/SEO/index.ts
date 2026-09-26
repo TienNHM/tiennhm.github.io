@@ -7,6 +7,7 @@
  * - Checklist: Tạo checklist có cấu trúc để AI dễ đọc
  * - ArticleStructuredData: Tự động tạo JSON-LD cho bài viết
  * - HowToStructuredData: Tạo JSON-LD cho hướng dẫn step-by-step
+ * - DefaultSocialMeta: og:type mặc định cho toàn site (trang blog tự ghi đè)
  */
 
 export { SummaryBox } from './SummaryBox';
@@ -26,6 +27,8 @@ export type { ArticleStructuredDataProps } from './ArticleStructuredData';
 
 export { HowToStructuredData } from './HowToStructuredData';
 export type { HowToStep, HowToStructuredDataProps } from './HowToStructuredData';
+
+export { DefaultSocialMeta } from './DefaultSocialMeta';
 
 export { ProfilePageStructuredData } from './ProfilePageStructuredData';
 export type { ProfilePageStructuredDataProps } from './ProfilePageStructuredData';

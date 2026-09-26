@@ -1,6 +1,7 @@
 import React from 'react';
 import Robots from "./Robots";
 import SiteStructuredData from "./SiteStructuredData";
+import { DefaultSocialMeta } from "../components/SEO/DefaultSocialMeta";
 
 // Xác thực đang TẮT.
 //
@@ -28,6 +29,12 @@ export default function Root({children}) {
     <>
         <Robots />
         <SiteStructuredData />
+        {/*
+          * PHẢI đứng trước {children}: helmet lấy khai báo xử lý sau cùng, nên
+          * trang blog mới ghi đè được og:type thành "article".
+          * Xem ghi chú trong src/components/SEO/DefaultSocialMeta.tsx.
+          */}
+        <DefaultSocialMeta />
         {children}
     </>
   );
