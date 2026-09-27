@@ -2,8 +2,8 @@ import type {QuizSet} from '@site/src/components/Quiz/types';
 
 const SOURCE = 'Cuối kỳ HĐH – SPKT';
 
-export const heThongFile: QuizSet = {
-  id: 'os-he-thong-file',
+export const fileSystem: QuizSet = {
+  id: 'os-file-system',
   title: 'Chương 12: Hệ thống file',
   description: 'FCB, các lớp chức năng của hệ thống file, volume control block, FAT32 và NTFS.',
   questions: [

@@ -2,8 +2,8 @@ import type {QuizSet} from '@site/src/components/Quiz/types';
 
 const SOURCE = 'Cuối kỳ HĐH – SPKT';
 
-export const diaIO: QuizSet = {
-  id: 'os-dia-io',
+export const diskIO: QuizSet = {
+  id: 'os-disk-io',
   title: 'Chương 11: Hệ thống I/O và lập lịch đĩa',
   description: 'Seek time, rotational latency và các thuật toán lập lịch đĩa FCFS, SSTF, SCAN, C-SCAN.',
   questions: [

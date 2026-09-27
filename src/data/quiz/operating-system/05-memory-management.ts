@@ -2,13 +2,13 @@ import type {QuizSet} from '@site/src/components/Quiz/types';
 
 const SOURCE = 'Cuối kỳ HĐH – SPKT';
 
-export const boNho: QuizSet = {
-  id: 'os-bo-nho',
+export const memoryManagement: QuizSet = {
+  id: 'os-memory-management',
   title: 'Chương 8: Quản lý bộ nhớ',
   description: 'Dịch địa chỉ động, MMU, cấp phát phân vùng, phân mảnh, phân đoạn, swap space và lỗi trang.',
   questions: [
     {
-      id: 'os-bn-01',
+      id: 'os-mm-01',
       topic: 'Dịch địa chỉ',
       source: SOURCE,
       question: '**Dịch địa chỉ động** (dynamic address translation)',
@@ -28,7 +28,7 @@ Các phương án sai:
 - **"một phần của thuật toán phân trang của HĐH"** — HĐH chỉ *thiết lập* bảng trang; việc dịch là của phần cứng.`,
     },
     {
-      id: 'os-bn-02',
+      id: 'os-mm-02',
       topic: 'MMU',
       source: SOURCE,
       question: 'Chức năng thích hợp nhất của **Bộ quản lý bộ nhớ (MMU)** là gì?',
@@ -49,7 +49,7 @@ Việc MMU làm trong một lần truy cập:
 Các phương án sai vì mô tả **phần mềm**: thuật toán cấp phát bộ nhớ và kỹ thuật phân vùng đều là việc của hệ điều hành. Còn **TLB** chỉ là một bộ đệm *bên trong* MMU, không phải định nghĩa của MMU.`,
     },
     {
-      id: 'os-bn-03',
+      id: 'os-mm-03',
       topic: 'Cấp phát bộ nhớ',
       source: SOURCE,
       question:
@@ -77,7 +77,7 @@ Còn lại **200 KB và 300 KB** không dùng được: 200 KB nhỏ hơn mọi 
 So sánh nhanh nếu dùng **First-fit**: 357 → 400, 210 → 600, 468 → 500, 491 → không còn chỗ nào đủ. Best-fit ở bài này xếp được cả bốn.`,
     },
     {
-      id: 'os-bn-04',
+      id: 'os-mm-04',
       topic: 'Bộ nhớ ảo',
       source: SOURCE,
       question: 'Vùng **swap space** trên đĩa được dùng để làm gì?',
@@ -100,7 +100,7 @@ Các phương án sai:
 Cảnh báo kinh điển: nếu hệ thống swap quá nhiều, thời gian chạy bị nuốt hết bởi việc nạp/đẩy trang — hiện tượng **thrashing**.`,
     },
     {
-      id: 'os-bn-05',
+      id: 'os-mm-05',
       topic: 'Bộ nhớ ảo',
       source: SOURCE,
       question: 'Tăng RAM của máy tính thường cải thiện hiệu năng vì:',
@@ -121,7 +121,7 @@ Các phương án sai:
 - **"ít segmentation fault"** — đó là lỗi lập trình truy cập vùng nhớ trái phép, thêm RAM không chữa được.`,
     },
     {
-      id: 'os-bn-06',
+      id: 'os-mm-06',
       topic: 'Bộ nhớ ảo',
       source: SOURCE,
       question:
@@ -143,7 +143,7 @@ Vì sao các phương án khác sai:
 Lưu ý thực tế: cái giá phải trả rất đắt — mất bảo vệ bộ nhớ giữa các tiến trình, mất khả năng chạy chương trình lớn hơn RAM, và tái sinh bài toán phân mảnh ngoài.`,
     },
     {
-      id: 'os-bn-07',
+      id: 'os-mm-07',
       topic: 'Phân mảnh',
       source: SOURCE,
       question: `Khẳng định nào sau đây là đúng?
@@ -163,7 +163,7 @@ Lưu ý thực tế: cái giá phải trả rất đắt — mất bảo vệ b�
 Đi thi chọn theo đáp án đề, nhưng đừng học thuộc rằng (a) sai — nó là định nghĩa chuẩn.`,
     },
     {
-      id: 'os-bn-08',
+      id: 'os-mm-08',
       topic: 'Phân đoạn',
       source: SOURCE,
       question:
@@ -193,7 +193,7 @@ ngược lại            →  địa chỉ vật lý = Base + offset
 Chính cơ chế kiểm tra Limit này mang lại **bảo vệ bộ nhớ**: tiến trình không thể đọc lem sang vùng nhớ của đoạn khác.`,
     },
     {
-      id: 'os-bn-09',
+      id: 'os-mm-09',
       topic: 'Cấp phát bộ nhớ',
       source: SOURCE,
       question:
@@ -210,7 +210,7 @@ Chính cơ chế kiểm tra Limit này mang lại **bảo vệ bộ nhớ**: ti�
 Nghịch lý đáng nhớ: **best-fit không phải chiến lược tốt nhất**. Nó phải duyệt hết danh sách và để lại những mẩu thừa rất nhỏ, vụn tới mức không tiến trình nào dùng được — phân mảnh ngoài nặng hơn. Trong thực nghiệm, **first-fit thường nhanh hơn và tận dụng bộ nhớ tương đương**.`,
     },
     {
-      id: 'os-bn-10',
+      id: 'os-mm-10',
       topic: 'Cache',
       source: SOURCE,
       question:
@@ -232,7 +232,7 @@ Ba phương án kia đều ngược:
 Đánh đổi kinh điển khi chọn kích thước khối: khối lớn khai thác cục bộ tốt và giảm số tag, nhưng tốn thời gian nạp và dễ kéo về dữ liệu thừa.`,
     },
     {
-      id: 'os-bn-11',
+      id: 'os-mm-11',
       topic: 'Kết buộc địa chỉ',
       source: SOURCE,
       question:
@@ -265,7 +265,7 @@ Execution time- tiến trình có thể bị dời trong lúc chạy → cần p
 Hệ quả của kết buộc tuyệt đối: muốn nạp chương trình vào **vị trí khác** trong bộ nhớ thì phải **biên dịch lại**. Đó là lý do hệ điều hành hiện đại dùng kết buộc lúc thực thi.`,
     },
     {
-      id: 'os-bn-12',
+      id: 'os-mm-12',
       topic: 'Phân vùng động',
       source: SOURCE,
       question:
@@ -296,7 +296,7 @@ Chú ý hai điểm dễ sai:
 - First-Fit chọn hole [3,8) chứ không phải hole nhỏ vừa vặn, vì nó lấy **hole đầu tiên đủ lớn**, không quan tâm lãng phí.`,
     },
     {
-      id: 'os-bn-13',
+      id: 'os-mm-13',
       topic: 'Phân vùng động',
       source: SOURCE,
       question:
@@ -324,7 +324,7 @@ Còn lại đúng hai vùng trống: **H(5,3)** và **H(10,5)**.
 Lưu ý cách đọc record: H(5,3) nghĩa là *bắt đầu ở ô 5, dài 3 đơn vị*, tức chiếm các ô 5, 6, 7 — không phải "từ ô 5 đến ô 3".`,
     },
     {
-      id: 'os-bn-14',
+      id: 'os-mm-14',
       topic: 'Phân vùng động',
       source: SOURCE,
       question:
@@ -354,7 +354,7 @@ Vậy record là **E(15, 2)**.
 Đáp án **E(3,2)** chính là cái bẫy: hole [3,5) đủ chỗ cho E thật, nhưng Next-Fit **không quay đầu lại** để nhìn nó. Đây vừa là ưu điểm (tìm nhanh hơn, phân bố đều hơn) vừa là nhược điểm (bỏ sót các hole nhỏ ở đầu bộ nhớ) của thuật toán này.`,
     },
     {
-      id: 'os-bn-15',
+      id: 'os-mm-15',
       topic: 'Phân vùng động',
       source: SOURCE,
       question:
@@ -384,7 +384,7 @@ So sánh ba thuật toán trên cùng dữ liệu để thấy khác biệt:
 Đáp án **D(3,3)** sai vì hole [3,5) chỉ có 2 đơn vị, không chứa nổi 3.`,
     },
     {
-      id: 'os-bn-16',
+      id: 'os-mm-16',
       topic: 'Phân vùng động',
       source: SOURCE,
       question:
@@ -412,7 +412,7 @@ Thực tế thì Worst-Fit hoạt động kém nhất trong bốn thuật toán:
 So sánh trên cùng dữ liệu: First-Fit → [9,12), Best-Fit → [3,5), Worst-Fit → [15,..).`,
     },
     {
-      id: 'os-bn-17',
+      id: 'os-mm-17',
       topic: 'Phân đoạn',
       source: SOURCE,
       question:
@@ -435,7 +435,7 @@ Khác biệt cốt lõi so với phân trang: các segment có **kích thước 
 Nếu offset ≥ kích thước, phần cứng sinh **trap** báo truy cập ngoài giới hạn. Chính phép kiểm tra này tạo ra bảo vệ bộ nhớ ở mức từng đoạn logic (code, data, stack có quyền khác nhau).`,
     },
     {
-      id: 'os-bn-18',
+      id: 'os-mm-18',
       topic: 'Phân đoạn',
       source: SOURCE,
       question:

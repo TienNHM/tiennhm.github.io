@@ -2,13 +2,13 @@ import type {QuizSet} from '@site/src/components/Quiz/types';
 
 const SOURCE = 'Cuối kỳ HĐH – SPKT';
 
-export const tienTrinhLapLich: QuizSet = {
-  id: 'os-tien-trinh-lap-lich',
+export const processScheduling: QuizSet = {
+  id: 'os-process-scheduling',
   title: 'Chương 3–5: Tiến trình, luồng và lập lịch CPU',
   description: 'fork(), PCB, trạng thái tiến trình, thread, IPC và các thuật toán lập lịch FCFS, SJF, SRTF, Round Robin, Priority.',
   questions: [
     {
-      id: 'os-ll-01',
+      id: 'os-ps-01',
       topic: 'fork()',
       source: SOURCE,
       question: 'Kết quả của chương trình sau là gì?',
@@ -30,7 +30,7 @@ Nên điều kiện \`fork() == 0\` chỉ đúng ở con: con tăng \`a\` thành
 Cả hai đều chạy tiếp \`printf\` nên màn hình in ra **cả 10 và 11**. Thứ tự do bộ lập lịch quyết định, không đảm bảo trước — đáp án của đề ghi theo thứ tự "10 và 11".`,
     },
     {
-      id: 'os-ll-02',
+      id: 'os-ps-02',
       topic: 'Tiêu chí lập lịch',
       source: SOURCE,
       question:
@@ -46,7 +46,7 @@ Lưu ý:
 - Nhược điểm: không biết trước burst kế tiếp (phải dự đoán bằng trung bình mũ) và gây **starvation** cho tiến trình dài.`,
     },
     {
-      id: 'os-ll-03',
+      id: 'os-ps-03',
       topic: 'SRTF',
       source: SOURCE,
       question:
@@ -79,7 +79,7 @@ Thời gian chờ = *hoàn thành − đến − burst*:
 Trung bình = (9 + 1 + 0 + 2) / 4 = **3**.`,
     },
     {
-      id: 'os-ll-04',
+      id: 'os-ps-04',
       topic: 'SJF',
       source: SOURCE,
       question:
@@ -111,7 +111,7 @@ Thời gian chờ = *bắt đầu chạy − đến*:
 Trung bình = 16 / 4 = **4**. So với SRTF ở câu trên (3), bản không trưng dụng luôn tệ hơn hoặc bằng.`,
     },
     {
-      id: 'os-ll-05',
+      id: 'os-ps-05',
       topic: 'Round Robin',
       source: SOURCE,
       question:
@@ -132,7 +132,7 @@ Hai thái cực của quantum:
 - quantum **rất nhỏ** → giống chia sẻ CPU đều (processor sharing), nhưng chi phí **context switch** nuốt hết hiệu năng.`,
     },
     {
-      id: 'os-ll-06',
+      id: 'os-ps-06',
       topic: 'Priority',
       source: SOURCE,
       question:
@@ -163,7 +163,7 @@ Thời gian chờ của P1 = *hoàn thành − đến − burst* = 49 − 0 − 
 Mẹo kiểm tra nhanh: P1 bị chen 2 lần, tổng thời gian bị chiếm chỗ là (5−2) + (33−5) + (40−33) = 38.`,
     },
     {
-      id: 'os-ll-07',
+      id: 'os-ps-07',
       topic: 'SRTF',
       source: SOURCE,
       question:
@@ -198,7 +198,7 @@ Tổng = 8 → trung bình = **2 ms**, khớp đề. Vậy **x = 2**.
 Thử nhanh các đáp án khác: x càng lớn thì P3 càng bị đẩy lùi, trung bình vượt 2; x = 1 cho tổng nhỏ hơn 8.`,
     },
     {
-      id: 'os-ll-08',
+      id: 'os-ps-08',
       topic: 'Tiêu chí lập lịch',
       source: SOURCE,
       question:
@@ -217,7 +217,7 @@ Thử nhanh các đáp án khác: x càng lớn thì P3 càng bị đẩy lùi, 
 CPU nhàn rỗi là tài nguyên bị phí, nên *minimum CPU utilization* đi ngược mục tiêu — đây là đáp án.`,
     },
     {
-      id: 'os-ll-09',
+      id: 'os-ps-09',
       topic: 'SRTF',
       source: SOURCE,
       question:
@@ -245,7 +245,7 @@ Thời gian chờ P2 = 55 − 15 − 25 = **15**.
 Cách nhìn khác: P2 nằm trong hệ thống 40 ms (15 → 55) nhưng chỉ chiếm CPU 25 ms, phần còn lại là chờ.`,
     },
     {
-      id: 'os-ll-10',
+      id: 'os-ps-10',
       topic: 'SRTF',
       source: SOURCE,
       question:
@@ -278,7 +278,7 @@ Trung bình = 22 / 4 = **5.5**.
 Đừng nhầm với thời gian chờ: waiting = turnaround − burst, ở đây trung bình là (7 + 0 + 3 + 0)/4 = 2.5.`,
     },
     {
-      id: 'os-ll-11',
+      id: 'os-ps-11',
       topic: 'Throughput',
       source: SOURCE,
       question:
@@ -293,7 +293,7 @@ Lý do sâu hơn: SJF tối thiểu hoá tổng turnaround time, mà tổng turn
 - **FCFS** gặp hiệu ứng convoy: một job dài ở đầu chặn cả hàng.`,
     },
     {
-      id: 'os-ll-12',
+      id: 'os-ps-12',
       topic: 'Trạng thái tiến trình',
       source: SOURCE,
       question:
@@ -317,7 +317,7 @@ Một tiến trình đang chạy chỉ rời CPU theo ba đường:
 Hệ **đơn lập trình** thì càng không, vì chỉ có một tiến trình trong bộ nhớ nên không cần trạng thái READY.`,
     },
     {
-      id: 'os-ll-13',
+      id: 'os-ps-13',
       topic: 'Thread',
       source: SOURCE,
       question: `Điều nào sau đây **không** được chia sẻ bởi tất cả các thread trong một tiến trình?
@@ -341,7 +341,7 @@ Phần **dùng chung** của cả tiến trình:
 Chính vì address space dùng chung mà thread giao tiếp rẻ hơn tiến trình — và cũng chính vì thế mà sinh ra race condition, phải đồng bộ.`,
     },
     {
-      id: 'os-ll-14',
+      id: 'os-ps-14',
       topic: 'SJF',
       source: SOURCE,
       question:
@@ -361,7 +361,7 @@ Thử thứ tự giảm dần 18, 12, 9, 5 để thấy khác biệt: chờ 0, 1
 Lý do toán học: tiến trình chạy **thứ k** đóng góp thời gian của nó vào phần chờ của (n − k) tiến trình phía sau. Muốn tổng nhỏ nhất thì số lớn phải nhân với hệ số nhỏ nhất, tức là xếp sau cùng.`,
     },
     {
-      id: 'os-ll-15',
+      id: 'os-ps-15',
       topic: 'Thread',
       source: SOURCE,
       question: 'Điều nào sau đây **không** được chia sẻ bởi các thread của cùng một tiến trình?',
@@ -377,7 +377,7 @@ Ba thứ còn lại đều thuộc về **tiến trình**, mọi thread dùng ch
 Nhớ gọn: **riêng** = ngăn xếp + thanh ghi + PC + thread ID; **chung** = mọi thứ còn lại.`,
     },
     {
-      id: 'os-ll-16',
+      id: 'os-ps-16',
       topic: 'Starvation',
       source: SOURCE,
       question:
@@ -401,7 +401,7 @@ Hai thuật toán an toàn:
 Thuốc chữa chung cho cả hai: **aging** — tăng dần độ ưu tiên theo thời gian chờ.`,
     },
     {
-      id: 'os-ll-17',
+      id: 'os-ps-17',
       topic: 'Tiêu chí lập lịch',
       source: SOURCE,
       question: 'Khái niệm nào mô tả **tổng thời gian để thực hiện xong một tiến trình cụ thể**?',
@@ -420,7 +420,7 @@ Throughput      = số tiến trình xong / đơn vị thời gian
 **Response time** mới là thứ quan trọng với hệ tương tác: người dùng quan tâm bao lâu thì thấy phản hồi, không quan tâm khi nào chạy xong hẳn.`,
     },
     {
-      id: 'os-ll-18',
+      id: 'os-ps-18',
       topic: 'Tiêu chí lập lịch',
       source: SOURCE,
       question: 'Phát biểu nào **đúng** về tiêu chí tối ưu của thuật toán lập lịch?',
@@ -447,7 +447,7 @@ Vì sao các phương án khác sai:
 Mẹo nhớ: hai đại lượng đo **công suất hệ thống** thì tối đa, ba đại lượng đo **thời gian chờ đợi** thì tối thiểu.`,
     },
     {
-      id: 'os-ll-19',
+      id: 'os-ps-19',
       topic: 'Multilevel Queue',
       source: SOURCE,
       question:
@@ -473,7 +473,7 @@ Lý do **real time** đứng đầu: trễ deadline với hệ thống thời gi
 Đặc điểm của multilevel queue: mỗi hàng đợi có **thuật toán lập lịch riêng** (hàng tương tác dùng RR, hàng batch dùng FCFS), và tiến trình **không chuyển giữa các hàng** — muốn chuyển thì phải dùng biến thể **multilevel feedback queue**.`,
     },
     {
-      id: 'os-ll-20',
+      id: 'os-ps-20',
       topic: 'Lập lịch CPU',
       source: SOURCE,
       question:
@@ -499,7 +499,7 @@ Trường hợp **1** và **4** bắt buộc vì tiến trình đang chạy đã
 Trường hợp **2** và **3** chỉ xảy ra khi hệ thống cho phép **trưng dụng**: tiến trình đang chạy vẫn chạy được nhưng bị tước CPU. Lập lịch **non-preemptive** chỉ dùng đúng hai trường hợp bắt buộc.`,
     },
     {
-      id: 'os-ll-21',
+      id: 'os-ps-21',
       topic: 'Lập lịch CPU',
       source: SOURCE,
       question: 'Thuật toán lập lịch nào sau đây là **preemptive**?',
@@ -514,7 +514,7 @@ Ba thuật toán còn lại:
 Vì đề hỏi thuật toán nào *là* preemptive mà không nói thêm, chỉ **Round robin** là đúng trong mọi trường hợp.`,
     },
     {
-      id: 'os-ll-22',
+      id: 'os-ps-22',
       topic: 'SJF',
       source: SOURCE,
       question: `Cho hai phát biểu về **Shortest-Job-First (SJF)**:
@@ -535,7 +535,7 @@ Vì cả hai đều đúng, phát biểu sai chính là câu phủ nhận cả h
 Đây là dạng câu hỏi bẫy bằng **hai lớp phủ định**. Cách làm an toàn: xác định đúng/sai của từng mệnh đề S1, S2 trước, rồi mới đối chiếu với từng phương án — đừng đọc phương án trước.`,
     },
     {
-      id: 'os-ll-23',
+      id: 'os-ps-23',
       topic: 'SRTF',
       source: SOURCE,
       question:
@@ -565,7 +565,7 @@ Trung bình = (4 + 0 + 11) / 3 = **5 ms**.
 P2 chịu thiệt nặng nhất (chờ 11 ms) dù chỉ đến sau P0 hai đơn vị — đây chính là mặt trái của SJF: tiến trình dài luôn bị đẩy xuống cuối.`,
     },
     {
-      id: 'os-ll-24',
+      id: 'os-ps-24',
       topic: 'Tiến trình',
       source: SOURCE,
       question: 'Mỗi tiến trình trong hệ điều hành đều có _____ của riêng nó.',
@@ -584,7 +584,7 @@ P2 chịu thiệt nặng nhất (chờ 11 ms) dù chỉ đến sau P0 hai đơn 
 Đối chiếu với **thread**: các thread trong cùng tiến trình **dùng chung** đúng ba thứ trên, chỉ giữ riêng ngăn xếp, thanh ghi và program counter. Đó là lý do thread nhẹ hơn nhưng nguy hiểm hơn.`,
     },
     {
-      id: 'os-ll-25',
+      id: 'os-ps-25',
       topic: 'Tiến trình',
       source: SOURCE,
       question: 'Một tiến trình có thể bị kết thúc vì lý do nào?',
@@ -608,7 +608,7 @@ P2 chịu thiệt nặng nhất (chờ 11 ms) dù chỉ đến sau P0 hai đơn 
 Phương án **"waiting another process"** sai hoàn toàn: chờ là trạng thái **waiting**, tiến trình vẫn sống nguyên.`,
     },
     {
-      id: 'os-ll-26',
+      id: 'os-ps-26',
       topic: 'Trạng thái tiến trình',
       source: SOURCE,
       question: 'Tiến trình ở trạng thái **ready** nghĩa là gì?',
@@ -628,7 +628,7 @@ Phương án **"waiting another process"** sai hoàn toàn: chờ là trạng th
 Điểm mấu chốt để phân biệt: tiến trình **ready** thiếu **CPU**, tiến trình **waiting** thiếu **sự kiện hoặc tài nguyên**. Cho CPU cho tiến trình waiting cũng vô ích vì nó vẫn không chạy được.`,
     },
     {
-      id: 'os-ll-27',
+      id: 'os-ps-27',
       topic: 'IPC',
       source: SOURCE,
       question: '**Interprocess communication** là gì?',
@@ -648,7 +648,7 @@ Vì sao không phải các phương án kia:
 Cơ chế IPC thường gặp: **pipe**, **message queue**, **shared memory**, **socket**, **signal**.`,
     },
     {
-      id: 'os-ll-28',
+      id: 'os-ps-28',
       topic: 'fork()',
       source: SOURCE,
       question: 'Tiến trình chạy đoạn mã dưới đây. **Tổng số tiến trình con** được tạo ra là bao nhiêu?',
@@ -671,7 +671,7 @@ Kiểm chứng với n = 2: tổng 4 tiến trình, trừ cha gốc còn **3 con
 Đọc kỹ đề để khỏi sai: hỏi **số tiến trình con** thì trả lời 2^n − 1, hỏi **tổng số tiến trình** thì là 2^n.`,
     },
     {
-      id: 'os-ll-29',
+      id: 'os-ps-29',
       topic: 'fork()',
       source: SOURCE,
       question: `Xét đoạn mã dưới đây. Gọi **u, v** là hai giá trị do tiến trình **cha** in ra, **x, y** là hai giá trị do tiến trình **con** in ra. Phát biểu nào **đúng**?`,
@@ -701,7 +701,7 @@ u = a - 5
 Điểm bẫy nằm ở đây: hai địa chỉ ảo bằng nhau nhưng **địa chỉ vật lý lại khác nhau** — cơ chế copy-on-write cấp cho con một khung trang riêng ngay khi nó ghi vào \`a\`. Chương trình chỉ nhìn thấy địa chỉ ảo nên in ra giá trị giống nhau.`,
     },
     {
-      id: 'os-ll-30',
+      id: 'os-ps-30',
       topic: 'Tiến trình',
       source: SOURCE,
       question: 'Ngăn xếp (stack) của một tiến trình **không** chứa thứ nào sau đây?',
@@ -720,7 +720,7 @@ Text   - mã lệnh chương trình
 \`\`\``,
     },
     {
-      id: 'os-ll-31',
+      id: 'os-ps-31',
       topic: 'System call',
       source: SOURCE,
       question:
@@ -740,7 +740,7 @@ exit()  - tiến trình tự kết thúc
 Vì sao \`wait()\` là bắt buộc chứ không phải tuỳ chọn: nếu cha không gọi \`wait()\`, mục PCB của con đã chết vẫn nằm lại trong bảng tiến trình để giữ mã thoát — đó là **tiến trình zombie**. Nhiều zombie sẽ làm đầy bảng tiến trình của hệ thống.`,
     },
     {
-      id: 'os-ll-32',
+      id: 'os-ps-32',
       topic: 'PCB',
       source: SOURCE,
       question:
@@ -756,7 +756,7 @@ Phân biệt với các phương án khác:
 - **Process stack** giữ **địa chỉ trả về** của các lời gọi hàm — là nơi *quay về sau khi hàm kết thúc*, khác với lệnh kế tiếp ngay bây giờ.`,
     },
     {
-      id: 'os-ll-33',
+      id: 'os-ps-33',
       topic: 'Hàng đợi',
       source: SOURCE,
       question: 'Trong các hàng đợi của tiến trình, cái nào **không tồn tại**?',
@@ -774,7 +774,7 @@ Device queue  - tiến trình đang chờ một thiết bị I/O cụ thể (m�
 Tiến trình di chuyển giữa các hàng: ready → (được cấp CPU) running → xin I/O → device queue → I/O xong → quay lại ready.`,
     },
     {
-      id: 'os-ll-34',
+      id: 'os-ps-34',
       topic: 'Hàng đợi',
       source: SOURCE,
       question: 'Khi tiến trình phát ra một **yêu cầu I/O** thì điều gì xảy ra?',
@@ -798,7 +798,7 @@ running → phát yêu cầu I/O → vào device queue, trạng thái waiting
 Lưu ý tiến trình **không** quay thẳng về running sau khi I/O xong: nó phải xếp hàng lại ở ready queue như mọi tiến trình khác.`,
     },
     {
-      id: 'os-ll-35',
+      id: 'os-ps-35',
       topic: 'PCB',
       source: SOURCE,
       question: 'Process Control Block (PCB) chứa thứ nào sau đây?',
@@ -824,7 +824,7 @@ Code và data nằm trong **không gian địa chỉ** của tiến trình (vùn
 Đi thi chọn theo đề, nhưng khi bị hỏi "PCB **không** chứa gì" thì nhớ rằng câu trả lời kinh điển là **bootstrap program**.`,
     },
     {
-      id: 'os-ll-36',
+      id: 'os-ps-36',
       topic: 'Trạng thái tiến trình',
       source: SOURCE,
       question: 'Điều gì **định nghĩa trạng thái** của một tiến trình?',
@@ -842,7 +842,7 @@ Trạng thái mô tả tiến trình **đang làm gì ngay lúc này** — đang
 Năm trạng thái: **new → ready ⇄ running → terminated**, cộng nhánh **running → waiting → ready**.`,
     },
     {
-      id: 'os-ll-37',
+      id: 'os-ps-37',
       topic: 'Trạng thái tiến trình',
       source: SOURCE,
       question: 'Cặp nào sau đây **đều là trạng thái** của một tiến trình?',
@@ -855,7 +855,7 @@ Chỉ cặp **new and running** có cả hai phần tử đều là trạng thá
 Đây là kiểu câu hỏi kiểm tra thuật ngữ: chỉ cần nhớ đúng năm cái tên là loại được ngay ba phương án.`,
     },
     {
-      id: 'os-ll-38',
+      id: 'os-ps-38',
       topic: 'IPC',
       source: SOURCE,
       question: 'Hai mô hình giao tiếp giữa các tiến trình (IPC) là gì?',
@@ -877,7 +877,7 @@ Chỉ cặp **new and running** có cả hai phần tử đều là trạng thá
 - Hoạt động được cả khi hai tiến trình nằm trên **hai máy khác nhau** — đây là nền của socket và hệ phân tán.`,
     },
     {
-      id: 'os-ll-39',
+      id: 'os-ps-39',
       topic: 'Trạng thái tiến trình',
       source: SOURCE,
       question:
@@ -899,7 +899,7 @@ Hai phương án nhiễu đều là câu trả lời của **chuyển trạng th
 Lưu ý tiến trình **không** nhảy thẳng từ waiting sang running — I/O xong thì vẫn phải xếp hàng chờ CPU như mọi tiến trình khác.`,
     },
     {
-      id: 'os-ll-40',
+      id: 'os-ps-40',
       topic: 'IPC',
       source: SOURCE,
       question:
@@ -920,7 +920,7 @@ Logic (logical)   : direct hay indirect, đồng bộ hay bất đồng bộ,
 Đây chính là câu hỏi phân biệt *cách tổ chức giao tiếp* (logic) với *phương tiện truyền* (vật lý).`,
     },
     {
-      id: 'os-ll-41',
+      id: 'os-ps-41',
       topic: 'fork()',
       source: SOURCE,
       question: 'Đầu ra tại **LINE A** của chương trình dưới đây là gì?',
@@ -952,7 +952,7 @@ Lý do: \`fork()\` tạo cho con một **bản sao độc lập** của toàn b�
 Đây là khác biệt cốt lõi giữa **tiến trình** và **luồng**: nếu \`value += 15\` chạy trong một thread của cùng tiến trình thì kết quả in ra sẽ là **20**, vì thread dùng chung vùng dữ liệu.`,
     },
     {
-      id: 'os-ll-42',
+      id: 'os-ps-42',
       topic: 'fork()',
       source: SOURCE,
       question:
@@ -996,7 +996,7 @@ D (cha):  pid1 = getpid() của cha            = 2600
 Điểm dễ nhầm nhất là **C**: nhiều người tưởng cha in ra PID của chính mình (2600), nhưng \`pid\` ở đây là **giá trị trả về của fork()**, tức PID của đứa con. Đây cũng chính là cách cha biết con mình là ai để sau này gọi \`wait()\` hay \`kill()\`.`,
     },
     {
-      id: 'os-ll-43',
+      id: 'os-ps-43',
       topic: 'Thread',
       source: SOURCE,
       question:
@@ -1024,7 +1024,7 @@ Quy tắc suy luận nhanh: thứ gì cần cho **luồng thực thi độc lậ
 Chính vì heap và biến toàn cục dùng chung mà đa luồng vừa mạnh vừa nguy hiểm: trao đổi dữ liệu miễn phí, nhưng phải tự bảo vệ bằng mutex nếu không muốn dính race condition.`,
     },
     {
-      id: 'os-ll-44',
+      id: 'os-ps-44',
       topic: 'fork()',
       source: SOURCE,
       question:
@@ -1063,7 +1063,7 @@ Hai chỗ dễ sai:
 Đáp án: **6 tiến trình và 2 luồng**.`,
     },
     {
-      id: 'os-ll-45',
+      id: 'os-ps-45',
       topic: 'Trạng thái tiến trình',
       source: SOURCE,
       question: 'Tiến trình có bao nhiêu trạng thái?',
@@ -1082,7 +1082,7 @@ Terminated  - đã kết thúc
 Một số tài liệu mở rộng thành 7 trạng thái khi tính thêm **suspended-ready** và **suspended-waiting** (tiến trình bị swap ra đĩa), nhưng mô hình chuẩn của môn học là **5**.`,
     },
     {
-      id: 'os-ll-46',
+      id: 'os-ps-46',
       topic: 'Trạng thái tiến trình',
       source: SOURCE,
       question:
@@ -1101,7 +1101,7 @@ Tiến trình ở **ready** nghĩa là đã có đủ mọi thứ, chỉ thiếu
 Chú ý **New → Running là không hợp lệ**: tiến trình mới tạo bắt buộc phải qua trạng thái **ready** và xếp hàng như mọi tiến trình khác, không có đường tắt.`,
     },
     {
-      id: 'os-ll-47',
+      id: 'os-ps-47',
       topic: 'Trạng thái tiến trình',
       source: SOURCE,
       question:
@@ -1120,7 +1120,7 @@ Running → Ready      : bị trưng dụng (hết quantum, có tiến trình ư
 Nhìn tổng thể, đồ thị trạng thái chỉ có **một mũi tên đi ra từ New** (sang Ready) và **không mũi tên nào đi vào New**.`,
     },
     {
-      id: 'os-ll-48',
+      id: 'os-ps-48',
       topic: 'Trạng thái tiến trình',
       source: SOURCE,
       question:
@@ -1134,7 +1134,7 @@ Nhìn tổng thể, đồ thị trạng thái chỉ có **một mũi tên đi ra
 Đừng nhầm với **Waiting**: tiến trình vào waiting khi **thiếu một thứ gì đó** (dữ liệu I/O, tín hiệu) nên cấp CPU cũng vô ích. Còn tiến trình hết quantum thì **không thiếu gì cả**, chỉ cần tới lượt là chạy ngay.`,
     },
     {
-      id: 'os-ll-49',
+      id: 'os-ps-49',
       topic: 'FCFS',
       source: SOURCE,
       question:
@@ -1165,7 +1165,7 @@ Trung bình = (0 + 8 + 12 + 18)/4 = **9.5**.
 Để thấy FCFS dở thế nào: nếu xếp theo SJF (P4, P2, P3, P1) thì thời gian chờ trung bình chỉ còn (0+2+6+12)/4 = **5**.`,
     },
     {
-      id: 'os-ll-50',
+      id: 'os-ps-50',
       topic: 'SJF',
       source: SOURCE,
       question:
@@ -1198,7 +1198,7 @@ P4 = 12 - 9 = 3
 Chỗ dễ sai nhất là bước t=8: phải kiểm tra **tiến trình nào đã thật sự đến**, không được chọn P4 chỉ vì nó ngắn nhất trong bảng.`,
     },
     {
-      id: 'os-ll-51',
+      id: 'os-ps-51',
       topic: 'SRTF',
       source: SOURCE,
       question: 'Tính **thời gian chờ** của P1, P2, P3, P4 khi dùng **SJF preemptive (SRTF)**.',
@@ -1230,7 +1230,7 @@ P4 = 11 - 9 - 2 = 0
 Trung bình 3.75, tốt hơn SJF không trưng dụng (4.25) ở câu trên — đúng như lý thuyết.`,
     },
     {
-      id: 'os-ll-52',
+      id: 'os-ps-52',
       topic: 'Round Robin',
       source: SOURCE,
       question:
@@ -1262,7 +1262,7 @@ P4 = 11 - 2 = 9
 Nhận xét: trung bình 11, **tệ hơn FCFS** (9.5) ở cùng bộ dữ liệu. Round Robin không nhằm tối ưu thời gian chờ mà nhằm **giảm response time** — mọi tiến trình đều được chạy trong 11 đơn vị đầu tiên thay vì phải xếp hàng chờ tới lượt.`,
     },
     {
-      id: 'os-ll-53',
+      id: 'os-ps-53',
       topic: 'Multilevel Feedback Queue',
       source: SOURCE,
       question:
@@ -1289,7 +1289,7 @@ Thời gian chờ = *hoàn thành − burst*: P1 = 12, P2 = 10, P3 = 14, P4 = 6.
 **Lưu ý:** bộ số này **không trùng phương án nào** của đề, trong khi đáp án đề là **6; 14; 14; 6**. Nhiều khả năng đề dùng quy ước khác (thứ tự nạp hàng đợi hoặc cách tính thời gian chờ khác). Đi thi cứ chọn theo đáp án đề, nhưng hãy nắm chắc **cách dựng sơ đồ ở trên** — đó mới là thứ áp dụng được cho mọi bài Multilevel Feedback Queue khác.`,
     },
     {
-      id: 'os-ll-54',
+      id: 'os-ps-54',
       topic: 'fork()',
       source: SOURCE,
       question:

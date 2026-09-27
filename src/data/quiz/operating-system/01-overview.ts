@@ -2,13 +2,13 @@ import type {QuizSet} from '@site/src/components/Quiz/types';
 
 const SOURCE = 'Cuối kỳ HĐH – SPKT';
 
-export const tongQuan: QuizSet = {
-  id: 'os-tong-quan',
+export const overview: QuizSet = {
+  id: 'os-overview',
   title: 'Chương 1–2: Tổng quan hệ điều hành',
   description: 'Chức năng của HĐH, system call, ngắt, IPC và phân loại hệ thống.',
   questions: [
     {
-      id: 'os-tq-01',
+      id: 'os-ov-01',
       topic: 'Chức năng HĐH',
       source: SOURCE,
       question: 'Hệ điều hành **không** quản lý điều nào sau đây?',
@@ -19,7 +19,7 @@ export const tongQuan: QuizSet = {
 **data** — nội dung và ý nghĩa của dữ liệu — là việc của ứng dụng và người dùng. HĐH chỉ quản lý *vật chứa* dữ liệu (file, block trên đĩa), không hiểu bên trong file là bảng lương hay ảnh.`,
     },
     {
-      id: 'os-tq-02',
+      id: 'os-ov-02',
       topic: 'Quản lý tiến trình',
       source: SOURCE,
       question: 'Hoạt động nào **không** được sử dụng trong việc quản lý tiến trình của OS?',
@@ -30,7 +30,7 @@ export const tongQuan: QuizSet = {
 **input data** — nhập xuất dữ liệu — thuộc phần *quản lý thiết bị I/O*, không phải quản lý tiến trình.`,
     },
     {
-      id: 'os-tq-03',
+      id: 'os-ov-03',
       topic: 'System call',
       source: SOURCE,
       question: 'Người dùng tiếp cận những dịch vụ của hệ điều hành thông qua điều gì?',
@@ -41,7 +41,7 @@ export const tongQuan: QuizSet = {
 Ví dụ: \`fork()\`, \`read()\`, \`write()\`, \`exec()\` đều là system call. Thư viện như libc chỉ là lớp bọc gọi xuống chúng.`,
     },
     {
-      id: 'os-tq-04',
+      id: 'os-ov-04',
       topic: 'Ngắt',
       source: SOURCE,
       question: 'Cơ chế phần cứng cho phép một thiết bị thông báo cho CPU được gọi là _____',
@@ -54,7 +54,7 @@ Phân biệt:
 - **system call**: phần mềm gọi dịch vụ kernel, xuất phát từ chương trình chứ không từ thiết bị.`,
     },
     {
-      id: 'os-tq-05',
+      id: 'os-ov-05',
       topic: 'IPC',
       source: SOURCE,
       question: 'Giao tiếp giữa các quá trình có thể được thực hiện thông qua _____',
@@ -66,7 +66,7 @@ Phân biệt:
 - **trap** là ngắt mềm do lỗi hoặc lệnh đặc biệt sinh ra.`,
     },
     {
-      id: 'os-tq-06',
+      id: 'os-ov-06',
       topic: 'Phân loại hệ thống',
       source: SOURCE,
       question: 'Hệ điều hành thuộc dạng nào sẽ đọc và phản hồi ngay các yêu cầu?',
@@ -79,7 +79,7 @@ Phân biệt:
 - *Quick response time* chỉ là một đặc tính, không phải loại hệ điều hành.`,
     },
     {
-      id: 'os-tq-07',
+      id: 'os-ov-07',
       topic: 'Chuyển ngữ cảnh',
       source: SOURCE,
       question:
@@ -98,7 +98,7 @@ Phân biệt:
 Mỗi context switch đều chứa ít nhất một mode switch bên trong, nên t2 > t1 là hiển nhiên.`,
     },
     {
-      id: 'os-tq-08',
+      id: 'os-ov-08',
       topic: 'Phân loại hệ thống',
       source: SOURCE,
       question: 'Hệ thống chỉ cho phép **một tiến trình thực thi tại một thời điểm** được gọi là gì?',
@@ -116,7 +116,7 @@ Mỗi context switch đều chứa ít nhất một mode switch bên trong, nên
 Hai thuật ngữ này bị dùng lẫn lộn trong nhiều tài liệu. Đi thi chọn theo đáp án đề, nhưng khi phân tích hệ thống thì nhớ: **uni/multi-programming** nói về *số tiến trình*, **uni/multi-processing** nói về *số CPU*.`,
     },
     {
-      id: 'os-tq-09',
+      id: 'os-ov-09',
       topic: 'Đa chương',
       source: SOURCE,
       question: '**Số lượng tiến trình trong bộ nhớ** phản ánh khái niệm nào?',
@@ -135,7 +135,7 @@ MultiThreading    - nhiều LUỒNG bên trong một tiến trình
 Con số này quan trọng vì nó nằm ở tâm của bài toán thrashing: tăng độ đa chương thì CPU bận hơn, nhưng tăng quá thì mỗi tiến trình thiếu khung trang và hệ thống sập hiệu năng.`,
     },
     {
-      id: 'os-tq-10',
+      id: 'os-ov-10',
       topic: 'Luồng',
       source: SOURCE,
       question:
@@ -152,7 +152,7 @@ Vì sao thread là câu trả lời chứ không phải process:
 Cái giá: vì dùng chung bộ nhớ nên sinh **race condition**, phải tự lo đồng bộ bằng mutex/semaphore.`,
     },
     {
-      id: 'os-tq-11',
+      id: 'os-ov-11',
       topic: 'Đa chương',
       source: SOURCE,
       question: 'Khái niệm nào có mục tiêu là **tăng mức độ sử dụng CPU (CPU utilization)**?',
@@ -167,7 +167,7 @@ Cách giải: giữ **nhiều tiến trình trong bộ nhớ** cùng lúc; ai ch
 Phân biệt với **MultiTasking**: đó là multiprogramming cộng thêm chia lát thời gian, mục tiêu là **giảm response time** cho người dùng tương tác chứ không chỉ để CPU bận.`,
     },
     {
-      id: 'os-tq-12',
+      id: 'os-ov-12',
       topic: 'Chức năng HĐH',
       source: SOURCE,
       question: 'Chọn phương án **sai** khi nói về chức năng của Hệ điều hành.',
@@ -185,7 +185,7 @@ Hệ điều hành **cung cấp môi trường** để chạy các công cụ đ
 Các chức năng chính của HĐH: quản lý tiến trình, quản lý bộ nhớ chính, quản lý file, quản lý thiết bị I/O, quản lý bộ nhớ phụ, bảo vệ và bảo mật, thực thi chương trình.`,
     },
     {
-      id: 'os-tq-13',
+      id: 'os-ov-13',
       topic: 'Thành phần HĐH',
       source: SOURCE,
       question: 'Thành phần nào sau đây **không thuộc** Hệ điều hành?',
@@ -203,7 +203,7 @@ Thứ tự khởi động cho thấy rõ ranh giới: BIOS chạy **trước**, 
 Ba phương án còn lại đều là thành phần chuẩn của HĐH, trong đó **command-interpreter** (shell, \`cmd\`, \`bash\`) là lớp vỏ nhận lệnh từ người dùng và chuyển cho kernel.`,
     },
     {
-      id: 'os-tq-14',
+      id: 'os-ov-14',
       topic: 'Dịch vụ HĐH',
       source: SOURCE,
       question: '_____ là **dịch vụ** của Hệ điều hành.',
@@ -225,7 +225,7 @@ Phản ứng thường thấy là sinh **trap**, kết thúc tiến trình và g
 Vì sao ba phương án kia sai: **dịch chương trình** là việc của trình biên dịch, **sửa lỗi chương trình** là việc của lập trình viên, **cài đặt chương trình** là việc của trình cài đặt — HĐH chỉ cung cấp môi trường cho chúng chạy.`,
     },
     {
-      id: 'os-tq-15',
+      id: 'os-ov-15',
       topic: 'Giao diện',
       source: SOURCE,
       question: 'Thao tác của **Command Line Interface (CLI)** là gì?',
@@ -245,7 +245,7 @@ Phím ENTER là phần không thể thiếu: chừng nào chưa nhấn, dòng l�
 Ví dụ quen thuộc: \`copy file1.txt file2.txt\` gồm lệnh \`copy\` và hai tham số.`,
     },
     {
-      id: 'os-tq-16',
+      id: 'os-ov-16',
       topic: 'MS-DOS',
       source: SOURCE,
       question: 'Thành phần nào sau đây thuộc hệ điều hành **MS-DOS**?',
@@ -271,7 +271,7 @@ Vì sao loại các phương án khác:
 - **PowerShell** là shell hiện đại của Windows, ra đời năm 2006, không liên quan MS-DOS.`,
     },
     {
-      id: 'os-tq-17',
+      id: 'os-ov-17',
       topic: 'Chế độ xử lý',
       source: SOURCE,
       question:

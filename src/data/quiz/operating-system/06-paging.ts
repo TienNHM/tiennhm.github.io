@@ -2,13 +2,13 @@ import type {QuizSet} from '@site/src/components/Quiz/types';
 
 const SOURCE = 'Cuối kỳ HĐH – SPKT';
 
-export const phanTrang: QuizSet = {
-  id: 'os-phan-trang',
+export const paging: QuizSet = {
+  id: 'os-paging',
   title: 'Chương 9: Phân trang, bảng trang và TLB',
   description: 'Bảng trang đa cấp, kích thước bảng trang, số bit địa chỉ, thời gian truy cập hiệu quả với TLB.',
   questions: [
     {
-      id: 'os-pt-01',
+      id: 'os-pg-01',
       topic: 'Bảng trang',
       source: SOURCE,
       question:
@@ -35,7 +35,7 @@ Phân mảnh không phải vấn đề ở đây: phân trang **triệt tiêu ph
 Lời giải cho vấn đề này là **bảng trang đa cấp**, bảng trang băm hoặc bảng trang nghịch đảo.`,
     },
     {
-      id: 'os-pt-02',
+      id: 'os-pg-02',
       topic: 'Bảng trang',
       source: SOURCE,
       question:
@@ -51,7 +51,7 @@ Ví dụ cụ thể: thay vì 4 MB bảng trang một cấp, tiến trình nhỏ
 Cái giá phải trả: mỗi lần dịch địa chỉ phải tra **hai lần bộ nhớ** thay vì một. Đó chính là lý do TLB trở nên thiết yếu.`,
     },
     {
-      id: 'os-pt-03',
+      id: 'os-pg-03',
       topic: 'Bảng trang đa cấp',
       source: SOURCE,
       question:
@@ -75,7 +75,7 @@ Số bảng cấp 2 = 2^p1 = 2^10 = **1024**, mỗi bảng có 2^p2 = 1024 mục
 Phân biệt hai câu hỏi rất dễ lẫn: **"bao nhiêu bảng cấp 2"** tính theo p1, còn **"mỗi bảng cấp 2 có bao nhiêu mục"** tính theo p2.`,
     },
     {
-      id: 'os-pt-04',
+      id: 'os-pg-04',
       topic: 'Bảng trang đa cấp',
       source: SOURCE,
       question:
@@ -96,7 +96,7 @@ Mỗi bảng cấp 2 có **2^11 = 2048 mục**.
 So với câu trang 4 KB ở trên: trang nhỏ đi một nửa thì offset bớt 1 bit, bit đó chuyển sang p2 nên số mục mỗi bảng cấp 2 **tăng gấp đôi**. Tổng số mục của cả hệ thống bảng trang cũng tăng gấp đôi — đây là đánh đổi kinh điển của việc chọn kích thước trang nhỏ.`,
     },
     {
-      id: 'os-pt-05',
+      id: 'os-pg-05',
       topic: 'Bảng trang đa cấp',
       source: SOURCE,
       question:
@@ -116,7 +116,7 @@ Nó là gốc của cây bảng trang, và thanh ghi **PTBR** (Page Table Base R
 - **Số bảng cấp 2** = cũng 4096, vì mỗi mục của bảng cấp 1 trỏ tới một bảng cấp 2`,
     },
     {
-      id: 'os-pt-06',
+      id: 'os-pg-06',
       topic: 'Bảng trang đa cấp',
       source: SOURCE,
       question:
@@ -140,7 +140,7 @@ Kiểm tra chéo: tổng số trang của không gian địa chỉ = 2^(12+11) =
 Đáp án **8192** là bẫy: đó là kích thước trang tính bằng byte, không phải số bảng.`,
     },
     {
-      id: 'os-pt-07',
+      id: 'os-pg-07',
       topic: 'Bảng trang',
       source: SOURCE,
       question:
@@ -162,7 +162,7 @@ Kích thước bảng trang = (không gian địa chỉ / kích thước trang) 
 Con số 4 MB cho **mỗi tiến trình** chính là lý do người ta phải dùng bảng trang đa cấp — nối thẳng với hai câu ở trên.`,
     },
     {
-      id: 'os-pt-08',
+      id: 'os-pg-08',
       topic: 'TLB',
       source: SOURCE,
       question:
@@ -184,7 +184,7 @@ Thấy ngay giá trị của TLB: hit ratio 0,6 đã cho 122 ms; nâng lên **0,
 *Ghi chú:* đề gốc in nhầm, có hai phương án cùng ghi 122; ở đây phương án thừa được đổi thành 119.`,
     },
     {
-      id: 'os-pt-09',
+      id: 'os-pg-09',
       topic: 'Địa chỉ',
       source: SOURCE,
       question:
@@ -204,7 +204,7 @@ Vậy đáp án là **15 và 14**.
 Chi tiết đáng chú ý: địa chỉ vật lý **ngắn hơn** địa chỉ logic, nghĩa là bộ nhớ vật lý (16 KB) nhỏ hơn không gian địa chỉ ảo (32 KB) — hoàn toàn bình thường, đó chính là lý do cần bộ nhớ ảo và swap.`,
     },
     {
-      id: 'os-pt-10',
+      id: 'os-pg-10',
       topic: 'TLB',
       source: SOURCE,
       question: 'Bộ nhớ **TLB (Translation Look-aside Buffer)** là gì?',
@@ -227,7 +227,7 @@ Vì sao TLB nhỏ (thường 64–1024 mục) mà vẫn hiệu quả: chương t
 Một chi tiết hay bị hỏi: khi **chuyển ngữ cảnh**, TLB phải bị **xả** (flush) vì ánh xạ của tiến trình cũ không còn đúng — trừ khi phần cứng có ASID để gắn mỗi mục với một tiến trình.`,
     },
     {
-      id: 'os-pt-11',
+      id: 'os-pg-11',
       topic: 'Bảng trang băm',
       source: SOURCE,
       question: 'Trong **Hashed Page Table**, giá trị nào được băm (hash)?',
@@ -248,7 +248,7 @@ Vì sao dùng nó: với không gian địa chỉ **64 bit**, bảng trang đa c
 Đừng chọn *frame number* — đó là **kết quả** tra cứu, không phải khoá tra.`,
     },
     {
-      id: 'os-pt-12',
+      id: 'os-pg-12',
       topic: 'TLB',
       source: SOURCE,
       question:
@@ -274,7 +274,7 @@ Hai thái cực để kiểm tra logic:
 Càng nhiều đường liên kết thì tag càng dài, đổi lại tỷ lệ trúng cao hơn.`,
     },
     {
-      id: 'os-pt-13',
+      id: 'os-pg-13',
       topic: 'Bảng trang nghịch đảo',
       source: SOURCE,
       question: 'Trong **Inverted Page Table**, mỗi mục chứa giá trị nào?',
@@ -299,7 +299,7 @@ Khi CPU sinh địa chỉ, phần cứng tìm trong bảng cặp *(pid, page num
 Nhược điểm: phải **tìm kiếm** thay vì tra trực tiếp, nên chậm; thường phải kết hợp bảng băm và TLB để cứu vãn. Ngoài ra rất khó cài đặt bộ nhớ chia sẻ, vì mỗi khung chỉ ghi được một chủ.`,
     },
     {
-      id: 'os-pt-14',
+      id: 'os-pg-14',
       topic: 'Dịch địa chỉ',
       source: SOURCE,
       question:
@@ -325,7 +325,7 @@ Quy trình ba bước luôn đúng: **chia lấy thương ra số trang → tra 
 Bẫy trong các phương án: **3248** là kết quả nếu tính nhầm offset thành 176, còn **3064** là 5 × 512 + 504, tức tra nhầm sang khung của trang 2.`,
     },
     {
-      id: 'os-pt-15',
+      id: 'os-pg-15',
       topic: 'Dịch địa chỉ',
       source: SOURCE,
       question:
@@ -351,7 +351,7 @@ Bảng trang: trang 3 → khung 3
 Đây chính là cái bẫy của câu: thấy đáp án y hệt đề bài, nhiều người nghĩ mình tính sai nên đổi sang phương án khác.`,
     },
     {
-      id: 'os-pt-16',
+      id: 'os-pg-16',
       topic: 'Bảng trang',
       source: SOURCE,
       question: 'Nội dung cần thiết trong mỗi mục nhập của bảng trang là gì?',
@@ -373,7 +373,7 @@ Ngoài số khung, mỗi mục thực tế còn vài **bit cờ**: valid-invalid
 Đối chiếu với **bảng trang nghịch đảo** ở câu trên để thấy sự đối xứng: bảng thường đánh chỉ mục bằng số trang nên lưu số khung; bảng nghịch đảo đánh chỉ mục bằng số khung nên phải lưu số trang cùng process-id.`,
     },
     {
-      id: 'os-pt-17',
+      id: 'os-pg-17',
       topic: 'Dịch địa chỉ',
       source: SOURCE,
       question:
@@ -401,7 +401,7 @@ Khác với phân đoạn, phân trang **không cần kiểm tra giới hạn th
 Các đáp án nhiễu đều là kết quả của việc tra nhầm hàng: 220K ứng với khung 2 (trang 1), 520K với khung 5 (trang 2), 720K với khung 7 (trang 0).`,
     },
     {
-      id: 'os-pt-18',
+      id: 'os-pg-18',
       topic: 'Dịch địa chỉ',
       source: SOURCE,
       question:
@@ -426,7 +426,7 @@ Vậy địa chỉ logic là **⟨0, 30K⟩**.
 Sai lầm hay gặp: lấy luôn 7 làm số trang. Nhưng 7 là **số khung vật lý**, còn số trang phải tra ngược từ bảng — ở đây hai giá trị hoàn toàn khác nhau.`,
     },
     {
-      id: 'os-pt-19',
+      id: 'os-pg-19',
       topic: 'Phân đoạn kết hợp phân trang',
       source: SOURCE,
       question:
@@ -454,7 +454,7 @@ Mô hình này lấy ưu điểm của cả hai: **segment** cho cấu trúc log
 Cái giá: mỗi lần truy cập bộ nhớ phải tra **hai bảng**, nên TLB càng quan trọng.`,
     },
     {
-      id: 'os-pt-20',
+      id: 'os-pg-20',
       topic: 'Phân đoạn kết hợp phân trang',
       source: SOURCE,
       question:
@@ -483,7 +483,7 @@ Vậy địa chỉ logic là **⟨2, 320K⟩**.
 Bước dễ quên nhất là bước 3: sau khi biết segment và trang, phải **ghép lại** thành offset trong segment bằng công thức *p × kích thước trang + offset*, chứ không phải chỉ trả về số trang.`,
     },
     {
-      id: 'os-pt-21',
+      id: 'os-pg-21',
       topic: 'Cấu trúc địa chỉ',
       source: SOURCE,
       question:
@@ -511,7 +511,7 @@ Các đáp án nhiễu tương ứng với lựa chọn m khác:
 Quan hệ đánh đổi cần nhớ: **trang càng lớn thì số trang càng ít** (bảng trang nhỏ gọn) nhưng **phân mảnh trong càng nhiều**.`,
     },
     {
-      id: 'os-pt-22',
+      id: 'os-pg-22',
       topic: 'Bảng trang đa cấp',
       source: SOURCE,
       question:

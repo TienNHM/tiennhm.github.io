@@ -2,13 +2,13 @@ import type {QuizSet} from '@site/src/components/Quiz/types';
 
 const SOURCE = 'Cuối kỳ HĐH – SPKT';
 
-export const boNhoAo: QuizSet = {
-  id: 'os-bo-nho-ao',
+export const virtualMemory: QuizSet = {
+  id: 'os-virtual-memory',
   title: 'Chương 10: Bộ nhớ ảo và thay trang',
   description: 'Demand paging, bit valid-invalid, lỗi trang, thrashing, nghịch lý Belady và thời gian truy cập hiệu quả.',
   questions: [
     {
-      id: 'os-va-01',
+      id: 'os-vm-01',
       topic: 'Demand paging',
       source: SOURCE,
       question:
@@ -29,7 +29,7 @@ Khi CPU chạm vào mục có bit invalid, phần cứng sinh **trap gọi là p
 Chính cơ chế này cho phép **nạp lười** (lazy loading): chỉ trang nào được dùng mới nạp, nhờ vậy chương trình lớn hơn RAM vẫn khởi động nhanh.`,
     },
     {
-      id: 'os-va-02',
+      id: 'os-vm-02',
       topic: 'Lỗi trang',
       source: SOURCE,
       question: 'Lỗi trang (page fault) xảy ra khi nào?',
@@ -57,7 +57,7 @@ Lưu ý bước cuối: lệnh được **thực thi lại từ đầu**, không
 Lỗi trang **không phải lỗi của chương trình**, nó là hoạt động bình thường của bộ nhớ ảo, chỉ là đắt về thời gian.`,
     },
     {
-      id: 'os-va-03',
+      id: 'os-vm-03',
       topic: 'Thrashing',
       source: SOURCE,
       question: 'Khi xảy ra lỗi trang liên tục thì điều gì đang diễn ra trong hệ thống?',
@@ -81,7 +81,7 @@ Dấu hiệu nhận ra: **CPU utilization tụt** trong khi **độ đa chương
 Cách chữa: cấp khung trang theo **working set** của tiến trình, dùng **page-fault frequency** để điều chỉnh, hoặc giảm độ đa chương bằng cách swap hẳn vài tiến trình ra ngoài.`,
     },
     {
-      id: 'os-va-04',
+      id: 'os-vm-04',
       topic: 'Thay trang',
       source: SOURCE,
       question: 'Thuật toán thay thế trang nào có thể xuất hiện **nghịch lý Belady**?',
@@ -102,7 +102,7 @@ Nguyên nhân: FIFO **không phải thuật toán ngăn xếp**. Thuật toán n
 Nguồn gốc lỗi của FIFO: nó đuổi trang **vào sớm nhất** chứ không phải trang **ít dùng nhất**, nên hoàn toàn có thể đuổi đúng trang đang được dùng liên tục.`,
     },
     {
-      id: 'os-va-05',
+      id: 'os-vm-05',
       topic: 'Hiệu năng',
       source: SOURCE,
       question:
@@ -123,7 +123,7 @@ Con số này nói lên điều đáng sợ: chỉ **1 lỗi trang trên 10.000 
 Muốn hiệu năng giảm dưới 10%, tỷ lệ lỗi trang phải nhỏ hơn khoảng **1 trên 100.000**. Đó là lý do hệ điều hành phải chăm chút thuật toán thay trang và tránh thrashing bằng mọi giá.`,
     },
     {
-      id: 'os-va-06',
+      id: 'os-vm-06',
       topic: 'Thay trang',
       source: SOURCE,
       question:
@@ -137,7 +137,7 @@ Ghi nhớ ngắn gọn: **chỉ FIFO dính Belady**. Mọi thuật toán ngăn x
 **MRU** (Most Recently Used) đuổi trang vừa dùng gần nhất, là ý tưởng ngược với LRU và hiếm khi dùng thực tế; nó không phải đáp án của câu này.`,
     },
     {
-      id: 'os-va-07',
+      id: 'os-vm-07',
       topic: 'Thay trang',
       source: SOURCE,
       question: 'Sự bất thường (nghịch lý) của **Belady** có nghĩa là gì?',
@@ -155,7 +155,7 @@ Chú ý phương án nhiễu **c** và **d**: cả hai đều mô tả hành vi 
 Ví dụ kiểm chứng với FIFO, chuỗi \`1 2 3 4 1 2 5 1 2 3 4 5\`: 3 khung cho 9 lỗi, 4 khung cho 10 lỗi.`,
     },
     {
-      id: 'os-va-08',
+      id: 'os-vm-08',
       topic: 'Thrashing',
       source: SOURCE,
       question: '**Thrashing** trong phân trang theo yêu cầu là gì?',
@@ -177,7 +177,7 @@ Hai phương án còn lại thực ra là **cách chữa**, không phải địn
 Cách phòng: cấp khung theo **working set** của từng tiến trình, và theo dõi **page-fault frequency** để điều chỉnh kịp thời.`,
     },
     {
-      id: 'os-va-09',
+      id: 'os-vm-09',
       topic: 'Bảng trang',
       source: SOURCE,
       question: '**Dirty bit** của một trang trong bảng trang dùng để làm gì?',
@@ -203,7 +203,7 @@ Phân biệt với hai bit khác trên cùng mục bảng trang:
 - **Protection bits** — quy định quyền đọc/ghi/thực thi, mới là thứ "chỉ cho phép đọc".`,
     },
     {
-      id: 'os-va-10',
+      id: 'os-vm-10',
       topic: 'Thay trang',
       source: SOURCE,
       question:
@@ -224,7 +224,7 @@ n  ≤  số lỗi trang  ≤  p
 Đáp án **m** sai vì số khung không quyết định cận dưới; **p − n** cũng sai, đó chỉ là số lần tham chiếu lặp lại.`,
     },
     {
-      id: 'os-va-11',
+      id: 'os-vm-11',
       topic: 'Thrashing',
       source: SOURCE,
       question: 'Thuật toán **tần suất lỗi trang (Page-Fault Frequency)** dùng để làm gì?',
@@ -247,7 +247,7 @@ Nếu cần cấp thêm mà không còn khung rảnh, hệ điều hành **swap 
 Vì vậy "tăng số frame" và "giảm số frame" chỉ là **hành động cụ thể** trong từng tình huống, còn **mục đích** của thuật toán là giữ hệ thống khỏi rơi vào thrashing.`,
     },
     {
-      id: 'os-va-12',
+      id: 'os-vm-12',
       topic: 'FIFO',
       source: SOURCE,
       question:
@@ -270,7 +270,7 @@ Chỗ thấy rõ điểm yếu của FIFO: ở bước thứ 10, trang **4** đa
 So sánh với hai thuật toán còn lại trên cùng chuỗi: **OPT 5 lỗi**, **LRU 8 lỗi**.`,
     },
     {
-      id: 'os-va-13',
+      id: 'os-vm-13',
       topic: 'Optimal',
       source: SOURCE,
       question:
@@ -295,7 +295,7 @@ Hai quyết định then chốt:
 OPT không cài đặt được trong thực tế (phải biết trước tương lai) nhưng là **thước đo chuẩn** để đánh giá các thuật toán khác.`,
     },
     {
-      id: 'os-va-14',
+      id: 'os-vm-14',
       topic: 'LRU',
       source: SOURCE,
       question:
@@ -320,7 +320,7 @@ Cách cài đặt trong thực tế:
 Cả hai đều cần **hỗ trợ phần cứng đáng kể**, nên hệ thống thật thường dùng bản xấp xỉ bằng reference bit (thuật toán Clock).`,
     },
     {
-      id: 'os-va-15',
+      id: 'os-vm-15',
       topic: 'Clock',
       source: SOURCE,
       question:
