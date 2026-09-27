@@ -7,6 +7,8 @@ export interface QuizQuestion {
   question: string;
   /** Khối code/bảng số liệu kèm đề, hiển thị dạng <pre>. */
   code?: string;
+  /** Sơ đồ Mermaid kèm đề — đồ thị cấp phát, sơ đồ trạng thái… */
+  diagram?: string;
   options: string[];
   answer: QuizAnswer;
   /** Hỗ trợ **đậm**, `code`, xuống dòng và gạch đầu dòng "- ". */

@@ -520,7 +520,7 @@ Bài học rút ra: trước khi làm Banker, luôn kiểm tra ràng buộc cơ 
       id: 'os-dl-23',
       topic: 'Đồ thị cấp phát',
       source: SOURCE,
-      question: `Cho đồ thị cấp phát tài nguyên của một hệ thống (đề gốc cho bằng hình, mô tả lại bằng cạnh):
+      question: `Cho đồ thị cấp phát tài nguyên của một hệ thống như hình dưới:
 
 - R1 có **2 instance**, cấp cho T2 và T3
 - R2 có **2 instance**, cấp cho T1 và T4
@@ -528,6 +528,13 @@ Bài học rút ra: trước khi làm Banker, luôn kiểm tra ràng buộc cơ 
 - T3 **yêu cầu** R2
 
 Phát biểu nào đúng?`,
+      diagram: `flowchart LR
+    T1((T1)) -->|yêu cầu| R1["R1 · 2 instance"]
+    R1 -->|cấp phát| T2((T2))
+    R1 -->|cấp phát| T3((T3))
+    T3 -->|yêu cầu| R2["R2 · 2 instance"]
+    R2 -->|cấp phát| T1
+    R2 -->|cấp phát| T4((T4))`,
       options: [
         'Hệ thống có thể không có deadlock',
         'Hệ thống có deadlock nếu xoá cạnh R1 được gán cho T2',
@@ -549,7 +556,7 @@ Vì vậy phát biểu đúng nhất là "**có thể không có deadlock**" —
       id: 'os-dl-24',
       topic: 'Đồ thị cấp phát',
       source: SOURCE,
-      question: `Cho đồ thị cấp phát tài nguyên của một hệ thống (đề gốc cho bằng hình, mô tả lại bằng cạnh):
+      question: `Cho đồ thị cấp phát tài nguyên của một hệ thống như hình dưới:
 
 - R1 có **1 instance**, cấp cho T2
 - R2 có **1 instance**, cấp cho T1
@@ -557,6 +564,13 @@ Vì vậy phát biểu đúng nhất là "**có thể không có deadlock**" —
 - T1 **yêu cầu** R1, T2 **yêu cầu** R2, T3 **yêu cầu** R2
 
 Phát biểu nào đúng?`,
+      diagram: `flowchart LR
+    T1((T1)) -->|yêu cầu| R1["R1 · 1 instance"]
+    R1 -->|cấp phát| T2((T2))
+    T2 -->|yêu cầu| R2["R2 · 1 instance"]
+    R2 -->|cấp phát| T1
+    T3((T3)) -->|yêu cầu| R2
+    R3["R3 · 1 instance"] -->|cấp phát| T3`,
       options: [
         'Hệ thống có deadlock nếu nối cạnh T3 yêu cầu R1',
         'Hệ thống không có deadlock',
@@ -627,6 +641,10 @@ Cách chữa rẻ nhất: **đánh số tài nguyên và luôn khoá theo thứ 
       topic: 'Phát hiện deadlock',
       source: SOURCE,
       question: 'Đồ thị **Wait-for** là gì?',
+      diagram: `flowchart LR
+    Pi((Pi)) -->|yêu cầu| Rq["Rq"]
+    Rq -->|cấp phát| Pj((Pj))
+    Pi -.->|"rút gọn: Pi chờ Pj"| Pj`,
       options: [
         'Có các đỉnh là các tiến trình và cạnh mô tả tiến trình Pi yêu cầu tài nguyên Rj',
         'Có các đỉnh là các tiến trình và cạnh mô tả tiến trình Pi đang chờ tiến trình Pj',
@@ -726,12 +744,19 @@ Cách chữa rẻ nhất: **đánh số tài nguyên và luôn khoá theo thứ 
       id: 'os-dl-31',
       topic: 'Đồ thị cấp phát',
       source: SOURCE,
-      question: `Đồ thị cấp phát tài nguyên (RAG) sau có thể có Deadlock hay không? (đề gốc cho bằng hình, mô tả lại bằng cạnh)
+      question: `Đồ thị cấp phát tài nguyên (RAG) sau có thể có Deadlock hay không?
 
 - R1 có **2 instance**, đang cấp cho P2 và P3
 - R2 có **2 instance**, đang cấp cho P1 và P4
 - P1 **yêu cầu** R1
 - P3 **yêu cầu** R2`,
+      diagram: `flowchart LR
+    P1((P1)) -->|yêu cầu| R1["R1 · 2 instance"]
+    R1 -->|cấp phát| P2((P2))
+    R1 -->|cấp phát| P3((P3))
+    P3 -->|yêu cầu| R2["R2 · 2 instance"]
+    R2 -->|cấp phát| P1
+    R2 -->|cấp phát| P4((P4))`,
       options: ['Có', 'Không'],
       answer: 1,
       explanation: `Đồ thị **có chu trình** P1 → R1 → P3 → R2 → P1, nhưng **không deadlock**.
@@ -751,11 +776,19 @@ Quy tắc phải thuộc:
       id: 'os-dl-32',
       topic: 'Đồ thị cấp phát',
       source: SOURCE,
-      question: `Đồ thị cấp phát tài nguyên (RAG) sau có thể có Deadlock hay không? (đề gốc cho bằng hình, mô tả lại bằng cạnh)
+      question: `Đồ thị cấp phát tài nguyên (RAG) sau có thể có Deadlock hay không?
 
 - R1, R2, R3 mỗi loại có **1 instance**; R4 có 3 instance và **không liên quan** tới ai
 - R1 cấp cho P2, R3 cấp cho P3, R2 cấp cho P1
 - P1 **yêu cầu** R1, P2 **yêu cầu** R3, P3 **yêu cầu** R2`,
+      diagram: `flowchart LR
+    P1((P1)) -->|yêu cầu| R1["R1 · 1 instance"]
+    R1 -->|cấp phát| P2((P2))
+    P2 -->|yêu cầu| R3["R3 · 1 instance"]
+    R3 -->|cấp phát| P3((P3))
+    P3 -->|yêu cầu| R2["R2 · 1 instance"]
+    R2 -->|cấp phát| P1
+    R4["R4 · 3 instance, không ai yêu cầu"]`,
       options: ['Có', 'Không'],
       answer: 0,
       explanation: `Chu trình khép kín qua ba tiến trình:

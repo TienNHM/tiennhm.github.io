@@ -1,5 +1,6 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import clsx from 'clsx';
+import Mermaid from '@theme/Mermaid';
 import styles from './styles.module.css';
 import {renderRich} from './renderRich';
 import type {QuizAnswer, QuizQuestion} from './types';
@@ -356,6 +357,11 @@ export default function Quiz({
 
               <div className={styles.question}>{renderRich(question.question, question.id)}</div>
               {question.code && <pre className={styles.code}>{question.code}</pre>}
+              {question.diagram && (
+                <div className={styles.diagram}>
+                  <Mermaid value={question.diagram} />
+                </div>
+              )}
 
               <div className={styles.options}>
                 {optionOrder.map((originalIndex, displayIndex) => {

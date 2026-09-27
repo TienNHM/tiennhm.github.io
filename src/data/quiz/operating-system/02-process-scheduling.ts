@@ -298,6 +298,15 @@ Lý do sâu hơn: SJF tối thiểu hoá tổng turnaround time, mà tổng turn
       source: SOURCE,
       question:
         'Biểu đồ chuyển đổi trạng thái tiến trình có các cung: NEW → READY, READY → RUNNING, **RUNNING → READY**, RUNNING → BLOCKED, BLOCKED → READY, RUNNING → TERMINATED. Biểu đồ này là đại diện của ….',
+      diagram: `stateDiagram-v2
+    [*] --> New
+    New --> Ready : admit
+    Ready --> Running : dispatch
+    Running --> Ready : hết quantum / bị trưng dụng
+    Running --> Waiting : chờ I/O
+    Waiting --> Ready : I/O hoàn tất
+    Running --> Terminated : exit
+    Terminated --> [*]`,
       options: [
         'một hệ điều hành xử lý lô (batch)',
         'một hệ điều hành đơn lập trình',
@@ -1067,6 +1076,15 @@ Hai chỗ dễ sai:
       topic: 'Trạng thái tiến trình',
       source: SOURCE,
       question: 'Tiến trình có bao nhiêu trạng thái?',
+      diagram: `stateDiagram-v2
+    [*] --> New
+    New --> Ready : admit
+    Ready --> Running : dispatch
+    Running --> Ready : hết quantum / bị trưng dụng
+    Running --> Waiting : chờ I/O
+    Waiting --> Ready : I/O hoàn tất
+    Running --> Terminated : exit
+    Terminated --> [*]`,
       options: ['6', '4', '5', '3'],
       answer: 2,
       explanation: `**5 trạng thái**: **New → Ready → Running → Waiting → Terminated**.
@@ -1272,6 +1290,13 @@ P1           8                    Hàng 2: quantum = 4
 P2           4                    Hàng 3: FCFS
 P3           7
 P4           2`,
+      diagram: `flowchart TD
+    N["Tiến trình mới"] --> Q1["Hàng 1 · RR quantum = 2"]
+    Q1 -->|hết quantum, chưa xong| Q2["Hàng 2 · RR quantum = 4"]
+    Q2 -->|hết quantum, chưa xong| Q3["Hàng 3 · FCFS"]
+    Q1 -->|chạy xong| E["Kết thúc"]
+    Q2 -->|chạy xong| E
+    Q3 -->|chạy xong| E`,
       options: ['14; 14; 12; 9', '14; 6; 14; 10', '6; 12; 14; 8', '6; 14; 14; 6'],
       answer: 3,
       explanation: `Cơ chế: tiến trình mới vào **hàng 1**; dùng hết quantum mà chưa xong thì bị **đẩy xuống hàng dưới**. Bộ lập lịch luôn phục vụ hàng cao trước, hàng thấp chỉ chạy khi hàng trên rỗng.
