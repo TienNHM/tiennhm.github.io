@@ -3,7 +3,7 @@
 > Nguồn: https://tiennhm.io.vn/docs/operating-system/quiz/disk-scheduling
 > Trắc nghiệm hệ thống I/O và lập lịch đĩa - seek time, rotational latency, FCFS, SSTF, SCAN, C-SCAN, kèm bài tập tính tổng quãng di chuyển đầu đĩa.
 
-Toàn bộ các thuật toán lập lịch đĩa chỉ nhắm một mục tiêu: **giảm seek time**, vì đó là thành phần cơ học đắt nhất trong một lần truy cập đĩa.
+Toàn bộ các thuật toán lập lịch đĩa chỉ nhắm một mục tiêu: **giảm seek time**, vì đó là thành phần cơ học đắt nhất trong một lần truy cập đĩa. Dữ liệu nằm ở đâu trên đĩa là chuyện của [hệ thống file](./09.file-system.mdx).
 
 > **Tip: Nhớ nhanh bốn thuật toán**
 >

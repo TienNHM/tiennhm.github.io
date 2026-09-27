@@ -5,6 +5,8 @@
 
 Hai hiện tượng rất hay bị nhầm lẫn: deadlock là chờ một sự kiện **không bao giờ xảy ra**, starvation là chờ một sự kiện **có xảy ra nhưng không bao giờ tới lượt mình**.
 
+Các câu về chuỗi an toàn dựa trên [Giải thuật Banker](../04.os-bankers-algorithm.md); còn nguồn gốc deadlock từ semaphore thì nằm ở [trắc nghiệm đồng bộ tiến trình](./03.synchronization.mdx).
+
 > **Tip: Nhớ nhanh**
 >
 > Ngăn deadlock = phá một trong bốn điều kiện Coffman (mutual exclusion, hold and wait, no preemption, circular wait). Nhưng phá xong vẫn có thể starvation — đó là hai bài toán khác nhau.

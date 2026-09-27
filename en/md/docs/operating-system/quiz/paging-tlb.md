@@ -5,6 +5,8 @@
 
 Nhóm câu tính toán nhiều nhất của phần bộ nhớ. Hầu hết chỉ cần tách đúng địa chỉ thành các trường bit là ra đáp án.
 
+Khi khung trang đã đầy thì phải chọn trang nạn nhân — xem [Các thuật toán thay trang](../02.page-replacement-algorithms.md) và [trắc nghiệm bộ nhớ ảo](./07.virtual-memory.mdx).
+
 > **Tip: Bộ công thức dùng chung**
 >
 > - Trang `2^n` byte → **offset n bit**; số hiệu trang = *số bit địa chỉ* − n

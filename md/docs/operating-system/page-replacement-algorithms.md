@@ -40,6 +40,11 @@ Trong bài viết này, mình đã giới thiệu các thuật toán thay trang 
 > **Info: Bên cạnh các thuật toán trên, còn có các thuật toán khác như: MFU, LFU, Second Chance, Enhanced Second Chance, NRU, FIFO Approximation, LRU Approximation, Random, ... Các bạn có thể tìm hiểu thêm về các thuật toán này.**
 >
 >
+> **Tip: Luyện tập**
+>
+> Nắm lý thuyết rồi thì kiểm tra lại bằng [trắc nghiệm bộ nhớ ảo và thay trang](./05-quiz/07.virtual-memory.mdx): đủ bài tính FIFO, LRU, Optimal và CLOCK trên **cùng một chuỗi tham chiếu** để so sánh trực tiếp, kèm bảng khung trang từng bước và lời giải cho nghịch lý Belady.
+>
+> Hai phần nền nằm dưới thuật toán thay trang: [trắc nghiệm phân trang và TLB](./05-quiz/06.paging.mdx) (bảng trang đa cấp, thời gian truy cập hiệu quả) và [trắc nghiệm quản lý bộ nhớ](./05-quiz/05.memory-management.mdx) (MMU, Best-Fit, swap space).
 > **Tip: Để xem thêm các video khác, các bạn có thể truy cập vào [kênh Youtube](https://www.youtube.com/TienNguyen09) của mình.**
 >
 >
