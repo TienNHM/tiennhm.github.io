@@ -446,7 +446,7 @@ export default function Quiz({
                 <span className={styles.dot} /> Chưa trả lời
               </li>
               <li>
-                <span className={clsx(styles.dot, styles.navAnswered)} /> Đã trả lời
+                <span className={clsx(styles.dot, styles.dotAnswered)} /> Đã trả lời
               </li>
               <li>
                 <span className={clsx(styles.dot, styles.dotFlag)} /> Đánh dấu
@@ -454,10 +454,10 @@ export default function Quiz({
               {showScore && (
                 <>
                   <li>
-                    <span className={clsx(styles.dot, styles.navCorrect)} /> Đúng
+                    <span className={clsx(styles.dot, styles.dotCorrect)} /> Đúng
                   </li>
                   <li>
-                    <span className={clsx(styles.dot, styles.navWrong)} /> Sai
+                    <span className={clsx(styles.dot, styles.dotWrong)} /> Sai
                   </li>
                 </>
               )}

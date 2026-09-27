@@ -278,6 +278,9 @@
   gap: 0.3rem;
   max-height: 17rem;
   overflow-y: auto;
+  /* outline của ô đang xem vẽ RA NGOÀI biên ô nên bị khung cuộn xén mất một
+   * cạnh; chừa đúng bề dày outline + offset là đủ chỗ cho nó. */
+  padding: 3px;
 }
 
 .navItem {
@@ -321,17 +324,12 @@
   color: var(--ifm-color-danger-contrast-foreground);
 }
 
-/* Chấm cam ở góc: đánh dấu độc lập với trạng thái trả lời nên dùng ::after
- * thay vì đổi màu nền, để không nuốt mất thông tin đúng/sai. */
-.navFlagged::after {
-  content: '';
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--ifm-color-warning);
+/* Đánh dấu độc lập với trạng thái trả lời nên không đổi màu nền, để khỏi nuốt
+ * mất thông tin đúng/sai. Dùng vạch inset thay cho chấm ở góc: chấm tròn nhỏ
+ * nằm sát bo góc trông như tràn ra ngoài ô, còn box-shadow inset luôn nằm gọn
+ * trong biên và không bị khung cuộn xén. */
+.navFlagged {
+  box-shadow: inset 0 3px 0 0 var(--ifm-color-warning);
 }
 
 .navActive {
@@ -365,9 +363,26 @@
   background: var(--ifm-background-surface-color);
 }
 
+/* Ô màu trong chú thích phải có class RIÊNG, không dùng lại .navAnswered /
+ * .navCorrect / .navWrong: chúng khai ở phía trên .dot nên cùng độ ưu tiên
+ * mà thua thứ tự, khiến nền trắng của .dot đè hết màu trạng thái. */
+.dotAnswered {
+  background: var(--ifm-color-primary);
+  border-color: var(--ifm-color-primary);
+}
+
+.dotCorrect {
+  background: var(--ifm-color-success-contrast-background);
+  border-color: var(--ifm-color-success);
+}
+
+.dotWrong {
+  background: var(--ifm-color-danger-contrast-background);
+  border-color: var(--ifm-color-danger);
+}
+
 .dotFlag {
-  background: var(--ifm-color-warning);
-  border-color: var(--ifm-color-warning);
+  box-shadow: inset 0 3px 0 0 var(--ifm-color-warning);
 }
 
 /* --------------------------- nút đánh dấu trong thẻ --------------------------- */
