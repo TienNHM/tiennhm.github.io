@@ -672,5 +672,177 @@ Vì sao các phương án khác sai:
 
 Với tài nguyên rảnh chỉ 2 đơn vị, **chỉ P2 là khởi động được** — nhìn ra điều đó là loại ngay ba phương án.`,
     },
+    {
+      id: 'os-dl-29',
+      topic: 'Deadlock',
+      source: SOURCE,
+      question: 'Một tập tiến trình bị **deadlock** nếu _____',
+      options: [
+        'each process is terminated',
+        'each process is blocked and will remain so forever',
+        'each process is exit',
+        'all processes are trying to kill each other',
+      ],
+      answer: 1,
+      explanation: `Định nghĩa chuẩn: **mọi tiến trình trong tập đều bị chặn và sẽ bị chặn mãi mãi**.
+
+Hai vế đều quan trọng:
+- **blocked** — đang chờ một sự kiện, không chạy được.
+- **remain so forever** — sự kiện đó chỉ có thể do một tiến trình khác **trong chính tập này** tạo ra, mà tất cả bọn họ đều đang kẹt.
+
+Chính vế thứ hai phân biệt deadlock với **starvation**: tiến trình bị bỏ đói *có khả năng* chạy nếu bộ lập lịch đổi ý, còn tiến trình trong deadlock thì không bao giờ.
+
+Các phương án về *terminated* hay *exit* đều sai vì tiến trình đã kết thúc thì không còn giữ tài nguyên, cũng chẳng chờ ai.`,
+    },
+    {
+      id: 'os-dl-30',
+      topic: 'Deadlock',
+      source: SOURCE,
+      question:
+        'Cấu trúc miền găng của P1 và P2 như dưới đây, semaphore **A và B đều khởi đầu bằng 1**. Có thể xảy ra Deadlock hay không?',
+      code: `P1              P2
+Wait(A);        Wait(B);
+...             ...
+Wait(B);        Wait(A);
+...             ...`,
+      options: ['Có', 'Không'],
+      answer: 0,
+      explanation: `**Có** — đây là mẫu deadlock kinh điển do **khoá theo thứ tự ngược nhau**.
+
+Xen kẽ gây kẹt:
+\`\`\`
+P1: Wait(A) thành công  →  A = 0, P1 giữ A
+P2: Wait(B) thành công  →  B = 0, P2 giữ B
+P1: Wait(B) → B = 0 → CHỜ P2 nhả B
+P2: Wait(A) → A = 0 → CHỜ P1 nhả A
+\`\`\`
+Circular wait hình thành, cả hai đứng im vĩnh viễn.
+
+Lưu ý deadlock **không chắc chắn xảy ra mỗi lần chạy** — nếu P1 kịp lấy cả A và B trước khi P2 khởi động thì mọi thứ trôi bình thường. Đó chính là điều khiến loại lỗi này khó phát hiện: chương trình chạy đúng hàng nghìn lần rồi treo đúng lúc quan trọng nhất.
+
+Cách chữa rẻ nhất: **đánh số tài nguyên và luôn khoá theo thứ tự tăng dần** — bắt cả hai cùng viết \`Wait(A); Wait(B);\`.`,
+    },
+    {
+      id: 'os-dl-31',
+      topic: 'Đồ thị cấp phát',
+      source: SOURCE,
+      question: `Đồ thị cấp phát tài nguyên (RAG) sau có thể có Deadlock hay không? (đề gốc cho bằng hình, mô tả lại bằng cạnh)
+
+- R1 có **2 instance**, đang cấp cho P2 và P3
+- R2 có **2 instance**, đang cấp cho P1 và P4
+- P1 **yêu cầu** R1
+- P3 **yêu cầu** R2`,
+      options: ['Có', 'Không'],
+      answer: 1,
+      explanation: `Đồ thị **có chu trình** P1 → R1 → P3 → R2 → P1, nhưng **không deadlock**.
+
+Lý do: cả hai tài nguyên đều có **nhiều instance**, và những instance còn lại nằm trong tay **P2 và P4** — hai tiến trình **không chờ gì cả**.
+\`\`\`
+P2 chạy xong → nhả instance của R1 → P1 nhận được R1
+P4 chạy xong → nhả instance của R2 → P3 nhận được R2
+\`\`\`
+Chu trình tự tan.
+
+Quy tắc phải thuộc:
+- Tài nguyên **1 instance**: có chu trình ⇔ **chắc chắn** deadlock.
+- Tài nguyên **nhiều instance**: chu trình chỉ là **điều kiện cần**, phải xét thêm ai giữ instance ngoài chu trình.`,
+    },
+    {
+      id: 'os-dl-32',
+      topic: 'Đồ thị cấp phát',
+      source: SOURCE,
+      question: `Đồ thị cấp phát tài nguyên (RAG) sau có thể có Deadlock hay không? (đề gốc cho bằng hình, mô tả lại bằng cạnh)
+
+- R1, R2, R3 mỗi loại có **1 instance**; R4 có 3 instance và **không liên quan** tới ai
+- R1 cấp cho P2, R3 cấp cho P3, R2 cấp cho P1
+- P1 **yêu cầu** R1, P2 **yêu cầu** R3, P3 **yêu cầu** R2`,
+      options: ['Có', 'Không'],
+      answer: 0,
+      explanation: `Chu trình khép kín qua ba tiến trình:
+\`\`\`
+P1 → R1 → P2 → R3 → P3 → R2 → P1
+\`\`\`
+
+Khác với câu trước, ở đây **mỗi tài nguyên trong chu trình chỉ có 1 instance**, và instance duy nhất đó nằm trong tay một tiến trình **cũng đang chờ**. Không ai ngoài chu trình có thể giải cứu → **chắc chắn deadlock**.
+
+**R4** có 3 instance rảnh nhưng vô dụng: không tiến trình nào trong chu trình cần nó. Đây là bài học quan trọng — *còn tài nguyên rảnh không có nghĩa là không deadlock*, phải đúng loại tài nguyên mà tiến trình đang chờ.
+
+Với đồ thị toàn tài nguyên đơn instance, phát hiện deadlock rút gọn thành **tìm chu trình**, chạy DFS là xong.`,
+    },
+    {
+      id: 'os-dl-33',
+      topic: 'Banker',
+      source: SOURCE,
+      question:
+        'Cho bảng dữ liệu của giải thuật **Banker** (cột Request là nhu cầu tối đa). Chuỗi cấp phát tài nguyên an toàn cho các tiến trình là:',
+      code: `        Allocation      Request(Max)    Available
+        R1 R2 R3 R4     R1 R2 R3 R4     R1 R2 R3 R4
+P1      1  1  1  1      3  2  2  3      1  1  2  1
+P2      1  1  0  1      2  2  2  2
+P3      0  0  0  1      2  1  1  3
+P4      1  2  1  1      2  4  4  3`,
+      options: [
+        'P4, P1, P2, P3',
+        'P2, P3, P1, P4',
+        'P2, P3, P1, * (Unsafe allocation chain)',
+        'P1, P2, P3, P4',
+      ],
+      answer: 1,
+      explanation: `Bước 1 — tính **Need = Request − Allocation**:
+\`\`\`
+        R1 R2 R3 R4
+P1       2  1  1  2
+P2       1  1  2  1
+P3       2  1  1  2
+P4       1  2  3  2
+\`\`\`
+
+Bước 2 — chạy safety algorithm với Available = (1,1,2,1):
+\`\`\`
+Avail (1,1,2,1) → P1 cần (2,1,1,2): R1 thiếu ✘
+                  P2 cần (1,1,2,1): vừa khít ✔
+   P2 xong, nhả (1,1,0,1)  →  Avail = (2,2,2,2)
+Avail (2,2,2,2) → P3 cần (2,1,1,2) ✔
+   P3 xong, nhả (0,0,0,1)  →  Avail = (2,2,2,3)
+Avail (2,2,2,3) → P1 cần (2,1,1,2) ✔
+   P1 xong, nhả (1,1,1,1)  →  Avail = (3,3,3,4)
+Avail (3,3,3,4) → P4 cần (1,2,3,2) ✔
+\`\`\`
+
+Chuỗi an toàn: **P2 → P3 → P1 → P4**.
+
+Mẹo nhìn nhanh: Available rất eo hẹp (chỉ 1 đơn vị R1), nên chỉ tiến trình nào cần **đúng bằng hoặc ít hơn** mới khởi động được — P2 là ứng viên duy nhất, thế là xác định ngay bước đầu.`,
+    },
+    {
+      id: 'os-dl-34',
+      topic: 'Banker',
+      source: SOURCE,
+      question:
+        'Với bảng dữ liệu Banker bên dưới, **tổng tài nguyên ban đầu** của hệ thống cho R1, R2, R3, R4 là bao nhiêu?',
+      code: `        Allocation      Request(Max)    Available
+        R1 R2 R3 R4     R1 R2 R3 R4     R1 R2 R3 R4
+P1      1  1  1  1      3  2  2  3      1  1  2  1
+P2      1  1  0  1      2  2  2  2
+P3      0  0  0  1      2  1  1  3
+P4      1  2  1  1      2  4  4  3`,
+      options: ['3, 4, 5, 6', '4, 3, 5, 7', '4, 5, 4, 5', '5, 5, 4, 4'],
+      answer: 2,
+      explanation: `Công thức: **Total = tổng Allocation + Available**. Tài nguyên hoặc đang nằm trong tay ai đó, hoặc đang rảnh, không còn khả năng nào khác.
+
+\`\`\`
+Cộng cột Allocation:
+R1: 1 + 1 + 0 + 1 = 3
+R2: 1 + 1 + 0 + 2 = 4
+R3: 1 + 0 + 0 + 1 = 2
+R4: 1 + 1 + 1 + 1 = 4
+
+Cộng Available (1, 1, 2, 1):
+Total = (3+1, 4+1, 2+2, 4+1) = (4, 5, 4, 5)
+\`\`\`
+
+Cột **Request/Max hoàn toàn không tham gia** phép tính này — nó là *nhu cầu* chứ không phải tài nguyên đang tồn tại. Đây chính là bẫy: nhiều người cộng nhầm cột Max và ra số lớn hơn thực tế.
+
+Kiểm tra chéo: Max của mỗi tiến trình phải ≤ Total. P4 cần nhiều nhất (2,4,4,3), đều ≤ (4,5,4,5) — hợp lệ.`,
+    },
   ],
 };
