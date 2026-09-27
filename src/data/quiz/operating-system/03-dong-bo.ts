@@ -486,5 +486,162 @@ Mỗi \`wait()\` trừ 1, mỗi \`signal()\` cộng 1. Giá trị khởi tạo 1
 
 Ý nghĩa thực tế: semaphore này đang giữ **8 tài nguyên rảnh** — ví dụ 10 kết nối trong connection pool, 6 lần mượn và 4 lần trả, còn lại 8.`,
     },
+    {
+      id: 'os-db-23',
+      topic: 'Race condition',
+      source: SOURCE,
+      question:
+        'P1 và P2 cùng dùng chung biến **TaiKhoan** và mỗi tiến trình có **TienRut** riêng (không âm). Khởi đầu TaiKhoan = 1000, P1 rút 600, P2 rút 500. Khi xảy ra **race condition**, TaiKhoan có khả năng bằng bao nhiêu?',
+      code: `if (TaiKhoan - TienRut >= 0)
+    TaiKhoan = TaiKhoan - TienRut;
+else
+    error();`,
+      options: ['500', 'Giá trị không xác định (undefined value)', '-100', '600'],
+      answer: 2,
+      explanation: `Xen kẽ tai hại: **cả hai cùng kiểm tra trước khi ai kịp trừ**.
+\`\`\`
+P1: kiểm tra 1000 - 600 >= 0  → đúng, được phép rút
+P2: kiểm tra 1000 - 500 >= 0  → đúng, được phép rút   (TaiKhoan vẫn còn 1000!)
+P1: TaiKhoan = 1000 - 600 = 400
+P2: TaiKhoan = 400  - 500 = -100
+\`\`\`
+
+Kết quả **−100**: tài khoản âm dù đoạn mã có kiểm tra số dư hẳn hoi.
+
+Gốc rễ của lỗi: phép **kiểm tra rồi hành động** (check-then-act) không phải thao tác nguyên tử. Giữa lúc kiểm tra và lúc trừ tiền, dữ liệu đã bị tiến trình khác thay đổi.
+
+Cách chữa: bọc **toàn bộ** đoạn kiểm tra và cập nhật vào miền găng, dùng mutex hoặc semaphore. Đây chính là lý do mọi hệ thống ngân hàng đều phải dùng giao dịch.`,
+    },
+    {
+      id: 'os-db-24',
+      topic: 'Semaphore',
+      source: SOURCE,
+      question: 'Mô phỏng nào sau đây đúng cho hàm **Wait(s)** trong giải pháp Semaphore?',
+      options: [
+        'While s <= 0; s = s − 1;',
+        'While s <= 0; s = s + 1;',
+        'While s < 0; s = s − 1;',
+        'While s <= 0, s = s + 1;',
+      ],
+      answer: 0,
+      explanation: `\`\`\`
+Wait(s):   while (s <= 0) ;   // bận chờ khi không còn tài nguyên
+           s = s - 1;         // chiếm một tài nguyên
+
+Signal(s): s = s + 1;         // trả lại tài nguyên
+\`\`\`
+
+Hai chi tiết quyết định tính đúng đắn:
+- Điều kiện phải là **s <= 0**, không phải s < 0. Khi s = 0 nghĩa là **đã hết tài nguyên**, phải chờ; nếu dùng s < 0 thì tiến trình sẽ lọt qua và semaphore tụt xuống âm sai cách.
+- \`Wait\` phải **giảm** (s − 1), còn \`Signal\` mới **tăng**. Phương án nào cho Wait cộng lên đều sai bản chất.
+
+Toàn bộ khối này phải **nguyên tử**, nếu không chính semaphore lại đẻ ra race condition.`,
+    },
+    {
+      id: 'os-db-25',
+      topic: 'Semaphore',
+      source: SOURCE,
+      question:
+        'P1 và P2 cùng truy xuất Buffer, semaphore **S = 1** kiểm soát truy xuất. Khi P1 **đang truy xuất thành công** Buffer thì giá trị S bằng bao nhiêu?',
+      code: `P1                          P2
+...                         ...
+Wait(S);                    Wait(S);
+  đặt data vào Buffer;        lấy data từ Buffer;
+Signal(S);                  Signal(S);
+...                         ...`,
+      options: ['0', '-1', 'Giá trị không xác định (undefined value)', '1'],
+      answer: 0,
+      explanation: `S khởi tạo bằng **1** (buffer đang rảnh). P1 gọi \`Wait(S)\`, thấy S = 1 > 0 nên **lọt qua và giảm S xuống 0**, rồi vào miền găng.
+
+\`\`\`
+S = 1  →  P1: Wait(S) thành công  →  S = 0  →  P1 ở trong miền găng
+\`\`\`
+
+Trong lúc đó P2 gọi \`Wait(S)\` sẽ thấy S = 0 nên **phải chờ** — đúng mục tiêu loại trừ tương hỗ. Khi P1 gọi \`Signal(S)\`, S trở lại 1 và P2 mới vào được.
+
+Giá trị **−1** chỉ xuất hiện ở cách cài đặt semaphore **có hàng đợi** (không bận chờ), khi đó trị tuyệt đối của số âm cho biết có bao nhiêu tiến trình đang nằm chờ. Ở mô hình bận chờ của câu này, S không bao giờ âm.`,
+    },
+    {
+      id: 'os-db-26',
+      topic: 'Semaphore',
+      source: SOURCE,
+      question:
+        'Dùng semaphore để **đồng bộ thứ tự**: tác vụ X1 (trong P1) phải xong trước rồi X2 (trong P2) mới chạy. Với S = 1, khi P2 **kết thúc hoạt động** thì S bằng bao nhiêu?',
+      code: `P1                     P2
+...                    ...
+Wait(S);               Wait(S);
+  Đoạn CT P1;            Đoạn CT P2;
+Signal(S);             ...
+...`,
+      options: ['0', '1', 'Giá trị không xác định (undefined value)', '-1'],
+      answer: 0,
+      explanation: `Lần theo giá trị S:
+\`\`\`
+S = 1
+P1: Wait(S)    →  S = 0   (P1 vào đoạn CT của mình)
+P1: Signal(S)  →  S = 1   (báo hiệu "tôi xong rồi")
+P2: Wait(S)    →  S = 0   (P2 nhận tín hiệu, chạy đoạn CT)
+P2 kết thúc, KHÔNG có Signal  →  S giữ nguyên = 0
+\`\`\`
+
+Khác biệt mấu chốt so với câu trước: P2 **không gọi Signal(S)**, vì ở đây semaphore dùng để **ép thứ tự thực thi** chứ không phải bảo vệ miền găng dùng chung. Tín hiệu đã được "tiêu thụ" nên S dừng ở **0**.
+
+Đây là mẫu dùng semaphore kinh điển thứ hai: ngoài loại trừ tương hỗ, semaphore còn đảm bảo **P2 luôn chạy sau P1**, dù bộ lập lịch có xếp thế nào.`,
+    },
+    {
+      id: 'os-db-27',
+      topic: 'Producer-Consumer',
+      source: SOURCE,
+      question:
+        'Bài toán Producer–Consumer với buffer **n phần tử** và 3 semaphore: **mutex = 1**, **full = 0**, **empty = n**. Khi Buffer **chứa đầy data**, giá trị của mutex, full, empty lần lượt là bao nhiêu?',
+      options: ['1; n; 0', '1; 0; n', '1; 1; 1', '0; 0; 0'],
+      answer: 0,
+      explanation: `Ý nghĩa của ba semaphore, nhớ kỹ để suy ra mọi trạng thái:
+\`\`\`
+mutex - 1 nếu không ai đang ở trong miền găng, 0 nếu có người
+full  - SỐ Ô ĐANG CÓ data
+empty - SỐ Ô CÒN TRỐNG
+\`\`\`
+Bất biến luôn đúng: **full + empty = n**.
+
+Buffer đầy nghĩa là cả n ô đều có data:
+\`\`\`
+full  = n     (n ô có data)
+empty = 0     (không còn ô trống)
+mutex = 1     (không tiến trình nào đang thao tác trên buffer)
+\`\`\`
+
+Lúc này producer gọi \`Wait(empty)\` sẽ **bị chặn** vì empty = 0 — đúng như mong muốn, không cho ghi đè lên data chưa ai lấy.`,
+    },
+    {
+      id: 'os-db-28',
+      topic: 'Producer-Consumer',
+      source: SOURCE,
+      question:
+        'Cùng bài toán Producer–Consumer với mutex = 1, full = 0, empty = n. Khi P1 **đang đặt phần tử data đầu tiên** vào Buffer, giá trị mutex, full, empty lần lượt là bao nhiêu?',
+      code: `P1 (Producer)                P2 (Consumer)
+...                          ...
+Tạo data;                    Wait(full);
+Wait(empty);                 Wait(mutex);
+Wait(mutex);                   lấy data từ Buffer;
+  đặt data vào Buffer;       Signal(mutex);
+Signal(mutex);               Signal(empty);
+Signal(full);                Xử lý data;`,
+      options: ['0; 0; n−1', '1; 1; 1', '1; n; 0', '1; 0; n'],
+      answer: 0,
+      explanation: `Bám theo đúng thứ tự lệnh của P1, dừng lại **ngay lúc đang đặt data**:
+\`\`\`
+Trạng thái đầu:        mutex = 1, full = 0, empty = n
+Wait(empty)            →  empty = n - 1
+Wait(mutex)            →  mutex = 0
+  đang đặt data...     →  full VẪN = 0
+\`\`\`
+
+Kết quả: **mutex = 0, full = 0, empty = n − 1**.
+
+Chi tiết quan trọng nhất là **full vẫn bằng 0**: lệnh \`Signal(full)\` nằm **sau** khi đặt xong. Nếu tăng full sớm, consumer sẽ tưởng đã có data và lao vào đọc một ô **chưa ghi xong** — sai dữ liệu.
+
+Cũng để ý thứ tự \`Wait(empty)\` **trước** \`Wait(mutex)\`: đảo ngược hai dòng này sẽ gây **deadlock** khi buffer đầy, vì producer ôm mutex rồi nằm chờ empty, còn consumer cần mutex mới lấy được data ra.`,
+    },
   ],
 };

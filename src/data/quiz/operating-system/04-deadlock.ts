@@ -672,5 +672,27 @@ Vì sao các phương án khác sai:
 
 Với tài nguyên rảnh chỉ 2 đơn vị, **chỉ P2 là khởi động được** — nhìn ra điều đó là loại ngay ba phương án.`,
     },
+    {
+      id: 'os-dl-29',
+      topic: 'Deadlock',
+      source: SOURCE,
+      question: 'Một tập tiến trình bị **deadlock** nếu _____',
+      options: [
+        'each process is terminated',
+        'each process is blocked and will remain so forever',
+        'each process is exit',
+        'all processes are trying to kill each other',
+      ],
+      answer: 1,
+      explanation: `Định nghĩa chuẩn: **mọi tiến trình trong tập đều bị chặn và sẽ bị chặn mãi mãi**.
+
+Hai vế đều quan trọng:
+- **blocked** — đang chờ một sự kiện, không chạy được.
+- **remain so forever** — sự kiện đó chỉ có thể do một tiến trình khác **trong chính tập này** tạo ra, mà tất cả bọn họ đều đang kẹt.
+
+Chính vế thứ hai phân biệt deadlock với **starvation**: tiến trình bị bỏ đói *có khả năng* chạy nếu bộ lập lịch đổi ý, còn tiến trình trong deadlock thì không bao giờ.
+
+Các phương án về *terminated* hay *exit* đều sai vì tiến trình đã kết thúc thì không còn giữ tài nguyên, cũng chẳng chờ ai.`,
+    },
   ],
 };
