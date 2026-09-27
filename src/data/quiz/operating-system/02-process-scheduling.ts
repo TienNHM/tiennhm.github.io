@@ -61,8 +61,8 @@ P4        5              4`,
       explanation: `SJF preemptive (SRTF): mỗi khi có tiến trình mới đến, so **thời gian còn lại** để quyết định có trưng dụng hay không.
 
 \`\`\`
- P1  | P2  | P3 | P2 |   P4   |      P1
-0    2     4    5    7        11            16
+|  P1  |  P2  | P3 |  P2  |     P4    |      P1      |
+0      2      4    5      7           11             16
 \`\`\`
 
 - t=2: P2 (4) < P1 còn 5 → trưng dụng.
@@ -94,8 +94,8 @@ P4        5              4`,
       explanation: `Không trưng dụng: tiến trình đã chiếm CPU thì chạy hết burst, chỉ chọn lại khi CPU rảnh.
 
 \`\`\`
-        P1        | P3 |    P2    |    P4
-0                 7    8         12        16
+|         P1        | P3 |     P2    |     P4    |
+0                   7    8           12          16
 \`\`\`
 
 - t=0: chỉ có P1 → chạy trọn 7.
@@ -148,8 +148,8 @@ P5        9              16           4`,
       explanation: `Ưu tiên có trưng dụng: tiến trình mới đến có số ưu tiên nhỏ hơn sẽ đá tiến trình đang chạy ra.
 
 \`\`\`
- P1 | P4 |           P2           |   P4   |    P1
-0   2    5                        33       40         49
+| P1 | P4 |             P2             |   P4  |    P1   |
+0    2    5                            33      40        49
 \`\`\`
 
 - t=0: chỉ có P1 (ưu tiên 2) → chạy, được 2 đơn vị (còn 9).
@@ -178,8 +178,8 @@ P4        4              x`,
       explanation: `Tổng thời gian chờ phải bằng 2 × 4 = **8**. Thử **x = 2**:
 
 \`\`\`
- P1 | P2 |      P1      | P4 |    P3
-0   1    2              6    8          11
+| P1 | P2 |     P1     |  P4  |    P3   |
+0    1    2            6      8         11
 \`\`\`
 
 - t=1: P2 còn 1 < P1 còn 4 → trưng dụng, P2 xong tại t=2.
@@ -230,8 +230,8 @@ P4        15               45`,
       options: ['5', '15', '55', '40'],
       answer: 1,
       explanation: `\`\`\`
-       P1        |   P2   |   P3   |     P2     |    P4
-0                20       30       40           55          70
+|         P1         |    P2    |    P3    |       P2      |       P4      |
+0                    20         30         40              55              70
 \`\`\`
 
 - t=15: P2 đến với 25, P1 **chỉ còn 5** → không trưng dụng, P1 chạy hết tới t=20.
@@ -258,8 +258,8 @@ P4        4              1`,
       options: ['5.5', '5.75', '6.00', '6.25'],
       answer: 0,
       explanation: `\`\`\`
- P1 |   P2   | P4 |   P3   |      P1
-0   1        4    5        8             12
+| P1 |    P2   | P4 |    P3   |     P1     |
+0    1         4    5         8            12
 \`\`\`
 
 - t=1: P2 (3) < P1 còn 4 → trưng dụng.
@@ -556,8 +556,8 @@ P2        2 ms           9 ms`,
       options: ['6.33 ms', '5 ms', '7.33 ms', '5.33 ms'],
       answer: 1,
       explanation: `\`\`\`
- P0 |   P1   |        P0        |        P2
-0   1        5                 13                 22
+| P0 |   P1   |       P0       |        P2        |
+0    1        5                13                 22
 \`\`\`
 
 - t=1: P1 (4) < P0 còn 8 → trưng dụng.
@@ -1166,8 +1166,8 @@ P4           2`,
       answer: 0,
       explanation: `FCFS chạy đúng thứ tự P1 → P2 → P3 → P4:
 \`\`\`
-    P1     |  P2  |   P3   | P4
-0          8     12       18   20
+|        P1        |    P2   |      P3     | P4 |
+0                  8         12            18   20
 \`\`\`
 
 Vì tất cả cùng đến lúc 0, thời gian chờ của mỗi tiến trình **chính là thời điểm nó bắt đầu chạy**:
@@ -1196,8 +1196,8 @@ P4           2                 9`,
       options: ['0; 5; 9; 3', '5; 9; 3; 0', '0; 3; 5; 9', '0; 3; 9; 5'],
       answer: 0,
       explanation: `\`\`\`
-    P1      |  P2  | P4 |   P3
-0           8     12   14        20
+|        P1        |    P2   | P4 |      P3     |
+0                  8         12   14            20
 \`\`\`
 
 - t=0: chỉ có P1 → chạy trọn 8.
@@ -1228,8 +1228,8 @@ P4           2                 9`,
       options: ['6; 0; 9; 0', '0; 5; 9; 1', '4; 3; 6; 9', '0; 3; 5; 0'],
       answer: 0,
       explanation: `\`\`\`
-  P1  |   P2   |  P1  | P4 |  P1  |    P3
-0     3        7      9    11     14        20
+|   P1  |    P2   | P1 | P4 |   P1  |      P3     |
+0       3         7    9    11      14            20
 \`\`\`
 
 - t=3: P2 (4) < P1 còn 5 → trưng dụng. P2 chạy tới 7 (t=5 P3 đến với 6 > P2 còn 2, không trưng dụng).
@@ -1261,8 +1261,8 @@ P4           2`,
       options: ['12; 9; 11; 12', '12; 11; 12; 9', '12; 13; 14; 15', '9; 12; 12; 11'],
       answer: 1,
       explanation: `\`\`\`
- P1 | P2 | P3 | P4 | P1 |P2| P3 | P1
-0   3    6    9   11   14 15   18   20
+|   P1  |   P2  |   P3  | P4 |   P1  | P2 |   P3  | P1 |
+0       3       6       9    11      14   15      18   20
 \`\`\`
 
 Vòng 1: P1 (rem 5), P2 (rem 1), P3 (rem 3), P4 chỉ cần 2 nên **xong tại t=11**.
