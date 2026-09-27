@@ -78,5 +78,24 @@ Phân biệt:
 - **Time sharing**: chia lát thời gian cho nhiều người dùng, đáp ứng *nhanh* nhưng **không cam kết deadline**.
 - *Quick response time* chỉ là một đặc tính, không phải loại hệ điều hành.`,
     },
+    {
+      id: 'os-tq-07',
+      topic: 'Chuyển ngữ cảnh',
+      source: SOURCE,
+      question:
+        'Thời gian cần thiết để chuyển đổi việc thực thi giữa user mode và kernel mode là **t1**, trong khi thời gian cần thiết để chuyển đổi giữa hai tiến trình là **t2**. Điều nào sau đây là đúng?',
+      options: ['t1 = t2', 't1 < t2', 't1 > t2', 'không thể nói gì về mối quan hệ giữa t1 và t2'],
+      answer: 1,
+      explanation: `**t1 < t2** — chuyển chế độ (mode switch) luôn rẻ hơn chuyển tiến trình (context switch).
+
+**Mode switch** chỉ đổi mức đặc quyền của CPU trong *cùng một tiến trình*: lưu vài thanh ghi, nhảy vào kernel. Không gian địa chỉ giữ nguyên.
+
+**Context switch** làm tất cả những việc trên, cộng thêm:
+- lưu/khôi phục toàn bộ PCB (thanh ghi, con trỏ ngăn xếp, program counter)
+- đổi bảng trang, nạp lại thanh ghi trỏ bảng trang
+- **xả TLB** và làm nguội cache — phần đắt nhất, vì sau đó mọi truy cập bộ nhớ đều miss
+
+Mỗi context switch đều chứa ít nhất một mode switch bên trong, nên t2 > t1 là hiển nhiên.`,
+    },
   ],
 };
