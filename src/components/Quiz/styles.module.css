@@ -137,7 +137,7 @@
 
 .list {
   list-style: none;
-  margin: var(--site-space-5) 0 0;
+  margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -145,6 +145,8 @@
 }
 
 .card {
+  /* Chừa chỗ cho navbar dính khi bấm số ở bảng câu hỏi để nhảy tới. */
+  scroll-margin-top: calc(var(--ifm-navbar-height) + var(--site-space-4));
   border: 1px solid var(--ifm-color-emphasis-200);
   border-radius: var(--site-radius-md);
   padding: var(--site-space-4);
@@ -179,7 +181,6 @@
 }
 
 .badge {
-  margin-left: auto;
   padding: 2px var(--site-space-3);
   border-radius: var(--site-radius-full);
   font-size: var(--site-font-size-xs);
@@ -207,6 +208,198 @@
 .code {
   margin: var(--site-space-3) 0;
   font-size: var(--site-font-size-sm);
+}
+
+
+/* ===================== BẢNG CÂU HỎI (question navigator) =====================
+ * Bố cục hai cột: danh sách câu bên trái, bảng số bám dính bên phải. Dưới
+ * 997px (ngưỡng desktop của Infima) bảng số chuyển lên trên, dạng lưới gọn.
+ * ========================================================================== */
+
+.body {
+  margin-top: var(--site-space-5);
+}
+
+.navigator {
+  margin-bottom: var(--site-space-4);
+}
+
+@media (min-width: 997px) {
+  .body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 13.5rem;
+    gap: var(--site-space-5);
+    /* KHÔNG dùng align-items: start — ô lưới sẽ co bằng nội dung và
+     * position: sticky bên trong mất chỗ để bám. Để stretch mặc định thì
+     * cột phải cao bằng danh sách câu hỏi, bảng số mới trượt theo được. */
+  }
+
+  .body > .list {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .body > .navigator {
+    grid-column: 2;
+    grid-row: 1;
+    margin-bottom: 0;
+  }
+}
+
+.navSticky {
+  position: sticky;
+  top: calc(var(--ifm-navbar-height) + var(--site-space-3));
+  padding: var(--site-space-3);
+  border: 1px solid var(--ifm-color-emphasis-200);
+  border-radius: var(--site-radius-md);
+  background: var(--ifm-background-color);
+}
+
+.navHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--site-space-2);
+  margin-bottom: var(--site-space-2);
+  font-size: var(--site-font-size-sm);
+}
+
+.navCount {
+  color: var(--ifm-color-emphasis-700);
+  font-variant-numeric: tabular-nums;
+}
+
+.navGrid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(2.1rem, 1fr));
+  gap: 0.3rem;
+  max-height: 17rem;
+  overflow-y: auto;
+}
+
+.navItem {
+  width: 100%;
+  min-height: 2rem;
+  aspect-ratio: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: var(--site-radius-sm);
+  background: var(--ifm-background-surface-color);
+  color: var(--ifm-color-emphasis-800);
+  font-size: var(--site-font-size-xs);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.navItem:hover {
+  border-color: var(--ifm-color-primary);
+}
+
+.navAnswered {
+  background: var(--ifm-color-primary);
+  border-color: var(--ifm-color-primary);
+  color: var(--ifm-color-content-inverse, #fff);
+}
+
+.navCorrect {
+  background: var(--ifm-color-success-contrast-background);
+  border-color: var(--ifm-color-success);
+  color: var(--ifm-color-success-contrast-foreground);
+}
+
+.navWrong {
+  background: var(--ifm-color-danger-contrast-background);
+  border-color: var(--ifm-color-danger);
+  color: var(--ifm-color-danger-contrast-foreground);
+}
+
+/* Chấm cam ở góc: đánh dấu độc lập với trạng thái trả lời nên dùng ::after
+ * thay vì đổi màu nền, để không nuốt mất thông tin đúng/sai. */
+.navFlagged::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ifm-color-warning);
+}
+
+.navActive {
+  outline: 2px solid var(--ifm-color-primary);
+  outline-offset: 1px;
+}
+
+.legend {
+  list-style: none;
+  margin: var(--site-space-3) 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--site-space-1) var(--site-space-3);
+  font-size: var(--site-font-size-xs);
+  color: var(--ifm-color-emphasis-700);
+}
+
+.legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.dot {
+  width: 0.8rem;
+  height: 0.8rem;
+  flex: none;
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 3px;
+  background: var(--ifm-background-surface-color);
+}
+
+.dotFlag {
+  background: var(--ifm-color-warning);
+  border-color: var(--ifm-color-warning);
+}
+
+/* --------------------------- nút đánh dấu trong thẻ --------------------------- */
+
+.cardHeadRight {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--site-space-2);
+}
+
+.flagButton {
+  padding: 2px var(--site-space-2);
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: var(--site-radius-full);
+  background: transparent;
+  color: var(--ifm-color-emphasis-700);
+  font-size: var(--site-font-size-xs);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.flagButton:hover {
+  border-color: var(--ifm-color-warning);
+  color: var(--ifm-color-warning-dark);
+}
+
+.flagButtonOn {
+  border-color: var(--ifm-color-warning);
+  color: var(--ifm-color-warning-dark);
+  font-weight: 600;
 }
 
 /* Sơ đồ Mermaid: nền riêng để tách khỏi thân câu hỏi, cuộn ngang trên mobile. */

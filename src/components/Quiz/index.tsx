@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import clsx from 'clsx';
 import Mermaid from '@theme/Mermaid';
 import styles from './styles.module.css';
@@ -98,6 +98,9 @@ export default function Quiz({
   const [elapsed, setElapsed] = useState(0);
   const [onlyWrong, setOnlyWrong] = useState(false);
   const [restored, setRestored] = useState(false);
+  const [flagged, setFlagged] = useState<Record<string, boolean>>({});
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const cardRefs = useRef<Record<string, HTMLLIElement | null>>({});
 
   const fullKey = storageKey ? `quiz:${storageKey}` : null;
 
@@ -120,6 +123,7 @@ export default function Quiz({
         const saved = JSON.parse(raw);
         if (saved.answers) setAnswers(saved.answers);
         if (saved.checked) setChecked(saved.checked);
+        if (saved.flagged) setFlagged(saved.flagged);
         if (saved.mode) setMode(saved.mode);
         if (saved.submitted) setSubmitted(true);
         if (typeof saved.elapsed === 'number') setElapsed(saved.elapsed);
@@ -135,12 +139,12 @@ export default function Quiz({
     try {
       window.localStorage.setItem(
         fullKey,
-        JSON.stringify({answers, checked, mode, submitted, elapsed}),
+        JSON.stringify({answers, checked, flagged, mode, submitted, elapsed}),
       );
     } catch {
       // như trên
     }
-  }, [fullKey, restored, answers, checked, mode, submitted, elapsed]);
+  }, [fullKey, restored, answers, checked, flagged, mode, submitted, elapsed]);
 
   const limitSeconds = durationMinutes ? durationMinutes * 60 : null;
 
@@ -224,6 +228,7 @@ export default function Quiz({
   const handleReset = useCallback(() => {
     setAnswers({});
     setChecked({});
+    setFlagged({});
     setRevealed({});
     setSubmitted(false);
     setElapsed(0);
@@ -263,6 +268,60 @@ export default function Quiz({
     [deck, onlyWrong, isCorrect],
   );
 
+  /** id câu hỏi -> số thứ tự trong đề, giữ nguyên kể cả khi đang lọc. */
+  const numberOf = useMemo(() => {
+    const map: Record<string, number> = {};
+    deck.forEach((item, index) => {
+      map[item.question.id] = index + 1;
+    });
+    return map;
+  }, [deck]);
+
+  const flaggedCount = useMemo(
+    () => activeQuestions.filter((question) => flagged[question.id]).length,
+    [activeQuestions, flagged],
+  );
+
+  const toggleFlag = useCallback((id: string) => {
+    setFlagged((previous) => ({...previous, [id]: !previous[id]}));
+  }, []);
+
+  /** Bấm số ở bảng câu hỏi: tắt bộ lọc nếu câu đó đang bị ẩn rồi mới cuộn tới. */
+  const goToQuestion = useCallback(
+    (id: string) => {
+      const scroll = () => cardRefs.current[id]?.scrollIntoView({behavior: 'smooth', block: 'start'});
+      if (onlyWrong && !visibleDeck.some((item) => item.question.id === id)) {
+        setOnlyWrong(false);
+        window.requestAnimationFrame(() => window.requestAnimationFrame(scroll));
+      } else {
+        scroll();
+      }
+    },
+    [onlyWrong, visibleDeck],
+  );
+
+  // Đánh dấu câu đang nằm trong tầm nhìn để bảng câu hỏi bám theo.
+  useEffect(() => {
+    if (typeof IntersectionObserver === 'undefined') return undefined;
+    const nodes = visibleDeck
+      .map((item) => cardRefs.current[item.question.id])
+      .filter((node): node is HTMLLIElement => Boolean(node));
+    if (nodes.length === 0) return undefined;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const onScreen = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        const id = onScreen[0]?.target.getAttribute('data-question-id');
+        if (id) setActiveId(id);
+      },
+      {rootMargin: '-100px 0px -55% 0px'},
+    );
+    nodes.forEach((node) => observer.observe(node));
+    return () => observer.disconnect();
+  }, [visibleDeck]);
+
   const showScore = mode === 'exam' ? submitted : answeredCount > 0;
   const remaining = limitSeconds === null ? null : limitSeconds - elapsed;
 
@@ -273,6 +332,7 @@ export default function Quiz({
           {title && <h3 className={styles.title}>{title}</h3>}
           <p className={styles.meta}>
             {total} câu · đã làm {answeredCount}
+            {flaggedCount > 0 && ` · đánh dấu ${flaggedCount}`}
             {mode === 'exam' && limitSeconds !== null && !submitted && (
               <>
                 {' · '}
@@ -331,7 +391,81 @@ export default function Quiz({
         </div>
       )}
 
-      <ol className={styles.list}>
+      <div className={styles.body}>
+        <aside className={styles.navigator} aria-label="Bảng câu hỏi">
+          <div className={styles.navSticky}>
+            <div className={styles.navHead}>
+              <strong>Bảng câu hỏi</strong>
+              <span className={styles.navCount}>
+                {answeredCount}/{total}
+              </span>
+            </div>
+
+            <ol className={styles.navGrid}>
+              {deck.map((item) => {
+                const id = item.question.id;
+                const answered = (answers[id] ?? []).length > 0;
+                const done = isGraded(item.question);
+                const right = isCorrect(item.question);
+                const state = done ? (right ? 'correct' : 'wrong') : answered ? 'answered' : 'blank';
+                const stateClass = {
+                  correct: styles.navCorrect,
+                  wrong: styles.navWrong,
+                  answered: styles.navAnswered,
+                  blank: undefined,
+                }[state];
+                const stateText = {
+                  correct: 'đã trả lời đúng',
+                  wrong: 'đã trả lời sai',
+                  answered: 'đã trả lời',
+                  blank: 'chưa trả lời',
+                }[state];
+
+                return (
+                  <li key={id}>
+                    <button
+                      type="button"
+                      className={clsx(
+                        styles.navItem,
+                        stateClass,
+                        flagged[id] && styles.navFlagged,
+                        activeId === id && styles.navActive,
+                      )}
+                      aria-label={`Câu ${numberOf[id]}, ${stateText}${flagged[id] ? ', đã đánh dấu' : ''}`}
+                      aria-current={activeId === id ? 'true' : undefined}
+                      onClick={() => goToQuestion(id)}>
+                      {numberOf[id]}
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
+
+            <ul className={styles.legend}>
+              <li>
+                <span className={styles.dot} /> Chưa trả lời
+              </li>
+              <li>
+                <span className={clsx(styles.dot, styles.navAnswered)} /> Đã trả lời
+              </li>
+              <li>
+                <span className={clsx(styles.dot, styles.dotFlag)} /> Đánh dấu
+              </li>
+              {showScore && (
+                <>
+                  <li>
+                    <span className={clsx(styles.dot, styles.navCorrect)} /> Đúng
+                  </li>
+                  <li>
+                    <span className={clsx(styles.dot, styles.navWrong)} /> Sai
+                  </li>
+                </>
+              )}
+            </ul>
+          </div>
+        </aside>
+
+        <ol className={styles.list}>
         {visibleDeck.map((item) => {
           const {question, optionOrder} = item;
           const correct = correctMap[question.id] ?? [];
@@ -342,17 +476,33 @@ export default function Quiz({
           const number = deck.findIndex((entry) => entry.question.id === question.id) + 1;
 
           return (
-            <li key={question.id} className={styles.card}>
+            <li
+              key={question.id}
+              className={styles.card}
+              data-question-id={question.id}
+              ref={(node) => {
+                cardRefs.current[question.id] = node;
+              }}>
               <div className={styles.cardHead}>
                 <span className={styles.number}>Câu {number}</span>
                 {multiple && <span className={styles.tag}>Chọn nhiều</span>}
                 {question.topic && <span className={styles.tag}>{question.topic}</span>}
                 {question.source && <span className={styles.tagMuted}>{question.source}</span>}
-                {graded && (
-                  <span className={clsx(styles.badge, questionCorrect ? styles.badgeOk : styles.badgeBad)}>
-                    {questionCorrect ? 'Đúng' : 'Sai'}
-                  </span>
-                )}
+                <span className={styles.cardHeadRight}>
+                  {graded && (
+                    <span className={clsx(styles.badge, questionCorrect ? styles.badgeOk : styles.badgeBad)}>
+                      {questionCorrect ? 'Đúng' : 'Sai'}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    className={clsx(styles.flagButton, flagged[question.id] && styles.flagButtonOn)}
+                    aria-pressed={Boolean(flagged[question.id])}
+                    title={flagged[question.id] ? 'Bỏ đánh dấu câu này' : 'Đánh dấu để xem lại'}
+                    onClick={() => toggleFlag(question.id)}>
+                    {flagged[question.id] ? '★ Đã đánh dấu' : '☆ Đánh dấu'}
+                  </button>
+                </span>
               </div>
 
               <div className={styles.question}>{renderRich(question.question, question.id)}</div>
@@ -452,7 +602,8 @@ export default function Quiz({
             </li>
           );
         })}
-      </ol>
+        </ol>
+      </div>
 
       <footer className={styles.footer}>
         {mode === 'exam' && !submitted && (
