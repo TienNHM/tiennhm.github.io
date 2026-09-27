@@ -292,5 +292,89 @@ Lý do sâu hơn: SJF tối thiểu hoá tổng turnaround time, mà tổng turn
 - **Round robin** thêm chi phí context switch, làm mọi job xong muộn hơn.
 - **FCFS** gặp hiệu ứng convoy: một job dài ở đầu chặn cả hàng.`,
     },
+    {
+      id: 'os-ll-12',
+      topic: 'Trạng thái tiến trình',
+      source: SOURCE,
+      question:
+        'Biểu đồ chuyển đổi trạng thái tiến trình có các cung: NEW → READY, READY → RUNNING, **RUNNING → READY**, RUNNING → BLOCKED, BLOCKED → READY, RUNNING → TERMINATED. Biểu đồ này là đại diện của ….',
+      options: [
+        'một hệ điều hành xử lý lô (batch)',
+        'một hệ điều hành đơn lập trình',
+        'một hệ điều hành với lịch trình non-preemptive',
+        'một hệ điều hành với lịch trình preemptive',
+      ],
+      answer: 3,
+      explanation: `Chìa khoá là cung **RUNNING → READY**.
+
+Một tiến trình đang chạy chỉ rời CPU theo ba đường:
+- **RUNNING → TERMINATED**: chạy xong.
+- **RUNNING → BLOCKED**: tự nguyện nhường vì phải chờ I/O.
+- **RUNNING → READY**: bị **tước CPU** khi vẫn còn chạy được — hết quantum hoặc có tiến trình ưu tiên cao hơn tới.
+
+Đường thứ ba chỉ tồn tại trong lập lịch **preemptive**. Hệ non-preemptive (và batch cổ điển) không có cung này: đã vào RUNNING là chạy tới khi kết thúc hoặc chờ I/O.
+
+Hệ **đơn lập trình** thì càng không, vì chỉ có một tiến trình trong bộ nhớ nên không cần trạng thái READY.`,
+    },
+    {
+      id: 'os-ll-13',
+      topic: 'Thread',
+      source: SOURCE,
+      question: `Điều nào sau đây **không** được chia sẻ bởi tất cả các thread trong một tiến trình?
+
+- I. Program Counter
+- II. Stack
+- III. Registers
+- IV. Address space`,
+      options: ['I và II', 'II và III', 'IV', 'I, II và III'],
+      answer: 3,
+      explanation: `Mỗi thread cần chạy độc lập nên phải có **ngữ cảnh thực thi riêng**:
+- **Program Counter** — mỗi thread đang ở một dòng lệnh khác nhau.
+- **Stack** — mỗi thread có chuỗi lời gọi hàm và biến cục bộ riêng.
+- **Registers** — trạng thái tính toán riêng, lưu/khôi phục khi chuyển thread.
+- Thêm: **thread ID** và trạng thái thread.
+
+Phần **dùng chung** của cả tiến trình:
+- **Address space** (đoạn code, dữ liệu toàn cục, heap)
+- File đang mở, tín hiệu, thông tin kế toán
+
+Chính vì address space dùng chung mà thread giao tiếp rẻ hơn tiến trình — và cũng chính vì thế mà sinh ra race condition, phải đồng bộ.`,
+    },
+    {
+      id: 'os-ll-14',
+      topic: 'SJF',
+      source: SOURCE,
+      question:
+        'Trên hệ thống sử dụng lập lịch **SJF non-preemptive**, các tiến trình có thời gian chạy dự kiến là 5, 18, 9 và 12 đang nằm trong hàng đợi sẵn sàng. Chúng nên được chạy theo thứ tự nào để giảm thiểu thời gian chờ đợi?',
+      options: ['5, 9, 12, 18', '12, 18, 9, 5', '5, 12, 9, 18', '9, 12, 18, 5'],
+      answer: 0,
+      explanation: `Cả bốn tiến trình **đã có sẵn** trong hàng đợi nên SJF chỉ đơn giản là **sắp xếp tăng dần theo burst**: 5, 9, 12, 18.
+
+Thời gian chờ của thứ tự này:
+\`\`\`
+5 → 9 → 12 → 18
+chờ: 0   5   14   26      trung bình = 45/4 = 11.25
+\`\`\`
+
+Thử thứ tự giảm dần 18, 12, 9, 5 để thấy khác biệt: chờ 0, 18, 30, 39 → trung bình **21.75**, gần gấp đôi.
+
+Lý do toán học: tiến trình chạy **thứ k** đóng góp thời gian của nó vào phần chờ của (n − k) tiến trình phía sau. Muốn tổng nhỏ nhất thì số lớn phải nhân với hệ số nhỏ nhất, tức là xếp sau cùng.`,
+    },
+    {
+      id: 'os-ll-15',
+      topic: 'Thread',
+      source: SOURCE,
+      question: 'Điều nào sau đây **không** được chia sẻ bởi các thread của cùng một tiến trình?',
+      options: ['Stack', 'Address Space', 'Message Queue', 'File Descriptor Table'],
+      answer: 0,
+      explanation: `**Stack** là của riêng từng thread. Mỗi thread có chuỗi lời gọi hàm và biến cục bộ riêng, nên bắt buộc phải có ngăn xếp riêng — nếu dùng chung thì lời gọi hàm của thread này sẽ đè lên thread kia.
+
+Ba thứ còn lại đều thuộc về **tiến trình**, mọi thread dùng chung:
+- **Address Space** — code, dữ liệu toàn cục, heap.
+- **File Descriptor Table** — thread này mở file, thread kia đọc được ngay bằng cùng fd.
+- **Message Queue** và các tài nguyên IPC khác.
+
+Nhớ gọn: **riêng** = ngăn xếp + thanh ghi + PC + thread ID; **chung** = mọi thứ còn lại.`,
+    },
   ],
 };
