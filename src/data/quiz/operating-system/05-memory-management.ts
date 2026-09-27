@@ -329,10 +329,16 @@ Lưu ý cách đọc record: H(5,3) nghĩa là *bắt đầu ở ô 5, dài 3 đ
       source: SOURCE,
       question:
         'Hiện trạng bộ nhớ như hình (mỗi ô là 1 đơn vị). Dùng **Next-Fit**, hãy cho biết record quản lý bộ nhớ của tiến trình **E** sau khi cấp 3 đơn vị cho D và 2 đơn vị cho E.',
-      code: `  A     |   |    B    |   |    C    |
-  0     3   5         9    12        15   ...
-  A: [0-3)    trống: [3-5)    B: [5-9)
-  trống: [9-12)    C: [12-15)    trống: từ 15 trở đi`,
+      code: `Ô:   0   1   2 | 3   4 | 5   6   7   8 | 9  10  11 | 12  13  14 | 15 ...
+     [--- A ---] [trống] [---- B ----] [-- trống --] [--- C ---] [--- trống ---]
+
+Vùng    Ô bắt đầu   Kích thước   Trạng thái
+A       0           3            đang dùng
+-       3           2            TRỐNG
+B       5           4            đang dùng
+-       9           3            TRỐNG
+C       12          3            đang dùng
+-       15          rất lớn      TRỐNG`,
       options: ['E(15,2)', 'E(3,2)', 'E(9,2)', 'E(12,2)'],
       answer: 0,
       explanation: `**Next-Fit** giống First-Fit nhưng **không quay về đầu mỗi lần**: nó tiếp tục tìm từ **vị trí dừng của lần cấp phát trước**.
@@ -359,10 +365,16 @@ Vậy record là **E(15, 2)**.
       source: SOURCE,
       question:
         'Cùng hiện trạng bộ nhớ như trên. Dùng **Best-Fit**, record quản lý bộ nhớ của tiến trình **D** sau khi cấp 3 đơn vị là gì?',
-      code: `  A     |   |    B    |   |    C    |
-  0     3   5         9    12        15   ...
-  A: [0-3)    trống: [3-5)    B: [5-9)
-  trống: [9-12)    C: [12-15)    trống: từ 15 trở đi`,
+      code: `Ô:   0   1   2 | 3   4 | 5   6   7   8 | 9  10  11 | 12  13  14 | 15 ...
+     [--- A ---] [trống] [---- B ----] [-- trống --] [--- C ---] [--- trống ---]
+
+Vùng    Ô bắt đầu   Kích thước   Trạng thái
+A       0           3            đang dùng
+-       3           2            TRỐNG
+B       5           4            đang dùng
+-       9           3            TRỐNG
+C       12          3            đang dùng
+-       15          rất lớn      TRỐNG`,
       options: ['D(3,3)', 'D(9,3)', 'D(12,3)', 'D(15,3)'],
       answer: 1,
       explanation: `**Best-Fit** duyệt **toàn bộ** danh sách rồi chọn hole **nhỏ nhất mà vẫn đủ chứa**.
@@ -389,10 +401,16 @@ So sánh ba thuật toán trên cùng dữ liệu để thấy khác biệt:
       source: SOURCE,
       question:
         'Cùng hiện trạng bộ nhớ như trên. Dùng **Worst-Fit**, record quản lý bộ nhớ của tiến trình **D** sau khi cấp 2 đơn vị là gì?',
-      code: `  A     |   |    B    |   |    C    |
-  0     3   5         9    12        15   ...
-  A: [0-3)    trống: [3-5)    B: [5-9)
-  trống: [9-12)    C: [12-15)    trống: từ 15 trở đi`,
+      code: `Ô:   0   1   2 | 3   4 | 5   6   7   8 | 9  10  11 | 12  13  14 | 15 ...
+     [--- A ---] [trống] [---- B ----] [-- trống --] [--- C ---] [--- trống ---]
+
+Vùng    Ô bắt đầu   Kích thước   Trạng thái
+A       0           3            đang dùng
+-       3           2            TRỐNG
+B       5           4            đang dùng
+-       9           3            TRỐNG
+C       12          3            đang dùng
+-       15          rất lớn      TRỐNG`,
       options: ['D(3,2)', 'D(12,2)', 'D(15,2)', 'D(9,2)'],
       answer: 2,
       explanation: `**Worst-Fit** chọn **vùng trống lớn nhất**, ngược hẳn với Best-Fit.

@@ -522,7 +522,7 @@ Quan hệ đánh đổi cần nhớ: **trang càng lớn thì số trang càng �
     VA["Địa chỉ ảo 32 bit<br/>PDE 10 · PTE 10 · offset 12"] -->|"PDE (10 bit)"| PD["Page Directory<br/>1024 mục"]
     PD --> PT["Page Table<br/>1024 mục"]
     PT -->|"PTE (10 bit)"| FR["Khung trang 4 KB"]
-    FR -->|"+ offset (12 bit)"| PA["Địa chỉ vật lý"]`,
+    FR -->|"cộng offset (12 bit)"| PA["Địa chỉ vật lý"]`,
       options: ['4096', '1024', '2048', '1000'],
       answer: 2,
       explanation: `Cấu trúc địa chỉ x86: **PDE 10 bit | PTE 10 bit | offset 12 bit**.
