@@ -264,5 +264,199 @@ Execution time- tiến trình có thể bị dời trong lúc chạy → cần p
 
 Hệ quả của kết buộc tuyệt đối: muốn nạp chương trình vào **vị trí khác** trong bộ nhớ thì phải **biên dịch lại**. Đó là lý do hệ điều hành hiện đại dùng kết buộc lúc thực thi.`,
     },
+    {
+      id: 'os-bn-12',
+      topic: 'Phân vùng động',
+      source: SOURCE,
+      question:
+        'Bộ nhớ **15 đơn vị**, cấp phát theo **phân vùng động** với thuật toán **First-Fit**, chuỗi thao tác A → B → C → thu hồi B → D → thu hồi A → E. Tại thời điểm **thu hồi vùng nhớ của A**, có bao nhiêu **vùng trống (Hole)**?',
+      code: `Tiến trình   Số đơn vị bộ nhớ yêu cầu
+A            3
+B            5
+C            2
+D            2
+E            3`,
+      options: ['3', '4', '5', '2'],
+      answer: 0,
+      explanation: `Lần theo từng bước, ghi rõ vùng trống sau mỗi thao tác:
+\`\`\`
+Cấp A (3)   : A[0-3)                     Hole: [3,15) = 12
+Cấp B (5)   : A[0-3) B[3-8)              Hole: [8,15) = 7
+Cấp C (2)   : A B C[8-10)                Hole: [10,15) = 5
+Thu hồi B   : A[0-3) _[3-8) C[8-10)      Hole: [3,8)=5 và [10,15)=5   → 2 hole
+Cấp D (2)   : First-Fit lấy hole đầu tiên đủ lớn → D[3-5)
+              A[0-3) D[3-5) _[5-8) C[8-10)   Hole: [5,8)=3 và [10,15)=5
+Thu hồi A   : _[0-3) D[3-5) _[5-8) C[8-10)   Hole: [0,3)=3, [5,8)=3, [10,15)=5
+\`\`\`
+
+Kết quả: **3 vùng trống**.
+
+Chú ý hai điểm dễ sai:
+- Khi thu hồi A, vùng [0,3) **không gộp** được với [5,8) vì D đang nằm chắn ở giữa — chỉ hai vùng trống **liền kề** mới gộp lại được.
+- First-Fit chọn hole [3,8) chứ không phải hole nhỏ vừa vặn, vì nó lấy **hole đầu tiên đủ lớn**, không quan tâm lãng phí.`,
+    },
+    {
+      id: 'os-bn-13',
+      topic: 'Phân vùng động',
+      source: SOURCE,
+      question:
+        'Cùng bài toán trên (bộ nhớ 15 đơn vị, **First-Fit**, chuỗi A → B → C → thu hồi B → D → thu hồi A → E). **Danh sách vùng trống** sau khi cấp phát cho E là gì? Record có dạng H(x, y) với x là ô bắt đầu, y là kích thước.',
+      code: `Tiến trình   Số đơn vị bộ nhớ yêu cầu
+A            3
+B            5
+C            2
+D            2
+E            3`,
+      options: ['H(5,5); H(5,5)', 'H(3,3); H(8,5)', 'H(5,3); H(10,5)', 'H(4,3); H(9,5)'],
+      answer: 2,
+      explanation: `Nối tiếp câu trước, ngay trước khi cấp cho E ta có ba vùng trống:
+\`\`\`
+_[0-3)=3   D[3-5)   _[5-8)=3   C[8-10)   _[10,15)=5
+\`\`\`
+
+E cần **3 đơn vị**. First-Fit duyệt từ đầu, gặp hole **[0,3) kích thước 3** — vừa khít → cấp luôn cho E.
+\`\`\`
+E[0-3) D[3-5) _[5-8) C[8-10) _[10,15)
+\`\`\`
+
+Còn lại đúng hai vùng trống: **H(5,3)** và **H(10,5)**.
+
+Lưu ý cách đọc record: H(5,3) nghĩa là *bắt đầu ở ô 5, dài 3 đơn vị*, tức chiếm các ô 5, 6, 7 — không phải "từ ô 5 đến ô 3".`,
+    },
+    {
+      id: 'os-bn-14',
+      topic: 'Phân vùng động',
+      source: SOURCE,
+      question:
+        'Hiện trạng bộ nhớ như hình (mỗi ô là 1 đơn vị). Dùng **Next-Fit**, hãy cho biết record quản lý bộ nhớ của tiến trình **E** sau khi cấp 3 đơn vị cho D và 2 đơn vị cho E.',
+      code: `  A     |   |    B    |   |    C    |
+  0     3   5         9    12        15   ...
+  A: [0-3)    trống: [3-5)    B: [5-9)
+  trống: [9-12)    C: [12-15)    trống: từ 15 trở đi`,
+      options: ['E(15,2)', 'E(3,2)', 'E(9,2)', 'E(12,2)'],
+      answer: 0,
+      explanation: `**Next-Fit** giống First-Fit nhưng **không quay về đầu mỗi lần**: nó tiếp tục tìm từ **vị trí dừng của lần cấp phát trước**.
+
+\`\`\`
+Cấp D (3 đơn vị):
+  duyệt tới hole [3,5) = 2 → không đủ
+  duyệt tiếp hole [9,12) = 3 → vừa khít → D[9-12)
+  con trỏ dừng tại ô 12
+
+Cấp E (2 đơn vị):
+  bắt đầu tìm TỪ ô 12, không quay lại đầu
+  [12,15) là C đang chiếm → bỏ qua
+  gặp vùng trống từ ô 15 → E[15-17)
+\`\`\`
+
+Vậy record là **E(15, 2)**.
+
+Đáp án **E(3,2)** chính là cái bẫy: hole [3,5) đủ chỗ cho E thật, nhưng Next-Fit **không quay đầu lại** để nhìn nó. Đây vừa là ưu điểm (tìm nhanh hơn, phân bố đều hơn) vừa là nhược điểm (bỏ sót các hole nhỏ ở đầu bộ nhớ) của thuật toán này.`,
+    },
+    {
+      id: 'os-bn-15',
+      topic: 'Phân vùng động',
+      source: SOURCE,
+      question:
+        'Cùng hiện trạng bộ nhớ như trên. Dùng **Best-Fit**, record quản lý bộ nhớ của tiến trình **D** sau khi cấp 3 đơn vị là gì?',
+      code: `  A     |   |    B    |   |    C    |
+  0     3   5         9    12        15   ...
+  A: [0-3)    trống: [3-5)    B: [5-9)
+  trống: [9-12)    C: [12-15)    trống: từ 15 trở đi`,
+      options: ['D(3,3)', 'D(9,3)', 'D(12,3)', 'D(15,3)'],
+      answer: 1,
+      explanation: `**Best-Fit** duyệt **toàn bộ** danh sách rồi chọn hole **nhỏ nhất mà vẫn đủ chứa**.
+
+\`\`\`
+Các vùng trống:
+  [3,5)   = 2 đơn vị  → không đủ cho D (cần 3)
+  [9,12)  = 3 đơn vị  → vừa khít  ✔ nhỏ nhất trong số đủ chỗ
+  [15,..) = lớn       → đủ nhưng phí
+\`\`\`
+
+Chọn **[9,12)** → record **D(9, 3)**, và hole này biến mất hoàn toàn, không để lại mẩu thừa nào.
+
+So sánh ba thuật toán trên cùng dữ liệu để thấy khác biệt:
+- **First-Fit** → cũng chọn [9,12) vì đó là hole đầu tiên đủ lớn.
+- **Next-Fit** → tuỳ vị trí con trỏ, có thể nhảy xuống vùng sau ô 15.
+- **Worst-Fit** → chọn vùng lớn nhất từ ô 15, để lại mẩu thừa to.
+
+Đáp án **D(3,3)** sai vì hole [3,5) chỉ có 2 đơn vị, không chứa nổi 3.`,
+    },
+    {
+      id: 'os-bn-16',
+      topic: 'Phân vùng động',
+      source: SOURCE,
+      question:
+        'Cùng hiện trạng bộ nhớ như trên. Dùng **Worst-Fit**, record quản lý bộ nhớ của tiến trình **D** sau khi cấp 2 đơn vị là gì?',
+      code: `  A     |   |    B    |   |    C    |
+  0     3   5         9    12        15   ...
+  A: [0-3)    trống: [3-5)    B: [5-9)
+  trống: [9-12)    C: [12-15)    trống: từ 15 trở đi`,
+      options: ['D(3,2)', 'D(12,2)', 'D(15,2)', 'D(9,2)'],
+      answer: 2,
+      explanation: `**Worst-Fit** chọn **vùng trống lớn nhất**, ngược hẳn với Best-Fit.
+
+\`\`\`
+Các vùng trống:
+  [3,5)   = 2      đủ cho D nhưng nhỏ
+  [9,12)  = 3      đủ
+  [15,..) = lớn nhất  ✔ Worst-Fit chọn cái này
+\`\`\`
+→ record **D(15, 2)**.
+
+Ý tưởng đằng sau Worst-Fit: cắt từ vùng lớn thì **phần dư còn lại vẫn đủ to** để dùng cho tiến trình khác, thay vì để lại mẩu vụn vô dụng như Best-Fit.
+
+Thực tế thì Worst-Fit hoạt động kém nhất trong bốn thuật toán: nó **phá vỡ các vùng trống lớn** nên khi có tiến trình cần nhiều bộ nhớ thì không còn chỗ nào chứa nổi.
+
+So sánh trên cùng dữ liệu: First-Fit → [9,12), Best-Fit → [3,5), Worst-Fit → [15,..).`,
+    },
+    {
+      id: 'os-bn-17',
+      topic: 'Phân đoạn',
+      source: SOURCE,
+      question:
+        'Phân đoạn (Segmentation), bộ nhớ bắt đầu từ 0K, bảng phân đoạn SMT như dưới đây. Địa chỉ vật lý tương ứng với địa chỉ logic **⟨2, 120K⟩** là bao nhiêu?',
+      code: `S   Kích thước   Địa chỉ (base)
+0   300K         200K
+1   200K         1300K
+2   500K         700K
+3   400K         1500K`,
+      options: ['820K', '1420K', '320K', '1620K'],
+      answer: 0,
+      explanation: `Hai bước, **kiểm tra trước, cộng sau**:
+\`\`\`
+1. Kiểm tra: offset 120K < Kích thước segment 2 (500K)  ✔ hợp lệ
+2. Địa chỉ vật lý = base + offset = 700K + 120K = 820K
+\`\`\`
+
+Khác biệt cốt lõi so với phân trang: các segment có **kích thước khác nhau** và **không cần nằm liền kề** trong bộ nhớ vật lý — nhìn bảng sẽ thấy S0 ở 200K, S2 ở 700K, S1 lại tận 1300K.
+
+Nếu offset ≥ kích thước, phần cứng sinh **trap** báo truy cập ngoài giới hạn. Chính phép kiểm tra này tạo ra bảo vệ bộ nhớ ở mức từng đoạn logic (code, data, stack có quyền khác nhau).`,
+    },
+    {
+      id: 'os-bn-18',
+      topic: 'Phân đoạn',
+      source: SOURCE,
+      question:
+        'Với cùng bảng SMT, địa chỉ vật lý **1600K** ứng với địa chỉ logic ⟨s, d⟩ nào?',
+      code: `S   Kích thước   Địa chỉ (base)
+0   300K         200K
+1   200K         1300K
+2   500K         700K
+3   400K         1500K`,
+      options: ['s=3; d=420K', 's=0; d=120K', 's=2; d=320K', 's=1; d=220K'],
+      answer: 0,
+      explanation: `Cách làm: tìm segment có **khoảng [base, base + size)** chứa địa chỉ vật lý, rồi lấy hiệu.
+\`\`\`
+S0: [200K, 500K)     S1: [1300K, 1500K)
+S2: [700K, 1200K)    S3: [1500K, 1900K)   ← chứa 1600K
+\`\`\`
+Vậy **s = 3**, và **d = 1600K − 1500K = 100K**.
+
+**Lưu ý:** con số 100K **không có trong phương án nào**; đáp án đề là *s=3; d=420K*, vốn ứng với địa chỉ vật lý 1920K chứ không phải 1600K. Nhiều khả năng đề in nhầm số.
+
+Phần **s = 3** thì chắc chắn đúng, nên đi thi vẫn chọn phương án a. Điều cần nắm là **phương pháp**: xác định khoảng địa chỉ của từng segment rồi trừ base.`,
+    },
   ],
 };

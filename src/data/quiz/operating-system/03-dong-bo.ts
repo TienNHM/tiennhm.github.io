@@ -643,5 +643,37 @@ Chi tiết quan trọng nhất là **full vẫn bằng 0**: lệnh \`Signal(full
 
 Cũng để ý thứ tự \`Wait(empty)\` **trước** \`Wait(mutex)\`: đảo ngược hai dòng này sẽ gây **deadlock** khi buffer đầy, vì producer ôm mutex rồi nằm chờ empty, còn consumer cần mutex mới lấy được data ra.`,
     },
+    {
+      id: 'os-db-29',
+      topic: 'Producer-Consumer',
+      source: SOURCE,
+      question:
+        'Cùng bài toán Producer–Consumer (mutex = 1, full = 0, empty = n). Khi P2 **đang lấy phần tử data cuối cùng** ra khỏi Buffer thì mutex, full, empty lần lượt bằng bao nhiêu?',
+      code: `P1 (Producer)                P2 (Consumer)
+...                          ...
+Tạo data;                    Wait(full);
+Wait(empty);                 Wait(mutex);
+Wait(mutex);                   lấy data từ Buffer;
+  đặt data vào Buffer;       Signal(mutex);
+Signal(mutex);               Signal(empty);
+Signal(full);                Xử lý data;`,
+      options: ['1; n; 0', '0; 0; n−1', '0; 1; n', '1; 1; 1'],
+      answer: 1,
+      explanation: `"Phần tử cuối cùng" nghĩa là trước thao tác này buffer chỉ còn **đúng 1 data**: full = 1, empty = n − 1.
+
+Bám theo từng lệnh của P2:
+\`\`\`
+Trước:            mutex = 1, full = 1, empty = n-1
+Wait(full)    →   full  = 0
+Wait(mutex)   →   mutex = 0
+  đang lấy data... →  empty VẪN = n-1
+\`\`\`
+
+Kết quả: **mutex = 0, full = 0, empty = n − 1**.
+
+Điểm mấu chốt giống hệt câu producer: \`Signal(empty)\` nằm **sau** khi lấy xong, nên trong lúc P2 còn đang đọc, ô nhớ đó **chưa được báo là trống**. Nếu tăng empty sớm, producer sẽ ghi đè lên đúng ô mà consumer đang đọc dở.
+
+So sánh hai trạng thái để nhớ lâu: producer đặt data đầu tiên cho **(0; 0; n−1)**, consumer lấy data cuối cùng cũng cho **(0; 0; n−1)** — trùng nhau, vì cả hai đều đang ở trong miền găng với buffer đúng một ô đang chuyển trạng thái.`,
+    },
   ],
 };

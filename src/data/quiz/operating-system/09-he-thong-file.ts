@@ -169,5 +169,113 @@ Ngoài ra NTFS còn tự **đánh dấu cluster hỏng** và di dời dữ liệ
 
 **NFS** không phải hệ thống file trên đĩa mà là **giao thức chia sẻ file qua mạng**, nên không nằm cùng nhóm so sánh.`,
     },
+    {
+      id: 'os-fs-09',
+      topic: 'FAT',
+      source: SOURCE,
+      question:
+        'Cho bảng FAT12 như dưới đây (chép lại từ hình của đề). Một tập tin có cluster bắt đầu là **7**. Chuỗi FAT của tập tin là gì?',
+      code: `Chỉ số:   5    6    7    8    9     A    B    C    D
+Giá trị:  C         A    9    FFF   5         D    8`,
+      options: [
+        '7 → 5 → C → D → 8 → 9 → A',
+        '7 → A → 5 → C → D → 8 → 9',
+        '7 → A → C → D → 5 → 8 → 9',
+        '7 → C → A → 5 → D',
+      ],
+      answer: 1,
+      explanation: `Cách đọc bảng FAT: **giá trị tại ô i chính là cluster kế tiếp** của tập tin, cứ thế đi cho tới khi gặp dấu kết thúc **FFF** (End Of File).
+
+Lần theo từ cluster 7:
+\`\`\`
+FAT[7] = A    →  cluster kế tiếp là A (tức 10)
+FAT[A] = 5    →  tiếp theo 5
+FAT[5] = C    →  tiếp theo C (12)
+FAT[C] = D    →  tiếp theo D (13)
+FAT[D] = 8    →  tiếp theo 8
+FAT[8] = 9    →  tiếp theo 9
+FAT[9] = FFF  →  KẾT THÚC
+\`\`\`
+
+Chuỗi: **7 → A → 5 → C → D → 8 → 9**.
+
+Điểm hay của FAT so với cấp phát liên kết thuần: toàn bộ con trỏ nằm gọn trong **một bảng** được cache sẵn trong RAM, nên duyệt chuỗi không phải đọc rải rác khắp đĩa. Nhược điểm là mất bảng FAT thì mất sạch cấu trúc file — vì vậy FAT luôn có **2 bản sao**.`,
+    },
+    {
+      id: 'os-fs-10',
+      topic: 'Phân vùng',
+      source: SOURCE,
+      question: 'Cấu trúc đĩa cứng dạng **MBR** có tối đa bao nhiêu **Primary partition**?',
+      options: ['1', '2', '3', '4'],
+      answer: 2,
+      explanation: `Đáp án đề là **3**.
+
+**Lưu ý:** bảng phân vùng MBR nằm trong 64 byte cuối của sector đầu tiên, mỗi mục 16 byte nên có **đúng 4 mục**. Vì vậy con số chuẩn thường gặp là:
+\`\`\`
+Tối đa 4 primary partition
+HOẶC 3 primary + 1 extended (chứa nhiều logical partition bên trong)
+\`\`\`
+Con số **3** của đề ứng với trường hợp thứ hai — khi người dùng cần nhiều hơn 4 phân vùng nên phải hy sinh một mục cho extended partition.
+
+Đi thi chọn theo đáp án đề, nhưng nhớ đủ cả hai vế: **4 primary**, hoặc **3 primary + 1 extended**.
+
+Hạn chế khác của MBR: chỉ địa chỉ hoá được **2 TB**, đó là lý do GPT ra đời.`,
+    },
+    {
+      id: 'os-fs-11',
+      topic: 'Phân vùng',
+      source: SOURCE,
+      question: 'Cấu trúc đĩa cứng dạng **GPT** có tối đa bao nhiêu **Primary partition**?',
+      options: ['1', '128', '4', '64'],
+      answer: 1,
+      explanation: `**128 phân vùng** — con số mặc định của chuẩn GPT trên Windows, đến từ việc GPT dành sẵn **32 sector** cho bảng phân vùng, mỗi mục 128 byte:
+\`\`\`
+32 sector × 512 byte / 128 byte mỗi mục = 128 mục
+\`\`\`
+
+GPT khắc phục toàn bộ hạn chế của MBR:
+- **128 phân vùng** thay vì 4, và **không còn khái niệm extended/logical** — tất cả đều là primary.
+- Địa chỉ hoá **64 bit** nên hỗ trợ ổ đĩa tới 9,4 ZB, thay vì trần 2 TB.
+- Có **CRC32 kiểm tra lỗi** và **bản sao bảng phân vùng ở cuối đĩa** để phục hồi.
+
+GPT đi kèm chuẩn khởi động **UEFI**, thay cho BIOS + MBR kiểu cũ.`,
+    },
+    {
+      id: 'os-fs-12',
+      topic: 'FAT32',
+      source: SOURCE,
+      question: 'Kích thước tập tin lớn nhất lưu trữ trong **FAT32** là bao nhiêu?',
+      options: ['1 GB', '2 GB', '3 GB', '4 GB'],
+      answer: 3,
+      explanation: `**4 GB** (chính xác là 4 GB − 1 byte = 4.294.967.295 byte).
+
+Nguyên nhân: FAT32 lưu kích thước tập tin trong một trường **32 bit**, nên giá trị lớn nhất là 2^32 − 1.
+
+Đây là giới hạn gây khó chịu nhất khi dùng USB định dạng FAT32: không chép được file phim 4K, file ảnh đĩa hay file sao lưu lớn. Giải pháp là chuyển sang **exFAT** (giới hạn 16 EB) hoặc **NTFS**.
+
+Ba con số của FAT32 cần nhớ tách bạch:
+\`\`\`
+File lớn nhất                    : 4 GB
+Phân vùng lớn nhất (Windows tạo) : 32 GB
+Phân vùng lớn nhất (lý thuyết)   : 2 TB
+\`\`\``,
+    },
+    {
+      id: 'os-fs-13',
+      topic: 'FAT32',
+      source: SOURCE,
+      question: '**LFN (Long File Name)** có trong định dạng nào?',
+      options: ['NTFS', 'EXT2/3', 'FAT16', 'FAT32'],
+      answer: 3,
+      explanation: `**LFN** là cơ chế được đưa vào từ **FAT32** (và bản mở rộng VFAT của FAT16 trên Windows 95) để vượt qua giới hạn tên file **8.3** cũ kỹ của DOS.
+
+Cách hoạt động khá khéo: tên dài được chẻ thành nhiều **directory entry phụ** gắn thuộc tính đặc biệt, mỗi entry chứa 13 ký tự Unicode, kèm một entry 8.3 rút gọn để hệ điều hành cũ vẫn đọc được.
+\`\`\`
+Tên cũ (8.3)  :  BAOCAO~1.DOC   - 8 ký tự tên + 3 ký tự phần mở rộng
+LFN           :  Báo cáo tài chính quý 4.docx   - tới 255 ký tự Unicode
+\`\`\`
+
+Vì sao không phải các phương án kia: **NTFS** và **EXT2/3** sinh ra đã hỗ trợ tên dài sẵn, không cần cơ chế LFN chắp vá; còn **FAT16** nguyên bản chỉ có 8.3.`,
+    },
   ],
 };

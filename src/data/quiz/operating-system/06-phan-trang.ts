@@ -372,5 +372,169 @@ Ngoài số khung, mỗi mục thực tế còn vài **bit cờ**: valid-invalid
 
 Đối chiếu với **bảng trang nghịch đảo** ở câu trên để thấy sự đối xứng: bảng thường đánh chỉ mục bằng số trang nên lưu số khung; bảng nghịch đảo đánh chỉ mục bằng số khung nên phải lưu số trang cùng process-id.`,
     },
+    {
+      id: 'os-pt-17',
+      topic: 'Dịch địa chỉ',
+      source: SOURCE,
+      question:
+        'Phân trang với **kích thước trang = kích thước khung = 100K**, bộ nhớ bắt đầu từ 0K, bảng trang PMT như dưới đây. Địa chỉ vật lý ứng với địa chỉ logic **⟨3, 20K⟩** là bao nhiêu?',
+      code: `p   f
+0   7
+1   2
+2   5
+3   4`,
+      options: ['220K', '520K', '420K', '720K'],
+      answer: 2,
+      explanation: `\`\`\`
+Trang p = 3  →  tra PMT  →  khung f = 4
+Địa chỉ vật lý = f × kích thước khung + d
+               = 4 × 100K + 20K = 420K
+\`\`\`
+
+Công thức tổng quát cho mọi bài dịch địa chỉ phân trang:
+\`\`\`
+Địa chỉ vật lý = (số khung × kích thước trang) + offset
+\`\`\`
+
+Khác với phân đoạn, phân trang **không cần kiểm tra giới hạn theo từng mục**: offset luôn nhỏ hơn kích thước trang theo thiết kế, vì nó chỉ chiếm đúng số bit dành cho offset.
+
+Các đáp án nhiễu đều là kết quả của việc tra nhầm hàng: 220K ứng với khung 2 (trang 1), 520K với khung 5 (trang 2), 720K với khung 7 (trang 0).`,
+    },
+    {
+      id: 'os-pt-18',
+      topic: 'Dịch địa chỉ',
+      source: SOURCE,
+      question:
+        'Cùng bảng PMT và kích thước trang 100K. Địa chỉ vật lý **730K** ứng với địa chỉ logic ⟨p, d⟩ nào?',
+      code: `p   f
+0   7
+1   2
+2   5
+3   4`,
+      options: ['p=3; d=30K', 'p=0; d=30K', 'p=2; d=30K', 'p=1; d=30K'],
+      answer: 1,
+      explanation: `Dịch ngược, chia cho kích thước khung:
+\`\`\`
+730K / 100K = 7 dư 30K
+→ khung f = 7, offset d = 30K
+\`\`\`
+
+Bước quan trọng: **tra ngược bảng PMT** để tìm trang nào ánh xạ vào khung 7. Nhìn cột f thấy hàng **p = 0** có f = 7.
+
+Vậy địa chỉ logic là **⟨0, 30K⟩**.
+
+Sai lầm hay gặp: lấy luôn 7 làm số trang. Nhưng 7 là **số khung vật lý**, còn số trang phải tra ngược từ bảng — ở đây hai giá trị hoàn toàn khác nhau.`,
+    },
+    {
+      id: 'os-pt-19',
+      topic: 'Phân đoạn kết hợp phân trang',
+      source: SOURCE,
+      question:
+        'Phân đoạn kết hợp phân trang, kích thước trang 100K. Bảng SMT và các bảng PMT như dưới đây. Địa chỉ vật lý ứng với địa chỉ logic **⟨1, 120K⟩** là bao nhiêu?',
+      code: `SMT                    PMT của S0      PMT của S1      PMT của S2
+S  Kích thước  PMT     p  f           p  f            p  f
+0  300K        (0)     0  5           0  3            0  8
+1  400K        (1)     1  4           1  7            1  2
+2  500K        (2)     2  1           2  10           2  6
+                                      3  9            3  15
+                                                      4  12`,
+      options: ['720K', '1020K', '920K', '320K'],
+      answer: 0,
+      explanation: `Ba bước, lần lượt qua hai bảng:
+\`\`\`
+1. s = 1  →  dùng PMT của S1
+2. Tách offset 120K trong segment thành trang + offset:
+   p = 120K / 100K = 1 ,  d = 20K
+3. Tra PMT của S1: trang 1 → khung 7
+   Địa chỉ vật lý = 7 × 100K + 20K = 720K
+\`\`\`
+
+Mô hình này lấy ưu điểm của cả hai: **segment** cho cấu trúc logic (code, data, stack riêng biệt với quyền truy cập riêng), **paging** bên trong mỗi segment để **triệt tiêu phân mảnh ngoài**.
+
+Cái giá: mỗi lần truy cập bộ nhớ phải tra **hai bảng**, nên TLB càng quan trọng.`,
+    },
+    {
+      id: 'os-pt-20',
+      topic: 'Phân đoạn kết hợp phân trang',
+      source: SOURCE,
+      question:
+        'Cùng hệ thống phân đoạn kết hợp phân trang. Địa chỉ vật lý **1520K** ứng với địa chỉ logic nào?',
+      code: `SMT                    PMT của S0      PMT của S1      PMT của S2
+S  Kích thước  PMT     p  f           p  f            p  f
+0  300K        (0)     0  5           0  3            0  8
+1  400K        (1)     1  4           1  7            1  2
+2  500K        (2)     2  1           2  10           2  6
+                                      3  9            3  15
+                                                      4  12`,
+      options: ['s=0; d=120K', 's=3; d=420K', 's=1; d=220K', 's=2; d=320K'],
+      answer: 3,
+      explanation: `\`\`\`
+1. 1520K / 100K = 15 dư 20K   →  khung f = 15, offset = 20K
+2. Tìm khung 15 trong các PMT:
+   PMT của S0: 5, 4, 1        → không có
+   PMT của S1: 3, 7, 10, 9    → không có
+   PMT của S2: 8, 2, 6, 15, 12 → CÓ, ở trang p = 3
+3. s = 2, p = 3
+   d = p × 100K + offset = 3 × 100K + 20K = 320K
+\`\`\`
+
+Vậy địa chỉ logic là **⟨2, 320K⟩**.
+
+Bước dễ quên nhất là bước 3: sau khi biết segment và trang, phải **ghép lại** thành offset trong segment bằng công thức *p × kích thước trang + offset*, chứ không phải chỉ trả về số trang.`,
+    },
+    {
+      id: 'os-pt-21',
+      topic: 'Cấu trúc địa chỉ',
+      source: SOURCE,
+      question:
+        'Địa chỉ logic **n = 32 bit** có dạng ⟨n−m | m⟩, trong đó m bit thấp là offset trong trang. Nếu chọn **m = 12** thì kích thước trang là 4 KB và **số lượng trang** là bao nhiêu?',
+      code: `|<--- n - m --->|<--------- m --------->|
+| Số hiệu trang |    Offset trong trang    |
+n-m-1          m  m-1                     0`,
+      options: ['2097152', '262144', '1048576', '524288'],
+      answer: 2,
+      explanation: `\`\`\`
+m = 12        →  kích thước trang = 2^12 = 4096 byte = 4 KB  ✔
+Số hiệu trang = n - m = 32 - 12 = 20 bit
+Số lượng trang = 2^20 = 1.048.576 trang
+\`\`\`
+
+Kiểm tra chéo: 1.048.576 trang × 4 KB = 4 GB, đúng bằng không gian địa chỉ 32 bit. Khớp.
+
+Các đáp án nhiễu tương ứng với lựa chọn m khác:
+\`\`\`
+2^21 = 2.097.152  →  m = 11, trang 2 KB
+2^19 =   524.288  →  m = 13, trang 8 KB
+2^18 =   262.144  →  m = 14, trang 16 KB
+\`\`\`
+
+Quan hệ đánh đổi cần nhớ: **trang càng lớn thì số trang càng ít** (bảng trang nhỏ gọn) nhưng **phân mảnh trong càng nhiều**.`,
+    },
+    {
+      id: 'os-pt-22',
+      topic: 'Bảng trang đa cấp',
+      source: SOURCE,
+      question:
+        'Windows x86 tổ chức bảng trang **2 cấp** với cấu trúc ⟨PDE | PTE | page offset⟩ trên địa chỉ 32 bit. **Số lần tìm kiếm tối đa** để tìm thấy một trang bất kỳ là bao nhiêu?',
+      code: `31                                                    0
+|<--- PDE (10) --->|<--- PTE (10) --->|<- offset (12) ->|`,
+      options: ['4096', '1024', '2048', '1000'],
+      answer: 2,
+      explanation: `Cấu trúc địa chỉ x86: **PDE 10 bit | PTE 10 bit | offset 12 bit**.
+\`\`\`
+Page Directory  : 2^10 = 1024 mục
+Mỗi Page Table  : 2^10 = 1024 mục
+Kích thước trang: 2^12 = 4096 byte = 4 KB
+\`\`\`
+
+Trường hợp xấu nhất khi **duyệt tuần tự**: quét tối đa 1024 mục của Page Directory, rồi quét tối đa 1024 mục của Page Table tương ứng.
+\`\`\`
+1024 + 1024 = 2048 lần tìm kiếm
+\`\`\`
+
+Đáp án **4096** là bẫy: đó là kích thước trang tính bằng byte, hoặc kết quả của phép nhân 1024 × 4 — không liên quan tới số lần tìm.
+
+Trong thực tế, phần cứng **không duyệt tuần tự** mà dùng chỉ số trực tiếp: PDE và PTE là **chỉ số mảng**, nên chỉ mất đúng 2 lần truy cập bộ nhớ — và thường còn bằng 0 nhờ TLB.`,
+    },
   ],
 };

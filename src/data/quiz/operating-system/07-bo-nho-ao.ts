@@ -246,5 +246,99 @@ Nếu cần cấp thêm mà không còn khung rảnh, hệ điều hành **swap 
 
 Vì vậy "tăng số frame" và "giảm số frame" chỉ là **hành động cụ thể** trong từng tình huống, còn **mục đích** của thuật toán là giữ hệ thống khỏi rơi vào thrashing.`,
     },
+    {
+      id: 'os-va-12',
+      topic: 'FIFO',
+      source: SOURCE,
+      question:
+        'Dùng thuật toán thay trang **FIFO** trên chuỗi tham chiếu **1, 2, 3, 4, 1, 2, 4, 1, 4, 3, 2, 4** với **3 khung trang** trống. Số lỗi trang là bao nhiêu?',
+      options: ['12', '10', '8', '7'],
+      answer: 2,
+      explanation: `FIFO đuổi trang **vào sớm nhất**, bất kể nó có đang được dùng nhiều hay không.
+\`\`\`
+Tham chiếu:  1   2   3   4   1   2   4   1   4   3   2   4
+Khung 1:     1   1   1   4   4   4   4   4   4   3   3   3
+Khung 2:         2   2   2   1   1   1   1   1   1   1   4
+Khung 3:             3   3   3   2   2   2   2   2   2   2
+Lỗi trang:   F   F   F   F   F   F   .   .   .   F   .   F
+\`\`\`
+
+Tổng cộng **8 lỗi trang**.
+
+Chỗ thấy rõ điểm yếu của FIFO: ở bước thứ 10, trang **4** đang được dùng liên tục (ba lần liền trước đó) nhưng vẫn bị đuổi chỉ vì nó vào hàng đợi sớm nhất — và ngay bước cuối lại phải nạp về.
+
+So sánh với hai thuật toán còn lại trên cùng chuỗi: **OPT 5 lỗi**, **LRU 8 lỗi**.`,
+    },
+    {
+      id: 'os-va-13',
+      topic: 'Optimal',
+      source: SOURCE,
+      question:
+        'Dùng thuật toán **Optimal (OPT)** trên chuỗi **1, 2, 3, 4, 1, 2, 4, 1, 4, 3, 2, 4** với **3 khung trang**. Số lỗi trang là bao nhiêu?',
+      options: ['10', '5', '6', '7'],
+      answer: 1,
+      explanation: `OPT đuổi trang **sẽ được dùng lại muộn nhất trong tương lai** — nhìn trước được nên luôn tối ưu.
+\`\`\`
+Tham chiếu:  1   2   3   4   1   2   4   1   4   3   2   4
+Khung 1:     1   1   1   1   1   1   1   1   1   3   3   3
+Khung 2:         2   2   2   2   2   2   2   2   2   2   2
+Khung 3:             3   4   4   4   4   4   4   4   4   4
+Lỗi trang:   F   F   F   F   .   .   .   .   .   F   .   .
+\`\`\`
+
+Tổng cộng **5 lỗi trang** — ít nhất có thể đạt được.
+
+Hai quyết định then chốt:
+- Bước 4 (nạp trang 4): đuổi **3** vì 3 mãi tới vị trí thứ 10 mới dùng lại, còn 1 và 2 dùng ngay sau đó.
+- Bước 10 (nạp trang 3): đuổi **1** vì 1 **không bao giờ xuất hiện nữa**.
+
+OPT không cài đặt được trong thực tế (phải biết trước tương lai) nhưng là **thước đo chuẩn** để đánh giá các thuật toán khác.`,
+    },
+    {
+      id: 'os-va-14',
+      topic: 'LRU',
+      source: SOURCE,
+      question:
+        'Dùng thuật toán **LRU** trên chuỗi **1, 2, 3, 4, 1, 2, 4, 1, 4, 3, 2, 4** với **3 khung trang**. Số lỗi trang là bao nhiêu?',
+      options: ['9', '8', '11', '7'],
+      answer: 1,
+      explanation: `LRU đuổi trang **lâu nhất chưa được dùng** — lấy quá khứ gần để đoán tương lai.
+\`\`\`
+Tham chiếu:  1   2   3   4   1   2   4   1   4   3   2   4
+Khung 1:     1   1   1   4   4   4   4   4   4   4   4   4
+Khung 2:         2   2   2   1   1   1   1   1   1   2   2
+Khung 3:             3   3   3   2   2   2   2   3   3   3
+Lỗi trang:   F   F   F   F   F   F   .   .   .   F   F   .
+\`\`\`
+
+Tổng cộng **8 lỗi trang**, bằng FIFO ở chuỗi này nhưng **không phải lúc nào cũng vậy** — LRU thường tốt hơn và không bao giờ dính nghịch lý Belady.
+
+Cách cài đặt trong thực tế:
+- **Counter**: mỗi mục bảng trang lưu thời điểm truy cập gần nhất, khi thay trang thì tìm giá trị nhỏ nhất.
+- **Stack**: dùng danh sách liên kết đôi, trang vừa dùng được đẩy lên đỉnh.
+
+Cả hai đều cần **hỗ trợ phần cứng đáng kể**, nên hệ thống thật thường dùng bản xấp xỉ bằng reference bit (thuật toán Clock).`,
+    },
+    {
+      id: 'os-va-15',
+      topic: 'Clock',
+      source: SOURCE,
+      question:
+        'Dùng thuật toán **CLOCK** trên chuỗi **1, 2, 3, 4, 1, 2, 4, 1, 4, 3, 2, 4** với **3 khung trang**, **bit trạng thái = 1 cho mọi trường hợp**, con trỏ không di chuyển khi truy xuất trang. Số lỗi trang là bao nhiêu?',
+      options: ['9', '8', '10', '7'],
+      answer: 1,
+      explanation: `CLOCK (second-chance) là **FIFO có thêm cơ hội thứ hai**: kim quét vòng tròn, gặp trang có reference bit = 1 thì **xoá bit về 0 và đi tiếp**, gặp bit = 0 thì đuổi trang đó.
+
+Với giả thiết của đề — **mọi trang đều có bit = 1** — kim buộc phải quét một vòng xoá hết bit rồi quay lại vị trí ban đầu, và đuổi đúng trang mà FIFO sẽ đuổi. Vì vậy kết quả **trùng FIFO: 8 lỗi trang**.
+
+Đây chính là tính chất cần nhớ:
+\`\`\`
+Mọi reference bit = 1  →  CLOCK suy biến thành FIFO
+Mọi reference bit = 0  →  CLOCK đuổi ngay trang đầu tiên gặp, cũng là FIFO
+Bit lẫn lộn 0 và 1     →  CLOCK xấp xỉ LRU, tốt hơn FIFO
+\`\`\`
+
+Ưu điểm khiến CLOCK được dùng thật (Linux, BSD): chỉ cần **1 bit phần cứng** cho mỗi trang, rẻ hơn LRU rất nhiều mà hiệu quả xấp xỉ.`,
+    },
   ],
 };
