@@ -12,6 +12,7 @@ import DocItemContent from '@theme/DocItem/Content';
 import DocBreadcrumbs from '@theme/DocBreadcrumbs';
 import ContentVisibility from '@theme/ContentVisibility';
 import PdfExportActions from '@site/src/components/PdfExportActions';
+import CopyMarkdownButton from '@site/src/components/CopyMarkdownButton';
 import styles from './styles.module.css';
 /**
  * Decide if the toc should be rendered, on mobile or desktop viewports
@@ -43,7 +44,11 @@ export default function DocItemLayout({children}) {
         <div className={styles.docItemContainer}>
           <article>
             <DocBreadcrumbs />
-            <PdfExportActions permalink={metadata.permalink} className="margin-bottom--md" />
+            <div
+              className={clsx('margin-bottom--md', 'page-actions', styles.pageActions)}>
+              <PdfExportActions permalink={metadata.permalink} />
+              <CopyMarkdownButton />
+            </div>
             <DocVersionBadge />
             {docTOC.mobile}
             <DocItemContent>{children}</DocItemContent>
