@@ -18,7 +18,7 @@ của trang — mỗi mục bên dưới có dòng `URL:` là canonical URL củ
 
 ## Phạm vi & giới hạn
 
-- Tổng số tài liệu quét được: 465 (docs: 422, blog: 43).
+- Tổng số tài liệu quét được: 466 (docs: 422, blog: 44).
 - Số tài liệu có mặt trong file này: 316.
 - Ngân sách dung lượng: 2.0 MB. Trần nội dung mỗi tài liệu: 6 KB.
 - Khi thiếu chỗ: blog giữ 30% ngân sách (ưu tiên bài mới nhất), phần còn lại dành cho docs/.
@@ -27,10 +27,11 @@ của trang — mỗi mục bên dưới có dòng `URL:` là canonical URL củ
 - Khối code dài bị rút gọn; mọi chỗ rút gọn đều được đánh dấu tại chỗ.
 - Mỗi tài liệu bắt đầu bằng một dòng `========…` rồi tới `# <tiêu đề>` và `URL: …`.
 
-### Tài liệu bị rút gọn (207) — fetch URL để lấy bản đầy đủ
+### Tài liệu bị rút gọn (208) — fetch URL để lấy bản đầy đủ
 
 - Thêm 4 index làm INSERT chậm 6 lần: cái giá không ai nhắc khi bảo bạn đánh index — https://tiennhm.io.vn/blog/chi-phi-ghi-cua-index
 - Luỹ kế của bạn sai ngay dòng đầu: window function, RANGE và cái mặc định ít ai đọc — https://tiennhm.io.vn/blog/window-function-vs-group-by
+- MailKit trong .NET: gửi email SMTP và dựng HTML email template chạy đúng trên Outlook — https://tiennhm.io.vn/blog/mailkit-html-email-template
 - Hai giao dịch cùng cộng 100, số dư chỉ tăng 100: isolation level qua thí nghiệm thật — https://tiennhm.io.vn/blog/sql-isolation-level-lost-update-phantom-read
 - Có index rồi mà truy vấn vẫn quét toàn bảng? Sargability và một hàm bọc quanh cột — https://tiennhm.io.vn/blog/sql-index-khong-duoc-dung-sargable
 - LEFT JOIN của bạn đã thành INNER JOIN mà không ai báo — https://tiennhm.io.vn/blog/left-join-thanh-inner-join
@@ -237,7 +238,7 @@ của trang — mỗi mục bên dưới có dòng `URL:` là canonical URL củ
 - 10.1 — 1. Authentication so với Authorization — https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-10-authentication-authorization/10.1-authentication-vs-authorization
 - 10.10 — 10. Security Best Practices — https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-10-authentication-authorization/10.10-security-best-practices
 
-### Tài liệu KHÔNG nằm trong file này (149) — vượt ngân sách dung lượng
+### Tài liệu KHÔNG nằm trong file này (150) — vượt ngân sách dung lượng
 
 Các trang dưới đây vẫn công khai và nằm trong sitemap.xml; chỉ là không được
 nhúng toàn văn ở đây. Fetch trực tiếp URL để lấy nội dung.
@@ -254,6 +255,7 @@ nhúng toàn văn ở đây. Fetch trực tiếp URL để lấy nội dung.
 - 10.7 — 7. Permission System — https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-10-authentication-authorization/10.7-permission-system
 - 10.8 — 8. ASP.NET Core Identity (Overview) — https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-10-authentication-authorization/10.8-overview
 - 10.9 — 9. External Login và OAuth2 (Overview) — https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-10-authentication-authorization/10.9-overview
+- Module 10 — Authentication + Authorization — https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-10-authentication-authorization
 - 11.1 — 1. Tại sao cần Real-time? — https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-11-signalr/11.1-why-real-time-matters
 - 11.10 — 10. Scale-out và Production — https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-11-signalr/11.10-scale-out-and-production
 - 11.11 — Mở rộng và đào sâu — https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-11-signalr/11.11-advanced-notes
@@ -37759,179 +37761,7 @@ Sau bài này bạn có thể:
 
 `appsettings.json` nằm trong Git. Mọi thứ trong đó đều công khai với mọi người từng clone repo, và với mọi lớp trong image Docker.
 
-Khi một secret đã bị commit:
-
-1. Xoay khoá ngay. Đây là bước duy nhất thực sự có tác dụng.
-2. Xoá khỏi lịch sử (`git filter-repo`) — chỉ để dọn dẹp, không để khắc phục.
-3. Coi như nó đã bị lộ: repo có thể đã được fork, clone, hoặc có bản sao trong CI cache.
-
-Một commit "xoá secret" không xoá gì cả — nó vẫn nằm trong lịch sử và trong mọi bản sao.
-
-[code bash]
-# Development
-dotnet user-secrets set "Jwt:SecretKey" "$(openssl rand -base64 48)"
-[/code]
-
-[code yaml]
-# Production — tu secret cua orchestrator
-env:
-  - name: Jwt__SecretKey
-    valueFrom:
-      secretKeyRef: { name: crm-secrets, key: jwt-key }
-[/code]
-
-Thêm một tầng chặn trong CI để không tái diễn:
-
-[code yaml]
-- name: Scan for secrets
-  uses: gitleaks/gitleaks-action@v2
-[/code]
-
-Và kiểm tra lúc khởi động rằng secret hợp lệ:
-
-[code csharp]
-builder.Services.AddOptions<JwtOptions>()
-    .Bind(builder.Configuration.GetSection("Jwt"))
-    .Validate(o => Encoding.UTF8.GetByteCount(o.SecretKey) >= 32,
-              "Jwt:SecretKey phải tối thiểu 32 byte")
-    .Validate(o => !o.SecretKey.Contains("change-me"),
-              "Jwt:SecretKey vẫn là giá trị mẫu")
-    .ValidateOnStart();
-[/code]
-
-`ValidateOnStart()` (bài 7.8) khiến ứng dụng không khởi động được với cấu hình sai — tốt hơn nhiều so với chạy bình thường bằng khoá mẫu.
-
-### 10.11.2 — HTTPS và HSTS
-
-[code csharp]
-if (!app.Environment.IsDevelopment())
-{
-    app.UseHsts();
-    app.UseHttpsRedirection();
-}
-[/code]
-
-[code csharp]
-builder.Services.AddHsts(options =>
-{
-    options.MaxAge = TimeSpan.FromDays(365);
-    options.IncludeSubDomains = true;
-    options.Preload = true;
-});
-[/code]
-
-`UseHttpsRedirection` chỉ chuyển hướng sau khi request HTTP đầu tiên đã đi qua mạng — và request đó có thể đã mang theo cookie. HSTS bảo trình duyệt không bao giờ thử HTTP với tên miền này nữa, kể từ lần thứ hai.
-
-Hai cảnh báo:
-
-- `Preload` là một chiều. Đưa tên miền vào danh sách preload của trình duyệt thì gỡ ra mất nhiều tháng. Chỉ bật khi chắc chắn mọi subdomain đều có HTTPS.
-- `IncludeSubDomains` áp cho mọi subdomain, kể cả những cái bạn quên. Một `legacy.company.com` chỉ có HTTP sẽ ngừng truy cập được.
-
-Sau reverse proxy, phải bật `UseForwardedHeaders()` trước (bài 8.2) — nếu không, ứng dụng thấy mọi request là HTTP và `UseHttpsRedirection` tạo vòng lặp chuyển hướng vô tận.
-
-### 10.11.3 — Security header
-
-[code csharp]
-app.Use(async (context, next) =>
-{
-    var headers = context.Response.Headers;
-
-    headers["X-Content-Type-Options"] = "nosniff";
-    headers["X-Frame-Options"] = "DENY";
-    headers["Referrer-Policy"] = "no-referrer";
-    headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'";
-    headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()";
-
-    headers.Remove("Server");
-    headers.Remove("X-Powered-By");
-
-    await next(context);
-});
-[/code]
-
-| Header | Chống |
-|---|---|
-| `X-Content-Type-Options: nosniff` | Trình duyệt đoán kiểu nội dung và thực thi JSON như JavaScript |
-| `X-Frame-Options: DENY` | Clickjacking |
-| `Referrer-Policy: no-referrer` | Rò rỉ URL (có thể chứa id, token) sang site khác |
-| `Content-Security-Policy` | XSS — với API JSON thì `default-src 'none'` là đúng |
-| `Permissions-Policy` | Truy cập thiết bị ngoài ý muốn |
-
-Với API JSON thuần, CSP `default-src 'none'` là chính xác: API không bao giờ nên tải tài nguyên nào. Nếu bạn phục vụ cả Swagger UI thì cần CSP riêng cho đường dẫn đó.
-
-Gỡ `Server` giảm thông tin trinh sát. Kestrel gỡ được tại nguồn:
-
-[code csharp]
-builder.WebHost.ConfigureKestrel(o => o.AddServerHeader = false);
-[/code]
-
-### 10.11.4 — CORS
-
-[code csharp]
-// SAI — không thể chạy, và cách "sửa" nó còn tệ hơn
-policy.AllowAnyOrigin().AllowCredentials();   // nem exception luc khoi dong
-[/code]
-
-Trình duyệt cấm kết hợp `Access-Control-Allow-Origin: *` với `Access-Control-Allow-Credentials: true`, và ASP.NET Core ném exception ngay lúc khởi động.
-
-Cách "sửa" mà nhiều người tìm thấy trên mạng là phản chiếu origin của request:
-
-[code csharp]
-// RẤT NGUY HIỂM — chấp nhận MỌI origin
-policy.SetIsOriginAllowed(_ => true).AllowCredentials();
-[/code]
-
-Nó "hoạt động" — và nó tắt hoàn toàn cơ chế bảo vệ same-origin. Bất kỳ trang web nào cũng gọi được API của bạn kèm cookie của người dùng.
-
-[code csharp]
-// ĐÚNG — danh sách trắng, đọc từ cấu hình
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("app", policy => policy
-        .WithOrigins(builder.Configuration.GetSection("Cors:Origins").Get<string[]>()!)
-        .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE")
-        .WithHeaders("Authorization", "Content-Type")
-        .AllowCredentials()
-        .SetPreflightMaxAge(TimeSpan.FromMinutes(10)));
-});
-
-app.UseCors("app");     // TRƯỚC UseAuthorization
-[/code]
-
-Nhớ cái bẫy mảng cấu hình ở bài 8.7: khai `Cors:Origins` ở cả `appsettings.json` lẫn file môi trường sẽ hợp nhất theo chỉ số, nên một origin lẽ ra đã bị xoá vẫn được chấp nhận trên production.
-
 [… phần còn lại đã lược bớt]
-
-============================================================================
-
-# Module 10 — Authentication + Authorization
-
-URL: https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-10-authentication-authorization
-Source: docs/09-dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-10-authentication-authorization/index.mdx
-Description: Xác thực & phân quyền ASP.NET Core: JWT, OAuth2/OIDC, cookie, policy-based authorization — mô hình bảo mật đa tenant cho CRM.
-Tags: authentication, authorization, jwt-bearer, openid-connect, policy-based-authorization, aspnet-core-security
-
-## Nội dung module
-
-- 10.1 — 1. Authentication so với Authorization
-- 10.2 — 2. JWT Authentication
-- 10.3 — 3. Refresh Token
-- 10.4 — 4. Role-based Authorization
-- 10.5 — 5. Policy-based Authorization
-- 10.6 — 6. Resource-based Authorization
-- 10.7 — 7. Permission System
-- 10.8 — 8. ASP.NET Core Identity (Overview)
-- 10.9 — 9. External Login và OAuth2 (Overview)
-- 10.10 — 10. Security Best Practices
-- 10.11 — Mở rộng và đào sâu
-- 10.12 — Mini case study
-- 10.13 — Ví dụ thực tế nhanh
-- 10.14 — Review and Assessment
-
-## Bài liên quan
-
-- Đổi id trên URL ra dữ liệu người khác? Chặn IDOR ở một tầng duy nhất — IDOR xảy ra khi API nhận id từ request rồi đọc thẳng bản ghi mà không hỏi xem người gọi có sở hữu bản ghi đó không.
-- Dựng một nền tảng CRM multi-tenant từ con số không: chuyện nghề 20 tháng — Sản phẩm đầu tiên mình được giao init và dựng từ đầu: một nền tảng CRM multi-tenant, đi demo cho nhiều ngành gần một năm rồi chuyển sang delivery…
 
 ============================================================================
 
@@ -38219,6 +38049,126 @@ Ba hàm, ba hành vi:
 Chọn sai giữa `rank` và `dense_rank` là lỗi thầm lặng: bảng xếp hạng vẫn hiện ra hợp lý, chỉ là số hạng nhảy hoặc không nhảy trái với kỳ vọng nghiệp vụ.
 
 Còn `row_number` có một ứng dụng rất hay dùng — lấy bản ghi mới nhất của mỗi nhóm:
+
+[… phần còn lại đã lược bớt]
+
+============================================================================
+
+# MailKit trong .NET: gửi email SMTP và dựng HTML email template chạy đúng trên Outlook
+
+URL: https://tiennhm.io.vn/blog/mailkit-html-email-template
+Source: blog/2026/2026-09-27-mailkit-html-email-template/index.md
+Date: 2026-09-27
+Description: MailKit là thư viện mail mà chính tài liệu Microsoft khuyến nghị thay cho System.Net.Mail.SmtpClient. Bài này đi từ email đầu tiên tới HTML email template dùng được thật: vì sao phải quay về layout bằng table, vì sao CSS phải inline, vì sao thiếu bản plain-text là vào spam, cách nhúng ảnh bằng CID, và cách tích hợp vào ASP.NET Core mà không chặn request.
+Tags: dotnet, csharp, aspnetcore, backend
+Note: Nội dung dưới đây đã được rút gọn để giữ dung lượng file. Bản đầy đủ tại https://tiennhm.io.vn/blog/mailkit-html-email-template
+
+# MailKit trong .NET
+
+MailKit là thư viện mail mã nguồn mở cho .NET (giấy phép MIT, tác giả Jeffrey Stedfast), nói được cả SMTP, IMAP và POP3. Tài liệu chính thức của Microsoft về `System.Net.Mail.SmtpClient` khuyến nghị thẳng việc dùng MailKit thay thế. Phần khó của việc gửi email không nằm ở chỗ gọi `SendAsync` — nó nằm ở cái HTML bên trong: Outlook classic render bằng engine của Word nên không có flex hay grid, Gmail cắt thư dài quá 102KB, và một thư chỉ có HTML mà thiếu bản plain-text thì điểm spam tăng ngay.
+
+Gửi được email và gửi được email hiển thị đúng là hai bài toán khác nhau. Bài này giải quyết cả hai: phần đầu là cơ chế MailKit, phần sau là những ràng buộc rất cũ kỹ của HTML email mà không đọc trước thì sẽ mất buổi chiều ngồi hỏi vì sao cái template đẹp trên Chrome lại vỡ tan trên Outlook.
+
+## MailKit là gì, và khác MimeKit chỗ nào
+
+Hai thư viện này luôn đi cùng nhau nhưng làm hai việc tách bạch:
+
+| | MimeKit | MailKit |
+|---|---|---|
+| Nhiệm vụ | Dựng và phân tích message theo chuẩn MIME | Nói chuyện với server qua giao thức |
+| Phạm vi | `MimeMessage`, `BodyBuilder`, attachment, encoding, chữ ký S/MIME/PGP | `SmtpClient`, `ImapClient`, `Pop3Client`, xác thực, TLS |
+| Quan hệ | Không phụ thuộc MailKit | Phụ thuộc MimeKit |
+
+Nói ngắn: MimeKit dựng lá thư, MailKit mang lá thư đi. Cài `MailKit` thì NuGet tự kéo `MimeKit` theo, nên hầu như không bao giờ phải cài riêng.
+
+[code bash]
+dotnet add package MailKit
+[/code]
+
+Cả hai đều là MIT, dùng cho dự án thương mại không phải trả phí và không phải công bố mã nguồn.
+
+## Vì sao không dùng `System.Net.Mail.SmtpClient`
+
+`SmtpClient` vẫn chạy, và với một script nội bộ gửi vài cái mail cảnh báo thì nó vẫn ổn. Vấn đề xuất hiện khi hệ thống lớn lên:
+
+- Chỉ có SMTP. Không đọc được mail. Cần IMAP hay POP3 là phải tìm thư viện khác.
+- Async không thật. `SendMailAsync` bọc mô hình bất đồng bộ cũ, không phải async I/O đúng nghĩa xuống socket.
+- OAuth2 rất chật vật. Gmail và Microsoft 365 đã tắt xác thực bằng mật khẩu thường cho ứng dụng bên thứ ba; `SmtpClient` không có đường đi sạch cho OAuth2.
+- Kiểm soát TLS hạn chế. Không chọn được rõ ràng giữa STARTTLS và TLS ngầm.
+
+Trang tài liệu của Microsoft cho chính lớp này có ghi chú khuyến nghị chuyển sang MailKit — đây không phải ý kiến của cộng đồng mà là khuyến nghị từ phía Microsoft.
+
+## Gửi email đầu tiên
+
+[code csharp]
+using MailKit.Net.Smtp;
+using MailKit.Security;
+using MimeKit;
+
+var message = new MimeMessage();
+message.From.Add(new MailboxAddress("Utop Shop", "no-reply@utop.io"));
+message.To.Add(new MailboxAddress("Minh Tiến", "tien@example.com"));
+message.Subject = "Đơn hàng #12345 đã được xác nhận";
+
+var body = new BodyBuilder
+{
+    HtmlBody = "<h1>Cảm ơn bạn</h1><p>Đơn hàng đang được chuẩn bị.</p>",
+    TextBody = "Cảm ơn bạn. Đơn hàng đang được chuẩn bị."
+};
+message.Body = body.ToMessageBody();
+
+using var client = new SmtpClient();
+await client.ConnectAsync("smtp.gmail.com", 587, SecureSocketOptions.StartTls);
+await client.AuthenticateAsync("no-reply@utop.io", appPassword);
+await client.SendAsync(message);
+await client.DisconnectAsync(true);
+[/code]
+
+Hai chỗ hay sai ngay ở đoạn ngắn này.
+
+Chọn đúng cổng và `SecureSocketOptions`. Ghép sai cặp này là lỗi phổ biến nhất khi mới dùng MailKit:
+
+| Cổng | `SecureSocketOptions` | Cơ chế |
+|---|---|---|
+| 587 | `StartTls` | Kết nối thường rồi nâng cấp lên TLS |
+| 465 | `SslOnConnect` | TLS ngay từ byte đầu tiên |
+| 25 | `None` / `StartTls` | Thường bị nhà mạng và cloud provider chặn |
+
+Đừng dùng `SecureSocketOptions.Auto` khi đã biết chắc server — nó phải dò, và khi dò sai thì thông báo lỗi rất khó đọc.
+
+Gmail không nhận mật khẩu tài khoản. Phải bật xác thực hai bước rồi tạo App Password riêng, hoặc đi đường OAuth2. Nhét mật khẩu đăng nhập thường vào đây sẽ luôn trả về lỗi xác thực.
+
+## HTML email template
+
+Đây là phần chiếm thời gian thật sự.
+
+### HTML email không phải HTML web
+
+Email client không phải trình duyệt. Vài ràng buộc phải chấp nhận:
+
+- Outlook classic trên Windows render bằng engine của Microsoft Word. Không có `flex`, không có `grid`, `float` và `position` hành xử khó lường. Layout nhiều cột phải quay lại dùng ` ` — không phải vì cổ điển mà vì đó là thứ duy nhất render giống nhau ở mọi nơi.
+- CSS phải inline. Nhiều client cắt hoặc bỏ qua khối ` ` trong ` `. Style quan trọng phải nằm ở thuộc tính `style=""` của từng thẻ.
+- Gmail cắt thư dài quá 102KB. Phần bị cắt nằm sau một liên kết "View entire message", và nếu nút CTA rơi vào phần đó thì coi như mất.
+- Ảnh bị chặn mặc định ở nhiều client. Thư phải đọc được khi không có ảnh nào tải lên, nên `alt` không phải tùy chọn.
+- Không có JavaScript. Mọi client đều tước bỏ.
+
+### Một template tối thiểu nhưng đúng
+
+[code html]
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Xác nhận đơn hàng</title>
+</head>
+<body style="margin:0; padding:0; background-color:#f4f4f7;">
+  <!-- Bảng ngoài cùng: tô nền toàn chiều rộng -->
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+         style="background-color:#f4f4f7;">
+    <tr>
+      <td align="center" style="padding:24px 12px;">
 
 [… phần còn lại đã lược bớt]
 
