@@ -302,7 +302,7 @@ Lý do sâu hơn: SJF tối thiểu hoá tổng turnaround time, mà tổng turn
     [*] --> New
     New --> Ready : admit
     Ready --> Running : dispatch
-    Running --> Ready : hết quantum / bị trưng dụng
+    Running --> Ready : hết quantum
     Running --> Waiting : chờ I/O
     Waiting --> Ready : I/O hoàn tất
     Running --> Terminated : exit
@@ -1080,7 +1080,7 @@ Hai chỗ dễ sai:
     [*] --> New
     New --> Ready : admit
     Ready --> Running : dispatch
-    Running --> Ready : hết quantum / bị trưng dụng
+    Running --> Ready : hết quantum
     Running --> Waiting : chờ I/O
     Waiting --> Ready : I/O hoàn tất
     Running --> Terminated : exit
