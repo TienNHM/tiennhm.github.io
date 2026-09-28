@@ -16,6 +16,7 @@ import type { Props } from '@theme/BlogPostPage';
 import type { BlogSidebar } from '@docusaurus/plugin-content-blog';
 import PdfExportActions from '@site/src/components/PdfExportActions';
 import CopyMarkdownButton from '@site/src/components/CopyMarkdownButton';
+import VisitorBadge from '@site/src/components/VisitorBadge';
 import styles from './styles.module.css';
 
 function BlogPostPageContent({
@@ -49,6 +50,7 @@ function BlogPostPageContent({
       <div className={clsx('margin-bottom--md', 'page-actions', styles.pageActions)}>
         <PdfExportActions permalink={metadata.permalink} />
         <CopyMarkdownButton />
+        <VisitorBadge permalink={metadata.permalink} />
       </div>
 
       <BlogPostItem>{children}</BlogPostItem>

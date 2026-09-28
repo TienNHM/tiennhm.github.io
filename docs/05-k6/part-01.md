@@ -9,10 +9,6 @@ draft: false # set to true to hide this post from the site
 image: https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fk6.io/showcase/
 ---
 
-<p align="right">
-    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Fload-testing-restful-apis-with-k6-part-01&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
-</p>
-
 [RESTful API](https://aws.amazon.com/what-is/restful-api/) là một trong những kiểu API phổ biến nhất hiện nay. Vì vậy, việc kiểm tra tải (load testing) là một phần quan trọng của việc kiểm tra hiệu suất. Trong bài viết này, chúng ta sẽ tìm hiểu cách **cài đặt** [k6](https://k6.io) để kiểm tra tải cho RESTful API.
 
 <!--truncate-->
@@ -116,4 +112,4 @@ Trong [bài viết tiếp theo](./part-02.md), chúng ta sẽ tìm hiểu cách 
 
 ## Bài liên quan
 
-- [Các loại kiểm thử API](/blog/api-testing-types)
+- [Các loại kiểm thử API: 9 loại, khác nhau ở đâu và chạy lúc nào](/blog/api-testing-types) — Kiểm thử API là gì và vì sao nó rẻ hơn kiểm thử giao diện.

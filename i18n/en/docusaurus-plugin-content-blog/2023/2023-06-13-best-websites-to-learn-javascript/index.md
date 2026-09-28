@@ -10,10 +10,6 @@ image: https://i.pinimg.com/originals/71/ee/32/71ee32577432648f9e45fbd63b2cf261.
 
 import { SummaryBox } from '@site/src/components/SEO';
 
-<p align="right">
-    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Fbest-websites-to-learn-javascript&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
-</p>
-
 <SummaryBox>
 This post introduces the best websites for learning JavaScript, including MDN Web Docs (the official reference), freeCodeCamp (free courses), JavaScript.info (detailed tutorials) and several other learning resources. Each site is described in terms of its content, its teaching approach and why it is worth using, helping JavaScript learners from beginner to advanced find material that matches their level and goals.
 </SummaryBox>

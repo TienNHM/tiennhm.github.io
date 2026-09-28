@@ -10,10 +10,6 @@ image: https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fmarketplace.visu
 
 import { SummaryBox } from '@site/src/components/SEO';
 
-<p align="right">
-    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Fbest-extensions-for-vs-code&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
-</p>
-
 <SummaryBox>
 This post introduces the 16 Visual Studio Code extensions I use every day, including GitLens (Git management), Git Graph (visualising Git history), Prettier (code formatter), ESLint (code linter), Live Server (local development server) and a number of other useful ones. Each extension is described in detail along with what it does and how to use it, helping developers become more productive and get more out of VS Code.
 </SummaryBox>

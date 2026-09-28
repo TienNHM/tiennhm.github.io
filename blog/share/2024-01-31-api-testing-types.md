@@ -12,10 +12,6 @@ image: /img/blogs/api-testing-types.gif
 
 import { SummaryBox, FAQSection } from '@site/src/components/SEO';
 
-<p align="right">
-    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.io.vn%2Fblog%2Fapi-testing-types&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
-</p>
-
 <SummaryBox>
 Kiểm thử API là việc gửi request thẳng vào tầng API và kiểm tra response, thay vì thao tác qua giao diện. Nó nhanh hơn và ổn định hơn kiểm thử UI vì bỏ qua trình duyệt. Chín loại phổ biến trả lời chín câu hỏi khác nhau: **smoke** hỏi API có sống không, **functional** hỏi có đúng đặc tả không, **integration** hỏi các service ghép lại có đúng không, **regression** hỏi thay đổi mới có phá cái cũ không, **load** và **stress** hỏi chịu được bao nhiêu và sập thế nào, **security** hỏi có lỗ hổng không, **UI** hỏi dữ liệu hiển thị đúng không, **fuzz** hỏi đầu vào rác có làm sập không. Chúng không thay thế nhau.
 </SummaryBox>
@@ -182,3 +178,9 @@ Thứ tự thực dụng cho một pipeline CI/CD:
 ## Tài liệu tham khảo
 
 - [Bài viết gốc của Alex Xu trên LinkedIn](https://www.linkedin.com/posts/alexxubyte_systemdesign-coding-interviewtips-activity-7157050982437195776-s5hC) — hình minh hoạ chín loại kiểm thử API
+
+## Bài liên quan
+
+- [Hướng dẫn cài đặt k6](/docs/k6/load-testing-restful-apis-with-k6-part-01) — RESTful API là một trong những kiểu API phổ biến nhất hiện nay.
+- [Load testing với Virtual Users](/docs/k6/load-testing-restful-apis-with-k6-part-03) — Trong bài viết trước, chúng ta đã tìm hiểu cách sử dụng k6 để kiểm tra tải cho RESTful API thông qua một kịch bản test đơn giản để tạo, đọc, cập nhật…
+- [Load testing API đơn giản](/docs/k6/load-testing-restful-apis-with-k6-part-02) — Để viết một kịch bản test đơn giản, chúng ta sẽ sử dụng một mockup RESTful API.

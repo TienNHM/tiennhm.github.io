@@ -12,10 +12,6 @@ draft: false # set to true to hide this post from the site
 
 import { SummaryBox, FAQSection } from '@site/src/components/SEO';
 
-<p align="right">
-    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.io.vn%2Fblog%2Fcharacter-sets-and-collations-in-mysql&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
-</p>
-
 <SummaryBox>
 Bài viết giới thiệu về Character Sets (bảng mã) và Collations (thứ tự ký tự) trong MySQL, giải thích cách MySQL so sánh chuỗi và những vấn đề thường gặp khi làm việc với các bảng mã khác nhau. MySQL hỗ trợ nhiều character sets như utf8, utf8mb4, latin1, và mỗi character set có các collations khác nhau ảnh hưởng đến cách so sánh và sắp xếp chuỗi. Bài viết giúp developers hiểu và tránh các lỗi phổ biến khi làm việc với multilingual data trong MySQL.
 </SummaryBox>
