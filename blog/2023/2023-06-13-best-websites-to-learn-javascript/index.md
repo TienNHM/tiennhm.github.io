@@ -12,10 +12,6 @@ image: https://i.pinimg.com/originals/71/ee/32/71ee32577432648f9e45fbd63b2cf261.
 
 import { SummaryBox } from '@site/src/components/SEO';
 
-<p align="right">
-    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Fbest-websites-to-learn-javascript&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
-</p>
-
 <SummaryBox>
 Bài viết giới thiệu các trang web tốt nhất để học JavaScript, bao gồm MDN Web Docs (tài liệu chính thức), freeCodeCamp (khóa học miễn phí), JavaScript.info (hướng dẫn chi tiết), và nhiều nguồn học tập khác. Mỗi trang web được mô tả về nội dung, phương pháp học và lý do nên sử dụng, giúp người học JavaScript từ cơ bản đến nâng cao tìm được nguồn tài liệu phù hợp với trình độ và mục tiêu của mình.
 </SummaryBox>

@@ -12,10 +12,6 @@ image: https://www.freecodecamp.org/news/content/images/size/w2000/2022/08/Markd
 
 import { SummaryBox, FAQSection } from '@site/src/components/SEO';
 
-<p align="right">
-    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.io.vn%2Fblog%2Fmarkdown-cheat-sheet&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
-</p>
-
 <SummaryBox>
 Bài viết là một Markdown Cheat Sheet đầy đủ hướng dẫn cách tạo file README trên GitHub với Markdown. Markdown là ngôn ngữ đánh dấu nhẹ, dễ đọc và dễ viết, được sử dụng rộng rãi trên GitHub để tạo documentation. Bài viết bao gồm tất cả các syntax cơ bản của Markdown như headings, lists, links, images, code blocks, tables, và nhiều tính năng khác, kèm ví dụ cụ thể cho từng loại.
 </SummaryBox>
@@ -430,3 +426,7 @@ Trong phần tiếp theo, mình sẽ hướng dẫn các bạn sử dụng một
     }
   ]}
 />
+
+## Bài liên quan
+
+- [Trắc nghiệm hệ thống file](/docs/operating-system/quiz/file-system) — Trắc nghiệm hệ thống file - FCB, các lớp chức năng, volume control block, bảng FAT, giới hạn của FAT32 và NTFS.

@@ -9,10 +9,6 @@ draft: false # set to true to hide this post from the site
 image: https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fk6.io/showcase/
 ---
 
-<p align="right">
-    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Fload-testing-restful-apis-with-k6-part-05&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
-</p>
-
 Trong các bài viết trước, chúng ta đã biết cách viết kịch bản test và xem kết quả trên màn hình console khi chạy kịch bản với k6. Tuy nhiên, để có thể quan sát và phân tích kết quả một cách trực quan hơn, chúng ta có thể kết hợp k6 với Grafana và InfluxDB.
 
 Bài viết này sẽ hướng dẫn các bạn cài đặt và sử dụng Grafana cùng InfluxDB để trực quan hóa kết quả load test từ k6.

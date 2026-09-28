@@ -211,5 +211,5 @@ public sealed class CacheWarmupWorker : BackgroundService
 ## Bài liên quan
 
 - [Module 7 — Dependency Injection](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-07-dependency-injection) — Dependency injection trong .NET: service lifetime, composition root, options pattern — khớp với container ASP.NET Core và kiểm thử đơn vị.
-- [7.5 — 3. Service Lifetimes](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-07-dependency-injection/7.4-service-lifetimes) — Transient, Scoped, Singleton: khi nào tạo mới, khi nào Dispose, và vì sao captive dependency khiến DbContext sống mãi tới lúc ứng dụng tắt.
+- [7.4 — 3. Service Lifetimes](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-07-dependency-injection/7.4-service-lifetimes) — Transient, Scoped, Singleton: khi nào tạo mới, khi nào Dispose, và vì sao captive dependency khiến DbContext sống mãi tới lúc ứng dụng tắt.
 - [Module 16 — Clean Architecture](/docs/dotnet-backend-zero-to-senior/stage-05-senior-engineering/module-16-clean-architecture) — Clean Architecture & DDD tactical: layers, aggregates, application services — giảm coupling và tăng khả năng kiểm chứng cho CRM lớn.
