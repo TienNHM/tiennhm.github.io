@@ -1,8 +1,8 @@
 ---
 slug: markdown-cheat-sheet
-title: Markdown Cheat Sheet - Cách tạo một file README trên Github với Markdown
-description: "Bảng tra cú pháp Markdown đầy đủ để viết README trên GitHub: heading, danh sách, liên kết, ảnh, khối mã, bảng và nhiều thành phần khác, mỗi loại kèm ví dụ cụ thể."
-keywords: [markdown cheat sheet, cu phap markdown, viet readme github, readme md, markdown table, markdown code block, huong dan markdown, tao readme dep, markdown tieng viet]
+title: "Markdown Cheat Sheet: file .md là gì, cách tạo và viết README trên GitHub"
+description: "File .md là file gì, mở bằng gì và tạo như thế nào — rồi tới bảng tra cú pháp Markdown đầy đủ để viết README trên GitHub: heading, danh sách, liên kết, ảnh, khối mã, bảng và nhiều thành phần khác, mỗi loại kèm ví dụ chạy được."
+keywords: [markdown cheat sheet, file md la gi, file .md la gi, cach tao file md, cach tao file markdown, tao file md, md la file gi, file md mo bang gi, readme la gi, file readme la gi, readme md la gi, cach viet file readme, cach viet readme github, readme cheat sheet, github markdown cheat sheet, md cheat sheet, cu phap markdown, viet readme github, readme md, markdown table, markdown code block, huong dan markdown, tao readme dep, markdown tieng viet]
 authors: [tiennhm]
 tags: [tools, git]
 enableComments: true # for Gisqus comments, set to true
@@ -10,10 +10,10 @@ draft: false # set to true to hide this post from the site
 image: https://www.freecodecamp.org/news/content/images/size/w2000/2022/08/Markdown-cheatsheet.png
 ---
 
-import { SummaryBox } from '@site/src/components/SEO';
+import { SummaryBox, FAQSection } from '@site/src/components/SEO';
 
 <p align="right">
-    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Fmarkdown-cheat-sheet&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
+    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.io.vn%2Fblog%2Fmarkdown-cheat-sheet&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
 </p>
 
 <SummaryBox>
@@ -33,6 +33,59 @@ Các định dạng file markdown phổ biến: `.markdown`, `.md`, `.mkd`, `.mk
 Markdown là một trong số những markup language được sử dụng phổ biến nhất. Bên cạnh Markdown, bạn có thể sử dụng các markup language khác như [HTML](https://www.w3schools.com/html/), [XML](https://www.w3schools.com/xml/)...
 
 Đặc biệt, bạn hoàn toàn có thể sử dụng cú pháp của các thẻ HTML trong file file markdown. 
+
+## File `.md` là gì và mở bằng gì
+
+`.md` là phần mở rộng của file Markdown — một **file văn bản thuần** (plain text), không phải định dạng nhị phân như `.docx` hay `.pdf`. Mở nó bằng Notepad vẫn đọc được toàn bộ nội dung, chỉ là không thấy phần định dạng được render ra.
+
+Vì là văn bản thuần nên:
+
+- **Mở được bằng bất kỳ trình soạn thảo nào** — Notepad, TextEdit, Vim, VS Code.
+- **Git so sánh được từng dòng**, nên review thay đổi trong pull request rất dễ. Đây là lý do tài liệu kỹ thuật thường viết bằng Markdown thay vì Word.
+- **Không phụ thuộc phần mềm nào cả.** File `.docx` mà thiếu Word thì chật vật, còn `.md` thì mười năm sau vẫn đọc được.
+
+Muốn xem bản đã render thì dùng công cụ có chế độ xem trước:
+
+| Công cụ | Cách xem trước |
+|---|---|
+| VS Code | `Ctrl` + `Shift` + `V`, hoặc biểu tượng chia đôi màn hình |
+| GitHub / GitLab | Tự render khi mở file `.md` trong repo |
+| Typora, Obsidian | Render trực tiếp ngay lúc gõ |
+| Trình duyệt | Cần tiện ích mở rộng như Markdown Viewer |
+
+Các phần mở rộng khác cũng là Markdown: `.markdown`, `.mkd`, `.mdown`, `.mkdown`. Dùng phổ biến nhất vẫn là `.md`.
+
+## Cách tạo file `.md`
+
+Không cần phần mềm chuyên dụng. Chọn cách nào tiện nhất:
+
+**Cách 1 — VS Code (khuyên dùng)**
+
+1. `File` → `New File`.
+2. `Ctrl` + `S` để lưu, đặt tên kèm đuôi `.md`, ví dụ `README.md`.
+3. Gõ nội dung, rồi `Ctrl` + `Shift` + `V` để xem bản render.
+
+**Cách 2 — Ngay trên GitHub, không cần cài gì**
+
+1. Vào repo → `Add file` → `Create new file`.
+2. Đặt tên `README.md`.
+3. Gõ nội dung, dùng tab `Preview` để xem trước, rồi `Commit changes`.
+
+**Cách 3 — Dòng lệnh**
+
+```bash
+# Linux / macOS
+touch README.md
+
+# Windows PowerShell
+New-Item README.md
+```
+
+**Cách 4 — Notepad trên Windows**
+
+Mở Notepad, gõ nội dung, rồi `Save As`. Nhớ hai điều: chọn `All Files` ở mục `Save as type` (không thì Windows tự thêm `.txt` thành `README.md.txt`), và chọn encoding `UTF-8` để tiếng Việt không bị lỗi font.
+
+Lưu ý về tên file: `README.md` viết hoa là quy ước, và GitHub nhận cả `readme.md` lẫn `Readme.md`. Nhưng trên Linux tên file phân biệt hoa thường, nên cứ viết hoa toàn bộ cho thống nhất.
 
 ## Cú pháp Markdown
 
@@ -318,8 +371,62 @@ Kết quả:
 | Canh trái Item 1 | Canh giữa Item 2 | Canh phải Item 3 |
 | Lorem ipsum dolor sit amet, consectetur adipiscing elit.  | Lorem ipsum dolor sit amet, consectetur adipiscing elit. | Lorem ipsum dolor sit amet, consectetur adipiscing elit. |
 
+## README.md là gì và nên có những gì
+
+`README.md` là file GitHub tự động hiển thị ngay dưới danh sách file khi ai đó mở repo. Nó là thứ đầu tiên người lạ nhìn thấy, nên đáng viết tử tế.
+
+Một README dùng được thường có các phần sau, theo đúng thứ tự người đọc cần:
+
+| Phần | Trả lời câu hỏi |
+|---|---|
+| Tên và mô tả một dòng | Dự án này là cái gì? |
+| Ảnh chụp màn hình hoặc GIF | Nó trông như thế nào? |
+| Cài đặt | Làm sao chạy được trên máy tôi? |
+| Cách dùng | Dùng nó ra sao, kèm ví dụ cụ thể |
+| Cấu hình | Có biến môi trường hay tham số nào cần đặt? |
+| Đóng góp | Muốn gửi pull request thì làm thế nào? |
+| Giấy phép | Tôi được phép dùng nó vào việc gì? |
+
+Lỗi phổ biến nhất là viết dài dòng về động cơ và triết lý thiết kế ở đầu file, trong khi người đọc chỉ cần biết **chạy nó lên bằng cách nào**. Đặt phần cài đặt lên càng sớm càng tốt.
+
+Ngoài `README.md`, GitHub còn nhận diện vài file Markdown đặc biệt khác: `CONTRIBUTING.md` hiện lên khi ai đó mở pull request, `LICENSE` được đọc để hiển thị nhãn giấy phép, và `.github/ISSUE_TEMPLATE/*.md` dùng làm mẫu cho issue mới.
+
 ## Kết luận
 
 Trong bài viết này, mình đã giới thiệu các cú pháp cơ bản thường được sử dụng để tạo 1 file README bằng markdown. Hy vọng bạn thấy có ích và thích nó. Đừng ngại khi bạn có thể share bài viết này cho bạn bè nhé!
 
 Trong phần tiếp theo, mình sẽ hướng dẫn các bạn sử dụng một số cú pháp nâng cao trong markdown.
+
+
+<FAQSection
+  items={[
+    {
+      question: "File .md là file gì?",
+      answer: "File .md là file Markdown, một file văn bản thuần chứa nội dung kèm các ký hiệu định dạng đơn giản như dấu thăng cho tiêu đề và dấu sao cho in đậm. Vì là văn bản thuần nên mở được bằng bất kỳ trình soạn thảo nào và Git so sánh được từng dòng, đó là lý do tài liệu kỹ thuật thường viết bằng Markdown thay vì Word."
+    },
+    {
+      question: "Mở file .md bằng gì?",
+      answer: "Mở bằng bất kỳ trình soạn thảo văn bản nào, kể cả Notepad. Muốn xem bản đã render thì dùng VS Code với phím tắt Ctrl Shift V, hoặc các ứng dụng chuyên dụng như Typora và Obsidian. GitHub và GitLab tự render file .md khi bạn mở nó trong repo."
+    },
+    {
+      question: "Cách tạo file .md như thế nào?",
+      answer: "Cách nhanh nhất là mở VS Code, tạo file mới rồi lưu với tên kèm đuôi .md, ví dụ README.md. Cũng có thể tạo thẳng trên GitHub qua Add file rồi Create new file mà không cần cài gì, hoặc dùng lệnh touch README.md trên Linux và macOS, New-Item README.md trên PowerShell. Nếu dùng Notepad thì nhớ chọn All Files khi lưu để Windows không tự thêm đuôi .txt."
+    },
+    {
+      question: "README.md là gì?",
+      answer: "README.md là file Markdown mà GitHub tự động hiển thị ngay dưới danh sách file khi ai đó mở repo. Nó là thứ đầu tiên người lạ nhìn thấy, thường gồm tên và mô tả dự án, ảnh minh hoạ, hướng dẫn cài đặt, cách dùng, cấu hình, cách đóng góp và giấy phép."
+    },
+    {
+      question: "Tên file README viết hoa hay viết thường?",
+      answer: "Quy ước là viết hoa toàn bộ thành README.md. GitHub nhận cả readme.md lẫn Readme.md, nhưng hệ thống file trên Linux phân biệt chữ hoa chữ thường nên viết hoa toàn bộ là cách an toàn và thống nhất nhất."
+    },
+    {
+      question: "Có dùng được thẻ HTML trong file Markdown không?",
+      answer: "Được. Markdown cho phép chèn thẳng thẻ HTML, nên những thứ cú pháp Markdown không làm được như căn giữa ảnh, gộp ô trong bảng hay tạo khối thu gọn bằng thẻ details đều xử lý được bằng HTML. Tuy nhiên một số nền tảng lọc bớt thẻ vì lý do bảo mật, ví dụ GitHub loại bỏ thẻ script và phần lớn thuộc tính style."
+    },
+    {
+      question: "Markdown khác HTML ở điểm nào?",
+      answer: "Cả hai đều là ngôn ngữ đánh dấu nhưng Markdown ưu tiên việc đọc được ngay ở dạng thô, còn HTML ưu tiên khả năng mô tả cấu trúc đầy đủ. Markdown gọn hơn nhiều, chẳng hạn một dấu thăng thay cho cặp thẻ h1, đổi lại nó chỉ phủ những thành phần thông dụng. Khi cần thứ Markdown không có, chèn thẳng HTML vào là được."
+    }
+  ]}
+/>

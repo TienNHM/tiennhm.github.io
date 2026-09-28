@@ -1,11 +1,11 @@
 ---
 slug: character-sets-and-collations-in-mysql
-title: Character Sets - Collations và vấn đề so sánh chuỗi trong MySQL
-description: Giới thiệu về các bảng mã và cách so sánh chuỗi trong MySQL, những vấn đề cần lưu ý khi làm việc với các bảng mã khác nhau.
+title: "Collation là gì? Character Sets, Collations và so sánh chuỗi trong MySQL"
+description: "Collation quyết định MySQL so sánh và sắp xếp chuỗi thế nào — vì sao WHERE name = 'Alice' lại khớp cả 'alice', hậu tố _ci _cs _bin nghĩa là gì, vì sao utf8 của MySQL không phải UTF-8 thật và không lưu nổi emoji, cách kiểm tra charset đang dùng ở bốn cấp và cách chuyển an toàn sang utf8mb4."
 image: https://i.pinimg.com/originals/6e/4a/9a/6e4a9a1b7604e4f9b6a9f74f932834ad.png
 authors: [tiennhm]
 tags: [database]
-keywords: [mysql, character-sets, collations, tips-and-tricks, database]
+keywords: [collation la gi, collate la gi, collation mysql, mysql collation, mysql collate, character set la gi, charset la gi, mysql character set, mysql charset, mysql charset collation, utf8mb4, mysql utf8 vs utf8mb4, utf8_general_ci, utf8_bin, latin1_swedish_ci, mysql show character set, mysql check database collation, mysql check table collation, mysql default character set, character_set_server, error 1253 collation, so sanh chuoi mysql, phan biet hoa thuong mysql, mysql emoji, alter table convert to utf8mb4]
 enableComments: true # for Gisqus comments, set to true
 draft: false # set to true to hide this post from the site
 ---
@@ -13,7 +13,7 @@ draft: false # set to true to hide this post from the site
 import { SummaryBox, FAQSection } from '@site/src/components/SEO';
 
 <p align="right">
-    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.github.io%2Fblog%2Fcharacter-sets-and-collations-in-mysql&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
+    <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Ftiennhm.io.vn%2Fblog%2Fcharacter-sets-and-collations-in-mysql&label=⚪View&labelColor=%2337d67a&countColor=%23555555&style=flat&labelStyle=upper" loading='lazy' decoding='async'/>
 </p>
 
 <SummaryBox>
@@ -358,6 +358,88 @@ Sẽ báo lỗi:
 Error Code: 1253. COLLATION 'utf8_bin' is not valid for CHARACTER SET 'utf8mb4'
 ```
 
+### 4.4. `utf8` của MySQL không phải UTF-8
+
+Đây là cái bẫy tốn nhiều thời gian nhất trong cả bài.
+
+Trong MySQL, `utf8` **không phải** UTF-8 đầy đủ — nó là bí danh của `utf8mb3`, phiên bản chỉ dùng tối đa **3 byte** cho mỗi ký tự. UTF-8 thật cần tới 4 byte, và những ký tự nằm ở vùng 4 byte gồm emoji cùng một phần chữ Hán mở rộng.
+
+Hậu quả rất cụ thể: cột khai báo `utf8` sẽ **không lưu được emoji**.
+
+```sql
+CREATE TABLE messages (content VARCHAR(255)) CHARACTER SET utf8;
+INSERT INTO messages VALUES ('Xin chào 😀');
+```
+
+```
+Error 1366: Incorrect string value: '\xF0\x9F\x98\x80' for column 'content'
+```
+
+Bảng mã đúng để dùng là **`utf8mb4`**. Từ MySQL 8.0 nó đã là mặc định, với collation mặc định `utf8mb4_0900_ai_ci`. Nhưng những database tạo từ thời MySQL 5.x thì mặc định là `latin1` kèm `latin1_swedish_ci` — di sản này vẫn còn rất nhiều trong hệ thống đang chạy.
+
+Ba collation hay gặp của `utf8mb4`:
+
+| Collation | Đặc điểm |
+|---|---|
+| `utf8mb4_0900_ai_ci` | Mặc định từ MySQL 8.0, theo chuẩn Unicode 9.0, sắp xếp đúng nhất |
+| `utf8mb4_unicode_ci` | Theo Unicode 4.0, chính xác nhưng cũ hơn |
+| `utf8mb4_general_ci` | Nhanh hơn chút nhưng sắp xếp sai ở một số ngôn ngữ, chỉ nên dùng khi kế thừa |
+
+### 4.5. Kiểm tra và đổi charset, collation
+
+Charset và collation được quyết định ở bốn cấp, cấp nhỏ hơn ghi đè cấp lớn hơn: **server → database → bảng → cột**.
+
+**Xem server đang dùng gì:**
+
+```sql
+SHOW VARIABLES LIKE 'character_set_server';
+SHOW VARIABLES LIKE 'collation_server';
+```
+
+**Xem của một database:**
+
+```sql
+SELECT default_character_set_name, default_collation_name
+FROM information_schema.schemata
+WHERE schema_name = 'ten_database';
+```
+
+**Xem của các bảng trong một database:**
+
+```sql
+SELECT table_name, table_collation
+FROM information_schema.tables
+WHERE table_schema = 'ten_database';
+```
+
+**Xem chi tiết tới từng cột** — đây là cấp hay ẩn vấn đề nhất, vì một bảng `utf8mb4` vẫn có thể chứa cột lẻ còn `latin1`:
+
+```sql
+SELECT column_name, character_set_name, collation_name
+FROM information_schema.columns
+WHERE table_schema = 'ten_database' AND table_name = 'ten_bang';
+```
+
+**Liệt kê những gì server hỗ trợ:**
+
+```sql
+SHOW CHARACTER SET;
+SHOW COLLATION WHERE Charset = 'utf8mb4';
+```
+
+**Chuyển một bảng sang `utf8mb4`:**
+
+```sql
+ALTER TABLE ten_bang
+  CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+```
+
+Ba điều phải biết trước khi chạy lệnh trên trong môi trường thật:
+
+- **`CONVERT TO` viết lại toàn bộ bảng.** Với bảng lớn nó khoá lâu — hãy làm trong khung giờ bảo trì, hoặc dùng công cụ đổi lược đồ trực tuyến như `pt-online-schema-change`.
+- **Dung lượng index tăng.** Mỗi ký tự có thể chiếm 4 byte thay vì 3, nên `VARCHAR(255)` khi đánh index chiếm 1020 byte. Với bảng cũ dùng row format `COMPACT` (giới hạn 767 byte) sẽ gặp lỗi *Specified key was too long*; đổi sang row format `DYNAMIC` là hết.
+- **Đổi bảng không đổi database.** Bảng tạo mới sau đó vẫn theo mặc định cũ, nên nhớ `ALTER DATABASE ten_database CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;` nữa.
+
 ## 5. Kết luận {#conclusion}
 
 Trong bài viết này, chúng ta đã tìm hiểu về các bảng mã và cách so sánh chuỗi trong MySQL, những vấn đề cần lưu ý khi làm việc với các bảng mã khác nhau. Hy vọng bài viết này giúp bạn hiểu rõ hơn về collation và cách so sánh chuỗi trong MySQL.
@@ -385,6 +467,22 @@ Nếu bạn có bất kỳ câu hỏi hoặc ý kiến đóng góp nào, hãy đ
     {
       question: "Lỗi Error Code 1253 COLLATION is not valid for CHARACTER SET xảy ra khi nào?",
       answer: "Khi bạn so sánh hai biểu thức có collation không tương thích với nhau, ví dụ SELECT 'Alice' COLLATE utf8_bin = 'Alice' COLLATE utf8_general_ci. Trong trường hợp này MySQL báo lỗi thay vì tự chọn một collation."
+    },
+    {
+      question: "Collation là gì?",
+      answer: "Collation là tập quy tắc xác định cách MySQL so sánh và sắp xếp các ký tự trong một bảng mã. Nó quyết định hai chuỗi có được coi là bằng nhau hay không và thứ tự khi ORDER BY, chẳng hạn chữ hoa và chữ thường có được xem là giống nhau không, hay chữ có dấu và không dấu có được xếp cùng nhau không. Mỗi character set có ít nhất một collation."
+    },
+    {
+      question: "utf8 và utf8mb4 trong MySQL khác nhau thế nào?",
+      answer: "Trong MySQL, utf8 là bí danh của utf8mb3 và chỉ dùng tối đa 3 byte cho một ký tự, nên không lưu được những ký tự nằm ở vùng 4 byte như emoji và một phần chữ Hán mở rộng. utf8mb4 mới là UTF-8 đầy đủ với tối đa 4 byte. Từ MySQL 8.0, utf8mb4 là mặc định với collation utf8mb4_0900_ai_ci, còn các database tạo từ thời MySQL 5.x thường mặc định latin1 kèm latin1_swedish_ci."
+    },
+    {
+      question: "Làm sao kiểm tra database hoặc bảng đang dùng collation nào?",
+      answer: "Với database dùng truy vấn SELECT default_character_set_name, default_collation_name FROM information_schema.schemata WHERE schema_name = tên database. Với các bảng dùng SELECT table_name, table_collation FROM information_schema.tables WHERE table_schema = tên database. Với từng cột thì truy vấn information_schema.columns, đây là cấp hay ẩn vấn đề nhất vì một bảng utf8mb4 vẫn có thể chứa cột lẻ còn latin1."
+    },
+    {
+      question: "Chuyển bảng sang utf8mb4 cần lưu ý gì?",
+      answer: "Lệnh ALTER TABLE CONVERT TO CHARACTER SET utf8mb4 viết lại toàn bộ bảng nên khoá lâu với bảng lớn, cần làm trong giờ bảo trì hoặc dùng công cụ đổi lược đồ trực tuyến. Dung lượng index cũng tăng vì mỗi ký tự có thể chiếm 4 byte, nên bảng cũ dùng row format COMPACT có thể báo lỗi Specified key was too long và phải đổi sang DYNAMIC. Ngoài ra đổi bảng không đổi mặc định của database, cần chạy thêm ALTER DATABASE."
     }
   ]}
 />
