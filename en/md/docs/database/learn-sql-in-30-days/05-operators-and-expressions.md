@@ -199,4 +199,4 @@ WHERE
 ## Bài liên quan
 
 - [Vì sao NOT IN của bạn trả về 0 dòng? Logic ba trị của SQL và cái bẫy NULL](https://tiennhm.io.vn/blog/sql-null-not-in-three-valued-logic) — Một câu NOT IN trả về đúng 0 dòng trong khi bảng có dữ liệu, còn NOT EXISTS cùng ý định lại trả về đủ.
-- [Character Sets - Collations và vấn đề so sánh chuỗi trong MySQL](https://tiennhm.io.vn/blog/character-sets-and-collations-in-mysql) — Giới thiệu về các bảng mã và cách so sánh chuỗi trong MySQL, những vấn đề cần lưu ý khi làm việc với các bảng mã khác nhau.
+- [Collation là gì? Character Sets, Collations và so sánh chuỗi trong MySQL](https://tiennhm.io.vn/blog/character-sets-and-collations-in-mysql) — Collation quyết định MySQL so sánh và sắp xếp chuỗi thế nào — vì sao WHERE name = 'Alice' lại khớp cả 'alice', hậu tố _ci _cs _bin nghĩa là gì, vì…

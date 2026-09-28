@@ -84,4 +84,4 @@ Trong [bài viết tiếp theo](./part-02.md), chúng ta sẽ tìm hiểu cách 
 
 ## Bài liên quan
 
-- [Các loại kiểm thử API](https://tiennhm.io.vn/blog/api-testing-types)
+- [Các loại kiểm thử API: 9 loại, khác nhau ở đâu và chạy lúc nào](https://tiennhm.io.vn/blog/api-testing-types) — Kiểm thử API là gì và vì sao nó rẻ hơn kiểm thử giao diện.

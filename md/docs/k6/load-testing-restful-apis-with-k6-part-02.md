@@ -209,3 +209,7 @@ Như bạn có thể thấy, kết quả trả về có nhiều thông tin. Đ�
 Trong bài viết này, chúng ta đã tìm hiểu cách sử dụng k6 để kiểm tra tải cho RESTful API. Hy vọng bài viết này sẽ giúp ích cho bạn trong việc tìm hiểu về k6.
 
 Trong [bài viết tiếp theo](./part-03.md), chúng ta sẽ tìm hiểu cách viết một kịch bản kiểm tra tải với Virtual Users.
+
+## Bài liên quan
+
+- [Các loại kiểm thử API: 9 loại, khác nhau ở đâu và chạy lúc nào](https://tiennhm.io.vn/blog/api-testing-types) — Kiểm thử API là gì và vì sao nó rẻ hơn kiểm thử giao diện.

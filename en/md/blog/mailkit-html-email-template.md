@@ -396,3 +396,8 @@ Gmail không chấp nhận mật khẩu đăng nhập thường cho kết nối 
 - [MailKit trên GitHub](https://github.com/jstedfast/MailKit) — mã nguồn và tài liệu API
 - [MimeKit trên GitHub](https://github.com/jstedfast/MimeKit) — phần dựng và phân tích MIME
 - [Tài liệu SmtpClient của Microsoft](https://learn.microsoft.com/dotnet/api/system.net.mail.smtpclient) — ghi chú khuyến nghị dùng MailKit
+
+## Bài liên quan
+
+- [Module 7 — Dependency Injection](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-07-dependency-injection) — Dependency injection trong .NET: service lifetime, composition root, options pattern — khớp với container ASP.NET Core và kiểm thử đơn vị.
+- [Phần 4 - HTML + Tailwind Best Practices](https://tiennhm.io.vn/docs/agent-skills/agent-skills-03-html-tailwind-best-practices) — Tổng hợp guideline HTML + Tailwind CSS best practices cho Agent Skills – Animation, Layout, Images, Typography, Colors, Spacing, Forms, Responsive…

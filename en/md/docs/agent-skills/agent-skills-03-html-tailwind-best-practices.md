@@ -1160,3 +1160,7 @@ Các state đơn giản nên dùng `group-*`, `peer-*` thay vì JS.
 | Layout misc   | 2           | 🟢               |
 
 Nguồn dữ liệu: [`html-tailwind.csv`](https://raw.githubusercontent.com/nextlevelbuilder/ui-ux-pro-max-skill/refs/heads/main/src/ui-ux-pro-max/data/stacks/html-tailwind.csv) — [ui-ux-pro-max-skill](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill).
+
+## Bài liên quan
+
+- [MailKit trong .NET: gửi email SMTP và dựng HTML email template chạy đúng trên Outlook](https://tiennhm.io.vn/blog/mailkit-html-email-template) — MailKit là thư viện mail mà chính tài liệu Microsoft khuyến nghị thay cho System.Net.Mail.SmtpClient.

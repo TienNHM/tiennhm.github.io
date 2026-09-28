@@ -156,3 +156,9 @@ Mỗi pull request chạy unit test, functional test và integration test, giữ
 ## Tài liệu tham khảo
 
 - [Bài viết gốc của Alex Xu trên LinkedIn](https://www.linkedin.com/posts/alexxubyte_systemdesign-coding-interviewtips-activity-7157050982437195776-s5hC) — hình minh hoạ chín loại kiểm thử API
+
+## Bài liên quan
+
+- [Hướng dẫn cài đặt k6](https://tiennhm.io.vn/docs/k6/load-testing-restful-apis-with-k6-part-01) — RESTful API là một trong những kiểu API phổ biến nhất hiện nay.
+- [Load testing với Virtual Users](https://tiennhm.io.vn/docs/k6/load-testing-restful-apis-with-k6-part-03) — Trong bài viết trước, chúng ta đã tìm hiểu cách sử dụng k6 để kiểm tra tải cho RESTful API thông qua một kịch bản test đơn giản để tạo, đọc, cập nhật…
+- [Load testing API đơn giản](https://tiennhm.io.vn/docs/k6/load-testing-restful-apis-with-k6-part-02) — Để viết một kịch bản test đơn giản, chúng ta sẽ sử dụng một mockup RESTful API.

@@ -403,3 +403,7 @@ Quy ước là viết hoa toàn bộ thành README.md. GitHub nhận cả readme
 ### Markdown khác HTML ở điểm nào?
 
 Cả hai đều là ngôn ngữ đánh dấu nhưng Markdown ưu tiên việc đọc được ngay ở dạng thô, còn HTML ưu tiên khả năng mô tả cấu trúc đầy đủ. Markdown gọn hơn nhiều, chẳng hạn một dấu thăng thay cho cặp thẻ h1, đổi lại nó chỉ phủ những thành phần thông dụng. Khi cần thứ Markdown không có, chèn thẳng HTML vào là được.
+
+## Bài liên quan
+
+- [Trắc nghiệm hệ thống file](https://tiennhm.io.vn/docs/operating-system/quiz/file-system) — Trắc nghiệm hệ thống file - FCB, các lớp chức năng, volume control block, bảng FAT, giới hạn của FAT32 và NTFS.

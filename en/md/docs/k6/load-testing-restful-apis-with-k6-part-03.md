@@ -193,3 +193,7 @@ default ✓ [======================================] 00/20 VUs  2m20s
 Trong bài viết này, chúng ta đã tìm hiểu cách sử dụng k6 để kiểm tra tải cho RESTful API thông qua một kịch bản test với nhiều Virtual User thông qua cờ `--vus` và `--duration` hoặc thông qua set `options` và `stages`. Hy vọng bài viết này sẽ giúp ích cho bạn trong việc tìm hiểu về k6.
 
 Trong [bài viết tiếp theo](./part-04.md), chúng ta sẽ tìm hiểu ý nghĩa của các chỉ số trong kết quả của k6.
+
+## Bài liên quan
+
+- [Các loại kiểm thử API: 9 loại, khác nhau ở đâu và chạy lúc nào](https://tiennhm.io.vn/blog/api-testing-types) — Kiểm thử API là gì và vì sao nó rẻ hơn kiểm thử giao diện.
