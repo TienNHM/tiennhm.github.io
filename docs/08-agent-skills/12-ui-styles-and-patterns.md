@@ -1,6 +1,9 @@
 ---
 title: Phần 12 - UI Styles & Design Systems
 slug: agent-skills-09-ui-styles
+skill_name: ui-styles-and-design-systems
+skill_description: >-
+  Các phong cách giao diện và design system phổ biến, mỗi loại hợp với sản phẩm nào. Dùng khi chốt hướng thiết kế cho sản phẩm mới, hoặc khi người dùng nhắc tới design system, phong cách UI, style guide.
 description: Bản đồ các style UI (Minimalism, Neumorphism, Glassmorphism, Brutalism, Dark Mode, Claymorphism, Aurora, Flat, Accessible & Ethical, Motion-Driven, Hero-Centric, Conversion-Optimized, Data-Dense...) để Agent chọn đúng phong cách cho từng bài toán.
 image: https://raw.githubusercontent.com/nextlevelbuilder/ui-ux-pro-max-skill/refs/heads/main/public/styles-cover.png
 sidebar_position: 12

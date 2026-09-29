@@ -1,6 +1,9 @@
 ---
 title: Phần 7 - UX Best Practices
 slug: agent-skills-05-ux-best-practices
+skill_name: ux-best-practices
+skill_description: >-
+  Nguyên tắc UX: phân cấp thông tin, phản hồi cho người dùng, giảm tải nhận thức, ngăn lỗi. Dùng khi thiết kế luồng người dùng, khi đánh giá một màn hình, hoặc khi người dùng nhắc tới UX, trải nghiệm, luồng, usability.
 description: Tổng hợp UX guidelines chung cho Agent Skills – Navigation, Animation, Layout, Touch, Interaction, Accessibility, Performance, Forms, Responsive, Typography, Feedback, Content, Onboarding, Search, Data Entry, AI Interaction, Spatial UI, Sustainability.
 image: https://uxdesign.cc/favicon.ico
 sidebar_position: 7

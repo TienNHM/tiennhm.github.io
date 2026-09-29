@@ -7,6 +7,14 @@ import PageActions from '@site/src/components/PageActions';
  * permalink phải lấy từ context của trang docs.
  */
 export default function DocsPageActions(): ReactNode {
-  const { metadata } = useDoc();
-  return <PageActions permalink={metadata.permalink} />;
+  const { metadata, frontMatter } = useDoc();
+  return (
+    <PageActions
+      permalink={metadata.permalink}
+      skillName={frontMatter.skill_name as string | undefined}
+      skillDescription={
+        (frontMatter.skill_description as string | undefined) ?? metadata.description
+      }
+    />
+  );
 }

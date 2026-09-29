@@ -1,6 +1,9 @@
 ---
 title: Phần 6 - Web Interface Best Practices
 slug: agent-skills-07-web-interface
+skill_name: web-interface-best-practices
+skill_description: >-
+  Chuẩn mực giao diện web: trạng thái loading và rỗng, xử lý lỗi, form, điều hướng bàn phím. Dùng khi dựng giao diện web, khi thiết kế luồng tương tác, hoặc khi người dùng nhắc tới UX giao diện, trạng thái, form, accessibility.
 description: Tổng hợp web interface best practices cho Agent Skills – Accessibility, Focus, Forms, State & URL, Performance, Typography, Anti-patterns.
 image: https://developer.mozilla.org/static/img/opengraph-logo.72382e605ce3.png
 sidebar_position: 6

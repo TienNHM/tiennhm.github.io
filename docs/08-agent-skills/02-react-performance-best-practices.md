@@ -1,6 +1,9 @@
 ---
 title: Phần 2 - React Performance Best Practices
 slug: agent-skills-11-react-performance
+skill_name: react-performance
+skill_description: >-
+  Tối ưu hiệu năng React: memo hoá, re-render thừa, chia nhỏ bundle, virtualisation. Dùng khi ứng dụng React chậm, khi người dùng nhắc tới re-render, useMemo, useCallback, React.memo, lag, tối ưu hiệu năng frontend.
 description: Checklist tối ưu hiệu năng React/Next.js – async waterfall, bundle size, caching, rerender, rendering, JS perf – trích từ react-performance.csv cho Agent Skills.
 image: https://react.dev/images/og-home.png
 sidebar_position: 2

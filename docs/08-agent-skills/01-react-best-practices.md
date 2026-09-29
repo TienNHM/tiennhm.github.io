@@ -1,6 +1,9 @@
 ---
 title: Phần 1 - React Best Practices
 slug: agent-skills-01-react-best-practices
+skill_name: react-best-practices
+skill_description: >-
+  Quy ước viết React: cấu trúc component, state, hook, xử lý side effect. Dùng khi tạo mới hoặc sửa component React, khi review code React, hoặc khi người dùng nhắc tới React, hook, useState, useEffect, component.
 description: Tổng hợp 53 guideline React best practices cho Agent Skills - State, Effects, Rendering, Components, Props, Events, Forms, Hooks, Context, Performance, Testing, Accessibility, TypeScript.
 image: https://react.dev/img/og-image.png
 sidebar_position: 1

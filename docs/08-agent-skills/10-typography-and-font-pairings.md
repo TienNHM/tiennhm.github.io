@@ -1,6 +1,9 @@
 ---
 title: Phần 10 - Typography & Font Pairings
 slug: agent-skills-10-typography
+skill_name: typography-font-pairing
+skill_description: >-
+  Typography và cách ghép font: thang cỡ chữ, chiều cao dòng, độ dài dòng, cặp font theo loại sản phẩm. Dùng khi chọn font, khi dựng thang chữ, hoặc khi người dùng nhắc tới typography, font, cỡ chữ, line height.
 description: Gợi ý font pairing theo loại sản phẩm (SaaS, fintech, editorial, devtools, e-commerce, VN/i18n...) + snippet Google Fonts / Tailwind để Agent chọn nhanh.
 image: https://raw.githubusercontent.com/nextlevelbuilder/ui-ux-pro-max-skill/refs/heads/main/public/typography-cover.png
 sidebar_position: 10

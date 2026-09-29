@@ -1,6 +1,9 @@
 ---
 title: Phần 3 - Next.js Best Practices
 slug: agent-skills-02-nextjs-best-practices
+skill_name: nextjs-best-practices
+skill_description: >-
+  Quy ước Next.js: routing, rendering, data fetching, image, font, metadata, middleware. Dùng khi làm việc với dự án Next.js, khi tạo route hoặc page mới, hoặc khi người dùng nhắc tới Next.js, App Router, server component, SSR, ISR.
 description: Tổng hợp guideline Next.js best practices cho Agent Skills – Routing, Rendering, Data Fetching, Images, Fonts, Metadata, API, Middleware, Environment, Performance, Security.
 image: https://nextjs.org/api/docs-og?title=Next.js%20Best%20Practices
 sidebar_position: 3
