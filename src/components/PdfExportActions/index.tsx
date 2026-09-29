@@ -115,7 +115,7 @@ export default function PdfExportActions({
         onClick={onPrintPdf}
       >
         <Translate id="pdfExport.printPage" description="Trigger browser print dialog for save as PDF">
-          Lưu PDF từ trang
+          Lưu PDF
         </Translate>
       </button>
     </div>
