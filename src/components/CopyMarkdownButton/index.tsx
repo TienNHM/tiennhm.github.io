@@ -65,7 +65,7 @@ export default function CopyMarkdownButton({
     const label = {
         idle: translate({
             id: 'copyMarkdown.idle',
-            message: 'Copy Markdown cho AI',
+            message: 'Copy markdown',
             description: 'Nhãn nút copy nội dung trang dạng Markdown',
         }),
         loading: translate({
