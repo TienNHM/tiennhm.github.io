@@ -10,6 +10,28 @@
  */
 const MARKER = 'DocsPageActions';
 
+/**
+ * Nhận diện node tiêu đề ở CẢ HAI dạng.
+ *
+ * Plugin `contentTitle` của Docusaurus chạy trước plugin này và, khi không xoá
+ * tiêu đề, nó thay node heading bằng một mdxJsxFlowElement tên `header` bọc
+ * heading vào trong. Chỉ kiểm `type === 'heading'` là trượt toàn bộ trang docs
+ * có H1 viết trong nội dung.
+ */
+function isContentTitle(node) {
+    if (!node) {
+        return false;
+    }
+    if (node.type === 'heading') {
+        return node.depth === 1;
+    }
+    if (node.type === 'mdxJsxFlowElement' && node.name === 'header') {
+        const inner = Array.isArray(node.children) ? node.children[0] : undefined;
+        return Boolean(inner) && inner.type === 'heading' && inner.depth === 1;
+    }
+    return false;
+}
+
 // Frontmatter và các câu import/export đứng trước H1 nhưng không phải nội dung.
 const LEADING = new Set(['yaml', 'toml', 'mdxjsEsm']);
 
@@ -25,11 +47,10 @@ module.exports = function remarkDocsPageActions() {
             i += 1;
         }
 
-        const first = children[i];
         // Chỉ chèn khi H1 là node nội dung ĐẦU TIÊN — đúng điều kiện Docusaurus
         // dùng để xác định contentTitle. Nếu H1 nằm giữa bài thì theme đã tự
         // dựng tiêu đề tổng hợp rồi, chèn thêm ở đây sẽ ra hai hàng.
-        if (!first || first.type !== 'heading' || first.depth !== 1) {
+        if (!isContentTitle(children[i])) {
             return;
         }
 
