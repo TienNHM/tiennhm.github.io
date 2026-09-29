@@ -300,6 +300,9 @@ const config = {
             ({
                 docs: {
                     sidebarPath: require.resolve('./sidebars.js'),
+                    // Chèn hàng "Lưu PDF / Copy markdown / lượt xem" ngay sau H1
+                    // để trang docs khớp vị trí với trang blog.
+                    remarkPlugins: [require('./plugins/docs-page-actions/remark')],
                     sidebarCollapsible: true,
                     sidebarCollapsed: true,
                     showLastUpdateTime: true,
