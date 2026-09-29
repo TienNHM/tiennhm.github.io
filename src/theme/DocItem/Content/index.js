@@ -4,6 +4,7 @@ import {ThemeClassNames} from '@docusaurus/theme-common';
 import {useDoc} from '@docusaurus/plugin-content-docs/client';
 import Heading from '@theme/Heading';
 import MDXContent from '@theme/MDXContent';
+import DocsPageActions from '@site/src/components/DocsPageActions';
 /**
  Title can be declared inside md content or declared through
  front matter and added manually. To make both cases consistent,
@@ -28,9 +29,13 @@ export default function DocItemContent({children}) {
   return (
     <div className={clsx(ThemeClassNames.docs.docMarkdown, 'markdown')}>
       {syntheticTitle && (
-        <header>
-          <Heading as="h1">{syntheticTitle}</Heading>
-        </header>
+        <>
+          <header>
+            <Heading as="h1">{syntheticTitle}</Heading>
+          </header>
+          {/* Trang có H1 viết trong nội dung thì remark plugin đã chèn rồi. */}
+          <DocsPageActions />
+        </>
       )}
       <MDXContent>{children}</MDXContent>
     </div>
