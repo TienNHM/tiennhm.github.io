@@ -1,6 +1,9 @@
 ---
 title: Phần 13 - UI Reasoning & Patterns
 slug: agent-skills-06-ui-reasoning
+skill_name: ui-reasoning
+skill_description: >-
+  Cách lập luận khi thiết kế giao diện: từ mục tiêu người dùng ra bố cục, chứ không chọn theo cảm tính. Dùng khi phải giải thích vì sao thiết kế như vậy, khi review một thiết kế, hoặc khi người dùng hỏi nên bố trí màn hình thế nào.
 description: Tổng hợp UI reasoning patterns theo ngữ cảnh sản phẩm (SaaS, E‑commerce, Healthcare, Fintech, Education, Dashboard...) để chọn layout, màu sắc, typography, hiệu ứng và ưu tiên thiết kế phù hợp.
 image: https://raw.githubusercontent.com/nextlevelbuilder/ui-ux-pro-max-skill/refs/heads/main/public/ui-reasoning-cover.png
 sidebar_position: 13

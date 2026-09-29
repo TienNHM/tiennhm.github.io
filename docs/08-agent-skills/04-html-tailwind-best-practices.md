@@ -1,6 +1,9 @@
 ---
 title: Phần 4 - HTML + Tailwind Best Practices
 slug: agent-skills-03-html-tailwind-best-practices
+skill_name: html-tailwind-best-practices
+skill_description: >-
+  Quy ước viết HTML ngữ nghĩa và Tailwind CSS: thứ tự class, responsive, khả năng truy cập. Dùng khi viết markup, khi style bằng Tailwind, hoặc khi người dùng nhắc tới Tailwind, class CSS, HTML semantic, responsive.
 description: Tổng hợp guideline HTML + Tailwind CSS best practices cho Agent Skills – Animation, Layout, Images, Typography, Colors, Spacing, Forms, Responsive, Buttons, Cards, Accessibility, Performance, Plugins, Interactivity, Customization.
 image: https://tailwindcss.com/_next/static/media/social-card-large.a6e71726.jpg
 sidebar_position: 4

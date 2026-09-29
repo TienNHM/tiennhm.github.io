@@ -1,6 +1,9 @@
 ---
 title: Phần 9 - Icon System Cheatsheet (Lucide)
 slug: agent-skills-15-icons
+skill_name: icon-system
+skill_description: >-
+  Hệ thống icon với Lucide: chọn icon đúng ngữ nghĩa, kích thước, độ dày nét, nhất quán toàn sản phẩm. Dùng khi thêm icon vào giao diện, hoặc khi người dùng nhắc tới icon, Lucide, biểu tượng.
 description: Cheatsheet icon Lucide thường dùng (navigation, action, status, commerce, data, security...) + import code + lưu ý accessibility cho Agent Skills.
 image: https://raw.githubusercontent.com/nextlevelbuilder/ui-ux-pro-max-skill/refs/heads/main/public/icons-cover.png
 sidebar_position: 9

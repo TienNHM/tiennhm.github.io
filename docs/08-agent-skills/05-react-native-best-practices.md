@@ -1,6 +1,9 @@
 ---
 title: Phần 5 - React Native Best Practices
 slug: agent-skills-04-react-native-best-practices
+skill_name: react-native-best-practices
+skill_description: >-
+  Quy ước React Native: navigation, layout, hiệu năng, khác biệt giữa iOS và Android. Dùng khi làm ứng dụng di động bằng React Native, hoặc khi người dùng nhắc tới React Native, Expo, màn hình mobile, navigation.
 description: Tổng hợp guideline React Native best practices cho Agent Skills – Components, Styling, Navigation, State, Lists, Performance, Images, Forms, Touch, Animation, Async, Accessibility, Testing, Native.
 image: https://reactnative.dev/img/header_logo.svg
 sidebar_position: 5
