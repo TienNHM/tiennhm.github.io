@@ -43,7 +43,11 @@ const footerLinks = [
         title: 'Docs',
         items: [
             {
-                label: 'Tutorial',
+                label: 'Khoá .NET Backend',
+                to: '/docs/dotnet-backend-zero-to-senior',
+            },
+            {
+                label: 'Tài liệu tra cứu',
                 to: '/docs',
             },
         ],
@@ -51,6 +55,10 @@ const footerLinks = [
     {
         title: 'Community',
         items: [
+            {
+                label: 'Cộng đồng',
+                to: '/community',
+            },
             {
                 label: 'LinkedIn',
                 href: 'https://www.linkedin.com/in/tien-nhm',
@@ -501,9 +509,15 @@ const config = {
                 items: [
                     {
                         type: 'docSidebar',
+                        sidebarId: 'dotnetSidebar',
+                        position: 'left',
+                        label: 'Khoá .NET',
+                    },
+                    {
+                        type: 'docSidebar',
                         sidebarId: 'tutorialSidebar',
                         position: 'left',
-                        label: 'Tutorial',
+                        label: 'Tài liệu',
                     },
                     {
                         label: 'Blog',
@@ -517,7 +531,6 @@ const config = {
                     { to: '/showcase', label: 'Showcase', position: 'left' },
                     // { to: '/cv', label: 'CV', position: 'left' },
                     { to: '/about', label: 'About', position: 'left' },
-                    { to: '/community', label: 'Community', position: 'left' },
                     // { to: '/contact', label: 'Contact', position: 'left' },
                     {
                         href: 'https://github.com/TienNHM',

@@ -12,6 +12,7 @@ import { Project } from "@site/src/shared/dto/Project";
 export type CardList = {
     favoriteUsers: Project[],
     otherUsers: Project[],
+    courseUsers: Project[],
 }
 
 export default function ShowcaseCardList(props : CardList) {
@@ -77,6 +78,28 @@ export default function ShowcaseCardList(props : CardList) {
                             ))}
                         </ul>
                     </div>
+                    {props.courseUsers.length > 0 && (
+                        <div className="container margin-top--lg">
+                            <Heading as="h2" className={styles.showcaseHeader} id='course-projects'>
+                                <Translate id="showcase.usersList.courseProjects">
+                                    Course projects
+                                </Translate>
+                                <span className={clsx(styles.countProjects,)}>
+                                    {props.courseUsers.length}
+                                </span>
+                            </Heading>
+                            <p className={styles.sectionNote}>
+                                <Translate id="showcase.usersList.courseProjects.note">
+                                    Bài tập và đồ án thời đi học, giữ lại để lưu vết.
+                                </Translate>
+                            </p>
+                            <ul className={clsx('clean-list', styles.showcaseList)}>
+                                {props.courseUsers.map((user) => (
+                                    <ShowcaseCard key={user.title} user={user} />
+                                ))}
+                            </ul>
+                        </div>
+                    )}
                 </>
             ) : (
                 <div className="container">
