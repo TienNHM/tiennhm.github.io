@@ -430,7 +430,7 @@ const config = {
                     {
                         tagName: 'link',
                         rel: 'icon',
-                        href: '/img/logo-192.png', // your PWA icon
+                        href: '/img/logo-full-192.png', // your PWA icon
                     },
                     {
                         tagName: 'link',
