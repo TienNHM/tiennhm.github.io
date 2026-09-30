@@ -7,6 +7,31 @@ on:
     # Review gh actions docs if you want to further define triggers, paths, etc
     # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#on
 
+  # Build lại theo lịch để số liệu GitHub ở trang chủ (follower, sao, fork)
+  # không đứng yên trong những giai đoạn không push. Site tĩnh nên muốn đổi
+  # số thì phải build lại.
+  #
+  # Mỗi lần build mất khoảng 10 phút (đo trên 5 lần gần nhất). Chạy hằng ngày
+  # là ~5 giờ CI mỗi tháng cho vài con số nhích rất chậm, và mỗi lần lại thêm
+  # một commit vào nhánh gh-pages. Hằng tuần đủ tươi mà rẻ hơn 7 lần.
+  #
+  # Ngoài ra mỗi lần push vào master cũng làm mới số liệu, nên lịch này chỉ là
+  # lớp dự phòng cho những tuần không đụng tới repo.
+  schedule:
+    # 01:00 UTC thứ Hai = 08:00 sáng thứ Hai giờ Việt Nam.
+    - cron: '0 1 * * 1'
+
+  workflow_dispatch:
+
+# Cần quyền ghi để commit lại src/data/github.json sau lần chạy theo lịch.
+permissions:
+  contents: write
+
+# Push dồn dập thì chỉ giữ lần cuối, tránh hai bản deploy giẫm lên nhau.
+concurrency:
+  group: deploy-pages
+  cancel-in-progress: false
+
 jobs:
   deploy:
     name: Deploy to GitHub Pages
@@ -46,6 +71,25 @@ jobs:
           # thì chỉ 60 request/giờ tính theo IP của runner — dùng chung với mọi
           # runner khác nên hay bị chặn. Token mặc định cho 1000/giờ.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Lưu lại số liệu vừa lấy, nhưng CHỈ ở lần chạy theo lịch.
+      #
+      # Không có vòng lặp: GitHub không kích hoạt workflow từ push do
+      # GITHUB_TOKEN tạo ra. Và kể cả nếu hành vi đó đổi, lần chạy sinh ra là
+      # `push` chứ không phải `schedule`, nên điều kiện dưới đây chặn nó commit
+      # tiếp — cùng lắm dư một lần chạy, không thể lặp mãi.
+      - name: Commit số liệu GitHub mới
+        if: github.event_name == 'schedule'
+        run: |
+          if git diff --quiet -- src/data/github.json; then
+            echo "Số liệu không đổi, bỏ qua commit."
+            exit 0
+          fi
+          git config user.name  'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/data/github.json
+          git commit -m 'chore: cập nhật số liệu GitHub cho trang chủ'
+          git push origin HEAD:master
 
       # Popular action to deploy to GitHub Pages:
       # Docs: https://github.com/peaceiris/actions-gh-pages#%EF%B8%8F-docusaurus

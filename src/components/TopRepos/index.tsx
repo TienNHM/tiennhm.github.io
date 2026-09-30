@@ -2,7 +2,7 @@ import React from 'react';
 import clsx from 'clsx';
 import Link from '@docusaurus/Link';
 import Translate, { translate } from '@docusaurus/Translate';
-import data from '@site/src/data/github-repos.json';
+import data from '@site/src/data/github.json';
 import styles from './styles.module.css';
 
 type Repo = {
@@ -123,7 +123,7 @@ function RepoCard({ repo }: { repo: Repo }): JSX.Element {
 /**
  * Khối "Top repositories" ở trang chủ.
  *
- * Dữ liệu sinh lúc build bởi scripts/generate-github-repos.js, không gọi API
+ * Dữ liệu sinh lúc build bởi scripts/generate-github-data.js, không gọi API
  * từ trình duyệt — xem phần chú thích đầu script đó để biết vì sao.
  */
 export default function TopRepos(): JSX.Element | null {
