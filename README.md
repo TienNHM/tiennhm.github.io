@@ -28,21 +28,21 @@ This command generates static content into the `build` directory and can be serv
 
 ### Deployment
 
-If there is the first time you deploy the website, you need to update permissions for `Workflow permissions` in `Settings` tab of your repository. You must enable `Write` permission for `Workflows` section.
+Deploy chạy tự động qua GitHub Actions (`.github/workflows/deploy.yml`) mỗi khi push lên `master`.
 
-Using SSH:
+Không deploy tay. Lệnh `docusaurus deploy` đã được gỡ khỏi `package.json` vì nó đẩy thẳng lên
+`gh-pages`, ghi đè bản mà CI vừa build.
+
+Lần đầu bật, vào `Settings` của repo, mục `Workflow permissions`, bật quyền `Write`.
+
+### Kiểm tra trước khi push
 
 ```
-$ USE_SSH=true yarn deploy
+$ npm run check              # cấu hình, tag redirect, cú pháp MDX
+$ npm run check -- mdx       # chỉ một mục
 ```
 
-Not using SSH:
-
-```
-$ GIT_USER=<Your GitHub username> yarn deploy
-```
-
-If you are using GitHub pages for hosting, this command is a convenient way to build the website and push to the `gh-pages` branch.
+Không cần build, chạy trong vài giây.
 
 ### Build Android
 ```ps
