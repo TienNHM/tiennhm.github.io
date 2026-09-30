@@ -1,12 +1,12 @@
 ---
-title: "17.3 — 3. Outbox pattern (ứng dụng)"
+title: "17.3 - Outbox pattern (ứng dụng)"
 description: "Ghi message vào cùng transaction với thay đổi nghiệp vụ, dispatcher an toàn khi chạy nhiều instance, thứ tự, dọn bảng và khi nào nên để framework lo."
 sidebar_position: 3
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
-# 17.4 — 3. Outbox pattern (ứng dụng)
+# 17.3 - Outbox pattern (ứng dụng)
 
 <SummaryBox>
 Outbox giải dual write bằng một ý tưởng đơn giản: **đừng ghi vào hai nơi** — ghi message vào **chính database nghiệp vụ**, trong **chính transaction** đang chạy. Nếu transaction commit, message chắc chắn có; nếu rollback, message biến mất cùng thay đổi nghiệp vụ. Một worker đọc bảng đó và publish sau. Phải hiểu rõ giới hạn: outbox đảm bảo **không mất**, nó **không** loại bỏ trùng — worker có thể publish xong rồi chết trước khi đánh dấu, nên consumer vẫn cần idempotency ([bài 17.2](17.2-messaging-fears-lost-duplicates.mdx)). Hai chi tiết quyết định outbox chạy được trên production hay không, và cả hai đều hay bị bỏ qua: **dispatcher phải an toàn khi chạy nhiều instance** (dùng `SKIP LOCKED` hoặc `READPAST`), và **bảng phải được dọn**, nếu không nó sẽ thành bảng lớn nhất hệ thống.

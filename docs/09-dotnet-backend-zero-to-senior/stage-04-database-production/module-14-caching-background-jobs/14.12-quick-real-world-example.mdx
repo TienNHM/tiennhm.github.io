@@ -1,12 +1,12 @@
 ---
-title: "14.12 — Ví dụ thực tế nhanh"
+title: "14.12 - Ví dụ thực tế nhanh"
 description: "Redis đầy bộ nhớ làm sập cả hệ thống: maxmemory-policy mặc định, khoá không TTL, và ba lệnh kiểm tra."
 sidebar_position: 12
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
-# 14.13 — Ví dụ thực tế nhanh
+# 14.12 - Ví dụ thực tế nhanh
 
 <SummaryBox>
 Một sự cố mà nguyên nhân nằm ở **một dòng cấu hình không ai đặt**: Redis chạm giới hạn bộ nhớ, và vì `maxmemory-policy` mặc định là **`noeviction`**, nó **từ chối mọi lệnh ghi** thay vì xoá bớt khoá cũ. Ứng dụng nhận `OOM command not allowed` ở mỗi lần ghi cache — và vì code không bọc lời gọi cache trong `try/catch`, **mọi request đều lỗi 500**. Nghịch lý: cache là thứ để **tăng tốc**, nhưng cấu hình sai khiến nó thành thứ **làm sập** hệ thống. Bài này chỉ nguyên nhân gốc (khoá không TTL), cấu hình đúng, và nguyên tắc: **cache lỗi không được làm hỏng request**.

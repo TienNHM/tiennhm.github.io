@@ -1,12 +1,12 @@
 ---
-title: "11.10 — 10. Scale-out và Production"
+title: "11.10 - Scale-out và Production"
 description: "Vì sao cần backplane, Redis backplane không phải hàng đợi, sticky session, Azure SignalR Service, giám sát và graceful shutdown."
 sidebar_position: 10
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
-# 11.11 — 10. Scale-out và Production
+# 11.10 - Scale-out và Production
 
 <SummaryBox>
 Thêm instance thứ hai **phá vỡ** SignalR nếu không có backplane: người gửi ở pod A, người nhận ở pod B, và tin nhắn **biến mất không lỗi**. Redis backplane sửa điều đó, nhưng cần hiểu nó **không phải hàng đợi** — nó là **pub/sub**: instance đang tạm thời mất kết nối Redis sẽ **mất luôn** những tin phát trong khoảng đó, không có gửi lại. Và nó **nhân lưu lượng**: mỗi tin gửi tới một nhóm được publish một lần rồi **mọi** instance nhận, kể cả instance không giữ kết nối nào của nhóm đó. Với quy mô lớn, **Azure SignalR Service** đưa toàn bộ kết nối ra ngoài tiến trình — đắt hơn nhưng bỏ được sticky session và bão kết nối lại khi deploy.

@@ -1,12 +1,12 @@
 ---
-title: "17.2 — 2. Hai nỗi sợ cốt lõi: mất tin & gửi trùng"
+title: "17.2 - Hai nỗi sợ cốt lõi: mất tin & gửi trùng"
 description: "Dual write problem, vì sao exactly-once không tồn tại ở tầng vận chuyển, và cách làm consumer an toàn khi message tới hai lần."
 sidebar_position: 2
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
-# 17.3 — 2. Hai nỗi sợ cốt lõi: mất tin & gửi trùng
+# 17.2 - Hai nỗi sợ cốt lõi: mất tin & gửi trùng
 
 <SummaryBox>
 Hai nỗi sợ này là **hai mặt của một đồng xu**, và bạn không thể loại bỏ cả hai. Message bị mất khi bạn ghi database rồi publish broker trong hai bước riêng rẽ — **dual write problem**, và nó **không sửa được bằng try/catch**. Message bị trùng vì broker đảm bảo **at-least-once**: nó thà giao hai lần còn hơn mất. Điều quan trọng phải hiểu ngay: **"exactly-once delivery" không tồn tại** ở tầng vận chuyển — đó là giới hạn lý thuyết, không phải thiếu sót của phần mềm. Cái bạn **có thể** đạt được là **exactly-once processing**: chấp nhận message tới nhiều lần và làm consumer **idempotent**. Và điểm hay bị bỏ sót: bảng chống trùng chỉ thật sự an toàn khi dựa vào **unique constraint của database**, không phải một câu `if` kiểm tra trước.

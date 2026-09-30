@@ -1,12 +1,12 @@
 ---
-title: "14.6 — 6. Background Jobs với Hangfire"
+title: "14.6 - Background Jobs với Hangfire"
 description: "Job được serialize nên tham số phải nhỏ, at-least-once nên job phải idempotent, hàng đợi ưu tiên, bảo vệ dashboard, và giới hạn thật."
 sidebar_position: 6
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
-# 14.7 — 6. Background Jobs với Hangfire
+# 14.6 - Background Jobs với Hangfire
 
 <SummaryBox>
 Hangfire khác `BackgroundService` ở một điểm quyết định: **job được lưu vào database**, nên nó **sống sót qua restart**, có retry tự động và có giao diện xem lịch sử. Nhưng việc lưu vào database kéo theo hai hệ quả phải thiết kế quanh. **Tham số job được serialize** — truyền một entity là serialize toàn bộ đối tượng vào bảng, và nếu kiểu đó đổi hình dạng thì job cũ **không deserialize được nữa**; luôn truyền **id**, không truyền đối tượng. **Hangfire đảm bảo at-least-once, không phải exactly-once** — job **sẽ** chạy hai lần trong một số tình huống, nên mọi job phải **idempotent**. Và mặc định `/hangfire` **mở cho mọi người** ở môi trường local — bảo vệ nó là việc đầu tiên.

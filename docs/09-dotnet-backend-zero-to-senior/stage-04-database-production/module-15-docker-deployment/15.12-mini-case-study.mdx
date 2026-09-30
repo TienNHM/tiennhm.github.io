@@ -1,12 +1,12 @@
 ---
-title: "15.12 — Mini case study"
+title: "15.12 - Mini case study"
 description: "Container bị OOM kill mỗi 4 giờ dù ứng dụng không rò rỉ bộ nhớ: .NET GC không biết về cgroup limit."
 sidebar_position: 12
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
-# 15.13 — Mini case study
+# 15.12 - Mini case study
 
 <SummaryBox>
 Một sự cố mà mọi công cụ đều nói "không có vấn đề gì": container `OOMKilled` đều đặn mỗi 4 giờ, nhưng `dotnet-gcdump` cho thấy **không có rò rỉ bộ nhớ** — heap ổn định ở 180 MB. Nguyên nhân nằm ở khoảng cách giữa hai con số: ứng dụng dùng 180 MB **heap**, nhưng tiến trình chiếm **1,9 GB RSS**. .NET Server GC được thiết kế để **dùng nhiều bộ nhớ đổi lấy thông lượng** — nó cấp phát heap theo **số core của máy chủ**, không theo giới hạn của container. Trên máy 32 core với container giới hạn 2 GB, nó tạo 32 heap và không thấy lý do gì phải thu gom. Bài này giải thích cơ chế và ba cách sửa.

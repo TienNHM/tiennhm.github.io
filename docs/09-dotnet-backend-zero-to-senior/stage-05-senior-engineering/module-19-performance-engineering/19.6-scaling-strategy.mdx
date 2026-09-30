@@ -1,12 +1,12 @@
 ---
-title: "19.6 — 6. Scaling strategy"
+title: "19.6 - Scaling strategy"
 description: "Scale up hay scale out, điều kiện stateless, vì sao database thường là trần thật, và ba mức phân vùng theo tenant."
 sidebar_position: 6
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
-# 19.7 — 6. Scaling strategy
+# 19.6 - Scaling strategy
 
 <SummaryBox>
 Trước khi bàn scale up hay scale out, phải nhìn đúng sự thật: **tầng API hiếm khi là trần**. Thêm instance API rất dễ, nhưng nếu tất cả đều nói chuyện với **một** database thì database mới là giới hạn thật — và scale nó khó hơn nhiều. Điều kiện để scale out hoạt động là **stateless tuyệt đối**: mọi thứ trong bộ nhớ instance — session, `IMemoryCache`, biến static, file upload tạm, kết nối SignalR — đều **phá** khả năng scale. Sticky session không phải giải pháp mà là **cách trì hoãn vấn đề**, và nó kéo theo tải lệch cùng mất kết nối khi một instance khởi động lại. Thứ tự đúng: **scale up trước** (rẻ, đơn giản, đủ xa hơn người ta tưởng), scale out khi chạm trần máy đơn, phân vùng dữ liệu khi database thành nghẽn.

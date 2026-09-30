@@ -1,12 +1,12 @@
 ---
-title: "14.3 — 3. IDistributedCache và Redis"
+title: "14.3 - IDistributedCache và Redis"
 description: "Chi phí serialize, IDistributedCache che mất sức mạnh Redis, thiết kế khoá, Redis chết thì sao, và lệnh không bao giờ chạy trên production."
 sidebar_position: 3
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
-# 14.4 — 3. IDistributedCache và Redis
+# 14.3 - IDistributedCache và Redis
 
 <SummaryBox>
 Cache phân tán đổi **tốc độ** lấy **tính nhất quán giữa các instance**: một lần đọc mất khoảng 1ms thay vì 100 nano giây, và mọi đối tượng phải **serialize** — chi phí thường lớn hơn cả lượt đi về mạng. Điều đó thay đổi tính toán: cache một truy vấn 2ms vào Redis là **làm chậm** hệ thống. `IDistributedCache` là trừu tượng **cố ý tối giản** — nó chỉ có `Get`, `Set`, `Remove`, `Refresh`, nên bạn **mất** gần như mọi thứ khiến Redis mạnh: tập hợp, bộ đếm nguyên tử, pub/sub, `SCAN`. Và hai điều về vận hành: **Redis chết không được làm sập ứng dụng**, và **`KEYS *` trên production là lệnh làm treo cả server**.

@@ -1,12 +1,12 @@
 ---
-title: "17.5 — 5. CDC (Change Data Capture)"
+title: "17.5 - CDC (Change Data Capture)"
 description: "Đọc thay đổi từ transaction log thay vì poll bảng, Debezium và SQL Server CDC, vì sao stream row-diff mất intent, và cách kết hợp CDC với outbox."
 sidebar_position: 5
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
-# 17.6 — 5. CDC (Change Data Capture)
+# 17.5 - CDC (Change Data Capture)
 
 <SummaryBox>
 CDC đọc **transaction log** của database — thứ database **vốn đã ghi** để phục hồi — và biến mỗi thay đổi thành một sự kiện. Ưu điểm lớn nhất: **ứng dụng không cần sửa một dòng nào**, nên nó là cách khả thi duy nhất với hệ legacy không ai dám đụng vào. Nhưng có một hạn chế mang tính bản chất, thường chỉ lộ ra sau khi đã triển khai: CDC thấy **hàng đã đổi**, không thấy **vì sao đổi**. `Status` chuyển từ `New` sang `Won` — đó là lead được convert, hay là admin sửa nhầm rồi sửa lại? Consumer buộc phải **đoán intent từ row-diff**, và mọi thay đổi schema của bạn lập tức thành breaking change với họ. Cách kết hợp tốt nhất, được dùng nhiều trên production: đặt CDC lên **bảng outbox** thay vì lên bảng nghiệp vụ — giữ được intent rõ ràng mà không cần worker poll.

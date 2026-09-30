@@ -1,12 +1,12 @@
 ---
-title: "17.12 — Mini case study"
+title: "17.12 - Mini case study"
 description: "Khách hàng bị tính tiền hai lần sau một đợt bảo trì broker: truy nguyên từ hoá đơn trùng tới thiếu inbox, và bốn thay đổi để không lặp lại."
 sidebar_position: 12
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
-# 17.13 — Mini case study
+# 17.12 - Mini case study
 
 <SummaryBox>
 Một sự cố có hậu quả tài chính thật: sau một đợt bảo trì RabbitMQ kéo dài 4 phút, **1.247 khách hàng bị tạo hoá đơn hai lần**, tổng giá trị trùng gần 890 triệu đồng. Không có bug logic nào — mọi đoạn code đều đúng như đã viết. Nguyên nhân là một giả định sai mà rất nhiều đội mắc phải: **"message chỉ được giao một lần"**. Khi broker khởi động lại, nó giao lại những message chưa nhận được ACK, và consumer — vốn không idempotent — xử lý chúng lần thứ hai. Bài này đi qua quá trình truy nguyên, cách xử lý hậu quả, và **bốn thay đổi** để chuyện đó không lặp lại.

@@ -1,12 +1,12 @@
 ---
-title: "15.13 — Ví dụ thực tế nhanh"
+title: "15.13 - Ví dụ thực tế nhanh"
 description: "Mỗi lần deploy mất 40 request đang xử lý: ENTRYPOINT shell form nuốt SIGTERM, và ba điều kiện để dừng mượt."
 sidebar_position: 13
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
-# 15.14 — Ví dụ thực tế nhanh
+# 15.13 - Ví dụ thực tế nhanh
 
 <SummaryBox>
 Mỗi lần triển khai, khoảng **40 request đang xử lý bị cắt giữa chừng** — người dùng thấy lỗi mạng, và một số giao dịch dở dang. Đội cho rằng "deploy thì phải vậy", nhưng không phải: nguyên nhân là **một dấu ngoặc vuông trong Dockerfile**. Viết `ENTRYPOINT dotnet Crm.Api.dll` (shell form) khiến ứng dụng chạy như **tiến trình con của `/bin/sh`**, và `sh` **không chuyển tiếp** SIGTERM. Ứng dụng không bao giờ biết nó sắp bị dừng, nên nó không kịp làm gì — 30 giây sau, Kubernetes gửi SIGKILL và cắt ngang mọi thứ. Đổi sang exec form `ENTRYPOINT ["dotnet", "Crm.Api.dll"]` là sửa xong một nửa vấn đề; nửa còn lại là **ba điều kiện** để dừng mượt thật sự.

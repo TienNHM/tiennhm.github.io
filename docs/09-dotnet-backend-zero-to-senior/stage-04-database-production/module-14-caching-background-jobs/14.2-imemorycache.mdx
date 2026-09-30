@@ -1,12 +1,12 @@
 ---
-title: "14.2 — 2. IMemoryCache"
+title: "14.2 - IMemoryCache"
 description: "SizeLimit và vì sao thiếu nó là rò rỉ bộ nhớ, sliding expiration có thể sống mãi, GetOrCreateAsync không chống stampede, và bẫy lưu entity EF."
 sidebar_position: 2
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
-# 14.3 — 2. IMemoryCache
+# 14.2 - IMemoryCache
 
 <SummaryBox>
 `IMemoryCache` nhanh nhất có thể — dữ liệu nằm ngay trong heap của tiến trình, không serialize, không qua mạng. Ba cái bẫy đi kèm. **Không đặt `SizeLimit` là rò rỉ bộ nhớ**: cache lớn vô hạn cho tới khi GC áp lực hoặc tiến trình bị OOM kill; nhưng đặt `SizeLimit` thì **mọi** entry **bắt buộc** phải khai `Size`, nếu không `Set` ném exception. **`SlidingExpiration` một mình có thể khiến entry sống mãi** — mỗi lần đọc lại gia hạn, nên khoá được truy cập liên tục không bao giờ hết hạn. Và **`GetOrCreateAsync` không chống stampede**: nhiều request đồng thời cùng miss sẽ cùng chạy factory.

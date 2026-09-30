@@ -1,12 +1,12 @@
 ---
-title: "7.6 — 5. Program.cs và WebApplicationBuilder"
+title: "7.6 - Program.cs và WebApplicationBuilder"
 description: "Cấu trúc Program.cs theo layer, hai giai đoạn của WebApplicationBuilder, thứ tự middleware, và vì sao không được gọi BuildServiceProvider() giữa chừng."
 sidebar_position: 6
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
-# 7.7 — 5. Program.cs và WebApplicationBuilder
+# 7.6 - Program.cs và WebApplicationBuilder
 
 <SummaryBox>
 `Program.cs` có **hai giai đoạn tách bạch** mà `builder.Build()` là ranh giới: trước nó bạn **đăng ký**, sau nó bạn **cấu hình pipeline**. Hiểu ranh giới này giải thích hầu hết lỗi khởi động: đăng ký sau `Build()` không có tác dụng, và gọi `BuildServiceProvider()` giữa chừng tạo ra một container **thứ hai** với bộ singleton riêng — một nguồn bug mà bạn sẽ mất nhiều giờ để tìm ra. Trong giai đoạn hai, **thứ tự middleware là ngữ nghĩa**: đặt `UseAuthorization` trước `UseAuthentication` khiến mọi request đều vô danh, và không có lỗi nào được báo.

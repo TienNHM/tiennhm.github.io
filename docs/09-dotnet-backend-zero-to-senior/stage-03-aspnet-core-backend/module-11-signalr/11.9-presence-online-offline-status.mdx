@@ -1,12 +1,12 @@
 ---
-title: "11.9 — 9. Presence — Online/Offline"
+title: "11.9 - Presence - Online/Offline"
 description: "Presence trong bộ nhớ sai khi scale ngang, Redis với TTL làm lưới an toàn, một người nhiều kết nối, và chống bão sự kiện khi deploy."
 sidebar_position: 9
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
-# 11.10 — 9. Presence — Online/Offline
+# 11.9 - Presence - Online/Offline
 
 <SummaryBox>
 Presence trông đơn giản — "ai đang online" — nhưng nó là **trạng thái chia sẻ giữa các instance**, nên cài sai là sai ở nhiều tầng cùng lúc. **Trong bộ nhớ thì hỏng ngay khi có instance thứ hai**: mỗi pod thấy một phần sự thật. **Chỉ dựa vào `OnDisconnectedAsync` cũng hỏng**: nó không chạy khi tiến trình bị kill, và người dùng đó "online mãi mãi". Lời giải là **Redis với TTL** — mỗi kết nối là một khoá tự hết hạn, được gia hạn định kỳ; nếu server chết thì khoá tự biến mất. Và nhớ: **một người có nhiều kết nối**, nên "offline" chỉ đúng khi **kết nối cuối cùng** đóng.

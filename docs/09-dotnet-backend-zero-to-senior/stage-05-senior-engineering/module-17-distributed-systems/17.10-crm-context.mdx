@@ -1,12 +1,12 @@
 ---
-title: "17.10 — Liên hệ CRM"
+title: "17.10 - Liên hệ CRM"
 description: "Bốn luồng event thật trong CRM/ERP, khoá idempotency đúng cho từng luồng, và ba thao tác tuyệt đối không được dùng event."
 sidebar_position: 10
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
-# 17.11 — Liên hệ CRM
+# 17.10 - Liên hệ CRM
 
 <SummaryBox>
 Bốn luồng event xuất hiện trong gần như mọi CRM/ERP, kèm **khoá idempotency đúng** cho từng luồng — vì chọn sai khoá là nguồn gốc của phần lớn sự cố trùng lặp. Nguyên tắc chọn khoá: dùng **định danh nghiệp vụ** (mã giao dịch của cổng thanh toán, mã hoá đơn), không dùng `EventId` sinh ngẫu nhiên nếu có định danh nghiệp vụ. Lý do cụ thể: nếu producer retry và sinh `EventId` **mới** cho cùng một sự việc, khoá theo `EventId` sẽ **không** chặn được trùng — nhưng khoá theo mã giao dịch thì có. Và quan trọng không kém: bài này chỉ ra **ba thao tác không được dùng event**, vì chúng cần câu trả lời ngay.

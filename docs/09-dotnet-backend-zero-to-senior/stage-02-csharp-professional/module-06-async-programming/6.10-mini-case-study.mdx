@@ -1,12 +1,12 @@
 ---
-title: "6.10 — Mini case study"
+title: "6.10 - Mini case study"
 description: "Endpoint đồng bộ hoá 500 khách hàng mất 8 phút: từ tuần tự sang song song có giới hạn, và ba cái bẫy khi làm việc đó."
 sidebar_position: 10
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
-# 6.11 — Mini case study
+# 6.10 - Mini case study
 
 <SummaryBox>
 Một bài toán tối ưu async điển hình: endpoint đồng bộ hoá 500 khách hàng với hệ thống kế toán bên ngoài, chạy **8 phút** và thường xuyên timeout. Code hoàn toàn dùng `async/await` đúng cú pháp — vấn đề là nó **`await` trong vòng lặp**, nên 500 lời gọi mạng chạy **tuần tự**. Sửa thành song song đưa thời gian xuống 12 giây, nhưng bài này quan trọng hơn ở **ba cái bẫy** xuất hiện ngay sau đó: API bên ngoài trả 429 vì bị gọi 500 lần cùng lúc, `DbContext` ném exception vì bị dùng đa luồng, và một lỗi duy nhất làm hỏng cả 500. Giải pháp cuối cùng là **song song có giới hạn** chứ không phải song song tối đa.

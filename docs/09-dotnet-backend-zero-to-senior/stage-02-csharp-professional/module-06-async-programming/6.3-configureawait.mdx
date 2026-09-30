@@ -1,12 +1,12 @@
 ---
-title: "6.3 — 2. ConfigureAwait"
+title: "6.3 - ConfigureAwait"
 description: "ConfigureAwait(false) nói với CLR rằng continuation không cần quay về SynchronizationContext gốc. Vì sao nó cứu deadlock trên ASP.NET Framework và vì sao ASP.NET Core không cần."
 sidebar_position: 3
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
-# 6.4 — 2. ConfigureAwait
+# 6.3 - ConfigureAwait
 
 <SummaryBox>
 `ConfigureAwait(false)` nói một điều duy nhất: **"phần code sau `await` không cần chạy lại trên context gốc"**. Nó tồn tại vì `SynchronizationContext` — cơ chế trong ASP.NET Framework và WinForms/WPF bắt continuation phải quay về đúng một thread. Khi thread đó đang bị `.Result` hoặc `.Wait()` block, bạn có một **deadlock hoàn hảo**: thread chờ Task, Task chờ thread. **ASP.NET Core không có `SynchronizationContext`**, nên trong code ứng dụng web ngày nay bạn không cần `ConfigureAwait(false)` — nhưng trong **thư viện** thì vẫn cần, vì thư viện không biết ai sẽ gọi mình.

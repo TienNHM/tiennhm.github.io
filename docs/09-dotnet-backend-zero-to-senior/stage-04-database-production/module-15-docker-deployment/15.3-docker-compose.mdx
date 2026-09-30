@@ -1,12 +1,12 @@
 ---
-title: "15.3 — 3. Docker Compose"
+title: "15.3 - Docker Compose"
 description: "depends_on không chờ dịch vụ sẵn sàng nếu thiếu healthcheck, mạng nội bộ và tên dịch vụ, override file, và vì sao Compose không dành cho production nhiều máy."
 sidebar_position: 3
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
-# 15.4 — 3. Docker Compose
+# 15.3 - Docker Compose
 
 <SummaryBox>
 Compose biến "cài 5 thứ rồi cấu hình chúng nói chuyện với nhau" thành `docker compose up`. Hai điều quyết định nó chạy đúng hay không. **`depends_on` không chờ dịch vụ sẵn sàng** — nó chỉ chờ container **khởi động**; SQL Server mất 30 giây để sẵn sàng nhận kết nối, nên API khởi động ngay và **chết vì không kết nối được**. Sửa bằng `condition: service_healthy` cộng `healthcheck` thật. Thứ hai: **đừng publish cổng của database ra host** — trong mạng Compose, các container gọi nhau bằng **tên dịch vụ**, và `ports: "1433:1433"` mở database ra toàn mạng của bạn. Và nhớ: **Compose là công cụ một máy**; nhiều máy thì cần Swarm, Kubernetes, hoặc dịch vụ quản lý.

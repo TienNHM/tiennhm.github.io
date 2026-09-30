@@ -1,12 +1,12 @@
 ---
-title: "6.4 — 3. CancellationToken"
+title: "6.4 - CancellationToken"
 description: "CancellationToken là cách .NET truyền tín hiệu \"thôi, không cần nữa\" xuyên qua mọi tầng. Bài này đi từ mô hình source/token, ba cách phản ứng, cách nối token, tới ba lỗi khiến việc huỷ trở nên vô dụng hoặc nguy hiểm."
 sidebar_position: 4
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
-# 6.5 — 3. CancellationToken
+# 6.4 - CancellationToken
 
 <SummaryBox>
 `CancellationToken` là một **tín hiệu hợp tác**: nó không giết được thread nào, chỉ báo "bên gọi không cần kết quả nữa" và trông chờ code phía dưới tự nhìn vào rồi dừng. Bên phát tín hiệu là `CancellationTokenSource`, bên nhận là `CancellationToken` — tách đôi để hàm nhận token không thể tự huỷ công việc của người khác. Trong ASP.NET Core, tham số `CancellationToken` của action được bind thẳng vào `HttpContext.RequestAborted`, nên chỉ cần truyền nó xuống EF Core và `HttpClient` là request bị client bỏ ngang sẽ kéo theo việc huỷ câu query. Ba lỗi phổ biến nhất: nuốt `OperationCanceledException` rồi trả về `null`, truyền token vào cả bước ghi đã đi quá điểm không thể quay lui, và quên `Dispose` cái `CancellationTokenSource` có timeout.

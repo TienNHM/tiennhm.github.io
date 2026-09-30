@@ -1,12 +1,12 @@
 ---
-title: "9.9 — 9. Background Processing với Hosted Service"
+title: "9.9 - Background Processing với Hosted Service"
 description: "BackgroundService, PeriodicTimer thay Task.Delay, khoá phân tán khi chạy nhiều instance, xử lý lỗi không làm chết worker, và khi nào cần Hangfire."
 sidebar_position: 9
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
-# 9.10 — 9. Background Processing với Hosted Service
+# 9.9 - Background Processing với Hosted Service
 
 <SummaryBox>
 `BackgroundService` là cách chạy việc nền **trong cùng tiến trình** với API — dùng chung DI container, cấu hình và logger. Nó đúng cho việc định kỳ nhẹ và việc tiêu thụ hàng đợi trong bộ nhớ. Ba cái bẫy quyết định nó chạy được trên production hay không. **Một:** worker là **singleton**, nên mọi service scoped phải lấy qua `IServiceScopeFactory`. **Hai:** exception thoát khỏi `ExecuteAsync` **giết worker vĩnh viễn** mà ứng dụng vẫn chạy bình thường — không ai phát hiện. **Ba:** chạy 3 instance nghĩa là job định kỳ chạy **3 lần**, nên mọi job có tác dụng phụ đều cần khoá phân tán.

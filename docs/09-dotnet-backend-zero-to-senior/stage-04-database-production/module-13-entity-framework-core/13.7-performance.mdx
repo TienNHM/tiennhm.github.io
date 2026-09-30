@@ -1,12 +1,12 @@
 ---
-title: "13.7 — 7. Performance"
+title: "13.7 - Performance"
 description: "ExecuteUpdate và ExecuteDelete bỏ qua change tracker, chèn hàng loạt, connection pooling và DbContext pooling, và đo trước khi tối ưu."
 sidebar_position: 7
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
-# 13.8 — 7. Performance
+# 13.7 - Performance
 
 <SummaryBox>
 Hiệu năng EF Core cải thiện theo **thứ tự ưu tiên rõ ràng**, và ba việc đầu chiếm hầu hết lợi ích: **sửa N+1**, **projection thay vì nạp entity**, và **`AsNoTracking` cho truy vấn đọc**. Những thứ nghe kỹ thuật hơn — compiled query, `DbContext` pooling — cho vài phần trăm và chỉ đáng làm sau khi đã đo. Công cụ có tác động lớn nhất mà EF Core 7 mới thêm là **`ExecuteUpdateAsync` / `ExecuteDeleteAsync`**: chúng sinh **một** câu lệnh SQL và **bỏ qua hoàn toàn** change tracker, biến một thao tác nạp-sửa-lưu 50.000 entity thành một `UPDATE` duy nhất. Cái giá: chúng **không kích hoạt interceptor** và **không cập nhật entity đang được tracking**.

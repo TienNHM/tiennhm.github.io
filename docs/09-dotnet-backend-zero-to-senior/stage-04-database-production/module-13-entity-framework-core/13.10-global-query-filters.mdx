@@ -1,12 +1,12 @@
 ---
-title: "13.10 — 10. Global Query Filters"
+title: "13.10 - Global Query Filters"
 description: "Soft delete và multi-tenant tự động, bẫy filter bị cache theo mô hình, IgnoreQueryFilters, và vì sao navigation property không được lọc như bạn nghĩ."
 sidebar_position: 10
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
-# 13.11 — 10. Global Query Filters
+# 13.10 - Global Query Filters
 
 <SummaryBox>
 Global query filter tự thêm điều kiện `WHERE` vào **mọi** truy vấn trên một entity — công cụ mạnh nhất cho soft delete và đa khách hàng, vì **không ai quên được**. Nhưng nó có ba cái bẫy nghiêm trọng. **Một: mô hình EF Core được cache theo kiểu `DbContext`**, nên filter tham chiếu tới giá trị thay đổi theo request (tenant id) **chỉ được đánh giá đúng khi filter đọc từ một field của context** — hiểu sai điểm này dẫn tới việc mọi request dùng tenant id của request **đầu tiên**. **Hai: `FindAsync` bỏ qua filter** hoàn toàn. **Ba: `IgnoreQueryFilters()` bỏ qua *tất cả* filter**, nên tắt soft delete cũng tắt luôn cách ly tenant — một lỗ hổng dữ liệu nghiêm trọng.
