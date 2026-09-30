@@ -104,7 +104,7 @@ const footerLinks = [
 const config = {
     title: 'TienNHM - Fullstack Developer Blog',
     tagline: siteDescription,
-    favicon: 'img/logo.svg',
+    favicon: 'img/tiennhm-avatar.jpg',
 
     // Set the production url of your site here
     // url: `https://${organizationName}.github.io`,
@@ -238,7 +238,7 @@ const config = {
             attributes: {
                 rel: 'preload',
                 as: 'image',
-                href: '/img/logo.svg',
+                href: '/img/tiennhm-avatar.jpg',
                 fetchpriority: 'high',
             }
         },
@@ -430,7 +430,7 @@ const config = {
                     {
                         tagName: 'link',
                         rel: 'icon',
-                        href: '/img/logo-full-192.png', // your PWA icon
+                        href: '/img/tiennhm-avatar.jpg', // your PWA icon
                     },
                     {
                         tagName: 'link',
@@ -493,8 +493,11 @@ const config = {
                 title: 'TienNHM',
                 logo: {
                     alt: 'TienNHM',
-                    src: 'img/logo.svg',
-                    height: 32,
+                    src: 'img/tiennhm-avatar.jpg',
+                    height: 40,
+                    style: {
+                        borderRadius: '50%',
+                    }
                 },
                 items: [
                     {
