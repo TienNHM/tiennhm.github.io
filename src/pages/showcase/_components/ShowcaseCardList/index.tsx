@@ -66,7 +66,7 @@ export default function ShowcaseCardList(props : CardList) {
                         </div>
                     </div>
                     <div className="container margin-top--lg">
-                        <Heading as="h2" className={styles.showcaseHeader} id='all-projects'>
+                        <Heading as="h2" id='all-projects'>
                             <Translate id="showcase.usersList.allUsers">All projects</Translate>
                             <span className={clsx(styles.countProjects,)}>
                                 {props.otherUsers.length}
@@ -80,7 +80,7 @@ export default function ShowcaseCardList(props : CardList) {
                     </div>
                     {props.courseUsers.length > 0 && (
                         <div className="container margin-top--lg">
-                            <Heading as="h2" className={styles.showcaseHeader} id='course-projects'>
+                            <Heading as="h2" id='course-projects'>
                                 <Translate id="showcase.usersList.courseProjects">
                                     Course projects
                                 </Translate>
