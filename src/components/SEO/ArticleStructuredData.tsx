@@ -40,7 +40,7 @@ export function ArticleStructuredData({
   author = {
     name: 'Nguyễn Huỳnh Minh Tiến',
     url: 'https://github.com/TienNHM',
-    image: 'https://avatars.githubusercontent.com/u/33385777?v=4&s=400',
+    image: '/img/tiennhm-avatar.jpg',
   },
   datePublished,
   dateModified,
@@ -55,6 +55,8 @@ export function ArticleStructuredData({
   const structuredData = useMemo(() => {
     const articleUrl = url || (typeof window !== 'undefined' ? window.location.href : baseUrl);
     const articleImage = image || `${baseUrl}/img/copyright-tiennhm.webp`;
+    // Ảnh tác giả có thể là đường dẫn gốc; JSON-LD cần URL tuyệt đối.
+    const authorImage = author.image?.startsWith('/') ? `${baseUrl}${author.image}` : author.image;
 
     const schema: any = {
       '@context': 'https://schema.org',
@@ -68,12 +70,12 @@ export function ArticleStructuredData({
         '@type': 'Person',
         name: author.name,
         ...(author.url && { url: author.url }),
-        ...(author.image && { image: author.image }),
+        ...(authorImage && { image: authorImage }),
       },
       publisher: {
         '@type': 'Person',
         name: author.name,
-        ...(author.image && { image: author.image }),
+        ...(authorImage && { image: authorImage }),
       },
       mainEntityOfPage: {
         '@type': 'WebPage',
