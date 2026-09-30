@@ -1,12 +1,12 @@
 ---
-title: "13.8 — 8. Concurrency Control"
+title: "13.8 - Concurrency Control"
 description: "RowVersion và concurrency token, ba chiến lược xử lý xung đột, vì sao ExecuteUpdate bỏ qua kiểm tra, và cập nhật không cần đọc trước."
 sidebar_position: 8
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
-# 13.9 — 8. Concurrency Control
+# 13.8 - Concurrency Control
 
 <SummaryBox>
 Không có concurrency control, mặc định là **last write wins**: hai người cùng mở một bản ghi, người lưu sau **ghi đè** thay đổi của người trước và **không ai biết**. EF Core phát hiện điều đó bằng cách đưa **concurrency token** vào mệnh đề `WHERE` của lệnh `UPDATE` — nếu 0 dòng bị ảnh hưởng thì ai đó đã sửa trước, và EF ném `DbUpdateConcurrencyException`. Ba điểm quan trọng: **`ROWVERSION` của SQL Server tự đổi mỗi lần ghi**, nên nó bắt được cả thay đổi từ ngoài ứng dụng; **`ExecuteUpdateAsync` bỏ qua hoàn toàn cơ chế này**; và với bộ đếm, **cập nhật nguyên tử không cần đọc trước** giải quyết vấn đề tốt hơn mọi chiến lược xử lý xung đột.

@@ -1,12 +1,12 @@
 ---
-title: "5.11 — Ví dụ thực tế nhanh"
+title: "5.11 - Ví dụ thực tế nhanh"
 description: "Event handler giữ sống một service suốt vòng đời ứng dụng: rò rỉ bộ nhớ do quên huỷ đăng ký, và ba cách phòng."
 sidebar_position: 11
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
-# 5.12 — Ví dụ thực tế nhanh
+# 5.11 - Ví dụ thực tế nhanh
 
 <SummaryBox>
 Một rò rỉ bộ nhớ **không có dòng code nào sai**: một service scoped đăng ký vào event của một service singleton, và quên `-=` khi bị huỷ. Kết quả: mọi instance từng được tạo đều **không bao giờ** được thu gom — sau 6 giờ chạy, ứng dụng dùng 2,3 GB thay vì 180 MB. Cơ chế rất dễ bỏ sót: `+=` khiến bên **phát** event giữ một tham chiếu tới bên **nghe**, nên object singleton vô tình giữ sống hàng chục nghìn object scoped, cùng với mọi thứ chúng tham chiếu — kể cả `DbContext` và connection. Bài này chỉ cách nhận ra, ba cách phòng, và vì sao trong ASP.NET Core thường có lựa chọn tốt hơn hẳn: **đừng dùng event .NET để nối các service**.

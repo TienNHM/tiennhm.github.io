@@ -1,12 +1,12 @@
 ---
-title: "12.8 — 8. Database Migration Strategy"
+title: "12.8 - Database Migration Strategy"
 description: "Expand-contract cho zero-downtime, vì sao ALTER TABLE có thể khoá cả bảng, backfill theo lô, migration không đảo ngược được, và chạy migration khi nào."
 sidebar_position: 8
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
-# 12.9 — 8. Database Migration Strategy
+# 12.8 - Database Migration Strategy
 
 <SummaryBox>
 Quy tắc nền tảng của migration không downtime: **schema mới phải chạy được với code cũ, và schema cũ phải chạy được với code mới** — vì trong lúc triển khai, **cả hai phiên bản cùng chạy**. Mẫu giải bài toán đó là **expand-contract**: mở rộng, chuyển dữ liệu, rồi mới thu hẹp — và ba bước đó nằm ở **ba lần deploy khác nhau**, cách nhau hàng tuần. Hai chi tiết kỹ thuật quyết định migration có gây sự cố hay không: **`ALTER TABLE` có thể khoá cả bảng** trong nhiều phút (thêm cột `NOT NULL` không có default, thêm khoá ngoại), và **`UPDATE` toàn bảng giữ khoá tới khi xong** — nên backfill phải **chia lô**.

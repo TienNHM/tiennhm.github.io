@@ -1,12 +1,12 @@
 ---
-title: "17.6 — 6. Retry và backoff"
+title: "17.6 - Retry và backoff"
 description: "Phân biệt lỗi tạm thời với poison message, vì sao jitter là bắt buộc, retry hai tầng, circuit breaker và DLQ không phải nơi để quên."
 sidebar_position: 6
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
-# 17.7 — 6. Retry và backoff
+# 17.6 - Retry và backoff
 
 <SummaryBox>
 Retry là con dao hai lưỡi rõ rệt nhất trong hệ phân tán: đúng chỗ thì nó biến lỗi mạng thoáng qua thành chuyện không ai biết, sai chỗ thì nó **biến một sự cố nhỏ thành sự cố toàn hệ thống**. Ba điều kiện phải đủ trước khi bật retry. Một, thao tác phải **idempotent** — retry một lệnh trừ tiền không idempotent là trừ tiền hai lần. Hai, phải phân biệt **lỗi tạm thời** (timeout, 503 — retry giúp ích) với **poison message** (sai schema, bug logic — retry vô ích và chỉ làm nghẽn hàng đợi). Ba, **jitter là bắt buộc chứ không phải tối ưu hoá**: nếu 500 consumer cùng gặp lỗi rồi cùng retry sau đúng 2 giây, bạn vừa tạo một đợt tấn công đồng bộ vào chính service đang ốm. Và DLQ chỉ có giá trị nếu **có người theo dõi nó**.

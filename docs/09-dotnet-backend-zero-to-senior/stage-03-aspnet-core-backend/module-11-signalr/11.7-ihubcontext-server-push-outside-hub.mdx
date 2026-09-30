@@ -1,12 +1,12 @@
 ---
-title: "11.7 — 7. IHubContext — Server push từ ngoài Hub"
+title: "11.7 - IHubContext - Server push từ ngoài Hub"
 description: "IHubContext là singleton, vì sao push không được nằm trong transaction, xử lý lỗi khi push thất bại, và mẫu outbox cho thông báo quan trọng."
 sidebar_position: 7
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
-# 11.8 — 7. IHubContext — Server push từ ngoài Hub
+# 11.7 - IHubContext - Server push từ ngoài Hub
 
 <SummaryBox>
 `IHubContext<THub, TClient>` cho phép **bất kỳ đâu** trong ứng dụng đẩy tin tới client — controller, service, background job — mà không cần client gọi Hub trước. Nó là **singleton**, an toàn để tiêm vào mọi nơi, kể cả `BackgroundService`. Hai quyết định thiết kế quan trọng hơn cú pháp. **Một: đừng push bên trong transaction database** — nếu transaction rollback sau đó, client đã nhận thông báo về một thay đổi **không hề xảy ra**. **Hai: push là "gửi rồi quên"** — nó không đảm bảo tới nơi, không retry, và client offline thì mất hẳn; nên **ghi vào database trước**, push sau, và để client đồng bộ qua REST.

@@ -1,12 +1,12 @@
 ---
-title: "19.12 — Ví dụ thực tế nhanh"
+title: "19.12 - Ví dụ thực tế nhanh"
 description: "Một endpoint export Excel làm sập container: từ OOM kill tới streaming, kèm lỗi phổ biến nhất và cách tự kiểm tra trong 5 phút."
 sidebar_position: 12
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
-# 19.13 — Ví dụ thực tế nhanh
+# 19.12 - Ví dụ thực tế nhanh
 
 <SummaryBox>
 Một ví dụ ngắn nhưng đắt giá: endpoint export danh sách lead ra Excel chạy tốt suốt một năm, rồi một ngày làm **container bị OOM kill** — và điều tệ nhất là nó không chỉ làm hỏng request export, mà làm **mọi request đang chạy trên instance đó** chết theo. Nguyên nhân: toàn bộ 200.000 bản ghi được nạp vào `List`, rồi dựng thành một file Excel trong `MemoryStream`, rồi copy sang mảng byte để trả về — **ba bản sao** của cùng dữ liệu tồn tại cùng lúc. Cách sửa là **streaming**, và nó cũng dạy một bài học chung: trong backend, thứ nguy hiểm không phải code chậm mà là code có mức tiêu thụ bộ nhớ **tỷ lệ với dữ liệu đầu vào**.

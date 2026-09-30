@@ -1,12 +1,12 @@
 ---
-title: "17.1 — 1. Event-driven architecture (EDA) — khi nào dùng?"
+title: "17.1 - Event-driven architecture (EDA) - khi nào dùng?"
 description: "Ba lý do chính đáng để dùng broker, chi phí thật ít ai nói trước, và vì sao domain event in-process thường đủ cho một monolith."
 sidebar_position: 1
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
-# 17.2 — 1. Event-driven architecture (EDA) — khi nào dùng?
+# 17.1 - Event-driven architecture (EDA) - khi nào dùng?
 
 <SummaryBox>
 EDA giải quyết một vấn đề cụ thể: **coupling thời gian** — bên gửi không phải chờ bên nhận xử lý xong, và không sập khi bên nhận sập. Nhưng nó **không miễn phí**, và cái giá không nằm ở chỗ dựng broker (một `docker compose` là xong) mà ở chỗ **hệ thống của bạn không còn nhất quán ngay lập tức**: đơn hàng tạo xong nhưng tồn kho chưa trừ, và trong vài trăm mili giây đó mọi câu hỏi "dữ liệu đúng chưa" đều có câu trả lời "còn tuỳ". Thêm vào đó là **schema versioning**, **thứ tự**, **message trùng**, **DLQ** và debug xuyên tiến trình. Nguyên tắc chọn: nếu bạn chỉ có **một** service và một database, **domain event in-process** ([bài 16.9](../module-16-clean-architecture/16.8-in-process.mdx)) cộng một job nền gần như luôn là lựa chọn đúng.

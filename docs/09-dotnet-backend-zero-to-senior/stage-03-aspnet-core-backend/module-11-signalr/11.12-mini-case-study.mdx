@@ -1,12 +1,12 @@
 ---
-title: "11.12 — Mini case study"
+title: "11.12 - Mini case study"
 description: "Thông báo chỉ tới một nửa người dùng sau khi scale lên 3 instance: backplane, sticky session và ba lỗi khi scale SignalR."
 sidebar_position: 12
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
-# 11.13 — Mini case study
+# 11.12 - Mini case study
 
 <SummaryBox>
 Tính năng thông báo thời gian thực chạy hoàn hảo suốt 6 tháng với một instance. Ngày scale lên 3 instance, nó **vẫn chạy** — nhưng chỉ khoảng **một phần ba** người dùng nhận được mỗi thông báo. Không có lỗi nào trong log; SignalR báo gửi thành công. Nguyên nhân: mỗi instance chỉ biết những kết nối **của chính nó**, nên `Clients.All` chỉ nghĩa là "tất cả client đang nối vào instance này". Cách sửa là **backplane**, nhưng bài này quan trọng hơn ở **hai lỗi tiếp theo** xuất hiện ngay sau khi thêm backplane: WebSocket không thiết lập được do reverse proxy thiếu cấu hình, và người dùng bị ngắt kết nối mỗi lần triển khai.

@@ -1,12 +1,12 @@
 ---
-title: "14.11 — Mini case study"
+title: "14.11 - Mini case study"
 description: "Job gửi email chạy 3 lần trên 3 instance, 12.000 khách nhận email trùng: recurring job và distributed lock."
 sidebar_position: 11
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
-# 14.12 — Mini case study
+# 14.11 - Mini case study
 
 <SummaryBox>
 Một sự cố xảy ra **đúng vào ngày scale out**: job gửi email nhắc lịch chạy hàng ngày lúc 8 giờ sáng, hoạt động hoàn hảo 8 tháng với một instance. Ngày lên 3 instance, **12.000 khách hàng nhận 3 email giống hệt nhau** trong cùng một phút. Nguyên nhân đơn giản tới mức dễ bỏ qua: recurring job đăng ký bằng `IHostedService` chạy **trên mỗi instance**, và mỗi instance không biết gì về các instance khác. Bài này trình bày ba mức giải pháp — từ khoá phân tán tới thiết kế không cần khoá — và một nguyên tắc quan trọng hơn cả ba: **job phải idempotent**, vì khoá phân tán không bao giờ an toàn tuyệt đối.

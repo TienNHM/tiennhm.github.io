@@ -1,12 +1,12 @@
 ---
-title: "18.2 — 2. Service decomposition"
+title: "18.2 - Service decomposition"
 description: "Tách theo subdomain chứ không theo tầng, database-per-service, Strangler Fig, và cách xử lý dữ liệu dùng chung khi không được JOIN nữa."
 sidebar_position: 2
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
-# 18.3 — 2. Service decomposition
+# 18.2 - Service decomposition
 
 <SummaryBox>
 Tách sai chỗ còn tệ hơn không tách. Hai nguyên tắc quyết định: tách theo **subdomain nghiệp vụ** (Sales, Billing, Inventory) chứ **không** theo tầng kỹ thuật (Auth Service, Validation Service, Database Service), và **mỗi service sở hữu dữ liệu của nó** — không service nào được đọc trực tiếp bảng của service khác. Vi phạm nguyên tắc thứ hai là sai lầm phổ biến nhất: hai service dùng chung một database trông có vẻ tiện, nhưng nó tạo ra thứ tệ nhất của cả hai thế giới — bạn chịu độ phức tạp vận hành của microservices mà **không** có được triển khai độc lập, vì mỗi lần đổi schema là một lần phối hợp triển khai. Và cách tách an toàn duy nhất trên hệ đang chạy là **Strangler Fig**: mọc dần thứ mới quanh thứ cũ, không bao giờ viết lại một lần.

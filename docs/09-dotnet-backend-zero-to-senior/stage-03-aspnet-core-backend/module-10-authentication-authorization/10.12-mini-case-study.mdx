@@ -1,12 +1,12 @@
 ---
-title: "10.12 — Mini case study"
+title: "10.12 - Mini case study"
 description: "Nhân viên nghỉ việc vẫn xoá được dữ liệu sau 4 ngày: refresh token không bị thu hồi, và thiết kế vòng đời token đúng."
 sidebar_position: 12
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
-# 10.13 — Mini case study
+# 10.12 - Mini case study
 
 <SummaryBox>
 Một sự cố bảo mật với hậu quả thật: nhân viên nghỉ việc, tài khoản bị vô hiệu hoá đúng quy trình, nhưng **4 ngày sau** người đó vẫn gọi API xoá 340 bản ghi khách hàng. Nguyên nhân không nằm ở access token — cái đó hết hạn sau 15 phút — mà ở **refresh token** có hạn 30 ngày và **không được kiểm tra lại trạng thái tài khoản** khi đổi lấy token mới. Vô hiệu hoá tài khoản chỉ chặn được **đăng nhập mới**, không chặn được vòng lặp refresh đang chạy. Bài này trình bày thiết kế vòng đời token đúng, kèm **refresh token rotation** — cơ chế vừa giới hạn thiệt hại vừa **phát hiện được** token bị đánh cắp.

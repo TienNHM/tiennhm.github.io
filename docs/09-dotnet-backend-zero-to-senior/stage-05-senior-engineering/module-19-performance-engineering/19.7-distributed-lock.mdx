@@ -1,12 +1,12 @@
 ---
-title: "19.7 — 7. Distributed lock"
+title: "19.7 - Distributed lock"
 description: "Vì sao khoá phân tán không bao giờ an toàn tuyệt đối, ba cách cài đặt, fencing token, và những lựa chọn tốt hơn khoá."
 sidebar_position: 7
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
-# 19.8 — 7. Distributed lock
+# 19.7 - Distributed lock
 
 <SummaryBox>
 Đây là bài quan trọng nhất về mặt an toàn trong module, và thông điệp chính đi ngược với trực giác: **khoá phân tán không bao giờ an toàn tuyệt đối**. Lý do không phải cài đặt kém mà là một giới hạn cơ bản — bạn không thể phân biệt "tiến trình đã chết" với "tiến trình còn sống nhưng bị đứng vì GC pause hoặc mạng chậm". Kết quả: process A đang giữ khoá, bị GC pause 10 giây, khoá hết hạn, process B lấy được khoá, rồi A **tỉnh dậy và tin rằng nó vẫn đang giữ khoá**. Hai process cùng chạy đoạn "được bảo vệ". Cách đúng có **hai lớp**: dùng khoá để **giảm tranh chấp**, và dựa vào **idempotency hoặc unique constraint của database** cho tính đúng đắn. Và tốt hơn cả: nhiều bài toán không cần khoá — **phân vùng theo key** hoặc `SKIP LOCKED` giải quyết triệt để hơn.

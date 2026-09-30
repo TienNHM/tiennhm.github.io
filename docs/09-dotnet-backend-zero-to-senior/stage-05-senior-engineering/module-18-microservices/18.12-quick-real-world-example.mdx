@@ -1,12 +1,12 @@
 ---
-title: "18.12 — Ví dụ thực tế nhanh"
+title: "18.12 - Ví dụ thực tế nhanh"
 description: "Health check sai cách làm cả cụm sập khi database chớp nhoáng: phân biệt liveness và readiness, và cách tự kiểm tra trong vài phút."
 sidebar_position: 12
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 
-# 18.13 — Ví dụ thực tế nhanh
+# 18.12 - Ví dụ thực tế nhanh
 
 <SummaryBox>
 Một ví dụ ngắn nhưng gây sự cố lớn hơn mọi thứ khác trong bài này: database chậm **12 giây** vì một lần chuyển đổi dự phòng, và toàn bộ cụm **6 service sập trong 4 phút** — trong khi database đã hồi phục sau 12 giây. Nguyên nhân là một dòng cấu hình: `livenessProbe` trỏ vào endpoint có kiểm tra database. Khi database chậm, Kubernetes kết luận mọi pod đã chết và **giết hết**, rồi pod mới khởi động lại cũng không qua được probe, và chu kỳ đó tự lặp. Bài học: **liveness kiểm tra tiến trình, readiness kiểm tra phụ thuộc** — nhầm hai thứ này biến một sự cố thoáng qua thành sự cố toàn hệ thống.
