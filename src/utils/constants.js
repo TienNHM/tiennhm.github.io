@@ -1,9 +1,11 @@
-// Dùng thẳng URL đích của ảnh đại diện, không dùng https://github.com/TienNHM.png.
-// Đường dẫn đó trả 302 sang chính URL này; với <link rel="preload"> thì một lần
-// chuyển hướng khiến trình duyệt không khớp được tài nguyên đã tải trước với
-// request thật, nên phần preload thành công cốc và Search Console báo
-// "Lỗi chuyển hướng" cho ảnh.
-export const AVATAR_URL = "https://avatars.githubusercontent.com/u/33385777?v=4&s=400";
+// Ảnh đại diện tự host trong static/img thay vì trỏ sang avatars.githubusercontent.com.
+// Ngoài việc không còn phụ thuộc hạ tầng bên thứ ba cho một tài sản thương hiệu,
+// nó cũng giải luôn vấn đề cũ: github.com/TienNHM.png trả 302, mà một lần chuyển
+// hướng là <link rel="preload"> không khớp được với request thật.
+//
+// Đường dẫn gốc `/` chứ không phải URL tuyệt đối: chỗ nào cần tuyệt đối (JSON-LD)
+// thì tự ghép với siteConfig.url, để không hardcode domain lần nữa.
+export const AVATAR_URL = "/img/tiennhm-avatar.jpg";
 export const GITHUB_USER = "TienNHM";
 
 export const LOGIN_PATH = "/login";

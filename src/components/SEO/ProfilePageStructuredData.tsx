@@ -59,7 +59,7 @@ export function ProfilePageStructuredData({
         jobTitle: authorProfile.jobTitle,
         description: authorProfile.description,
         url: `${siteUrl}/`,
-        image: authorProfile.image,
+        image: `${siteUrl}${authorProfile.image}`,
         email: `mailto:${authorProfile.email}`,
         sameAs: authorProfile.sameAs,
         knowsAbout: authorProfile.knowsAbout,
