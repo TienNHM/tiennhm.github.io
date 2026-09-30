@@ -1,90 +1,26 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, type ReactNode } from 'react';
 import clsx from 'clsx';
-import useBaseUrl from '@docusaurus/useBaseUrl';
-import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import Translate, { translate } from '@docusaurus/Translate';
 import styles from './styles.module.css';
 
-function withSiteBase(baseUrl: string, href: string): string {
-  const b = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-  const p = href.startsWith('/') ? href : `/${href}`;
-  return `${b}${p}`;
-}
-
-type Manifest = { routes?: Record<string, string> };
-
-let manifestCache: Manifest | null = null;
-let inflight: Promise<Manifest> | null = null;
-
-async function fetchManifest(url: string): Promise<Manifest> {
-  const res = await fetch(url);
-  if (!res.ok) {
-    return {};
-  }
-  try {
-    return await res.json();
-  } catch {
-    return {};
-  }
-}
-
-function getManifest(jsonUrl: string): Promise<Manifest> {
-  if (manifestCache) {
-    return Promise.resolve(manifestCache);
-  }
-  inflight ??= fetchManifest(jsonUrl).then((m) => {
-    manifestCache = m;
-    inflight = null;
-    return m;
-  });
-  return inflight;
-}
-
-/** Chuẩn hóa permalinks Docusaurus (baseUrl đã không nằm trong permalink). */
-function normalizePermalink(href: string): string {
-  if (href.length > 1 && href.endsWith('/')) {
-    return href.slice(0, -1);
-  }
-  return href;
-}
-
 export interface PdfExportActionsProps {
-  permalink: string;
+  /** Giữ prop để nơi gọi không phải sửa; hiện không dùng tới. */
+  permalink?: string;
   className?: string;
 }
 
 /**
- * Hai hành động PDF: tải file build từ md-to-pdf (nếu có trong manifest),
- * và in / lưu PDF từ trang đã render (giữ được MDX, theme, syntax highlight).
+ * Nút lưu trang thành PDF bằng hộp thoại in của trình duyệt.
+ *
+ * Trước đây component còn tải `pdf-manifest.json` để hiện thêm nút tải file
+ * PDF dựng sẵn. Nhưng manifest khai 169 route trong khi KHÔNG có file PDF nào
+ * từng được sinh ra — nút đó tải về trang 404 trên cả 169 trang, và vì nó
+ * render sau khi hydrate nên không lộ ra ở HTML từ server.
+ *
+ * Đã bỏ hẳn cùng toàn bộ pipeline sinh PDF. In từ trình duyệt vẫn cho ra bản
+ * PDF dùng được, nhờ các quy tắc @media print trong custom.css.
  */
-export default function PdfExportActions({
-  permalink,
-  className,
-}: PdfExportActionsProps): React.ReactElement | null {
-  const {
-    siteConfig: { baseUrl },
-  } = useDocusaurusContext();
-  const manifestSrc = useBaseUrl('/pdf/pdf-manifest.json');
-  const [routes, setRoutes] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    let cancelled = false;
-    getManifest(manifestSrc).then((m) => {
-      if (!cancelled) {
-        setRoutes(m.routes ?? {});
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [manifestSrc]);
-
-  const key = normalizePermalink(permalink);
-  const prebuiltHref = routes[key];
-  const markdownPdfUrl = prebuiltHref
-    ? withSiteBase(baseUrl, prebuiltHref)
-    : undefined;
-
+export default function PdfExportActions({ className }: PdfExportActionsProps): ReactNode {
   const onPrintPdf = useCallback(() => {
     window.print();
   }, []);
@@ -94,21 +30,11 @@ export default function PdfExportActions({
       className={clsx(styles.toolbar, 'pdf-export-toolbar', className)}
       role="group"
       aria-label={translate({
-      message: 'Xuất PDF',
-      description: 'Aria label for PDF export toolbar',
-      id: 'pdfExport.aria.toolbar',
-    })}>
-      {markdownPdfUrl ? (
-        <a
-          className="button button--secondary button--sm"
-          href={markdownPdfUrl}
-          download
-        >
-          <Translate id="pdfExport.downloadMd" description="Link to prebuilt PDF from markdown">
-            Tải PDF (Markdown)
-          </Translate>
-        </a>
-      ) : null}
+        message: 'Xuất PDF',
+        description: 'Aria label for PDF export toolbar',
+        id: 'pdfExport.aria.toolbar',
+      })}
+    >
       <button
         type="button"
         className="button button--outline button--secondary button--sm"
