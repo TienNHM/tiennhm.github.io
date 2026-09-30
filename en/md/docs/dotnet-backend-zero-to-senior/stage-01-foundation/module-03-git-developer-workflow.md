@@ -1,4 +1,4 @@
-# Module 3 — Git + Developer Workflow
+# Module 3 - Git + Developer Workflow
 
 > Nguồn: https://tiennhm.io.vn/en/docs/dotnet-backend-zero-to-senior/stage-01-foundation/module-03-git-developer-workflow/
 > Quy trình kỹ sư phần mềm với Git: branching, merge/rebase, code review, CI hooks — chuẩn hóa cộng tác cho dự án .NET đa module.

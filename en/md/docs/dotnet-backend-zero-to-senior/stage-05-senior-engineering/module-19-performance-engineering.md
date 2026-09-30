@@ -1,4 +1,4 @@
-# Module 19 — Performance Engineering
+# Module 19 - Performance Engineering
 
 > Nguồn: https://tiennhm.io.vn/en/docs/dotnet-backend-zero-to-senior/stage-05-senior-engineering/module-19-performance-engineering/
 > Performance engineering: profiling, allocation, GC, benchmarking — định lượng cải tiến cho hot path CRM.

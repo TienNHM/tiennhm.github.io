@@ -1,4 +1,4 @@
-# Module 17 — Distributed Systems
+# Module 17 - Distributed Systems
 
 > Nguồn: https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-05-senior-engineering/module-17-distributed-systems/
 > Hệ phân tán: consistency models, message brokers, idempotency, sagas — chuẩn bị tách dịch vụ và luồng tích hợp bất đồng bộ.

@@ -1,4 +1,4 @@
-# Module 7 — Dependency Injection
+# Module 7 - Dependency Injection
 
 > Nguồn: https://tiennhm.io.vn/en/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-07-dependency-injection/
 > Dependency injection trong .NET: service lifetime, composition root, options pattern — khớp với container ASP.NET Core và kiểm thử đơn vị.

@@ -1,4 +1,4 @@
-# Project 1 — Inventory System (Console + API)
+# Project 1 - Inventory System (Console + API)
 
 > Nguồn: https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/dotnet-project-01-inventory-console-api
 > Capstone giai đoạn 2: hệ quản lý kho (IMS) — domain model, API tối thiểu, async/DI — cầu nối sang kiến trúc CRM backend.
@@ -426,7 +426,7 @@ dotnet new console -n InventorySystem.Console -o src/InventorySystem.Console
 
 dotnet sln add src/**/*.csproj
 
-# Thêm project references
+# Project 1 - Inventory System (Console + API)
 dotnet add src/InventorySystem.Application reference src/InventorySystem.Domain
 dotnet add src/InventorySystem.Infrastructure reference src/InventorySystem.Domain
 dotnet add src/InventorySystem.Console reference src/InventorySystem.Application

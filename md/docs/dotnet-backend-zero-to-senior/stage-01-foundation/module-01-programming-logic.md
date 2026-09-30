@@ -1,4 +1,4 @@
-# Module 1 — Programming Logic
+# Module 1 - Programming Logic
 
 > Nguồn: https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-01-foundation/module-01-programming-logic/
 > Nền tảng tư duy thuật toán và cấu trúc điều khiển trong C#: kiểu dữ liệu, hàm, tập hợp, độ phức tạp tiệm cận — chuẩn bị cho backend CRM.

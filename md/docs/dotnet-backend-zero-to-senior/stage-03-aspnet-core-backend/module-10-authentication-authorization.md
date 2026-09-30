@@ -1,4 +1,4 @@
-# Module 10 — Authentication + Authorization
+# Module 10 - Authentication + Authorization
 
 > Nguồn: https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-10-authentication-authorization/
 > Xác thực & phân quyền ASP.NET Core: JWT, OAuth2/OIDC, cookie, policy-based authorization — mô hình bảo mật đa tenant cho CRM.

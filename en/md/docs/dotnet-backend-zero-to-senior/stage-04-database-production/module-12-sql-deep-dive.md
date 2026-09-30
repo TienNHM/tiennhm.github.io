@@ -1,4 +1,4 @@
-# Module 12 — SQL Deep Dive
+# Module 12 - SQL Deep Dive
 
 > Nguồn: https://tiennhm.io.vn/en/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-12-sql-deep-dive/
 > SQL chuyên sâu: indexing, execution plans, transaction isolation, locking — hiệu năng truy vấn cho workload CRM.

@@ -1,4 +1,4 @@
-# Module 4 — C# Core
+# Module 4 - C# Core
 
 > Nguồn: https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-04-csharp-core/
 > OOP trong C#: class, interface, kế thừa, đa hình, encapsulation, record, pattern matching — thiết kế domain model cho hệ thống CRM.

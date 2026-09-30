@@ -1,4 +1,4 @@
-# Module 11 — SignalR
+# Module 11 - SignalR
 
 > Nguồn: https://tiennhm.io.vn/en/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-11-signalr/
 > SignalR: WebSocket fallback, hub semantics, scale-out với backplane — real-time notification và presence trong CRM.

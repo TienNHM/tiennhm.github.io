@@ -1,4 +1,4 @@
-# Module 5 — Advanced C#
+# Module 5 - Advanced C#
 
 > Nguồn: https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-05-advanced-csharp/
 > C# nâng cao: generics, LINQ, nullable reference types, spans, exception semantics — tối ưu an toàn kiểu và hiện diện bộ nhớ trong service layer.

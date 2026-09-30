@@ -1,4 +1,4 @@
-# Tùy chọn — Client .NET (ngoài phạm vi backend-first)
+# Tùy chọn - Client .NET (ngoài phạm vi backend-first)
 
 > Nguồn: https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/dotnet-optional-client-dotnet
 > Phụ lục: Blazor, .NET MAUI, Razor-heavy UI — ngoài phạm vi backend-first; tham chiếu roadmap.sh và Microsoft Learn.

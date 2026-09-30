@@ -1,4 +1,4 @@
-# Module 13 — Entity Framework Core
+# Module 13 - Entity Framework Core
 
 > Nguồn: https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/
 > EF Core: change tracking, migrations, raw SQL, performance patterns — ORM mapping an toàn cho domain CRM.

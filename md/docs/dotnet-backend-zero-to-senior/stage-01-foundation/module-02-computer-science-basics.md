@@ -1,4 +1,4 @@
-# Module 2 — Computer Science Basics
+# Module 2 - Computer Science Basics
 
 > Nguồn: https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-01-foundation/module-02-computer-science-basics/
 > CS foundation cho backend: mô hình bộ nhớ, HTTP/TCP khái quát, JSON, REST semantics, phân tích độ phức tạp — liên hệ pipeline request trong ASP.NET Core.

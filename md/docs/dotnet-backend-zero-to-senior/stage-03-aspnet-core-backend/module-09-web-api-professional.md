@@ -1,4 +1,4 @@
-# Module 9 — Web API Professional
+# Module 9 - Web API Professional
 
 > Nguồn: https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-09-web-api-professional/
 > Web API chuyên nghiệp: versioning, validation, Problem Details, OpenAPI, filtering/paging — hợp đồng HTTP ổn định cho client và tích hợp.

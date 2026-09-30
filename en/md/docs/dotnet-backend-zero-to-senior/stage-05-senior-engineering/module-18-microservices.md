@@ -1,4 +1,4 @@
-# Module 18 — Microservices
+# Module 18 - Microservices
 
 > Nguồn: https://tiennhm.io.vn/en/docs/dotnet-backend-zero-to-senior/stage-05-senior-engineering/module-18-microservices/
 > Microservices .NET: service boundaries, API gateway, resilience, observability — đánh đổi vận hành và tốc độ phát triển.

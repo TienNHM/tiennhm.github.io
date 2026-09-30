@@ -1,4 +1,4 @@
-# Module 8 — ASP.NET Core Fundamentals
+# Module 8 - ASP.NET Core Fundamentals
 
 > Nguồn: https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/
 > Nền tảng ASP.NET Core: middleware, hosting, configuration, logging, routing — pipeline HTTP và extension points chuẩn production.

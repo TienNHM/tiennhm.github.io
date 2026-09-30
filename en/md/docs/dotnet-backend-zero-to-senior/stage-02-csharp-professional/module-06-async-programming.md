@@ -1,4 +1,4 @@
-# Module 6 — Async Programming
+# Module 6 - Async Programming
 
 > Nguồn: https://tiennhm.io.vn/en/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-06-async-programming/
 > Lập trình bất đồng bộ .NET: Task, async/await, cancellation, ConfigureAwait — mô hình I/O-bound cho ASP.NET Core và tích hợp HTTP.
