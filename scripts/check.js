@@ -12,6 +12,7 @@ const CHECKS = {
     config: require('./checks/config'),
     'tag-redirects': require('./checks/tag-redirects'),
     mdx: require('./checks/mdx'),
+    'css-modules': require('./checks/css-modules'),
 };
 
 (async () => {

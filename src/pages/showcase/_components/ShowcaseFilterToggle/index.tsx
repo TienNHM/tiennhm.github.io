@@ -53,8 +53,8 @@ export default function ShowcaseFilterToggle(): JSX.Element {
       />
       <label htmlFor={id} className={clsx(styles.checkboxLabel, 'shadow--md')}>
         {/* eslint-disable @docusaurus/no-untranslated-text */}
-        <span className={styles.checkboxLabelOr}>OR</span>
-        <span className={styles.checkboxLabelAnd}>AND</span>
+        <span>OR</span>
+        <span>AND</span>
         {/* eslint-enable @docusaurus/no-untranslated-text */}
       </label>
     </div>
