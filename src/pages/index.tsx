@@ -5,6 +5,7 @@ import Head from '@docusaurus/Head';
 import Layout from '@theme/Layout';
 import Image from '@theme/IdealImage';
 import HomepageFeatures from '@site/src/components/HomepageFeatures';
+import TopRepos from '@site/src/components/TopRepos';
 import styles from './index.module.css';
 import { CONTACTS, Contact } from '@site/src/data/contacts';
 import ContactItem from '@site/src/components/ContactItem';
@@ -179,6 +180,7 @@ export default function Home(): JSX.Element {
       <HomepageHeader />
       <main>
         <HomepageFeatures />
+        <TopRepos />
       </main>
     </Layout>
   );
