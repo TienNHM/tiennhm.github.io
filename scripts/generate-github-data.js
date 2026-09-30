@@ -1,4 +1,5 @@
-// Sinh src/data/github-repos.json cho khối "Top repositories" ở trang chủ.
+// Sinh src/data/github.json: số liệu GitHub dùng ở trang chủ (follower và
+// danh sách repo nhiều sao nhất).
 //
 // Vì sao lấy lúc build chứ không gọi API từ trình duyệt: GitHub API giới hạn
 // 60 request/giờ cho mỗi IP khi không có token. Người đọc ở cùng một mạng
@@ -15,7 +16,7 @@ const path = require('path');
 
 const USER = 'TienNHM';
 const COUNT = 6;
-const OUTPUT = path.join(__dirname, '..', 'src', 'data', 'github-repos.json');
+const OUTPUT = path.join(__dirname, '..', 'src', 'data', 'github.json');
 
 // Repo không muốn hiện dù nhiều sao.
 const EXCLUDE = new Set([]);
@@ -25,17 +26,25 @@ function normalizeHomepage(url) {
     return url.replace(/^http:\/\/(tiennhm\.io\.vn|tiennhm\.github\.io)/, 'https://$1');
 }
 
+function headers() {
+    const h = { accept: 'application/vnd.github+json', 'user-agent': 'site-build' };
+    if (process.env.GITHUB_TOKEN) h.authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+    return h;
+}
+
+async function get(url) {
+    const res = await fetch(url, { headers: headers() });
+    if (!res.ok) throw new Error(`GitHub API trả ${res.status} cho ${new URL(url).pathname}`);
+    return res.json();
+}
+
+async function fetchUser() {
+    const u = await get(`https://api.github.com/users/${USER}`);
+    return { followers: u.followers ?? 0, following: u.following ?? 0 };
+}
+
 async function fetchRepos() {
-    const headers = { accept: 'application/vnd.github+json', 'user-agent': 'site-build' };
-    if (process.env.GITHUB_TOKEN) headers.authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
-
-    const res = await fetch(
-        `https://api.github.com/users/${USER}/repos?per_page=100&type=owner`,
-        { headers },
-    );
-    if (!res.ok) throw new Error(`GitHub API trả ${res.status}`);
-
-    const all = await res.json();
+    const all = await get(`https://api.github.com/users/${USER}/repos?per_page=100&type=owner`);
     if (!Array.isArray(all)) throw new Error('API không trả về mảng repo');
 
     return all
@@ -58,16 +67,21 @@ async function fetchRepos() {
 
 (async () => {
     try {
-        const repos = await fetchRepos();
+        const [user, repos] = await Promise.all([fetchUser(), fetchRepos()]);
         if (repos.length === 0) throw new Error('không có repo nào sau khi lọc');
 
-        fs.writeFileSync(OUTPUT, JSON.stringify({ updatedAt: new Date().toISOString(), repos }, null, 2) + '\n');
-        console.log(`✓ ${repos.length} repo: ` + repos.map((r) => `${r.name}(${r.stars}★)`).join(', '));
+        const payload = { updatedAt: new Date().toISOString(), user, repos };
+        fs.writeFileSync(OUTPUT, JSON.stringify(payload, null, 2) + '\n');
+        console.log(
+            `✓ ${user.followers} follower, ${repos.length} repo: ` +
+            repos.map((r) => `${r.name}(${r.stars}★)`).join(', '),
+        );
     } catch (err) {
         // Không làm đỏ build: dữ liệu cũ đã commit vẫn dùng được.
         console.warn(`⚠ không cập nhật được repo (${err.message}), giữ nguyên ${path.basename(OUTPUT)}`);
         if (!fs.existsSync(OUTPUT)) {
-            fs.writeFileSync(OUTPUT, JSON.stringify({ updatedAt: null, repos: [] }, null, 2) + '\n');
+            const empty = { updatedAt: null, user: { followers: 0, following: 0 }, repos: [] };
+            fs.writeFileSync(OUTPUT, JSON.stringify(empty, null, 2) + '\n');
         }
     }
 })();

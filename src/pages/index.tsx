@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import clsx from 'clsx';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import Head from '@docusaurus/Head';
@@ -6,6 +6,7 @@ import Layout from '@theme/Layout';
 import Image from '@theme/IdealImage';
 import HomepageFeatures from '@site/src/components/HomepageFeatures';
 import TopRepos from '@site/src/components/TopRepos';
+import githubData from '@site/src/data/github.json';
 import styles from './index.module.css';
 import { CONTACTS, Contact } from '@site/src/data/contacts';
 import ContactItem from '@site/src/components/ContactItem';
@@ -14,60 +15,8 @@ import { getSiteDescription } from '@site/src/utils/siteDescription';
 import Link from '@docusaurus/Link';
 import { translate } from '@docusaurus/Translate';
 
-type GithubUser = {
-  bio?: string;
-  followers?: number;
-  following?: number;
-};
-
-const GITHUB_USER_CACHE_KEY = `github-user:${GITHUB_USER}`;
-
-function readCachedUser(): GithubUser | null {
-  try {
-    const raw = sessionStorage.getItem(GITHUB_USER_CACHE_KEY);
-    return raw ? (JSON.parse(raw) as GithubUser) : null;
-  } catch {
-    return null;
-  }
-}
-
 function HomepageHeader() {
   const { siteConfig } = useDocusaurusContext();
-
-  // Thông tin lấy từ GitHub API — hoàn toàn không bắt buộc: hỏng thì trang vẫn
-  // đầy đủ, chỉ thiếu dòng bio và số follower.
-  //
-  // API này giới hạn 60 request/giờ cho mỗi IP khi gọi không kèm token, và cách
-  // gọi cũ không kiểm tra response.ok cũng không bắt lỗi: khi bị chặn (trình
-  // duyệt chặn tracker, mạng công ty, hoặc chính Googlebot) thì .json() nổ ra
-  // một unhandled rejection, còn setUser nhận nguyên object lỗi của GitHub.
-  // Cache lại trong sessionStorage để mỗi phiên chỉ gọi một lần.
-  const [user, setUser] = useState<GithubUser | null>(null);
-  useEffect(() => {
-    const cached = readCachedUser();
-    if (cached) {
-      setUser(cached);
-      return;
-    }
-
-    const controller = new AbortController();
-    fetch(`https://api.github.com/users/${GITHUB_USER}`, { signal: controller.signal })
-      .then(response => (response.ok ? response.json() : null))
-      .then((data: GithubUser | null) => {
-        if (!data) return;
-        setUser(data);
-        try {
-          sessionStorage.setItem(GITHUB_USER_CACHE_KEY, JSON.stringify(data));
-        } catch {
-          // sessionStorage có thể bị chặn (chế độ riêng tư) — bỏ qua.
-        }
-      })
-      .catch(() => {
-        // Mất mạng, bị chặn, hoặc vượt rate limit: giữ nguyên giao diện rút gọn.
-      });
-
-    return () => controller.abort();
-  }, []);
 
   const contacts = CONTACTS;
   return (
@@ -105,21 +54,21 @@ function HomepageHeader() {
           <p className={styles.heroPitch}>{getSiteDescription()}</p>
 
           {/*
-            * Khối số liệu luôn có mặt và đã chừa sẵn chiều cao, nên lúc số nhảy
-            * vào không có gì bị đẩy đi chỗ khác.
+            * Số liệu lấy lúc build (src/data/github.json, làm mới hằng tuần),
+            * không gọi GitHub API từ trình duyệt nữa.
+            *
+            * Cách cũ hỏng theo hai kiểu: API giới hạn 60 request/giờ theo IP
+            * nên khách cùng một mạng dùng chung hạn mức và người sau thấy trống,
+            * và số chỉ nhảy vào sau khi trang đã vẽ xong.
             */}
-          <div className={clsx(styles.githubInfo)} aria-live="polite">
-            {user && (
-              <>
-                <span className={styles.stat}>
-                  <strong>{user.followers}</strong> followers
-                </span>
-                <span className={styles.statDot} aria-hidden="true" />
-                <span className={styles.stat}>
-                  <strong>{user.following}</strong> following
-                </span>
-              </>
-            )}
+          <div className={clsx(styles.githubInfo)}>
+            <span className={styles.stat}>
+              <strong>{githubData.user.followers}</strong> followers
+            </span>
+            <span className={styles.statDot} aria-hidden="true" />
+            <span className={styles.stat}>
+              <strong>{githubData.user.following}</strong> following
+            </span>
           </div>
 
           <div className={styles.ctaGroup}>
