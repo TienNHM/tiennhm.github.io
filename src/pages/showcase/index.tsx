@@ -12,8 +12,13 @@ export default function Showcase(): JSX.Element {
   const favoriteUsers: Project[] = SORTED_PROJECTS.filter((user) =>
     user.tags.includes('favorite'),
   );
+  // Bài tập môn học tách khỏi sản phẩm: để lẫn thì người xem lấy trung bình
+  // cộng ấn tượng thay vì lấy giá trị cao nhất.
+  const courseUsers: Project[] = SORTED_PROJECTS.filter(
+    (user) => !user.tags.includes('favorite') && user.tags.includes('courseproject'),
+  );
   const otherUsers: Project[] = SORTED_PROJECTS.filter(
-    (user) => !user.tags.includes('favorite'),
+    (user) => !user.tags.includes('favorite') && !user.tags.includes('courseproject'),
   );
 
   return (
@@ -21,7 +26,12 @@ export default function Showcase(): JSX.Element {
       <main className="margin-vert--lg">
         <ShowcaseHeader key={'ShowcaseHeader'} />
         <ShowcaseFilters key={'ShowcaseFilters'} />
-        <ShowcaseCardList favoriteUsers={favoriteUsers} otherUsers={otherUsers} key={'ShowcaseCardList'} />
+        <ShowcaseCardList
+          favoriteUsers={favoriteUsers}
+          otherUsers={otherUsers}
+          courseUsers={courseUsers}
+          key={'ShowcaseCardList'}
+        />
       </main>
     </Layout>
   );
