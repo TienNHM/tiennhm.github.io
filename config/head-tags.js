@@ -128,13 +128,6 @@ module.exports = [
     tagName: 'link',
     attributes: {
         rel: 'preconnect',
-        href: 'https://api.github.com',
-    }
-},
-{
-    tagName: 'link',
-    attributes: {
-        rel: 'preconnect',
         href: 'https://slorber-api-screenshot.netlify.app',
     }
 },
