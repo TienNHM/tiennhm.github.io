@@ -4,12 +4,16 @@ module.exports = [
     // cho AI". Đọc permalink thật qua allContentLoaded thay vì tự suy route
     // từ đường dẫn file — xem plugins/page-markdown/index.js.
     require.resolve('../plugins/page-markdown'),
-    // Chuyển hướng tag đã xoá khi gom taxonomy — xem config/tag-redirects.js.
+    // Chuyển hướng URL cũ: tag gom taxonomy (tag-redirects.js) và trang đã gỡ
+    // khỏi site (page-redirects.js).
     [
         '@docusaurus/plugin-client-redirects',
         /** @type {import('@docusaurus/plugin-client-redirects').Options} */
         ({
-            redirects: require('./tag-redirects'),
+            redirects: [
+                ...require('./tag-redirects'),
+                ...require('./page-redirects'),
+            ],
         }),
     ],
     [
