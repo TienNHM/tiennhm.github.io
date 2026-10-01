@@ -46,7 +46,6 @@ draft: false
 
 - **Hub lộ trình**: [00. Lộ trình From Zero → Senior .NET (Backend-first)](../roadmap-dotnet-backend-zero-to-senior.mdx)
 - **Chương trước**: [Module 19 — Performance Engineering](module-19-performance-engineering/)
-- **Chương tiếp theo**: [Tùy chọn — Client .NET (ngoài phạm vi backend-first)](../optional-client-dotnet.mdx)
 
 ## Tham chiếu có thẩm quyền (E‑E‑A‑T / retrieval)
 

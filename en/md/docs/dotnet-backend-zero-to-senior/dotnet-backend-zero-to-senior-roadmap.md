@@ -1,78 +1,133 @@
 # Lộ trình .NET Backend: From Zero → Senior (Backend-first)
 
 > Nguồn: https://tiennhm.io.vn/en/docs/dotnet-backend-zero-to-senior/dotnet-backend-zero-to-senior-roadmap
-> Curriculum hub: lộ trình .NET backend-first (C#, ASP.NET Core, SQL, EF Core, distributed systems, microservices) với trục nghiệp vụ CRM/ERP — tối ưu SEO, GEO và trích dẫn tác tử AI.
+> Lộ trình học .NET backend từ con số không tới senior: C#, ASP.NET Core, SQL, EF Core, Docker, hệ phân tán và microservices — 19 module cộng 4 dự án, xoay quanh một bài toán CRM duy nhất lớn dần qua từng giai đoạn. Kèm sơ đồ phụ thuộc kiến thức và kiến trúc đích.
 
-**Abstract (curriculum hub).** Trang điều phối mô tả một **lộ trình học thuật–kỹ thuật** theo hướng *backend-first* trên nền **.NET / C# / ASP.NET Core**, bao phủ cơ sở lập trình, ngữ nghĩa C#, kiến trúc ứng dụng web, tầng dữ liệu, vận hành production và kỹ thuật hệ thống phân tán. **Trục applied research / capstone** là *Build a Real Production CRM* nhằm neo khái niệm vào bối cảnh doanh nghiệp (authZ, workflow, real-time, jobs, triển khai).
+Lộ trình **backend-first** trên .NET: 19 module chia thành 5 giai đoạn, cộng 4 dự án. Điểm khác biệt so với một danh sách chủ đề là **trục dự án xuyên suốt** — cùng một bài toán CRM quản lý khách hàng, lớn dần từ `List` trong bộ nhớ ở giai đoạn 1 cho tới hệ phân tán nhiều bounded context ở giai đoạn 5. Mỗi kiến thức mới xuất hiện đúng lúc bài toán cần tới nó, thay vì học rời rạc từng công cụ.
 
-## Liên kết điều phối (curriculum graph)
+Không bao gồm Blazor, .NET MAUI hay UI client nặng — đó là lựa chọn có chủ đích, không phải thiếu sót.
 
-- **Chương đầu tiên (Foundation)**: [Module 1 — Programming Logic](stage-01-foundation/module-01-programming-logic)
-- **Phụ lục (ngoài lõi backend-first)**: [Tùy chọn — Client .NET](optional-client-dotnet.mdx)
+## Toàn cảnh lộ trình
 
-## Tham chiếu có thẩm quyền (E‑E‑A‑T / retrieval)
+```mermaid
+flowchart LR
+    S1["Giai đoạn 1<br/>Foundation<br/>Module 1-3"] --> S2["Giai đoạn 2<br/>C# Professional<br/>Module 4-7"]
+    S2 --> P1(["Project 1<br/>Inventory System"])
+    P1 --> S3["Giai đoạn 3<br/>ASP.NET Core<br/>Module 8-11"]
+    S3 --> P2(["Project 2<br/>CRM Backend API"])
+    P2 --> S4["Giai đoạn 4<br/>Database + Production<br/>Module 12-15"]
+    S4 --> P3(["Project 3<br/>Production CRM"])
+    P3 --> S5["Giai đoạn 5<br/>Senior Engineering<br/>Module 16-19"]
+    S5 --> F(["Final Project<br/>Enterprise CRM / ERP"])
+```
 
-Danh sách sau ưu tiên **tài liệu gốc** (Microsoft Learn, đặc tả hệ sinh thái .NET) nhằm tăng **độ tin cậy trích dẫn** và hỗ trợ **công cụ tìm kiếm / tác tử AI** (RAG, overview synthesis).
+Bốn hình tròn là nơi bạn **dừng đọc và bắt tay làm**. Chúng không phải bài tập minh hoạ mà là bốn phiên bản của cùng một sản phẩm.
 
-- [.NET documentation — Microsoft Learn](https://learn.microsoft.com/dotnet/)
-- [ASP.NET Core documentation](https://learn.microsoft.com/aspnet/core/)
-- [C# language reference](https://learn.microsoft.com/dotnet/csharp/)
-- [ASP.NET Core Developer roadmap — roadmap.sh](https://roadmap.sh/aspnet-core)
+## Dành cho ai, và không dành cho ai
 
-## Từ khóa chỉ mục (semantic hooks)
+**Dành cho** kỹ sư phần mềm theo hướng backend trên .NET: làm sản phẩm doanh nghiệp, gia công, SaaS B2B, hoặc đội ngũ API-first.
 
-Các thẻ `tags` / `keywords` trong frontmatter được chọn để **đồng nhất ngữ nghĩa** với trục *backend-first* và với **đồ thị nội bộ** giữa các chương — hỗ trợ khám phá theo chủ đề và truy vấn dạng *“lộ trình học .NET backend có trục dự án thật”*.
+**Không đặt trọng tâm vào** Blazor, .NET MAUI và UI client nặng. Những hướng đó không sai, chỉ là lộ trình này chọn đi sâu một trục thay vì phủ rộng. Nếu bạn cần một ma trận kỹ năng rộng hơn để đối chiếu, [ASP.NET Core Developer trên roadmap.sh](https://roadmap.sh/aspnet-core) là checklist cộng đồng tốt — nhưng nó là danh sách chủ đề, không có trục dự án.
 
-## Phạm vi và giả định đối tượng (scope)
+**Giả định đầu vào**: biết dùng máy tính và chịu được việc đọc tài liệu tiếng Anh. Không cần biết lập trình trước.
 
-## Cách dùng lộ trình này nếu bạn là người mới
+## Kiến thức nào phải có trước kiến thức nào
 
-Nếu bạn mới bắt đầu, đừng cố học nhanh theo kiểu "đọc cho hết". Hãy học theo vòng lặp nhỏ: **đọc khái niệm → chạy ví dụ → tự sửa ví dụ → ghi lại điều đã hiểu**.
+Lộ trình đi tuyến tính, nhưng kiến thức thì không. Sơ đồ dưới cho thấy phụ thuộc thật sự — hữu ích khi bạn đã biết một phần và muốn nhảy cóc:
 
-- **Tuần 1-2 (Foundation):** tập trung hiểu tư duy lập trình, HTTP cơ bản, và Git workflow; chưa cần tối ưu code.
-- **Tuần 3-6 (C# Professional):** ưu tiên viết code chạy đúng, sau đó mới quan tâm clean code và tái cấu trúc.
-- **Tuần 7-10 (ASP.NET Core):** bắt đầu xây API thật cho CRM mini; học đến đâu áp dụng đến đó.
-- **Tuần 11-14 (Database + Production):** học cách dữ liệu được lưu, truy vấn, cache và chạy trong container.
-- **Tuần 15+ (Senior):** đọc kiến trúc ở mức trade-off, không học vẹt pattern.
+```mermaid
+flowchart TD
+    LOGIC["Tư duy lập trình"] --> CS["Ngữ nghĩa C#"]
+    HTTP["HTTP và mô hình client-server"] --> PIPE["Pipeline ASP.NET Core"]
+    CS --> OOP["OOP và thiết kế lớp"]
+    OOP --> ASYNC["async / await"]
+    OOP --> DI["Dependency Injection"]
+    ASYNC --> PIPE
+    DI --> PIPE
+    PIPE --> API["Web API"]
+    API --> AUTH["Xác thực và phân quyền"]
+    API --> RT["Thời gian thực - SignalR"]
+    SQL["SQL quan hệ"] --> EF["EF Core"]
+    EF --> API
+    EF --> PERF["Kỹ thuật hiệu năng"]
+    API --> CLEAN["Clean Architecture"]
+    CLEAN --> DIST["Hệ phân tán"]
+    DIST --> MICRO["Microservices"]
+    PERF --> MICRO
+```
 
-**Mẹo quan trọng:** ở mỗi module, hãy tự trả lời 3 câu hỏi: "Nó giải quyết vấn đề gì?", "Nếu không có nó thì hệ thống hỏng ở đâu?", "Trong CRM thì dùng ở màn/chức năng nào?".
+Hai nhánh **C#** và **SQL** chạy song song và chỉ gặp nhau ở EF Core. Nếu bạn đã vững SQL, giai đoạn 4 sẽ nhẹ hơn nhiều so với người học tuần tự.
 
-## Ví dụ tiến hóa dự án theo từng giai đoạn
+Ngược lại, đừng nhảy thẳng vào Microservices. Nó nằm cuối sơ đồ không phải vì khó, mà vì **mọi quyết định trong đó đều là đánh đổi** — và bạn chỉ đánh giá được đánh đổi khi đã trả giá cho cả hai phía.
 
-Để dễ hình dung, bạn có thể giữ một bài toán xuyên suốt: **CRM quản lý khách hàng và cơ hội bán hàng**.
+## Trục dự án: một bài toán lớn dần
 
-1. **Giai đoạn 1:** mới chỉ mô phỏng dữ liệu khách hàng bằng `List` trong memory.
-2. **Giai đoạn 2:** tách class, service, interface; có rule như "khách VIP nếu tổng mua > 50 triệu".
-3. **Giai đoạn 3:** mở API `GET/POST /customers`, thêm JWT để bảo vệ endpoint.
-4. **Giai đoạn 4:** đưa dữ liệu xuống SQL Server bằng EF Core, thêm cache cho danh sách khách hàng đọc nhiều.
-5. **Giai đoạn 5:** tách bounded context (Sales/Billing), phát sự kiện domain, đo hiệu năng endpoint quan trọng.
+Giữ nguyên một bài toán duy nhất xuyên suốt: **CRM quản lý khách hàng và cơ hội bán hàng**.
 
-Cách học này giúp bạn thấy rõ vì sao một kiến thức xuất hiện, thay vì học rời rạc từng công cụ.
+```mermaid
+flowchart TD
+    G1["Giai đoạn 1-2<br/>Khách hàng là vài object trong bộ nhớ<br/>Rule nghiệp vụ viết thẳng trong service"]
+    G2["Giai đoạn 3<br/>Mở API GET/POST customers<br/>JWT bảo vệ endpoint, SignalR báo realtime"]
+    G3["Giai đoạn 4<br/>Dữ liệu xuống SQL qua EF Core<br/>Cache danh sách đọc nhiều, job chạy nền, đóng Docker"]
+    G4["Giai đoạn 5<br/>Tách bounded context Sales và Billing<br/>Domain event, đo hiệu năng endpoint quan trọng"]
+    G1 --> G2 --> G3 --> G4
+```
 
-- **Đối tượng**: kỹ sư phần mềm theo định hướng *backend-first* trên **.NET** (doanh nghiệp, gia công phần mềm, SaaS B2B, đội ngũ API-first).
-- **Giới hạn có chủ đích**: giáo trình **không** đặt trọng tâm vào Blazor, .NET MAUI hay UI client nặng; các hướng này được tách sang [Tùy chọn — Client .NET](optional-client-dotnet.mdx) và có thể đối chiếu thêm với [ASP.NET Core Developer (roadmap.sh)](https://roadmap.sh/aspnet-core) như **ma trận kỹ năng cộng đồng**, **không** thay thế trục nghiệp vụ CRM trong các chương lõi.
+Cách học này trả lời được câu hỏi mà danh sách chủ đề không trả lời được: **vì sao cần thứ này?** Bạn gặp cache sau khi đã thấy danh sách khách hàng chậm, gặp message bus sau khi đã thấy hai service gọi thẳng nhau gây lỗi dây chuyền.
 
-## Ma trận năm trụ kiến trúc tri thức ↔ cấu trúc tài liệu
+Ở mỗi module, hãy tự trả lời ba câu:
 
-| Trụ kiến thức | Thư mục (site) | Phạm vi nội dung |
-|---------------|----------------|------------------|
-| Foundation | [Giai đoạn 1 — Foundation](stage-01-foundation/module-01-programming-logic) | Module 1–3: tư duy lập trình, nền tảng khoa học máy tính ứng dụng backend, quy trình Git |
-| Professional Backend | [Giai đoạn 2 — C# Professional](stage-02-csharp-professional/module-04-csharp-core) | Module 4–7 + Project 1: ngữ nghĩa C#, OOP, async, DI, capstone IMS |
-| Advanced Backend | [Giai đoạn 3 — ASP.NET Core](stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals) + [Giai đoạn 4 — Database & Production](stage-04-database-production/module-12-sql-deep-dive) | Module 8–15 + Project 2–3: pipeline HTTP, Web API, bảo mật, real-time, SQL/EF Core, cache/jobs, container & triển khai |
-| Senior Engineering | [Giai đoạn 5 — Senior Engineering](stage-05-senior-engineering/module-16-clean-architecture) | Module 16–19 + Final: kiến trúc sạch, hệ phân tán, microservices, hiệu năng định lượng |
-| Architect mindset | Giai đoạn 5 + Final | Ranh giới miền (bounded context), trade-off topology, CRM/ERP cấp doanh nghiệp |
+1. Nó giải quyết vấn đề gì?
+2. Nếu không có nó thì hệ thống hỏng ở đâu?
+3. Trong CRM thì nó nằm ở màn hình hay chức năng nào?
 
-## Giai đoạn 1 — Foundation (*from zero*)
+## Kiến trúc đích
 
-**Kết quả học tập dự kiến**: hình thành **mô hình tính toán cơ bản**, đọc hiểu mô hình client–server và làm việc được trong **quy trình phiên bản hóa** hiện đại.
+Đây là thứ bạn sẽ dựng được sau Final Project. Không cần hiểu hết ngay — quay lại xem sau mỗi giai đoạn sẽ thấy thêm một mảnh đã sáng ra:
+
+```mermaid
+flowchart TB
+    CLIENT["Client<br/>web, mobile, hệ thống tích hợp"] -->|HTTPS| GW["API Gateway<br/>YARP"]
+    GW --> API["ASP.NET Core Web API<br/>controller, middleware, filter"]
+    API --> AUTH["Xác thực và phân quyền<br/>JWT, permission theo resource"]
+    API --> APP["Tầng application<br/>use case, validation"]
+    APP --> DOMAIN["Tầng domain<br/>entity, rule, domain event"]
+    APP --> EF["EF Core"]
+    EF --> DB[("SQL Server<br/>PostgreSQL")]
+    APP --> CACHE[("Redis<br/>cache đọc nhiều")]
+    APP --> JOBS["Tác vụ nền<br/>Hangfire, Quartz.NET"]
+    APP --> BUS["Message bus<br/>RabbitMQ, Kafka"]
+    API -.->|realtime| HUB["SignalR hub"]
+    API --> OBS["Logging và metric<br/>Serilog, health check"]
+```
+
+Mũi tên đứt nét từ API sang SignalR là chủ ý: kênh thời gian thực **không** nằm trên đường đi của request HTTP thông thường.
+
+## Cách học: vòng lặp nhỏ, không đọc một mạch
+
+Đừng cố "đọc cho hết". Học theo vòng lặp: **đọc khái niệm → chạy ví dụ → tự sửa ví dụ cho hỏng → ghi lại điều đã hiểu**. Bước thứ ba là bước nhiều người bỏ qua, và nó là bước dạy nhiều nhất.
+
+| Mốc | Giai đoạn | Việc nên ưu tiên |
+|---|---|---|
+| Tuần 1-2 | Foundation | Hiểu tư duy lập trình, HTTP cơ bản, Git workflow. Chưa cần tối ưu code. |
+| Tuần 3-6 | C# Professional | Viết code chạy đúng trước. Clean code và tái cấu trúc tính sau. |
+| Tuần 7-10 | ASP.NET Core | Dựng API thật cho CRM mini. Học tới đâu áp dụng tới đó. |
+| Tuần 11-14 | Database + Production | Dữ liệu được lưu, truy vấn, cache và chạy trong container ra sao. |
+| Tuần 15+ | Senior Engineering | Đọc kiến trúc ở mức đánh đổi, không học vẹt pattern. |
+
+Mốc thời gian là tham chiếu, không phải chỉ tiêu. Người đã đi làm backend ngôn ngữ khác thường đi hết giai đoạn 1-2 trong vài ngày; người mới hoàn toàn có thể cần gấp đôi bảng trên.
+
+## Giai đoạn 1 - Foundation
+
+**Ra khỏi giai đoạn này bạn sẽ**: hình thành mô hình tính toán cơ bản, đọc hiểu mô hình client–server, và làm việc được trong quy trình phiên bản hoá hiện đại.
 
 - [Module 1 — Programming Logic](stage-01-foundation/module-01-programming-logic)
 - [Module 2 — Computer Science Basics](stage-01-foundation/module-02-computer-science-basics)
 - [Module 3 — Git + Developer Workflow](stage-01-foundation/module-03-git-developer-workflow)
 
-## Giai đoạn 2 — C# Professional
+## Giai đoạn 2 - C# Professional
 
-**Kết quả học tập dự kiến**: viết được mã C# **có cấu trúc**, áp dụng OOP/async/DI phù hợp bối cảnh service layer.
+**Ra khỏi giai đoạn này bạn sẽ**: viết được mã C# có cấu trúc, áp dụng OOP, async và DI đúng bối cảnh tầng service.
 
 - [Module 4 — C# Core](stage-02-csharp-professional/module-04-csharp-core)
 - [Module 5 — Advanced C#](stage-02-csharp-professional/module-05-advanced-csharp)
@@ -80,9 +135,9 @@ Cách học này giúp bạn thấy rõ vì sao một kiến thức xuất hiệ
 - [Module 7 — Dependency Injection](stage-02-csharp-professional/module-07-dependency-injection)
 - [Project 1 — Inventory System (Console + API)](stage-02-csharp-professional/project-01-inventory-console-api.mdx)
 
-## Giai đoạn 3 — ASP.NET Core Backend
+## Giai đoạn 3 - ASP.NET Core Backend
 
-**Kết quả học tập dự kiến**: thiết kế và triển khai **Web API** có hợp đồng HTTP ổn định, có lớp bảo mật và kênh thời gian thực khi cần.
+**Ra khỏi giai đoạn này bạn sẽ**: thiết kế và triển khai được Web API có hợp đồng HTTP ổn định, có lớp bảo mật, và kênh thời gian thực khi cần.
 
 - [Module 8 — ASP.NET Core Fundamentals](stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals)
 - [Module 9 — Web API Professional](stage-03-aspnet-core-backend/module-09-web-api-professional)
@@ -90,19 +145,19 @@ Cách học này giúp bạn thấy rõ vì sao một kiến thức xuất hiệ
 - [Module 11 — SignalR](stage-03-aspnet-core-backend/module-11-signalr)
 - [Project 2 — CRM Backend API](stage-03-aspnet-core-backend/project-02-crm-backend-api.mdx)
 
-## Giai đoạn 4 — Database + Production
+## Giai đoạn 4 - Database + Production
 
-**Kết quả học tập dự kiến**: hiểu **tầng dữ liệu quan hệ** và ORM, tối ưu đọc/ghi; vận hành **tính năng nền** và **đóng gói triển khai** gần với production.
+**Ra khỏi giai đoạn này bạn sẽ**: hiểu tầng dữ liệu quan hệ và ORM, tối ưu được đường đọc/ghi, vận hành tác vụ nền và đóng gói triển khai gần với production.
 
-- [Module 12 — SQL Deep Dive](stage-04-database-production/module-12-sql-deep-dive) — có thể mở rộng song song với [Learn SQL in 30 days](<../06-database/learn-sql-in-30-days/00. 30-Day SQL Learning Roadmap.md>)
+- [Module 12 — SQL Deep Dive](stage-04-database-production/module-12-sql-deep-dive) — có thể học song song với [Learn SQL in 30 days](<../06-database/learn-sql-in-30-days/00. 30-Day SQL Learning Roadmap.md>)
 - [Module 13 — Entity Framework Core](stage-04-database-production/module-13-entity-framework-core)
 - [Module 14 — Caching + Background Jobs](stage-04-database-production/module-14-caching-background-jobs)
 - [Module 15 — Docker + Deployment](stage-04-database-production/module-15-docker-deployment)
 - [Project 3 — Production CRM Platform](stage-04-database-production/project-03-production-crm-platform.mdx)
 
-## Giai đoạn 5 — Senior Engineering
+## Giai đoạn 5 - Senior Engineering
 
-**Kết quả học tập dự kiến**: đọc và **bảo vệ** kiến trúc phân tán; đo lường hiệu năng; hoàn thiện **capstone** cấp enterprise.
+**Ra khỏi giai đoạn này bạn sẽ**: đọc và bảo vệ được một kiến trúc phân tán, đo được hiệu năng bằng số, và hoàn thiện capstone cấp doanh nghiệp.
 
 - [Module 16 — Clean Architecture](stage-05-senior-engineering/module-16-clean-architecture)
 - [Module 17 — Distributed Systems](stage-05-senior-engineering/module-17-distributed-systems)
@@ -110,25 +165,37 @@ Cách học này giúp bạn thấy rõ vì sao một kiến thức xuất hiệ
 - [Module 19 — Performance Engineering](stage-05-senior-engineering/module-19-performance-engineering)
 - [Final Project — Enterprise CRM / ERP](stage-05-senior-engineering/final-project-enterprise-crm-erp.mdx)
 
-## Trục capstone: *Build a Real Production CRM*
+## Vì sao chọn CRM làm trục capstone
 
-Miền nghiệp vụ CRM tích hợp các **khả năng tối thiểu** của hệ backend doanh nghiệp: CRUD, xác thực/ủy quyền, quyền hạn chi tiết, quy trình & phê duyệt, thông báo, SignalR, tác vụ nền, triển khai và mở rộng — được **phân bổ tiến hóa** qua Project 2 (API), Project 3 (platform) và Final (CRM/ERP). Mỗi chương lõi giữ mục **Liên hệ CRM** để neo lý thuyết vào bài toán ứng dụng.
+Miền CRM gói gần như trọn bộ năng lực tối thiểu của một hệ backend doanh nghiệp: CRUD, xác thực và phân quyền chi tiết, quy trình phê duyệt, thông báo, kênh thời gian thực, tác vụ nền, triển khai và mở rộng. Ít miền nào vừa quen thuộc vừa đủ sâu như vậy.
 
-Ở cuối **mỗi module** và các **Project 1–3**, **Final Project**, phần **Kiểm tra & Thực hành (100 điểm)** chuẩn hóa đánh giá: ngữ cảnh CRM, vị trí trong đồ thị giáo trình, câu hỏi trắc nghiệm, lab có rubric, ngưỡng điểm và mục **Reflect** (tự chấm / rà mentor).
+Mỗi module lõi có mục **Liên hệ CRM** để neo lý thuyết vào một màn hình cụ thể. Cuối mỗi module và mỗi dự án có phần **Kiểm tra & Thực hành (100 điểm)**: câu hỏi trắc nghiệm, lab kèm rubric, ngưỡng điểm, và mục **Reflect** để tự chấm hoặc nhờ mentor rà.
 
-## Đối chiếu roadmap cộng đồng (roadmap.sh)
+## Đối chiếu với roadmap cộng đồng
 
-[ASP.NET Core Developer (roadmap.sh)](https://roadmap.sh/aspnet-core) đóng vai trò **checklist kỹ năng** (CLI, kiểm thử, gateway, message broker, v.v.). Các mục **Bổ sung (đối chiếu roadmap)** trong từng chương ghi nhận phần cần bao phủ khi đào sâu; **ràng buộc** vẫn là *backend-first* và trục CRM.
+[ASP.NET Core Developer trên roadmap.sh](https://roadmap.sh/aspnet-core) đóng vai trò checklist kỹ năng: CLI, kiểm thử, gateway, message broker và nhiều mục khác. Trong từng chương, mục **Bổ sung (đối chiếu roadmap.sh)** ghi lại phần cần phủ thêm khi bạn đào sâu.
 
-## Tài liệu in-depth (đọc song song)
+Ràng buộc vẫn là backend-first và trục CRM — checklist để tham chiếu, không để thay thế.
 
-- **Nền tảng**: *Head First C#*; *C# Yellow Book*
-- **Trung cấp**: *C# in Depth*; *ASP.NET Core in Action*
-- **Cao cấp**: *CLR via C#*; *Clean Architecture* (Robert C. Martin); *Designing Data-Intensive Applications* (Martin Kleppmann)
+## Tài liệu nguồn
+
+Ưu tiên tài liệu gốc khi cần tra cứu chính xác:
+
+- [.NET documentation — Microsoft Learn](https://learn.microsoft.com/dotnet/)
+- [ASP.NET Core documentation](https://learn.microsoft.com/aspnet/core/)
+- [C# language reference](https://learn.microsoft.com/dotnet/csharp/)
+
+## Sách đọc song song
+
+| Mức | Sách |
+|---|---|
+| Nền tảng | *Head First C#* · *C# Yellow Book* |
+| Trung cấp | *C# in Depth* · *ASP.NET Core in Action* |
+| Cao cấp | *CLR via C#* · *Clean Architecture* (Robert C. Martin) · *Designing Data-Intensive Applications* (Martin Kleppmann) |
 
 ---
 
-**Gợi ý điều hướng**: mở [Module 1](stage-01-foundation/module-01-programming-logic) hoặc chọn đúng **giai đoạn** trong sidebar để giảm chi phí nhận thức (*cognitive load*) khi học dài hạn.
+**Bắt đầu từ đâu**: mở [Module 1 — Programming Logic](stage-01-foundation/module-01-programming-logic), hoặc chọn thẳng giai đoạn phù hợp trong sidebar nếu bạn đã có nền.
 
 ## Bài liên quan
 
