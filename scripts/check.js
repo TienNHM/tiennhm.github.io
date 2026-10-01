@@ -13,6 +13,7 @@ const CHECKS = {
     'tag-redirects': require('./checks/tag-redirects'),
     mdx: require('./checks/mdx'),
     'css-modules': require('./checks/css-modules'),
+    mermaid: require('./checks/mermaid'),
 };
 
 (async () => {
