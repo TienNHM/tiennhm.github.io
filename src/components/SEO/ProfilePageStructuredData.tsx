@@ -58,6 +58,20 @@ export function ProfilePageStructuredData({
         alternateName: authorProfile.alternateName,
         jobTitle: authorProfile.jobTitle,
         description: authorProfile.description,
+        ...(authorProfile.worksFor && {
+          worksFor: {
+            '@type': 'Organization',
+            name: authorProfile.worksFor.name,
+            url: authorProfile.worksFor.url,
+            ...(authorProfile.worksFor.parentOrganization && {
+              parentOrganization: {
+                '@type': 'Organization',
+                name: authorProfile.worksFor.parentOrganization.name,
+                url: authorProfile.worksFor.parentOrganization.url,
+              },
+            }),
+          },
+        }),
         url: `${siteUrl}/`,
         image: `${siteUrl}${authorProfile.image}`,
         email: `mailto:${authorProfile.email}`,

@@ -85,10 +85,30 @@ const sameAs = [
     'https://g.dev/TienNHM',
 ];
 
+/**
+ * Nơi làm việc hiện tại. Google và các AI agent dùng trường này để nối entity
+ * Person với một Organization có thật, nên nó đáng giá hơn nhiều dòng mô tả.
+ *
+ * Khai Utop kèm `parentOrganization` là FPT IS: Utop là đơn vị trực tiếp, còn
+ * FPT IS là pháp nhân mẹ và là tên xuất hiện trong CV. Khai cả hai thì search
+ * engine nối được entity theo cả hai hướng mà không mâu thuẫn với nhau.
+ *
+ * @type {{name: string, url: string, parentOrganization: {name: string, url: string}}}
+ */
+const worksFor = {
+    name: 'Utop',
+    url: 'https://utop.io/',
+    parentOrganization: {
+        name: 'FPT IS',
+        url: 'https://fpt-is.com/',
+    },
+};
+
 const authorProfile = {
     name: 'Nguyễn Huỳnh Minh Tiến',
     alternateName: 'TienNHM',
     jobTitle: 'Fullstack Developer',
+    worksFor,
     image: '/img/tiennhm-avatar.jpg',
     email: 'tiennhm.it@gmail.com',
     description:
@@ -97,4 +117,4 @@ const authorProfile = {
     knowsAbout,
 };
 
-module.exports = { authorProfile, knowsAbout, sameAs };
+module.exports = { authorProfile, knowsAbout, sameAs, worksFor };
