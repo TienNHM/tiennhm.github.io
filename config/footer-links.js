@@ -47,6 +47,10 @@ module.exports = [
                 to: '/blog/archive',
             },
             {
+                label: 'Hành trình',
+                to: '/timeline',
+            },
+            {
                 label: 'GitHub',
                 href: 'https://github.com/TienNHM',
             },
