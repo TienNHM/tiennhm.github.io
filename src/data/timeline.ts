@@ -125,12 +125,12 @@ export const TIMELINE: TimelineYear[] = [
     },
     {
         year: '2023',
-        summary: 'Chuyển sang FPT IS, và mở blog này.',
+        summary: 'Chuyển sang Utop (đơn vị thuộc FPT IS), và mở blog này.',
         entries: [
             {
                 period: '01/2023 — nay',
                 title: 'Technical Specialist / Developer',
-                org: 'FPT IS',
+                org: 'Utop — FPT IS',
                 kind: 'work',
                 description:
                     'Thiết kế giải pháp và hiện thực tính năng cho khách hàng doanh nghiệp; xử lý sự cố production; phân công và theo dõi công việc trong đội.',
