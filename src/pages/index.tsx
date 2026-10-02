@@ -47,7 +47,7 @@ function HomepageHeader() {
             * Bio trên GitHub thực chất cũng chỉ là "Fullstack Developer", tức
             * đổi cả bố cục để lấy về đúng chuỗi đã biết trước.
             */}
-          <p className={styles.heroRole}>
+          <p className={styles.heroTagline}>
             {translate({
               id: 'home.tagline',
               message: 'Xây phần mềm, học công khai.',
