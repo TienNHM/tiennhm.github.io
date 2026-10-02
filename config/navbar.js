@@ -19,6 +19,12 @@ module.exports = {
         },
         {
             type: 'docSidebar',
+            sidebarId: 'sqlSidebar',
+            position: 'left',
+            label: 'Khoá SQL',
+        },
+        {
+            type: 'docSidebar',
             sidebarId: 'tutorialSidebar',
             position: 'left',
             label: 'Tài liệu',
