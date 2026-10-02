@@ -99,7 +99,7 @@ export default function Timeline(): JSX.Element {
           </p>
         </header>
 
-        <div className={styles.timeline}>
+        <div>
           {TIMELINE.map((year) => (
             <section key={year.year} className={styles.year}>
               <div className={styles.yearHead}>
