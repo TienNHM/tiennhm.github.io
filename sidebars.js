@@ -1,5 +1,5 @@
 /**
- * Hai sidebar thay vì một.
+ * Ba sidebar thay vì một.
  *
  * Giáo trình .NET chiếm 277/421 file docs. Gộp chung một sidebar thì người
  * đang học phải cuộn qua bảy mảng không liên quan (LeetCode, AWS, hệ điều
@@ -40,6 +40,30 @@ function fromDir(dirName) {
 const sidebars = {
     dotnetSidebar: [fromDir('09-dotnet-backend-zero-to-senior')],
 
+    // Khoá SQL 30 ngày tách riêng, cùng lý do với khoá .NET: người đang học
+    // theo ngày không nên phải cuộn qua LeetCode và WebGoat mới tới bài kế.
+    //
+    // Bọc cả `06-database` chứ không trỏ thẳng vào `learn-sql-in-30-days`, vì
+    // hai lẽ:
+    //
+    // 1. `06-database` có `link.slug` riêng (/database). Trỏ thẳng vào thư mục
+    //    con thì `_category_.json` ngoài bị bỏ qua và route đó biến mất.
+    //
+    // 2. Không thể để `06-database` nằm ở cả đây lẫn tutorialSidebar. Docusaurus
+    //    KHÔNG báo lỗi khi một doc thuộc hai sidebar — sidebars/utils.js dựng
+    //    map docId -> sidebarName bằng Object.fromEntries, nên bản sau lặng lẽ
+    //    đè bản trước. Người đọc sẽ bị nhảy sang sidebar kia giữa chừng mà build
+    //    vẫn xanh.
+    //
+    // Tài liệu database không thuộc khoá học, khi có, cứ thêm thẳng vào
+    // `docs/06-database/` — chúng sẽ hiện trong menu này, cạnh khoá học. Lúc đó
+    // cân nhắc đổi nhãn navbar từ "Khoá SQL" sang "Database" cho đúng phạm vi.
+    //
+    // Không chuyển khoá sang thư mục gốc riêng: 32 bài đều dùng `slug` TƯƠNG
+    // ĐỐI, nên URL phụ thuộc đường dẫn thư mục. Đổi chỗ là đổi cả 32 URL đã
+    // được Google lập chỉ mục.
+    sqlSidebar: [fromDir('06-database')],
+
     // Liệt kê tường minh chứ không autogenerate cả `.`: thêm một mảng docs mới
     // phải là quyết định có ý thức, không tự lọt vào.
     tutorialSidebar: [
@@ -48,7 +72,6 @@ const sidebars = {
         fromDir('02-web-security'),
         fromDir('04-leetcode'),
         fromDir('05-k6'),
-        fromDir('06-database'),
         fromDir('07-aws-cloud-practitioner-essentials'),
         fromDir('08-agent-skills'),
         'seo-geo-guide',
