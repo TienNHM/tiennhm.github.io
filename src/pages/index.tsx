@@ -46,9 +46,9 @@ function HomepageHeader() {
             */}
           <p className={styles.heroRole}>
             {translate({
-              id: 'home.role',
-              message: 'Fullstack Developer',
-              description: 'Dòng vai trò dưới tên ở trang chủ',
+              id: 'home.tagline',
+              message: 'Xây phần mềm, học công khai.',
+              description: 'Câu định vị dưới tên ở trang chủ',
             })}
           </p>
           <p className={styles.heroPitch}>{getSiteDescription()}</p>

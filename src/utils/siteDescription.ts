@@ -20,7 +20,7 @@ export function getSiteDescription(): string {
   return translate({
     id: "site.description",
     message:
-      "Fullstack Developer — chia sẻ kiến thức chuyên sâu về lập trình, kiến trúc hệ thống, AI và kinh nghiệm triển khai sản phẩm thực tế.",
+      "Kỹ sư fullstack. Viết về kiến trúc phần mềm, AI agent, hạ tầng và những thứ tôi đang dựng — kèm số đo và nguyên nhân, không chỉ cách làm.",
     description: "Câu branding chung của site, dùng cho meta description và JSON-LD",
   });
 }
