@@ -28,7 +28,7 @@ module.exports = async function checkMermaid(argv = []) {
 
     const files = argv.length
         ? argv.map((f) => path.resolve(f))
-        : [path.join(root, 'docs'), path.join(root, 'blog')].flatMap(walk);
+        : [path.join(root, 'docs'), path.join(root, 'blog'), path.join(root, 'notes')].flatMap(walk);
 
     const errors = [];
     let total = 0;

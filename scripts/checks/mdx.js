@@ -26,7 +26,7 @@ function walk(dir) {
 module.exports = async function checkMdx(argv = []) {
     const files = argv.length
         ? argv.map((f) => path.resolve(f))
-        : [path.join(root, 'blog'), path.join(root, 'docs')].flatMap(walk);
+        : [path.join(root, 'blog'), path.join(root, 'docs'), path.join(root, 'notes')].flatMap(walk);
 
     const failures = [];
     for (const file of files) {

@@ -4,6 +4,36 @@ module.exports = [
     // cho AI". Đọc permalink thật qua allContentLoaded thay vì tự suy route
     // từ đường dẫn file — xem plugins/page-markdown/index.js.
     require.resolve('../plugins/page-markdown'),
+    // Mục Notes: ghi chép ngắn, tách hẳn khỏi /blog.
+    //
+    // Một instance blog thứ hai chứ không phải thư mục con của blog hiện tại:
+    // nó cần route riêng, feed riêng và không gian tag riêng. Blog là bài dài
+    // có mở đầu kết luận; note là một phát hiện viết trong 20 phút.
+    //
+    // onUntruncatedBlogPosts: 'ignore' vì note ngắn, không cần <!--truncate-->.
+    [
+        '@docusaurus/plugin-content-blog',
+        /** @type {import('@docusaurus/plugin-content-blog').Options} */
+        ({
+            id: 'notes',
+            path: './notes',
+            routeBasePath: 'notes',
+            blogTitle: 'Notes',
+            blogDescription:
+                'Ghi chép ngắn: phát hiện khi gỡ lỗi, mẹo công cụ, và những thứ không muốn quên.',
+            blogSidebarTitle: 'Ghi chép gần đây',
+            blogSidebarCount: 15,
+            postsPerPage: 20,
+            showReadingTime: false,
+            onUntruncatedBlogPosts: 'ignore',
+            feedOptions: {
+                type: ['rss', 'atom'],
+                title: 'TienNHM — Notes',
+                copyright: `Copyright © ${new Date().getFullYear()} TienNHM.`,
+            },
+        }),
+    ],
+
     // Chuyển hướng URL cũ: tag gom taxonomy (tag-redirects.js) và trang đã gỡ
     // khỏi site (page-redirects.js).
     [
