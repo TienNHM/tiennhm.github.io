@@ -47,6 +47,10 @@ module.exports = [
                 to: '/blog/archive',
             },
             {
+                label: 'Ghi chép ngắn',
+                to: '/notes',
+            },
+            {
                 label: 'Hành trình',
                 to: '/timeline',
             },

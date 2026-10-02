@@ -28,6 +28,7 @@ module.exports = {
             position: 'left',
             items: [
                 { to: '/blog', label: 'Bài viết mới nhất' },
+                { to: '/notes', label: 'Ghi chép ngắn' },
                 { to: '/blog/archive', label: 'Lưu trữ theo năm' },
                 { to: '/blog/tags', label: 'Thẻ' },
             ],
