@@ -108,6 +108,10 @@ export default function() {
         // Record check failures
         checkFailureRate.add(!checkRes);
 
+        // CodeQL gắn cờ "Insecure randomness" ở chỗ này. Đây là cảnh báo sai:
+        // Math.random() chỉ dùng để bốc một tài khoản thử trong tệp dữ liệu
+        // mẫu, không sinh ra bí mật nào. Kịch bản gọi tới test.k6.io — trang
+        // demo công khai của chính k6 — nên không có thông tin đăng nhập thật.
         let position = Math.floor(Math.random()*loginData.users.length);
         let credentials = loginData.users[position];
 
