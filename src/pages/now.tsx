@@ -94,18 +94,20 @@ export default function Now(): JSX.Element {
           </ul>
         </section>
 
-        {NOW_SECTIONS.map((section) => (
-          <section key={section.title} className={styles.section}>
-            <Heading as="h2" className={styles.sectionTitle}>
-              <span aria-hidden="true">{section.icon}</span> {section.title}
-            </Heading>
-            <ul className={styles.list}>
-              {section.items.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          </section>
-        ))}
+        <div className={styles.grid}>
+          {NOW_SECTIONS.map((section) => (
+            <section key={section.title} className={styles.section}>
+              <Heading as="h2" className={styles.sectionTitle}>
+                <span aria-hidden="true">{section.icon}</span> {section.title}
+              </Heading>
+              <ul className={styles.list}>
+                {section.items.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
 
         <footer className={styles.footer}>
           <Translate id="now.more" description="Dòng điều hướng cuối trang /now">
