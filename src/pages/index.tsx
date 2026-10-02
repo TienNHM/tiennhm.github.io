@@ -5,6 +5,9 @@ import Head from '@docusaurus/Head';
 import Layout from '@theme/Layout';
 import Image from '@theme/IdealImage';
 import HomepageFeatures from '@site/src/components/HomepageFeatures';
+import CurrentlyBuilding from '@site/src/components/CurrentlyBuilding';
+import HomepageWriting from '@site/src/components/HomepageWriting';
+import HomepageTopics from '@site/src/components/HomepageTopics';
 import TopRepos from '@site/src/components/TopRepos';
 import githubData from '@site/src/data/github.json';
 import styles from './index.module.css';
@@ -127,9 +130,16 @@ export default function Home(): JSX.Element {
         <meta name="twitter:image" content={ogImage} />
       </Head>
       <HomepageHeader />
+      {/*
+        * Thứ tự theo "người lạ cần gì trước", không theo "tôi muốn khoe gì
+        * trước": đang làm gì -> viết gì -> đã làm gì -> chủ đề.
+        */}
       <main>
+        <CurrentlyBuilding />
+        <HomepageWriting />
         <HomepageFeatures />
         <TopRepos />
+        <HomepageTopics />
       </main>
     </Layout>
   );
