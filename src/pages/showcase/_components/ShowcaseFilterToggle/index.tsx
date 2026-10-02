@@ -1,3 +1,4 @@
+import { translate } from '@docusaurus/Translate';
 import React, {useState, useEffect, useCallback} from 'react';
 import clsx from 'clsx';
 import {useHistory, useLocation} from '@docusaurus/router';
@@ -42,7 +43,11 @@ export default function ShowcaseFilterToggle(): JSX.Element {
         type="checkbox"
         id={id}
         className="screen-reader-only"
-        aria-label="Toggle between or and and for the tags you selected"
+        aria-label={translate({
+          id: 'showcase.filterToggle.aria',
+          message: 'Chuyển giữa chế độ lọc HOẶC và VÀ cho các thẻ đã chọn',
+          description: 'Nhãn trợ năng của nút gạt OR/AND ở trang showcase',
+        })}
         onChange={toggleOperator}
         onKeyDown={(e) => {
           if (e.key === 'Enter') {
