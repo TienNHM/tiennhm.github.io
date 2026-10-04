@@ -14,6 +14,7 @@ const CHECKS = {
     mdx: require('./checks/mdx'),
     'css-modules': require('./checks/css-modules'),
     mermaid: require('./checks/mermaid'),
+    'share-post': require('./checks/share-post'),
 };
 
 (async () => {

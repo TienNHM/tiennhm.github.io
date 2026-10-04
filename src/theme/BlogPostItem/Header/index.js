@@ -15,7 +15,14 @@ export default function HeaderWrapper(props) {
   return (
     <>
       <Header {...props} />
-      {isBlogPostPage && <PageActions permalink={metadata.permalink} />}
+      {isBlogPostPage && (
+        <PageActions
+          permalink={metadata.permalink}
+          title={metadata.title}
+          description={metadata.description}
+          tags={metadata.tags}
+        />
+      )}
     </>
   );
 }
