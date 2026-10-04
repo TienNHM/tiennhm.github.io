@@ -50,6 +50,9 @@ module.exports = [
                 feedOptions: {
                     type: ['rss', 'atom'],
                     xslt: true,
+                    // Sửa khối mã và thẻ phân loại trước khi ghi feed —
+                    // xem config/feed-items.js để biết vì sao cần.
+                    createFeedItems: require('./feed-items').createFeedItems,
                 },
                 // Tag của blog khai báo tập trung ở blog/tags.yml.
                 // 'throw' khiến build đỏ khi bài viết dùng tag chưa khai báo,
