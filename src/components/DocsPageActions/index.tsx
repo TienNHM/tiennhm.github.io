@@ -11,6 +11,8 @@ export default function DocsPageActions(): ReactNode {
   return (
     <PageActions
       permalink={metadata.permalink}
+      title={metadata.title}
+      description={metadata.description}
       skillName={frontMatter.skill_name as string | undefined}
       skillDescription={
         (frontMatter.skill_description as string | undefined) ?? metadata.description
