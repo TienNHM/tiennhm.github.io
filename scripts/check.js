@@ -15,6 +15,7 @@ const CHECKS = {
     'css-modules': require('./checks/css-modules'),
     mermaid: require('./checks/mermaid'),
     'share-post': require('./checks/share-post'),
+    'structured-data': require('./checks/structured-data'),
 };
 
 (async () => {

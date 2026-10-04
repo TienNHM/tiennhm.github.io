@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import Head from '@docusaurus/Head';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 
 export interface ArticleStructuredDataProps {
@@ -98,10 +99,19 @@ export function ArticleStructuredData({
     baseUrl,
   ]);
 
+  /*
+   * JSON-LD đặt trong <Head> chứ không render thẳng vào thân bài.
+   *
+   * Render inline thì khối JSON lọt vào content:encoded của RSS. dev.to (và mọi
+   * nơi nhập bài từ feed) lọc bỏ thẻ <script> nhưng GIỮ phần chữ bên trong, nên
+   * cuối bài hiện ra một mảng JSON thô. Đã gặp thật khi nhập bài sang dev.to.
+   *
+   * Đặt trong <Head> thì Google vẫn đọc được như thường — đây mới là chỗ quy ước
+   * cho dữ liệu có cấu trúc — còn thân bài sạch.
+   */
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData, null, 2) }}
-    />
+    <Head>
+      <script type="application/ld+json">{JSON.stringify(structuredData)}</script>
+    </Head>
   );
 }
