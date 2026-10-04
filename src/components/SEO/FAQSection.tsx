@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import Head from '@docusaurus/Head';
 import { translate } from '@docusaurus/Translate';
 import styles from './FAQSection.module.css';
 
@@ -63,13 +64,22 @@ export function FAQSection({
     };
   }, [items, generateStructuredData]);
 
+  /*
+   * JSON-LD đặt trong <Head> chứ không render thẳng vào thân bài.
+   *
+   * Render inline thì khối JSON lọt vào content:encoded của RSS. dev.to (và mọi
+   * nơi nhập bài từ feed) lọc bỏ thẻ <script> nhưng GIỮ phần chữ bên trong, nên
+   * cuối bài hiện ra một mảng JSON thô. Đã gặp thật khi nhập bài sang dev.to.
+   *
+   * Đặt trong <Head> thì Google vẫn đọc được như thường — đây mới là chỗ quy ước
+   * cho dữ liệu có cấu trúc — còn thân bài sạch.
+   */
   return (
     <>
       {structuredData && (
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
-        />
+        <Head>
+          <script type="application/ld+json">{JSON.stringify(structuredData)}</script>
+        </Head>
       )}
       <section className={styles.faqSection} aria-labelledby="faq-title">
         <h2 id="faq-title" className={styles.faqSection__title}>
