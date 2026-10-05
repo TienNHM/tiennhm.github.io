@@ -16,6 +16,7 @@ const CHECKS = {
     mermaid: require('./checks/mermaid'),
     'share-post': require('./checks/share-post'),
     'structured-data': require('./checks/structured-data'),
+    translations: require('./checks/translations'),
 };
 
 (async () => {
