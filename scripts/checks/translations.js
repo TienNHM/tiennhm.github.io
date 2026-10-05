@@ -29,6 +29,28 @@ function frontMatter(file) {
     try { return yaml.load(m[1]); } catch { return null; }
 }
 
+/** Chữ cái tiếng Việt có dấu — đủ để nhận ra câu tiếng Việt sót lại. */
+const VIETNAMESE = /[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]/i;
+
+/**
+ * Comment trong khối mã của bản dịch mà còn tiếng Việt.
+ *
+ * Quy ước rút ra từ 19 bản dịch có sẵn: ĐỊNH DANH giữ nguyên (tên bảng, tên
+ * cột — chúng là dữ liệu), còn COMMENT là văn xuôi nên phải dịch. 51 comment
+ * trong các bản đó không còn chữ tiếng Việt nào.
+ */
+function vietnameseCodeComments(source) {
+    const out = [];
+    for (const [, code] of source.matchAll(/```\w*\n([\s\S]*?)```/g)) {
+        for (const line of code.split('\n')) {
+            if (/^\s*(--|\/\/|#)\s*\S/.test(line) && VIETNAMESE.test(line)) {
+                out.push(line.trim().slice(0, 60));
+            }
+        }
+    }
+    return out;
+}
+
 /** Khoá phải trùng nhau giữa hai ngôn ngữ, kèm cách so sánh. */
 const MUST_MATCH = {
     slug: (a, b) => a === b,
@@ -68,6 +90,10 @@ module.exports = function checkTranslations() {
         // Dịch mà quên đổi tiêu đề thì bản EN vẫn là tiếng Việt.
         if (fm.title === enFm.title) {
             errors.push(`${rel}: title bản EN giống hệt bản VI, chưa dịch`);
+        }
+
+        for (const line of vietnameseCodeComments(fs.readFileSync(enFile, 'utf8'))) {
+            errors.push(`${rel}: comment trong khối mã còn tiếng Việt — ${line}`);
         }
     }
 
