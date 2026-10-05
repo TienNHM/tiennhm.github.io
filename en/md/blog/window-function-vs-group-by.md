@@ -1,41 +1,41 @@
-# Luỹ kế của bạn sai ngay dòng đầu: window function, RANGE và cái mặc định ít ai đọc
+# Your Running Total Is Wrong on the First Row: Window Functions, RANGE, and the Default Nobody Reads
 
 > Nguồn: https://tiennhm.io.vn/en/blog/window-function-vs-group-by
-> GROUP BY gom 200.000 dòng thành 200, window function giữ nguyên cả 200.000 mà vẫn có số tổng của nhóm. Nhưng mặc định của OVER (ORDER BY ...) là RANGE chứ không phải ROWS, nên các dòng đồng hạng đều nhận cùng một giá trị luỹ kế — và bảng của bạn sai ngay dòng đầu tiên. Đo trên PostgreSQL 16, kèm so sánh self-join với window.
+> GROUP BY collapses 200,000 rows into 200; a window function keeps all 200,000 and still gives you the group total. But the default frame for OVER (ORDER BY ...) is RANGE, not ROWS, so every peer row receives the same running total — and your table is wrong on the very first row. Measured on PostgreSQL 16, with a self-join versus window comparison.
 
-> `GROUP BY` **gom dòng lại**, window function **giữ nguyên dòng** mà vẫn tính được số tổng của nhóm — đo thật: cùng một bảng 200.000 dòng, `GROUP BY` trả về **200 dòng**, window trả về **200.000 dòng**. Nó cũng nhanh hơn cách cũ: thay self-join bằng window đưa thời gian từ **79,2 ms xuống 22,7 ms**. Nhưng có một mặc định gây sai số liệu mà rất ít người đọc tới: `OVER (ORDER BY ...)` dùng khung **`RANGE`**, nên mọi dòng **đồng hạng** đều nhận cùng một giá trị luỹ kế. Muốn cộng dồn từng dòng một thì phải ghi rõ **`ROWS`**.
+> `GROUP BY` **collapses rows**; a window function **keeps every row** while still computing the group total. Measured: on the same 200,000-row table, `GROUP BY` returns **200 rows** and the window returns **200,000 rows**. It is also faster than the old approach — replacing a self-join with a window took the query from **79.2 ms down to 22.7 ms**. But there is one default that quietly corrupts numbers and almost nobody reads it: `OVER (ORDER BY ...)` uses a **`RANGE`** frame, so every **peer** row receives the same running total. If you want a row-by-row cumulative sum, you must spell out **`ROWS`**.
 
-Window function là thứ biến những câu truy vấn báo cáo dài dòng thành vài dòng đọc được. Nhưng nó cũng có đúng một cái bẫy đủ tinh vi để lọt qua review: bảng luỹ kế trông hợp lý ở giữa và sai ở chỗ có giá trị trùng nhau.
+Window functions turn long-winded reporting queries into a few readable lines. They also carry exactly one trap subtle enough to pass code review: a running total that looks plausible in the middle and is wrong wherever values tie.
 
-Bài này đào sâu [bài Recursive Queries và Window Functions](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/29-recursive-queries-window-functions) trong series học SQL 30 ngày. Mọi con số là kết quả chạy thật trên PostgreSQL 16.11.
+This post goes deeper into [Recursive Queries and Window Functions](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/29-recursive-queries-window-functions) from the 30-day SQL series. Every number here was measured on PostgreSQL 16.11.
 
-## Tóm tắt nhanh (TL;DR)
-- `GROUP BY` **gom** dòng; window function **giữ** dòng và thêm giá trị tổng hợp bên cạnh.
-- Thay self-join bằng window: **79,2 ms → 22,7 ms** trên 200.000 dòng.
-- `OVER (ORDER BY x)` mặc định dùng khung **`RANGE`**, gom hết dòng có cùng `x`.
-- Muốn luỹ kế từng dòng: ghi rõ **`ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`**.
-- `rank`, `dense_rank`, `row_number` cho ba kết quả khác nhau khi có đồng hạng.
+## TL;DR
+- `GROUP BY` **collapses** rows; a window function **keeps** them and adds the aggregate alongside.
+- Replacing a self-join with a window: **79.2 ms → 22.7 ms** over 200,000 rows.
+- `OVER (ORDER BY x)` defaults to a **`RANGE`** frame, which lumps together every row sharing the same `x`.
+- For a row-by-row running total, spell out **`ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`**.
+- `rank`, `dense_rank` and `row_number` give three different answers when values tie.
 
 ---
 
-## Khác biệt cốt lõi: gom hay giữ
-Bảng doanh số 200.000 dòng, 200 nhân viên.
+## The core difference: collapse or keep
+A sales table of 200,000 rows covering 200 employees.
 
-**`GROUP BY` gom lại:**
+**`GROUP BY` collapses:**
 
 ```sql
 SELECT nhan_vien, sum(doanh_so) FROM ds GROUP BY nhan_vien;
--- GROUP BY trả về 200 dòng
+-- GROUP BY returns 200 rows
 ```
 
-**Window function giữ nguyên:**
+**The window function keeps everything:**
 
 ```sql
 SELECT nhan_vien, doanh_so, sum(doanh_so) OVER (PARTITION BY nhan_vien) FROM ds;
--- WINDOW trả về 200000 dòng
+-- WINDOW returns 200000 rows
 ```
 
-Đó là toàn bộ khác biệt về bản chất. `GROUP BY` trả lời *"mỗi nhóm tổng bao nhiêu"*. Window function trả lời *"mỗi dòng là bao nhiêu, và nhóm của nó tổng bao nhiêu"* — giữ được chi tiết để bạn tính tiếp, ví dụ tỷ lệ đóng góp của từng dòng trong nhóm:
+That is the whole difference in nature. `GROUP BY` answers *"what is the total per group?"* A window function answers *"what is this row, and what is its group's total?"* — keeping the detail so you can compute further, such as each row's share of its group:
 
 ```sql
 SELECT nhan_vien, thang, doanh_so,
@@ -43,15 +43,15 @@ SELECT nhan_vien, thang, doanh_so,
 FROM ds;
 ```
 
-Viết câu này bằng `GROUP BY` thuần thì phải gom rồi join ngược lại bảng gốc.
+Writing that with plain `GROUP BY` means aggregating and then joining back to the original table.
 
 ---
 
-## Window nhanh hơn self-join
-Trước khi window function phổ biến, cách làm là gom vào một bảng dẫn xuất rồi join ngược:
+## A window beats a self-join
+Before window functions were widespread, the move was to aggregate into a derived table and join back:
 
 ```sql
--- Cách cũ
+-- The old way
 SELECT count(*) FROM ds d
 JOIN (SELECT nhan_vien, sum(doanh_so) s FROM ds GROUP BY nhan_vien) g
   ON g.nhan_vien = d.nhan_vien;
@@ -59,21 +59,21 @@ JOIN (SELECT nhan_vien, sum(doanh_so) s FROM ds GROUP BY nhan_vien) g
 ```
 
 ```sql
--- Cách mới
+-- The new way
 SELECT count(*) FROM (
   SELECT sum(doanh_so) OVER (PARTITION BY nhan_vien) FROM ds
 ) q;
 -- Time: 22.659 ms
 ```
 
-**Nhanh hơn khoảng 3,5 lần**, và ngắn hơn hẳn. Lý do: bản self-join phải quét bảng **hai lần** rồi ghép kết quả, còn window function quét một lần, sắp xếp theo phân vùng, và tính trong lúc đi qua dữ liệu.
+**About 3.5× faster**, and considerably shorter. The reason: the self-join version scans the table **twice** and then matches the results, while the window function scans once, sorts by partition, and computes as it walks the data.
 
 ---
 
-## Cái bẫy: `RANGE` là mặc định, không phải `ROWS`
-Đây là phần đáng giá nhất của bài, và là chỗ tôi tự vấp khi dựng thí nghiệm.
+## The trap: `RANGE` is the default, not `ROWS`
+This is the most valuable part of the post, and the part where I tripped over my own test setup.
 
-Bảng ba dòng, hai dòng cùng ngày:
+Three rows, two of them on the same date:
 
 | ngay | tien |
 |---|---|
@@ -81,7 +81,7 @@ Bảng ba dòng, hai dòng cùng ngày:
 | 2026-01-01 | 200 |
 | 2026-01-02 | 300 |
 
-Viết luỹ kế theo cách ai cũng viết:
+A running total written the way everybody writes it:
 
 ```sql
 SELECT ngay, tien,
@@ -90,48 +90,48 @@ SELECT ngay, tien,
 FROM b ORDER BY ngay, tien;
 ```
 
-Kết quả thật:
+The actual result:
 
-| ngay | tien | mặc định (RANGE) | ghi rõ ROWS |
+| ngay | tien | default (RANGE) | explicit ROWS |
 |---|---|---|---|
 | 2026-01-01 | 100 | **300** | **100** |
 | 2026-01-01 | 200 | 300 | 300 |
 | 2026-01-02 | 300 | 600 | 600 |
 
-Nhìn dòng đầu tiên: luỹ kế của một dòng có `tien = 100` lại là **300**.
+Look at the first row: the running total for a row holding `tien = 100` reads **300**.
 
-Lý do nằm ở khung cửa sổ (frame). Khi bạn viết `OVER (ORDER BY ngay)` mà không khai frame, SQL ngầm hiểu là:
+The reason is the window frame. When you write `OVER (ORDER BY ngay)` without declaring a frame, SQL silently means:
 
 ```sql
 RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
 ```
 
-Và `RANGE` xác định "dòng hiện tại" theo **giá trị của cột `ORDER BY`**, chứ không theo vị trí dòng. Hai dòng cùng ngày `2026-01-01` là **đồng hạng** (peer), nên cả hai đều được coi là "tới hết ngày 01/01" — và cùng nhận 300.
+And `RANGE` decides what "the current row" covers by **the value of the `ORDER BY` column**, not by row position. The two rows dated `2026-01-01` are **peers**, so both count as "everything through 1 January" — and both receive 300.
 
-`ROWS` thì đếm theo **vị trí vật lý**: dòng thứ nhất chỉ gồm chính nó, nên ra 100.
+`ROWS` counts by **physical position** instead: the first row contains only itself, so it reads 100.
 
-### Khi nào chọn cái nào
+### Which to pick
 
-| Bạn muốn | Dùng |
+| What you want | Use |
 |---|---|
-| Cộng dồn từng dòng một | `ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW` |
-| Tổng tới hết mỗi mốc thời gian (gom đồng hạng) | `RANGE` (mặc định) |
-| Trung bình trượt 7 dòng gần nhất | `ROWS BETWEEN 6 PRECEDING AND CURRENT ROW` |
-| Tổng toàn phân vùng | bỏ `ORDER BY` đi |
+| A row-by-row cumulative sum | `ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW` |
+| Total through each point in time (peers lumped together) | `RANGE` (the default) |
+| A 7-row moving average | `ROWS BETWEEN 6 PRECEDING AND CURRENT ROW` |
+| Total across the whole partition | drop the `ORDER BY` |
 
-Chi tiết cuối đáng nhớ riêng: **thêm `ORDER BY` vào `OVER()` sẽ tự động biến tổng toàn phân vùng thành luỹ kế.** Rất nhiều người thêm `ORDER BY` cho "kết quả gọn hơn" rồi không hiểu vì sao cột tổng đột nhiên đổi số.
+One last detail worth remembering on its own: **adding `ORDER BY` inside `OVER()` silently converts a whole-partition total into a running total.** Plenty of people add `ORDER BY` to "tidy up the output" and then cannot work out why the total column changed its numbers.
 
 ```sql
-sum(x) OVER (PARTITION BY g)              -- tổng cả nhóm, mọi dòng giống nhau
-sum(x) OVER (PARTITION BY g ORDER BY t)   -- luỹ kế, mỗi dòng một số
+sum(x) OVER (PARTITION BY g)              -- whole-group total, same on every row
+sum(x) OVER (PARTITION BY g ORDER BY t)   -- running total, a different number per row
 ```
 
-Quy tắc thực dụng: **nếu câu lệnh của bạn có `ORDER BY` bên trong `OVER()`, hãy khai frame tường minh.** Viết dài hơn vài chữ, nhưng người đọc sau không phải nhớ mặc định là gì.
+A practical rule: **if your statement has an `ORDER BY` inside `OVER()`, declare the frame explicitly.** It costs a few more words, and the next reader does not have to remember what the default was.
 
 ---
 
-## Ba hàm xếp hạng, ba kết quả khác nhau
-Đây là chỗ hay chọn nhầm. Cùng một tập dữ liệu có giá trị trùng:
+## Three ranking functions, three different answers
+This is where the wrong one gets picked. Same data, with a tie in it:
 
 ```sql
 SELECT tien,
@@ -148,15 +148,15 @@ FROM (VALUES (300),(200),(200),(100)) v(tien);
 | 200 | 2 | 2 | 3 |
 | 100 | **4** | **3** | 4 |
 
-Ba hàm, ba hành vi:
+Three functions, three behaviours:
 
-- **`rank`** — đồng hạng nhận cùng số, rồi **nhảy cóc**. Hai người hạng 2 thì người kế tiếp là hạng 4. Đây là cách xếp hạng thể thao.
-- **`dense_rank`** — đồng hạng nhận cùng số, nhưng **không nhảy**. Người kế tiếp là hạng 3. Dùng khi bạn cần "có bao nhiêu mức giá trị khác nhau".
-- **`row_number`** — **không có đồng hạng**, mỗi dòng một số. Dùng để phân trang hoặc chọn đúng một dòng đại diện mỗi nhóm.
+- **`rank`** — ties share a number, then the sequence **skips**. Two people in 2nd place means the next is 4th. This is how sports rankings work.
+- **`dense_rank`** — ties share a number, but nothing is **skipped**. The next is 3rd. Use it when you need "how many distinct value levels are there".
+- **`row_number`** — **no ties at all**, every row gets its own number. Use it for pagination, or to pick exactly one representative row per group.
 
-Chọn sai giữa `rank` và `dense_rank` là lỗi thầm lặng: bảng xếp hạng vẫn hiện ra hợp lý, chỉ là số hạng nhảy hoặc không nhảy trái với kỳ vọng nghiệp vụ.
+Choosing `rank` where you meant `dense_rank` is a silent bug: the leaderboard still looks reasonable, it is just that positions skip, or fail to skip, against what the business expects.
 
-Còn `row_number` có một ứng dụng rất hay dùng — lấy **bản ghi mới nhất của mỗi nhóm**:
+`row_number` also has one very common use — pulling **the latest record per group**:
 
 ```sql
 SELECT * FROM (
@@ -165,66 +165,66 @@ SELECT * FROM (
 ) q WHERE rn = 1;
 ```
 
-Viết bằng `GROUP BY` thuần thì phải tìm `MAX(tao_luc)` rồi join ngược, và vẫn sai nếu hai đơn cùng thời điểm.
+Writing that with plain `GROUP BY` means finding `MAX(tao_luc)` and joining back — and it is still wrong if two orders share a timestamp.
 
 ---
 
-## Học tiếp
-Bài này đào sâu một điểm trong [series học SQL trong 30 ngày](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days):
+## Keep reading
+This post expands on one lesson from the [30-day SQL series](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days):
 
-| Bài trong series | Liên quan thế nào |
+| Lesson in the series | How it connects |
 |---|---|
-| [Recursive Queries và Window Functions](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/29-recursive-queries-window-functions) | Cú pháp `OVER`, `PARTITION BY` và recursive CTE |
-| [GROUP BY và HAVING](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/09-group-by-having) | Cách gom nhóm truyền thống |
-| [Hàm tổng hợp](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/08-aggregate-functions) | `SUM`, `AVG`, `COUNT` dùng chung cho cả hai cách |
-| [Subquery](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/11-subquery) | Bảng dẫn xuất cần thiết khi lọc theo kết quả window |
-| [Hiệu năng truy vấn](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/20-query-performance) | Đọc plan để so window với self-join |
+| [Recursive Queries and Window Functions](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/29-recursive-queries-window-functions) | `OVER` and `PARTITION BY` syntax, plus recursive CTEs |
+| [GROUP BY and HAVING](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/09-group-by-having) | The traditional way to aggregate |
+| [Aggregate functions](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/08-aggregate-functions) | `SUM`, `AVG`, `COUNT` — shared by both approaches |
+| [Subqueries](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/11-subquery) | The derived table you need in order to filter on a window result |
+| [Query performance](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/20-query-performance) | Reading the plan to compare a window against a self-join |
 
-Một lưu ý về thứ tự xử lý: window function chạy **sau** `WHERE` và `GROUP BY`, nên bạn **không lọc được** trực tiếp theo kết quả của nó trong `WHERE`. Phải bọc vào một bảng dẫn xuất rồi lọc ở ngoài, như ví dụ `rn = 1` ở trên. Thứ tự các mệnh đề này tôi có nói kỹ hơn trong [bài LEFT JOIN thành INNER JOIN](https://tiennhm.io.vn/blog/left-join-thanh-inner-join).
-
----
-
-## Câu hỏi thường gặp
-
-### Window function khác GROUP BY ở điểm nào?
-
-GROUP BY gom nhiều dòng thành một dòng cho mỗi nhóm, còn window function giữ nguyên mọi dòng và thêm giá trị tổng hợp của nhóm vào bên cạnh. Đo trên cùng một bảng 200.000 dòng với 200 nhân viên, GROUP BY trả về 200 dòng còn window trả về 200.000 dòng. Nhờ giữ được chi tiết, window cho phép tính những thứ như tỷ lệ đóng góp của từng dòng trong nhóm mà không cần join ngược lại bảng gốc.
-
-### Vì sao luỹ kế tính bằng OVER (ORDER BY ...) lại ra sai ở dòng đầu?
-
-Vì khung cửa sổ mặc định khi có ORDER BY là RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW, và RANGE xác định dòng hiện tại theo giá trị của cột ORDER BY chứ không theo vị trí dòng. Mọi dòng có cùng giá trị sắp xếp đều là đồng hạng và nhận cùng một kết quả luỹ kế. Muốn cộng dồn từng dòng một thì phải ghi rõ ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW.
-
-### RANGE và ROWS khác nhau thế nào trong window frame?
-
-ROWS đếm theo vị trí vật lý của dòng, còn RANGE đếm theo giá trị của cột trong ORDER BY và gom tất cả các dòng đồng hạng lại. Với bảng có hai dòng cùng ngày 01/01 mang giá trị 100 và 200, luỹ kế theo RANGE cho cả hai dòng đều là 300, trong khi theo ROWS thì dòng đầu là 100 và dòng sau là 300. Quy tắc thực dụng là hễ có ORDER BY bên trong OVER thì nên khai frame tường minh.
-
-### rank, dense_rank và row_number khác nhau ra sao?
-
-Với tập giá trị 300, 200, 200, 100 thì rank cho 1, 2, 2, 4 vì đồng hạng nhận cùng số rồi nhảy cóc; dense_rank cho 1, 2, 2, 3 vì đồng hạng nhận cùng số nhưng không nhảy; còn row_number cho 1, 2, 3, 4 vì mỗi dòng một số duy nhất. Dùng rank cho xếp hạng kiểu thể thao, dense_rank khi cần đếm số mức giá trị khác nhau, và row_number để phân trang hoặc chọn đúng một dòng đại diện mỗi nhóm.
-
-### Window function có nhanh hơn self-join không?
-
-Có, trong trường hợp phổ biến là lấy giá trị tổng hợp của nhóm gắn vào từng dòng. Đo trên 200.000 dòng, cách cũ dùng bảng dẫn xuất GROUP BY rồi join ngược mất 79,2 ms, còn window function mất 22,7 ms, nhanh hơn khoảng 3,5 lần. Lý do là self-join phải quét bảng hai lần rồi ghép kết quả, trong khi window chỉ quét một lần và tính trong lúc đi qua dữ liệu đã sắp xếp theo phân vùng.
-
-### Vì sao không lọc được theo kết quả của window function trong WHERE?
-
-Vì window function được tính sau WHERE và GROUP BY trong thứ tự xử lý logic của câu SELECT, nên tại thời điểm WHERE chạy thì giá trị đó chưa tồn tại. Cách làm là bọc câu truy vấn vào một bảng dẫn xuất hoặc CTE rồi lọc ở lớp ngoài, ví dụ tính row_number ở lớp trong rồi thêm điều kiện rn = 1 ở lớp ngoài để lấy bản ghi mới nhất của mỗi nhóm.
-
-## Kết luận
-Window function làm được thứ mà `GROUP BY` về nguyên tắc không làm được: **giữ chi tiết và có tổng hợp cùng lúc**. Nó vừa ngắn hơn vừa nhanh hơn cách self-join truyền thống.
-
-Ba điều đáng nhớ:
-
-1. **`GROUP BY` gom, window giữ.** Nếu bạn đang gom rồi join ngược lại bảng gốc, gần như chắc chắn có một window function thay thế được.
-2. **Mặc định là `RANGE`, không phải `ROWS`.** Đây là chỗ số liệu sai mà không ai báo, và nó chỉ lộ ra ở những dòng có giá trị sắp xếp trùng nhau.
-3. **`ORDER BY` bên trong `OVER()` đổi ý nghĩa của phép tổng hợp.** Thêm nó vào là biến tổng toàn nhóm thành luỹ kế, dù bạn chỉ định thêm cho gọn.
+A note on processing order: window functions run **after** `WHERE` and `GROUP BY`, so you **cannot filter** on their output directly in `WHERE`. You have to wrap the query in a derived table and filter outside it, as in the `rn = 1` example above. I covered that clause ordering in more depth in [the post on LEFT JOIN becoming INNER JOIN](https://tiennhm.io.vn/blog/left-join-thanh-inner-join).
 
 ---
 
-**Cập nhật lần cuối**: Tháng 9, 2026
+## Frequently asked questions
 
-## Bài liên quan
+### How does a window function differ from GROUP BY?
 
-- [29. Recursive Queries & Window Functions](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/29-recursive-queries-window-functions) — Giới thiệu về Recursive Queries và Window Functions trong SQL, cách viết truy vấn đệ quy, ứng dụng thực tế, cách sử dụng Window Functions để phân…
-- [09. GROUP BY - HAVING](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/09-group-by-having) — Giới thiệu về GROUP BY và HAVING trong SQL, cách sử dụng và ví dụ minh họa.
-- [08. Aggregate Functions](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/08-aggregate-functions) — Giới thiệu về các hàm tổng hợp trong SQL.
+GROUP BY collapses many rows into one row per group, while a window function keeps every row and adds the group's aggregate alongside it. Measured on the same 200,000-row table covering 200 employees, GROUP BY returned 200 rows and the window returned 200,000. Because the detail survives, a window lets you compute things like each row's share of its group without joining back to the original table.
+
+### Why is a running total written with OVER (ORDER BY ...) wrong on the first row?
+
+Because the default frame when ORDER BY is present is RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW, and RANGE decides what the current row covers by the value of the ORDER BY column rather than by row position. Every row sharing that sort value is a peer and receives the same running total. For a row-by-row cumulative sum you must spell out ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW.
+
+### What is the difference between RANGE and ROWS in a window frame?
+
+ROWS counts by physical row position, while RANGE counts by the value in the ORDER BY column and groups all peer rows together. On a table with two rows dated 1 January holding 100 and 200, the RANGE running total reads 300 for both rows, whereas with ROWS the first reads 100 and the second 300. The practical rule is that whenever there is an ORDER BY inside OVER, declare the frame explicitly.
+
+### How do rank, dense_rank and row_number differ?
+
+Over the values 300, 200, 200, 100 rank gives 1, 2, 2, 4 because ties share a number and then the sequence skips; dense_rank gives 1, 2, 2, 3 because ties share a number but nothing is skipped; and row_number gives 1, 2, 3, 4 because every row gets a unique number. Use rank for sports-style standings, dense_rank when you need to count distinct value levels, and row_number for pagination or to pick one representative row per group.
+
+### Is a window function faster than a self-join?
+
+Yes, in the common case of attaching a group aggregate to every row. Measured over 200,000 rows, the old approach using a GROUP BY derived table joined back took 79.2 ms while the window function took 22.7 ms, about 3.5 times faster. The reason is that the self-join scans the table twice and then matches results, while the window scans once and computes as it walks data already sorted by partition.
+
+### Why can't I filter on a window function's result in WHERE?
+
+Because window functions are evaluated after WHERE and GROUP BY in the logical processing order of a SELECT, so the value does not yet exist when WHERE runs. The approach is to wrap the query in a derived table or CTE and filter in the outer layer — for example compute row_number in the inner layer and add the condition rn = 1 outside it to get the latest record per group.
+
+## Conclusion
+Window functions do something `GROUP BY` fundamentally cannot: **keep the detail and have the aggregate at the same time**. They are both shorter and faster than the traditional self-join.
+
+Three things worth remembering:
+
+1. **`GROUP BY` collapses, a window keeps.** If you find yourself aggregating and then joining back to the original table, there is almost certainly a window function that replaces it.
+2. **The default is `RANGE`, not `ROWS`.** This is the quiet corruption nobody reports, and it only shows up on rows whose sort values tie.
+3. **`ORDER BY` inside `OVER()` changes what the aggregate means.** Adding it converts a whole-group total into a running total, even if you only added it to tidy the output.
+
+---
+
+**Last updated**: September 2026
+
+## Related posts
+
+- [29. Recursive Queries & Window Functions](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/29-recursive-queries-window-functions) — An introduction to recursive queries and window functions in SQL, how to write recursive queries, real-world uses, and how to use window functions for analysis.
+- [09. GROUP BY - HAVING](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/09-group-by-having) — An introduction to GROUP BY and HAVING in SQL, with usage and worked examples.
+- [08. Aggregate Functions](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/08-aggregate-functions) — An introduction to aggregate functions in SQL.

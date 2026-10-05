@@ -1,26 +1,26 @@
-# Thêm 4 index làm INSERT chậm 6 lần: cái giá không ai nhắc khi bảo bạn đánh index
+# Four Indexes Made INSERT 6× Slower: The Bill Nobody Mentions
 
 > Nguồn: https://tiennhm.io.vn/en/blog/chi-phi-ghi-cua-index
-> Mọi hướng dẫn tối ưu đều bảo thêm index, rất ít bài nói về hoá đơn. Đo trên PostgreSQL 16 với cùng 200.000 dòng: bảng không index chèn hết 287,8 ms và nặng 10,2 MB, bảng bốn index mất 1.722,3 ms và nặng 27 MB. Bài viết phân tích chi phí ghi, quy tắc leftmost prefix, index trùng lặp, và cách quyết định index nào đáng giữ.
+> Every optimization guide tells you to add an index. Almost none of them show the bill. Measured on PostgreSQL 16 with the same 200,000 rows: the table with no indexes inserted in 287.8 ms and occupied 10.2 MB; the table with four indexes took 1,722.3 ms and occupied 27 MB. This post breaks down write cost, the leftmost prefix rule, redundant indexes, and how to decide which indexes are worth keeping.
 
-> Index tăng tốc đọc bằng cách **trả giá ở mỗi lần ghi**, và cái giá đó lớn hơn hầu hết người ta hình dung. Đo trên PostgreSQL 16 với cùng 200.000 dòng: bảng **không index** chèn xong trong **287,8 ms** và chiếm **10,2 MB**; bảng có **bốn index** mất **1.722,3 ms** và chiếm **27 MB**. Tức là chậm gấp **6 lần** và tốn gấp **2,6 lần** dung lượng — chỉ để thêm bốn cấu trúc mà có thể chẳng câu truy vấn nào dùng tới. Câu hỏi đúng không phải "cột này có nên có index không" mà là "phần đọc tiết kiệm được có bù nổi phần ghi phải trả không".
+> Indexes speed up reads by **charging you on every write**, and the charge is larger than most people picture. Measured on PostgreSQL 16 with the same 200,000 rows: a table with **no indexes** finished inserting in **287.8 ms** and occupied **10.2 MB**; a table with **four indexes** took **1,722.3 ms** and occupied **27 MB**. That is **6× slower** and **2.6× bigger** — just to carry four structures that no query may ever touch. The right question is not "should this column have an index?" but "does the read time saved cover the write time paid?"
 
-Mọi bài viết về tối ưu database đều kết thúc bằng lời khuyên thêm index. Rất ít bài nói về hoá đơn đi kèm, và càng ít bài đưa con số.
+Every post about database optimization ends with advice to add an index. Very few mention the bill that comes with it, and fewer still put a number on it.
 
-Bài này đào sâu [bài Thiết kế database](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/27-database-design-best-practices) và [bài Index](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/15-index) trong series học SQL 30 ngày. Mọi số liệu đo thật trên PostgreSQL 16.11.
+This post goes deeper into two lessons from the 30-day SQL series: [Database design](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/27-database-design-best-practices) and [Index](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/15-index). Every figure below was measured on PostgreSQL 16.11.
 
-## Tóm tắt nhanh (TL;DR)
-- 4 index làm cùng một lệnh `INSERT` 200.000 dòng đi từ **287,8 ms → 1.722,3 ms** (chậm 6 lần).
-- Dung lượng bảng đi từ **10,2 MB → 27 MB** (gấp 2,6 lần).
-- Index phức hợp `(a, b)` **không** phục vụ `WHERE b = ?` — quy tắc **leftmost prefix**.
-- Index `(a)` khi đã có `(a, b)` là **chi phí ghi thuần tuý**, nên xoá.
-- Cột độ chọn lọc thấp (vài giá trị lặp lại) gần như không đáng đánh index.
-- Dùng `pg_stat_user_indexes` để tìm index **chưa bao giờ được dùng**.
+## TL;DR
+- Four indexes took the same `INSERT` of 200,000 rows from **287.8 ms → 1,722.3 ms** (6× slower).
+- Table size went from **10.2 MB → 27 MB** (2.6× bigger).
+- A composite index on `(a, b)` does **not** serve `WHERE b = ?` — the **leftmost prefix** rule.
+- An index on `(a)` when `(a, b)` already exists is **pure write cost**. Drop it.
+- Low-selectivity columns (a handful of repeated values) are rarely worth indexing.
+- Use `pg_stat_user_indexes` to find indexes that have **never been used**.
 
 ---
 
-## Hoá đơn
-Hai bảng giống hệt nhau, khác mỗi số index:
+## The bill
+Two identical tables, differing only in how many indexes they carry:
 
 ```sql
 CREATE TABLE w0(id int, a int, b int, c int, d int);
@@ -29,50 +29,50 @@ CREATE INDEX ON w4(a); CREATE INDEX ON w4(b);
 CREATE INDEX ON w4(c); CREATE INDEX ON w4(d);
 ```
 
-Chèn cùng 200.000 dòng vào mỗi bảng:
+Inserting the same 200,000 rows into each:
 
-| | Thời gian `INSERT` | Dung lượng |
+| | `INSERT` time | Size |
 |---|---|---|
-| Không index | **287,8 ms** | **10,2 MB** |
-| 4 index | **1.722,3 ms** | **27 MB** |
-| Chênh lệch | **chậm 6,0 lần** | **gấp 2,6 lần** |
+| No indexes | **287.8 ms** | **10.2 MB** |
+| 4 indexes | **1,722.3 ms** | **27 MB** |
+| Difference | **6.0× slower** | **2.6× bigger** |
 
-Lý do thì đơn giản: mỗi `INSERT` không chỉ ghi một dòng vào bảng, nó còn phải chèn một mục vào **từng** cấu trúc B-tree, giữ cho mỗi cây vẫn cân bằng, và ghi thêm vào write-ahead log cho từng thay đổi ấy. Bốn index nghĩa là **năm cấu trúc phải đổi thay vì một**.
+The reason is plain enough: every `INSERT` does not merely write one row into the table. It must also insert an entry into **each** B-tree, keep every one of those trees balanced, and write each of those changes to the write-ahead log. Four indexes means **five structures change instead of one**.
 
-Điều đáng nói: con số này là chi phí bạn trả **kể cả khi không câu truy vấn nào dùng tới bốn index đó**. Index không dùng vẫn được cập nhật đầy đủ ở mọi lần ghi.
+Here is the part worth sitting with: you pay that cost **even when no query ever uses those four indexes**. An unused index is still updated in full on every write.
 
-`UPDATE` còn tệ hơn `INSERT` ở một điểm: nếu bạn sửa một cột có index, database phải xoá mục cũ và chèn mục mới trong cây. Sửa một cột không có index thì rẻ hơn nhiều — đó là lý do đánh index lên cột hay bị cập nhật (trạng thái, thời điểm sửa cuối) đắt hơn đánh lên cột tĩnh.
+`UPDATE` is worse than `INSERT` in one specific way. If you modify an indexed column, the database must delete the old entry and insert a new one in the tree. Modifying an unindexed column is far cheaper — which is why indexing a frequently updated column (status, last-modified timestamp) costs more than indexing a static one.
 
 ---
 
-## Leftmost prefix: thứ tự cột là một quyết định thiết kế
-Đây là quy tắc quyết định bạn cần **mấy** index, nên nó ảnh hưởng trực tiếp tới hoá đơn ở trên.
+## Leftmost prefix: column order is a design decision
+This is the rule that decides **how many** indexes you need, so it feeds straight back into the bill above.
 
-Index phức hợp được sắp xếp theo cột trái nhất trước, rồi mới tới cột sau — giống danh bạ sắp theo họ rồi mới tới tên. Với `CREATE INDEX ON t(a, b)`:
+A composite index is sorted by its leftmost column first, then by the next — like a phone book sorted by surname and then by first name. With `CREATE INDEX ON t(a, b)`:
 
-| Truy vấn | Dùng được index? |
+| Query | Can it use the index? |
 |---|---|
 | `WHERE a = 1` | ✅ |
 | `WHERE a = 1 AND b = 2` | ✅ |
 | `WHERE b = 2` | ❌ |
-| `WHERE a = 1 ORDER BY b` | ✅ (cả sắp xếp) |
+| `WHERE a = 1 ORDER BY b` | ✅ (sorting too) |
 
-Ô thứ ba là chỗ hay gây bất ngờ. Danh bạ sắp theo họ không giúp gì khi bạn chỉ biết tên — bạn vẫn phải đọc hết.
+The third row is the one that surprises people. A phone book sorted by surname is no help when all you know is the first name — you still have to read the whole thing.
 
-Hệ quả thực tế: **một index `(a, b)` đặt đúng thứ tự thay thế được hai index riêng lẻ**, còn đặt sai thứ tự thì bạn phải tạo thêm index thứ hai và trả thêm chi phí ghi. Nguyên tắc chọn thứ tự:
+The practical consequence: **one index on `(a, b)` in the right order replaces two separate indexes**, while the wrong order forces you to create a second index and pay the write cost twice. How to pick the order:
 
-1. Cột xuất hiện trong điều kiện **bằng** (`=`) đặt trước.
-2. Cột dùng cho **khoảng** (`>`, `<`, `BETWEEN`) đặt sau, vì sau một điều kiện khoảng thì các cột phía sau không còn dùng để thu hẹp được nữa.
-3. Cột dùng cho `ORDER BY` đặt cuối.
+1. Columns used in **equality** conditions (`=`) go first.
+2. Columns used for **ranges** (`>`, `<`, `BETWEEN`) go after, because once a range condition is applied, columns further right can no longer narrow anything down.
+3. Columns used for `ORDER BY` go last.
 
 ---
 
-## Ba loại index nên xoá
-### 1. Index trùng lặp
+## Three kinds of index worth dropping
+### 1. Redundant indexes
 
-Nếu đã có `(a, b)` thì `(a)` là **thừa hoàn toàn** — mọi truy vấn dùng được `(a)` đều dùng được `(a, b)` theo quy tắc leftmost prefix. Giữ nó lại chỉ để trả thêm chi phí ghi và thêm dung lượng.
+If `(a, b)` already exists, then `(a)` is **entirely redundant** — every query that could use `(a)` can use `(a, b)` under the leftmost prefix rule. Keeping it only buys you extra write cost and extra disk.
 
-Tìm chúng trong PostgreSQL:
+Finding them in PostgreSQL:
 
 ```sql
 SELECT indrelid::regclass AS bang, array_agg(indexrelid::regclass) AS index_trung
@@ -81,9 +81,9 @@ GROUP BY indrelid, (indkey::int2[])[0:1]
 HAVING count(*) > 1;
 ```
 
-### 2. Index chưa bao giờ được dùng
+### 2. Indexes that have never been used
 
-PostgreSQL đếm sẵn số lần mỗi index được quét:
+PostgreSQL already counts how many times each index has been scanned:
 
 ```sql
 SELECT relname AS bang, indexrelname AS index, idx_scan AS so_lan_dung,
@@ -93,100 +93,100 @@ WHERE idx_scan = 0
 ORDER BY pg_relation_size(indexrelid) DESC;
 ```
 
-`idx_scan = 0` sau vài tuần chạy production là bằng chứng khá chắc. Hai lưu ý trước khi xoá: bộ đếm này reset khi restart hoặc khi gọi `pg_stat_reset()`, và một index phục vụ ràng buộc `UNIQUE` hay khoá chính thì **không xoá được** dù `idx_scan` bằng 0 — nó tồn tại để đảm bảo tính đúng đắn chứ không phải để tăng tốc đọc.
+An `idx_scan = 0` after a few weeks in production is fairly solid evidence. Two caveats before you drop anything: the counter resets on restart or when `pg_stat_reset()` is called, and an index backing a `UNIQUE` constraint or a primary key **cannot be dropped** even at `idx_scan = 0` — it exists for correctness, not for read speed.
 
-### 3. Index trên cột độ chọn lọc thấp
+### 3. Indexes on low-selectivity columns
 
-Cột `gioi_tinh` chỉ có hai giá trị, `trang_thai` có bốn. Index trên chúng gần như vô ích: mỗi giá trị khớp với một phần lớn bảng, nên database thường kết luận quét tuần tự còn rẻ hơn đi qua index rồi nhảy về bảng.
+A `gender` column has two values; a `status` column has four. Indexing them is close to pointless: each value matches a large share of the table, so the database usually concludes that a sequential scan is cheaper than walking the index and jumping back to the heap.
 
-Ngoại lệ đáng biết: khi phân bố **lệch nặng**. Nếu 99,9% đơn ở trạng thái `hoan_thanh` và 0,1% ở trạng thái `loi`, thì index **một phần** chỉ chứa phần hiếm lại rất hiệu quả:
+One exception worth knowing: **heavily skewed** distributions. If 99.9% of orders sit in state `completed` and 0.1% in state `failed`, a **partial** index covering only the rare case is very effective:
 
 ```sql
 CREATE INDEX idx_don_loi ON don_hang(tao_luc) WHERE trang_thai = 'loi';
 ```
 
-Index này nhỏ, rẻ để duy trì, và phục vụ đúng câu truy vấn mà bạn thật sự chạy nhiều.
+That index is small, cheap to maintain, and serves exactly the query you actually run often.
 
 ---
 
-## Khi nào chi phí ghi đáng trả
-Không có con số vàng, nhưng có vài câu hỏi cho ra quyết định khá nhanh.
+## When the write cost is worth paying
+There is no magic number, but a few questions get you to a decision quickly.
 
-**Tỷ lệ đọc trên ghi của bảng này là bao nhiêu?** Bảng danh mục sản phẩm đọc hàng nghìn lần và ghi vài lần mỗi ngày — index thoải mái. Bảng log sự kiện ghi liên tục và hiếm khi đọc — mỗi index là một cái thuế nặng.
+**What is this table's read-to-write ratio?** A product catalogue is read thousands of times and written a few times a day — index it freely. An event log is written constantly and read rarely — every index there is a heavy tax.
 
-**Câu truy vấn cần nó chạy bao nhiêu lần một ngày?** Một báo cáo chạy mỗi tháng một lần không đáng để một index phải cập nhật ở mọi lần ghi suốt ba mươi ngày. Chấp nhận báo cáo đó chậm hai phút thường là lựa chọn đúng.
+**How often does the query that needs it actually run?** A report that runs once a month does not justify an index that must be updated on every write for thirty days. Accepting a two-minute report is usually the right call.
 
-**Có index nào đang có phục vụ được không?** Trước khi thêm mới, kiểm xem một index phức hợp sẵn có có phủ được truy vấn theo leftmost prefix hay không. Mở rộng một index đã có thường rẻ hơn tạo thêm một cái.
+**Can an existing index already serve it?** Before adding a new one, check whether a composite index you already have covers the query under the leftmost prefix rule. Extending an existing index is usually cheaper than creating another.
 
-**Cột này có bị `UPDATE` thường xuyên không?** Index trên cột hay đổi đắt gấp nhiều lần index trên cột tĩnh, vì mỗi lần sửa là một lần xoá và chèn lại trong cây.
+**Does this column get `UPDATE`d often?** An index on a volatile column costs several times more than one on a static column, because every modification is a delete plus a re-insert in the tree.
 
-**Rà soát index trước khi thêm cái mới**
+**Review your indexes before adding another**
 
-- [ ] Kiểm tra tỷ lệ đọc/ghi của bảng — bảng ghi nhiều thì mỗi index là thuế nặng
-- [ ] Xem index sẵn có đã phủ được truy vấn theo leftmost prefix chưa
-- [ ] Xoá index trùng lặp: (a) khi đã có (a, b)
-- [ ] Dùng pg_stat_user_indexes tìm index có idx_scan = 0
-- [ ] Với cột lệch nặng, cân nhắc index một phần thay vì index đầy đủ
-- [x] Đo lại thời gian ghi sau khi thêm index, đừng chỉ đo thời gian đọc
+- [ ] Check the table's read/write ratio — on write-heavy tables every index is a heavy tax
+- [ ] Check whether an existing index already covers the query under leftmost prefix
+- [ ] Drop redundant indexes: (a) when (a, b) already exists
+- [ ] Use pg_stat_user_indexes to find indexes with idx_scan = 0
+- [ ] For heavily skewed columns, consider a partial index instead of a full one
+- [x] Measure write time after adding an index, not just read time
 
 ---
 
-## Học tiếp
-Bài này đào sâu hai điểm trong [series học SQL trong 30 ngày](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days):
+## Keep reading
+This post expands on two points from the [30-day SQL series](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days):
 
-| Bài trong series | Liên quan thế nào |
+| Lesson in the series | How it connects |
 |---|---|
-| [Thiết kế database](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/27-database-design-best-practices) | Cân bằng đọc và ghi khi thiết kế schema |
-| [Index](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/15-index) | Cấu trúc B-tree và cú pháp tạo index |
-| [Tối ưu truy vấn SQL](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/28-sql-query-optimization) | Viết lại truy vấn trước khi nghĩ tới index mới |
-| [Hiệu năng truy vấn](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/20-query-performance) | Đọc execution plan để biết index có được dùng không |
-| [Transactions và ACID](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/16-transactions-acid) | Index làm transaction ghi dài hơn và giữ khoá lâu hơn |
+| [Database design](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/27-database-design-best-practices) | Balancing reads against writes when designing a schema |
+| [Index](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/15-index) | B-tree structure and index creation syntax |
+| [SQL query optimization](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/28-sql-query-optimization) | Rewrite the query before reaching for a new index |
+| [Query performance](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/20-query-performance) | Reading an execution plan to see whether an index is used |
+| [Transactions and ACID](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/16-transactions-acid) | Indexes make write transactions longer and hold locks for longer |
 
-Mặt kia của câu chuyện — index **có** nhưng **không được dùng** — nằm ở [bài về sargability](https://tiennhm.io.vn/blog/sql-index-khong-duoc-dung-sargable). Hai bài đó là hai nửa của cùng một câu hỏi: bạn đang trả chi phí ghi cho những index nào, và trong số đó cái nào thật sự phục vụ được truy vấn của bạn.
-
----
-
-## Câu hỏi thường gặp
-
-### Thêm index làm chậm ghi bao nhiêu?
-
-Đo trên PostgreSQL 16 với cùng 200.000 dòng, bảng không có index chèn xong trong 287,8 ms còn bảng có bốn index mất 1.722,3 ms, tức là chậm khoảng 6 lần. Dung lượng cũng tăng từ 10,2 MB lên 27 MB. Lý do là mỗi INSERT phải chèn thêm một mục vào từng cây B-tree, giữ cho các cây cân bằng, và ghi thêm vào write-ahead log cho từng thay đổi. Chi phí này phải trả kể cả khi không câu truy vấn nào dùng tới các index đó.
-
-### Index phức hợp (a, b) có phục vụ được truy vấn lọc theo b không?
-
-Không. Index phức hợp được sắp xếp theo cột trái nhất trước, giống danh bạ sắp theo họ rồi mới tới tên, nên nó phục vụ WHERE a = ? và WHERE a = ? AND b = ? nhưng không phục vụ WHERE b = ? một mình. Đây gọi là quy tắc leftmost prefix. Hệ quả là thứ tự cột trong index phức hợp là một quyết định thiết kế: đặt đúng thì một index thay được hai, đặt sai thì phải tạo thêm index và trả thêm chi phí ghi.
-
-### Làm sao tìm index không bao giờ được dùng?
-
-Trong PostgreSQL, truy vấn pg_stat_user_indexes và lọc những dòng có idx_scan bằng 0, kèm pg_relation_size để biết chúng chiếm bao nhiêu dung lượng. Sau vài tuần chạy production thì đó là bằng chứng khá chắc. Hai lưu ý trước khi xoá: bộ đếm này reset khi restart hoặc khi gọi pg_stat_reset, và index phục vụ ràng buộc UNIQUE hay khoá chính thì không xoá được dù idx_scan bằng 0 vì nó tồn tại để đảm bảo tính đúng đắn.
-
-### Có nên đánh index cho cột trạng thái hay giới tính không?
-
-Thường là không, vì độ chọn lọc thấp: mỗi giá trị khớp với một phần lớn bảng nên database thường kết luận quét tuần tự còn rẻ hơn đi qua index rồi nhảy về bảng. Ngoại lệ đáng biết là khi phân bố lệch nặng, ví dụ 99,9% đơn ở trạng thái hoàn thành và 0,1% ở trạng thái lỗi; lúc đó một index một phần chỉ chứa phần hiếm sẽ nhỏ, rẻ để duy trì và phục vụ đúng truy vấn bạn chạy nhiều.
-
-### UPDATE có tốn kém hơn INSERT khi bảng có nhiều index không?
-
-Có, ở một điểm quan trọng. Nếu bạn sửa một cột có index thì database phải xoá mục cũ và chèn mục mới trong cây, tức là hai thao tác thay vì một. Sửa một cột không có index thì rẻ hơn nhiều. Vì vậy đánh index lên cột hay bị cập nhật như trạng thái hoặc thời điểm sửa cuối sẽ đắt hơn hẳn so với đánh index lên cột gần như không đổi.
-
-### Khi nào chi phí ghi của một index là đáng trả?
-
-Cân nhắc bốn câu hỏi. Tỷ lệ đọc trên ghi của bảng là bao nhiêu, vì bảng danh mục đọc nhiều ghi ít thì thoải mái còn bảng log thì mỗi index là thuế nặng. Truy vấn cần nó chạy bao nhiêu lần một ngày, vì một báo cáo tháng không đáng để index phải cập nhật suốt ba mươi ngày. Index sẵn có đã phủ được chưa theo leftmost prefix. Và cột đó có bị UPDATE thường xuyên không.
-
-## Kết luận
-Index không phải thứ miễn phí mà bạn rắc lên bảng cho chắc. Nó là một **đánh đổi có hoá đơn cụ thể**, và trong phép đo ở trên hoá đơn đó là chậm gấp 6 lần khi ghi cộng với gấp 2,6 lần dung lượng.
-
-Ba điều đáng nhớ:
-
-1. **Đo cả phần ghi, đừng chỉ đo phần đọc.** Thêm index rồi thấy truy vấn nhanh lên là nửa bức tranh; nửa còn lại nằm ở thời gian `INSERT` và `UPDATE` mà không ai mở ra xem.
-2. **Thứ tự cột trong index phức hợp quyết định bạn cần mấy index.** Đặt đúng thì một cái thay được hai, đặt sai thì trả tiền hai lần.
-3. **Index không dùng vẫn thu phí đầy đủ.** `idx_scan = 0` là một trong những truy vấn cho ra giá trị nhanh nhất mà bạn có thể chạy trên một database đang sống.
+The other half of the story — an index that **exists** but **never gets used** — is in [the post on sargability](https://tiennhm.io.vn/blog/sql-index-khong-duoc-dung-sargable). The two are two halves of the same question: which indexes are you paying write cost for, and which of those actually serve your queries.
 
 ---
 
-**Cập nhật lần cuối**: Tháng 9, 2026
+## Frequently asked questions
 
-## Bài liên quan
+### How much do indexes slow down writes?
 
-- [27. Database design best practices](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/27-database-design-best-practices) — Thiết kế cơ sở dữ liệu (Database Design) - Nguyên tắc chuẩn hóa CSDL, khi nào nên phi chuẩn hóa, best practices thiết kế CSDL hiệu quả.
-- [28. SQL query optimization](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/28-sql-query-optimization) — Hướng dẫn tối ưu hóa truy vấn SQL, phân tích truy vấn với EXPLAIN ANALYZE, tránh lỗi phổ biến khi viết SQL, tận dụng Index, Partition, Caching để…
-- [15. Index](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/15-index) — Giới thiệu về Index trong SQL, cách tạo và sử dụng Index, cách tối ưu truy vấn SQL với Index.
+Measured on PostgreSQL 16 with the same 200,000 rows, a table with no indexes finished inserting in 287.8 ms while a table with four indexes took 1,722.3 ms — roughly 6 times slower. Size grew from 10.2 MB to 27 MB as well. The reason is that every INSERT must add an entry to each B-tree, keep those trees balanced, and write each of those changes to the write-ahead log. You pay that cost even when no query ever uses those indexes.
+
+### Does a composite index on (a, b) serve a query filtering on b?
+
+No. A composite index is sorted by its leftmost column first, like a phone book sorted by surname and then first name, so it serves WHERE a = ? and WHERE a = ? AND b = ? but not WHERE b = ? on its own. This is the leftmost prefix rule. The consequence is that column order in a composite index is a design decision: the right order lets one index replace two, the wrong order forces a second index and a second write cost.
+
+### How do I find indexes that are never used?
+
+In PostgreSQL, query pg_stat_user_indexes and filter for rows where idx_scan is 0, joining pg_relation_size to see how much disk they occupy. After a few weeks in production that is fairly solid evidence. Two caveats before dropping anything: the counter resets on restart or when pg_stat_reset is called, and an index backing a UNIQUE constraint or primary key cannot be dropped even at idx_scan = 0, because it exists for correctness rather than read speed.
+
+### Should I index a status or gender column?
+
+Usually not, because selectivity is low: each value matches a large share of the table, so the database generally concludes that a sequential scan is cheaper than walking the index and jumping back to the heap. The exception worth knowing is a heavily skewed distribution — say 99.9% of orders completed and 0.1% failed. In that case a partial index covering only the rare value is small, cheap to maintain, and serves exactly the query you run often.
+
+### Is UPDATE more expensive than INSERT on a heavily indexed table?
+
+Yes, in one important way. If you modify an indexed column, the database must delete the old entry and insert a new one in the tree — two operations instead of one. Modifying an unindexed column is far cheaper. This is why indexing a frequently updated column such as status or last-modified timestamp costs considerably more than indexing a column that barely changes.
+
+### When is an index's write cost worth paying?
+
+Weigh four questions. What is the table's read-to-write ratio, since a catalogue read often and written rarely can carry indexes freely while a log table pays a heavy tax per index. How often the query that needs it actually runs, since a monthly report does not justify updating an index on every write for thirty days. Whether an existing index already covers it under leftmost prefix. And whether that column is updated frequently.
+
+## Conclusion
+An index is not something free that you sprinkle over a table to be safe. It is a **trade-off with an itemised bill**, and in the measurement above that bill reads 6× slower writes plus 2.6× the disk.
+
+Three things worth remembering:
+
+1. **Measure the writes, not just the reads.** Adding an index and watching a query get faster is half the picture; the other half sits in `INSERT` and `UPDATE` timings that nobody opens.
+2. **Column order in a composite index decides how many indexes you need.** Get it right and one replaces two; get it wrong and you pay twice.
+3. **An unused index still charges full price.** `idx_scan = 0` is one of the fastest-paying queries you can run against a live database.
+
+---
+
+**Last updated**: September 2026
+
+## Related posts
+
+- [27. Database design best practices](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/27-database-design-best-practices) — Normalization principles, when to denormalize, and best practices for designing an effective schema.
+- [28. SQL query optimization](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/28-sql-query-optimization) — Optimizing SQL queries, analyzing them with EXPLAIN ANALYZE, avoiding common mistakes, and using indexes, partitions and caching.
+- [15. Index](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/15-index) — An introduction to indexes in SQL, how to create and use them, and how to optimize queries with them.
