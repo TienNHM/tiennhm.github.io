@@ -366,6 +366,9 @@ A few decisions I made:
 
 The diagram below follows whichever light/dark mode you are viewing. Click the theme toggle in the navbar to see the other version:
 
+![The Diagram Design flow redrawn in this blog's teal, switching between light and dark backgrounds](./diagram-design-flow-blog.png#gh-light-mode-only)
+![The Diagram Design flow redrawn in this blog's teal, switching between light and dark backgrounds](./diagram-design-flow-blog-dark.png#gh-dark-mode-only)
+
 Source files: [light version](pathname:///files/diagram-design/en/diagram-design-flow-blog.html) and [dark version](pathname:///files/diagram-design/en/diagram-design-flow-blog-dark.html).
 
 Compared with the default version above, the layout, positions, strokes and text are identical; only the colors and fonts differ. That is the payoff of separating the skin from the grammar.
