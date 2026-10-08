@@ -1,100 +1,135 @@
 ---
-title: "TDD (Test-Driven Development): bằng chứng nghiên cứu nói gì và áp dụng thế nào cho đúng"
+title: "Phát triển hướng kiểm thử (TDD) trong vòng đời phát triển hướng AI (AI-DLC): tổng quan bằng chứng và đề xuất thực hành"
 slug: tdd-test-driven-development
-description: "TDD là kỹ thuật viết test thất bại trước, viết code tối thiểu cho test qua, rồi refactor. Bài viết tổng hợp các nghiên cứu thực nghiệm (Nagappan 2008, Rafique & Mišić 2013, Fucci 2017), chỉ ra điều gì đã được chứng minh và điều gì còn tranh cãi, sau đó đi qua một kata C# với xUnit để thấy ba vòng Red-Green-Refactor chạy ra sao."
-keywords: [tdd, test driven development, red green refactor, tdd la gi, kent beck tdd, unit test, xunit, csharp tdd, dotnet tdd, tdd nghien cuu thuc nghiem, tdd defect density, test first, chicago school london school, mock stub, triangulation, fake it till you make it, tdd co hieu qua khong, refactoring, kiem thu phan mem]
-tags: [testing, backend, csharp, dotnet, architecture, fundamentals]
+description: "Bài viết tổng quan bằng chứng thực nghiệm về Phát triển hướng kiểm thử (Test-Driven Development, TDD) và xem xét vai trò của nó trong vòng đời phát triển hướng AI (AI-DLC). TDD cho thấy lợi ích về chất lượng với chi phí thời gian ban đầu; trong AI-DLC, kiểm thử đóng vai trò đặc tả thực thi được để định hướng và kiểm chứng mã do AI sinh ra. Phần thực hành minh hoạ bằng một bài toán C# với xUnit."
+keywords: [tdd, test driven development, phat trien huong kiem thu, ai-dlc, ai driven development life cycle, ai-driven development, red green refactor, kiem thu la dac ta thuc thi duoc, llm code generation, tdd voi ai, tdd voi llm, ticoder, evalplus, kent beck tdd, xunit, csharp tdd, dotnet tdd, tdd nghien cuu thuc nghiem, tdd defect density, kiem thu phan mem]
+tags: [testing, ai-driven-development, ai-tools, backend, csharp, dotnet]
 authors: [tiennhm]
 date: 2026-10-08
 ---
 
 import { SummaryBox, FAQSection, Checklist } from '@site/src/components/SEO';
 
-# TDD: bằng chứng nghiên cứu nói gì và áp dụng thế nào cho đúng
+# Phát triển hướng kiểm thử (TDD) trong vòng đời phát triển hướng AI (AI-DLC)
 
 <SummaryBox>
-**TDD (Test-Driven Development)** là kỹ thuật lặp ba bước ngắn: viết một test **thất bại** (Red), viết lượng code **tối thiểu** cho test qua (Green), rồi **dọn dẹp** mà vẫn giữ test xanh (Refactor). Các nghiên cứu thực nghiệm cho thấy bức tranh không đen trắng: ở bốn đội công nghiệp (Microsoft, IBM), mật độ lỗi giảm **40–90%** nhưng thời gian phát triển ban đầu tăng **15–35%**; phân tích tổng hợp 27 nghiên cứu thì chỉ thấy cải thiện **nhỏ** về chất lượng và **gần như không** ảnh hưởng năng suất. Một thí nghiệm với 39 lập trình viên chuyên nghiệp còn cho thấy thứ tự "test trước, code sau" **không có ảnh hưởng quan trọng**; kết quả gắn với việc làm **từng bước nhỏ, đều đặn**. Vì vậy TDD đáng dùng như một công cụ thiết kế và phản hồi nhanh, không phải tín điều.
+**Tóm tắt.** Phát triển hướng kiểm thử (Test-Driven Development, TDD) là kỹ thuật lặp ba bước: viết một kiểm thử thất bại (Red), viết lượng mã tối thiểu để kiểm thử đó đạt (Green), rồi tái cấu trúc mã trong khi giữ toàn bộ kiểm thử đạt (Refactor). Các nghiên cứu thực nghiệm trước kỷ nguyên AI cho kết quả không đồng nhất: nghiên cứu tình huống trên bốn đội công nghiệp ghi nhận mật độ lỗi giảm 40–90% với chi phí thời gian ban đầu tăng 15–35%, trong khi phân tích tổng hợp 27 nghiên cứu chỉ thấy cải thiện nhỏ về chất lượng. Trong vòng đời phát triển hướng AI (AI-Driven Development Life Cycle, AI-DLC), nơi mã nguồn ngày càng do mô hình ngôn ngữ lớn (LLM) sinh ra, kiểm thử có thêm một chức năng: đóng vai trò đặc tả thực thi được, qua đó làm rõ ý định và kiểm chứng đầu ra của AI. Các nghiên cứu về sinh mã dẫn dắt bởi kiểm thử cho thấy mức cải thiện độ chính xác đáng kể, song đều thực hiện trên bài toán quy mô nhỏ; đồng thời chất lượng của chính bộ kiểm thử trở thành giới hạn của mọi kết luận về tính đúng đắn.
 </SummaryBox>
 
-Hầu hết bài về TDD rơi vào hai thái cực: hoặc là lời hứa "code sạch, ít bug" không kèm số liệu, hoặc là tranh luận "TDD đã chết" không kèm bằng chứng. Bài này đi đường giữa: đọc những gì nghiên cứu thực sự đo được, rồi đưa nó vào một ví dụ C# đủ nhỏ để làm theo.
+**Từ khoá:** TDD, AI-DLC, kiểm thử đơn vị, mô hình ngôn ngữ lớn, đặc tả thực thi được, tái cấu trúc.
 
 <!-- truncate -->
 
-## Tóm tắt nhanh (TL;DR) {#tldr}
+## 1. Đặt vấn đề {#dat-van-de}
 
-- TDD = vòng lặp **Red → Green → Refactor**, mỗi vòng vài phút, do Kent Beck hệ thống hoá (2002).
-- Bằng chứng công nghiệp: lỗi **giảm 40–90%**, thời gian ban đầu **tăng 15–35%** (Nagappan và cộng sự, 2008).
-- Phân tích tổng hợp 27 nghiên cứu: tác động lên chất lượng **dương nhưng nhỏ**, lên năng suất **gần như không thấy** (Rafique & Mišić, 2013).
-- Yếu tố gắn với kết quả tốt là **độ mịn của bước** (granularity) và tính đều đặn; thứ tự test-trước **không ảnh hưởng đáng kể** (Fucci và cộng sự, 2017, 39 lập trình viên chuyên nghiệp).
-- TDD hợp nhất với **logic nghiệp vụ thuần**, kém hợp với UI, code khám phá (spike) và tích hợp hạ tầng.
-- Đừng đo TDD bằng "số test" hay "% coverage"; hãy đo bằng **thời gian từ lúc sửa đến lúc biết mình hỏng gì**.
+Việc lập trình viên giao một phần ngày càng lớn công việc viết mã cho trợ lý AI (xem [loạt bài AI-Driven Development](/blog/phat-trien-phan-mem-ai-driven-development)) làm thay đổi câu hỏi trung tâm của kiểm thử. Trước đây, câu hỏi là "mã do con người viết có đúng không". Hiện nay, câu hỏi là "ai chịu trách nhiệm xác định thế nào là đúng, khi mã được sinh ra với tốc độ vượt khả năng đọc lại từng dòng".
 
----
+TDD là ứng viên tự nhiên cho câu hỏi này, vì nó đặt định nghĩa của sự đúng đắn (kiểm thử) trước phần cài đặt. Tuy nhiên, các bằng chứng kinh điển về TDD được thu thập khi con người viết cả kiểm thử lẫn mã. Bài viết này nhằm trả lời ba câu hỏi:
 
-## TDD là gì, và không phải là gì {#tdd-la-gi}
+1. Bằng chứng thực nghiệm hiện có nói gì về hiệu quả của TDD?
+2. TDD có thể được đặt ở đâu trong AI-DLC, và các nghiên cứu về sinh mã bằng LLM hỗ trợ điều đó đến mức nào?
+3. Một quy trình thực hành khả thi trông như thế nào, và những rủi ro nào cần kiểm soát?
 
-Beck mô tả TDD thành hai luật: chỉ viết code mới khi có một test tự động đang thất bại, và loại bỏ trùng lặp. Từ đó ra ba pha:
+Phạm vi tài liệu gồm các công bố đã được đối chiếu với phần tóm tắt trên nguồn gốc; cách xử lý chi tiết ở mục 7.
 
-| Pha | Việc làm | Điều kiện thoát |
-| --- | --- | --- |
-| **Red** | Viết **một** test mô tả hành vi mong muốn | Test chạy và **thất bại đúng lý do** |
-| **Green** | Viết code tối thiểu, kể cả hard-code | Toàn bộ test xanh |
-| **Refactor** | Dọn code và test, không đổi hành vi | Test vẫn xanh |
+## 2. Cơ sở lý thuyết {#co-so-ly-thuyet}
+
+### 2.1. Vòng lặp TDD {#vong-lap-tdd}
+
+Beck (2002), trong [*Test-Driven Development: By Example*](https://dl.acm.org/doi/10.5555/579193), mô tả TDD qua hai quy tắc: chỉ viết mã mới khi có một kiểm thử tự động đang thất bại, và loại bỏ sự trùng lặp. Hai quy tắc này tạo thành vòng lặp ba pha:
 
 ```mermaid
 flowchart LR
-    R["Red<br/>viết 1 test, thấy nó đỏ"] --> G["Green<br/>code tối thiểu cho test qua"]
-    G --> F["Refactor<br/>dọn code, test vẫn xanh"]
+    R["Red<br/>viết 1 kiểm thử, xác nhận thất bại"] --> G["Green<br/>mã tối thiểu để kiểm thử đạt"]
+    G --> F["Refactor<br/>tái cấu trúc, kiểm thử vẫn đạt"]
     F --> R
 ```
 
-Cần phân biệt với những thứ hay bị gộp chung:
-
-- **Test-first** chỉ nói về thứ tự (viết test trước). TDD thêm vào **refactor có kỷ luật** và việc tiến từng bước nhỏ.
-- **Unit test** là sản phẩm. TDD là **quy trình** tạo ra nó, và quan trọng hơn là tạo ra *thiết kế*.
-- **ATDD/BDD** đặt test ở mức hành vi nghiệp vụ, thường là vòng ngoài bao quanh vòng TDD ở mức đơn vị.
-
-Điểm hay bị bỏ qua: pha Red phải **thất bại đúng lý do**. Một test đỏ vì `NullReferenceException` trong code kiểm thử không chứng minh được gì về hành vi cần xây.
-
-## Bằng chứng nghiên cứu {#bang-chung}
-
-Phần này tách ra điều đã được đo từ điều chỉ là niềm tin. Các nghiên cứu khác nhau về bối cảnh (sinh viên hay chuyên gia, thí nghiệm hay case study), nên đọc chúng như những lát cắt, không phải một con số duy nhất.
-
-| Nghiên cứu | Loại | Kết quả chính |
+| Pha | Hoạt động | Điều kiện kết thúc |
 | --- | --- | --- |
-| Nagappan, Maximilien, Bhat, Williams (2008), *Empirical Software Engineering* | Case study 4 đội công nghiệp | Mật độ lỗi giảm **40–90%**, thời gian phát triển tăng **15–35%** |
-| Rafique & Mišić (2013), *IEEE TSE* | Phân tích tổng hợp 27 nghiên cứu | Cải thiện **nhỏ** về chất lượng ngoài, **gần như không** ảnh hưởng năng suất; nghiên cứu công nghiệp cho cả cải thiện chất lượng lẫn sụt giảm năng suất **lớn hơn** nghiên cứu học thuật |
-| Fucci và cộng sự (2017), *IEEE TSE* | Thí nghiệm, 39 lập trình viên chuyên nghiệp | Thứ tự viết test và code **không có ảnh hưởng quan trọng**; cải thiện chất lượng và năng suất gắn với **độ mịn** và **tính đều đặn** của bước |
-| Karac & Turhan (2018), *IEEE Software* | Bài tổng quan | Xem xét TDD đã giữ được bao nhiêu lời hứa, nhấn mạnh TDD không chỉ là viết test trước |
-| Causevic, Sundmark, Punnekkat (2011), *ICST* | Tổng quan hệ thống | Bảy yếu tố cản trở áp dụng, gồm: tăng thời gian phát triển, thiếu kinh nghiệm TDD, thiếu thiết kế trước, vấn đề riêng của miền và công cụ, code kế thừa |
+| Red | Viết **một** kiểm thử mô tả hành vi mong muốn | Kiểm thử chạy và thất bại **đúng nguyên nhân dự kiến** |
+| Green | Viết mã tối thiểu, có thể gán cứng kết quả | Toàn bộ kiểm thử đạt |
+| Refactor | Cải thiện cấu trúc mã và kiểm thử, không đổi hành vi | Toàn bộ kiểm thử vẫn đạt |
 
-Ba điều rút ra:
+Cần phân biệt TDD với ba khái niệm lân cận. *Test-first* chỉ quy định thứ tự viết kiểm thử trước; TDD bổ sung tái cấu trúc có kỷ luật và nhịp làm việc theo bước nhỏ. *Kiểm thử đơn vị* là sản phẩm, còn TDD là quy trình tạo ra sản phẩm đó và đồng thời định hình thiết kế. *ATDD/BDD* đặt kiểm thử ở mức hành vi nghiệp vụ, thường là vòng ngoài bao quanh vòng TDD ở mức đơn vị.
 
-1. **Lỗi giảm nhưng không miễn phí.** Con số 40–90% hấp dẫn, nhưng đi kèm 15–35% thời gian. Với đội phải sửa lỗi production tốn kém thì đáng; với prototype vứt đi thì không.
-2. **Hiệu ứng nhỏ khi gộp nhiều nghiên cứu.** Rafique & Mišić thấy mức cải thiện chất lượng *và* mức sụt giảm năng suất đều lớn hơn ở nghiên cứu công nghiệp so với học thuật, tức là bối cảnh thật khuếch đại cả lợi lẫn giá phải trả. Sụt giảm năng suất cũng lớn hơn khi nhóm TDD bỏ ra nhiều công sức viết test hơn hẳn nhóm đối chứng.
-3. **Cơ chế quan trọng hơn nhãn.** Trong thí nghiệm của Fucci, thứ tự viết test và code không có ảnh hưởng quan trọng; kết quả gắn với việc làm các bước nhỏ và đều. Các tác giả đề xuất lợi ích đến từ "những bước nhỏ, đều đặn giúp tập trung và giữ nhịp". Điều đáng giữ là **vòng phản hồi ngắn**.
+Một điều kiện dễ bị bỏ qua là pha Red phải thất bại đúng nguyên nhân. Kiểm thử đỏ do lỗi ngoại lệ trong chính mã kiểm thử không chứng minh được điều gì về hành vi cần xây dựng.
 
-> Lưu ý đọc nguồn: số liệu của Nagappan, Rafique & Mišić và Fucci được đối chiếu với tóm tắt công bố. Nếu trích lại cho mục đích học thuật, hãy mở bài gốc để kiểm tra bối cảnh mẫu, thang đo và khoảng tin cậy.
+### 2.2. AI-DLC {#ai-dlc}
 
-## Vì sao nó có thể hiệu quả: ba cơ chế {#co-che}
+AI-DLC do [Raja SP (AWS) đề xuất](https://aws.amazon.com/blogs/devops/ai-driven-development-life-cycle), công bố ngày 31/07/2025. Phương pháp này chủ trương AI đóng vai trò chủ thể thực thi, còn con người giữ thẩm quyền ra quyết định ở các điểm cần ngữ cảnh nghiệp vụ và phán đoán, theo nguyên lý "AI Powered Execution with Human Oversight". Vòng đời gồm ba pha:
 
-1. **Phản hồi ngắn.** Lỗi được phát hiện trong vài phút sau khi gõ, khi bạn còn nhớ mình vừa đổi gì. Chi phí tìm lỗi tăng mạnh theo khoảng cách từ lúc gây ra.
-2. **Test là yêu cầu thực thi được.** Viết test trước buộc bạn trả lời "hàm này nhận gì, trả gì, sai thì làm gì" *trước* khi nghĩ đến cách cài đặt.
-3. **Thiết kế bị kéo về phía dễ kiểm thử.** Code khó viết test thường là code ghép chặt (tight coupling). Cảm giác khó chịu khi viết test là tín hiệu thiết kế, không phải sự cố của công cụ.
+- **Inception:** AI chuyển ý định nghiệp vụ thành yêu cầu, câu chuyện người dùng và các đơn vị công việc thông qua hoạt động *Mob Elaboration*, trong đó nhóm liên chức năng thẩm định các đề xuất và câu hỏi của AI.
+- **Construction:** AI đề xuất kiến trúc logic, mô hình miền, mã nguồn và bộ kiểm thử thông qua *Mob Construction*; nhóm làm rõ các quyết định kỹ thuật theo thời gian thực.
+- **Operations:** AI quản lý hạ tầng dưới dạng mã và triển khai, dựa trên ngữ cảnh tích luỹ từ các pha trước.
 
-Cũng cần nói thẳng giới hạn: cơ chế thứ ba chỉ đúng khi bạn **lắng nghe** tín hiệu đó. Nếu gặp test khó viết rồi chèn mock chằng chịt cho qua, TDD chỉ thêm gánh nặng bảo trì.
+Về thuật ngữ, *Bolt* thay cho sprint (chu kỳ tính bằng giờ hoặc ngày), và *Unit of Work* thay cho epic. Trong mô tả này, kiểm thử xuất hiện như một sản phẩm do AI sinh ra liên tục trong Construction. Tài liệu giới thiệu nói đến việc AI áp dụng chuẩn mã hoá, mẫu thiết kế và yêu cầu bảo mật của tổ chức khi sinh bộ kiểm thử. Vì vậy, việc gắn TDD vào AI-DLC trong bài này là **đề xuất của tác giả bài viết**, không phải nội dung được quy định trong tài liệu gốc.
 
-## Thực hành: kata tính giá đơn hàng bằng C# và xUnit {#kata}
+## 3. Bằng chứng thực nghiệm về TDD {#bang-chung}
 
-Yêu cầu giả định, đủ nhỏ để theo dõi:
+Các nghiên cứu dưới đây khác nhau về đối tượng (sinh viên hay chuyên gia), thiết kế (thí nghiệm hay nghiên cứu tình huống) và thang đo, nên cần đọc như những lát cắt bổ sung cho nhau thay vì một con số duy nhất.
 
-- Đơn từ **1.000.000đ** trở lên được giảm **10%**.
-- Khách **VIP** được giảm thêm **5%**, cộng dồn với mức trên.
-- Tổng tiền hàng **âm** là dữ liệu không hợp lệ.
+| Nghiên cứu | Loại hình | Kết quả chính |
+| --- | --- | --- |
+| [Nagappan, Maximilien, Bhat, Williams (2008)](https://www.microsoft.com/en-us/research/wp-content/uploads/2009/10/Realizing-Quality-Improvement-Through-Test-Driven-Development-Results-and-Experiences-of-Four-Industrial-Teams-nagappan_tdd.pdf) | Nghiên cứu tình huống, 4 đội (3 Microsoft, 1 IBM) | Mật độ lỗi trước phát hành giảm 40–90% so với dự án tương đương; thời gian phát triển ban đầu tăng 15–35% |
+| [Rafique & Mišić (2013)](https://ieeexplore.ieee.org/document/6197200) | Phân tích tổng hợp, 27 nghiên cứu | Cải thiện nhỏ về chất lượng ngoài, gần như không ảnh hưởng năng suất; nghiên cứu công nghiệp cho mức cải thiện chất lượng và mức sụt giảm năng suất đều lớn hơn nghiên cứu học thuật |
+| [Fucci và cộng sự (2017)](https://arxiv.org/abs/1611.05994) | Thí nghiệm, 39 lập trình viên chuyên nghiệp | Thứ tự viết kiểm thử và mã không có ảnh hưởng quan trọng; chất lượng và năng suất gắn với độ mịn và tính đều đặn của các bước |
+| [Causevic, Sundmark, Punnekkat (2011)](https://dl.acm.org/doi/10.1109/ICST.2011.19) | Tổng quan hệ thống | Bảy yếu tố cản trở áp dụng, gồm tăng thời gian phát triển, thiếu kinh nghiệm TDD, thiếu thiết kế trước, vấn đề riêng của miền và công cụ, mã kế thừa |
 
-### Vòng 1: Red rồi Green bằng cách "giả" {#vong-1}
+Ba nhận xét rút ra từ bảng trên:
 
-Test đầu tiên chọn ca đơn giản nhất:
+1. **Lợi ích về chất lượng đi kèm chi phí.** Mức giảm lỗi 40–90% không tách rời khỏi mức tăng 15–35% thời gian ban đầu. Giá trị ròng phụ thuộc vào chi phí của lỗi trong môi trường cụ thể.
+2. **Bối cảnh khuếch đại cả lợi ích lẫn chi phí.** Phân tích của Rafique & Mišić cho thấy nghiên cứu công nghiệp có cả mức cải thiện chất lượng lẫn mức sụt giảm năng suất lớn hơn nghiên cứu học thuật. Mức sụt giảm năng suất cũng lớn hơn khi nhóm áp dụng TDD đầu tư công sức kiểm thử nhiều hơn đáng kể so với nhóm đối chứng.
+3. **Cơ chế quan trọng hơn thứ tự.** Fucci và cộng sự không tìm thấy ảnh hưởng quan trọng của việc viết kiểm thử trước hay sau; kết quả tốt gắn với bước nhỏ và đều. Các tác giả đề xuất lợi ích đến từ "những bước nhỏ, đều đặn giúp tập trung và giữ nhịp". Đây là điểm có ý nghĩa đặc biệt cho mục 4.
+
+[Karac & Turhan (2018)](https://doi.org/10.1109/MS.2018.2801554) cũng xem xét TDD đã đáp ứng được bao nhiêu kỳ vọng đặt ra, nhấn mạnh rằng TDD không chỉ là viết kiểm thử trước. Bài viết này không trích dẫn kết luận định lượng của công bố đó.
+
+## 4. TDD trong bối cảnh AI-DLC {#tdd-trong-ai-dlc}
+
+### 4.1. Kiểm thử như đặc tả thực thi được {#dac-ta-thuc-thi}
+
+Khi mã do LLM sinh ra, một yêu cầu bằng ngôn ngữ tự nhiên thường chứa nhiều điểm mơ hồ mà mô hình sẽ giải quyết theo cách riêng của nó. Kiểm thử loại bỏ sự mơ hồ này bằng một phát biểu có thể chạy được. Một số nghiên cứu gần đây khảo sát hướng tiếp cận này:
+
+| Nghiên cứu | Thiết kế | Kết quả chính |
+| --- | --- | --- |
+| [Fakhoury và cộng sự (2024)](https://arxiv.org/abs/2404.10100), TiCoder, *IEEE TSE* | Quy trình tương tác dùng kiểm thử để làm rõ ý định; nghiên cứu người dùng với 15 lập trình viên; 4 LLM, 2 tập dữ liệu Python | Độ chính xác pass@1 tăng trung bình tuyệt đối 45,97% trong vòng 5 lần tương tác; tải nhận thức của người tham gia giảm có ý nghĩa |
+| [Liang và cộng sự (2026)](https://arxiv.org/abs/2602.03557), ClassEval-TDD | Khung lặp theo TDD cho sinh mã mức lớp, 8 LLM | Độ đúng đắn tăng 12–26 điểm phần trăm so với sinh trực tiếp; tối đa 71% lớp đúng hoàn toàn |
+| [Piya & Sullivan (2023)](https://arxiv.org/abs/2312.04687), LLM4TDD | ChatGPT trên bài toán LeetCode, đưa kiểm thử vào dần dần | Khảo sát ảnh hưởng của thuộc tính kiểm thử, câu lệnh gợi ý và bài toán; không trích số liệu cụ thể trong bài này |
+
+Các kết quả cùng hướng: cung cấp kiểm thử cho mô hình, và cho phép mô hình lặp lại theo phản hồi, cải thiện đáng kể độ chính xác so với sinh trực tiếp từ mô tả. Cần lưu ý ba giới hạn. Thứ nhất, các thực nghiệm dùng bài toán chuẩn (hàm, lớp đơn lẻ), chưa phản ánh hệ thống nhiều thành phần. Thứ hai, "độ chính xác" ở đây được đo bằng chính các bộ kiểm thử, nên phụ thuộc chất lượng của chúng (xem 4.2). Thứ ba, mẫu người dùng của TiCoder nhỏ (15 người).
+
+### 4.2. Chất lượng kiểm thử là giới hạn của tính đúng đắn {#chat-luong-kiem-thu}
+
+[Liu và cộng sự (2023)](https://arxiv.org/abs/2305.01210) với EvalPlus mở rộng bộ kiểm thử của HumanEval lên 80 lần và đánh giá lại 26 LLM. Tỷ lệ đạt giảm tới 19,3–28,9%, và thứ hạng giữa các mô hình thay đổi: hai mô hình mã nguồn mở vượt ChatGPT trên bộ kiểm thử mở rộng nhưng không vượt trên bộ gốc. Các tác giả kết luận sự thiếu hụt của kiểm thử có thể dẫn tới xếp hạng sai.
+
+Kết quả này không thuộc về TDD thuần tuý, nhưng có hệ quả trực tiếp khi AI-DLC cho AI sinh cả mã lẫn kiểm thử. Nếu một mô hình viết kiểm thử dựa trên chính cách hiểu của nó về yêu cầu, rồi viết mã để đạt các kiểm thử đó, thì việc "tất cả kiểm thử đạt" chỉ chứng minh sự nhất quán nội bộ của mô hình, không chứng minh sự phù hợp với ý định nghiệp vụ. Đây là lập luận suy diễn của tác giả bài viết, chưa có nghiên cứu nào được tìm thấy đo trực tiếp hiện tượng này trong AI-DLC. Các rủi ro rộng hơn của việc giao mã cho AI được phân tích ở [phần 3 của loạt bài AI-Driven Development](/blog/phat-trien-phan-mem-ai-driven-development-phan-3); cách đưa tri thức kỹ thuật của dự án vào tác tử AI được bàn ở [bài về agent skills](/blog/agent-skills-co-che-va-tri-thuc-bi-bo-qua).
+
+### 4.3. Đề xuất phân vai {#de-xuat-phan-vai}
+
+Từ hai nhận xét trên, bài viết đề xuất một nguyên tắc phân vai, đối chiếu với các pha AI-DLC:
+
+| Pha AI-DLC | Hoạt động TDD tương ứng | Vai trò đề xuất |
+| --- | --- | --- |
+| Inception (Mob Elaboration) | Chuyển tiêu chí chấp nhận thành ví dụ cụ thể và kiểm thử ở mức hành vi | AI soạn thảo, **con người thẩm định** vì đây là nơi ý định nghiệp vụ được cố định |
+| Construction (Mob Construction), pha Red | Viết kiểm thử đơn vị mô tả hành vi tiếp theo | **Con người viết hoặc phê duyệt từng kiểm thử** trước khi AI viết mã |
+| Construction, pha Green | Cài đặt tối thiểu để kiểm thử đạt | **AI thực hiện**; kết quả được kiểm chứng bằng kiểm thử, không bằng việc đọc lướt |
+| Construction, pha Refactor | Tái cấu trúc khi toàn bộ kiểm thử đạt | AI đề xuất, con người xét duyệt; kiểm thử là lưới an toàn |
+
+Cơ sở của việc đặt thẩm quyền ở pha Red: đó là nơi định nghĩa sự đúng đắn, tương ứng với nguyên lý thẩm quyền quyết định thuộc về con người của AI-DLC. Cơ sở của việc giao pha Green cho AI: đây là phần có phản hồi tự động rõ ràng nhất, đúng loại tác vụ mà các nghiên cứu ở 4.1 cho thấy mô hình xử lý tốt hơn khi có kiểm thử dẫn dắt.
+
+Nhịp làm việc cũng tương thích. Fucci và cộng sự gắn kết quả tốt với bước nhỏ và đều, còn AI-DLC dùng Bolt (giờ hoặc ngày) thay cho sprint. Mỗi vòng Red-Green-Refactor có thể xem là đơn vị mịn hơn nằm trong một Bolt.
+
+### 4.4. Khoảng trống nghiên cứu {#khoang-trong}
+
+Trong phạm vi tìm kiếm của tác giả, chưa thấy nghiên cứu nào đánh giá TDD gắn với AI-DLC ở quy mô dự án công nghiệp. Các kết quả ở 4.1 đến từ bài toán chuẩn; các kết quả ở mục 3 đến từ giai đoạn trước khi trợ lý AI phổ biến. Việc gộp hai nhóm bằng chứng để kết luận về quy trình kết hợp là một suy luận, cần được kiểm chứng.
+
+## 5. Minh hoạ thực hành {#minh-hoa}
+
+Bài toán giả định, đủ nhỏ để theo dõi: đơn hàng từ 1.000.000 trở lên được giảm 10%; khách VIP được giảm thêm 5% cộng dồn; tổng tiền hàng âm là dữ liệu không hợp lệ. Theo phân vai ở 4.3, người phát triển viết kiểm thử, trợ lý AI đề xuất cài đặt.
+
+### 5.1. Vòng 1: Red, rồi Green bằng cách giả lập {#vong-1}
+
+Kiểm thử đầu tiên chọn tình huống đơn giản nhất:
 
 ```csharp
 public class OrderPricingTests
@@ -109,7 +144,7 @@ public class OrderPricingTests
 }
 ```
 
-Lúc này `OrderPricing` chưa tồn tại nên không biên dịch được; đó cũng là một dạng Red. Tạo lớp rỗng với phương thức ném `NotImplementedException` để test **chạy và đỏ** đúng lý do, rồi viết đủ để qua:
+Lớp `OrderPricing` chưa tồn tại nên đoạn mã chưa biên dịch được, đây cũng là một dạng Red. Cần tạo lớp rỗng với phương thức ném `NotImplementedException` để kiểm thử chạy và thất bại đúng nguyên nhân, sau đó viết lượng mã đủ để đạt:
 
 ```csharp
 public class OrderPricing
@@ -118,11 +153,11 @@ public class OrderPricing
 }
 ```
 
-Đây là kỹ thuật **Fake It**: trả về thứ test cần, chưa vội tổng quát hoá.
+Đây là kỹ thuật *Fake It* của Beck: trả về đúng giá trị kiểm thử cần, chưa tổng quát hoá. Với trợ lý AI, pha này đặc biệt quan trọng: người phát triển cần quan sát kiểm thử **thật sự đỏ** trước khi yêu cầu AI viết mã.
 
-### Vòng 2: tam giác hoá {#vong-2}
+### 5.2. Vòng 2: tam giác hoá {#vong-2}
 
-Thêm test buộc code phải thật sự tính toán (**triangulation**):
+Bổ sung kiểm thử buộc mã phải tính toán thật (*triangulation*):
 
 ```csharp
 [Fact]
@@ -134,16 +169,14 @@ public void Total_AtThreshold_Gets10PercentOff()
 }
 ```
 
-Test này đỏ. Cài đặt tối thiểu:
-
 ```csharp
 public decimal Total(decimal subtotal, bool isVip)
     => subtotal >= 1_000_000m ? subtotal * 0.90m : subtotal;
 ```
 
-Ca biên (đúng bằng ngưỡng) là chỗ lỗi `>` so với `>=` hay trốn; viết nó thành test từ sớm là thói quen rẻ mà hiệu quả.
+Giá trị biên (đúng bằng ngưỡng) là nơi lỗi `>` so với `>=` thường xuất hiện. Một trợ lý AI có thể chọn sai biên nếu yêu cầu chỉ được mô tả bằng lời; kiểm thử biên loại bỏ khả năng này.
 
-### Vòng 3: VIP và dữ liệu không hợp lệ {#vong-3}
+### 5.3. Vòng 3: VIP, dữ liệu không hợp lệ và tái cấu trúc {#vong-3}
 
 ```csharp
 [Fact]
@@ -172,7 +205,7 @@ public void Total_NegativeSubtotal_Throws()
 }
 ```
 
-Cài đặt đến lúc này đã có điều kiện lồng nhau, đến lúc **Refactor** khi toàn bộ test đang xanh:
+Khi toàn bộ kiểm thử đạt, pha Refactor loại bỏ điều kiện lồng nhau và đặt tên cho các hằng số nghiệp vụ:
 
 ```csharp
 public class OrderPricing
@@ -195,102 +228,117 @@ public class OrderPricing
 }
 ```
 
-Refactor ở đây có tác dụng thật: các con số nghiệp vụ có tên, và quy tắc cộng dồn nằm ở một chỗ. Bộ test làm lưới an toàn: nếu sau này đổi sang giảm giá nhân dồn thay vì cộng dồn, test `StacksTo15Percent` sẽ đỏ ngay.
+Quy tắc cộng dồn nay nằm ở một vị trí. Nếu về sau mô hình hoặc con người đổi sang giảm giá nhân dồn, kiểm thử `StacksTo15Percent` sẽ thất bại ngay. Đây là chức năng "lưới an toàn" của bộ kiểm thử, và càng quan trọng khi mã được thay đổi hàng loạt bởi AI.
 
-> Ghi chú kiểm chứng: các giá trị kỳ vọng (475.000, 850.000, 900.000) được tính tay từ quy tắc, còn mã C# trong bài chưa được biên dịch và chạy trong quá trình viết. Hãy chạy `dotnet test` trên máy của bạn trước khi dùng.
+> **Ghi chú kiểm chứng.** Các giá trị kỳ vọng (475.000; 850.000; 900.000) được tính tay theo quy tắc. Mã C# trong bài chưa được biên dịch và chạy khi biên soạn. Cần chạy `dotnet test` trước khi sử dụng.
 
-### Ba lỗi hay gặp khi mới tập {#loi-hay-gap}
+### 5.4. Các sai lệch thường gặp {#sai-lech}
 
-- **Viết nhiều test cùng lúc** rồi mới code. Bạn mất vòng phản hồi ngắn, thứ đáng giá nhất của TDD.
-- **Bỏ qua Refactor.** Chỉ làm Red-Green sẽ ra bộ code chạy được nhưng lộn xộn, và test dần trở thành gánh nặng.
-- **Test bám vào cài đặt** (kiểm tra gọi hàm nội bộ nào) thay vì hành vi quan sát được. Đổi cách cài đặt là test vỡ dù hành vi không đổi.
+- **Viết nhiều kiểm thử cùng lúc rồi mới yêu cầu mã.** Mất vòng phản hồi ngắn, vốn là yếu tố được gắn với kết quả tốt (Fucci và cộng sự, 2017). Với AI, rủi ro tăng vì mô hình dễ sinh ra một khối lớn mã khó thẩm định.
+- **Bỏ qua Refactor.** Chỉ thực hiện Red-Green tạo ra mã chạy được nhưng thiếu cấu trúc, và kiểm thử dần trở thành gánh nặng bảo trì.
+- **Kiểm thử bám vào cài đặt thay vì hành vi quan sát được.** Thay đổi cài đặt làm vỡ kiểm thử dù hành vi không đổi.
+- **Để AI viết cả kiểm thử lẫn mã mà không thẩm định kiểm thử** (xem 4.2).
 
-## Hai trường phái: Chicago và London {#hai-truong-phai}
+## 6. Hạn chế và phạm vi áp dụng {#han-che}
 
-Khi code có phụ thuộc (repository, gateway), TDD tách làm hai cách tiếp cận:
+**Trường phái.** Khi mã có phụ thuộc, TDD tách thành hai cách tiếp cận. Trường phái Chicago (cổ điển) kiểm tra *trạng thái* kết quả, dùng đối tượng thật hoặc đối tượng giả đơn giản, và đi từ trong ra ngoài. Trường phái London (mockist) kiểm tra *tương tác* giữa các đối tượng bằng mock, và đi từ ngoài vào trong ([Fowler, 2007](https://martinfowler.com/articles/mocksArentStubs.html); Freeman & Pryce, 2009). Với logic nghiệp vụ thuần như ví dụ ở mục 5, cách tiếp cận cổ điển thường ít gắn chặt vào cấu trúc nội bộ hơn. Việc có thể thay phụ thuộc bằng đối tượng giả hay không phụ thuộc vào thiết kế theo nguyên lý đảo ngược phụ thuộc, trình bày ở [bài Clean Architecture](/docs/dotnet-backend-zero-to-senior/stage-05-senior-engineering/module-16-clean-architecture/16.3-uncle-bob); riêng với repository, [bài Unit of Work và Repository](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.9-unit-of-work-and-repository-pattern) phân tích vì sao kiểm thử tích hợp thường thay thế được nhu cầu giả lập.
 
-| | **Chicago (cổ điển)** | **London (mockist)** |
-| --- | --- | --- |
-| Test kiểm tra | **Trạng thái** kết quả | **Tương tác** giữa các đối tượng |
-| Phụ thuộc | Dùng đối tượng thật hoặc fake đơn giản | Thay bằng mock |
-| Chạy từ | Trong ra ngoài | Ngoài vào trong (outside-in) |
-| Rủi ro | Test rộng hơn, khó khoanh vùng | Test gắn chặt với cấu trúc nội bộ, dễ vỡ khi refactor |
+**Tình huống kém phù hợp.**
 
-Fowler phân tích sự khác biệt này trong *Mocks Aren't Stubs*, còn Freeman & Pryce trình bày cách London trong *Growing Object-Oriented Software, Guided by Tests*. Không có đáp án đúng tuyệt đối; với logic nghiệp vụ thuần như kata trên, kiểu Chicago thường ít đau hơn.
+- *Mã khám phá (spike).* Khi chưa biết cần xây dựng gì, viết kiểm thử trước chỉ cố định một giả định có thể sai. Nên khám phá, rút ra hiểu biết, loại bỏ mã rồi viết lại bằng TDD.
+- *Giao diện và hiệu ứng thị giác.* Kết quả cần đánh giá bằng mắt người; kiểm thử dạng ảnh chụp mang lại lợi ích thấp so với chi phí bảo trì.
+- *Tích hợp hạ tầng* (cơ sở dữ liệu, hàng đợi, mạng). Giả lập hạ tầng dễ tạo cảm giác an toàn sai; kiểm thử tích hợp có chủ đích đáng tin cậy hơn (xem [bài API Testing](/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-09-web-api-professional/9.8-api-testing) về WebApplicationFactory và Testcontainers).
+- *Mã kế thừa không có điểm tách (seam).* Cần tách phụ thuộc trước, theo hướng dẫn của Feathers (2004), rồi mới áp dụng TDD.
 
-## Khi nào TDD không phải lựa chọn tốt {#gioi-han}
+**Mối đe doạ tính hợp lệ của tổng quan này.** Số liệu ở mục 3 chủ yếu thuộc giai đoạn trước trợ lý AI; số liệu ở 4.1 và 4.2 đến từ bài toán và bộ chuẩn quy mô nhỏ. Phần 4.3 là đề xuất chưa được kiểm chứng thực nghiệm.
 
-- **Code khám phá (spike).** Khi chưa biết mình đang xây gì, viết test trước chỉ khoá một giả định sai. Hãy spike, học, rồi vứt và viết lại bằng TDD.
-- **UI và hiệu ứng thị giác.** Kết quả cần mắt người; test kiểu snapshot cho lợi ích thấp so với công bảo trì.
-- **Tích hợp hạ tầng** (database, queue, mạng). Mock hạ tầng cho cảm giác an toàn giả; test tích hợp có chủ đích đáng tin hơn.
-- **Code kế thừa không có đường may** (seam). Cần tách phụ thuộc trước, theo hướng dẫn của Feathers trong *Working Effectively with Legacy Code*, rồi mới TDD được.
+## 7. Phương pháp xử lý tài liệu {#phuong-phap}
 
-Đây cũng khớp với các yếu tố cản trở Causevic và cộng sự tổng hợp: code kế thừa, vấn đề riêng của miền và công cụ, thiếu kinh nghiệm TDD.
+Số liệu của Nagappan và cộng sự, Rafique & Mišić, Fucci và cộng sự, Causevic và cộng sự, Fakhoury và cộng sự, Liang và cộng sự, Liu và cộng sự được đối chiếu với phần tóm tắt công bố tại nguồn gốc (nhà xuất bản, arXiv). Riêng Piya & Sullivan chỉ đối chiếu được phần tóm tắt, không có số liệu định lượng; Karac & Turhan chỉ đối chiếu được thông tin xuất bản và chủ đề. Khi trích dẫn cho mục đích học thuật, cần mở bài gốc để kiểm tra cỡ mẫu, thang đo, khoảng tin cậy và các điều kiện thực nghiệm. Các phát biểu về AI-DLC dựa trên bài giới thiệu của tác giả phương pháp, không dựa trên đánh giá độc lập.
 
-## Checklist áp dụng {#checklist}
+## Danh sách kiểm tra áp dụng {#checklist}
 
 <Checklist
-  title="Trước khi tuyên bố 'đội mình làm TDD'"
+  title="Trước khi xác nhận quy trình TDD có AI tham gia"
   items={[
-    { text: "Mỗi test đầu tiên được chạy và thấy đỏ đúng lý do trước khi viết code" },
-    { text: "Mỗi vòng Red-Green kéo dài vài phút, không phải vài giờ" },
+    { text: "Mỗi kiểm thử mới được chạy và quan sát thất bại đúng nguyên nhân trước khi AI viết mã" },
+    { text: "Con người viết hoặc phê duyệt từng kiểm thử; kiểm thử do AI soạn đều được thẩm định đối chiếu yêu cầu" },
+    { text: "Mỗi vòng Red-Green-Refactor đủ nhỏ để thẩm định được đầu ra của AI" },
     { text: "Pha Refactor thực sự diễn ra, không bị bỏ qua khi gấp" },
-    { text: "Test kiểm tra hành vi quan sát được, không kiểm tra chi tiết cài đặt" },
-    { text: "Ca biên (ngưỡng, rỗng, âm, null) được viết thành test từ sớm" },
-    { text: "Chọn đúng chỗ dùng: logic nghiệp vụ thuần, không ép cho UI hay spike", checked: true }
+    { text: "Kiểm thử mô tả hành vi quan sát được, không mô tả chi tiết cài đặt" },
+    { text: "Giá trị biên (ngưỡng, rỗng, âm, null) được viết thành kiểm thử từ sớm" },
+    { text: "Phạm vi áp dụng phù hợp: logic nghiệp vụ thuần, không ép cho giao diện hay mã khám phá", checked: true }
   ]}
 />
 
 ## Câu hỏi thường gặp {#faq}
 
 <FAQSection
-  title="Câu hỏi thường gặp về TDD"
+  title="Câu hỏi thường gặp về TDD và AI-DLC"
   items={[
     {
-      question: "TDD có thật sự giảm lỗi không?",
-      answer: "Có dấu hiệu giảm, nhưng độ lớn phụ thuộc bối cảnh. Case study trên bốn đội công nghiệp của Nagappan và cộng sự (2008) ghi nhận mật độ lỗi giảm 40–90% so với dự án tương đương không dùng TDD. Phân tích tổng hợp 27 nghiên cứu của Rafique và Mišić (2013) thì chỉ thấy cải thiện nhỏ về chất lượng ngoài, dù mức cải thiện ở các nghiên cứu công nghiệp lớn hơn ở nghiên cứu học thuật. Cách đọc thận trọng là: TDD thường giúp, nhưng đừng kỳ vọng con số cao nhất áp dụng cho đội của bạn."
+      question: "TDD có thực sự giảm lỗi không?",
+      answer: "Có dấu hiệu giảm, nhưng mức độ phụ thuộc bối cảnh. Nghiên cứu tình huống trên bốn đội công nghiệp của Nagappan và cộng sự (2008) ghi nhận mật độ lỗi giảm 40–90% so với dự án tương đương không dùng TDD. Phân tích tổng hợp 27 nghiên cứu của Rafique và Mišić (2013) chỉ thấy cải thiện nhỏ về chất lượng ngoài, dù mức cải thiện ở nghiên cứu công nghiệp lớn hơn ở nghiên cứu học thuật."
     },
     {
       question: "TDD làm chậm phát triển bao nhiêu?",
-      answer: "Nghiên cứu của Nagappan và cộng sự báo cáo thời gian phát triển ban đầu tăng khoảng 15–35%. Phần chi phí này được kỳ vọng thu lại ở giai đoạn sửa lỗi và bảo trì. Với sản phẩm sống lâu thì thường đáng, với sản phẩm thử nghiệm ngắn hạn thì chưa chắc."
+      answer: "Nagappan và cộng sự báo cáo thời gian phát triển ban đầu tăng khoảng 15–35%. Chi phí này được kỳ vọng thu hồi ở giai đoạn sửa lỗi và bảo trì, nên thường hợp lý với sản phẩm vòng đời dài và kém hợp lý với thử nghiệm ngắn hạn."
     },
     {
-      question: "Viết test sau khi code có kém hơn TDD không?",
-      answer: "Không nhất thiết. Thí nghiệm của Fucci và cộng sự (2017) với 39 lập trình viên chuyên nghiệp kết luận thứ tự viết test và code không có ảnh hưởng quan trọng; chất lượng và năng suất gắn với việc làm theo các bước nhỏ và đều đặn. Tuy nhiên viết test sau dễ dẫn đến việc test chỉ phản chiếu code đang có, và dễ bỏ qua ca khó. TDD giữ kỷ luật này bằng cấu trúc quy trình."
+      question: "AI-DLC là gì và có yêu cầu TDD không?",
+      answer: "AI-DLC là phương pháp phát triển phần mềm do Raja SP (AWS) đề xuất năm 2025, gồm ba pha Inception, Construction và Operations, trong đó AI thực thi còn con người giữ thẩm quyền quyết định. Bài giới thiệu phương pháp mô tả kiểm thử là sản phẩm do AI sinh ra trong Construction và không quy định TDD. Việc kết hợp TDD với AI-DLC trong bài này là đề xuất của tác giả bài viết."
     },
     {
-      question: "TDD khác gì unit test thông thường?",
-      answer: "Unit test là sản phẩm: những đoạn code kiểm tra một đơn vị nhỏ. TDD là quy trình tạo ra chúng theo vòng Red-Green-Refactor, đồng thời dùng test để dẫn dắt thiết kế. Có thể có unit test mà không làm TDD, nhưng không thể làm TDD mà không có test tự động."
+      question: "Tại sao không để AI viết cả kiểm thử lẫn mã?",
+      answer: "Nếu cùng một mô hình hiểu sai yêu cầu, kiểm thử và mã sẽ sai nhất quán và vẫn đạt. Nghiên cứu EvalPlus (Liu và cộng sự, 2023) cho thấy bộ kiểm thử thiếu hụt có thể làm tỷ lệ đạt bị thổi phồng tới 19,3–28,9% và làm sai thứ hạng giữa các mô hình. Vì vậy cần con người thẩm định kiểm thử, vì đây là nơi sự đúng đắn được định nghĩa."
     },
     {
-      question: "Có nên dùng mock trong TDD không?",
-      answer: "Dùng có chọn lọc. Mock hợp với ranh giới hệ thống như gọi dịch vụ bên ngoài. Dùng mock cho mọi phụ thuộc nội bộ làm test bám chặt vào cấu trúc code và vỡ khi refactor dù hành vi không đổi. Hãy ưu tiên đối tượng thật hoặc fake đơn giản khi chi phí thấp."
+      question: "Viết kiểm thử sau khi có mã có kém hơn TDD không?",
+      answer: "Không nhất thiết. Thí nghiệm của Fucci và cộng sự (2017) với 39 lập trình viên chuyên nghiệp kết luận thứ tự viết kiểm thử và mã không có ảnh hưởng quan trọng; chất lượng và năng suất gắn với việc làm theo các bước nhỏ và đều đặn. Tuy nhiên, kiểm thử viết sau dễ chỉ phản chiếu mã hiện có và bỏ qua các tình huống khó."
     }
   ]}
 />
 
 ## Kết luận {#ket-luan}
 
-TDD không phải liều thuốc chung, và bằng chứng nghiên cứu cũng không đủ mạnh để biến nó thành tín điều. Điều nghiên cứu ủng hộ là một nguyên tắc rộng hơn nhãn "TDD": **đi từng bước nhỏ, có phản hồi tự động sau mỗi bước, và dọn dẹp thường xuyên**.
+TDD không phải giải pháp phổ quát, và bằng chứng thực nghiệm chưa đủ mạnh để coi nó là nguyên tắc bắt buộc. Điều các nghiên cứu ủng hộ rộng hơn nhãn "TDD": làm việc theo bước nhỏ, có phản hồi tự động sau mỗi bước, và tái cấu trúc thường xuyên.
 
-Ba điều đáng nhớ:
+Trong bối cảnh AI-DLC, giá trị của TDD dịch chuyển từ việc giúp lập trình viên viết mã đúng sang việc cho phép con người **định nghĩa sự đúng đắn bằng đặc tả thực thi được** và giao phần cài đặt cho AI. Ba kết luận chính:
 
-1. **Chấp nhận đánh đổi có thật.** Lỗi ít hơn đổi lấy thời gian ban đầu nhiều hơn; hãy cân theo vòng đời sản phẩm của bạn.
-2. **Giữ bước nhỏ.** Đây là yếu tố được thí nghiệm gần đây chỉ ra, và cũng là thứ dễ trượt nhất khi gấp.
-3. **Dùng đúng chỗ.** Logic nghiệp vụ thuần là sân nhà của TDD; UI, spike và hạ tầng cần công cụ khác.
+1. **Chi phí và lợi ích đều có thật.** Giảm lỗi đổi lấy thời gian ban đầu; cần cân theo vòng đời sản phẩm.
+2. **Bước nhỏ là yếu tố có bằng chứng ủng hộ nhất.** Với AI sinh mã, bước nhỏ còn giúp giữ khối lượng cần thẩm định ở mức con người kiểm soát được.
+3. **Kiểm thử là điểm giữ thẩm quyền của con người.** Chất lượng bộ kiểm thử đặt giới hạn cho mọi kết luận về tính đúng đắn của mã do AI sinh ra; do đó pha Red nên được con người sở hữu.
+
+Hướng nghiên cứu tiếp theo là đo lường quy trình kết hợp này ở quy mô dự án công nghiệp, nơi hiện chưa có bằng chứng trực tiếp.
 
 ## Tài liệu tham khảo {#tai-lieu}
 
-- Beck, K. (2002). *Test-Driven Development: By Example*. Addison-Wesley.
-- Nagappan, N., Maximilien, E. M., Bhat, T., Williams, L. (2008). Realizing quality improvement through test driven development: results and experiences of four industrial teams. *Empirical Software Engineering*, 13(3), 289–302.
-- Rafique, Y., Mišić, V. B. (2013). The effects of test-driven development on external quality and productivity: a meta-analysis. *IEEE Transactions on Software Engineering*, 39(6), 835–856.
-- Fucci, D., Erdogmus, H., Turhan, B., Oivo, M., Juristo, N. (2017). A dissection of the test-driven development process: does it really matter to test-first or to test-last? *IEEE Transactions on Software Engineering*, 43(7), 597–614.
-- Karac, I., Turhan, B. (2018). What do we (really) know about test-driven development? *IEEE Software*, 35(4), 81–85.
-- Causevic, A., Sundmark, D., Punnekkat, S. (2011). Factors limiting industrial adoption of test driven development: a systematic review. *ICST 2011*, 337–346.
-- Fowler, M. (2007). *Mocks Aren't Stubs*. martinfowler.com.
+- Beck, K. (2002). *Test-Driven Development: By Example*. Addison-Wesley. https://dl.acm.org/doi/10.5555/579193
+- Raja SP (2025, 31/07). AI-Driven Development Life Cycle: Reimagining Software Engineering. *AWS DevOps & Developer Productivity Blog*. https://aws.amazon.com/blogs/devops/ai-driven-development-life-cycle
+- Nagappan, N., Maximilien, E. M., Bhat, T., Williams, L. (2008). Realizing quality improvement through test driven development: results and experiences of four industrial teams. *Empirical Software Engineering*, 13(3), 289–302. https://www.microsoft.com/en-us/research/wp-content/uploads/2009/10/Realizing-Quality-Improvement-Through-Test-Driven-Development-Results-and-Experiences-of-Four-Industrial-Teams-nagappan_tdd.pdf
+- Rafique, Y., Mišić, V. B. (2013). The effects of test-driven development on external quality and productivity: a meta-analysis. *IEEE Transactions on Software Engineering*, 39(6), 835–856. https://ieeexplore.ieee.org/document/6197200
+- Fucci, D., Erdogmus, H., Turhan, B., Oivo, M., Juristo, N. (2017). A dissection of the test-driven development process: does it really matter to test-first or to test-last? *IEEE Transactions on Software Engineering*, 43(7), 597–614. https://doi.org/10.1109/TSE.2016.2616877
+- Karac, I., Turhan, B. (2018). What do we (really) know about test-driven development? *IEEE Software*, 35(4), 81–85. https://doi.org/10.1109/MS.2018.2801554
+- Causevic, A., Sundmark, D., Punnekkat, S. (2011). Factors limiting industrial adoption of test driven development: a systematic review. *ICST 2011*, 337–346. https://doi.org/10.1109/ICST.2011.19
+- Fakhoury, S., Naik, A., Sakkas, G., Chakraborty, S., Lahiri, S. K. (2024). LLM-based test-driven interactive code generation: user study and empirical evaluation. *IEEE Transactions on Software Engineering*, 50(9), 2254–2268. https://arxiv.org/abs/2404.10100
+- Liang, Y., Ying, R., Ni, S., Cui, Z. (2026). Scaling test-driven code generation from functions to classes: an empirical study. arXiv:2602.03557. https://arxiv.org/abs/2602.03557
+- Piya, S., Sullivan, A. (2023). LLM4TDD: best practices for test driven development using large language models. arXiv:2312.04687. https://arxiv.org/abs/2312.04687
+- Liu, J., Xia, C. S., Wang, Y., Zhang, L. (2023). Is your code generated by ChatGPT really correct? Rigorous evaluation of large language models for code generation. arXiv:2305.01210. https://arxiv.org/abs/2305.01210
+- Fowler, M. (2007). *Mocks Aren't Stubs*. martinfowler.com. https://martinfowler.com/articles/mocksArentStubs.html
 - Freeman, S., Pryce, N. (2009). *Growing Object-Oriented Software, Guided by Tests*. Addison-Wesley.
 - Feathers, M. (2004). *Working Effectively with Legacy Code*. Prentice Hall.
 
 ---
 
 **Cập nhật lần cuối**: Tháng 10, 2026
+
+## Bài liên quan
+
+- [AI-DD: Phát triển phần mềm AI-Driven, series toàn diện](/blog/phat-trien-phan-mem-ai-driven-development): bối cảnh chung về phát triển phần mềm có AI tham gia.
+- [AI-DD - Phần 3: Số liệu, kinh nghiệm thực tế và rủi ro](/blog/phat-trien-phan-mem-ai-driven-development-phan-3): các rủi ro khi giao mã cho AI.
+- [Cài skill rồi code tiếp: cơ chế đằng sau và phần tri thức bị bỏ lại](/blog/agent-skills-co-che-va-tri-thuc-bi-bo-qua): cách nạp tri thức dự án cho tác tử AI.
+- [9.8 - API Testing](/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-09-web-api-professional/9.8-api-testing): kiểm thử tích hợp với WebApplicationFactory và Testcontainers.
+- [13.9 - Unit of Work và Repository Pattern](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-13-entity-framework-core/13.9-unit-of-work-and-repository-pattern): khi nào nên giả lập repository, khi nào không.
+- [16.3 - Clean Architecture](/docs/dotnet-backend-zero-to-senior/stage-05-senior-engineering/module-16-clean-architecture/16.3-uncle-bob): đảo ngược phụ thuộc và khả năng kiểm thử.
+- [Các loại kiểm thử API: 9 loại, khác nhau ở đâu và chạy lúc nào](/blog/api-testing-types): bản đồ các mức kiểm thử bên ngoài phạm vi đơn vị.
+- [Tất cả bài viết về kiểm thử](/blog/tags/kiem-thu)
