@@ -4,6 +4,7 @@ import { PageMetadata } from '@docusaurus/theme-common';
 import { useBlogPost } from '@docusaurus/plugin-content-blog/client';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import useBaseUrl from '@docusaurus/useBaseUrl';
+import { markdownPath } from '@site/src/utils/markdownUrl';
 
 /**
  * Blog post metadata - đảm bảo og:title, og:description, og:image
@@ -40,6 +41,12 @@ export default function BlogPostPageMetadata(): JSX.Element {
         <meta name="twitter:title" content={title} />
         <meta name="twitter:description" content={description} />
         <meta name="twitter:image" content={image} />
+        {/* Cho AI agent biết trang này có bản Markdown sạch (xem plugins/page-markdown). */}
+        <link
+          rel="alternate"
+          type="text/markdown"
+          href={`${siteConfig.url}${markdownPath(metadata.permalink, siteConfig.baseUrl)}`}
+        />
       </Head>
     </>
   );

@@ -3,6 +3,7 @@ import clsx from 'clsx';
 import { useLocation } from '@docusaurus/router';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import { translate } from '@docusaurus/Translate';
+import { markdownPath } from '@site/src/utils/markdownUrl';
 import styles from './styles.module.css';
 
 type CopyState = 'idle' | 'loading' | 'copied' | 'error';
@@ -37,11 +38,7 @@ export default function CopyMarkdownButton({
     const handleClick = useCallback(async () => {
         setState('loading');
 
-        // pathname đã gồm baseUrl; bỏ ra rồi ghép lại để đúng ở mọi locale.
-        const routePath = pathname.startsWith(baseUrl)
-            ? pathname.slice(baseUrl.length)
-            : pathname.replace(/^\//, '');
-        const markdownUrl = `${baseUrl}md/${routePath.replace(/\/$/, '')}.md`;
+        const markdownUrl = markdownPath(pathname, baseUrl);
 
         try {
             const response = await fetch(markdownUrl);
