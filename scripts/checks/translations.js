@@ -24,7 +24,7 @@ function walk(dir) {
 }
 
 function frontMatter(file) {
-    const m = /^---\n([\s\S]*?)\n---/.exec(fs.readFileSync(file, 'utf8'));
+    const m = /^---\r?\n([\s\S]*?)\r?\n---/.exec(fs.readFileSync(file, 'utf8'));
     if (!m) return null;
     try { return yaml.load(m[1]); } catch { return null; }
 }

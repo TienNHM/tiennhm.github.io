@@ -26,7 +26,7 @@ module.exports = function checkTagRedirects() {
     // Tag khai trong tags.yml mà không bài nào dùng thì không sinh route.
     const used = new Set();
     for (const file of walk(path.join(root, 'blog'))) {
-        const m = /^---\n([\s\S]*?)\n---/.exec(fs.readFileSync(file, 'utf8'));
+        const m = /^---\r?\n([\s\S]*?)\r?\n---/.exec(fs.readFileSync(file, 'utf8'));
         if (!m) continue;
         let fm;
         try { fm = yaml.load(m[1]); } catch { continue; }

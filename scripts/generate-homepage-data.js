@@ -37,7 +37,7 @@ for (const file of walk(path.join(root, 'blog'))) {
     if (path.basename(file).startsWith('_')) continue;
 
     const raw = fs.readFileSync(file, 'utf8');
-    const m = /^---\n([\s\S]*?)\n---/.exec(raw);
+    const m = /^---\r?\n([\s\S]*?)\r?\n---/.exec(raw);
     if (!m) continue;
 
     let fm;

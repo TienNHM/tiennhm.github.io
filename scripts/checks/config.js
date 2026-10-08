@@ -14,7 +14,9 @@ module.exports = function checkConfig() {
     const found = new Set();
     (function walk(value) {
         if (typeof value === 'string') {
-            if (value.startsWith('/') && /\.(jsx?|tsx?|css|scss|mjs|cjs)$/.test(value)) found.add(value);
+            // path.isAbsolute thay vì startsWith('/'): trên Windows đường dẫn là D:\..., kiểm
+            // kiểu cũ không bắt được gì và mục này xanh mà không soi đường dẫn nào.
+            if (path.isAbsolute(value) && /\.(jsx?|tsx?|css|scss|mjs|cjs)$/.test(value)) found.add(value);
         } else if (Array.isArray(value)) {
             value.forEach(walk);
         } else if (value && typeof value === 'object') {

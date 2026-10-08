@@ -30,8 +30,12 @@ module.exports = async function checkMdx(argv = []) {
 
     const failures = [];
     for (const file of files) {
+        // Chuẩn hoá CRLF trước: với core.autocrlf=true (mặc định của Git trên
+        // Windows) file checkout ra là CRLF, regex frontmatter bên dưới không
+        // khớp, và mọi `<` trong description bị báo lỗi MDX nhầm.
         const source = fs
             .readFileSync(file, 'utf8')
+            .replace(/\r\n/g, '\n')
             .replace(/^---\n[\s\S]*?\n---\n/, '')
             .replace(/<!--[\s\S]*?-->/g, '')
             .replace(/^(#{1,6} .*?)\s*\{#[\w-]+\}\s*$/gm, '$1');

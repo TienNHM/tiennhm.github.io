@@ -34,7 +34,9 @@ module.exports = async function checkMermaid(argv = []) {
     let total = 0;
 
     for (const file of files) {
-        const src = fs.readFileSync(file, 'utf8');
+        // Chuẩn hoá CRLF (core.autocrlf trên Windows), nếu không regex bên dưới
+        // không khớp khối ```mermaid nào và mục này báo "0 sơ đồ" mà vẫn xanh.
+        const src = fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
         const blocks = [...src.matchAll(/```+mermaid\n([\s\S]*?)```+/g)].map((m) => m[1]);
         for (const [i, code] of blocks.entries()) {
             total++;

@@ -50,7 +50,7 @@ module.exports = function checkSharePost() {
 
     for (const file of [...walk(path.join(root, 'blog')), ...walk(path.join(root, 'notes'))]) {
         if (path.basename(file).startsWith('_')) continue;
-        const m = /^---\n([\s\S]*?)\n---/.exec(fs.readFileSync(file, 'utf8'));
+        const m = /^---\r?\n([\s\S]*?)\r?\n---/.exec(fs.readFileSync(file, 'utf8'));
         if (!m) continue;
 
         let fm;
