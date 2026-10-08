@@ -132,6 +132,17 @@ module.exports = [
     }
 },
 /*
+ * Microsoft Clarity (heatmap, ghi lại phiên), mã lấy từ Bing Webmaster Tools.
+ * Khác mã gốc ở một chỗ: chỉ chạy trên domain thật, để `npm start` trên
+ * localhost hay bản preview không ghi phiên rác vào số liệu.
+ * Script tải async nên không chặn render.
+ */
+{
+    tagName: 'script',
+    attributes: {},
+    innerHTML: `(function(c,l,a,r,i,t,y){if(l.location.hostname!=='tiennhm.io.vn')return;c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i+"?ref=bwt";y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window,document,"clarity","script","${process.env.CLARITY_PROJECT_ID || 'yuf4r3r7ti'}");`,
+},
+/*
  * Áp trạng thái ẩn/hiện cột danh sách bài và mục lục của blog (xem
  * src/theme/BlogLayout) TRƯỚC lần vẽ đầu tiên. Đợi React hydrate xong mới đọc
  * localStorage thì người đã ẩn cột sẽ thấy nó hiện ra rồi biến mất.
