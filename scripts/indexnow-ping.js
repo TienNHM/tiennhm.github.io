@@ -17,7 +17,7 @@
  *
  * Yêu cầu: site đã deploy và file key truy cập được tại
  *   https://tiennhm.io.vn/<KEY>.txt
- * (xem SEO-NEXT-STEPS.md). IndexNow sẽ fetch file này để xác thực quyền sở hữu.
+ * (xem dev-docs/SEO-NEXT-STEPS.md). IndexNow sẽ fetch file này để xác thực quyền sở hữu.
  */
 
 const fs = require('fs');

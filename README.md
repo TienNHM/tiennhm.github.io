@@ -7,13 +7,13 @@ This website is built using [Docusaurus](https://docusaurus.io/), a modern stati
 ### Installation
 
 ```
-$ yarn
+$ npm install
 ```
 
 ### Local Development
 
 ```
-$ yarn start
+$ npm start
 ```
 
 This command starts a local development server and opens up a browser window. Most changes are reflected live without having to restart the server.
@@ -21,10 +21,24 @@ This command starts a local development server and opens up a browser window. Mo
 ### Build
 
 ```
-$ yarn build
+$ npm run build
 ```
 
 This command generates static content into the `build` directory and can be served using any static contents hosting service.
+
+### Cấu trúc thư mục
+
+| Thư mục | Nội dung |
+|---|---|
+| `blog/` | Bài blog, mỗi bài một thư mục `YYYY/YYYY-MM-DD-slug/index.md` |
+| `docs/` | Giáo trình và tài liệu (khoá .NET, SQL…) |
+| `notes/` | Ghi chép ngắn, một blog instance riêng ở `/notes` |
+| `i18n/` | Bản dịch tiếng Anh |
+| `src/` | Component, trang, theme đã swizzle |
+| `config/` | Các phần của `docusaurus.config.js` (navbar, plugin, head tags…) |
+| `plugins/`, `scripts/` | Plugin Docusaurus tự viết, script build và kiểm tra |
+| `static/` | File tĩnh phục vụ nguyên trạng |
+| `dev-docs/` | Tài liệu nội bộ, không build lên site |
 
 ### Deployment
 

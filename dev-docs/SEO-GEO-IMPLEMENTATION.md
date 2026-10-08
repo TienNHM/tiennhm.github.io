@@ -56,7 +56,7 @@ Tất cả component được tạo trong `src/components/SEO/`:
 - Best practices và ví dụ thực tế
 - Template cho blog posts
 
-#### ✅ `blog/TEMPLATE-SEO-GEO.md`
+#### ✅ `dev-docs/TEMPLATE-SEO-GEO.md`
 - Template mẫu cho blog post mới
 - Bao gồm tất cả các component SEO/GEO
 - Ví dụ frontmatter đầy đủ
