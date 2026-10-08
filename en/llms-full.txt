@@ -18,7 +18,7 @@ của trang — mỗi mục bên dưới có dòng `URL:` là canonical URL củ
 
 ## Phạm vi & giới hạn
 
-- Tổng số tài liệu quét được: 469 (docs: 422, blog: 47).
+- Tổng số tài liệu quét được: 470 (docs: 422, blog: 48).
 - Số tài liệu có mặt trong file này: 315.
 - Ngân sách dung lượng: 2.0 MB. Trần nội dung mỗi tài liệu: 6 KB.
 - Khi thiếu chỗ: blog giữ 30% ngân sách (ưu tiên bài mới nhất), phần còn lại dành cho docs/.
@@ -29,6 +29,7 @@ của trang — mỗi mục bên dưới có dòng `URL:` là canonical URL củ
 
 ### Tài liệu bị rút gọn (210) — fetch URL để lấy bản đầy đủ
 
+- Diagram Design: dạy AI agent vẽ sơ đồ kỹ thuật gọn, đẹp và đúng màu thương hiệu — https://tiennhm.io.vn/blog/diagram-design-skill-ve-so-do-cho-ai-agent
 - Phát triển hướng kiểm thử (TDD) trong vòng đời phát triển hướng AI (AI-DLC): tổng quan bằng chứng và đề xuất thực hành — https://tiennhm.io.vn/blog/tdd-test-driven-development
 - Cài skill rồi code tiếp: cơ chế đằng sau và phần tri thức bị bỏ lại — https://tiennhm.io.vn/blog/agent-skills-co-che-va-tri-thuc-bi-bo-qua
 - Thêm 4 index làm INSERT chậm 6 lần: cái giá không ai nhắc khi bảo bạn đánh index — https://tiennhm.io.vn/blog/chi-phi-ghi-cua-index
@@ -238,13 +239,13 @@ của trang — mỗi mục bên dưới có dòng `URL:` là canonical URL củ
 - 9.5 - File Upload và Download — https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-09-web-api-professional/9.5-file-upload-and-download
 - 9.6 - Rate Limiting (.NET 7+) — https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-09-web-api-professional/9.6-rate-limiting
 - 9.7 - Response Caching và Output Caching — https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-09-web-api-professional/9.7-response-caching-and-output-caching
-- 9.8 - API Testing — https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-09-web-api-professional/9.8-api-testing
 
-### Tài liệu KHÔNG nằm trong file này (154) — vượt ngân sách dung lượng
+### Tài liệu KHÔNG nằm trong file này (155) — vượt ngân sách dung lượng
 
 Các trang dưới đây vẫn công khai và nằm trong sitemap.xml; chỉ là không được
 nhúng toàn văn ở đây. Fetch trực tiếp URL để lấy nội dung.
 
+- 9.8 - API Testing — https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-09-web-api-professional/9.8-api-testing
 - 9.9 - Background Processing với Hosted Service — https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-09-web-api-professional/9.9-hosted-service-background-jobs
 - Module 9 - Web API Professional — https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-09-web-api-professional
 - 10.1 - Authentication so với Authorization — https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-10-authentication-authorization/10.1-authentication-vs-authorization
@@ -36862,128 +36863,6 @@ Sau bài này bạn có thể:
 
 ### 9.6.1 — Những gì client kiểm soát
 
-| Thứ | Client sửa được | Hệ quả nếu tin |
-|---|---|---|
-| `file.ContentType` | Có | `.exe` khai là `image/png` |
-| `file.FileName` | Có | Path traversal, ghi đè file hệ thống |
-| Phần mở rộng | Có | `shell.aspx.png` |
-| `file.Length` | Không | Đây là số byte thật |
-| Nội dung file | Có | Magic number là thứ duy nhất đáng tin |
-
-`ContentType` chỉ là một dòng trong phần multipart — client tự ghi vào. Kiểm tra nó không phải bảo mật, chỉ là lọc lỗi vô tình.
-
-### 9.6.2 — Upload an toàn
-
-[code csharp]
-private static readonly Dictionary<string, byte[][]> Signatures = new()
-{
-    [".jpg"]  = [[0xFF, 0xD8, 0xFF]],
-    [".jpeg"] = [[0xFF, 0xD8, 0xFF]],
-    [".png"]  = [[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]],
-    [".pdf"]  = [[0x25, 0x50, 0x44, 0x46]],
-};
-
-public async Task<Result<string>> SaveAvatarAsync(
-    Guid customerId, IFormFile file, CancellationToken ct)
-{
-    // 1. Kích thước
-    if (file.Length is 0 or > 5 * 1024 * 1024)
-        return Result.Fail("File phải từ 1 byte đến 5MB");
-
-    // 2. Phần mở rộng nằm trong whitelist
-    var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
-    if (!Signatures.TryGetValue(ext, out var expected))
-        return Result.Fail("Chỉ hỗ trợ JPG, PNG, PDF");
-
-    // 3. Magic number phải khớp — đây mới là kiểm tra thật
-    await using var stream = file.OpenReadStream();
-    var header = new byte[8];
-    var read = await stream.ReadAsync(header, ct);
-    stream.Position = 0;
-
-    if (!expected.Any(sig => read >= sig.Length && header.Take(sig.Length).SequenceEqual(sig)))
-        return Result.Fail("Nội dung file không khớp phần mở rộng");
-
-    // 4. SINH tên mới — không bao giờ dùng tên gốc
-    var safeName = $"{customerId}-{Guid.NewGuid():N}{ext}";
-
-    // 5. Lưu NGOÀI wwwroot
-    var path = Path.Combine(_options.UploadRoot, "avatars", safeName);
-    Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-
-    await using var target = File.Create(path);
-    await stream.CopyToAsync(target, ct);
-
-    return Result.Success($"/api/v1/customers/{customerId}/avatar");
-}
-[/code]
-
-Năm bước, và bước 4 với bước 5 là hai bước hay bị bỏ nhất.
-
-Vì sao phải sinh tên mới: `Path.Combine(uploadDir, file.FileName)` với `FileName = "../../appsettings.json"` sẽ ghi ra ngoài thư mục upload. `Path.GetFileName()` giúp được phần nào, nhưng vẫn còn vấn đề trùng tên, ký tự đặc biệt và tên dành riêng của Windows (`CON`, `PRN`, `NUL`).
-
-Vì sao lưu ngoài `wwwroot`: file trong `wwwroot` được phục vụ trực tiếp bởi `UseStaticFiles()`. Một file `.html` upload lên sẽ chạy JavaScript trên chính tên miền của bạn — tức XSS lưu trữ, đọc được cookie và token của người dùng khác. Lưu ngoài rồi phục vụ qua một action có kiểm tra quyền:
-
-[code csharp]
-[HttpGet("{id:guid}/avatar")]
-public async Task<IActionResult> GetAvatar(Guid id, CancellationToken ct)
-{
-    var path = await _files.ResolveAvatarPathAsync(id, ct);
-    if (path is null) return NotFound();
-
-    return PhysicalFile(path, "image/jpeg");
-}
-[/code]
-
-Với file cho người dùng tải về, thêm `Content-Disposition: attachment` để trình duyệt tải xuống thay vì hiển thị:
-
-[code csharp]
-return PhysicalFile(path, "application/octet-stream", fileDownloadName: originalName);
-[/code]
-
-### 9.6.3 — Giới hạn kích thước ở nhiều tầng
-
-[code csharp]
-// 1. Tren action
-[HttpPost("{id:guid}/avatar")]
-[RequestSizeLimit(5 * 1024 * 1024)]
-public async Task<IActionResult> UploadAvatar(...);
-
-// 2. Giới hạn riêng cho multipart
-builder.Services.Configure<FormOptions>(o =>
-{
-    o.MultipartBodyLengthLimit = 5 * 1024 * 1024;
-    o.ValueLengthLimit = 4 * 1024;
-    o.MultipartHeadersLengthLimit = 8 * 1024;
-});
-
-// 3. Mức Kestrel — mặc định 30MB cho toàn bộ body
-builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = 10 * 1024 * 1024);
-[/code]
-
-Ba tầng vì mỗi tầng chặn ở một thời điểm khác nhau. Kestrel chặn sớm nhất, trước khi byte nào vào ứng dụng — đó là tầng bảo vệ thật. `[RequestSizeLimit]` chạy sau khi request đã vào pipeline.
-
-Và nhớ reverse proxy có giới hạn riêng: Nginx mặc định `client_max_body_size 1m`. Nếu proxy chặn ở 1MB thì cấu hình 10MB trong ứng dụng vô nghĩa — client nhận 413 từ Nginx và bạn không thấy gì trong log ứng dụng.
-
-`[DisableRequestSizeLimit]` là thứ không bao giờ nên dùng trên endpoint công khai: nó cho phép bất kỳ ai gửi một request vô hạn.
-
-### 9.6.4 — File lớn: `IFormFile` không đủ
-
-`IFormFile` đệm toàn bộ file trước khi action chạy: dưới 64KB thì trong bộ nhớ, lớn hơn thì ghi ra file tạm trên đĩa. Với 10 người cùng upload 500MB, đó là 5GB I/O đĩa trước khi code của bạn chạy dòng đầu tiên.
-
-Với file lớn, đọc theo luồng bằng `MultipartReader`:
-
-[code csharp]
-[HttpPost("import")]
-[DisableFormValueModelBinding]                 // tắt model binding tự động
-[RequestSizeLimit(500 * 1024 * 1024)]
-public async Task<IActionResult> Import(CancellationToken ct)
-{
-    var boundary = MediaTypeHeaderValue.Parse(Request.ContentType)
-        .Parameters.First(p => p.Name == "boundary").Value!.Trim('"');
-
-    var reader = new MultipartReader(boundary, Request.Body);
-
 [… phần còn lại đã lược bớt]
 
 ============================================================================
@@ -37054,36 +36933,129 @@ flowchart LR
 
 ============================================================================
 
-# 9.8 - API Testing
+# Diagram Design: dạy AI agent vẽ sơ đồ kỹ thuật gọn, đẹp và đúng màu thương hiệu
 
-URL: https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-09-web-api-professional/9.8-api-testing
-Source: docs/09-dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-09-web-api-professional/9.8-api-testing.mdx
-Description: WebApplicationFactory, vì sao InMemory provider nói dối, Testcontainers, cô lập dữ liệu giữa các test, và cách bỏ qua xác thực trong integration test.
-Note: Nội dung dưới đây đã được rút gọn để giữ dung lượng file. Bản đầy đủ tại https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-09-web-api-professional/9.8-api-testing
+URL: https://tiennhm.io.vn/blog/diagram-design-skill-ve-so-do-cho-ai-agent
+Source: blog/2026/2026-10-08-diagram-design/index.md
+Date: 2026-10-08
+Description: Diagram Design là một skill mã nguồn mở cho Claude Code, Codex và GitHub Copilot. Cài vào, agent sẽ vẽ sơ đồ kiến trúc, flowchart, sequence và hơn 40 loại khác theo một bộ quy tắc thiết kế chặt, xuất ra một file HTML duy nhất. Bài này hướng dẫn cài đặt, giải thích cách agent vẽ, cách đổi màu, font, nền tối theo thương hiệu, và cách sửa lỗi font khi dùng tiếng Việt.
+Tags: ai, ai-tools, tools
+Note: Nội dung dưới đây đã được rút gọn để giữ dung lượng file. Bản đầy đủ tại https://tiennhm.io.vn/blog/diagram-design-skill-ve-so-do-cho-ai-agent
 
-# 9.8 - API Testing
+# Diagram Design
 
-`WebApplicationFactory` dựng toàn bộ ứng dụng trong bộ nhớ và cho bạn một `HttpClient` gọi vào nó — không mở cổng, không cần chạy server, nhưng đi qua đầy đủ pipeline: routing, model binding, validation, filter, middleware. Đó là điểm ngọt giữa unit test và test end-to-end. Cạm bẫy lớn nhất là `UseInMemoryDatabase`: nó không phải database quan hệ, nó không có ràng buộc, không có transaction thật, không dịch SQL, nên test xanh trong khi production đỏ. Nếu code chạm tới database, hãy test trên database thật bằng Testcontainers.
+Diagram Design (https://github.com/cathrynlavery/diagram-design) là một skill mã nguồn mở (giấy phép MIT) của Cathryn Lavery, dùng cho các AI agent như Claude Code, Codex và GitHub Copilot. Cài vào rồi, bạn chỉ cần bảo agent "vẽ sơ đồ kiến trúc cho hệ thống này" là nhận về một file HTML chứa sơ đồ gọn gàng, bố cục rõ ràng, không còn cảnh hộp chồng hộp hay mũi tên chéo lung tung. Nó vẽ được 44 loại sơ đồ và vẽ lại được sơ đồ cũ từ draw.io, Mermaid, Excalidraw. Màu, font và nền tối đổi được theo thương hiệu của bạn. Riêng với tiếng Việt, bạn nên đổi font tiêu đề, vì font mặc định thiếu nhiều chữ có dấu.
 
-## Mục tiêu bài học
+Bài này là bài giới thiệu, chưa phải đánh giá sau thời gian dài sử dụng. Thông tin lấy từ README trên GitHub (https://github.com/cathrynlavery/diagram-design) và file hướng dẫn `SKILL.md` của bản 2.6.68. Phần font tiếng Việt và độ tương phản màu là tôi tự kiểm tra.
 
-Sau bài này bạn có thể:
+## Vài thuật ngữ trước khi đọc
 
-- Dựng `WebApplicationFactory` và thay thế service cho môi trường test.
-- Liệt kê những gì InMemory provider không phát hiện được.
-- Chạy test trên database thật bằng Testcontainers.
-- Cô lập dữ liệu giữa các test.
-- Bỏ qua xác thực trong test mà không tắt phân quyền.
+Bài có dùng một số từ tiếng Anh vì đó là tên gọi trong tài liệu gốc. Nghĩa của chúng trong bài như sau:
 
-## Nội dung bài học
+| Thuật ngữ | Nghĩa |
+|---|---|
+| Skill | Một bộ hướng dẫn bằng văn bản cài vào agent, dạy agent cách làm một việc cụ thể. Nó không phải code chạy được. |
+| Node | Một ô trong sơ đồ: hộp chữ nhật, hình thoi, hình bầu dục… |
+| Màu nhấn (accent) | Màu nổi bật duy nhất trong sơ đồ, dùng để chỉ chỗ quan trọng nhất |
+| Skin | Phần "da" của sơ đồ: màu và font. Đổi skin không làm thay đổi bố cục. |
+| Token | Một giá trị thiết kế có tên, ví dụ `accent = #eb6c36` |
+| Hồ sơ (profile) | Một bộ skin được lưu lại có tên, để dùng lại về sau |
 
-### 9.9.1 — Ba tầng test
+## Vì sao cần nó
 
-| Tầng | Test cái gì | Tốc độ | Số lượng |
-|---|---|---|---|
-| Unit | Một lớp, mọi phụ thuộc là mock | Mili giây | Nhiều |
-| Integration | API qua `WebApplicationFactory` | Chục–trăm mili giây | Vừa |
-| End-to-end | Hệ thống thật đã triển khai | Giây | Ít |
+Khi bạn bảo một AI agent "vẽ giúp sơ đồ kiến trúc", kết quả thường rơi vào một trong hai kiểu.
+
+Kiểu thứ nhất là một đoạn Mermaid. Nội dung đúng, nhưng bố cục do máy tự xếp, các mũi tên cắt chéo nhau, nhìn là biết máy làm.
+
+Kiểu thứ hai là một trang HTML nền tối, viền phát sáng màu xanh tím, mười mấy cái hộp giống hệt nhau, hộp nào cũng được tô màu "quan trọng".
+
+README của Diagram Design gọi kiểu thứ hai là "AI slop", tạm hiểu là "đồ AI làm cẩu thả". Skill liệt kê rõ từng lỗi để agent tránh:
+
+| Lỗi thường gặp | Vì sao bị cấm |
+|---|---|
+| Nền tối kèm viền phát sáng xanh, tím | Trông có vẻ "kỹ thuật" nhưng không có chủ đích thiết kế nào |
+| Dùng font mono (JetBrains Mono) cho mọi chữ | Font mono chỉ dành cho nội dung kỹ thuật như port, lệnh, URL |
+| Mọi node là một cái hộp giống hệt nhau | Người đọc không biết cái nào chính, cái nào phụ |
+| Đổ bóng | Bị cấm hoàn toàn, chỉ dùng viền |
+| Bo góc thật tròn | Tối đa 6–10px, hoặc không bo |
+| Tô màu nhấn cho mọi node "quan trọng" | Màu nhấn chỉ cho 1–2 chỗ, tô nhiều thì mất tác dụng |
+| Giữ nguyên bố cục do Mermaid tự xếp | Bố cục tự động thường rối, thiếu chủ đích |
+
+## Cài đặt và vẽ sơ đồ đầu tiên
+
+Với Claude Code, chạy hai lệnh:
+
+[code bash]
+/plugin marketplace add cathrynlavery/diagram-design
+/plugin install diagram-design@diagram-design
+[/code]
+
+Với Codex:
+
+[code bash]
+codex plugin marketplace add cathrynlavery/diagram-design
+codex plugin add diagram-design@diagram-design
+[/code]
+
+Với GitHub Copilot CLI:
+
+[code bash]
+copilot plugin marketplace add cathrynlavery/diagram-design
+copilot plugin install diagram-design@diagram-design
+[/code]
+
+Với các agent khác hỗ trợ chuẩn Agent Skills:
+
+[code bash]
+npx skills add cathrynlavery/diagram-design
+[/code]
+
+README còn có hướng dẫn cho Factory Droid, Pi, Kiro, OpenCode và Claude Cowork.
+
+Cài xong, bạn không cần gõ lệnh gì đặc biệt. Cứ yêu cầu như bình thường, ví dụ "vẽ sơ đồ sequence cho luồng đăng nhập OAuth", skill sẽ tự được kích hoạt.
+
+Ngoài ra có vài lệnh cho việc cụ thể:
+
+| Lệnh | Việc nó làm |
+|---|---|
+| `/diagram-design:doctor` | Kiểm tra máy đã đủ điều kiện chạy chưa |
+| `/diagram-design:import-mermaid` | Vẽ lại một sơ đồ Mermaid |
+| `/diagram-design:import-drawio` | Vẽ lại một file draw.io |
+| `/diagram-design:import-excalidraw` | Vẽ lại một bảng Excalidraw |
+| `/diagram-design:export-diagram` | Xuất file HTML ra ảnh `.svg` và `.png` |
+| `/diagram-design:profile` | Lưu, nạp, xoá hồ sơ thương hiệu |
+
+Muốn xuất ảnh PNG thì cài thêm Playwright và Chromium:
+
+[code bash]
+pip install playwright && playwright install chromium
+[/code]
+
+Một lưu ý an toàn: README nói rõ bản chính thức chỉ có ở repository này. Hãy tin lời đó. Skill là văn bản được nạp thẳng vào agent, nên cài một bản lạ cũng giống như để người lạ viết hướng dẫn cho agent của bạn.
+
+## Agent vẽ một sơ đồ như thế nào
+
+Sơ đồ dưới đây mô tả các bước agent đi qua khi nhận một yêu cầu vẽ. Bản thân nó cũng được vẽ bằng Diagram Design, dùng skin mặc định.
+
+Đi lần lượt từng bước:
+
+1. Kiểm tra skin. Nếu dự án vẫn đang dùng màu mặc định, agent dừng lại hỏi bạn có muốn đổi theo thương hiệu không (bước "Onboarding thương hiệu"). Phần này nói kỹ ở mục Tuỳ biến.
+2. Chọn loại sơ đồ. Agent chọn một trong 44 loại, rồi đọc file hướng dẫn riêng của loại đó.
+3. Vẽ. Agent vẽ SVG theo các quy tắc của skill.
+4. Tự chấm điểm. Skill gọi bước này là taste gate, tức "cửa kiểm tra gu thẩm mỹ". Đó là một danh sách câu hỏi: chọn đúng loại sơ đồ chưa, còn bỏ bớt được node hay mũi tên nào không, màu nhấn có dùng quá hai chỗ không, các quy tắc kỹ thuật đã đúng chưa. Trượt câu nào thì agent quay lại vẽ.
+5. Xuất file. Kết quả luôn là một file HTML. Xuất ra SVG hay PNG là bước tuỳ chọn, chỉ làm khi bạn yêu cầu.
+
+Ảnh trên là bản PNG chụp lại. File gốc là diagram-design-flow.html, bạn có thể mở thẳng trong trình duyệt. Tôi chỉ sửa một chỗ trong file này là font tiêu đề, lý do nằm ở mục tiếng Việt.
+
+Máy tôi chưa cài Playwright, nên tôi chụp PNG bằng Chrome chạy ở chế độ không giao diện (`--screenshot --force-device-scale-factor=2`). Ảnh ra cùng kích thước 1920×1200.
+
+## Nguyên tắc: bớt đi thay vì thêm vào
+
+Phần triết lý trong `SKILL.md` mở đầu bằng câu:
+
+> The highest-quality move is usually deletion.
+
+Dịch ra là: nước đi tốt nhất thường là xoá bớt. Từ câu này, skill rút ra mấy quy tắc:
 
 [… phần còn lại đã lược bớt]
 

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Diagram Design xử lý một yêu cầu vẽ như thế nào</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Display:wdth,wght@62.5..100,400&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #1b1b1d;
+      --color-ink:    #e3e3e3;
+      --color-muted:  #b4b9c0;
+      --font-sans:    'Geist', system-ui, sans-serif;
+      /* Instrument Serif has no Vietnamese subset; a per-glyph fallback mixes two faces
+         inside one word, so Vietnamese titles swap the whole face instead. */
+      --font-serif:   'Noto Serif Display', serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-stretch: 75%; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 960px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Flowchart · Diagram Design</p>
+    <h1>Diagram Design xử lý một yêu cầu vẽ như thế nào</h1>
+    <div class="diagram-container">
+<svg viewBox="0 0 960 600" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="diagram-design-flow-title diagram-design-flow-desc">
+  <title id="diagram-design-flow-title">Luồng xử lý một yêu cầu vẽ của Diagram Design</title>
+  <desc id="diagram-design-flow-desc">Agent nhận yêu cầu, kiểm tra style guide, chọn loại sơ đồ, vẽ SVG, lặp lại tới khi qua taste gate rồi xuất một file HTML, có thể export thêm SVG hoặc PNG.</desc>
+  <defs>
+    <pattern id="diagram-design-flow-dots" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="0.9" fill="rgba(227,227,227,0.10)"/></pattern>
+    <marker id="diagram-design-flow-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#b4b9c0"/></marker>
+    <marker id="diagram-design-flow-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#25c19f"/></marker>
+  </defs>
+  <rect width="100%" height="100%" fill="#1b1b1d"/>
+
+  <!-- Arrows first, behind nodes -->
+  <line x1="400" y1="72" x2="400" y2="96" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#diagram-design-flow-arrow)"/>
+  <line x1="510" y1="144" x2="600" y2="144" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#diagram-design-flow-arrow)"/>
+  <line x1="400" y1="192" x2="400" y2="220" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#diagram-design-flow-arrow)"/>
+  <path d="M690 172 V240 Q690 248 682 248 H490" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#diagram-design-flow-arrow)"/>
+  <line x1="400" y1="276" x2="400" y2="304" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#diagram-design-flow-arrow)"/>
+  <line x1="400" y1="360" x2="400" y2="388" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#diagram-design-flow-arrow)"/>
+  <path d="M290 436 H244 Q236 436 236 428 V340 Q236 332 244 332 H310" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#diagram-design-flow-arrow)"/>
+  <line x1="510" y1="436" x2="560" y2="436" stroke="#25c19f" stroke-width="1.4" marker-end="url(#diagram-design-flow-arrow-accent)"/>
+  <line x1="720" y1="436" x2="800" y2="436" stroke="#b4b9c0" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#diagram-design-flow-arrow)"/>
+
+  <!-- Arrow labels on opaque masks -->
+  <rect x="539" y="124" width="32" height="12" rx="2" fill="#1b1b1d"/><text x="555" y="133" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">YES</text>
+  <rect x="410" y="200" width="28" height="12" rx="2" fill="#1b1b1d"/><text x="424" y="209" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">NO</text>
+  <rect x="245" y="416" width="36" height="12" rx="2" fill="#1b1b1d"/><text x="263" y="425" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">FAIL</text>
+  <rect x="517" y="416" width="36" height="12" rx="2" fill="#1b1b1d"/><text x="535" y="425" fill="#25c19f" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">PASS</text>
+  <rect x="728" y="416" width="64" height="12" rx="2" fill="#1b1b1d"/><text x="760" y="425" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">OPTIONAL</text>
+
+  <!-- Start -->
+  <rect x="320" y="24" width="160" height="48" rx="20" fill="rgba(227,227,227,0.03)" stroke="rgba(227,227,227,0.30)" stroke-width="1"/>
+  <text x="400" y="46" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Yêu cầu vẽ</text>
+  <text x="400" y="60" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">prompt</text>
+
+  <!-- Decision 1 -->
+  <polygon points="400,96 510,144 400,192 290,144" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="400" y="142" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Style guide còn</text>
+  <text x="400" y="156" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">mặc định?</text>
+
+  <!-- Onboarding branch -->
+  <rect x="600" y="116" width="180" height="56" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="690" y="141" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Onboarding thương hiệu</text>
+  <text x="690" y="157" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">URL · token · profile</text>
+
+  <!-- Pick type -->
+  <rect x="310" y="220" width="180" height="56" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="400" y="245" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Chọn loại sơ đồ</text>
+  <text x="400" y="261" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">pattern → type-*.md</text>
+
+  <!-- Draw -->
+  <rect x="310" y="304" width="180" height="56" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="400" y="329" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Vẽ SVG</text>
+  <text x="400" y="345" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">lưới 4px · ≤ 9 node</text>
+
+  <!-- Decision 2: taste gate -->
+  <polygon points="400,388 510,436 400,484 290,436" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="400" y="434" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Qua</text>
+  <text x="400" y="448" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">taste gate?</text>
+
+  <!-- HTML output (focal) -->
+  <rect x="560" y="408" width="160" height="56" rx="20" fill="rgba(37,193,159,0.10)" stroke="#25c19f" stroke-width="1"/>
+  <text x="640" y="433" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">File HTML</text>
+  <text x="640" y="449" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">SVG inline · 1 file</text>
+
+  <!-- Export (optional) -->
+  <rect x="800" y="408" width="140" height="56" rx="20" fill="rgba(227,227,227,0.02)" stroke="rgba(227,227,227,0.20)" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="870" y="433" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Export</text>
+  <text x="870" y="449" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">SVG · PNG @2x</text>
+
+  <!-- Legend -->
+  <line x1="40" y1="524" x2="920" y2="524" stroke="rgba(227,227,227,0.10)" stroke-width="0.8"/>
+  <text x="40" y="544" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">CHÚ GIẢI · HÌNH DẠNG MANG Ý NGHĨA</text>
+  <rect x="40" y="560" width="24" height="12" rx="6" fill="rgba(227,227,227,0.03)" stroke="rgba(227,227,227,0.30)" stroke-width="1"/>
+  <text x="72" y="570" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif">Bắt đầu / kết thúc</text>
+  <rect x="220" y="560" width="24" height="12" rx="2" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="252" y="570" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif">Bước xử lý</text>
+  <polygon points="380,566 392,560 404,566 392,572" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="412" y="570" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif">Rẽ nhánh</text>
+  <rect x="540" y="560" width="24" height="12" rx="6" fill="rgba(227,227,227,0.02)" stroke="rgba(227,227,227,0.20)" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="572" y="570" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif">Tuỳ chọn</text>
+  <line x1="700" y1="566" x2="728" y2="566" stroke="#25c19f" stroke-width="1.4" marker-end="url(#diagram-design-flow-arrow-accent)"/>
+  <text x="736" y="570" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif">Đường chính</text>
+</svg>
+    </div>
+  </div>
+</body>
+</html>

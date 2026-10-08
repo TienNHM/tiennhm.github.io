@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>How Diagram Design handles a drawing request</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #fafaf7;
+      --color-ink:    #1c1e21;
+      --color-muted:  #525860;
+      --font-sans:    'Geist', system-ui, sans-serif;
+      /* Instrument Serif has no Vietnamese subset; a per-glyph fallback mixes two faces
+         inside one word, so Vietnamese titles swap the whole face instead. */
+      --font-serif:   'Instrument Serif', serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-stretch: 100%; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 960px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Flowchart · Diagram Design</p>
+    <h1>How Diagram Design handles a drawing request</h1>
+    <div class="diagram-container">
+<svg viewBox="0 0 960 600" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="diagram-design-flow-en-title diagram-design-flow-en-desc">
+  <title id="diagram-design-flow-en-title">How Diagram Design handles a drawing request</title>
+  <desc id="diagram-design-flow-en-desc">The agent receives a request, checks the style guide, picks a diagram type, draws the SVG, repeats until it passes the taste gate, then writes one HTML file that can optionally be exported to SVG or PNG.</desc>
+  <defs>
+    <pattern id="diagram-design-flow-en-dots" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="0.9" fill="rgba(28,30,33,0.10)"/></pattern>
+    <marker id="diagram-design-flow-en-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#525860"/></marker>
+    <marker id="diagram-design-flow-en-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#18816a"/></marker>
+  </defs>
+  <rect width="100%" height="100%" fill="#fafaf7"/>
+
+  <!-- Arrows first, behind nodes -->
+  <line x1="400" y1="72" x2="400" y2="96" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#diagram-design-flow-en-arrow)"/>
+  <line x1="510" y1="144" x2="600" y2="144" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#diagram-design-flow-en-arrow)"/>
+  <line x1="400" y1="192" x2="400" y2="220" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#diagram-design-flow-en-arrow)"/>
+  <path d="M690 172 V240 Q690 248 682 248 H490" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#diagram-design-flow-en-arrow)"/>
+  <line x1="400" y1="276" x2="400" y2="304" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#diagram-design-flow-en-arrow)"/>
+  <line x1="400" y1="360" x2="400" y2="388" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#diagram-design-flow-en-arrow)"/>
+  <path d="M290 436 H244 Q236 436 236 428 V340 Q236 332 244 332 H310" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#diagram-design-flow-en-arrow)"/>
+  <line x1="510" y1="436" x2="560" y2="436" stroke="#18816a" stroke-width="1.4" marker-end="url(#diagram-design-flow-en-arrow-accent)"/>
+  <line x1="720" y1="436" x2="800" y2="436" stroke="#525860" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#diagram-design-flow-en-arrow)"/>
+
+  <!-- Arrow labels on opaque masks -->
+  <rect x="539" y="124" width="32" height="12" rx="2" fill="#fafaf7"/><text x="555" y="133" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">YES</text>
+  <rect x="410" y="200" width="28" height="12" rx="2" fill="#fafaf7"/><text x="424" y="209" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">NO</text>
+  <rect x="245" y="416" width="36" height="12" rx="2" fill="#fafaf7"/><text x="263" y="425" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">FAIL</text>
+  <rect x="517" y="416" width="36" height="12" rx="2" fill="#fafaf7"/><text x="535" y="425" fill="#18816a" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">PASS</text>
+  <rect x="728" y="416" width="64" height="12" rx="2" fill="#fafaf7"/><text x="760" y="425" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">OPTIONAL</text>
+
+  <!-- Start -->
+  <rect x="320" y="24" width="160" height="48" rx="20" fill="rgba(28,30,33,0.03)" stroke="rgba(28,30,33,0.30)" stroke-width="1"/>
+  <text x="400" y="46" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Drawing request</text>
+  <text x="400" y="60" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">prompt</text>
+
+  <!-- Decision 1 -->
+  <polygon points="400,96 510,144 400,192 290,144" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="400" y="142" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Style guide</text>
+  <text x="400" y="156" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">still default?</text>
+
+  <!-- Onboarding branch -->
+  <rect x="600" y="116" width="180" height="56" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="690" y="141" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Brand onboarding</text>
+  <text x="690" y="157" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">URL · token · profile</text>
+
+  <!-- Pick type -->
+  <rect x="310" y="220" width="180" height="56" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="400" y="245" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Pick diagram type</text>
+  <text x="400" y="261" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">pattern → type-*.md</text>
+
+  <!-- Draw -->
+  <rect x="310" y="304" width="180" height="56" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="400" y="329" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Draw the SVG</text>
+  <text x="400" y="345" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">4px grid · ≤ 9 nodes</text>
+
+  <!-- Decision 2: taste gate -->
+  <polygon points="400,388 510,436 400,484 290,436" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="400" y="434" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Passes the</text>
+  <text x="400" y="448" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">taste gate?</text>
+
+  <!-- HTML output (focal) -->
+  <rect x="560" y="408" width="160" height="56" rx="20" fill="rgba(24,129,106,0.08)" stroke="#18816a" stroke-width="1"/>
+  <text x="640" y="433" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">HTML file</text>
+  <text x="640" y="449" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">inline SVG · 1 file</text>
+
+  <!-- Export (optional) -->
+  <rect x="800" y="408" width="140" height="56" rx="20" fill="rgba(28,30,33,0.02)" stroke="rgba(28,30,33,0.20)" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="870" y="433" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Export</text>
+  <text x="870" y="449" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">SVG · PNG @2x</text>
+
+  <!-- Legend -->
+  <line x1="40" y1="524" x2="920" y2="524" stroke="rgba(28,30,33,0.10)" stroke-width="0.8"/>
+  <text x="40" y="544" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">LEGEND · SHAPE CARRIES TYPE</text>
+  <rect x="40" y="560" width="24" height="12" rx="6" fill="rgba(28,30,33,0.03)" stroke="rgba(28,30,33,0.30)" stroke-width="1"/>
+  <text x="72" y="570" fill="#525860" font-size="8.5" font-family="'Geist', sans-serif">Start / end</text>
+  <rect x="220" y="560" width="24" height="12" rx="2" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="252" y="570" fill="#525860" font-size="8.5" font-family="'Geist', sans-serif">Step</text>
+  <polygon points="380,566 392,560 404,566 392,572" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="412" y="570" fill="#525860" font-size="8.5" font-family="'Geist', sans-serif">Decision</text>
+  <rect x="540" y="560" width="24" height="12" rx="6" fill="rgba(28,30,33,0.02)" stroke="rgba(28,30,33,0.20)" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="572" y="570" fill="#525860" font-size="8.5" font-family="'Geist', sans-serif">Optional</text>
+  <line x1="700" y1="566" x2="728" y2="566" stroke="#18816a" stroke-width="1.4" marker-end="url(#diagram-design-flow-en-arrow-accent)"/>
+  <text x="736" y="570" fill="#525860" font-size="8.5" font-family="'Geist', sans-serif">Happy path</text>
+</svg>
+    </div>
+  </div>
+</body>
+</html>
