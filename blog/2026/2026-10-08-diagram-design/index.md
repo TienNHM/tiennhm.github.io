@@ -9,7 +9,6 @@ date: 2026-10-08
 ---
 
 import { SummaryBox, FAQSection } from '@site/src/components/SEO';
-import ThemedImage from '@theme/ThemedImage';
 
 # Diagram Design
 
@@ -380,13 +379,8 @@ Vài quyết định tôi đã đưa ra:
 
 Sơ đồ bên dưới tự đổi theo chế độ sáng/tối bạn đang xem. Bấm nút đổi giao diện trên thanh điều hướng để xem bản còn lại:
 
-<ThemedImage
-  alt="Sơ đồ luồng xử lý của Diagram Design vẽ lại theo màu xanh ngọc của blog, tự đổi giữa nền sáng và nền tối"
-  sources={{
-    light: require('./diagram-design-flow-blog.png').default,
-    dark: require('./diagram-design-flow-blog-dark.png').default,
-  }}
-/>
+![Sơ đồ luồng xử lý của Diagram Design vẽ lại theo màu xanh ngọc của blog, tự đổi giữa nền sáng và nền tối](./diagram-design-flow-blog.png#gh-light-mode-only)
+![Sơ đồ luồng xử lý của Diagram Design vẽ lại theo màu xanh ngọc của blog, tự đổi giữa nền sáng và nền tối](./diagram-design-flow-blog-dark.png#gh-dark-mode-only)
 
 File gốc: [bản nền sáng](pathname:///files/diagram-design/vi/diagram-design-flow-blog.html) và [bản nền tối](pathname:///files/diagram-design/vi/diagram-design-flow-blog-dark.html).
 

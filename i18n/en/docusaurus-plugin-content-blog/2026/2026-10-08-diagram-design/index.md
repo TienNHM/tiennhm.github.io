@@ -9,7 +9,6 @@ date: 2026-10-08
 ---
 
 import { SummaryBox, FAQSection } from '@site/src/components/SEO';
-import ThemedImage from '@theme/ThemedImage';
 
 # Diagram Design
 
@@ -380,13 +379,8 @@ A few decisions I made:
 
 The diagram below follows whichever light/dark mode you are viewing. Click the theme toggle in the navbar to see the other version:
 
-<ThemedImage
-  alt="The Diagram Design flow redrawn in this blog's teal, switching between light and dark backgrounds"
-  sources={{
-    light: require('./diagram-design-flow-blog.png').default,
-    dark: require('./diagram-design-flow-blog-dark.png').default,
-  }}
-/>
+![The Diagram Design flow redrawn in this blog's teal, switching between light and dark backgrounds](./diagram-design-flow-blog.png#gh-light-mode-only)
+![The Diagram Design flow redrawn in this blog's teal, switching between light and dark backgrounds](./diagram-design-flow-blog-dark.png#gh-dark-mode-only)
 
 Source files: [light version](pathname:///files/diagram-design/en/diagram-design-flow-blog.html) and [dark version](pathname:///files/diagram-design/en/diagram-design-flow-blog-dark.html).
 
