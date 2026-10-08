@@ -120,7 +120,7 @@ Step by step:
 4. **Grade itself.** The skill calls this the **taste gate**. It is a checklist: is this the right diagram type, can any node or arrow still be removed, is the accent used in more than two places, are the technical rules satisfied. Fail any question and the agent goes back to drawing.
 5. **Write the file.** The result is always one HTML file. Exporting to SVG or PNG is optional and only happens when you ask.
 
-The image above is a PNG capture. The original is [diagram-design-flow.html](./diagram-design-flow.html), which you can open directly in your browser.
+The image above is a PNG capture. The original is [diagram-design-flow.html](pathname:///files/diagram-design/en/diagram-design-flow.html), which you can open directly in your browser.
 
 My machine did not have Playwright, so I took the PNG with headless Chrome (`--screenshot --force-device-scale-factor=2`). The output is the same 1920×1200 size.
 
@@ -388,7 +388,7 @@ The diagram below follows whichever light/dark mode you are viewing. Click the t
   }}
 />
 
-Source files: [light version](./diagram-design-flow-blog.html) and [dark version](./diagram-design-flow-blog-dark.html).
+Source files: [light version](pathname:///files/diagram-design/en/diagram-design-flow-blog.html) and [dark version](pathname:///files/diagram-design/en/diagram-design-flow-blog-dark.html).
 
 Compared with the default version above, the layout, positions, strokes and text are identical; only the colors and fonts differ. That is the payoff of separating the skin from the grammar.
 

@@ -120,7 +120,7 @@ Sơ đồ dưới đây mô tả các bước agent đi qua khi nhận một yê
 4. **Tự chấm điểm.** Skill gọi bước này là **taste gate**, tức "cửa kiểm tra gu thẩm mỹ". Đó là một danh sách câu hỏi: chọn đúng loại sơ đồ chưa, còn bỏ bớt được node hay mũi tên nào không, màu nhấn có dùng quá hai chỗ không, các quy tắc kỹ thuật đã đúng chưa. Trượt câu nào thì agent quay lại vẽ.
 5. **Xuất file.** Kết quả luôn là một file HTML. Xuất ra SVG hay PNG là bước tuỳ chọn, chỉ làm khi bạn yêu cầu.
 
-Ảnh trên là bản PNG chụp lại. File gốc là [diagram-design-flow.html](./diagram-design-flow.html), bạn có thể mở thẳng trong trình duyệt. Tôi chỉ sửa một chỗ trong file này là font tiêu đề, lý do nằm ở [mục tiếng Việt](#sơ-đồ-tiếng-việt-lỗi-font-tiêu-đề-và-cách-sửa).
+Ảnh trên là bản PNG chụp lại. File gốc là [diagram-design-flow.html](pathname:///files/diagram-design/vi/diagram-design-flow.html), bạn có thể mở thẳng trong trình duyệt. Tôi chỉ sửa một chỗ trong file này là font tiêu đề, lý do nằm ở [mục tiếng Việt](#sơ-đồ-tiếng-việt-lỗi-font-tiêu-đề-và-cách-sửa).
 
 Máy tôi chưa cài Playwright, nên tôi chụp PNG bằng Chrome chạy ở chế độ không giao diện (`--screenshot --force-device-scale-factor=2`). Ảnh ra cùng kích thước 1920×1200.
 
@@ -388,7 +388,7 @@ Sơ đồ bên dưới tự đổi theo chế độ sáng/tối bạn đang xem.
   }}
 />
 
-File gốc: [bản nền sáng](./diagram-design-flow-blog.html) và [bản nền tối](./diagram-design-flow-blog-dark.html).
+File gốc: [bản nền sáng](pathname:///files/diagram-design/vi/diagram-design-flow-blog.html) và [bản nền tối](pathname:///files/diagram-design/vi/diagram-design-flow-blog-dark.html).
 
 So với bản mặc định ở trên, bố cục, vị trí, nét vẽ và chữ giống hệt nhau, chỉ khác màu và font. Đó chính là lợi ích của việc tách skin ra khỏi ngữ pháp.
 
