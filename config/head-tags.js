@@ -132,6 +132,17 @@ module.exports = [
     }
 },
 /*
+ * Áp trạng thái ẩn/hiện cột danh sách bài và mục lục của blog (xem
+ * src/theme/BlogLayout) TRƯỚC lần vẽ đầu tiên. Đợi React hydrate xong mới đọc
+ * localStorage thì người đã ẩn cột sẽ thấy nó hiện ra rồi biến mất.
+ * Khoá localStorage và tên data-attribute phải khớp với BlogLayout.
+ */
+{
+    tagName: 'script',
+    attributes: {},
+    innerHTML: `(function(){try{var d=document.documentElement;['sidebar','toc'].forEach(function(k){if(localStorage.getItem('blog-layout-'+k)==='hidden'){d.setAttribute('data-blog-'+k,'hidden');}});}catch(e){}})();`,
+},
+/*
  * JSON-LD site-wide (@graph: Person + WebSite) ĐÃ CHUYỂN sang
  * src/theme/SiteStructuredData, được render từ src/theme/Root.
  *

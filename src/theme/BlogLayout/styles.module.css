@@ -1,0 +1,102 @@
+/*
+ * Dưới 997px Docusaurus đã tự ẩn cột danh sách bài (chuyển vào menu) và mục
+ * lục, nên thanh nút và các quy tắc ẩn chỉ có nghĩa trên desktop.
+ */
+.toolbar {
+  display: none;
+}
+
+@media (min-width: 997px) {
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    /* Cùng padding ngang với `article` trong custom.css để nút thẳng hàng với nội dung. */
+    padding-inline: var(--site-space-6);
+  }
+
+  .toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.25rem 0.625rem;
+    font: inherit;
+    font-size: 0.8125rem;
+    color: var(--ifm-color-emphasis-700);
+    background: transparent;
+    border: 1px solid var(--ifm-color-emphasis-200);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .toggle:hover {
+    color: var(--ifm-color-primary-darker);
+    background: var(--ifm-color-emphasis-100);
+    border-color: var(--ifm-color-emphasis-300);
+  }
+
+  .toggle:focus-visible {
+    outline: 2px solid var(--ifm-color-primary);
+    outline-offset: 2px;
+  }
+
+  /* Khi cột đang ẩn, nút được tô nhẹ để người đọc biết vì sao trang trống hai bên. */
+  .toggle[aria-pressed='true'] {
+    color: var(--ifm-color-primary-darker);
+    border-color: var(--ifm-color-primary-lighter);
+  }
+
+  [data-theme='dark'] .toggle:hover,
+  [data-theme='dark'] .toggle[aria-pressed='true'] {
+    color: var(--ifm-color-primary-lighter);
+  }
+
+  .toggleRight {
+    margin-left: auto;
+  }
+
+  /* ---- Ẩn cột theo data-attribute trên <html> (đặt bởi config/head-tags.js) ---- */
+
+  :global(html[data-blog-sidebar='hidden']) .row > aside,
+  :global(html[data-blog-toc='hidden']) .toc {
+    display: none;
+  }
+
+  /*
+   * Cột nội dung lấp chỗ cột vừa ẩn bằng cách đổi --ifm-col-width (Infima dùng
+   * biến này cho cả flex-basis lẫn max-width), giữ đúng lưới 12 cột.
+   *
+   * Đừng dùng `flex: 1 1 0`: .row của Infima có flex-wrap, và bề rộng tối thiểu
+   * của bài (bảng, khối code) đủ lớn để đẩy cột bên cạnh xuống dòng mới.
+   *
+   * Chỉ áp khi trang thực sự có cột đó (.withSidebar / .withToc), nếu không trang
+   * danh sách bài hay trang không có sidebar sẽ bị cộng sai số cột.
+   */
+  :global(html[data-blog-sidebar='hidden']) .main.withSidebar {
+    --ifm-col-width: calc(10 / 12 * 100%);
+  }
+
+  /* Trang không có mục lục (danh sách bài, tag): căn giữa thay vì dồn sang trái. */
+  :global(html[data-blog-sidebar='hidden']) .main.withSidebar:not(.withToc) {
+    --ifm-col-width: calc(9 / 12 * 100%);
+    margin-inline: auto;
+  }
+
+  :global(html[data-blog-toc='hidden']) .main.withSidebar.withToc {
+    --ifm-col-width: calc(9 / 12 * 100%);
+  }
+
+  /* Ẩn cả hai thì giữ độ dài dòng vừa mắt thay vì trải hết bề ngang container. */
+  :global(html[data-blog-sidebar='hidden'][data-blog-toc='hidden']) .main.withSidebar.withToc {
+    --ifm-col-width: 100%;
+    max-width: 62rem;
+    margin-inline: auto;
+  }
+}
+
+@media print {
+  .toolbar {
+    display: none;
+  }
+}
