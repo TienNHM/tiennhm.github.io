@@ -24,7 +24,7 @@ Nội dung tóm tắt ngắn gọn 2-4 dòng về bài viết.
 
 ### 2. FAQSection
 
-Tạo FAQ với structured data (FAQPage schema).
+Tạo FAQ với structured data (FAQPage schema). Mỗi câu hỏi là một `<details>` thu gọn được (mặc định chỉ mở câu đầu, có nút "Mở tất cả"); truyền `defaultOpen` để mở sẵn mọi câu.
 
 ```mdx
 <FAQSection 

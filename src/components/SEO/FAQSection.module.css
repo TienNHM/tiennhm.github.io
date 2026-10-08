@@ -6,40 +6,140 @@
   border: 1px solid var(--ifm-color-emphasis-200);
 }
 
+.faqSection__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
 .faqSection__title {
   font-size: 1.5rem;
   font-weight: 600;
-  margin-bottom: 1.5rem;
+  margin: 0;
   color: var(--ifm-heading-color);
+}
+
+.faqSection__toggleAll {
+  min-height: 2.25rem;
+  padding: 0.25rem 0.875rem;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--ifm-color-primary-darker);
+  background: transparent;
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.faqSection__toggleAll:hover {
+  background: var(--ifm-color-emphasis-100);
+  border-color: var(--ifm-color-primary);
+}
+
+.faqSection__toggleAll:focus-visible {
+  outline: 2px solid var(--ifm-color-primary);
+  outline-offset: 2px;
 }
 
 .faqSection__list {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 0.5rem;
 }
 
+/* Mỗi câu là một thẻ riêng; câu đang mở được nhấn viền màu chủ đạo. */
 .faqItem {
-  padding-bottom: 1.5rem;
-  border-bottom: 1px solid var(--ifm-color-emphasis-200);
+  border: 1px solid var(--ifm-color-emphasis-200);
+  border-radius: 6px;
+  background: var(--ifm-background-color);
+  transition: border-color 0.15s ease;
 }
 
-.faqItem:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
+.faqItem[open] {
+  border-color: var(--ifm-color-primary-lighter);
+}
+
+.faqItem__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  /* Vùng bấm đủ lớn cho màn hình cảm ứng. */
+  min-height: var(--site-tap-target, 2.75rem);
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+/* Ẩn tam giác mặc định của trình duyệt, thay bằng chevron riêng. */
+.faqItem__summary::-webkit-details-marker {
+  display: none;
+}
+
+.faqItem__summary::marker {
+  content: '';
+}
+
+.faqItem__summary:hover {
+  background: var(--ifm-color-emphasis-100);
+}
+
+.faqItem__summary:focus-visible {
+  outline: 2px solid var(--ifm-color-primary);
+  outline-offset: 2px;
+}
+
+.faqItem[open] > .faqItem__summary {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
 }
 
 .faqItem__question {
-  font-size: 1.1rem;
+  margin: 0;
+  font-size: 1.05rem;
   font-weight: 600;
-  margin-bottom: 0.75rem;
-  color: var(--ifm-heading-color);
   line-height: 1.4;
+  color: var(--ifm-heading-color);
+}
+
+.faqItem[open] .faqItem__question {
+  color: var(--ifm-color-primary-darker);
+}
+
+.faqItem__chevron {
+  flex-shrink: 0;
+  color: var(--ifm-color-emphasis-600);
+  transition: transform 0.2s ease;
+}
+
+.faqItem[open] .faqItem__chevron {
+  transform: rotate(180deg);
+  color: var(--ifm-color-primary);
 }
 
 .faqItem__answer {
+  padding: 0 1rem 1rem;
   color: var(--ifm-color-content);
   line-height: 1.7;
+  animation: faqReveal 0.2s ease-out;
+}
+
+@keyframes faqReveal {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .faqItem__answer p {
@@ -60,8 +160,42 @@
   margin-top: 0.25rem;
 }
 
+@media (max-width: 576px) {
+  .faqSection {
+    padding: 1rem;
+  }
+
+  .faqItem__summary {
+    padding: 0.75rem;
+  }
+
+  .faqItem__answer {
+    padding: 0 0.75rem 0.75rem;
+  }
+}
+
+@media print {
+  .faqSection__toggleAll,
+  .faqItem__chevron {
+    display: none;
+  }
+}
+
 /* Dark mode support */
 [data-theme='dark'] .faqSection {
   background: var(--ifm-background-color);
   border-color: var(--ifm-color-emphasis-300);
+}
+
+[data-theme='dark'] .faqItem {
+  background: var(--ifm-background-surface-color);
+  border-color: var(--ifm-color-emphasis-300);
+}
+
+[data-theme='dark'] .faqItem[open] {
+  border-color: var(--ifm-color-primary-dark);
+}
+
+[data-theme='dark'] .faqItem[open] .faqItem__question {
+  color: var(--ifm-color-primary-lighter);
 }
