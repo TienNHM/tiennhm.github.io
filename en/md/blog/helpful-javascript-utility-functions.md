@@ -1,16 +1,17 @@
-# Helpful JavaScript Utility Functions
+# Những hàm JavaScript hữu ích
 
 > Nguồn: https://tiennhm.io.vn/en/blog/helpful-javascript-utility-functions
+> Các hàm tiện ích JavaScript dùng lại được trong dự án thật — GetValuesByKey, FlattenObject, FlattenObjectWithKey — kèm mã nguồn, trường hợp kiểm thử và tình huống áp dụng cụ thể.
 
-> This post collects JavaScript utility functions I have found useful in real projects, including object helpers such as GetValuesByKey, FlattenObject and FlattenObjectWithKey. Each one comes with code examples, test cases and concrete use cases. These functions help developers handle complex data efficiently and reuse code across JavaScript/TypeScript projects.
+> Bài viết giới thiệu các hàm tiện ích JavaScript hữu ích được sử dụng trong các dự án thực tế, bao gồm các hàm xử lý object như GetValuesByKey, FlattenObject, FlattenObjectWithKey. Mỗi hàm được trình bày kèm code examples, test cases và use cases cụ thể. Các hàm này giúp developers xử lý dữ liệu phức tạp một cách hiệu quả và tái sử dụng code trong các dự án JavaScript/TypeScript.
 
-JavaScript is one of the most widely used programming languages in the world today. Companies such as Google, Facebook and Microsoft use it to build web applications. It is a powerful language capable of building complex web applications, and a flexible one that works just as well for simple ones.
+Ngày nay, JavaScript là một trong những ngôn ngữ lập trình phổ biến nhất trên thế giới. Nó được sử dụng bởi nhiều công ty như Google, Facebook, Microsoft, v.v. để xây dựng các ứng dụng web. JavaScript là một ngôn ngữ rất mạnh mẽ có thể được sử dụng để xây dựng các ứng dụng web phức tạp. Nó cũng là một ngôn ngữ rất linh hoạt có thể được sử dụng để xây dựng các ứng dụng web đơn giản.
 
-In this post I will list some of the most useful JavaScript utility functions I have used in my own projects.
+Trong bài viết này, tôi sẽ liệt kê một số hàm tiện ích JavaScript hữu ích nhất mà tôi đã sử dụng trong các dự án của mình.
 
 ## 1. GetValuesByKey
 
-This function collects every value stored under the same field name within an `object`, including nested child objects. It returns an array of the values it finds.
+Hàm này sẽ giúp bạn lấy các giá trị có cùng tên field trong một `object`, bao gồm các `object` con lồng nhau. Nó sẽ trả về một mảng các giá trị tìm được.
 
         {GetValuesByKey}
 
@@ -19,7 +20,7 @@ This function collects every value stored under the same field name within an `o
 ## 2. Flatten object
 
 ### 2.1. Flatten object
-This function flattens an `object` containing nested child objects. It returns a new `object` whose keys are the keys of those nested objects.
+Hàm này sẽ giúp bạn làm phẳng một `object` có các `object` con lồng nhau. Nó sẽ trả về một `object` mới với các `key` là `key` của các `object` con lồng nhau.
 
         {FlattenObject}
 
@@ -27,7 +28,7 @@ This function flattens an `object` containing nested child objects. It returns a
 
 ### 2.2. Flatten object with key
 
-This function also flattens an `object` containing nested child objects, but the resulting keys are prefixed with the parent object's key.
+Hàm này sẽ giúp bạn làm phẳng một `object` có các `object` con lồng nhau. Nó sẽ trả về một `object` mới với các `key` là `key` của các `object` con lồng nhau, nhưng có thêm `key` của `object` cha ở đầu `key` của `object` con.
 
         {FlattenObjectWithKey}
 
