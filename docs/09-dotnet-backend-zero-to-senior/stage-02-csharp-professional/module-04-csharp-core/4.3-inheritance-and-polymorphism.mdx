@@ -9,7 +9,7 @@ import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 # 4.3 - Inheritance và Polymorphism
 
 <SummaryBox>
-Kế thừa tạo ra **quan hệ chặt nhất** có thể giữa hai class: lớp con phụ thuộc vào chi tiết cài đặt của lớp cha, và một thay đổi ở cha có thể phá vỡ mọi con. Vì thế câu hỏi đúng không phải "cái này kế thừa được không" mà **"cái này có thật sự *là một* cái kia không, ở mọi tình huống?"**. Nguyên tắc thay thế Liskov phát biểu chính xác điều đó, và ví dụ hình vuông–hình chữ nhật cho thấy trực giác "là một" hay đánh lừa. Bài này cũng chỉ ra một cái bẫy ít ai biết: **gọi phương thức `virtual` trong constructor** khiến lớp con chạy code trước khi field của nó được khởi tạo.
+Kế thừa tạo ra **quan hệ chặt nhất** có thể giữa hai class: lớp con phụ thuộc vào chi tiết cài đặt của lớp cha, và một thay đổi ở cha có thể phá vỡ mọi con. Vì thế câu hỏi đúng không phải "cái này kế thừa được không" mà **"cái này có thật sự *là một* cái kia không, ở mọi tình huống?"**. Nguyên tắc thay thế Liskov phát biểu chính xác điều đó, và ví dụ hình vuông–hình chữ nhật cho thấy trực giác "là một" hay đánh lừa. Bài này cũng chỉ ra một cái bẫy ít ai biết: **gọi phương thức `virtual` trong constructor** khiến lớp con chạy code trước khi thân constructor của nó kịp chạy.
 </SummaryBox>
 
 ## Mục tiêu bài học
@@ -171,7 +171,12 @@ public abstract class Report
 
 public class SalesReport : Report
 {
-    private readonly List<string> _columns = new();
+    private readonly List<string> _columns;
+
+    public SalesReport(IEnumerable<string> extraColumns)
+    {
+        _columns = new List<string>(extraColumns);   // gán trong THÂN constructor
+    }
 
     protected override void Initialize()
     {
@@ -180,9 +185,17 @@ public class SalesReport : Report
 }
 ```
 
-Thứ tự thực thi trong .NET: constructor của lớp **cha chạy trước**, rồi mới tới phần khởi tạo field của lớp **con**. Nên khi `Initialize()` được gọi, `_columns` vẫn là `null`.
+Thứ tự khởi tạo trong C# khi gọi `new SalesReport(...)`:
 
-Đây là một trong số ít cái bẫy mà trình biên dịch **không** cảnh báo và cũng không lộ ra cho tới lúc chạy.
+1. **Field initializer** của lớp con chạy (ở đây không có).
+2. **Constructor của lớp cha** chạy, và gọi `Initialize()`. Lời gọi `virtual` đi thẳng tới bản override của `SalesReport`.
+3. **Thân constructor** của lớp con chạy, lúc này mới gán `_columns`.
+
+Nên khi `Initialize()` chạy ở bước 2, `_columns` vẫn là `null`.
+
+Lưu ý: nếu viết `private readonly List<string> _columns = new();` (field initializer) thì **không** lỗi, vì C# chạy field initializer của lớp con **trước** khi gọi constructor lớp cha. Java thì ngược lại. Chính vì thế bẫy này dễ lọt: chỉ cần ai đó chuyển field sang gán trong constructor là lỗi xuất hiện. Dù không lỗi, override vẫn chạy trước thân constructor lớp con, nên mọi thứ được gán trong thân đó đều chưa có.
+
+Đây là một trong số ít cái bẫy mà trình biên dịch **không** cảnh báo (chỉ bộ phân tích mã `CA2214` bắt được, nếu bạn bật nó) và cũng không lộ ra cho tới lúc chạy.
 
 Cách tránh: đừng gọi phương thức `virtual` trong constructor. Nếu cần khởi tạo theo từng loại, dùng factory method hoặc một bước `Initialize()` mà người gọi chủ động gọi sau khi tạo xong.
 
@@ -438,11 +451,15 @@ public static DerivedB Create()
     return x;
 }
 
-// Cách 3 — sealed, để không ai override được
-public sealed class DerivedB : Base { }
+// Cách 3 — constructor chỉ gọi phương thức lớp con KHÔNG override được
+public class Base
+{
+    public Base() => InitCore();
+    private void InitCore() { /* chỉ đụng tới field của Base */ }
+}
 ```
 
-Cách 3 đáng chú ý: `sealed` làm cho lời gọi `virtual` trong constructor trở nên vô hại, vì không còn lớp con nào để gọi tới. Đây là một lý do thực tế để đánh dấu `sealed` cho các lớp không định cho kế thừa — và cũng giúp trình biên dịch tối ưu tốt hơn.
+Cách 3 đáng chú ý: lời gọi trong constructor chỉ an toàn khi không lớp con nào chen vào được — phương thức `private`, không `virtual`, hoặc cả class được đánh dấu `sealed` (class `sealed` không thể khai báo thành viên `virtual` mới, và không có lớp con nào để gọi tới). Đây là một lý do thực tế để đánh dấu `sealed` cho các lớp không định cho kế thừa — và cũng giúp JIT tối ưu tốt hơn.
 
 </details>
 
@@ -575,7 +592,7 @@ Assert.Equal("An", result.Name);
     },
     {
       question: "Vì sao không được gọi phương thức virtual trong constructor?",
-      answer: "Vì constructor của lớp cha chạy trước phần khởi tạo field của lớp con. Nên khi phương thức virtual được gọi từ constructor cha, phiên bản override ở lớp con sẽ chạy trong lúc field của nó vẫn còn null. Trình biên dịch không cảnh báo, và lỗi chỉ lộ ra lúc chạy."
+      answer: "Vì lời gọi virtual từ constructor lớp cha đi thẳng tới bản override ở lớp con, trong khi thân constructor của lớp con CHƯA chạy. Trong C#, field initializer của lớp con chạy trước constructor lớp cha nên an toàn, nhưng field gán trong thân constructor lớp con thì vẫn còn null. Trình biên dịch không cảnh báo (chỉ bộ phân tích CA2214 bắt được), và lỗi chỉ lộ ra lúc chạy."
     },
     {
       question: "Khi nào chọn composition thay vì kế thừa?",

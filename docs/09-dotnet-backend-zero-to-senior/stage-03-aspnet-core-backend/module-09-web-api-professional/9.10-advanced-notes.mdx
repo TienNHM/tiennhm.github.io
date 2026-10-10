@@ -75,14 +75,15 @@ public async Task SendWebhookAsync(WebhookEvent evt, CancellationToken ct)
     // 1. KÝ — để đối tác xác minh là bạn gửi
     var signature = ComputeHmac($"{timestamp}.{payload}", _secret);
 
-    var request = new HttpRequestMessage(HttpMethod.Post, _endpoint)
+    using var request = new HttpRequestMessage(HttpMethod.Post, _endpoint)
     {
         Content = new StringContent(payload, Encoding.UTF8, "application/json")
+    };
     request.Headers.Add("X-Event-Id", evt.Id.ToString());   // 2. để đối tác chống trùng
     request.Headers.Add("X-Signature", $"t={timestamp},v1={signature}");
-    request.Headers.Add("X-Event-Id", evt.Id.ToString());   // 2. de doi tac chong trung
 
-    await _httpClient.SendAsync(request, ct);
+    using var response = await _httpClient.SendAsync(request, ct);
+    response.EnsureSuccessStatusCode();   // lỗi thì ném, để tầng retry gửi lại
 }
 ```
 

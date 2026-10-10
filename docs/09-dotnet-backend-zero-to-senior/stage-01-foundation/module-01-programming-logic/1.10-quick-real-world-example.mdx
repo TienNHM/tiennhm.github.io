@@ -9,7 +9,7 @@ import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 # 1.10 - Ví dụ thực tế nhanh
 
 <SummaryBox>
-Một đoạn code **6 dòng, hoàn toàn đúng về logic**, làm màn hình báo cáo treo **40 giây**. Nó chạy tốt suốt một năm với 500 khách hàng, rồi hệ thống lên 5.000 khách và thời gian chạy tăng **100 lần** chứ không phải 10 lần. Nguyên nhân là **vòng lặp lồng nhau** — mỗi khách hàng lại duyệt toàn bộ danh sách đơn hàng. Cách sửa chỉ là đổi cách tra cứu sang `Dictionary`, và thời gian xuống **0,4 giây**. Điều đáng nhớ nhất: bug này **không bao giờ lộ ra ở môi trường phát triển**, vì với vài chục bản ghi thì cả hai cách đều chạy tức thì.
+Một đoạn code **6 dòng, hoàn toàn đúng về logic**, làm màn hình báo cáo treo **40 giây**. Nó chạy tốt suốt một năm với 500 khách hàng, rồi hệ thống lên 5.000 khách và thời gian chạy tăng **100 lần** chứ không phải 10 lần. Nguyên nhân là **vòng lặp lồng nhau** — mỗi khách hàng lại duyệt toàn bộ danh sách đơn hàng. Cách sửa chỉ là đổi cách tra cứu sang `Dictionary`, và thời gian xuống **khoảng 0,01 giây**. Điều đáng nhớ nhất: bug này **không bao giờ lộ ra ở môi trường phát triển**, vì với vài chục bản ghi thì cả hai cách đều chạy tức thì.
 </SummaryBox>
 
 ## Mục tiêu bài học
@@ -87,11 +87,11 @@ foreach (var customer in customers)               // 5.000 lần
 ```
 
 ```
-200.000 + 5.000 = 205.000 thao tác    ->  0,4 giây
+200.000 + 5.000 = 205.000 thao tác    ->  khoảng 0,01 giây (ước lượng)
 (trước: 1.000.000.000                 -> 40 giây)
 ```
 
-Nhanh hơn **gần 5.000 lần**, và code cũng không dài hơn bao nhiêu.
+Ít thao tác hơn **gần 5.000 lần**. Cùng tốc độ như trên (40 giây cho một tỷ phép so sánh, tức khoảng 40 ns mỗi thao tác), 205.000 thao tác mất khoảng 8 mili giây — làm tròn 0,01 giây. Một thao tác từ điển tốn hơn một phép so sánh nên con số thật có thể cao hơn chút, nhưng vẫn nhanh hơn **hàng nghìn lần**. Và code cũng không dài hơn bao nhiêu.
 
 ```mermaid
 flowchart LR

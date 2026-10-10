@@ -194,9 +194,9 @@ var b = await db.Customers.FirstOrDefaultAsync(c => c.Id == id, ct);
 | Luôn đi database | Không | **Có** |
 | Chỉ tìm theo khoá chính | **Có** | Bất kỳ điều kiện |
 | Dùng được `Include` | **Không** | Có |
-| Áp global query filter | **Không** | **Có** |
+| Áp global query filter | **Chỉ khi phải truy vấn database** | **Luôn** |
 
-Hai hàng cuối quan trọng. `FindAsync` **bỏ qua global query filter** — nghĩa là nó **tìm thấy cả bản ghi đã xoá mềm** ([bài 13.10](13.10-global-query-filters.mdx)). Đây là nguồn của lỗi "tại sao tôi lấy được khách hàng đã xoá".
+Hai hàng cuối quan trọng. Nếu entity đã nằm trong change tracker, `FindAsync` trả về ngay mà **không áp global query filter** — nên nó có thể trả về **cả bản ghi đã xoá mềm** ([bài 13.10](13.10-global-query-filters.mdx)). Nếu phải truy vấn database, filter **vẫn được áp** như mọi truy vấn khác. Kết quả vì thế phụ thuộc vào những gì context đã nạp trước đó — nguồn của lỗi "tại sao lúc được lúc không, tôi lấy được khách hàng đã xoá".
 
 `FindAsync` nhanh hơn khi entity đã nằm trong change tracker (không sinh truy vấn nào), nên nó tốt cho luồng cập nhật. Với truy vấn đọc có filter, dùng `FirstOrDefaultAsync`.
 
@@ -206,9 +206,9 @@ Hai hàng cuối quan trọng. `FindAsync` **bỏ qua global query filter** — 
 flowchart TD
     A["Tìm Customer theo id"] --> B{"Gọi bằng gì?"}
     B -->|"FindAsync"| C{"Entity đã có trong change tracker?"}
-    C -->|"Có"| D["Trả ngay, không sinh truy vấn"]
-    C -->|"Không"| E["Truy vấn database theo khoá chính"]
-    B -->|"FirstOrDefaultAsync"| F["Luôn truy vấn database, nhận mọi điều kiện và Include"]
+    C -->|"Có"| D["Trả ngay, không sinh truy vấn, KHÔNG áp filter"]
+    C -->|"Không"| E["Truy vấn database theo khoá chính, CÓ áp filter"]
+    B -->|"FirstOrDefaultAsync"| F["Luôn truy vấn database, luôn áp filter, nhận mọi điều kiện và Include"]
 ```
 
 ### 13.5.6 — Compiled query
@@ -247,7 +247,7 @@ Chỉ dùng sau khi **đã đo** và thấy chi phí biên dịch truy vấn là
     { text: "Không bật lazy loading proxies." },
     { text: "Explicit loading không nằm trong vòng lặp." },
     { text: "Đếm collection dùng .Query().CountAsync(), không nạp rồi .Count." },
-    { text: "Biết FindAsync bỏ qua global query filter." },
+    { text: "Biết FindAsync không áp global query filter khi entity đã có trong change tracker." },
     { text: "Compiled query chỉ dùng sau khi đã đo, cho truy vấn chạy rất nhiều lần." },
   ]}
 />
@@ -511,7 +511,7 @@ Nên bật nó ở mọi môi trường, không chỉ dev: `Include` bị bỏ q
 
 #### Bài 3 — `FindAsync` và soft delete
 
-Bật global query filter loại bản ghi đã xoá mềm. Dùng `FindAsync` với id của một bản ghi đã xoá và xác nhận nó **vẫn trả về**. So sánh với `FirstOrDefaultAsync`.
+Bật global query filter loại bản ghi đã xoá mềm. Dùng `FindAsync` với id của một bản ghi đã xoá **đang được change tracker theo dõi** và xác nhận nó **vẫn trả về**. So sánh với `FirstOrDefaultAsync`, và với `FindAsync` trên một context mới.
 
 **Tiêu chí hoàn thành:** bạn nêu được **hai** điều kiện để `FindAsync` bỏ qua filter, và giải thích vì sao điều này gây lỗi không ổn định.
 
@@ -567,12 +567,16 @@ lead.IsDeleted = true;
 // b. Nạp qua IgnoreQueryFilters
 var lead = await _db.Leads.IgnoreQueryFilters().FirstAsync(l => l.Id == 1, ct);
 
-// c. Nạp gián tiếp qua navigation của một entity khác
-var contact = await _db.Contacts.Include(c => c.Lead).FirstAsync(ct);
-// Lead bị xoá mềm vẫn vào tracker — filter KHÔNG áp cho navigation
+// c. Nạp khi còn sống, rồi bị xoá mềm bằng ExecuteUpdate
+var lead = await _db.Leads.FirstAsync(l => l.Id == 1, ct);
+await _db.Leads.Where(l => l.Id == 1)
+    .ExecuteUpdateAsync(s => s.SetProperty(l => l.IsDeleted, true), ct);
+// Database đã ghi IsDeleted = 1, nhưng tracker vẫn giữ bản cũ IsDeleted = false
 ```
 
-Đường (c) đáng chú ý nhất vì nó xảy ra mà không ai chủ ý: global query filter **không** được áp cho navigation property trong `Include`. Một `Lead` đã xoá mềm vào tracker qua cửa sau, và từ đó `FindAsync(1)` trả về nó.
+Đường (c) đáng chú ý nhất vì nó xảy ra mà không ai chủ ý: `ExecuteUpdate`/`ExecuteDelete` đi thẳng xuống database và **không cập nhật change tracker**. Một `Lead` đã xoá mềm vẫn nằm trong tracker dưới dạng bản cũ, và từ đó `FindAsync(1)` trả về nó.
+
+Lưu ý: `Include` **không** phải cửa sau — filter của `Lead` vẫn được áp khi nạp navigation (xem [bài 13.10](13.10-global-query-filters.mdx)).
 
 **Vì sao điều này gây lỗi không ổn định** — đây là phần quan trọng nhất:
 
@@ -656,7 +660,7 @@ Cách này **rất dễ gây hại**: nó vứt bỏ mọi thay đổi chưa lư
     },
     {
       question: "FindAsync khác FirstOrDefaultAsync ở đâu?",
-      answer: "FindAsync kiểm tra change tracker trước nên có thể không sinh truy vấn nào, nhưng nó chỉ tìm theo khoá chính, không dùng được Include, và quan trọng nhất là nó bỏ qua global query filter nên vẫn trả về bản ghi đã xoá mềm."
+      answer: "FindAsync kiểm tra change tracker trước nên có thể không sinh truy vấn nào, nhưng nó chỉ tìm theo khoá chính và không dùng được Include. Quan trọng nhất: nếu entity đã có trong tracker, nó trả về ngay mà không áp global query filter, nên có thể trả về bản ghi đã xoá mềm. Nếu phải truy vấn database thì filter vẫn được áp."
     },
     {
       question: "Vì sao không nên bật lazy loading?",
@@ -671,7 +675,7 @@ Ba điều đáng nhớ nhất:
 
 1. **Projection là mặc định cho đọc.** `Include` kèm `Select` bị bỏ qua.
 2. **Nhiều `Include` collection gây nhân dòng.** Dùng `AsSplitQuery` hoặc projection.
-3. **`FindAsync` bỏ qua global query filter** — nó thấy cả bản ghi đã xoá mềm.
+3. **`FindAsync` không áp global query filter khi entity đã có trong change tracker** — lúc đó nó có thể trả về cả bản ghi đã xoá mềm.
 
 ## Tham khảo
 

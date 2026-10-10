@@ -5,7 +5,7 @@ description: "Collation quyết định MySQL so sánh và sắp xếp chuỗi t
 image: https://i.pinimg.com/originals/6e/4a/9a/6e4a9a1b7604e4f9b6a9f74f932834ad.png
 authors: [tiennhm]
 tags: [database]
-keywords: [collation la gi, collate la gi, collation mysql, mysql collation, mysql collate, character set la gi, charset la gi, mysql character set, mysql charset, mysql charset collation, utf8mb4, mysql utf8 vs utf8mb4, utf8_general_ci, utf8_bin, latin1_swedish_ci, mysql show character set, mysql check database collation, mysql check table collation, mysql default character set, character_set_server, error 1253 collation, so sanh chuoi mysql, phan biet hoa thuong mysql, mysql emoji, alter table convert to utf8mb4]
+keywords: [collation la gi, collate la gi, collation mysql, mysql collation, mysql collate, character set la gi, charset la gi, mysql character set, mysql charset, mysql charset collation, utf8mb4, mysql utf8 vs utf8mb4, utf8_general_ci, utf8_bin, latin1_swedish_ci, mysql show character set, mysql check database collation, mysql check table collation, mysql default character set, character_set_server, error 1253 collation, error 1267 illegal mix of collations, so sanh chuoi mysql, phan biet hoa thuong mysql, mysql emoji, alter table convert to utf8mb4]
 enableComments: true # for Gisqus comments, set to true
 draft: false # set to true to hide this post from the site
 ---
@@ -82,7 +82,7 @@ Kết quả trả về sẽ bao gồm tên bảng mã, mô tả và mặc địn
 Trong đó:
 - `Charset`: tên bảng mã
 - `Description`: mô tả
-- `Default collation`: bảng mã mặc định
+- `Default collation`: collation mặc định của bảng mã
 - `Maxlen`: độ dài tối đa của mỗi ký tự trong bảng mã. Một số bảng mã chứa ký tự **đa byte**, nên Maxlen có thể lớn hơn 1.
 
 ## 2. Thứ tự ký tự (Collations) trong MySQL {#collations}
@@ -116,15 +116,15 @@ Collation xác định cách so sánh chuỗi trong MySQL. Ví dụ, collation `
 Collation có một số đặc điểm quan trọng:
 - **Case sensitivity**: xác định collation có phân biệt chữ hoa và chữ thường hay không.
     + `ci` (case-insensitive): không phân biệt chữ hoa và chữ thường. Một số collation có `ci` ở cuối tên, ví dụ: `utf8_general_ci` sẽ xem `A` và `a` là giống nhau.
-    + `cs` (case-sensitive): phân biệt chữ hoa và chữ thường. Ví dụ: `utf8_bin` sẽ xem `A` và `a` là khác nhau.
+    + `cs` (case-sensitive): phân biệt chữ hoa và chữ thường. Ví dụ: `latin1_general_cs` sẽ xem `A` và `a` là khác nhau. Các collation `_bin` như `utf8_bin` so sánh theo giá trị nhị phân nên cũng xem `A` và `a` là khác nhau.
 - **Accent sensitivity**: xác định collation có phân biệt dấu thanh hay không. Ví dụ: `utf8_general_ci` sẽ xem `á` và `a` là giống nhau, trong khi `utf8_bin` sẽ xem chúng là khác nhau.
-- **Kana sensitivity**: xác định collation có phân biệt ký tự Kana (tiếng Nhật) hay không. Ví dụ: `utf8_general_ci` sẽ xem `あ` và `ア` là giống nhau, trong khi `utf8_bin` sẽ xem chúng là khác nhau.
+- **Kana sensitivity**: xác định collation có phân biệt ký tự Kana (tiếng Nhật) hay không. Ví dụ: `utf8mb4_0900_ai_ci` sẽ xem `あ` và `ア` là giống nhau, trong khi `utf8mb4_ja_0900_as_cs_ks` (hậu tố `_ks`: kana-sensitive) hay `utf8mb4_bin` sẽ xem chúng là khác nhau.
 
 ## 3. So sánh chuỗi trong MySQL {#string-comparison}
 
 Khi so sánh chuỗi trong MySQL, bạn cần lưu ý các collation của bảng mã. MySQL sử dụng collation để xác định cách so sánh chuỗi, và kết quả có thể khác nhau tùy thuộc vào collation.
 
-Ví dụ, giả sử bạn có một bảng `users` với cột `name` có collation `utf8_general_ci`:
+Ví dụ, giả sử bạn có một bảng `users` với cột `name` có collation `utf8_bin`:
 
 ```sql
 CREATE TABLE users (
@@ -159,7 +159,7 @@ Tuy nhiên, nếu collation của cột `name` là `utf8_general_ci`, câu lện
 </p>
 
 
-Từ đó, khi làm việc với chuỗi trong MySQL, bạn cần lưu ý collation của cột để tránh nhầm lẫn trong kết quả truy vấn. Nếu cần, bạn có thể sử dụng hàm `COLLATE` để ghi đè collation mặc định:
+Từ đó, khi làm việc với chuỗi trong MySQL, bạn cần lưu ý collation của cột để tránh nhầm lẫn trong kết quả truy vấn. Nếu cần, bạn có thể sử dụng mệnh đề `COLLATE` để ghi đè collation mặc định:
 
 ```sql
 SELECT * FROM users WHERE name COLLATE utf8_bin = 'Alice';
@@ -328,31 +328,45 @@ x || y COLLATE z
 x || (y COLLATE z)
 ```
 
-Ví dụ:
+Lưu ý: trong MySQL, `||` mặc định là toán tử **OR logic** (cách dùng `||` thay cho `OR` đã bị deprecated từ MySQL 8.0.17), nó chỉ trở thành toán tử nối chuỗi khi bật sql_mode `PIPES_AS_CONCAT`. Vì vậy, để nối chuỗi trong MySQL, hãy dùng hàm `CONCAT()`. Khi đó `COLLATE` cũng chỉ gắn vào đối số đứng ngay trước nó:
 
 ```sql
-SELECT 'Alice' || 'Alice' COLLATE utf8_general_ci;
+SELECT CONCAT('Alice', 'Alice' COLLATE utf8mb4_general_ci);
 ```
 
 Tương đương với:
 
 ```sql
-SELECT 'Alice' || ('Alice' COLLATE utf8_general_ci);
+SELECT CONCAT('Alice', ('Alice' COLLATE utf8mb4_general_ci));
 ```
+
+Muốn áp collation cho cả chuỗi kết quả, đặt `COLLATE` sau lời gọi hàm: `CONCAT('Alice', 'Alice') COLLATE utf8mb4_general_ci`.
 
 ### 4.3. Độ tương thích của collation
 
-Nếu hai collation không tương thích, MySQL sẽ báo lỗi. Ví dụ:
+Nếu hai vế của phép so sánh mang hai collation khác nhau cùng được chỉ định tường minh, MySQL không tự chọn được collation nào và sẽ báo lỗi. Ví dụ:
 
 ```sql
-SELECT 'Alice' COLLATE utf8_bin = 'Alice' COLLATE utf8_general_ci;
+SELECT 'Alice' COLLATE utf8mb4_bin = 'Alice' COLLATE utf8mb4_general_ci;
 ```
 
 Sẽ báo lỗi:
 
 ```
+Error Code: 1267. Illegal mix of collations (utf8mb4_bin,EXPLICIT) and (utf8mb4_general_ci,EXPLICIT) for operation '='
+```
+
+Một lỗi khác hay gặp là chỉ định collation không thuộc bảng mã của biểu thức. Từ MySQL 8.0, chuỗi literal mặc định mang bảng mã `utf8mb4` (theo `character_set_connection`), nên gắn cho nó một collation của `utf8` (tức `utf8mb3`) sẽ bị từ chối:
+
+```sql
+SELECT 'Alice' COLLATE utf8_bin = 'Alice' COLLATE utf8_general_ci;
+```
+
+```
 Error Code: 1253. COLLATION 'utf8_bin' is not valid for CHARACTER SET 'utf8mb4'
 ```
+
+Lỗi này xảy ra ngay ở `COLLATE` đầu tiên, trước khi MySQL kịp so sánh hai collation. Cách sửa là dùng collation đúng bảng mã (`utf8mb4_bin`, `utf8mb4_general_ci`…) hoặc đổi bảng mã của literal trước, ví dụ `_utf8mb3'Alice' COLLATE utf8mb3_bin`.
 
 ### 4.4. `utf8` của MySQL không phải UTF-8
 
@@ -469,7 +483,7 @@ Nếu bạn có bất kỳ câu hỏi hoặc ý kiến đóng góp nào, hãy đ
     },
     {
       question: "Lỗi Error Code 1253 COLLATION is not valid for CHARACTER SET xảy ra khi nào?",
-      answer: "Khi bạn so sánh hai biểu thức có collation không tương thích với nhau, ví dụ SELECT 'Alice' COLLATE utf8_bin = 'Alice' COLLATE utf8_general_ci. Trong trường hợp này MySQL báo lỗi thay vì tự chọn một collation."
+      answer: "Khi collation trong mệnh đề COLLATE không thuộc bảng mã của biểu thức. Ví dụ từ MySQL 8.0, literal 'Alice' mặc định là utf8mb4 nên 'Alice' COLLATE utf8_bin báo lỗi 1253 vì utf8_bin thuộc utf8 (utf8mb3); cần dùng utf8mb4_bin. Còn khi so sánh hai biểu thức mang hai collation tường minh khác nhau, như 'Alice' COLLATE utf8mb4_bin = 'Alice' COLLATE utf8mb4_general_ci, MySQL báo lỗi khác là 1267 Illegal mix of collations."
     },
     {
       question: "Collation là gì?",

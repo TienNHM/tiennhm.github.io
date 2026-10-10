@@ -134,7 +134,7 @@ app.UseCors("CrmFrontend");     // qua muon
 app.MapControllers();
 ```
 
-Middleware chạy **theo thứ tự đăng ký**. Request `OPTIONS` của preflight **không mang token**, nên nếu `UseAuthentication` chạy trước, nó bị từ chối với 401 — và phản hồi 401 đó không có header CORS, nên trình duyệt báo lỗi CORS thay vì lỗi xác thực. Đây là cấu hình sai gây nhầm lẫn nhiều nhất ([bài 8.2](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.2-request-pipeline-and-middleware.mdx)).
+Middleware chạy **theo thứ tự đăng ký**. Request `OPTIONS` của preflight **không mang token**. `UseAuthentication` tự nó không từ chối gì — nó chỉ không xác định được người dùng. Nhưng tới `UseAuthorization`, endpoint có `[Authorize]` (hoặc fallback policy yêu cầu đăng nhập) sẽ challenge và trả 401, trước khi `UseCors` kịp chạy. Phản hồi 401 đó không có header CORS, nên trình duyệt báo lỗi CORS thay vì lỗi xác thực. Đây là cấu hình sai gây nhầm lẫn nhiều nhất ([bài 8.2](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.2-request-pipeline-and-middleware.mdx)).
 
 ```mermaid
 sequenceDiagram
@@ -142,7 +142,7 @@ sequenceDiagram
     participant A as UseAuthentication / UseAuthorization
     participant C as UseCors
     B->>A: OPTIONS /api/leads (preflight, không mang token)
-    A-->>B: 401, không có header CORS
+    A-->>B: 401 do UseAuthorization challenge, không có header CORS
     Note over C: Không bao giờ chạy tới
     Note over B: Báo lỗi CORS thay vì lỗi xác thực
 ```
@@ -609,7 +609,8 @@ app.MapControllers();
 
 ```text
 Sau UseRouting: vì chính sách CORS có thể gắn theo endpoint
-Trước UseAuthentication: vì preflight không mang token
+Trước UseAuthentication/UseAuthorization: vì preflight không mang token,
+                         UseAuthorization sẽ challenge và trả 401
 ```
 
 **2. `UseExceptionHandler` nằm ngoài cùng.**
@@ -639,7 +640,7 @@ public async Task Preflight_khong_bi_chan_boi_xac_thuc()
     var res = await _client.SendAsync(req);
 
     res.StatusCode.Should().Be(HttpStatusCode.NoContent,
-        "preflight không mang token, nên nó phải được UseCors trả lời trước khi tới UseAuthentication");
+        "preflight không mang token, nên nó phải được UseCors trả lời trước khi tới UseAuthorization");
     res.Headers.Should().ContainKey("Access-Control-Allow-Origin");
 }
 ```
@@ -666,7 +667,7 @@ Test này chạy trong vài chục mili giây và bắt được đúng loại h
     },
     {
       question: "Vì sao UseCors phải đứng trước UseAuthentication?",
-      answer: "Vì request OPTIONS của preflight không mang token. Nếu UseAuthentication chạy trước, nó từ chối với 401, và phản hồi 401 đó không có header CORS nên trình duyệt báo lỗi CORS thay vì lỗi xác thực."
+      answer: "Vì request OPTIONS của preflight không mang token. UseAuthentication không tự trả 401, nhưng nếu UseCors đứng sau, UseAuthorization sẽ challenge endpoint yêu cầu đăng nhập và trả 401 trước khi CORS kịp chạy. Phản hồi 401 đó không có header CORS nên trình duyệt báo lỗi CORS thay vì lỗi xác thực."
     },
     {
       question: "Vì sao không dùng được AllowAnyOrigin cùng AllowCredentials?",

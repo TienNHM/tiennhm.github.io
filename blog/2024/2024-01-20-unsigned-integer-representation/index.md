@@ -56,10 +56,10 @@ Nắm được biểu diễn nhị phân rồi thì các bài [thao tác trên b
 
 Để chuyển đổi một số nguyên dương từ hệ thập phân sang hệ nhị phân:
 - Ta thực hiện phép chia cho 2, được phần kết quả `m` và phần dư `r` (1 hoặc 0).
-- Tiếp tực thực hiện phép chia phần kết quả `m` cho 2, cho đến khi kết quả `m = 0` thì dừng.
+- Tiếp tục thực hiện phép chia phần kết quả `m` cho 2, cho đến khi kết quả `m = 0` thì dừng.
 - Khi đó, giá trị nhị phân cần tìm chính là việc viết lần lượt phần dư `r` từ dưới lên.
 
-** Ví dụ:**
+**Ví dụ:**
 <p align="center">
     <img src="https://res.cloudinary.com/tiennhm/image/upload/v1702200158/docs/caal/01-data-representation-computer-arithmetic/C1-Number-systems-dec2bin_ylfq9g.webp" loading='lazy' decoding='async' alt="dec2bin"/>
 </p>
@@ -84,7 +84,7 @@ Việc chuyển đổi số nguyên dương từ hệ thập phân sang hệ bá
     <img src="https://res.cloudinary.com/tiennhm/image/upload/v1702192054/docs/caal/01-data-representation-computer-arithmetic/C1-Number-systems-07_ts1oot.webp" loading='lazy' decoding='async' alt="7"/>
 </p>
 
-** Ví dụ:** Chuyển đổi số 1011111011111110<sub>2</sub> sang hệ thập lục phân (H) và hệ bát phân (O).
+**Ví dụ:** Chuyển đổi số 1011111011111110<sub>2</sub> sang hệ thập lục phân (H) và hệ bát phân (O).
 
 <p align="center">
     <img src="https://res.cloudinary.com/tiennhm/image/upload/v1702201384/docs/caal/01-data-representation-computer-arithmetic/C1-Number-systems-bin2oct2hex_dbezc6.webp" loading='lazy' decoding='async' alt="bin2oct2hex"/>
@@ -173,7 +173,7 @@ f. 00011100 => 001Ch    l.10101011 => 00ABh
 
 ```
 a. 0005h    => 0000 0101    g. 0030h    => 0011 0000
-b. 000Fh    => 0101 1111    h. 0027h    => 0010 0111
+b. 000Fh    => 0000 1111    h. 0027h    => 0010 0111
 c. 0010h    => 0001 0000    i. 0048h    => 0100 1000
 d. 0016h    => 0001 0110    j. 0063h    => 0110 0011
 e. 000Bh    => 0000 1011    k. A064h    => 1010 0000 0110 0100

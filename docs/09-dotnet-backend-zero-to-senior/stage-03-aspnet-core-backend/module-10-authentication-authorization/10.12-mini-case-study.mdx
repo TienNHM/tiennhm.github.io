@@ -62,8 +62,18 @@ public async Task<TokenPair> RefreshAsync(string refreshToken, CancellationToken
         .Include(t => t.User)
         .FirstOrDefaultAsync(t => t.Token == refreshToken, ct);
 
-    if (stored is null || stored.ExpiresUtc < DateTime.UtcNow || stored.RevokedUtc is not null)
+    if (stored is null)
         throw new UnauthorizedAccessException("Refresh token không hợp lệ");
+
+    // Token đã bị xoay/thu hồi mà vẫn được dùng -> coi là dùng lại (xem mục 10.12.3)
+    if (stored.RevokedUtc is not null)
+    {
+        await RevokeAllTokensAsync(stored.UserId, "Phát hiện dùng lại token", ct);
+        throw new UnauthorizedAccessException("Phiên đăng nhập không hợp lệ");
+    }
+
+    if (stored.ExpiresUtc < DateTime.UtcNow)
+        throw new UnauthorizedAccessException("Refresh token đã hết hạn");
 
     // KIỂM TRA LẠI trạng thái tài khoản
     if (!stored.User.IsActive)
@@ -122,6 +132,8 @@ Lợi ích thứ nhất: token bị đánh cắp chỉ dùng được **tới l�
 
 Lợi ích thứ hai quan trọng hơn: nó **phát hiện được** việc token bị đánh cắp.
 
+Đó chính là nhánh `RevokedUtc is not null` trong `RefreshAsync` ở mục 10.12.2, viết đầy đủ:
+
 ```csharp
 // Neu ai do dung refresh token DA BI XOAY
 if (stored.RevokedUtc is not null)
@@ -151,15 +163,19 @@ Cơ chế phát hiện:
 
 Đây là điểm mạnh nhất của rotation: không chỉ giới hạn thiệt hại mà còn **biến việc đánh cắp thành một sự kiện quan sát được**.
 
+Thứ tự kiểm tra là chỗ dễ sai. Nếu gộp `RevokedUtc is not null` chung với điều kiện "không hợp lệ" rồi ném lỗi ngay, nhánh phát hiện dùng lại **không bao giờ chạy**: kẻ tấn công chỉ nhận 401, còn họ token vẫn sống. Kiểm tra "đã bị xoay" phải đứng **trước** kiểm tra hạn, vì một token đã xoay rồi hết hạn mà vẫn được gửi lên cũng là dấu hiệu đánh cắp.
+
 Gộp cả bản sửa ở mục 10.12.2 và rotation, luồng refresh kiểm tra theo thứ tự:
 
 ```mermaid
 flowchart TB
-    R["POST /refresh"] --> F{"Token tồn tại và còn hạn?"}
-    F -->|"Không"| X["401"]
-    F -->|"Có"| RV{"Đã bị xoay trước đó?"}
-    RV -->|"Có"| ALL["Thu hồi toàn bộ token của user"]
-    RV -->|"Không"| AC{"User.IsActive?"}
+    R["POST /refresh"] --> E{"Token tồn tại?"}
+    E -->|"Không"| X["401"]
+    E -->|"Có"| RV{"Đã bị xoay/thu hồi trước đó?"}
+    RV -->|"Có: dùng lại"| ALL["Thu hồi toàn bộ token của user"]
+    RV -->|"Không"| F{"Còn hạn?"}
+    F -->|"Không"| X
+    F -->|"Có"| AC{"User.IsActive?"}
     AC -->|"Không"| ALL
     AC -->|"Có"| SS{"SecurityStamp khớp?"}
     SS -->|"Không"| ALL
@@ -359,9 +375,10 @@ Thêm xoay refresh token, dùng lại token cũ, và xác nhận toàn bộ chu�
 ```csharp
 private async Task<TokenPair> RotateTokenAsync(RefreshToken current, CancellationToken ct)
 {
+    var raw = GenerateRandomToken();
     var next = new RefreshToken
     {
-        TokenHash = Hash(raw = GenerateRandomToken()),
+        TokenHash = Hash(raw),
         UserId = current.UserId,
         SecurityStamp = current.User.SecurityStamp,
         AbsoluteExpiresAt = current.AbsoluteExpiresAt,     // KHÔNG gia hạn trần tuyệt đối
@@ -379,7 +396,7 @@ private async Task<TokenPair> RotateTokenAsync(RefreshToken current, Cancellatio
 }
 ```
 
-**Phát hiện tái sử dụng:**
+**Phát hiện tái sử dụng** — đặt ngay sau khi nạp token, **trước** kiểm tra hạn:
 
 ```csharp
 if (stored.RevokedUtc is not null)

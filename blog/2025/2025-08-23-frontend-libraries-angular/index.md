@@ -116,11 +116,11 @@ ng add ng-zorro-antd
 
 ```typescript
 // app.module.ts
-import { NgZorroAntdModule } from 'ng-zorro-antd';
+import { NzCardModule } from 'ng-zorro-antd/card';
 
 @NgModule({
   imports: [
-    NgZorroAntdModule,
+    NzCardModule,
     // ... other imports
   ],
 })
@@ -397,6 +397,8 @@ module.exports = {
 
 ### Kích thước bundle (gzip)
 
+> **Lưu ý:** các con số trong bảng là **số ước lượng mang tính minh hoạ** để so sánh tương đối, không phải kết quả đo chuẩn. Kích thước thực tế phụ thuộc phiên bản thư viện, số component bạn thực sự import, theme và cấu hình build (tree-shaking, loại bỏ CSS thừa…), nên hãy tự đo trên dự án của mình.
+
 | Thư viện | CSS (KB) | JS (KB) | Tổng (KB) |
 |-----------|----------|---------|------------|
 | Bootstrap | 25 | 15 | 40 |
@@ -406,6 +408,8 @@ module.exports = {
 | Tailwind | 15 | 0 | 15 |
 
 ### Hiệu suất tải trang
+
+Các chỉ số FCP, LCP và TTI dưới đây cũng là **số minh hoạ**, không phải benchmark có nguồn đo; con số thực phụ thuộc ứng dụng, phiên bản, cấu hình, thiết bị và mạng. Muốn có số liệu đáng tin, hãy đo trực tiếp bằng Lighthouse hoặc Chrome DevTools trên trang của bạn.
 
 ```typescript
 // Performance metrics
@@ -486,7 +490,7 @@ export class FeatureModule { }
 
 ### Custom theme với Tailwind
 
-```typescript
+```javascript
 // tailwind.config.js
 module.exports = {
   content: ["./src/**/*.{html,ts}"],
@@ -590,7 +594,7 @@ Việc lựa chọn thư viện UI phù hợp cho Angular phụ thuộc vào nhi
     },
     {
       question: "Thư viện UI nào nhẹ nhất về kích thước bundle?",
-      answer: "Theo bảng so sánh kích thước bundle (gzip) trong bài, Tailwind CSS nhẹ nhất với khoảng 15 KB, tiếp đến là Bootstrap 40 KB, Angular Material 60 KB, Ant Design 75 KB, và nặng nhất là PrimeNG với khoảng 95 KB."
+      answer: "Theo bảng ước lượng kích thước bundle (gzip) trong bài (số minh hoạ, thay đổi theo phiên bản và cấu hình), Tailwind CSS nhẹ nhất với khoảng 15 KB, tiếp đến là Bootstrap 40 KB, Angular Material 60 KB, Ant Design 75 KB, và nặng nhất là PrimeNG với khoảng 95 KB."
     },
     {
       question: "PrimeNG và Ant Design khác nhau ra sao?",

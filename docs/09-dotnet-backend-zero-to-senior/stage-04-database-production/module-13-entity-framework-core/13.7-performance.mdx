@@ -691,7 +691,7 @@ using var bulk = new SqlBulkCopy(connectionString)
 await bulk.WriteToServerAsync(bang, ct);
 ```
 
-`SqlBulkCopy` dùng giao thức nạp hàng loạt của SQL Server, nhanh hơn `SaveChanges` khoảng **một bậc độ lớn**. Thư viện `EFCore.BulkExtensions` bọc nó lại với API quen thuộc hơn, nhưng vẫn mang đúng những đánh đổi của `ExecuteUpdate` ở bài 1: không interceptor, không change tracker, không query filter.
+`SqlBulkCopy` dùng giao thức nạp hàng loạt của SQL Server, nhanh hơn `SaveChanges` khoảng **một bậc độ lớn**. Thư viện `EFCore.BulkExtensions` bọc nó lại với API quen thuộc hơn, nhưng vẫn mang những đánh đổi của `ExecuteUpdate` ở bài 1 — không interceptor, không change tracker — và thêm một cái nữa: không query filter (`ExecuteUpdate` vẫn đi qua pipeline dịch nên vẫn áp filter, còn `SqlBulkCopy` thì không).
 
 **Kết luận đáng mang theo:** trước khi áp dụng một mẹo tối ưu, hãy **đo lại trên phiên bản đang dùng**. Lời khuyên về `AutoDetectChangesEnabled` từng đúng và được lặp lại nhiều năm; trên EF Core 9 nó gần như không còn giá trị, trong khi vấn đề thật — `SaveChanges` đặt sai chỗ — vẫn nguyên đó và tốn gấp bảy lần.
 
