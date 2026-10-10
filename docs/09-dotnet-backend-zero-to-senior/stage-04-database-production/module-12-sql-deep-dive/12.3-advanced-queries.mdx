@@ -36,6 +36,16 @@ WHERE  u.IsActive = 1;                          -- SAI
 
 Truy vấn này **không** trả lead chưa gán. Với lead đó, `u.IsActive` là `NULL`, và `NULL = 1` cho `UNKNOWN` — dòng bị loại. `LEFT JOIN` vừa biến thành `INNER JOIN`.
 
+Số phận của một lead chưa gán tuỳ vào chỗ đặt điều kiện `u.IsActive = 1`:
+
+```mermaid
+flowchart LR
+    A["Lead chưa gán: AssignedToUserId là NULL"] --> B["LEFT JOIN Users: mọi cột u.* là NULL"]
+    B --> C{"u.IsActive = 1 nằm ở đâu?"}
+    C -->|"WHERE"| D["NULL = 1 cho UNKNOWN: dòng bị loại, thành INNER JOIN"]
+    C -->|"ON"| E["Chỉ không khớp Users: lead vẫn có mặt, FullName là NULL"]
+```
+
 ```sql
 -- ĐÚNG: điều kiện về bảng bên phải nằm trong ON
 SELECT l.LeadId, l.CompanyName, u.FullName

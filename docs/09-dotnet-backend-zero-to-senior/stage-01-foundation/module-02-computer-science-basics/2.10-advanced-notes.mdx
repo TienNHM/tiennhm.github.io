@@ -51,6 +51,19 @@ Hai cơ chế bổ sung nhau:
 
 `ETag` tiết kiệm băng thông nhưng vẫn tốn một lượt đi về; `Cache-Control` tiết kiệm cả lượt đi về nhưng có rủi ro dữ liệu cũ.
 
+Hai cơ chế dùng chung trên một tài nguyên:
+
+```mermaid
+sequenceDiagram
+    participant B as Trình duyệt
+    participant S as Server
+    B->>S: GET /api/products/123
+    S-->>B: 200 OK, Cache-Control max-age=3600, ETag a3f8b2c1
+    Note over B: Trong 3600 giây: dùng bản đã cache, không gửi request
+    B->>S: Hết hạn: GET kèm If-None-Match a3f8b2c1
+    S-->>B: 304 Not Modified, không có body
+```
+
 **Chỉ thị quan trọng nhất cần phân biệt:**
 
 ```http

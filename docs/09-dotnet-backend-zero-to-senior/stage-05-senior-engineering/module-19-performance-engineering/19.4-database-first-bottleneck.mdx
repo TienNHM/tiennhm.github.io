@@ -140,6 +140,21 @@ Những index này đang **thuần tuý tốn chi phí**: chúng làm chậm m�
 
 Kế hoạch được cache theo **lần chạy đầu tiên** sau khi plan cache bị xoá — và plan cache bị xoá khi restart, khi cập nhật thống kê, hoặc khi áp lực bộ nhớ. Đó là lý do sự cố xuất hiện "ngẫu nhiên": ai chạy truy vấn đầu tiên sau lần xoá cache quyết định kế hoạch cho mọi người.
 
+```mermaid
+sequenceDiagram
+    participant A as Truy vấn tiny-corp
+    participant S as SQL Server
+    participant C as Plan cache
+    participant B as Truy vấn mega-corp
+    Note over C: Cache vừa bị xoá: restart, cập nhật thống kê, áp lực bộ nhớ
+    A->>S: TenantId = tiny-corp, 200 lead
+    S->>C: Lưu kế hoạch nested loop và index seek
+    B->>S: TenantId = mega-corp, 2 triệu lead
+    S->>C: Tìm kế hoạch
+    C-->>S: Kế hoạch tối ưu cho 200 hàng
+    S-->>B: Nested loop 2 triệu lần, rất chậm
+```
+
 Ba cách xử lý:
 
 ```sql

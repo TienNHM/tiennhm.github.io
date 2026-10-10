@@ -95,6 +95,19 @@ public async Task JoinDealRoom(Guid dealId)
 }
 ```
 
+```mermaid
+flowchart TB
+    C["Kết nối mới hoặc kết nối lại"] --> O["OnConnectedAsync"]
+    O --> T{"Có claim tenant_id?"}
+    T -->|"Không"| AB["Context.Abort"]
+    T -->|"Có"| G1["AddToGroupAsync tenant:tenantId"]
+    G1 --> TM{"Có claim team_id?"}
+    TM -->|"Có"| G2["AddToGroupAsync tenant:tenantId:team:teamId"]
+    J["Client gọi JoinDealRoom"] --> CA{"CanAccessAsync?"}
+    CA -->|"Không"| HE["HubException"]
+    CA -->|"Có"| G3["AddToGroupAsync nhóm DealRoom"]
+```
+
 ### 11.7.3 — Đặt tên nhóm
 
 Tên nhóm là chuỗi tự do, nên đặt tên sai là rò rỉ dữ liệu giữa các khách hàng:

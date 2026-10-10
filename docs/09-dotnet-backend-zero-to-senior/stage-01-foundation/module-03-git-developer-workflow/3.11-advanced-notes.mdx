@@ -45,6 +45,18 @@ git bisect reset
 
 Với 1.000 commit giữa hai mốc, bạn chỉ cần khoảng **10 lần** kiểm tra, vì mỗi lần loại bỏ một nửa.
 
+```mermaid
+flowchart TD
+    A["git bisect start, bad, good v1.2.0"] --> B["Git checkout commit ở giữa khoảng còn lại"]
+    B --> C{"Commit này có lỗi?"}
+    C -->|Có| D["git bisect bad: commit lỗi đầu tiên là nó hoặc nằm trước nó"]
+    C -->|Không| E["git bisect good: commit lỗi đầu tiên nằm sau nó"]
+    D --> F{"Còn đúng một ứng viên?"}
+    E --> F
+    F -->|Chưa| B
+    F -->|Rồi| G["first bad commit, rồi git bisect reset"]
+```
+
 **Tự động hoá hoàn toàn** khi có test tái hiện được lỗi:
 
 ```bash

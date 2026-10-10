@@ -136,6 +136,25 @@ Ba lợi ích thật: **không có secret để lộ**, **không cần xoay kho�
 
 `DefaultAzureCredential` thử nhiều nguồn theo thứ tự: biến môi trường, managed identity, Azure CLI, Visual Studio. Nhờ đó **cùng một code** chạy được ở local (dùng `az login` của bạn) và trên Azure (dùng managed identity).
 
+Luồng xác thực khi ứng dụng chạy trên Azure với managed identity:
+
+```mermaid
+sequenceDiagram
+    participant App as crm-api
+    participant Cred as DefaultAzureCredential
+    participant Id as Azure: dịch vụ danh tính
+    participant KV as Key Vault
+    participant SQL as Azure SQL
+    App->>Cred: Cần token
+    Cred->>Cred: Thử lần lượt biến môi trường, managed identity, Azure CLI, Visual Studio
+    Cred->>Id: Xin token bằng managed identity
+    Id-->>Cred: Access token
+    Cred-->>App: Token
+    App->>KV: Đọc secret kèm token, không mật khẩu
+    App->>SQL: Kết nối với Authentication=Active Directory Default
+    Note over KV,SQL: Chỉ cấp quyền đã gán cho danh tính crm-api
+```
+
 Đây là mẫu nên áp dụng ngay cả khi bạn chưa lên cloud — nó loại bỏ cả một lớp vấn đề về secret ([bài 15.5](15.4-environment-and-secrets.mdx)).
 
 ### 15.8.4 — Dịch vụ đi kèm

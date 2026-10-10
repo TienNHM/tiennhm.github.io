@@ -139,6 +139,16 @@ Nếu endpoint mất 200ms và phần mapping chiếm 120 **nano** giây, cải 
 
 **Thứ tự đúng:** profiler tìm ra chỗ tốn thời gian ([bài 19.4](19.3-dotnet-server-profiling.mdx)) → BenchmarkDotNet so sánh các cách sửa chỗ đó. Dùng ngược lại là tối ưu ngẫu nhiên.
 
+```mermaid
+flowchart LR
+    A["Endpoint chậm"] --> B["Profiler tìm chỗ tốn thời gian"]
+    B --> C{"Chiếm tỷ trọng đáng kể?"}
+    C -->|"Không"| X["Bỏ qua, tối ưu là vô nghĩa"]
+    C -->|"Có"| D["Viết các cách sửa"]
+    D --> E["BenchmarkDotNet so sánh, chạy Release"]
+    E --> F["Áp dụng cách thắng, đo lại endpoint"]
+```
+
 ### 19.3.5 — Ba cái bẫy khi viết benchmark
 
 **Bẫy 1 — Đo cả phần chuẩn bị dữ liệu.**

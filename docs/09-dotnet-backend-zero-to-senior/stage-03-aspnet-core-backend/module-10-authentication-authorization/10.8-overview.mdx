@@ -123,6 +123,21 @@ public async Task<Result<TokenPair>> LoginAsync(
 }
 ```
 
+```mermaid
+flowchart TB
+    F["FindByEmailAsync"] --> N{"Có user?"}
+    N -->|"Không"| G["Email hoặc mật khẩu không đúng"]
+    N -->|"Có"| L{"IsLockedOutAsync?"}
+    L -->|"Có"| LK["Tài khoản tạm khoá"]
+    L -->|"Không"| P{"CheckPasswordAsync?"}
+    P -->|"Sai"| AF["AccessFailedAsync<br/>tăng bộ đếm"]
+    AF --> G
+    P -->|"Đúng"| RS["ResetAccessFailedCountAsync"]
+    RS --> EC{"Email đã xác nhận?"}
+    EC -->|"Chưa"| CE["Yêu cầu xác nhận email"]
+    EC -->|"Rồi"| T["Cấp cặp token"]
+```
+
 Ba chi tiết:
 
 **`AccessFailedAsync` phải được gọi thủ công** khi bạn tự viết luồng đăng nhập. `CheckPasswordAsync` **không** tự tăng bộ đếm — nhiều người tưởng có và kết quả là lockout không bao giờ kích hoạt. (`SignInManager.PasswordSignInAsync` thì có, nhưng nó gắn với cookie.)
@@ -165,6 +180,19 @@ options.Events = new JwtBearerEvents
 ```
 
 Đổi mật khẩu là **mọi token cũ** chết ngay lập tức, trên mọi thiết bị.
+
+```mermaid
+sequenceDiagram
+    participant D as Thiết bị khác
+    participant A as API
+    participant U as UserManager
+    A->>D: token kèm claim sstamp = S1
+    Note over A,U: đổi mật khẩu, UpdateSecurityStampAsync, stamp thành S2
+    D->>A: request với token cũ, sstamp = S1
+    A->>U: OnTokenValidated, FindByIdAsync
+    U-->>A: SecurityStamp = S2
+    A-->>D: ctx.Fail, 401
+```
 
 Cái giá: **một truy vấn database cho mỗi request**. Thực tế nên cache stamp trong Redis với TTL ngắn (30–60 giây) và xoá khi stamp đổi — giống cách cache quyền ở [bài 10.8](10.7-permission-system.mdx). Khi đó cửa sổ rủi ro là 60 giây thay vì 15 phút.
 

@@ -47,6 +47,17 @@ builder.Services.AddDataProtection()
 
 `SetApplicationName` quan trọng không kém: mặc định nó lấy tên thư mục ứng dụng, nên hai instance triển khai ở đường dẫn khác nhau sẽ **không** chia sẻ được khoá dù cùng lưu vào Redis.
 
+```mermaid
+flowchart LR
+    subgraph T1["Mặc định: mỗi instance một khoá"]
+        A1["Instance A<br/>khoá A"] -.->|"cookie mã hoá bằng khoá A"| B1["Instance B<br/>khoá B, không giải mã được"]
+    end
+    subgraph T2["Khoá dùng chung + SetApplicationName"]
+        A2["Instance A"] --> R[("Redis<br/>DataProtection-Keys")]
+        B2["Instance B"] --> R
+    end
+```
+
 Các cách lưu khác: `PersistKeysToFileSystem` với volume dùng chung, hoặc `PersistKeysToAzureBlobStorage` kèm `ProtectKeysWithAzureKeyVault` ([bài 19.7](../../stage-05-senior-engineering/module-19-performance-engineering/19.6-scaling-strategy.mdx)).
 
 ### 10.12.2 — OAuth 2.1 và PKCE

@@ -120,6 +120,16 @@ public sealed class OrderStateMachine : MassTransitStateMachine<OrderState>
 
 Trạng thái của saga được **lưu bền** vào database, nên nó sống sót qua restart. Tự viết đúng phần này — kể cả timeout, đồng thời và phục hồi — tốn nhiều công hơn người ta tưởng ([saga pattern](https://microservices.io/patterns/data/saga.html)).
 
+Các trạng thái của `OrderStateMachine` ở trên:
+
+```mermaid
+stateDiagram-v2
+    [*] --> AwaitingPayment: OrderSubmitted
+    AwaitingPayment --> Completed: PaymentReceived
+    Completed --> [*]: Finalize
+    AwaitingPayment --> [*]: PaymentTimeout, publish OrderCancelledEvent
+```
+
 ### 17.9.4 — EasyNetQ: khi mỏng là đủ
 
 ```csharp
@@ -176,6 +186,16 @@ Hai lợi ích thực tế nữa, có ngay cả khi bạn không bao giờ đổ
 
 - **Test không cần broker.** Một `FakeEventPublisher` thu message vào `List` là đủ để assert.
 - **Application không bị ràng buộc vào vòng đời DI của thư viện**, thứ hay gây lỗi "cannot consume scoped service" khó chẩn đoán ([bài 7.5](../../stage-02-csharp-professional/module-07-dependency-injection/7.4-service-lifetimes.mdx)).
+
+```mermaid
+flowchart LR
+    H["ConvertLeadHandler"] -->|"chỉ biết"| I["IEventPublisher (Crm.Application)"]
+    M["MassTransitEventPublisher"] -.->|"cài đặt"| I
+    E["Publisher dùng EasyNetQ, nếu đổi"] -.->|"cài đặt"| I
+    F["FakeEventPublisher, trong test"] -.->|"cài đặt"| I
+    M --> MT["MassTransit"]
+    E --> EN["EasyNetQ"]
+```
 
 **Giới hạn của lời khuyên này:** đừng bọc **tính năng nâng cao**. Saga state machine của MassTransit không thể bọc sau một interface chung mà vẫn giữ giá trị — nếu bạn dùng saga, hãy chấp nhận phụ thuộc và cô lập nó trong một project riêng.
 

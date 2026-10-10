@@ -208,6 +208,18 @@ const connection = new signalR.HubConnectionBuilder()
 
 `accessTokenFactory` được gọi **lại** mỗi lần kết nối lại, nên token mới được dùng tự động.
 
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant H as Hub
+    C->>H: kết nối, access token còn hạn 15 phút
+    Note over C,H: phút thứ 15, token hết hạn
+    C->>H: kết nối vẫn sống, server không kiểm tra lại token
+    Note over C,H: kết nối đứt hoặc bị buộc kết nối lại
+    C->>C: accessTokenFactory làm mới token nếu sắp hết hạn
+    C->>H: kết nối lại với token mới
+```
+
 Mảng truyền vào `withAutomaticReconnect` là các khoảng chờ trước mỗi lần thử: ngay lập tức, 2 giây, 10 giây, 30 giây. Mặc định chỉ thử 4 lần rồi bỏ cuộc — với ứng dụng cần kết nối bền, hãy cấu hình dài hơn hoặc tự xử lý sự kiện `onclose`.
 
 ### 11.14.6 — Rà lại code của bạn

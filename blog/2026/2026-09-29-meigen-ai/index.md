@@ -107,6 +107,20 @@ Nhìn danh sách này thì rõ đối tượng họ nhắm: người làm thươ
 
 **Ảnh đầu vào.** Ảnh phải có URL công khai theo HTTPS, hoặc gửi kèm dưới dạng attachment. Ảnh nằm trên máy bạn thì agent không tự với tới được — phải đẩy lên đâu đó trước. Chi tiết nhỏ nhưng đủ làm hỏng một pipeline nếu tới lúc chạy mới phát hiện.
 
+Ghép lại, một lần agent gọi MeiGen đi qua các bước sau:
+
+```mermaid
+sequenceDiagram
+    participant A as Agent (Claude Code, Codex)
+    participant M as MeiGen MCP server
+    A->>M: Kết nối tới www.meigen.ai/api/mcp
+    M-->>A: Yêu cầu xác thực
+    A->>M: OAuth, hoặc API key meigen_sk_...
+    A->>M: Gọi kỹ năng, kèm URL ảnh HTTPS công khai hoặc attachment
+    M->>M: Sinh nội dung, tính vào credit đã mua
+    M-->>A: Trả kết quả
+```
+
 ## Nên dùng khi nào
 
 Hợp lý khi bạn cần ảnh *đủ dùng* nhanh: ảnh minh hoạ cho bài viết, ảnh nền cho slide, ảnh sản phẩm cho một shop nhỏ, ảnh thử nghiệm để chốt hướng thiết kế trước khi thuê người làm thật. Phần MCP đặc biệt hợp nếu bạn đã sống trong Claude Code hay Codex và không muốn đổi cửa sổ.

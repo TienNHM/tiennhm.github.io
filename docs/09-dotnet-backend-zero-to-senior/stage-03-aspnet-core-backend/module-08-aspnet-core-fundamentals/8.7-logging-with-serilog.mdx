@@ -142,6 +142,17 @@ builder.Host.UseSerilog((ctx, services, config) => config
 
 `CompactJsonFormatter` gọn hơn đáng kể so với `JsonFormatter` mặc định — đáng dùng khi log đi qua mạng.
 
+Đường đi của một sự kiện log qua cấu hình ở trên:
+
+```mermaid
+flowchart LR
+    L["logger.LogInformation<br/>message template + tham số"] --> M{"Đạt MinimumLevel<br/>và Override?"}
+    M -->|"Không"| X["Bỏ qua, không nối chuỗi"]
+    M -->|"Có"| EN["Enricher<br/>FromLogContext, MachineName,<br/>EnvironmentName"]
+    EN --> C["Console<br/>CompactJsonFormatter"]
+    EN --> S["Seq"]
+```
+
 ### 8.8.4 — `UseSerilogRequestLogging`
 
 ```csharp

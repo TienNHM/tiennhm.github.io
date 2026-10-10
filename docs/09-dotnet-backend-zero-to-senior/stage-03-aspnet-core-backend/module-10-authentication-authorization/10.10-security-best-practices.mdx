@@ -96,6 +96,18 @@ builder.Services.AddHsts(options =>
 
 `UseHttpsRedirection` chỉ chuyển hướng **sau khi** request HTTP đầu tiên đã đi qua mạng — và request đó có thể đã mang theo cookie. HSTS bảo trình duyệt **không bao giờ** thử HTTP với tên miền này nữa, kể từ lần thứ hai.
 
+```mermaid
+sequenceDiagram
+    participant B as Trình duyệt
+    participant S as API
+    B->>S: http lần đầu, có thể đã kèm cookie
+    S-->>B: chuyển hướng sang https
+    B->>S: https
+    S-->>B: 200 + Strict-Transport-Security, MaxAge 365 ngày
+    Note over B: từ lần sau tự đổi sang https trước khi gửi
+    B->>S: https ngay từ request đầu
+```
+
 Hai cảnh báo:
 
 - **`Preload` là một chiều.** Đưa tên miền vào danh sách preload của trình duyệt thì gỡ ra mất **nhiều tháng**. Chỉ bật khi chắc chắn mọi subdomain đều có HTTPS.

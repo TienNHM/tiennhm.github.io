@@ -138,6 +138,18 @@ Ba chi tiết quyết định nó đúng hay sai:
 2. **`Take(pageSize + 1)`** để biết còn trang sau mà không phải `COUNT` thêm một lần.
 3. **Mã hoá cursor** thành chuỗi mờ (Base64 của JSON) để client coi nó là con trỏ chứ không phải dữ liệu để chỉnh sửa.
 
+```mermaid
+flowchart TB
+    R["GET ?cursor=..."] --> D{"Có cursor?"}
+    D -->|"Có"| W["Giải mã lastCreatedAt, lastId<br/>lọc các dòng đứng sau chúng"]
+    D -->|"Không"| O
+    W --> O["ORDER BY CreatedAt DESC, Id DESC"]
+    O --> T["Take pageSize + 1"]
+    T --> M{"Nhiều hơn pageSize?"}
+    M -->|"Có"| N["Bỏ dòng dư<br/>NextCursor = mã hoá dòng cuối"]
+    M -->|"Không"| Z["NextCursor = null"]
+```
+
 | | Offset | Cursor |
 |---|---|---|
 | Nhảy tới trang bất kỳ | **Có** | Không |

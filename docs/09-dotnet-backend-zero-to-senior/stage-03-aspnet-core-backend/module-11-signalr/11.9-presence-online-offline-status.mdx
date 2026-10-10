@@ -2,6 +2,7 @@
 title: "11.9 - Presence - Online/Offline"
 description: "Presence trong bộ nhớ sai khi scale ngang, Redis với TTL làm lưới an toàn, một người nhiều kết nối, và chống bão sự kiện khi deploy."
 sidebar_position: 9
+image: ./img/presence-redis-ttl.png
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
@@ -135,6 +136,11 @@ public sealed class PresenceHeartbeatWorker(
 Instance **tự gia hạn** cho những kết nối nó đang giữ. Instance chết là không ai gia hạn, và sau tối đa 90 giây những kết nối đó tự biến mất khỏi Redis.
 
 Đây là điểm mấu chốt: không có bước dọn dẹp nào cần chạy, không có danh sách nào cần đối chiếu. Hệ thống **tự sửa** trong vòng một TTL.
+
+![Sơ đồ presence bằng Redis. Instance A ghi hai loại khoá vào Redis khi có kết nối: thêm connectionId vào Set presence:user:userId và tạo khoá presence:userId:connId, cả hai có TTL 90 giây. PresenceHeartbeatWorker của instance gia hạn TTL cho các kết nối nó đang giữ mỗi 30 giây. Instance B bị kill thì OnDisconnected không chạy và không ai gia hạn, nên khoá của nó tự biến mất sau tối đa 90 giây. IsOnlineAsync đọc Set rồi kiểm tra từng khoá còn sống, khoá đã hết hạn thì gỡ khỏi Set; người dùng online khi còn ít nhất một khoá. UserPresenceChanged chỉ phát tới nhóm tenant khi trạng thái đổi giữa offline và online, nên ba tab vẫn chỉ một sự kiện online.](./img/presence-redis-ttl.png#gh-light-mode-only)
+![Sơ đồ presence bằng Redis. Instance A ghi hai loại khoá vào Redis khi có kết nối: thêm connectionId vào Set presence:user:userId và tạo khoá presence:userId:connId, cả hai có TTL 90 giây. PresenceHeartbeatWorker của instance gia hạn TTL cho các kết nối nó đang giữ mỗi 30 giây. Instance B bị kill thì OnDisconnected không chạy và không ai gia hạn, nên khoá của nó tự biến mất sau tối đa 90 giây. IsOnlineAsync đọc Set rồi kiểm tra từng khoá còn sống, khoá đã hết hạn thì gỡ khỏi Set; người dùng online khi còn ít nhất một khoá. UserPresenceChanged chỉ phát tới nhóm tenant khi trạng thái đổi giữa offline và online, nên ba tab vẫn chỉ một sự kiện online.](./img/presence-redis-ttl-dark.png#gh-dark-mode-only)
+
+<small>File gốc: [nền sáng](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-03-aspnet-core-backend-module-11-signalr-presence-online-offline-status/vi/presence-redis-ttl.html) · [nền tối](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-03-aspnet-core-backend-module-11-signalr-presence-online-offline-status/vi/presence-redis-ttl-dark.html)</small>
 
 ### 11.10.4 — Một người, nhiều kết nối
 

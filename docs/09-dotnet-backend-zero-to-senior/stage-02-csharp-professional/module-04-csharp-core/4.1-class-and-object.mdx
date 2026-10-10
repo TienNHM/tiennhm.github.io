@@ -123,6 +123,16 @@ Lợi ích lan ra toàn hệ thống: **mọi hàm nhận `Order` giờ được
 
 Nguyên tắc chung: **làm cho trạng thái sai không biểu diễn được**, thay vì kiểm tra trạng thái sai ở khắp nơi.
 
+Constructor là cửa duy nhất để một `Order` ra đời:
+
+```mermaid
+flowchart LR
+    A["new Order(customerId, total)"] --> B{"customerId dương và total không âm?"}
+    B -- "Không" --> C["Ném ArgumentOutOfRangeException, không có object nào"]
+    B -- "Có" --> D["Order hợp lệ, Status = Draft"]
+    D --> E["Mọi hàm nhận Order không cần kiểm tra lại"]
+```
+
 ### 4.2.4 — `init` và `required`
 
 ```csharp
@@ -155,6 +165,20 @@ Khi nào dùng cái nào:
 | So sánh `==` mặc định | Theo tham chiếu | Theo từng trường |
 | Có thể `null` | Có | Không (trừ `Nullable<T>`) |
 | Kế thừa | Có | Không |
+
+Khác biệt ở dòng "Phép gán" khi viết `var c = a;`:
+
+```mermaid
+flowchart LR
+    subgraph CL["class: chép địa chỉ"]
+        a["biến a"] --> obj["một object Customer"]
+        c["biến c = a"] --> obj
+    end
+    subgraph ST["struct: chép toàn bộ dữ liệu"]
+        p1["p1: X = 1, Y = 2"]
+        p2["p2 = p1: bản sao riêng X = 1, Y = 2"]
+    end
+```
 
 Tiêu chí chọn `struct`, cần **đủ cả bốn**:
 

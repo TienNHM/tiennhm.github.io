@@ -52,6 +52,14 @@ if (!ModelState.IsValid) return BadRequest(ModelState);
 
 Validation chạy **trước** khi action được gọi. Lỗi trả về dưới dạng `ValidationProblemDetails` theo chuẩn RFC 7807 ([bài 8.6](8.5-model-validation.mdx)).
 
+```mermaid
+flowchart LR
+    R["Request"] --> B["Model binding<br/>suy luận nguồn"]
+    B --> V{"Model hợp lệ?"}
+    V -->|"Không"| E["400 ValidationProblemDetails<br/>action không chạy"]
+    V -->|"Có"| A["Action<br/>gọi service, ánh xạ sang mã HTTP"]
+```
+
 **2. Suy luận nguồn binding** — mục tiếp theo.
 
 **3. Bắt buộc attribute routing.** Không có `[Route]` hay `[HttpGet]` thì ứng dụng **không khởi động được**. Đây là tính năng: nó loại bỏ hoàn toàn loại lỗi "action này không bao giờ được gọi".

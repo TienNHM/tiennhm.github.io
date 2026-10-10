@@ -172,6 +172,17 @@ builder.Services.AddSignalR(options =>
 
 Mẫu bắt lỗi ở trên rất đáng dùng: **log đầy đủ ở server, gửi thông điệp chung cho client**, đúng nguyên tắc bảo mật, và bạn không phải lặp `try/catch` trong từng Hub method.
 
+```mermaid
+flowchart LR
+    C["Client gọi Hub method"] --> F["LoggingHubFilter"]
+    F --> H["Hub method"]
+    H -->|"HubException"| P1["Gửi nguyên văn thông điệp"]
+    H -->|"Exception khác"| L["Filter: LogError đầy đủ"]
+    L --> P2["Ném HubException chung"]
+    P1 --> C2["Client nhận lỗi"]
+    P2 --> C2
+```
+
 Một ứng dụng khác của filter: **rate limit cho Hub method** — `[EnableRateLimiting]` **không** áp dụng cho lời gọi Hub, chỉ cho request HTTP. Client gọi một Hub method trong vòng lặp thì không có gì chặn.
 
 ### 11.4.4 — Cấu hình

@@ -136,6 +136,17 @@ app.MapControllers();
 
 Middleware chạy **theo thứ tự đăng ký**. Request `OPTIONS` của preflight **không mang token**, nên nếu `UseAuthentication` chạy trước, nó bị từ chối với 401 — và phản hồi 401 đó không có header CORS, nên trình duyệt báo lỗi CORS thay vì lỗi xác thực. Đây là cấu hình sai gây nhầm lẫn nhiều nhất ([bài 8.3](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.2-request-pipeline-and-middleware.mdx)).
 
+```mermaid
+sequenceDiagram
+    participant B as Trình duyệt
+    participant A as UseAuthentication / UseAuthorization
+    participant C as UseCors
+    B->>A: OPTIONS /api/leads (preflight, không mang token)
+    A-->>B: 401, không có header CORS
+    Note over C: Không bao giờ chạy tới
+    Note over B: Báo lỗi CORS thay vì lỗi xác thực
+```
+
 **Sai 2 — `AllowAnyOrigin` cùng `AllowCredentials`.**
 
 ```csharp

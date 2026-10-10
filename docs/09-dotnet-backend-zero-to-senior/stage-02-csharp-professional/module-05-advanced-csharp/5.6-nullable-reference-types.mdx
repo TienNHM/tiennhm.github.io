@@ -75,6 +75,16 @@ var safe = input ?? "mặc định";           // safe là string, không phải
 input ??= "mặc định";                     // sau dòng này input khác null
 ```
 
+```mermaid
+stateDiagram-v2
+    MaybeNull: có thể null (string?)
+    NotNull: khác null
+    [*] --> MaybeNull
+    MaybeNull --> NotNull: if (input is null) return
+    MaybeNull --> NotNull: input ??= giá trị mặc định
+    MaybeNull --> NotNull: !string.IsNullOrEmpty(input)
+```
+
 ### 5.7.3 — Giới hạn: chỉ là phân tích tĩnh
 
 Đây là phần quan trọng nhất, và là chỗ hay gây hiểu lầm.
@@ -100,6 +110,18 @@ Bốn nguồn `null` lọt qua được:
 4. **Entity của EF Core** — thuộc tính điều hướng có thể chưa được nạp.
 
 Quy tắc: **vẫn phải kiểm tra dữ liệu đến từ ranh giới hệ thống**. Nullable reference types bảo vệ phần bên trong, không bảo vệ cửa ra vào.
+
+```mermaid
+flowchart LR
+    subgraph Ngoai["Nguồn null lọt qua phân tích tĩnh"]
+        J["Deserialize JSON, XML"]
+        R["Reflection"]
+        L["Thư viện chưa bật tính năng"]
+        E["Entity EF Core chưa nạp"]
+    end
+    J & R & L & E --> K{"Kiểm tra thật tại ranh giới"}
+    K --> T["Bên trong: nullable reference types bảo vệ"]
+```
 
 ```csharp
 public async Task<IActionResult> Create(CreateCustomerRequest request)

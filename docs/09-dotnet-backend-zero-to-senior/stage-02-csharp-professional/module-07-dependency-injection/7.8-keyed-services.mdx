@@ -128,6 +128,15 @@ services.AddKeyedScoped<IEmailService, DefaultEmailService>(KeyedService.AnyKey)
 
 Bất kỳ khoá nào chưa có đăng ký riêng đều rơi vào đây — hữu ích cho fallback, nhưng cũng che mất lỗi gõ sai khoá.
 
+```mermaid
+flowchart TD
+    A["Xin IEmailService theo khoá"] --> B{"Khoá có đăng ký riêng?"}
+    B -- "Có" --> C["Implementation của khoá đó"]
+    B -- "Không" --> D{"Có đăng ký KeyedService.AnyKey?"}
+    D -- "Có" --> E["DefaultEmailService"]
+    D -- "Không" --> F["Exception lúc chạy"]
+```
+
 **3. Biết khoá mình được resolve bằng.**
 
 ```csharp

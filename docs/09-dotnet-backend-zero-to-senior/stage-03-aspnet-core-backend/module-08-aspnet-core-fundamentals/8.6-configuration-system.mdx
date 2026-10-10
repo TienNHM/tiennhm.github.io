@@ -108,6 +108,24 @@ Kết quả **không phải** `["https://prod.com"]` mà là:
 
 Vì chỉ khoá `:0` bị đè, còn `:1` vẫn còn nguyên từ file gốc. Đây là nguồn của những lỗi CORS và whitelist rất khó hiểu: một domain lẽ ra đã bị xoá vẫn được chấp nhận trên production.
 
+```mermaid
+flowchart LR
+    subgraph G["appsettings.json"]
+        G0["AllowedOrigins:0 = https://app.com"]
+        G1["AllowedOrigins:1 = https://admin.app.com"]
+    end
+    subgraph P["appsettings.Production.json"]
+        P0["AllowedOrigins:0 = https://prod.com"]
+    end
+    subgraph K["Kết quả sau khi gộp"]
+        K0["AllowedOrigins:0 = https://prod.com"]
+        K1["AllowedOrigins:1 = https://admin.app.com"]
+    end
+    G0 -.->|"bị đè"| K0
+    P0 -->|"đè"| K0
+    G1 -->|"giữ nguyên"| K1
+```
+
 Ba cách tránh:
 
 1. Đừng khai báo mảng ở `appsettings.json` gốc — chỉ khai ở file theo môi trường.

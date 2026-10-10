@@ -127,6 +127,16 @@ dotnet ef migrations list
 
 Nếu migration của bạn đã `Applied` trên staging hoặc production, cách xử lý là **thêm một migration mới** sửa phần khác biệt, không xoá cái cũ ([bài 13.5](../../stage-04-database-production/module-13-entity-framework-core/13.4-migrations.mdx)).
 
+```mermaid
+flowchart TD
+    A["Conflict ở ModelSnapshot.cs"] --> B{"dotnet ef migrations list: migration của mình?"}
+    B -->|Pending| C["git merge --abort, dotnet ef migrations remove"]
+    C --> D["Cập nhật main, git rebase main"]
+    D --> E["dotnet ef migrations add AddNoteTable"]
+    E --> F["Đọc file migration sinh ra"]
+    B -->|Applied| G["Không xoá: thêm migration mới sửa phần khác biệt"]
+```
+
 ### 3.14.5 — Phòng ngừa
 
 **1. Merge `main` thường xuyên.** Conflict tỷ lệ với thời gian nhánh tồn tại:

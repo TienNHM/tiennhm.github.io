@@ -90,6 +90,24 @@ await db.Products
 
 Hàng thứ hai là cái bẫy thật: bạn thêm audit interceptor, tưởng mọi thay đổi đều được ghi, nhưng `ExecuteUpdate` **lặng lẽ bỏ qua** nó. Phải đặt cột audit thủ công như ví dụ trên.
 
+Hai con đường cập nhật và những gì mỗi đường đi qua:
+
+```mermaid
+flowchart TB
+    subgraph sc["SaveChanges"]
+        direction TB
+        S1["Nạp entity, sửa thuộc tính"] --> S2["Change tracker phát hiện thay đổi"]
+        S2 --> S3["SaveChangesInterceptor: audit tự động"]
+        S3 --> S4["UPDATE kèm kiểm tra RowVersion"]
+    end
+    subgraph eu["ExecuteUpdate / ExecuteDelete"]
+        direction TB
+        E1["Where(...).ExecuteUpdateAsync(...)"] --> E2["Một lệnh UPDATE, chạy ngay, bỏ qua tracker, interceptor và RowVersion"]
+    end
+    S4 --> DB[("Database")]
+    E2 --> DB
+```
+
 Hàng thứ nhất gây ra lỗi khó hiểu:
 
 ```csharp

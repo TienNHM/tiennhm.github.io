@@ -45,6 +45,21 @@ SELECT COUNT(*) FROM Contacts WHERE CustomerId = 2;      -- 3
 
 **Dấu hiệu trong log:** nhiều truy vấn **giống hệt nhau, chỉ khác tham số**.
 
+Số lượt đi về database của đoạn code trên:
+
+```mermaid
+sequenceDiagram
+    participant A as Ứng dụng
+    participant DB as Database
+    A->>DB: SELECT * FROM Customers
+    DB-->>A: 200 khách hàng
+    loop Mỗi khách hàng, N lần
+        A->>DB: SELECT COUNT(*) FROM Contacts WHERE CustomerId = @id
+        DB-->>A: count
+    end
+    Note over A,DB: Tổng 1 + N = 201 lượt đi về
+```
+
 Điều khiến nó nguy hiểm là **nó không chậm trên máy dev**: với 10 bản ghi thử nghiệm, 11 truy vấn mất 20ms và không ai để ý. Với 2.000 bản ghi production, đó là 4 giây.
 
 ### 13.7.2 — Ba dạng khó thấy

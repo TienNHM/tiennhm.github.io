@@ -23,6 +23,18 @@ Trong bài trước, ta đã thấy **XXE Injection** có thể được dùng �
 
 💡 Một trong những kỹ thuật phổ biến để tấn công DoS thông qua XXE là **Billion Laughs Attack**.  
 
+Billion Laughs: mỗi thực thể tham chiếu 10 lần thực thể trước, nên 9 tầng lồng nhau bùng nổ thành hàng tỷ chuỗi.
+
+```mermaid
+flowchart TD
+    L["lol = 'lol'"] --> L1["lol1 = 10 lần lol"]
+    L1 --> L2["lol2 = 10 lần lol1"]
+    L2 --> L3["... các tầng trung gian ..."]
+    L3 --> L9["lol9 = 10 lần lol8, khoảng 1 tỷ chuỗi lol"]
+    L9 --> M["Parser mở rộng entity lol9 tới gần 3GB bộ nhớ"]
+    M --> C["Server hết RAM và crash - DoS"]
+```
+
 
 ## **2. Cách hoạt động của Billion Laughs Attack**  
 

@@ -114,6 +114,19 @@ Khi filter tham chiếu tới **field của instance context**, EF Core nhận r
 
 Khi filter gọi `tenant.Id` trên một **service được capture trong closure**, biểu thức bắt giữ chính instance service của lần dựng mô hình đầu tiên. Mọi request sau đó dùng **tenant id của request đầu tiên** — một lỗ hổng rò rỉ dữ liệu nghiêm trọng, và nó **chỉ xuất hiện khi có nhiều tenant thật**.
 
+Vì sao hai cách viết filter trông giống nhau lại cho kết quả khác nhau:
+
+```mermaid
+flowchart TB
+    M["Lần đầu dùng context: chạy OnModelCreating MỘT lần"] --> K["Mô hình và cây biểu thức filter được cache theo kiểu DbContext"]
+    K --> F1["Filter đọc field _tenantId của context"]
+    K --> F2["Filter gọi tenant.Id trên service bắt trong closure"]
+    F1 --> P1["EF sinh tham số, đọc lại từ context hiện tại mỗi lần truy vấn"]
+    P1 --> R1["Request của tenant B chỉ thấy dữ liệu tenant B"]
+    F2 --> P2["Biểu thức giữ instance service của lần dựng mô hình đầu tiên"]
+    P2 --> R2["Request của tenant B vẫn lọc theo tenant A: rò rỉ dữ liệu"]
+```
+
 :::danger Kiểm thử bắt buộc
 Phải có integration test: đăng nhập tenant A, truy vấn, rồi đăng nhập tenant B trên **cùng tiến trình** và xác nhận không thấy dữ liệu của A. Không có test này, lỗi chỉ lộ ra trên production.
 :::

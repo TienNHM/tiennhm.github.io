@@ -113,6 +113,17 @@ set PATH=C:\Program Files (x86)\Common Files\Oracle\Java\javapath;D:\Programs\ze
 
 Lưu ý: Đường dẫn `D:\Programs\zeppelin-0.8.2-bin-all\python\venv\Scripts` là đường dẫn tới thư mục `Scripts` của môi trường ảo Python3 mà chúng ta đã tạo ở bước 4. Nếu bạn tạo môi trường ảo Python3 ở một thư mục khác, bạn hãy thay đổi đường dẫn tương ứng.
 
+Khi chạy `zeppelin.cmd` ở bước 8, các phần đã cài nối với nhau như sau:
+
+```mermaid
+flowchart LR
+    B["Trình duyệt localhost:8080"] --> Z["Zeppelin server (Java 8)"]
+    Z --> SI["Spark interpreter"]
+    SI -->|"py4j"| P["Python 3.12 trong venv"]
+    P --> L["pyspark, py4j, pypandoc"]
+    C["zeppelin-env.cmd, common.cmd"] -.->|"PATH trỏ tới Java và venv Scripts"| Z
+```
+
 <p align="center">
     <img src="https://res.cloudinary.com/tiennhm/image/upload/v1725683939/blog/images/edit-zeppelin-env-cmd_z2exjv.webp" loading='lazy' decoding='async' alt="Edit zeppelin-env.cmd" />
 </p>
