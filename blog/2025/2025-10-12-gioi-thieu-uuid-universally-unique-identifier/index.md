@@ -44,8 +44,8 @@ UUID có 5 phiên bản chính, mỗi phiên bản có cách tạo và mục đ�
 ### UUID Version 1 (Time-based)
 
 **Cấu trúc:**
-- 60 bits: Timestamp (số giây từ 15/10/1582)
-- 12 bits: Clock sequence (để tránh trùng lặp)
+- 60 bits: Timestamp (số khoảng 100 nano giây kể từ 00:00 UTC ngày 15/10/1582)
+- 14 bits: Clock sequence (để tránh trùng lặp)
 - 48 bits: MAC address của máy tạo UUID
 
 **Đặc điểm:**
