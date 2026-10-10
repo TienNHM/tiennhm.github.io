@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Đối tượng đi qua ba thế hệ của GC</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Display:wdth,wght@62.5..100,400&family=Geist:ital,wght@0,400;0,500;0,600;1,400&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #1b1b1d;
+      --color-ink:    #e3e3e3;
+      --color-muted:  #b4b9c0;
+      --font-sans:    'Geist', system-ui, sans-serif;
+      /* Instrument Serif has no Vietnamese subset; Vietnamese titles swap the whole face instead. */
+      --font-serif:   'Noto Serif Display', serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-stretch: 75%; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 960px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">State · Bộ thu gom rác .NET</p>
+    <h1>Đối tượng đi qua ba thế hệ của GC</h1>
+    <div class="diagram-container">
+<svg viewBox="0 0 960 504" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="gc-generations-dark-title gc-generations-dark-desc">
+  <title id="gc-generations-dark-title">Ba thế hệ của bộ thu gom rác .NET</title>
+  <desc id="gc-generations-dark-desc">Đối tượng mới vào Gen 0, phần lớn bị thu hồi ngay tại đó; đối tượng sống sót được đôn lên Gen 1 rồi Gen 2, nơi dọn hiếm nhưng đắt; đối tượng lớn hơn 85.000 byte đi thẳng vào Large Object Heap và được dọn cùng Gen 2.</desc>
+  <defs><marker id="gc-generations-dark-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#b4b9c0"/></marker><marker id="gc-generations-dark-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#25c19f"/></marker></defs>
+  <rect width="100%" height="100%" fill="#1b1b1d"/>
+  <g transform="translate(0,-60)">
+    <path d="M220,156 H280" fill="none" stroke="#b4b9c0" stroke-width="1.2" marker-end="url(#gc-generations-dark-arrow)"/>
+    <path d="M440,156 H520" fill="none" stroke="#b4b9c0" stroke-width="1.2" marker-end="url(#gc-generations-dark-arrow)"/>
+    <path d="M680,156 H760" fill="none" stroke="#b4b9c0" stroke-width="1.2" marker-end="url(#gc-generations-dark-arrow)"/>
+    <path d="M360,192 V280" fill="none" stroke="#25c19f" stroke-width="1.4" marker-end="url(#gc-generations-dark-arrow-accent)"/>
+    <path d="M140,192 V428 Q140,436 148,436 H520" fill="none" stroke="#b4b9c0" stroke-width="1.2" marker-end="url(#gc-generations-dark-arrow)"/>
+    <path d="M680,436 H832 Q840,436 840,428 V192" fill="none" stroke="#b4b9c0" stroke-width="1.1" stroke-dasharray="5,4" marker-end="url(#gc-generations-dark-arrow)"/>
+    <rect x="452.0" y="130" width="56" height="12" rx="2" fill="#1b1b1d"/><text x="480.0" y="139" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">SỐNG SÓT</text>
+    <rect x="692.0" y="130" width="56" height="12" rx="2" fill="#1b1b1d"/><text x="720.0" y="139" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">SỐNG SÓT</text>
+    <rect x="368.0" y="230" width="91" height="12" rx="2" fill="#1b1b1d"/><text x="413.5" y="239" fill="#25c19f" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">HẾT THAM CHIẾU</text>
+    <rect x="291.5" y="410" width="85" height="12" rx="2" fill="#1b1b1d"/><text x="334.0" y="419" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">&gt; 85.000 BYTE</text>
+    <rect x="741.0" y="304" width="91" height="12" rx="2" fill="#1b1b1d"/><text x="786.5" y="313" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">DỌN CÙNG GEN 2</text>
+    <rect x="60" y="120" width="160" height="72" rx="6" fill="#1b1b1d"/><rect x="60" y="120" width="160" height="72" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/><text x="140.0" y="153.0" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Đối tượng mới</text><text x="140.0" y="168.0" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">new Order()</text>
+    <rect x="280" y="120" width="160" height="72" rx="6" fill="#1b1b1d"/><rect x="280" y="120" width="160" height="72" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/><text x="360.0" y="146.0" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Gen 0</text><text x="360.0" y="161.0" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">dọn rất thường xuyên</text><text x="360.0" y="175.0" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">chi phí rất rẻ</text>
+    <rect x="520" y="120" width="160" height="72" rx="6" fill="#1b1b1d"/><rect x="520" y="120" width="160" height="72" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/><text x="600.0" y="146.0" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Gen 1</text><text x="600.0" y="161.0" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">dọn thỉnh thoảng</text><text x="600.0" y="175.0" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">chi phí trung bình</text>
+    <rect x="760" y="120" width="160" height="72" rx="6" fill="#1b1b1d"/><rect x="760" y="120" width="160" height="72" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/><text x="840.0" y="146.0" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Gen 2</text><text x="840.0" y="161.0" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">dọn hiếm</text><text x="840.0" y="175.0" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">chi phí đắt</text>
+    <rect x="280" y="280" width="160" height="72" rx="6" fill="#1b1b1d"/><rect x="280" y="280" width="160" height="72" rx="6" fill="rgba(37,193,159,0.10)" stroke="#25c19f" stroke-width="1"/><text x="360.0" y="306.0" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Thu hồi ngay</text><text x="360.0" y="321.0" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">phần lớn chết ở đây</text><text x="360.0" y="335.0" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">gần như miễn phí</text>
+    <rect x="520" y="400" width="160" height="72" rx="6" fill="#1b1b1d"/><rect x="520" y="400" width="160" height="72" rx="6" fill="rgba(227,227,227,0.06)" stroke="#b4b9c0" stroke-width="1"/><text x="600.0" y="426.0" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Large Object Heap</text><text x="600.0" y="441.0" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">&gt; 85.000 byte</text><text x="600.0" y="455.0" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">không nén mặc định</text>
+    <text x="920" y="100" fill="#b4b9c0" font-size="11" font-family="'Geist', sans-serif" text-anchor="end" font-style="italic">Cache tĩnh phình mãi, event quên gỡ: leo lên tới đây</text>
+    <line x1="40" y1="492" x2="920" y2="492" stroke="rgba(227,227,227,0.10)" stroke-width="0.8"/><text x="40" y="512" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">CHÚ GIẢI</text><line x1="40" y1="528" x2="68" y2="528" stroke="#25c19f" stroke-width="1.3" marker-end="url(#gc-generations-dark-arrow-accent)"/><text x="76" y="531.5" fill="#b4b9c0" font-size="9" font-family="'Geist', sans-serif">Đường của phần lớn đối tượng</text><line x1="280" y1="528" x2="308" y2="528" stroke="#b4b9c0" stroke-width="1.3" marker-end="url(#gc-generations-dark-arrow)"/><text x="316" y="531.5" fill="#b4b9c0" font-size="9" font-family="'Geist', sans-serif">Sống sót, được đôn lên</text><line x1="480" y1="528" x2="508" y2="528" stroke="#b4b9c0" stroke-width="1.3" stroke-dasharray="5,4" marker-end="url(#gc-generations-dark-arrow)"/><text x="516" y="531.5" fill="#b4b9c0" font-size="9" font-family="'Geist', sans-serif">Dọn cùng lúc</text><rect x="640" y="522" width="28" height="12" rx="2" fill="rgba(227,227,227,0.06)" stroke="#b4b9c0" stroke-width="1"/><text x="676" y="531.5" fill="#b4b9c0" font-size="9" font-family="'Geist', sans-serif">Vùng heap riêng</text>
+  </g>
+<text id="tiennhm-copyright" x="936" y="492" text-anchor="end" fill="#b4b9c0" opacity="0.75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.08em">© tiennhm</text>
+</svg>
+    </div>
+  </div>
+</body>
+</html>

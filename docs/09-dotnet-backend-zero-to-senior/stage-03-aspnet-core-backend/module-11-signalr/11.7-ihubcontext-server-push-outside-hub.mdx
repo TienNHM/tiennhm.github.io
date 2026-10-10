@@ -210,6 +210,18 @@ await db.SaveChangesAsync(ct);
 
 Bây giờ hoặc **cả hai** (dữ liệu và bản ghi outbox) cùng được lưu, hoặc **không cái nào** — vì chúng nằm trong một transaction.
 
+```mermaid
+flowchart LR
+    subgraph TX["Một transaction"]
+        B["Dữ liệu nghiệp vụ"]
+        O["OutboxMessage<br/>SentAt = null"]
+    end
+    TX -->|"CommitAsync"| DB[("Database")]
+    W["Worker riêng"] -->|"đọc SentAt = null"| DB
+    W -->|"Clients.User(...)"| C["Client"]
+    W -->|"ghi SentAt"| DB
+```
+
 Cái giá: thêm một bảng, một worker, và độ trễ bằng chu kỳ của worker. Chỉ dùng cho thông báo mà mất đi là có hậu quả thật. Chi tiết ở [Module 17 — Distributed Systems](../../stage-05-senior-engineering/module-17-distributed-systems/).
 
 ### 11.8.6 — Đừng để SignalR thành phụ thuộc cứng

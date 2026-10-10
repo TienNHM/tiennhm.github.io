@@ -47,6 +47,11 @@ app.MapControllers();    // buoc 2: CHAY endpoint
 
 Tách làm hai bước là có chủ đích: middleware nằm giữa có thể đọc metadata của endpoint sắp chạy. Đó là cách `UseAuthorization()` biết action nào cần quyền gì mà không phải tự phân tích URL.
 
+![Sơ đồ hai bước của routing: Request đi qua các middleware đầu pipeline như ExceptionHandler và StaticFiles, lúc này GetEndpoint() còn trả null. UseRouting() là bước 1, chọn endpoint; nếu không route nào khớp, ví dụ /customers/abc với constraint id:guid, kết quả là 404. Sau UseRouting(), middleware của bạn và UseAuthorization() đọc được metadata của endpoint như [Authorize]. MapControllers() là bước 2, chạy action đã chọn. Khi nhiều route cùng khớp, route cụ thể nhất thắng, không theo thứ tự khai báo.](./img/routing-two-steps.png#gh-light-mode-only)
+![Sơ đồ hai bước của routing: Request đi qua các middleware đầu pipeline như ExceptionHandler và StaticFiles, lúc này GetEndpoint() còn trả null. UseRouting() là bước 1, chọn endpoint; nếu không route nào khớp, ví dụ /customers/abc với constraint id:guid, kết quả là 404. Sau UseRouting(), middleware của bạn và UseAuthorization() đọc được metadata của endpoint như [Authorize]. MapControllers() là bước 2, chạy action đã chọn. Khi nhiều route cùng khớp, route cụ thể nhất thắng, không theo thứ tự khai báo.](./img/routing-two-steps-dark.png#gh-dark-mode-only)
+
+<small>File gốc: [nền sáng](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-03-aspnet-core-backend-module-08-aspnet-core-fundamentals-routing/vi/routing-two-steps.html) · [nền tối](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-03-aspnet-core-backend-module-08-aspnet-core-fundamentals-routing/vi/routing-two-steps-dark.html)</small>
+
 ```csharp
 app.UseRouting();
 app.Use(async (ctx, next) =>

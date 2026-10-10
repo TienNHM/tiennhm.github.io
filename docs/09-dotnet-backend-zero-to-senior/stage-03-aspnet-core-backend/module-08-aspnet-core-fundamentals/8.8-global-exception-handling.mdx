@@ -118,6 +118,17 @@ public sealed class ValidationExceptionHandler(IProblemDetailsService pds) : IEx
 
 Handler bắt-tất-cả phải đăng ký **cuối cùng**. Nếu **không** handler nào trả `true`, exception tiếp tục lan lên và ASP.NET Core trả 500 mặc định.
 
+```mermaid
+flowchart LR
+    E["Exception"] --> V{"ValidationExceptionHandler"}
+    V -->|"true"| R1["422"]
+    V -->|"false"| D{"DatabaseExceptionHandler"}
+    D -->|"true"| R2["Đã xử lý"]
+    D -->|"false"| G{"GlobalExceptionHandler"}
+    G -->|"true"| R3["ProblemDetails theo loại lỗi"]
+    G -->|"false"| R4["500 mặc định"]
+```
+
 ### 8.9.3 — Cây exception nghiệp vụ
 
 ```csharp

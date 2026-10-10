@@ -2,7 +2,7 @@
 title: 1.06 | XXE
 slug: XXE-06
 description: "Parser có bị ảnh hưởng bởi XXE không? ✅ Có sử dụng XMLInputFactory.newInstance() mà không vô hiệu hóa thực thể bên ngoài không? ✅ Có thuộc tính."
-image: https://tiennhm.github.io/img/docs/database.jpg
+image: ./img/xxe-doc-file.png
 sidebar_position: 1
 # sidebar_class_name: hidden
 tags: 

@@ -6,6 +6,7 @@ keywords: [software career story, mentoring interns, dynamic filter, filter oper
 tags: [career, architecture, dotnet, abp, angular, microservices, devops, ai]
 authors: [tiennhm]
 date: 2026-09-15
+image: ./strangler-fig-message-template.png
 ---
 
 import { SummaryBox, FAQSection, Checklist } from '@site/src/components/SEO';
@@ -211,6 +212,11 @@ This time it was [Strangler Fig](https://martinfowler.com/bliki/StranglerFigAppl
 2. Put a feature toggle in front of a dual read — flag on reads the new source, flag off falls back to the old one — switched by configuration, no deploy required.
 3. Cut over one caller at a time in slices: Ticket first, then Campaign, then the remaining service, each slice a small PR that could be reviewed and rolled back within seconds by flipping the flag.
 4. Verify on QA after each slice before starting the next one.
+
+![Strangler Fig migration of MessageTemplate: the three services calling it daily, Ticket (slice 1), Campaign (slice 2) and the remaining service (slice 3), each slice a small PR verified on QA, all go through a dual-read feature toggle switched by configuration. Flag on reads the new source in the notification service, the right bounded context; flag off falls back to the old source, MessageTemplate in 2 services with the data left where it is. Rolling back is just turning the flag off, a matter of seconds](./strangler-fig-message-template.png#gh-light-mode-only)
+![Strangler Fig migration of MessageTemplate: the three services calling it daily, Ticket (slice 1), Campaign (slice 2) and the remaining service (slice 3), each slice a small PR verified on QA, all go through a dual-read feature toggle switched by configuration. Flag on reads the new source in the notification service, the right bounded context; flag off falls back to the old source, MessageTemplate in 2 services with the data left where it is. Rolling back is just turning the flag off, a matter of seconds](./strangler-fig-message-template-dark.png#gh-dark-mode-only)
+
+<small>Source: [light](pathname:///files/diagrams/2026-09-15-founding-engineer-nen-tang-crm-abp-dotnet-angular/en/strangler-fig-message-template.html) · [dark](pathname:///files/diagrams/2026-09-15-founding-engineer-nen-tang-crm-abp-dotnet-angular/en/strangler-fig-message-template-dark.html)</small>
 
 The result was no downtime, no big-bang deploy, and nobody on a night shift.
 

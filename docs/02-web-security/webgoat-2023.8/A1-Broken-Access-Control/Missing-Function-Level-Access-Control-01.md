@@ -2,7 +2,6 @@
 title: 3.01 | Missing Function Level Access Control
 slug: missing-function-level-access-control-01
 description: Bài viết này sẽ hướng dẫn cách tấn công Missing Function Level Access Control trên WebGoat 2023.8
-image: https://tiennhm.github.io/img/docs/database.jpg
 sidebar_position: 3
 # sidebar_class_name: hidden
 tags: 

@@ -2,7 +2,7 @@
 title: 1.04 | XXE
 slug: XXE-04
 description: "Trước tiên, thử gửi một bình luận bình thường để xem request được gửi như thế nào."
-image: https://tiennhm.github.io/img/docs/database.jpg
+image: ./img/xxe-doc-file.png
 sidebar_position: 1
 # sidebar_class_name: hidden
 tags: 

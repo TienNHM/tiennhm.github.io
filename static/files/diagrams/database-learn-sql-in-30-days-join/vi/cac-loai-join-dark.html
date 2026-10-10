@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bốn kiểu JOIN giữ lại những dòng nào</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Display:ital,wdth,wght@0,62.5..100,400;1,62.5..100,400&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #1b1b1d;
+      --color-ink:    #e3e3e3;
+      --color-muted:  #b4b9c0;
+      --font-sans:    'Geist', system-ui, sans-serif;
+      /* Instrument Serif has no Vietnamese subset; a per-glyph fallback mixes two faces
+         inside one word, so Vietnamese titles swap the whole face instead. */
+      --font-serif:   'Noto Serif Display', serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-stretch: 75%; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 960px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">JOIN · Customers và Orders</p>
+    <h1>Bốn kiểu JOIN giữ lại những dòng nào</h1>
+    <div class="diagram-container">
+<svg viewBox="0 0 960 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="cac-loai-join-dark-title cac-loai-join-dark-desc">
+  <title id="cac-loai-join-dark-title">INNER, LEFT, RIGHT và FULL JOIN giữa Customers và Orders</title>
+  <desc id="cac-loai-join-dark-desc">INNER JOIN chỉ giữ dòng khớp ở cả hai bảng; LEFT JOIN giữ mọi khách hàng, cột Orders là NULL khi không khớp; RIGHT JOIN giữ mọi đơn hàng; FULL JOIN giữ mọi dòng của cả hai bảng và MySQL không hỗ trợ trực tiếp.</desc>
+  <defs>
+    <marker id="cac-loai-join-dark-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#b4b9c0"/></marker>
+    <marker id="cac-loai-join-dark-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#25c19f"/></marker>
+<clipPath id="cac-loai-join-dark-ca"><circle cx="72" cy="156" r="56"/></clipPath>
+<clipPath id="cac-loai-join-dark-cb"><circle cx="136" cy="156" r="56"/></clipPath>
+  </defs>
+  <rect width="100%" height="100%" fill="#1b1b1d"/>
+<g transform="translate(28,0)">
+<text x="60" y="84" fill="#b4b9c0" font-size="11" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Customers</text>
+<text x="150" y="84" fill="#b4b9c0" font-size="11" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Orders</text>
+<g opacity="0.16"><g clip-path="url(#cac-loai-join-dark-ca)"><circle cx="136" cy="156" r="56" fill="#e3e3e3"/></g></g>
+<circle cx="72" cy="156" r="56" fill="none" stroke="#e3e3e3" stroke-width="1"/>
+<circle cx="136" cy="156" r="56" fill="none" stroke="#e3e3e3" stroke-width="1"/>
+<text x="104" y="248" fill="#e3e3e3" font-size="13" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="middle">INNER JOIN</text>
+<text x="104" y="268" fill="#b4b9c0" font-size="10.5" font-family="'Geist', sans-serif" text-anchor="middle">Chỉ dòng khớp ở cả hai bảng</text>
+<text x="104" y="308" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">khớp theo CustomerID</text>
+</g>
+<g transform="translate(260,0)">
+<text x="60" y="84" fill="#b4b9c0" font-size="11" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Customers</text>
+<text x="150" y="84" fill="#b4b9c0" font-size="11" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Orders</text>
+<g opacity="0.16"><circle cx="72" cy="156" r="56" fill="#e3e3e3"/></g>
+<circle cx="72" cy="156" r="56" fill="none" stroke="#e3e3e3" stroke-width="1"/>
+<circle cx="136" cy="156" r="56" fill="none" stroke="#e3e3e3" stroke-width="1"/>
+<text x="104" y="248" fill="#e3e3e3" font-size="13" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="middle">LEFT JOIN</text>
+<text x="104" y="268" fill="#b4b9c0" font-size="10.5" font-family="'Geist', sans-serif" text-anchor="middle">Mọi khách hàng, kể cả</text>
+<text x="104" y="284" fill="#b4b9c0" font-size="10.5" font-family="'Geist', sans-serif" text-anchor="middle">người chưa có đơn hàng</text>
+<text x="104" y="308" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">cột Orders = NULL</text>
+</g>
+<g transform="translate(492,0)">
+<text x="60" y="84" fill="#b4b9c0" font-size="11" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Customers</text>
+<text x="150" y="84" fill="#b4b9c0" font-size="11" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Orders</text>
+<g opacity="0.16"><circle cx="136" cy="156" r="56" fill="#e3e3e3"/></g>
+<circle cx="72" cy="156" r="56" fill="none" stroke="#e3e3e3" stroke-width="1"/>
+<circle cx="136" cy="156" r="56" fill="none" stroke="#e3e3e3" stroke-width="1"/>
+<text x="104" y="248" fill="#e3e3e3" font-size="13" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="middle">RIGHT JOIN</text>
+<text x="104" y="268" fill="#b4b9c0" font-size="10.5" font-family="'Geist', sans-serif" text-anchor="middle">Mọi đơn hàng, kể cả đơn</text>
+<text x="104" y="284" fill="#b4b9c0" font-size="10.5" font-family="'Geist', sans-serif" text-anchor="middle">không có khách hàng khớp</text>
+<text x="104" y="308" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">cột Customers = NULL</text>
+</g>
+<g transform="translate(724,0)">
+<text x="60" y="84" fill="#b4b9c0" font-size="11" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Customers</text>
+<text x="150" y="84" fill="#b4b9c0" font-size="11" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Orders</text>
+<g opacity="0.16"><circle cx="72" cy="156" r="56" fill="#e3e3e3"/><circle cx="136" cy="156" r="56" fill="#e3e3e3"/></g>
+<circle cx="72" cy="156" r="56" fill="none" stroke="#e3e3e3" stroke-width="1"/>
+<circle cx="136" cy="156" r="56" fill="none" stroke="#e3e3e3" stroke-width="1"/>
+<text x="104" y="248" fill="#e3e3e3" font-size="13" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="middle">FULL JOIN</text>
+<text x="104" y="268" fill="#b4b9c0" font-size="10.5" font-family="'Geist', sans-serif" text-anchor="middle">Mọi dòng của cả hai bảng,</text>
+<text x="104" y="284" fill="#b4b9c0" font-size="10.5" font-family="'Geist', sans-serif" text-anchor="middle">khớp hay không</text>
+<text x="104" y="308" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">MySQL: thay bằng UNION</text>
+</g>
+<line x1="248" y1="72" x2="248" y2="312" stroke="rgba(227,227,227,0.10)" stroke-width="1"/>
+<line x1="480" y1="72" x2="480" y2="312" stroke="rgba(227,227,227,0.10)" stroke-width="1"/>
+<line x1="712" y1="72" x2="712" y2="312" stroke="rgba(227,227,227,0.10)" stroke-width="1"/>
+<text x="28" y="40" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="start" letter-spacing="0.18em">CUSTOMERS JOIN ORDERS ON CUSTOMERID · PHẦN TÔ ĐẬM LÀ DÒNG CÓ TRONG KẾT QUẢ</text>
+<text id="tiennhm-copyright" x="936" y="348" text-anchor="end" fill="#b4b9c0" opacity="0.75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.08em">© tiennhm</text>
+</svg>
+    </div>
+  </div>
+</body>
+</html>

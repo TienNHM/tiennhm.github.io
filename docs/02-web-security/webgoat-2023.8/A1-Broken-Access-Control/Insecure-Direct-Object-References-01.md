@@ -2,7 +2,7 @@
 title: 2.01 | Insecure Direct Object References
 slug: insecure-direct-object-references-01
 description: Bài viết này sẽ hướng dẫn cách tấn công Insecure Direct Object References trên WebGoat 2023.8
-image: https://tiennhm.github.io/img/docs/database.jpg
+image: ./img/idor-kiem-tra-quyen.png
 sidebar_position: 2
 # sidebar_class_name: hidden
 tags: 
@@ -25,6 +25,13 @@ Lỗ hổng **Insecure Direct Object References (IDOR)** xuất hiện khi ứng
 - **Bỏ qua cơ chế xác thực** (Authorization Bypass)
 - **Tiết lộ dữ liệu nhạy cảm**
 - **Thực hiện các thao tác trái phép**
+
+Toàn bộ lỗ hổng nằm ở một bước kiểm tra bị bỏ qua:
+
+![Server nhận id từ request. Nếu không kiểm tra người gọi có sở hữu bản ghi, server trả dữ liệu của người khác (lỗ hổng IDOR). Nếu có kiểm tra, chủ sở hữu hoặc admin nhận 200 OK, người khác nhận 403 Forbidden.](./img/idor-kiem-tra-quyen.png#gh-light-mode-only)
+![Server nhận id từ request. Nếu không kiểm tra người gọi có sở hữu bản ghi, server trả dữ liệu của người khác (lỗ hổng IDOR). Nếu có kiểm tra, chủ sở hữu hoặc admin nhận 200 OK, người khác nhận 403 Forbidden.](./img/idor-kiem-tra-quyen-dark.png#gh-dark-mode-only)
+
+<small>File gốc: [nền sáng](pathname:///files/diagrams/web-security-webgoat-2023.8-A1-Broken-Access-Control-Insecure-Direct-Object-References-01/vi/idor-kiem-tra-quyen.html) · [nền tối](pathname:///files/diagrams/web-security-webgoat-2023.8-A1-Broken-Access-Control-Insecure-Direct-Object-References-01/vi/idor-kiem-tra-quyen-dark.html)</small>
 
 ## 📌 **2. Ví dụ về IDOR**
 Dưới đây là một số ví dụ minh họa cách IDOR có thể bị khai thác:

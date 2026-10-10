@@ -550,6 +550,23 @@ Khi Admin gọi `POST /api/leads/{id}/assign`:
    ```
 6. Client (web/mobile) nhận event `ReceiveNotification` qua kết nối SignalR.
 
+```mermaid
+sequenceDiagram
+    participant A as Admin
+    participant L as LeadController
+    participant S as LeadService
+    participant N as NotificationService
+    participant H as IHubContext
+    participant C as Client của SalesRep
+    A->>L: POST /api/leads/{id}/assign
+    L->>S: AssignLeadAsync(leadId, salesRepId)
+    S->>S: cập nhật AssignedToId, lưu database
+    S->>N: CreateAndSendAsync(userId, message, referenceId)
+    N->>N: tạo bản ghi Notification
+    N->>H: Clients.User(userId).SendAsync
+    H-->>C: ReceiveNotification
+```
+
 **Yêu cầu cho SignalR Hub:**
 
 - Thêm `[Authorize]` lên `NotificationHub`.

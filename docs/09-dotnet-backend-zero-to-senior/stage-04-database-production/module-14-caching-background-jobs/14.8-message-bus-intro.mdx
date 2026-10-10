@@ -2,6 +2,7 @@
 title: "14.8 - Message Bus Intro"
 description: "Command khác event, MassTransit với RabbitMQ, mẫu outbox để không mất message, dead-letter queue, và khi nào message bus là thừa."
 sidebar_position: 8
+image: ./img/transactional-outbox.png
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
@@ -207,6 +208,11 @@ await _bus.Publish(new CustomerCreated(id), ct);       // ghi vào bảng outbox
 Message được ghi vào **bảng outbox trong cùng transaction** với dữ liệu nghiệp vụ. Một tiến trình nền đọc bảng đó và publish thật.
 
 Kết quả: hoặc **cả hai** cùng được lưu, hoặc **không cái nào**. Tiến trình chết sau commit thì message vẫn nằm trong bảng và được publish khi khởi động lại.
+
+![Mẫu outbox: CustomerService ghi bảng Customers và bảng OutboxMessage trong một transaction. Tiến trình nền Outbox delivery đọc bảng outbox mỗi giây, publish lên RabbitMQ rồi đánh dấu đã gửi; consumer SendWelcomeEmail nhận message và phải idempotent vì có thể nhận hai lần](./img/transactional-outbox.png#gh-light-mode-only)
+![Mẫu outbox: CustomerService ghi bảng Customers và bảng OutboxMessage trong một transaction. Tiến trình nền Outbox delivery đọc bảng outbox mỗi giây, publish lên RabbitMQ rồi đánh dấu đã gửi; consumer SendWelcomeEmail nhận message và phải idempotent vì có thể nhận hai lần](./img/transactional-outbox-dark.png#gh-dark-mode-only)
+
+<small>File gốc: [nền sáng](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-04-database-production-module-14-caching-background-jobs-message-bus-intro/vi/transactional-outbox.html) · [nền tối](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-04-database-production-module-14-caching-background-jobs-message-bus-intro/vi/transactional-outbox-dark.html)</small>
 
 Cái giá: thêm một bảng, thêm độ trễ bằng `QueryDelay`, và message có thể publish **hai lần** (tiến trình chết sau khi publish, trước khi đánh dấu đã gửi) — nên consumer vẫn phải **idempotent** ([bài 14.10](14.9-idempotency-and-retry.mdx)).
 

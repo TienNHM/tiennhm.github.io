@@ -2,7 +2,7 @@
 title: 2.03 | Insecure Direct Object References
 slug: insecure-direct-object-references-03
 description: "Một nguyên tắc quan trọng trong tấn công bảo mật ứng dụng (AppSec) là so sánh sự khác biệt giữa phản hồi thô từ server và dữ liệu hiển thị trên giao diện."
-image: https://tiennhm.github.io/img/docs/database.jpg
+image: ./img/idor-kiem-tra-quyen.png
 sidebar_position: 2
 # sidebar_class_name: hidden
 tags: 

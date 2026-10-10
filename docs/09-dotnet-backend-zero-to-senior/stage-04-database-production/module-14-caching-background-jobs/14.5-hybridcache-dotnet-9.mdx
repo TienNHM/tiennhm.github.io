@@ -2,6 +2,7 @@
 title: "14.5 - HybridCache (.NET 9)"
 description: "Hai tầng L1 và L2 trong một API, chống stampede sẵn có, xoá theo tag, đồng bộ L1 giữa instance, và khi nào không dùng."
 sidebar_position: 5
+image: ./img/hybridcache-get-or-create.png
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
@@ -59,6 +60,13 @@ var value = await _cache.GetOrCreateAsync(key,
     async token => await LoadFromDatabaseAsync(id, token),
     cancellationToken: ct);
 ```
+
+Một dòng đó làm đủ bốn việc của đoạn code 60 dòng ở trên:
+
+![Luồng GetOrCreateAsync: có trong L1 IMemoryCache thì trả ngay; không thì kiểm tra L2 Redis, có thì nạp lên L1 rồi trả; không có ở cả hai thì gọi factory đúng một lần cho mọi request cùng khoá, ghi cả L2 và L1 với Expiration và LocalCacheExpiration, rồi trả kết quả cho mọi request đang chờ](./img/hybridcache-get-or-create.png#gh-light-mode-only)
+![Luồng GetOrCreateAsync: có trong L1 IMemoryCache thì trả ngay; không thì kiểm tra L2 Redis, có thì nạp lên L1 rồi trả; không có ở cả hai thì gọi factory đúng một lần cho mọi request cùng khoá, ghi cả L2 và L1 với Expiration và LocalCacheExpiration, rồi trả kết quả cho mọi request đang chờ](./img/hybridcache-get-or-create-dark.png#gh-dark-mode-only)
+
+<small>File gốc: [nền sáng](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-04-database-production-module-14-caching-background-jobs-hybridcache-dotnet-9/vi/hybridcache-get-or-create.html) · [nền tối](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-04-database-production-module-14-caching-background-jobs-hybridcache-dotnet-9/vi/hybridcache-get-or-create-dark.html)</small>
 
 ### 14.6.2 — Cấu hình
 

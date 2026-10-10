@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RowVersion chặn lost update</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Display:wdth,wght@62.5..100,400&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #1b1b1d;
+      --color-ink:    #e3e3e3;
+      --color-muted:  #b4b9c0;
+      --font-sans:    'Geist', system-ui, sans-serif;
+      /* Instrument Serif has no Vietnamese subset; a per-glyph fallback mixes two faces
+         inside one word, so Vietnamese titles swap the whole face instead. */
+      --font-serif:   'Noto Serif Display', serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-stretch: 75%; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 960px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Sequence · Concurrency</p>
+    <h1>RowVersion chặn lost update</h1>
+    <div class="diagram-container">
+<svg viewBox="0 0 960 724" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="rowversion-dark-title rowversion-dark-desc">
+  <title id="rowversion-dark-title">Concurrency token chặn lost update</title>
+  <desc id="rowversion-dark-desc">An và Bình cùng đọc Lead 42 với token v1; An lưu trước nên token thành v2; Bình lưu với token v1, UPDATE khớp 0 dòng và API trả 409 Conflict.</desc>
+  <defs>
+    <marker id="rowversion-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#b4b9c0"/></marker>
+    <marker id="rowversion-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#25c19f"/></marker>
+  </defs>
+  <rect x="0" y="0" width="960" height="700" fill="#1b1b1d"/>
+  <!-- zones -->
+  <line x1="120" y1="88" x2="120" y2="568" stroke="rgba(227,227,227,0.22)" stroke-width="1" stroke-dasharray="3,3"/>
+  <line x1="336" y1="88" x2="336" y2="568" stroke="rgba(227,227,227,0.22)" stroke-width="1" stroke-dasharray="3,3"/>
+  <line x1="584" y1="88" x2="584" y2="568" stroke="rgba(227,227,227,0.22)" stroke-width="1" stroke-dasharray="3,3"/>
+  <line x1="832" y1="88" x2="832" y2="568" stroke="rgba(227,227,227,0.22)" stroke-width="1" stroke-dasharray="3,3"/>
+  <!-- arrows -->
+  <path d="M120,120 H584" fill="none" stroke="#b4b9c0" stroke-width="1.2" marker-end="url(#rowversion-arrow)"/>
+  <path d="M584,156 H120" fill="none" stroke="#b4b9c0" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#rowversion-arrow)"/>
+  <path d="M336,192 H584" fill="none" stroke="#b4b9c0" stroke-width="1.2" marker-end="url(#rowversion-arrow)"/>
+  <path d="M584,228 H336" fill="none" stroke="#b4b9c0" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#rowversion-arrow)"/>
+  <path d="M120,276 H584" fill="none" stroke="#b4b9c0" stroke-width="1.2" marker-end="url(#rowversion-arrow)"/>
+  <path d="M584,312 H832" fill="none" stroke="#b4b9c0" stroke-width="1.2" marker-end="url(#rowversion-arrow)"/>
+  <path d="M832,348 H584" fill="none" stroke="#b4b9c0" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#rowversion-arrow)"/>
+  <path d="M584,384 H120" fill="none" stroke="#b4b9c0" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#rowversion-arrow)"/>
+  <path d="M336,432 H584" fill="none" stroke="#b4b9c0" stroke-width="1.2" marker-end="url(#rowversion-arrow)"/>
+  <path d="M584,468 H832" fill="none" stroke="#b4b9c0" stroke-width="1.2" marker-end="url(#rowversion-arrow)"/>
+  <path d="M832,504 H584" fill="none" stroke="#b4b9c0" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#rowversion-arrow)"/>
+  <path d="M584,540 H336" fill="none" stroke="#25c19f" stroke-width="1.4" marker-end="url(#rowversion-arrow-accent)"/>
+  <!-- labels -->
+  <rect x="184" y="102" width="89" height="12" rx="2" fill="#1b1b1d"/><text x="228" y="111" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">GET /LEADS/42</text>
+  <rect x="198" y="138" width="59" height="12" rx="2" fill="#1b1b1d"/><text x="228" y="147" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">100 · V1</text>
+  <rect x="416" y="174" width="89" height="12" rx="2" fill="#1b1b1d"/><text x="460" y="183" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">GET /LEADS/42</text>
+  <rect x="430" y="210" width="59" height="12" rx="2" fill="#1b1b1d"/><text x="460" y="219" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">100 · V1</text>
+  <rect x="186" y="258" width="83" height="12" rx="2" fill="#1b1b1d"/><text x="228" y="267" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">PUT 150 · V1</text>
+  <rect x="658" y="294" width="100" height="12" rx="2" fill="#1b1b1d"/><text x="708" y="303" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">UPDATE WHERE V1</text>
+  <rect x="670" y="330" width="77" height="12" rx="2" fill="#1b1b1d"/><text x="708" y="339" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">1 DÒNG · V2</text>
+  <rect x="180" y="366" width="95" height="12" rx="2" fill="#1b1b1d"/><text x="228" y="375" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">204 NO CONTENT</text>
+  <rect x="418" y="414" width="83" height="12" rx="2" fill="#1b1b1d"/><text x="460" y="423" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">PUT 200 · V1</text>
+  <rect x="658" y="450" width="100" height="12" rx="2" fill="#1b1b1d"/><text x="708" y="459" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">UPDATE WHERE V1</text>
+  <rect x="684" y="486" width="47" height="12" rx="2" fill="#1b1b1d"/><text x="708" y="495" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">0 DÒNG</text>
+  <rect x="418" y="522" width="83" height="12" rx="2" fill="#1b1b1d"/><text x="460" y="531" fill="#25c19f" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">409 CONFLICT</text>
+  <!-- nodes -->
+  <rect x="40" y="32" width="160" height="56" rx="6" fill="#1b1b1d"/>
+  <rect x="40" y="32" width="160" height="56" rx="6" fill="rgba(227,227,227,0.03)" stroke="rgba(227,227,227,0.3)" stroke-width="1"/>
+  <text x="120.0" y="57.0" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">An</text>
+  <text x="120.0" y="72.0" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">người dùng 1</text>
+  <rect x="256" y="32" width="160" height="56" rx="6" fill="#1b1b1d"/>
+  <rect x="256" y="32" width="160" height="56" rx="6" fill="rgba(227,227,227,0.03)" stroke="rgba(227,227,227,0.3)" stroke-width="1"/>
+  <text x="336.0" y="57.0" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Bình</text>
+  <text x="336.0" y="72.0" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">người dùng 2</text>
+  <rect x="504" y="32" width="160" height="56" rx="6" fill="#1b1b1d"/>
+  <rect x="504" y="32" width="160" height="56" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="584.0" y="57.0" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">API · EF Core</text>
+  <text x="584.0" y="72.0" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">SaveChangesAsync</text>
+  <rect x="752" y="32" width="160" height="56" rx="6" fill="#1b1b1d"/>
+  <rect x="752" y="32" width="160" height="56" rx="6" fill="rgba(227,227,227,0.05)" stroke="#b4b9c0" stroke-width="1"/>
+  <text x="832.0" y="57.0" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Database</text>
+  <text x="832.0" y="72.0" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">Leads.RowVersion</text>
+  <!-- top -->
+  <text x="40" y="600" fill="#b4b9c0" font-size="11" font-family="'Geist', sans-serif" text-anchor="start">Bình gửi token v1 đã cũ. Database đổi RowVersion thành v2 sau lần ghi của An, nên UPDATE … WHERE RowVersion = v1</text>
+  <text x="40" y="615" fill="#b4b9c0" font-size="11" font-family="'Geist', sans-serif" text-anchor="start">khớp 0 dòng: EF ném DbUpdateConcurrencyException và API trả 409 thay vì ghi đè im lặng.</text>
+  <line x1="40" y1="636" x2="920" y2="636" stroke="rgba(227,227,227,0.1)" stroke-width="0.8"/>
+  <text x="40" y="656" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">CHÚ GIẢI</text>
+  <line x1="40" y1="672" x2="66" y2="672" stroke="#b4b9c0" stroke-width="1.2" marker-end="url(#rowversion-arrow)"/>
+  <text x="74" y="675" fill="#b4b9c0" font-size="9" font-family="'Geist', sans-serif">Gọi</text>
+  <line x1="126.8" y1="672" x2="152.8" y2="672" stroke="#b4b9c0" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#rowversion-arrow)"/>
+  <text x="160.8" y="675" fill="#b4b9c0" font-size="9" font-family="'Geist', sans-serif">Trả về</text>
+  <line x1="230.39999999999998" y1="672" x2="256.4" y2="672" stroke="#25c19f" stroke-width="1.2" marker-end="url(#rowversion-arrow-accent)"/>
+  <text x="264.4" y="675" fill="#b4b9c0" font-size="9" font-family="'Geist', sans-serif">Xung đột được phát hiện</text>
+<text id="tiennhm-copyright" x="936" y="712" text-anchor="end" fill="#b4b9c0" opacity="0.75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.08em">© tiennhm</text>
+</svg>
+    </div>
+  </div>
+</body>
+</html>

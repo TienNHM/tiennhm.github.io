@@ -124,6 +124,21 @@ public sealed class StockReservedConsumer(SalesDbContext db) : IConsumer<StockRe
 
 **Cách 2: gộp service.** Nếu ba service luôn gọi vòng nhau, có thể chúng vốn là một ([bài 18.3](18.2-service-decomposition.mdx)).
 
+Cách 1 nhìn trên sơ đồ: cạnh đóng vòng đổi từ lời gọi đồng bộ thành event.
+
+```mermaid
+flowchart LR
+    subgraph TRUOC["Trước: vòng gọi đồng bộ"]
+        S1[Sales] --> B1[Billing] --> I1[Inventory]
+        I1 -->|"gọi ngược"| S1
+    end
+    subgraph SAU["Sau: Inventory phát event"]
+        S2[Sales] --> B2[Billing] --> I2[Inventory]
+        I2 -.->|"StockReservedEvent"| BUS[(Broker)]
+        BUS -.->|"StockReservedConsumer"| S2
+    end
+```
+
 ### 18.5.4 — gRPC: khi nào và kỷ luật versioning
 
 gRPC phù hợp cho giao tiếp **nội bộ** giữa các service: hợp đồng rõ ràng qua `.proto`, serialize nhị phân gọn hơn JSON, có streaming hai chiều, và sinh client tự động.

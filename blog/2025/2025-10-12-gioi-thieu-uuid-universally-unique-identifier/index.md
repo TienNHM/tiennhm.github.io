@@ -5,6 +5,7 @@ description: "UUID là chuẩn định danh 128-bit tạo được ID duy nhất
 keywords: [uuid, universally unique identifier, uuid v4, uuid v7, guid, dinh danh duy nhat, uuid vs auto increment, khoa chinh database, uuid trong database, uuid la gi]
 authors: [tiennhm]
 tags: [database, fundamentals]
+image: ./uuid-v4-anatomy.png
 ---
 
 import { SummaryBox, FAQSection } from '@site/src/components/SEO';
@@ -28,6 +29,13 @@ UUID là một chuỗi 128-bit được biểu diễn dưới dạng 32 ký tự
 ```
 
 UUID được thiết kế để đảm bảo tính duy nhất trên toàn cầu mà không cần một cơ quan trung tâm nào quản lý.
+
+Chuỗi ví dụ trên là một UUID v4. Tách ra từng phần, có hai chỗ không ngẫu nhiên:
+
+![UUID 550e8400-e29b-41d4-a716-446655440000 gồm 32 ký tự hex chia thành năm nhóm 8-4-4-4-12, tổng cộng 128 bit. Ký tự đầu của nhóm thứ ba là version: 4, tức 0100, nghĩa là UUID v4. Ký tự đầu của nhóm thứ tư mang variant: a bằng 1010, hai bit đầu là 10. Thanh 128 bit bên dưới cho thấy 4 bit version và 2 bit variant nằm ở giữa, 122 bit còn lại là số ngẫu nhiên.](./uuid-v4-anatomy.png#gh-light-mode-only)
+![UUID 550e8400-e29b-41d4-a716-446655440000 gồm 32 ký tự hex chia thành năm nhóm 8-4-4-4-12, tổng cộng 128 bit. Ký tự đầu của nhóm thứ ba là version: 4, tức 0100, nghĩa là UUID v4. Ký tự đầu của nhóm thứ tư mang variant: a bằng 1010, hai bit đầu là 10. Thanh 128 bit bên dưới cho thấy 4 bit version và 2 bit variant nằm ở giữa, 122 bit còn lại là số ngẫu nhiên.](./uuid-v4-anatomy-dark.png#gh-dark-mode-only)
+
+<small>File gốc: [nền sáng](pathname:///files/diagrams/2025-10-12-gioi-thieu-uuid-universally-unique-identifier/vi/uuid-v4-anatomy.html) · [nền tối](pathname:///files/diagrams/2025-10-12-gioi-thieu-uuid-universally-unique-identifier/vi/uuid-v4-anatomy-dark.html)</small>
 
 ## Các phiên bản UUID chi tiết
 

@@ -138,6 +138,11 @@ Thứ tự thực dụng cho một pipeline CI/CD:
 4. **Định kỳ hàng đêm hoặc hàng tuần** — load test, fuzz test, security scan. Chậm và ồn, không nên chặn đường merge.
 5. **Trước sự kiện tải cao** — stress test, với kịch bản mô phỏng đúng đợt cao điểm dự kiến.
 
+![Pipeline CI/CD gồm bốn bước Pull request, Merge, Deploy, Môi trường thật. Pull request chạy functional và integration test kèm unit test, dưới 10 phút; sau merge chạy toàn bộ regression; ngay sau deploy chạy smoke test trên môi trường thật, đỏ thì rollback tự động. Bên dưới, tách khỏi đường chính và không chặn merge: load, fuzz, security scan chạy hàng đêm hoặc hàng tuần; stress test chạy trước sự kiện tải cao.](./api-testing-pipeline.png#gh-light-mode-only)
+![Pipeline CI/CD gồm bốn bước Pull request, Merge, Deploy, Môi trường thật. Pull request chạy functional và integration test kèm unit test, dưới 10 phút; sau merge chạy toàn bộ regression; ngay sau deploy chạy smoke test trên môi trường thật, đỏ thì rollback tự động. Bên dưới, tách khỏi đường chính và không chặn merge: load, fuzz, security scan chạy hàng đêm hoặc hàng tuần; stress test chạy trước sự kiện tải cao.](./api-testing-pipeline-dark.png#gh-dark-mode-only)
+
+<small>File gốc: [nền sáng](pathname:///files/diagrams/2024-01-31-api-testing-types/vi/api-testing-pipeline.html) · [nền tối](pathname:///files/diagrams/2024-01-31-api-testing-types/vi/api-testing-pipeline-dark.html)</small>
+
 <FAQSection
   items={[
     {

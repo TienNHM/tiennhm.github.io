@@ -6,6 +6,7 @@ keywords: [window function sql, group by vs window function, over partition by, 
 tags: [sql, database, postgresql, backend, fundamentals]
 authors: [tiennhm]
 date: 2026-09-28
+image: ./range-vs-rows-frame.png
 ---
 
 import { SummaryBox, FAQSection } from '@site/src/components/SEO';
@@ -126,6 +127,13 @@ RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
 And `RANGE` decides what "the current row" covers by **the value of the `ORDER BY` column**, not by row position. The two rows dated `2026-01-01` are **peers**, so both count as "everything through 1 January" — and both receive 300.
 
 `ROWS` counts by **physical position** instead: the first row contains only itself, so it reads 100.
+
+The first row's window frame in each case:
+
+![Two window frames over the same three rows (2026-01-01 100, 2026-01-01 200, 2026-01-02 300). Left: OVER (ORDER BY ngay) uses the default RANGE, so row 1's frame covers both peer rows dated 2026-01-01 and the sum is 300. Right: ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW, so row 1's frame is just itself and the sum is 100.](./range-vs-rows-frame.png#gh-light-mode-only)
+![Two window frames over the same three rows (2026-01-01 100, 2026-01-01 200, 2026-01-02 300). Left: OVER (ORDER BY ngay) uses the default RANGE, so row 1's frame covers both peer rows dated 2026-01-01 and the sum is 300. Right: ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW, so row 1's frame is just itself and the sum is 100.](./range-vs-rows-frame-dark.png#gh-dark-mode-only)
+
+<small>Source: [light](pathname:///files/diagrams/2026-09-28-window-function-vs-group-by/en/range-vs-rows-frame.html) · [dark](pathname:///files/diagrams/2026-09-28-window-function-vs-group-by/en/range-vs-rows-frame-dark.html)</small>
 
 ### Which to pick
 

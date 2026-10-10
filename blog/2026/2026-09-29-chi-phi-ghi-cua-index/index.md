@@ -6,6 +6,7 @@ keywords: [chi phi ghi cua index, index lam cham insert, write amplification ind
 tags: [sql, database, postgresql, performance, architecture, backend]
 authors: [tiennhm]
 date: 2026-09-29
+image: ./insert-fan-out.png
 ---
 
 import { SummaryBox, FAQSection, Checklist } from '@site/src/components/SEO';
@@ -53,6 +54,11 @@ Chèn cùng 200.000 dòng vào mỗi bảng:
 | Chênh lệch | **chậm 6,0 lần** | **gấp 2,6 lần** |
 
 Lý do thì đơn giản: mỗi `INSERT` không chỉ ghi một dòng vào bảng, nó còn phải chèn một mục vào **từng** cấu trúc B-tree, giữ cho mỗi cây vẫn cân bằng, và ghi thêm vào write-ahead log cho từng thay đổi ấy. Bốn index nghĩa là **năm cấu trúc phải đổi thay vì một**.
+
+![Sơ đồ một lệnh INSERT 1 dòng vào bảng w4 toả ra năm cấu trúc: heap của bảng và bốn B-tree index trên a, b, c, d; mỗi thay đổi lại ghi thêm một bản ghi vào WAL. Bên dưới là số đo trên 200.000 dòng: không index 287,8 ms và 10,2 MB, bốn index 1.722,3 ms và 27 MB, chậm 6 lần và nặng 2,6 lần.](./insert-fan-out.png#gh-light-mode-only)
+![Sơ đồ một lệnh INSERT 1 dòng vào bảng w4 toả ra năm cấu trúc: heap của bảng và bốn B-tree index trên a, b, c, d; mỗi thay đổi lại ghi thêm một bản ghi vào WAL. Bên dưới là số đo trên 200.000 dòng: không index 287,8 ms và 10,2 MB, bốn index 1.722,3 ms và 27 MB, chậm 6 lần và nặng 2,6 lần.](./insert-fan-out-dark.png#gh-dark-mode-only)
+
+<small>File gốc: [nền sáng](pathname:///files/diagrams/2026-09-29-chi-phi-ghi-cua-index/vi/insert-fan-out.html) · [nền tối](pathname:///files/diagrams/2026-09-29-chi-phi-ghi-cua-index/vi/insert-fan-out-dark.html)</small>
 
 Điều đáng nói: con số này là chi phí bạn trả **kể cả khi không câu truy vấn nào dùng tới bốn index đó**. Index không dùng vẫn được cập nhật đầy đủ ở mọi lần ghi.
 

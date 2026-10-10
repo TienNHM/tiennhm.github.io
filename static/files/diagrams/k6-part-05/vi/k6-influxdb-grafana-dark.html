@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>k6, InfluxDB và Grafana trong Docker Compose</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Display:wdth,wght@62.5..100,400&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #1b1b1d;
+      --color-ink:    #e3e3e3;
+      --color-muted:  #b4b9c0;
+      --font-sans:    'Geist', system-ui, sans-serif;
+      /* Instrument Serif has no Vietnamese subset; a per-glyph fallback mixes two faces
+         inside one word, so Vietnamese titles swap the whole face instead. */
+      --font-serif:   'Noto Serif Display', serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-stretch: 75%; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 960px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Deployment · Docker Compose</p>
+    <h1>k6, InfluxDB và Grafana trong Docker Compose</h1>
+    <div class="diagram-container">
+<svg viewBox="0 0 960 592" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="k6-influxdb-grafana-dark-title k6-influxdb-grafana-dark-desc">
+  <title id="k6-influxdb-grafana-dark-title">k6 ghi metric vào InfluxDB, Grafana đọc ra dashboard</title>
+  <desc id="k6-influxdb-grafana-dark-desc">Ba container trong Docker Compose: k6 chạy script mount từ thư mục scripts và ghi metric vào database k6 của InfluxDB qua cổng 8086; Grafana được provision datasource trỏ tới InfluxDB và dashboard từ thư mục dashboards, người dùng xem qua localhost:3000.</desc>
+  <defs>
+    <marker id="k6-influxdb-grafana-dark-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#b4b9c0"/></marker>
+    <marker id="k6-influxdb-grafana-dark-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#25c19f"/></marker>
+  </defs>
+  <rect width="100%" height="100%" fill="#1b1b1d"/>
+  <!-- Zones -->
+  <rect x="20" y="24" width="920" height="452" rx="8" fill="rgba(227,227,227,0.02)" stroke="rgba(227,227,227,0.2)" stroke-width="0.8" stroke-dasharray="4,4"/>
+  <rect x="32" y="18" width="64" height="12" fill="#1b1b1d"/>
+  <text x="64" y="27" fill="#b4b9c0" font-size="7.5" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">MÁY HOST</text>
+  <rect x="300" y="52" width="620" height="412" rx="8" fill="rgba(227,227,227,0.02)" stroke="rgba(227,227,227,0.2)" stroke-width="0.8" stroke-dasharray="4,4"/>
+  <rect x="312" y="46" width="100" height="12" fill="#1b1b1d"/>
+  <text x="362" y="55" fill="#b4b9c0" font-size="7.5" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">DOCKER COMPOSE</text>
+  <!-- Paths -->
+  <line x1="244" y1="112" x2="336" y2="112" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#k6-influxdb-grafana-dark-arrow)"/>
+  <line x1="244" y1="200" x2="336" y2="200" stroke="#b4b9c0" stroke-width="1.2" fill="none" stroke-dasharray="5,4" marker-end="url(#k6-influxdb-grafana-dark-arrow)"/>
+  <line x1="596" y1="220" x2="656" y2="220" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#k6-influxdb-grafana-dark-arrow)"/>
+  <line x1="244" y1="384" x2="336" y2="384" stroke="#b4b9c0" stroke-width="1.2" fill="none" stroke-dasharray="5,4" marker-end="url(#k6-influxdb-grafana-dark-arrow)"/>
+  <line x1="596" y1="340" x2="656" y2="340" stroke="#25c19f" stroke-width="1.4" fill="none" marker-end="url(#k6-influxdb-grafana-dark-arrow-accent)"/>
+  <!-- Labels -->
+  <rect x="256" y="92" width="68" height="12" rx="2" fill="#1b1b1d"/><text x="290" y="101" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">HTTP :3000</text>
+  <rect x="248" y="180" width="40" height="12" rx="2" fill="#1b1b1d"/><text x="268" y="189" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">MOUNT</text>
+  <rect x="606" y="200" width="40" height="12" rx="2" fill="#1b1b1d"/><text x="626" y="209" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">QUERY</text>
+  <rect x="248" y="364" width="40" height="12" rx="2" fill="#1b1b1d"/><text x="268" y="373" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">MOUNT</text>
+  <rect x="606" y="320" width="40" height="12" rx="2" fill="#1b1b1d"/><text x="626" y="329" fill="#25c19f" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">WRITE</text>
+  <!-- Host: browser -->
+  <rect x="44" y="80" width="200" height="64" rx="6" fill="#1b1b1d"/>
+  <rect x="44" y="80" width="200" height="64" rx="6" fill="rgba(227,227,227,0.03)" stroke="rgba(227,227,227,0.3)" stroke-width="1"/>
+  <rect x="52" y="86" width="34" height="12" rx="2" fill="transparent" stroke="rgba(227,227,227,0.4)" stroke-width="0.8"/>
+  <text x="69" y="95" fill="#b4b9c0" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">HOST</text>
+  <text x="144" y="116" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Trình duyệt</text>
+  <text x="144" y="132" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">localhost:3000</text>
+  <!-- Host: grafana config -->
+  <rect x="44" y="152" width="200" height="96" rx="6" fill="#1b1b1d"/>
+  <rect x="44" y="152" width="200" height="96" rx="6" fill="rgba(227,227,227,0.03)" stroke="rgba(227,227,227,0.3)" stroke-width="1"/>
+  <rect x="52" y="158" width="34" height="12" rx="2" fill="transparent" stroke="rgba(227,227,227,0.4)" stroke-width="0.8"/>
+  <text x="69" y="167" fill="#b4b9c0" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">HOST</text>
+  <text x="144" y="188" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Cấu hình Grafana</text>
+  <text x="144" y="206" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">grafana-datasource.yaml</text>
+  <text x="144" y="220" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">grafana-dashboard.yaml</text>
+  <text x="144" y="234" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">./dashboards/*.json</text>
+  <!-- Host: scripts -->
+  <rect x="44" y="352" width="200" height="64" rx="6" fill="#1b1b1d"/>
+  <rect x="44" y="352" width="200" height="64" rx="6" fill="rgba(227,227,227,0.03)" stroke="rgba(227,227,227,0.3)" stroke-width="1"/>
+  <rect x="52" y="358" width="34" height="12" rx="2" fill="transparent" stroke="rgba(227,227,227,0.4)" stroke-width="0.8"/>
+  <text x="69" y="367" fill="#b4b9c0" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">HOST</text>
+  <text x="144" y="388" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Kịch bản test</text>
+  <text x="144" y="404" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">./scripts/script.js</text>
+  <!-- Container: grafana -->
+  <rect x="336" y="80" width="260" height="160" rx="6" fill="#1b1b1d"/>
+  <rect x="336" y="80" width="260" height="160" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <rect x="344" y="86" width="64" height="12" rx="2" fill="transparent" stroke="rgba(227,227,227,0.4)" stroke-width="0.8"/>
+  <text x="376" y="95" fill="#b4b9c0" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">CONTAINER</text>
+  <text x="352" y="118" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="start">Grafana</text>
+  <rect x="352" y="128" width="228" height="24" rx="4" fill="rgba(227,227,227,0.05)" stroke="#b4b9c0" stroke-width="0.8"/>
+  <text x="360" y="144" fill="#e3e3e3" font-size="12" font-family="'Geist', sans-serif">grafana/grafana</text>
+  <text x="572" y="144" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">8.5.21</text>
+  <text x="352" y="176" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="start">ports 3000:3000</text>
+  <text x="352" y="192" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="start">network: grafana</text>
+  <text x="352" y="208" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="start">datasource k6influxdb</text>
+  <text x="352" y="224" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="start">→ http://influxdb:8086</text>
+  <!-- Container: k6 -->
+  <rect x="336" y="320" width="260" height="128" rx="6" fill="#1b1b1d"/>
+  <rect x="336" y="320" width="260" height="128" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <rect x="344" y="326" width="64" height="12" rx="2" fill="transparent" stroke="rgba(227,227,227,0.4)" stroke-width="0.8"/>
+  <text x="376" y="335" fill="#b4b9c0" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">CONTAINER</text>
+  <text x="352" y="358" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="start">k6</text>
+  <rect x="352" y="368" width="228" height="24" rx="4" fill="rgba(227,227,227,0.05)" stroke="#b4b9c0" stroke-width="0.8"/>
+  <text x="360" y="384" fill="#e3e3e3" font-size="12" font-family="'Geist', sans-serif">grafana/k6</text>
+  <text x="572" y="384" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">latest</text>
+  <text x="352" y="416" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="start">network: k6 · ports 6565:6565</text>
+  <text x="352" y="432" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="start">K6_OUT=influxdb=http://influxdb:8086/k6</text>
+  <!-- Container: influxdb (focal) -->
+  <rect x="656" y="200" width="240" height="160" rx="6" fill="#1b1b1d"/>
+  <rect x="656" y="200" width="240" height="160" rx="6" fill="rgba(37,193,159,0.10)" stroke="#25c19f" stroke-width="1"/>
+  <rect x="664" y="206" width="64" height="12" rx="2" fill="transparent" stroke="rgba(227,227,227,0.4)" stroke-width="0.8"/>
+  <text x="696" y="215" fill="#b4b9c0" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">CONTAINER</text>
+  <text x="672" y="238" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="start">InfluxDB</text>
+  <rect x="672" y="248" width="208" height="24" rx="4" fill="rgba(227,227,227,0.05)" stroke="#b4b9c0" stroke-width="0.8"/>
+  <text x="680" y="264" fill="#e3e3e3" font-size="12" font-family="'Geist', sans-serif">influxdb</text>
+  <text x="872" y="264" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">1.8</text>
+  <text x="672" y="296" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="start">database: k6</text>
+  <text x="672" y="312" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="start">ports 8086:8086</text>
+  <text x="672" y="328" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="start">network: k6 · grafana</text>
+  <!-- Legend -->
+  <line x1="40" y1="500" x2="920" y2="500" stroke="rgba(227,227,227,0.1)" stroke-width="0.8"/>
+  <text x="40" y="520" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="start" letter-spacing="0.18em">CHÚ GIẢI</text>
+  <rect x="40" y="536" width="24" height="12" rx="2" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="72" y="546" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif" text-anchor="start">Container</text>
+  <rect x="170" y="536" width="24" height="12" rx="2" fill="rgba(227,227,227,0.03)" stroke="rgba(227,227,227,0.3)" stroke-width="1"/>
+  <text x="202" y="546" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif" text-anchor="start">Trên máy host</text>
+  <line x1="320" y1="542" x2="348" y2="542" stroke="#b4b9c0" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#k6-influxdb-grafana-dark-arrow)"/>
+  <text x="356" y="546" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif" text-anchor="start">Mount thư mục / file vào container</text>
+  <line x1="560" y1="542" x2="588" y2="542" stroke="#b4b9c0" stroke-width="1.2" marker-end="url(#k6-influxdb-grafana-dark-arrow)"/>
+  <text x="596" y="546" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif" text-anchor="start">Gọi HTTP</text>
+  <line x1="680" y1="542" x2="708" y2="542" stroke="#25c19f" stroke-width="1.4" marker-end="url(#k6-influxdb-grafana-dark-arrow-accent)"/>
+  <text x="716" y="546" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif" text-anchor="start">Metric từ k6 ghi vào InfluxDB</text>
+<text id="tiennhm-copyright" x="936" y="580" text-anchor="end" fill="#b4b9c0" opacity="0.75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.08em">© tiennhm</text>
+</svg>
+    </div>
+  </div>
+</body>
+</html>

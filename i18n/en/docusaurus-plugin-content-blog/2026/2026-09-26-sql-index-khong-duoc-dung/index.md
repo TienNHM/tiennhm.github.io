@@ -6,6 +6,7 @@ keywords: [index not used, sargable sql, sargability, seq scan instead of index 
 tags: [sql, database, postgresql, performance, backend]
 authors: [tiennhm]
 date: 2026-09-26
+image: ./sargable-seq-vs-index.png
 ---
 
 import { SummaryBox, FAQSection, Checklist } from '@site/src/components/SEO';
@@ -79,6 +80,13 @@ Execution Time: 5.453 ms
 ```
 
 `Bitmap Index Scan`. **5.4 ms instead of 29.6 ms**, same 37,518 rows.
+
+The two plans side by side:
+
+![The diagram compares the two execution plans. The condition date_part('year', tao_luc) = 2026 leads to Seq Scan on don, computing date_part on all 200,000 rows while the Filter throws away 162,482, taking 29.6 ms, with the planner estimating 1,000 rows against 37,518 actual. The range condition on the bare column tao_luc leads to a Bitmap Index Scan on idx_don_tao_luc then a Bitmap Heap Scan that reads only matching pages, taking 5.4 ms, estimating 38,225 rows against 37,518 actual.](./sargable-seq-vs-index.png#gh-light-mode-only)
+![The diagram compares the two execution plans. The condition date_part('year', tao_luc) = 2026 leads to Seq Scan on don, computing date_part on all 200,000 rows while the Filter throws away 162,482, taking 29.6 ms, with the planner estimating 1,000 rows against 37,518 actual. The range condition on the bare column tao_luc leads to a Bitmap Index Scan on idx_don_tao_luc then a Bitmap Heap Scan that reads only matching pages, taking 5.4 ms, estimating 38,225 rows against 37,518 actual.](./sargable-seq-vs-index-dark.png#gh-dark-mode-only)
+
+<small>Source: [light](pathname:///files/diagrams/2026-09-26-sql-index-khong-duoc-dung/en/sargable-seq-vs-index.html) · [dark](pathname:///files/diagrams/2026-09-26-sql-index-khong-duoc-dung/en/sargable-seq-vs-index-dark.html)</small>
 
 ---
 

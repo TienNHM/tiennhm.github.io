@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>cf-ipcity gets in, but cannot get out</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Display:wdth,wght@62.5..100,400&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #fafaf7;
+      --color-ink:    #1c1e21;
+      --color-muted:  #525860;
+      --font-sans:    'Geist', system-ui, sans-serif;
+      /* Instrument Serif has no Vietnamese subset; a per-glyph fallback mixes two faces
+         inside one word, so Vietnamese titles swap the whole face instead. */
+      --font-serif:   'Noto Serif Display', serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-stretch: 75%; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 960px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Sequence · production incident</p>
+    <h1>cf-ipcity gets in, but cannot get out</h1>
+    <div class="diagram-container">
+<svg viewBox="0 0 960 536" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="cf-ipcity-sendasync-title cf-ipcity-sendasync-desc">
+  <title id="cf-ipcity-sendasync-title">The cf-ipcity header makes HttpClient throw in SendAsync</title>
+  <desc id="cf-ipcity-sendasync-desc">Cloudflare adds cf-ipcity: Hồ Chí Minh to the request, the gateway and the .NET service forward every header, TryAddWithoutValidation returns true but SendAsync throws HttpRequestException, so the downstream receives no bytes at all.</desc>
+  <defs>
+    <marker id="cf-ipcity-sendasync-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#525860"/></marker>
+    <marker id="cf-ipcity-sendasync-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#18816a"/></marker>
+  </defs>
+  <rect width="100%" height="100%" fill="#fafaf7"/>
+
+  <line x1="88" y1="96" x2="88" y2="424" stroke="rgba(28,30,33,0.22)" stroke-width="1" stroke-dasharray="3,3"/>
+  <line x1="248" y1="96" x2="248" y2="424" stroke="rgba(28,30,33,0.22)" stroke-width="1" stroke-dasharray="3,3"/>
+  <line x1="408" y1="96" x2="408" y2="424" stroke="rgba(28,30,33,0.22)" stroke-width="1" stroke-dasharray="3,3"/>
+  <line x1="600" y1="96" x2="600" y2="424" stroke="rgba(28,30,33,0.22)" stroke-width="1" stroke-dasharray="3,3"/>
+  <line x1="872" y1="96" x2="872" y2="424" stroke="rgba(28,30,33,0.22)" stroke-width="1" stroke-dasharray="3,3"/>
+  <rect x="244" y="152" width="8" height="48" fill="rgba(28,30,33,0.06)" stroke="#525860" stroke-width="0.8"/>
+  <rect x="404" y="200" width="8" height="48" fill="rgba(28,30,33,0.06)" stroke="#525860" stroke-width="0.8"/>
+  <rect x="596" y="248" width="8" height="152" fill="rgba(28,30,33,0.06)" stroke="#525860" stroke-width="0.8"/>
+  <line x1="88" y1="152" x2="244" y2="152" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#cf-ipcity-sendasync-arrow)"/>
+  <line x1="252" y1="200" x2="404" y2="200" stroke="#18816a" stroke-width="1.4" fill="none" marker-end="url(#cf-ipcity-sendasync-arrow-accent)"/>
+  <line x1="412" y1="248" x2="596" y2="248" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#cf-ipcity-sendasync-arrow)"/>
+  <path d="M604,284 H640 V308 H608" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#cf-ipcity-sendasync-arrow)"/>
+  <path d="M604,332 H640 V356 H608" stroke="#18816a" stroke-width="1.4" fill="none" marker-end="url(#cf-ipcity-sendasync-arrow-accent)"/>
+  <line x1="604" y1="392" x2="780" y2="392" stroke="#525860" stroke-width="1.2" stroke-dasharray="5,4" fill="none"/>
+  <path d="M776,386 L788,398 M788,386 L776,398" stroke="#525860" stroke-width="1.6" fill="none"/>
+  <rect x="140.0" y="132" width="52" height="12" rx="2" fill="#fafaf7"/>
+  <text x="166.0" y="141" fill="#525860" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">REQUEST</text>
+  <rect x="256.0" y="180" width="144" height="12" rx="2" fill="#fafaf7"/>
+  <text x="328.0" y="189" fill="#18816a" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">+ cf-ipcity: Hồ Chí Minh</text>
+  <rect x="468.0" y="228" width="72" height="12" rx="2" fill="#fafaf7"/>
+  <text x="504.0" y="237" fill="#525860" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">ALL HEADERS</text>
+  <rect x="648" y="290" width="176" height="12" rx="2" fill="#fafaf7"/>
+  <text x="736.0" y="299" fill="#525860" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">TryAddWithoutValidation → true</text>
+  <rect x="648" y="338" width="188" height="12" rx="2" fill="#fafaf7"/>
+  <text x="742.0" y="347" fill="#18816a" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">SendAsync → HttpRequestException</text>
+  <rect x="646.0" y="372" width="92" height="12" rx="2" fill="#fafaf7"/>
+  <text x="692.0" y="381" fill="#525860" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">0 BYTES ON WIRE</text>
+  <rect x="20" y="40" width="136" height="56" rx="6" fill="#fafaf7"/>
+  <rect x="20" y="40" width="136" height="56" rx="6" fill="rgba(28,30,33,0.05)" stroke="#525860" stroke-width="1"/>
+  <text x="88.0" y="65.0" fill="#1c1e21" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="middle" font-weight="600">Browser</text>
+  <text x="88.0" y="81.0" fill="#525860" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">customer in VN</text>
+  <rect x="180" y="40" width="136" height="56" rx="6" fill="#fafaf7"/>
+  <rect x="180" y="40" width="136" height="56" rx="6" fill="rgba(28,30,33,0.03)" stroke="rgba(28,30,33,0.3)" stroke-width="1"/>
+  <text x="248.0" y="65.0" fill="#1c1e21" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="middle" font-weight="600">Cloudflare</text>
+  <text x="248.0" y="81.0" fill="#525860" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">adds geo headers</text>
+  <rect x="340" y="40" width="136" height="56" rx="6" fill="#fafaf7"/>
+  <rect x="340" y="40" width="136" height="56" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="408.0" y="65.0" fill="#1c1e21" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="middle" font-weight="600">API Gateway</text>
+  <text x="408.0" y="81.0" fill="#525860" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">ingress</text>
+  <rect x="516" y="40" width="168" height="56" rx="6" fill="#fafaf7"/>
+  <rect x="516" y="40" width="168" height="56" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="600.0" y="65.0" fill="#1c1e21" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="middle" font-weight="600">.NET Service</text>
+  <text x="600.0" y="81.0" fill="#525860" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">HttpClient</text>
+  <rect x="800" y="40" width="144" height="56" rx="6" fill="#fafaf7"/>
+  <rect x="800" y="40" width="144" height="56" rx="6" fill="rgba(28,30,33,0.02)" stroke="rgba(28,30,33,0.35)" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="872.0" y="65.0" fill="#1c1e21" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="middle" font-weight="600">Downstream</text>
+  <text x="872.0" y="81.0" fill="#525860" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">receives nothing</text>
+  <line x1="40" y1="448" x2="920" y2="448" stroke="rgba(28,30,33,0.1)" stroke-width="0.8"/>
+  <text x="40" y="468" fill="#525860" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start" letter-spacing="0.18em">LEGEND</text>
+  <line x1="40" y1="484" x2="68" y2="484" stroke="#18816a" stroke-width="1.4" fill="none" marker-end="url(#cf-ipcity-sendasync-arrow-accent)"/>
+  <text x="76" y="488" fill="#525860" font-size="9" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Non-ASCII value comes in, then blows up in SendAsync</text>
+  <line x1="392.8" y1="484" x2="420.8" y2="484" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#cf-ipcity-sendasync-arrow)"/>
+  <text x="428.8" y="488" fill="#525860" font-size="9" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Request / call</text>
+  <rect x="540.4" y="478" width="24" height="12" rx="2" fill="rgba(28,30,33,0.02)" stroke="rgba(28,30,33,0.35)" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="572.4" y="488" fill="#525860" font-size="9" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Not a single byte arrives</text>
+<text id="tiennhm-copyright" x="936" y="524" text-anchor="end" fill="#525860" opacity="0.75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.08em">© tiennhm</text>
+</svg>
+    </div>
+  </div>
+</body>
+</html>

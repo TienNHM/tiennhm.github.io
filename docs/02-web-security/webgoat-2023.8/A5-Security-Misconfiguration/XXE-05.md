@@ -2,7 +2,7 @@
 title: 1.05 | XXE
 slug: XXE-05
 description: "Chặn request bằng Burp Suite/ZAP Proxy, sau đó thay thế body như sau:"
-image: https://tiennhm.github.io/img/docs/database.jpg
+image: ./img/xxe-doc-file.png
 sidebar_position: 1
 # sidebar_class_name: hidden
 tags: 

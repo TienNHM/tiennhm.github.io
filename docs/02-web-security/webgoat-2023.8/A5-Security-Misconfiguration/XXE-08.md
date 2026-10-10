@@ -2,7 +2,7 @@
 title: 1.08 | XXE
 slug: XXE-08
 description: "Bài tập này kiểm tra xem API có bị tấn công XXE (XML External Entity) hay không."
-image: https://tiennhm.github.io/img/docs/database.jpg
+image: ./img/xxe-doc-file.png
 sidebar_position: 1
 # sidebar_class_name: hidden
 tags: 

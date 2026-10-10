@@ -6,6 +6,7 @@ keywords: [sql not in null, not in returns no rows, three valued logic sql, unkn
 tags: [sql, database, postgresql, backend, fundamentals]
 authors: [tiennhm]
 date: 2026-09-24
+image: ./not-in-vs-not-exists.png
 ---
 
 import { SummaryBox, FAQSection } from '@site/src/components/SEO';
@@ -140,6 +141,13 @@ It is worth noting that `IN` (without `NOT`) does **not** fall into this trap th
 `EXISTS` does not compare values. It asks only: *did the subquery return any row?* That question always has a definite answer — yes or no — so it never produces `UNKNOWN`.
 
 Inside the subquery, `x.thanh_pho = k.thanh_pho` still yields `UNKNOWN` when it meets `NULL`, so that row is not selected, so the subquery is empty, so `NOT EXISTS` is `TRUE`. The unknown stops at the subquery boundary instead of leaking out.
+
+Side by side, following a single row, An's:
+
+![The diagram follows one row with thanh_pho = 'HCM' down two branches. The NOT IN branch expands to the comparison 'HCM' not equal to NULL, which is UNKNOWN; WHERE does not see TRUE and drops the row, so the whole query returns 0 rows. The NOT EXISTS branch runs the subquery, NULL = 'HCM' does not match, the subquery is empty, NOT EXISTS is TRUE, WHERE keeps the row, and the whole query returns 3 rows.](./not-in-vs-not-exists.png#gh-light-mode-only)
+![The diagram follows one row with thanh_pho = 'HCM' down two branches. The NOT IN branch expands to the comparison 'HCM' not equal to NULL, which is UNKNOWN; WHERE does not see TRUE and drops the row, so the whole query returns 0 rows. The NOT EXISTS branch runs the subquery, NULL = 'HCM' does not match, the subquery is empty, NOT EXISTS is TRUE, WHERE keeps the row, and the whole query returns 3 rows.](./not-in-vs-not-exists-dark.png#gh-dark-mode-only)
+
+<small>Source: [light](pathname:///files/diagrams/2026-09-24-sql-null-not-in/en/not-in-vs-not-exists.html) · [dark](pathname:///files/diagrams/2026-09-24-sql-null-not-in/en/not-in-vs-not-exists-dark.html)</small>
 
 ---
 

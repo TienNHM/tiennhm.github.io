@@ -2,6 +2,7 @@
 title: "9.9 - Background Processing với Hosted Service"
 description: "BackgroundService, PeriodicTimer thay Task.Delay, khoá phân tán khi chạy nhiều instance, xử lý lỗi không làm chết worker, và khi nào cần Hangfire."
 sidebar_position: 9
+image: ./img/worker-loop.png
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
@@ -147,6 +148,13 @@ public sealed class DailyDigestWorker(
 **2. `try/catch` bao quanh, và không `throw` lại.** Exception thoát khỏi `ExecuteAsync` khiến worker **dừng vĩnh viễn**. Ứng dụng web vẫn chạy, health check vẫn xanh, và không ai biết job đã chết — cho tới khi có người hỏi vì sao một tháng nay không nhận được báo cáo.
 
 Từ .NET 6, `BackgroundServiceExceptionBehavior.StopHost` là mặc định — exception chưa xử lý sẽ **dừng cả ứng dụng**. Đó thực ra là hành vi **tốt hơn**: sập ồn ào còn hơn chết im lặng. Nhưng đừng dựa vào nó; hãy tự bắt lỗi.
+
+Ghép hai điểm trên lại, vòng đời của worker trông như sau:
+
+![Sơ đồ vòng lặp của DailyDigestWorker: BackgroundService là singleton, ExecuteAsync chờ tick tiếp theo của PeriodicTimer. Nếu token bị huỷ thì dừng gọn qua StopAsync trong ShutdownTimeout. Mỗi tick tạo scope mới bằng CreateAsyncScope() rồi chạy RunAsync với DbContext và IEmailService lấy từ scope đó, nên change tracker luôn sạch. Nếu có exception thì LogError, không throw lại, và thử lại ở chu kỳ sau; không có exception thì cũng quay về chờ tick. Exception thoát khỏi ExecuteAsync là worker chết vĩnh viễn.](./img/worker-loop.png#gh-light-mode-only)
+![Sơ đồ vòng lặp của DailyDigestWorker: BackgroundService là singleton, ExecuteAsync chờ tick tiếp theo của PeriodicTimer. Nếu token bị huỷ thì dừng gọn qua StopAsync trong ShutdownTimeout. Mỗi tick tạo scope mới bằng CreateAsyncScope() rồi chạy RunAsync với DbContext và IEmailService lấy từ scope đó, nên change tracker luôn sạch. Nếu có exception thì LogError, không throw lại, và thử lại ở chu kỳ sau; không có exception thì cũng quay về chờ tick. Exception thoát khỏi ExecuteAsync là worker chết vĩnh viễn.](./img/worker-loop-dark.png#gh-dark-mode-only)
+
+<small>File gốc: [nền sáng](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-03-aspnet-core-backend-module-09-web-api-professional-hosted-service-background-jobs/vi/worker-loop.html) · [nền tối](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-03-aspnet-core-backend-module-09-web-api-professional-hosted-service-background-jobs/vi/worker-loop-dark.html)</small>
 
 ### 9.10.4 — Nhiều instance: job chạy trùng
 

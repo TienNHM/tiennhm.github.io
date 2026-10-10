@@ -2,7 +2,7 @@
 title: 1.07 | XXE
 slug: XXE-07
 description: "Trong trường hợp sử dụng Windows, bạn có thể thay đổi đường dẫn file C:\\Windows\\System32\\drivers\\etc\\hosts thay cho /etc/passwd để kiểm tra."
-image: https://tiennhm.github.io/img/docs/database.jpg
+image: ./img/xxe-doc-file.png
 sidebar_position: 1
 # sidebar_class_name: hidden
 tags: 

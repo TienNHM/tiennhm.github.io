@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bọc hàm quanh cột và viết lại thành khoảng</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Display:wdth,wght@62.5..100,400&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #fafaf7;
+      --color-ink:    #1c1e21;
+      --color-muted:  #525860;
+      --font-sans:    'Geist', system-ui, sans-serif;
+      /* Instrument Serif has no Vietnamese subset; a per-glyph fallback mixes two faces
+         inside one word, so Vietnamese titles swap the whole face instead. */
+      --font-serif:   'Noto Serif Display', serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-stretch: 75%; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 960px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Data flow · EXPLAIN ANALYZE, PostgreSQL 16</p>
+    <h1>Bọc hàm quanh cột và viết lại thành khoảng</h1>
+    <div class="diagram-container">
+<svg viewBox="0 0 960 432" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="sargable-seq-vs-index-title sargable-seq-vs-index-desc">
+  <title id="sargable-seq-vs-index-title">Bọc hàm quanh cột và viết lại thành khoảng</title>
+  <desc id="sargable-seq-vs-index-desc">Điều kiện date_part bọc quanh tao_luc dẫn tới Seq Scan đọc cả 200.000 dòng, bỏ 162.482 dòng, mất 29,6 ms, planner ước 1.000 dòng trong khi thực tế 37.518. Điều kiện khoảng trên cột trần dẫn tới Bitmap Index Scan trên idx_don_tao_luc rồi Bitmap Heap Scan, mất 5,4 ms, ước 38.225 dòng, thực tế 37.518.</desc>
+  <defs>
+    <marker id="sargable-seq-vs-index-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#525860"/></marker>
+    <marker id="sargable-seq-vs-index-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#18816a"/></marker>
+  </defs>
+  <rect width="100%" height="100%" fill="#fafaf7"/>
+  <text x="32" y="52" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em" text-anchor="start">ĐIỀU KIỆN WHERE</text>
+  <text x="320" y="52" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em" text-anchor="start">ĐƯỜNG ĐỌC DỮ LIỆU</text>
+  <text x="776" y="52" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em" text-anchor="start">THỜI GIAN · SỐ DÒNG</text>
+  <line x1="32" y1="64" x2="928" y2="64" stroke="rgba(28,30,33,0.1)" stroke-width="0.8"/>
+  <path d="M280 132 L320 132" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#sargable-seq-vs-index-arrow)"/>
+  <path d="M736 132 L776 132" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#sargable-seq-vs-index-arrow)"/>
+  <path d="M280 276 L320 276" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#sargable-seq-vs-index-arrow)"/>
+  <path d="M504 276 L552 276" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#sargable-seq-vs-index-arrow)"/>
+  <path d="M736 276 L776 276" stroke="#18816a" stroke-width="1.4" fill="none" marker-end="url(#sargable-seq-vs-index-arrow-accent)"/>
+  <rect x="32" y="96" width="248" height="72" rx="6" fill="#fafaf7"/>
+  <rect x="32" y="96" width="248" height="72" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="156" y="122" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Bọc hàm quanh cột</text><text x="156" y="137" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">date_part('year', tao_luc)</text><text x="156" y="151" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">= 2026</text>
+  <rect x="320" y="96" width="416" height="72" rx="6" fill="#fafaf7"/>
+  <rect x="320" y="96" width="416" height="72" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="528" y="122" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Seq Scan on don</text><text x="528" y="137" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">tính date_part cho cả 200.000 dòng</text><text x="528" y="151" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">Filter bỏ đi 162.482 dòng</text>
+  <rect x="776" y="96" width="152" height="72" rx="6" fill="#fafaf7"/>
+  <rect x="776" y="96" width="152" height="72" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="852" y="122" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">29,6 ms</text><text x="852" y="137" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">ước 1.000 dòng</text><text x="852" y="151" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">thực 37.518 dòng</text>
+  <rect x="32" y="240" width="248" height="72" rx="6" fill="#fafaf7"/>
+  <rect x="32" y="240" width="248" height="72" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="156" y="266" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Khoảng trên cột trần</text><text x="156" y="281" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">tao_luc &gt;= '2026-01-01'</text><text x="156" y="295" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">AND tao_luc &lt; '2027-01-01'</text>
+  <rect x="320" y="240" width="184" height="72" rx="6" fill="#fafaf7"/>
+  <rect x="320" y="240" width="184" height="72" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="412" y="266" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Bitmap Index Scan</text><text x="412" y="281" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">idx_don_tao_luc</text><text x="412" y="295" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">nhảy tới khoảng 2026</text>
+  <rect x="552" y="240" width="184" height="72" rx="6" fill="#fafaf7"/>
+  <rect x="552" y="240" width="184" height="72" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="644" y="266" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Bitmap Heap Scan</text><text x="644" y="281" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">chỉ đọc trang khớp</text><text x="644" y="295" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">37.518 dòng</text>
+  <rect x="776" y="240" width="152" height="72" rx="6" fill="#fafaf7"/>
+  <rect x="776" y="240" width="152" height="72" rx="6" fill="rgba(24,129,106,0.08)" stroke="#18816a" stroke-width="1"/>
+  <text x="852" y="266" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">5,4 ms</text><text x="852" y="281" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">ước 38.225 dòng</text><text x="852" y="295" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">thực 37.518 dòng</text>
+  <line x1="32" y1="344" x2="928" y2="344" stroke="rgba(28,30,33,0.1)" stroke-width="0.8"/>
+  <text x="32" y="364" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">CHÚ GIẢI</text>
+  <rect x="32" y="380" width="24" height="12" rx="2" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="64" y="390" fill="#525860" font-size="8.5" font-family="'Geist', sans-serif">Nút trong execution plan</text>
+  <rect x="221" y="380" width="24" height="12" rx="2" fill="rgba(24,129,106,0.08)" stroke="#18816a" stroke-width="1"/>
+  <text x="253" y="390" fill="#525860" font-size="8.5" font-family="'Geist', sans-serif">Kế hoạch dùng index</text>
+<text id="tiennhm-copyright" x="936" y="420" text-anchor="end" fill="#525860" opacity="0.75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.08em">© tiennhm</text>
+</svg>
+    </div>
+  </div>
+</body>
+</html>

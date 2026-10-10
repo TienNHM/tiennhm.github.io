@@ -6,6 +6,7 @@ keywords: [chuyen nghe lap trinh, mentor intern, dynamic filter, filter operator
 tags: [career, architecture, dotnet, abp, angular, microservices, devops, ai]
 authors: [tiennhm]
 date: 2026-09-15
+image: ./strangler-fig-message-template.png
 ---
 
 import { SummaryBox, FAQSection, Checklist } from '@site/src/components/SEO';
@@ -211,6 +212,11 @@ Lần này thì làm theo kiểu [Strangler Fig](https://martinfowler.com/bliki/
 2. Đặt feature toggle đọc hai nguồn, bật cờ thì đọc nguồn mới còn tắt cờ thì về nguồn cũ, đổi bằng cấu hình chứ không cần deploy.
 3. Cutover từng caller một theo slice, Ticket trước rồi tới Campaign rồi service còn lại, mỗi slice là một PR nhỏ review được và rollback được trong vài giây bằng cách tắt cờ.
 4. Verify trên QA sau từng slice rồi mới đi slice kế tiếp.
+
+![Sơ đồ migration MessageTemplate theo kiểu Strangler Fig: ba service đang gọi mỗi ngày là Ticket (slice 1), Campaign (slice 2) và service còn lại (slice 3), mỗi slice là một PR nhỏ verify trên QA, đều đi qua một feature toggle dual-read đổi bằng cấu hình. Cờ bật thì đọc nguồn mới ở service thông báo, đúng bounded context; cờ tắt thì quay về nguồn cũ, MessageTemplate trong 2 service với dữ liệu để nguyên tại chỗ. Rollback chỉ là tắt cờ, mất vài giây](./strangler-fig-message-template.png#gh-light-mode-only)
+![Sơ đồ migration MessageTemplate theo kiểu Strangler Fig: ba service đang gọi mỗi ngày là Ticket (slice 1), Campaign (slice 2) và service còn lại (slice 3), mỗi slice là một PR nhỏ verify trên QA, đều đi qua một feature toggle dual-read đổi bằng cấu hình. Cờ bật thì đọc nguồn mới ở service thông báo, đúng bounded context; cờ tắt thì quay về nguồn cũ, MessageTemplate trong 2 service với dữ liệu để nguyên tại chỗ. Rollback chỉ là tắt cờ, mất vài giây](./strangler-fig-message-template-dark.png#gh-dark-mode-only)
+
+<small>File gốc: [nền sáng](pathname:///files/diagrams/2026-09-15-founding-engineer-nen-tang-crm-abp-dotnet-angular/vi/strangler-fig-message-template.html) · [nền tối](pathname:///files/diagrams/2026-09-15-founding-engineer-nen-tang-crm-abp-dotnet-angular/vi/strangler-fig-message-template-dark.html)</small>
 
 Kết quả là không downtime, không big-bang deploy, và cũng không ai phải trực đêm.
 

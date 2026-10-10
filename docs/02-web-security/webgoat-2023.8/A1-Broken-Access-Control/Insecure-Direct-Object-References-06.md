@@ -2,7 +2,7 @@
 title: 2.06 | Insecure Direct Object References
 slug: insecure-direct-object-references-06
 description: "Câu hỏi quan trọng: Bạn đã tài liệu hóa các quy tắc kiểm soát truy cập chưa?"
-image: https://tiennhm.github.io/img/docs/database.jpg
+image: ./img/idor-kiem-tra-quyen.png
 sidebar_position: 2
 # sidebar_class_name: hidden
 tags: 

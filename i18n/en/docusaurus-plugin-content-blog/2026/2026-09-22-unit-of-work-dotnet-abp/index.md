@@ -6,6 +6,7 @@ keywords: [unit of work dotnet, unit of work abp, abp framework unit of work, iu
 tags: [dotnet, abp, aspnetcore, ef-core, architecture, backend]
 authors: [tiennhm]
 date: 2026-09-22
+image: ./abp-uow-savechanges-complete.png
 ---
 
 import { SummaryBox, FAQSection } from '@site/src/components/SEO';
@@ -98,6 +99,11 @@ ABP's `IUnitOfWork` has both methods, and they do two different jobs:
 
 The practical consequence: call `SaveChangesAsync` and then have something later throw, and everything rolls back — including the part you just "saved". That is by design, but if you believed `SaveChangesAsync` was the point of no return, the behaviour looks exactly like a phantom bug.
 
+![Flowchart of an ambient Unit of Work in ABP. Inside the open-transaction zone: the interceptor opens a UoW for types implementing IUnitOfWorkEnabled, InsertAsync records into the change tracker, SaveChangesAsync writes to the database without committing, then the question of whether an exception happens later. If yes, everything rolls back, including what was saved. If no, CompleteAsync does a final save and commits, and only after the commit do OnCompleted callbacks such as email or notifications run](./abp-uow-savechanges-complete.png#gh-light-mode-only)
+![Flowchart of an ambient Unit of Work in ABP. Inside the open-transaction zone: the interceptor opens a UoW for types implementing IUnitOfWorkEnabled, InsertAsync records into the change tracker, SaveChangesAsync writes to the database without committing, then the question of whether an exception happens later. If yes, everything rolls back, including what was saved. If no, CompleteAsync does a final save and commits, and only after the commit do OnCompleted callbacks such as email or notifications run](./abp-uow-savechanges-complete-dark.png#gh-dark-mode-only)
+
+<small>Source: [light](pathname:///files/diagrams/2026-09-22-unit-of-work-dotnet-abp/en/abp-uow-savechanges-complete.html) · [dark](pathname:///files/diagrams/2026-09-22-unit-of-work-dotnet-abp/en/abp-uow-savechanges-complete-dark.html)</small>
+
 ```csharp
 public class ImportAppService : ApplicationService
 {
@@ -132,6 +138,15 @@ The real signature of this extension method is `Begin(bool requiresNew = false, 
 `requiresNew` defaults to `false`. In that case `Begin` does **not** create a new UoW but joins the ambient one — ABP returns a child UoW whose `Outer` reference points at the parent, and `CompleteAsync` on that child commits nothing. Only the outermost UoW really commits.
 
 That is the right behaviour most of the time, but it breaks expectations when you want an operation to survive independently — writing an audit log that must remain even if the main business operation rolls back, for instance. For that you need `requiresNew: true`.
+
+```mermaid
+flowchart TD
+    A["Begin() while a UoW is already active"] --> B{"requiresNew?"}
+    B -->|"false, the default"| C["Child UoW, Outer points at the parent"]
+    C --> D["CompleteAsync commits nothing, only the outermost UoW commits"]
+    B -->|"true"| E["New UoW with its own transaction"]
+    E --> F["CompleteAsync commits independently, e.g. an audit log"]
+```
 
 ### Controlling the transaction
 

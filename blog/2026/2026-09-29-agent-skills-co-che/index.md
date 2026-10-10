@@ -6,6 +6,7 @@ keywords: [agent skills, claude code skills, skill.md, progressive disclosure, e
 tags: [ai, ai-driven-development, ai-tools, learning]
 authors: [tiennhm]
 date: 2026-09-29
+image: ./skill-progressive-disclosure.png
 ---
 
 import { SummaryBox, FAQSection } from '@site/src/components/SEO';
@@ -56,6 +57,13 @@ Phần cơ chế mà hầu như không ai đọc, nhưng lại trả lời đư�
 | 3 | File đính kèm bên cạnh | 0 token | Chỉ khi thật sự mở ra đọc |
 
 Con số đáng suy nghĩ: một dự án cài 8 skill chỉ tốn khoảng 500 token lúc khởi động, thay vì 70.000 token nếu nạp hết. Đó là lý do kiến trúc này tồn tại — cửa sổ ngữ cảnh là tài nguyên khan hiếm, và mọi token tiêu cho thứ chưa cần là token không còn cho việc đang làm.
+
+Ba tầng đó chạy theo thứ tự này trong một phiên làm việc:
+
+![Sơ đồ luồng nạp skill. Đầu phiên chỉ nạp tầng 1 là name và description, khoảng 100 token mỗi skill. Nếu yêu cầu không khớp description thì skill không kích hoạt và thân bài chưa từng được đọc. Nếu khớp, tầng 2 là thân SKILL.md, dưới khoảng 5.000 token, được nạp và ở lại cả phiên. Khi cần tài liệu tham chiếu, tầng 3 là file đính kèm mới được mở, trước đó không tốn token. Cuối cùng model đọc rồi tự quyết định có làm theo hay không.](./skill-progressive-disclosure.png#gh-light-mode-only)
+![Sơ đồ luồng nạp skill. Đầu phiên chỉ nạp tầng 1 là name và description, khoảng 100 token mỗi skill. Nếu yêu cầu không khớp description thì skill không kích hoạt và thân bài chưa từng được đọc. Nếu khớp, tầng 2 là thân SKILL.md, dưới khoảng 5.000 token, được nạp và ở lại cả phiên. Khi cần tài liệu tham chiếu, tầng 3 là file đính kèm mới được mở, trước đó không tốn token. Cuối cùng model đọc rồi tự quyết định có làm theo hay không.](./skill-progressive-disclosure-dark.png#gh-dark-mode-only)
+
+<small>File gốc: [nền sáng](pathname:///files/diagrams/2026-09-29-agent-skills-co-che/vi/skill-progressive-disclosure.html) · [nền tối](pathname:///files/diagrams/2026-09-29-agent-skills-co-che/vi/skill-progressive-disclosure-dark.html)</small>
 
 Từ ba tầng này rút ra bốn hệ quả rất thực dụng.
 

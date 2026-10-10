@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IDOR: thiếu bước kiểm tra quyền sở hữu</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Display:wdth,wght@62.5..100,400&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #1b1b1d;
+      --color-ink:    #e3e3e3;
+      --color-muted:  #b4b9c0;
+      --font-sans:    'Geist', system-ui, sans-serif;
+      --font-serif:   'Noto Serif Display', serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-stretch: 75%; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 960px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Flowchart · Broken Access Control</p>
+    <h1>IDOR: thiếu bước kiểm tra quyền sở hữu</h1>
+    <div class="diagram-container">
+<svg viewBox="0 0 960 544" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="idor-kiem-tra-quyen-dark-title idor-kiem-tra-quyen-dark-desc">
+  <title id="idor-kiem-tra-quyen-dark-title">IDOR: thiếu bước kiểm tra quyền sở hữu</title>
+  <desc id="idor-kiem-tra-quyen-dark-desc">Server nhận id từ request; nếu không kiểm tra người gọi có sở hữu bản ghi thì trả dữ liệu của người khác, nếu có kiểm tra thì chỉ chủ sở hữu hoặc admin được truy cập, còn lại bị từ chối 403.</desc>
+  <defs>
+    <marker id="idor-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#b4b9c0"/></marker>
+    <marker id="idor-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#25c19f"/></marker>
+  </defs>
+  <rect width="100%" height="100%" fill="#1b1b1d"/>
+
+  <!-- Arrows -->
+  <line x1="240" y1="96" x2="356" y2="96" stroke="#b4b9c0" stroke-width="1.2" marker-end="url(#idor-arrow)"/>
+  <line x1="480" y1="124" x2="480" y2="180" stroke="#b4b9c0" stroke-width="1.2" marker-end="url(#idor-arrow)"/>
+  <path d="M380 236 H252 Q244 236 244 244 V352" stroke="#b4b9c0" stroke-width="1.2" fill="none" stroke-dasharray="5,4" marker-end="url(#idor-arrow)"/>
+  <line x1="480" y1="292" x2="480" y2="352" stroke="#25c19f" stroke-width="1.4" marker-end="url(#idor-arrow-accent)"/>
+  <path d="M580 236 H708 Q716 236 716 244 V352" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#idor-arrow)"/>
+
+  <!-- Labels -->
+  <rect x="264" y="76" width="68" height="12" rx="2" fill="#1b1b1d"/><text x="298" y="85" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">GET /{id}</text>
+  <rect x="264" y="216" width="100" height="12" rx="2" fill="#1b1b1d"/><text x="314" y="225" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">KHÔNG KIỂM TRA</text>
+  <rect x="492" y="316" width="88" height="12" rx="2" fill="#1b1b1d"/><text x="536" y="325" fill="#25c19f" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">CHỦ / ADMIN</text>
+  <rect x="600" y="216" width="96" height="12" rx="2" fill="#1b1b1d"/><text x="648" y="225" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">KHÔNG PHẢI CHỦ</text>
+
+  <!-- Caller -->
+  <rect x="60" y="68" width="180" height="56" rx="20" fill="rgba(227,227,227,0.03)" stroke="rgba(227,227,227,0.30)" stroke-width="1"/>
+  <text x="150" y="93" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Người dùng đã đăng nhập</text>
+  <text x="150" y="109" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">đổi id trong URL</text>
+
+  <!-- Server -->
+  <rect x="360" y="68" width="240" height="56" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="480" y="93" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Server nhận id từ request</text>
+  <text x="480" y="109" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">/profile/{id}</text>
+
+  <!-- Decision -->
+  <polygon points="480,180 580,236 480,292 380,236" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="480" y="233" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Người gọi sở hữu</text>
+  <text x="480" y="248" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">bản ghi này?</text>
+
+  <!-- Outcomes -->
+  <rect x="144" y="356" width="200" height="56" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="244" y="381" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Lộ dữ liệu người khác</text>
+  <text x="244" y="397" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">lỗ hổng IDOR</text>
+
+  <rect x="384" y="356" width="192" height="56" rx="20" fill="rgba(37,193,159,0.10)" stroke="#25c19f" stroke-width="1"/>
+  <text x="480" y="381" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Trả bản ghi</text>
+  <text x="480" y="397" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">200 OK</text>
+
+  <rect x="616" y="356" width="200" height="56" rx="20" fill="rgba(227,227,227,0.03)" stroke="rgba(227,227,227,0.30)" stroke-width="1"/>
+  <text x="716" y="381" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Từ chối truy cập</text>
+  <text x="716" y="397" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">403 Forbidden</text>
+
+  <!-- Legend -->
+  <line x1="40" y1="452" x2="920" y2="452" stroke="rgba(227,227,227,0.10)" stroke-width="0.8"/>
+  <text x="40" y="472" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">CHÚ GIẢI</text>
+  <line x1="40" y1="492" x2="68" y2="492" stroke="#b4b9c0" stroke-width="1.2" stroke-dasharray="5,4"/>
+  <text x="76" y="495" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif">Server thiếu kiểm tra quyền (lỗi)</text>
+  <line x1="300" y1="492" x2="328" y2="492" stroke="#25c19f" stroke-width="1.4" marker-end="url(#idor-arrow-accent)"/>
+  <text x="336" y="495" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif">Đường đúng khi có kiểm tra quyền</text>
+<text id="tiennhm-copyright" x="936" y="532" text-anchor="end" fill="#b4b9c0" opacity="0.75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.08em">© tiennhm</text>
+</svg>
+    </div>
+  </div>
+</body>
+</html>

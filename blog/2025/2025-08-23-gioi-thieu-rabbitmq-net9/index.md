@@ -6,6 +6,7 @@ description: "Tìm hiểu về RabbitMQ, một message broker phổ biến trong
 tags: [microservices, dotnet, csharp]
 authors: [tiennhm]
 date: 2025-08-23
+image: ./rabbitmq-direct-exchange.png
 ---
 
 import { SummaryBox, FAQSection } from '@site/src/components/SEO';
@@ -32,6 +33,13 @@ RabbitMQ là một open-source message broker (còn gọi là message queue) đ�
 - **Exchange**: Nhận message từ producer và định tuyến đến queue
 - **Binding**: Quy tắc kết nối exchange với queue
 - **Routing Key**: Khóa để exchange định tuyến message
+
+Sơ đồ dưới đây ghép các khái niệm trên vào đúng ví dụ exchange `logs` ở phần 4:
+
+![Producer gửi message có routing key error tới exchange logs kiểu direct. Exchange so routing key với binding key của từng queue và chỉ đẩy message vào queue error; consumer đăng ký BasicConsume(error) nhận message đó. Queue warning và info có binding key khác nên không nhận message này.](./rabbitmq-direct-exchange.png#gh-light-mode-only)
+![Producer gửi message có routing key error tới exchange logs kiểu direct. Exchange so routing key với binding key của từng queue và chỉ đẩy message vào queue error; consumer đăng ký BasicConsume(error) nhận message đó. Queue warning và info có binding key khác nên không nhận message này.](./rabbitmq-direct-exchange-dark.png#gh-dark-mode-only)
+
+<small>File gốc: [nền sáng](pathname:///files/diagrams/2025-08-23-gioi-thieu-rabbitmq-net9/vi/rabbitmq-direct-exchange.html) · [nền tối](pathname:///files/diagrams/2025-08-23-gioi-thieu-rabbitmq-net9/vi/rabbitmq-direct-exchange-dark.html)</small>
 
 ## Cài đặt RabbitMQ
 
@@ -327,6 +335,22 @@ channel.BasicAck(deliveryTag, false);
 
 // Hoặc từ chối message
 channel.BasicNack(deliveryTag, false, true);  // true = requeue
+```
+
+Khi tắt auto-ack, message chỉ rời queue lúc consumer xác nhận:
+
+```mermaid
+sequenceDiagram
+    participant Q as Queue
+    participant C as Consumer
+    Q->>C: Giao message, autoAck = false
+    alt Xử lý thành công
+        C->>Q: BasicAck(deliveryTag)
+        Note over Q: Xoá message khỏi queue
+    else Xử lý lỗi
+        C->>Q: BasicNack, requeue = true
+        Note over Q: Đưa message trở lại queue
+    end
 ```
 
 ### 3. Dead Letter Exchange

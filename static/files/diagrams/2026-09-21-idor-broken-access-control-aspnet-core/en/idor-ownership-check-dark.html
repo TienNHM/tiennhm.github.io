@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Swapping in someone else&#x27;s id: what stops it?</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Display:wdth,wght@62.5..100,400&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #1b1b1d;
+      --color-ink:    #e3e3e3;
+      --color-muted:  #b4b9c0;
+      --font-sans:    'Geist', system-ui, sans-serif;
+      /* Instrument Serif has no Vietnamese subset; a per-glyph fallback mixes two faces
+         inside one word, so Vietnamese titles swap the whole face instead. */
+      --font-serif:   'Noto Serif Display', serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-stretch: 75%; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 960px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Flowchart · IDOR</p>
+    <h1>Swapping in someone else&#x27;s id: what stops it?</h1>
+    <div class="diagram-container">
+<svg viewBox="0 0 960 616" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="idor-ownership-check-dark-title idor-ownership-check-dark-desc">
+  <title id="idor-ownership-check-dark-title">Stopping IDOR with an ownership condition in the query</title>
+  <desc id="idor-ownership-check-dark-desc">User A sends GET /api/orders/1044, which is B&#x27;s order; [Authorize] only verifies the token, code without an owner filter returns 200 with B&#x27;s order, while a query with OwnerId == userId finds no row and returns 404.</desc>
+  <defs>
+    <marker id="idor-ownership-check-dark-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#b4b9c0"/></marker>
+    <marker id="idor-ownership-check-dark-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#25c19f"/></marker>
+  </defs>
+  <rect width="100%" height="100%" fill="#1b1b1d"/>
+
+  <line x1="480" y1="72" x2="480" y2="92" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#idor-ownership-check-dark-arrow)"/>
+  <line x1="590" y1="136" x2="680" y2="136" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#idor-ownership-check-dark-arrow)"/>
+  <line x1="480" y1="180" x2="480" y2="224" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#idor-ownership-check-dark-arrow)"/>
+  <path d="M370,136 H188 Q180,136 180,144 V224" stroke="#b4b9c0" stroke-width="1.2" stroke-dasharray="5,4" fill="none" marker-end="url(#idor-ownership-check-dark-arrow)"/>
+  <line x1="480" y1="288" x2="480" y2="320" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#idor-ownership-check-dark-arrow)"/>
+  <line x1="580" y1="368" x2="680" y2="368" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#idor-ownership-check-dark-arrow)"/>
+  <line x1="480" y1="416" x2="480" y2="456" stroke="#25c19f" stroke-width="1.4" fill="none" marker-end="url(#idor-ownership-check-dark-arrow-accent)"/>
+  <rect x="623.0" y="116" width="24" height="12" rx="2" fill="#1b1b1d"/>
+  <text x="635.0" y="125" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">NO</text>
+  <rect x="488" y="196" width="28" height="12" rx="2" fill="#1b1b1d"/>
+  <text x="502.0" y="205" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">YES</text>
+  <rect x="239.0" y="116" width="72" height="12" rx="2" fill="#1b1b1d"/>
+  <text x="275.0" y="125" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">YES · BUGGY</text>
+  <rect x="616.0" y="348" width="28" height="12" rx="2" fill="#1b1b1d"/>
+  <text x="630.0" y="357" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">YES</text>
+  <rect x="488" y="430" width="24" height="12" rx="2" fill="#1b1b1d"/>
+  <text x="500.0" y="439" fill="#25c19f" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">NO</text>
+  <rect x="370" y="24" width="220" height="48" rx="20" fill="#1b1b1d"/>
+  <rect x="370" y="24" width="220" height="48" rx="20" fill="rgba(227,227,227,0.05)" stroke="#b4b9c0" stroke-width="1"/>
+  <text x="480.0" y="45.0" fill="#e3e3e3" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="middle" font-weight="600">Request from A</text>
+  <text x="480.0" y="61.0" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">GET /api/orders/1044</text>
+  <polygon points="480,92 590,136 480,180 370,136" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="480" y="134" fill="#e3e3e3" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="middle" font-weight="600">Valid token?</text>
+  <text x="480" y="149" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">[Authorize]</text>
+  <rect x="680" y="112" width="160" height="48" rx="6" fill="#1b1b1d"/>
+  <rect x="680" y="112" width="160" height="48" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="760.0" y="133.0" fill="#e3e3e3" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="middle" font-weight="600">401</text>
+  <text x="760.0" y="149.0" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">Unauthorized</text>
+  <text x="760" y="180" fill="#b4b9c0" font-size="9.5" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">[Authorize] only answers</text>
+  <text x="760" y="194" fill="#b4b9c0" font-size="9.5" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">“who are you”</text>
+  <rect x="60" y="224" width="240" height="64" rx="6" fill="#1b1b1d"/>
+  <rect x="60" y="224" width="240" height="64" rx="6" fill="rgba(227,227,227,0.02)" stroke="rgba(227,227,227,0.35)" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="180.0" y="253.0" fill="#e3e3e3" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="middle" font-weight="600">Find(id), no owner filter</text>
+  <text x="180.0" y="269.0" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">→ 200 · B&#x27;s order (IDOR)</text>
+  <rect x="330" y="224" width="300" height="64" rx="6" fill="#1b1b1d"/>
+  <rect x="330" y="224" width="300" height="64" rx="6" fill="rgba(37,193,159,0.08)" stroke="#25c19f" stroke-width="1"/>
+  <text x="480.0" y="253.0" fill="#e3e3e3" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="middle" font-weight="600">Query with an ownership condition</text>
+  <text x="480.0" y="269.0" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">o.Id == id &amp;&amp; o.OwnerId == userId</text>
+  <polygon points="480,320 580,368 480,416 380,368" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="480" y="372" fill="#e3e3e3" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="middle" font-weight="600">Any row?</text>
+  <rect x="680" y="344" width="160" height="48" rx="6" fill="#1b1b1d"/>
+  <rect x="680" y="344" width="160" height="48" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="760.0" y="365.0" fill="#e3e3e3" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="middle" font-weight="600">200 OK</text>
+  <text x="760.0" y="381.0" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">A&#x27;s own order</text>
+  <rect x="370" y="456" width="220" height="48" rx="20" fill="#1b1b1d"/>
+  <rect x="370" y="456" width="220" height="48" rx="20" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="480.0" y="477.0" fill="#e3e3e3" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="middle" font-weight="600">404 NotFound</text>
+  <text x="480.0" y="493.0" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">does not reveal B&#x27;s order exists</text>
+  <line x1="40" y1="528" x2="920" y2="528" stroke="rgba(227,227,227,0.1)" stroke-width="0.8"/>
+  <text x="40" y="548" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start" letter-spacing="0.18em">LEGEND</text>
+  <rect x="40" y="558" width="24" height="12" rx="2" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="72" y="568" fill="#b4b9c0" font-size="9" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Step</text>
+  <polygon points="129.6,564 141.6,558 153.6,564 141.6,570" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="161.6" y="568" fill="#b4b9c0" font-size="9" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Decision</text>
+  <rect x="240.79999999999998" y="558" width="24" height="12" rx="2" fill="rgba(37,193,159,0.08)" stroke="#25c19f" stroke-width="1"/>
+  <text x="272.79999999999995" y="568" fill="#b4b9c0" font-size="9" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Where ownership is enforced</text>
+  <rect x="454.5999999999999" y="558" width="24" height="12" rx="2" fill="rgba(227,227,227,0.02)" stroke="rgba(227,227,227,0.35)" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="486.5999999999999" y="568" fill="#b4b9c0" font-size="9" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Code without the check: IDOR</text>
+<text id="tiennhm-copyright" x="936" y="604" text-anchor="end" fill="#b4b9c0" opacity="0.75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.08em">© tiennhm</text>
+</svg>
+    </div>
+  </div>
+</body>
+</html>

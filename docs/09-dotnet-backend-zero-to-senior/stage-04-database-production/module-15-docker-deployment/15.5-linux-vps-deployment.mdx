@@ -2,6 +2,7 @@
 title: "15.5 - Linux VPS Deployment"
 description: "Làm cứng SSH và tường lửa, Nginx với forwarded headers, TLS tự động, deploy có rollback, và giám sát dung lượng đĩa."
 sidebar_position: 5
+image: ./img/deploy-rollback.png
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
@@ -205,6 +206,13 @@ docker compose run --rm api dotnet CrmApi.dll --migrate
 ```
 
 Thứ tự này chỉ đúng vì migration tương thích ngược — schema mới chạy được với code cũ đang phục vụ.
+
+Toàn bộ luồng, kể cả bước migration chạy trước:
+
+![Luồng triển khai: chạy migration như bước riêng, rồi deploy.sh lưu tag hiện tại, docker compose pull, đổi TAG và compose up -d, chờ /health/ready tối đa 30 lần cách 2 giây. Khoẻ thì image prune và exit 0; không khoẻ thì rollback về tag cũ, up -d và dừng với exit 1](./img/deploy-rollback.png#gh-light-mode-only)
+![Luồng triển khai: chạy migration như bước riêng, rồi deploy.sh lưu tag hiện tại, docker compose pull, đổi TAG và compose up -d, chờ /health/ready tối đa 30 lần cách 2 giây. Khoẻ thì image prune và exit 0; không khoẻ thì rollback về tag cũ, up -d và dừng với exit 1](./img/deploy-rollback-dark.png#gh-dark-mode-only)
+
+<small>File gốc: [nền sáng](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-04-database-production-module-15-docker-deployment-linux-vps-deployment/vi/deploy-rollback.html) · [nền tối](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-04-database-production-module-15-docker-deployment-linux-vps-deployment/vi/deploy-rollback-dark.html)</small>
 
 ### 15.6.5 — Giám sát những thứ làm chết VPS
 

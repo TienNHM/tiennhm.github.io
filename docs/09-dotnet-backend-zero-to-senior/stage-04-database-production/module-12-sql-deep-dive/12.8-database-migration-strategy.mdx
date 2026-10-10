@@ -2,6 +2,7 @@
 title: "12.8 - Database Migration Strategy"
 description: "Expand-contract cho zero-downtime, vì sao ALTER TABLE có thể khoá cả bảng, backfill theo lô, migration không đảo ngược được, và chạy migration khi nào."
 sidebar_position: 8
+image: ./img/expand-contract.png
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
@@ -129,6 +130,13 @@ ALTER TABLE Leads DROP COLUMN Email;
 ```
 
 **Bốn lần deploy**, mỗi lần đều rollback được độc lập. Đó là cái giá của không downtime, và nó **đúng đắn** — nhưng cũng là lý do đổi tên cột hiếm khi đáng làm. Tên cột không hoàn hảo rẻ hơn nhiều so với bốn chu kỳ triển khai.
+
+Trạng thái schema và code qua bốn lần deploy:
+
+![Expand-contract qua bốn lần deploy. Deploy 1 Expand: thêm ContactEmail NULL, code ghi cả Email và ContactEmail, đọc Email. Deploy 2 Backfill: chép dữ liệu sang, ghi cả hai, đọc ContactEmail. Deploy 3: chỉ ghi và đọc ContactEmail, Email vẫn còn trong bảng. Sau ít nhất một chu kỳ phát hành, Deploy 4 Contract: DROP COLUMN Email](./img/expand-contract.png#gh-light-mode-only)
+![Expand-contract qua bốn lần deploy. Deploy 1 Expand: thêm ContactEmail NULL, code ghi cả Email và ContactEmail, đọc Email. Deploy 2 Backfill: chép dữ liệu sang, ghi cả hai, đọc ContactEmail. Deploy 3: chỉ ghi và đọc ContactEmail, Email vẫn còn trong bảng. Sau ít nhất một chu kỳ phát hành, Deploy 4 Contract: DROP COLUMN Email](./img/expand-contract-dark.png#gh-dark-mode-only)
+
+<small>File gốc: [nền sáng](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-04-database-production-module-12-sql-deep-dive-database-migration-strategy/vi/expand-contract.html) · [nền tối](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-04-database-production-module-12-sql-deep-dive-database-migration-strategy/vi/expand-contract-dark.html)</small>
 
 Giữa deploy 3 và 4 nên chờ ít nhất **một chu kỳ phát hành** — để chắc chắn không còn code nào, không còn báo cáo nào, không còn tích hợp nào đọc cột cũ. Kiểm tra bằng cách `grep` toàn bộ hệ thống, không chỉ repo chính.
 

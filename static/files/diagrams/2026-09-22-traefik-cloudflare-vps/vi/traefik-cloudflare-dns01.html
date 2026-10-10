@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Request đi một đường, cert đi một đường</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Display:wdth,wght@62.5..100,400&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #fafaf7;
+      --color-ink:    #1c1e21;
+      --color-muted:  #525860;
+      --font-sans:    'Geist', system-ui, sans-serif;
+      /* Instrument Serif has no Vietnamese subset; a per-glyph fallback mixes two faces
+         inside one word, so Vietnamese titles swap the whole face instead. */
+      --font-serif:   'Noto Serif Display', serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-stretch: 75%; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 960px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Kiến trúc · Traefik + Cloudflare</p>
+    <h1>Request đi một đường, cert đi một đường</h1>
+    <div class="diagram-container">
+<svg viewBox="0 0 960 536" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="traefik-cloudflare-dns01-title traefik-cloudflare-dns01-desc">
+  <title id="traefik-cloudflare-dns01-title">Traefik sau Cloudflare với ACME DNS-01</title>
+  <desc id="traefik-cloudflare-dns01-desc">Request của khách đi qua Cloudflare proxy tới Traefik trên network edge rồi tới các container; cert được cấp bằng DNS-01, Traefik tạo bản ghi TXT qua Cloudflare DNS API để Let&#x27;s Encrypt kiểm tra, nên không request xác thực nào chạm tới origin; web app thuộc zone khác không lấy được cert.</desc>
+  <defs>
+    <marker id="traefik-cloudflare-dns01-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#525860"/></marker>
+    <marker id="traefik-cloudflare-dns01-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#18816a"/></marker>
+  </defs>
+  <rect width="100%" height="100%" fill="#fafaf7"/>
+
+  <rect x="420" y="168" width="500" height="252" rx="8" fill="rgba(28,30,33,0.02)" stroke="rgba(28,30,33,0.14)" stroke-width="0.8"/>
+  <rect x="800" y="172" width="108" height="12" rx="2" fill="#fafaf7"/>
+  <text x="854.0" y="181" fill="#525860" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.14em">VPS · NETWORK EDGE</text>
+  <line x1="136" y1="300" x2="200" y2="300" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#traefik-cloudflare-dns01-arrow)"/>
+  <line x1="360" y1="300" x2="440" y2="300" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#traefik-cloudflare-dns01-arrow)"/>
+  <line x1="620" y1="300" x2="680" y2="300" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#traefik-cloudflare-dns01-arrow)"/>
+  <path d="M620,286 H642 Q650,286 650,278 V236 Q650,228 658,228 H680" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#traefik-cloudflare-dns01-arrow)"/>
+  <path d="M620,314 H642 Q650,314 650,322 V364 Q650,372 658,372 H680" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#traefik-cloudflare-dns01-arrow)"/>
+  <path d="M588,272 V96 Q588,88 596,88 H660" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#traefik-cloudflare-dns01-arrow)"/>
+  <line x1="496" y1="272" x2="496" y2="104" stroke="#18816a" stroke-width="1.4" fill="none" marker-end="url(#traefik-cloudflare-dns01-arrow-accent)"/>
+  <line x1="660" y1="66" x2="560" y2="66" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#traefik-cloudflare-dns01-arrow)"/>
+  <rect x="148.0" y="280" width="40" height="12" rx="2" fill="#fafaf7"/>
+  <text x="168.0" y="289" fill="#525860" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">HTTPS</text>
+  <rect x="366.0" y="280" width="68" height="12" rx="2" fill="#fafaf7"/>
+  <text x="400.0" y="289" fill="#525860" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">HTTPS :443</text>
+  <rect x="596" y="176" width="56" height="12" rx="2" fill="#fafaf7"/>
+  <text x="624.0" y="185" fill="#525860" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">XIN CERT</text>
+  <rect x="436" y="176" width="52" height="12" rx="2" fill="#fafaf7"/>
+  <text x="462.0" y="185" fill="#18816a" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">TẠO TXT</text>
+  <rect x="582.0" y="46" width="56" height="12" rx="2" fill="#fafaf7"/>
+  <text x="610.0" y="55" fill="#525860" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">KIỂM TXT</text>
+  <rect x="380" y="48" width="180" height="56" rx="6" fill="#fafaf7"/>
+  <rect x="380" y="48" width="180" height="56" rx="6" fill="rgba(28,30,33,0.03)" stroke="rgba(28,30,33,0.3)" stroke-width="1"/>
+  <text x="470.0" y="73.0" fill="#1c1e21" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="middle" font-weight="600">Cloudflare DNS API</text>
+  <text x="470.0" y="89.0" fill="#525860" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">TXT _acme-challenge</text>
+  <rect x="660" y="48" width="180" height="56" rx="6" fill="#fafaf7"/>
+  <rect x="660" y="48" width="180" height="56" rx="6" fill="rgba(28,30,33,0.03)" stroke="rgba(28,30,33,0.3)" stroke-width="1"/>
+  <text x="750.0" y="73.0" fill="#1c1e21" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="middle" font-weight="600">Let&#x27;s Encrypt</text>
+  <text x="750.0" y="89.0" fill="#525860" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">ACME · DNS-01</text>
+  <rect x="40" y="272" width="96" height="56" rx="6" fill="#fafaf7"/>
+  <rect x="40" y="272" width="96" height="56" rx="6" fill="rgba(28,30,33,0.05)" stroke="#525860" stroke-width="1"/>
+  <text x="88.0" y="297.0" fill="#1c1e21" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="middle" font-weight="600">Khách</text>
+  <text x="88.0" y="313.0" fill="#525860" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">trình duyệt</text>
+  <rect x="200" y="272" width="160" height="56" rx="6" fill="#fafaf7"/>
+  <rect x="200" y="272" width="160" height="56" rx="6" fill="rgba(28,30,33,0.03)" stroke="rgba(28,30,33,0.3)" stroke-width="1"/>
+  <text x="280.0" y="297.0" fill="#1c1e21" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="middle" font-weight="600">Cloudflare proxy</text>
+  <text x="280.0" y="313.0" fill="#525860" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">mây cam · Full (strict)</text>
+  <rect x="440" y="272" width="180" height="56" rx="6" fill="#fafaf7"/>
+  <rect x="440" y="272" width="180" height="56" rx="6" fill="rgba(24,129,106,0.08)" stroke="#18816a" stroke-width="1"/>
+  <text x="530.0" y="297.0" fill="#1c1e21" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="middle" font-weight="600">Traefik v3</text>
+  <text x="530.0" y="313.0" fill="#525860" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">entrypoint :443 · ACME</text>
+  <rect x="680" y="204" width="220" height="48" rx="6" fill="#fafaf7"/>
+  <rect x="680" y="204" width="220" height="48" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="790.0" y="225.0" fill="#1c1e21" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="middle" font-weight="600">10 site WordPress</text>
+  <text x="790.0" y="241.0" fill="#525860" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">6 dòng label mỗi site</text>
+  <rect x="680" y="276" width="220" height="48" rx="6" fill="#fafaf7"/>
+  <rect x="680" y="276" width="220" height="48" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="790.0" y="297.0" fill="#1c1e21" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="middle" font-weight="600">API .NET · app Angular</text>
+  <text x="790.0" y="313.0" fill="#525860" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">traefik.enable=true</text>
+  <rect x="680" y="348" width="220" height="48" rx="6" fill="#fafaf7"/>
+  <rect x="680" y="348" width="220" height="48" rx="6" fill="rgba(28,30,33,0.02)" stroke="rgba(28,30,33,0.35)" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="790.0" y="369.0" fill="#1c1e21" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="middle" font-weight="600">Web app sự kiện</text>
+  <text x="790.0" y="385.0" fill="#525860" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">zone khác → không có cert</text>
+  <line x1="40" y1="448" x2="920" y2="448" stroke="rgba(28,30,33,0.1)" stroke-width="0.8"/>
+  <text x="40" y="468" fill="#525860" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start" letter-spacing="0.18em">CHÚ GIẢI</text>
+  <line x1="40" y1="484" x2="68" y2="484" stroke="#18816a" stroke-width="1.4" fill="none" marker-end="url(#traefik-cloudflare-dns01-arrow-accent)"/>
+  <text x="76" y="488" fill="#525860" font-size="9" font-family="'Geist', system-ui, sans-serif" text-anchor="start">DNS-01: Traefik tạo TXT qua API, không request nào chạm origin</text>
+  <line x1="446.8" y1="484" x2="474.8" y2="484" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#traefik-cloudflare-dns01-arrow)"/>
+  <text x="482.8" y="488" fill="#525860" font-size="9" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Request của khách</text>
+  <rect x="610.6" y="478" width="24" height="12" rx="2" fill="rgba(28,30,33,0.02)" stroke="rgba(28,30,33,0.35)" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="642.6" y="488" fill="#525860" font-size="9" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Domain ngoài zone của token</text>
+<text id="tiennhm-copyright" x="936" y="524" text-anchor="end" fill="#525860" opacity="0.75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.08em">© tiennhm</text>
+</svg>
+    </div>
+  </div>
+</body>
+</html>

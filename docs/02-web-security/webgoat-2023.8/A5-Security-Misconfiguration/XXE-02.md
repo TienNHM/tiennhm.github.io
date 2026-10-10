@@ -2,7 +2,7 @@
 title: 1.02 | XXE
 slug: XXE-02
 description: "Trong XML, Entity là các thành phần có thể thay thế bằng nội dung cụ thể khi XML được parse. Có 3 loại chính: 1️⃣ Internal Entity – Được định nghĩa trong."
-image: https://tiennhm.github.io/img/docs/database.jpg
+image: ./img/xxe-doc-file.png
 sidebar_position: 1
 # sidebar_class_name: hidden
 tags: 

@@ -2,7 +2,7 @@
 title: 1.12 | XXE
 slug: XXE-12
 description: "Nếu ứng dụng không bắt buộc dùng XML, hãy cân nhắc sử dụng JSON, vì JSON không hỗ trợ các thực thể XML (<!ENTITY>), giảm thiểu rủi ro XXE."
-image: https://tiennhm.github.io/img/docs/database.jpg
+image: ./img/xxe-doc-file.png
 sidebar_position: 1
 # sidebar_class_name: hidden
 tags: 

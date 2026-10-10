@@ -2,7 +2,7 @@
 title: 1.13 | XXE
 slug: XXE-13
 description: "Phân tích mã tĩnh (Static Code Analysis) giúp tìm kiếm lỗ hổng bảo mật trong code mà không cần chạy ứng dụng. Công cụ phổ biến nhất để phân tích mã tĩnh là."
-image: https://tiennhm.github.io/img/docs/database.jpg
+image: ./img/xxe-doc-file.png
 sidebar_position: 1
 # sidebar_class_name: hidden
 tags: 

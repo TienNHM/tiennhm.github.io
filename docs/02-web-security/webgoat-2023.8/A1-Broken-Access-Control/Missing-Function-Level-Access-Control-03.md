@@ -2,7 +2,6 @@
 title: 3.03 | Missing Function Level Access Control
 slug: missing-function-level-access-control-03
 description: "Bài tập này nhấn mạnh vào việc kiểm tra quyền truy cập bị bỏ sót. Nhiều ứng dụng chỉ ẩn chức năng trên giao diện người dùng (UI) mà không thực sự kiểm tra."
-image: https://tiennhm.github.io/img/docs/database.jpg
 sidebar_position: 3
 # sidebar_class_name: hidden
 tags: 

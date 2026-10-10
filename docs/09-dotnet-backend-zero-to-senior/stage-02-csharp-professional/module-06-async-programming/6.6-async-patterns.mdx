@@ -151,6 +151,15 @@ _cache.Set(key, c);
 
 Mẹo: lưu **`Task<T>`** vào cache. Request đầu tiên đặt `Task` đang chạy vào; 49 request sau tìm thấy chính `Task` đó và cùng `await` nó.
 
+```mermaid
+flowchart LR
+    R1["Request 1"] --> G["_inFlight.GetOrAdd(id)"]
+    R2["Request 2 tới 50"] --> G
+    G -->|"lần đầu: tạo Task"| T["Task#lt;Customer?#gt; đang chạy"]
+    G -.->|"49 request sau: await cùng Task"| T
+    T -->|"đúng một truy vấn"| DB[("Database")]
+```
+
 ```csharp
 private readonly ConcurrentDictionary<int, Task<Customer?>> _inFlight = new();
 
