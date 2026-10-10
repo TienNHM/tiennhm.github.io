@@ -24,9 +24,9 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 6.9.1 — Vấn đề: producer nhanh hơn consumer
+### 6.8.1 — Vấn đề: producer nhanh hơn consumer
 
-Endpoint nhận webhook mất 5ms; xử lý mỗi webhook mất 400ms. Xử lý ngay trong request thì client chờ 400ms và bạn chịu tải bằng tốc độ xử lý. Fire-and-forget thì mất việc khi shutdown ([bài 6.7](6.6-async-patterns.mdx)).
+Endpoint nhận webhook mất 5ms; xử lý mỗi webhook mất 400ms. Xử lý ngay trong request thì client chờ 400ms và bạn chịu tải bằng tốc độ xử lý. Fire-and-forget thì mất việc khi shutdown ([bài 6.6](6.6-async-patterns.mdx)).
 
 Channel tách hai bên ra:
 
@@ -40,7 +40,7 @@ flowchart LR
 
 Producer trả lời ngay; consumer xử lý theo nhịp của nó; và khi hàng đợi đầy, producer **bị làm chậm lại** thay vì hệ thống sụp.
 
-### 6.9.2 — Bounded và unbounded
+### 6.8.2 — Bounded và unbounded
 
 ```csharp
 // UNBOUNDED — không giới hạn. Producer không bao giờ bị chặn.
@@ -79,7 +79,7 @@ new BoundedChannelOptions(1000)
 
 `SingleReader = true` cho phép runtime bỏ bớt đồng bộ hoá nội bộ. Khai báo sai thì **hỏng âm thầm** — chỉ bật khi đúng.
 
-### 6.9.3 — Producer và consumer
+### 6.8.3 — Producer và consumer
 
 ```csharp
 public interface IJobQueue
@@ -108,7 +108,7 @@ public sealed class JobQueue : IJobQueue
 }
 ```
 
-`WriteAsync` trả `ValueTask` chứ không phải `Task` — vì với channel chưa đầy nó hoàn thành **đồng bộ** và không cấp phát gì. Đây đúng là trường hợp `ValueTask` sinh ra để phục vụ ([bài 6.3](6.2-task-and-async-await.mdx)).
+`WriteAsync` trả `ValueTask` chứ không phải `Task` — vì với channel chưa đầy nó hoàn thành **đồng bộ** và không cấp phát gì. Đây đúng là trường hợp `ValueTask` sinh ra để phục vụ ([bài 6.2](6.2-task-and-async-await.mdx)).
 
 Có cả bản không chờ, dùng khi bạn không muốn producer bị chặn:
 
@@ -117,7 +117,7 @@ if (!_channel.Writer.TryWrite(job))
     _logger.LogWarning("Hàng đợi đầy, bỏ qua job {Id}", job.Id);
 ```
 
-### 6.9.4 — Consumer phải là `BackgroundService`, không phải `IHostedService.StartAsync`
+### 6.8.4 — Consumer phải là `BackgroundService`, không phải `IHostedService.StartAsync`
 
 Đây là lỗi hay gặp nhất trong bài này:
 
@@ -179,7 +179,7 @@ builder.Services.AddSingleton<IJobQueue, JobQueue>();
 builder.Services.AddHostedService<JobProcessor>();
 ```
 
-### 6.9.5 — Nhiều consumer song song
+### 6.8.5 — Nhiều consumer song song
 
 ```csharp
 protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -193,7 +193,7 @@ Nhớ đặt `SingleReader = false` khi làm vậy. Channel tự chia việc —
 
 Đây là cách tăng thông lượng mà vẫn giữ trần tài nguyên: bốn consumer nghĩa là nhiều nhất bốn job chạy cùng lúc, bất kể hàng đợi dài bao nhiêu.
 
-### 6.9.6 — Shutdown gọn gàng
+### 6.8.6 — Shutdown gọn gàng
 
 ```csharp
 public override async Task StopAsync(CancellationToken ct)
@@ -212,7 +212,7 @@ builder.Services.Configure<HostOptions>(o =>
     o.ShutdownTimeout = TimeSpan.FromSeconds(30));
 ```
 
-### 6.9.7 — Khi nào channel là sai lựa chọn
+### 6.8.7 — Khi nào channel là sai lựa chọn
 
 Channel sống trong **bộ nhớ của một tiến trình**. Hệ quả:
 
@@ -228,7 +228,7 @@ Channel sống trong **bộ nhớ của một tiến trình**. Hệ quả:
 
 Câu hỏi quyết định rất đơn giản: **"mất một item khi server restart thì có sao không?"** Nếu có sao, đừng dùng channel. Xem [Module 14 — Caching và Background Jobs](../../stage-04-database-production/module-14-caching-background-jobs/) và [Module 17 — Distributed Systems](../../stage-05-senior-engineering/module-17-distributed-systems/).
 
-### 6.9.8 — Rà lại code của bạn
+### 6.8.8 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát Channels"
@@ -402,7 +402,7 @@ public Task StartAsync(CancellationToken ct)
 }
 ```
 
-Nó vẫn **giữ tham chiếu** tới task, nên khi ứng dụng tắt, `StopAsync` huỷ token và chờ task kết thúc gọn gàng. Đây chính là fire-and-forget **làm đúng cách** — khác với `_ = MethodAsync()` ở [bài 6.7](6.6-async-patterns.mdx), nơi không ai giữ task.
+Nó vẫn **giữ tham chiếu** tới task, nên khi ứng dụng tắt, `StopAsync` huỷ token và chờ task kết thúc gọn gàng. Đây chính là fire-and-forget **làm đúng cách** — khác với `_ = MethodAsync()` ở [bài 6.6](6.6-async-patterns.mdx), nơi không ai giữ task.
 
 **Khi nào `IHostedService` vẫn đúng.** Khi bạn cần làm một việc **có điểm kết thúc** trong lúc khởi động hoặc tắt:
 

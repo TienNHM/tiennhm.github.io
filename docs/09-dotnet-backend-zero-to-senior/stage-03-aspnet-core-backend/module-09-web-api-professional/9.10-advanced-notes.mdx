@@ -9,7 +9,7 @@ import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 # 9.10 - Mở rộng và đào sâu
 
 <SummaryBox>
-Những chủ đề API nối tiếp Module 9, kèm điều kiện cụ thể. Mục đáng làm ngay và bị bỏ qua nhiều nhất là **sinh client từ OpenAPI**: client TypeScript hoặc C# được sinh tự động từ tài liệu API, nên **mọi breaking change trở thành lỗi biên dịch** ở phía client thay vì lỗi lúc chạy — đúng lớp sự cố ở [bài 9.12](9.11-mini-case-study.mdx). Mục bị đánh giá thấp nhất là **webhook**: nhiều dự án tự viết nó như một endpoint bình thường rồi phát hiện ra nó cần đủ thứ — ký chữ ký, retry, chống trùng — mà messaging đã giải sẵn. Và **GraphQL** cần một cảnh báo riêng: nó giải quyết vấn đề thật nhưng kéo theo ba vấn đề mới mà REST không có.
+Những chủ đề API nối tiếp Module 9, kèm điều kiện cụ thể. Mục đáng làm ngay và bị bỏ qua nhiều nhất là **sinh client từ OpenAPI**: client TypeScript hoặc C# được sinh tự động từ tài liệu API, nên **mọi breaking change trở thành lỗi biên dịch** ở phía client thay vì lỗi lúc chạy — đúng lớp sự cố ở [bài 9.11](9.11-mini-case-study.mdx). Mục bị đánh giá thấp nhất là **webhook**: nhiều dự án tự viết nó như một endpoint bình thường rồi phát hiện ra nó cần đủ thứ — ký chữ ký, retry, chống trùng — mà messaging đã giải sẵn. Và **GraphQL** cần một cảnh báo riêng: nó giải quyết vấn đề thật nhưng kéo theo ba vấn đề mới mà REST không có.
 </SummaryBox>
 
 ## Mục tiêu bài học
@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 9.11.1 — Sinh client từ OpenAPI: làm ngay
+### 9.10.1 — Sinh client từ OpenAPI: làm ngay
 
 **Điều kiện kích hoạt:** có bất kỳ client nào do đội bạn viết.
 
@@ -60,7 +60,7 @@ group.MapGet("/{id:guid}", GetById)
 
 Thiếu `Produces`, công cụ sinh không biết kiểu trả về và cho ra `any` — mất hết lợi ích.
 
-### 9.11.2 — Webhook
+### 9.10.2 — Webhook
 
 **Điều kiện kích hoạt:** cần thông báo cho hệ thống bên ngoài khi có sự kiện.
 
@@ -75,14 +75,15 @@ public async Task SendWebhookAsync(WebhookEvent evt, CancellationToken ct)
     // 1. KÝ — để đối tác xác minh là bạn gửi
     var signature = ComputeHmac($"{timestamp}.{payload}", _secret);
 
-    var request = new HttpRequestMessage(HttpMethod.Post, _endpoint)
+    using var request = new HttpRequestMessage(HttpMethod.Post, _endpoint)
     {
         Content = new StringContent(payload, Encoding.UTF8, "application/json")
+    };
     request.Headers.Add("X-Event-Id", evt.Id.ToString());   // 2. để đối tác chống trùng
     request.Headers.Add("X-Signature", $"t={timestamp},v1={signature}");
-    request.Headers.Add("X-Event-Id", evt.Id.ToString());   // 2. de doi tac chong trung
 
-    await _httpClient.SendAsync(request, ct);
+    using var response = await _httpClient.SendAsync(request, ct);
+    response.EnsureSuccessStatusCode();   // lỗi thì ném, để tầng retry gửi lại
 }
 ```
 
@@ -111,7 +112,7 @@ sequenceDiagram
     Note over S,P: lỗi hoặc timeout thì retry có backoff, gửi qua outbox
 ```
 
-### 9.11.3 — GraphQL: cân nhắc kỹ
+### 9.10.3 — GraphQL: cân nhắc kỹ
 
 **Điều kiện kích hoạt:** nhiều loại client cần hình dạng dữ liệu rất khác nhau, và bạn không kiểm soát được client.
 
@@ -155,9 +156,9 @@ builder.Services
 GET /api/leads/8f3a?fields=name,value,customer.name
 ```
 
-Bạn có phần lớn lợi ích của GraphQL mà giữ được cache HTTP và không thêm hạ tầng ([bài 9.5](9.4-pagination-filtering-sorting.mdx)).
+Bạn có phần lớn lợi ích của GraphQL mà giữ được cache HTTP và không thêm hạ tầng ([bài 9.4](9.4-pagination-filtering-sorting.mdx)).
 
-### 9.11.4 — Chọn giữa REST, gRPC và GraphQL
+### 9.10.4 — Chọn giữa REST, gRPC và GraphQL
 
 | | REST | gRPC | GraphQL |
 |---|---|---|---|
@@ -172,10 +173,10 @@ Bạn có phần lớn lợi ích của GraphQL mà giữ được cache HTTP v�
 **Khuyến nghị thực dụng:**
 
 - **REST** cho API công khai và cho phần lớn nhu cầu. Nó đơn giản nhất, dễ debug nhất, và cache HTTP là lợi thế thật.
-- **gRPC** cho giao tiếp giữa các service nội bộ khi cần hiệu năng và hợp đồng chặt ([bài 18.5](../../stage-05-senior-engineering/module-18-microservices/18.4-inter-service-communication.mdx)).
+- **gRPC** cho giao tiếp giữa các service nội bộ khi cần hiệu năng và hợp đồng chặt ([bài 18.4](../../stage-05-senior-engineering/module-18-microservices/18.4-inter-service-communication.mdx)).
 - **GraphQL** chỉ khi có nhiều loại client với nhu cầu dữ liệu khác nhau **và** bạn chấp nhận ba vấn đề ở trên.
 
-### 9.11.5 — HATEOAS và những chủ đề khác
+### 9.10.5 — HATEOAS và những chủ đề khác
 
 | Chủ đề | Nội dung | Ưu tiên |
 |---|---|---|
@@ -203,7 +204,7 @@ Bạn có phần lớn lợi ích của GraphQL mà giữ được cache HTTP v�
 
 **Server-Sent Events** thì ngược lại, bị đánh giá thấp: nếu chỉ cần đẩy một chiều từ server (thông báo, tiến độ job), SSE dùng HTTP thường, tự kết nối lại, và không cần backplane như SignalR.
 
-### 9.11.6 — Thứ tự nên học
+### 9.10.6 — Thứ tự nên học
 
 | Ưu tiên | Chủ đề | Vì sao |
 |---|---|---|
@@ -216,7 +217,7 @@ Bạn có phần lớn lợi ích của GraphQL mà giữ được cache HTTP v�
 
 Sau Module 9, bước tiếp theo là [Module 10 — Authentication và Authorization](../module-10-authentication-authorization/).
 
-### 9.11.7 — Rà lại code của bạn
+### 9.10.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát API nâng cao"
@@ -293,7 +294,7 @@ src/pages/LeadList.tsx:42:34 - error TS2345:
 2. **Nó chỉ đúng dòng bị ảnh hưởng.** Test tích hợp báo "response không khớp mong đợi"; trình biên dịch báo `LeadList.tsx:42`.
 3. **Nó chạy ở phía sẽ hỏng.** Backend có thể xanh hoàn toàn — API mới **đúng** theo nghĩa của backend. Vấn đề nằm ở phía tiêu thụ, và đó cũng là nơi lỗi xuất hiện.
 
-**Điều này không thay thế được versioning.** Nó bảo vệ client mà **bạn biên dịch được**. Ứng dụng mobile đã phát hành thì không — bản trên máy người dùng không được biên dịch lại. Đó chính là lý do sự cố ở [bài 9.12](9.11-mini-case-study.mdx) làm hỏng mobile mà web app không sao.
+**Điều này không thay thế được versioning.** Nó bảo vệ client mà **bạn biên dịch được**. Ứng dụng mobile đã phát hành thì không — bản trên máy người dùng không được biên dịch lại. Đó chính là lý do sự cố ở [bài 9.11](9.11-mini-case-study.mdx) làm hỏng mobile mà web app không sao.
 
 **Đưa vào CI để không ai quên chạy tay:**
 
@@ -394,9 +395,9 @@ public static bool Verify(string header, string payload, string secret,
    Request.Body.Position = 0;
    ```
 
-2. **Cửa sổ thời gian nên khoảng 5 phút.** Chặt hơn thì lệch đồng hồ giữa hai bên gây lỗi giả — đúng ca ở [bài 2.12](../../stage-01-foundation/module-02-computer-science-basics/2.11-mini-case-study.mdx). Rộng hơn thì cửa sổ phát lại quá dài.
+2. **Cửa sổ thời gian nên khoảng 5 phút.** Chặt hơn thì lệch đồng hồ giữa hai bên gây lỗi giả — đúng ca ở [bài 2.11](../../stage-01-foundation/module-02-computer-science-basics/2.11-mini-case-study.mdx). Rộng hơn thì cửa sổ phát lại quá dài.
 
-**Vẫn cần idempotent ở phía nhận.** Chữ ký chứng minh *ai gửi*, không chứng minh *đã xử lý chưa*. Webhook được gửi lại khi bên nhận timeout, nên `X-Event-Id` và bảng đã-xử-lý vẫn bắt buộc — xem [bài 9.13](9.12-quick-real-world-example.mdx).
+**Vẫn cần idempotent ở phía nhận.** Chữ ký chứng minh *ai gửi*, không chứng minh *đã xử lý chưa*. Webhook được gửi lại khi bên nhận timeout, nên `X-Event-Id` và bảng đã-xử-lý vẫn bắt buộc — xem [bài 9.12](9.12-quick-real-world-example.mdx).
 
 </details>
 
@@ -474,7 +475,7 @@ query { customers { a b c d e f g h i j k l m n o p q r s t } }
 
 Độ sâu chỉ là 2, nhưng nếu mỗi trường gọi một resolver riêng chạm database thì đây vẫn là hàng nghìn truy vấn. Phân tích chi phí bắt được nó; giới hạn độ sâu thì không.
 
-**Cái bẫy N+1 nằm sẵn trong mô hình này.** Mỗi `customer.leads` là một resolver riêng, nên 100 khách hàng thành 101 truy vấn — đúng vấn đề ở [bài 13.7](../../stage-04-database-production/module-13-entity-framework-core/13.6-n-plus-1-problem.mdx), chỉ khác là bạn không nhìn thấy nó trong code. `DataLoader` gom các lời gọi trong cùng một vòng thực thi thành một truy vấn `WHERE Id IN (...)`:
+**Cái bẫy N+1 nằm sẵn trong mô hình này.** Mỗi `customer.leads` là một resolver riêng, nên 100 khách hàng thành 101 truy vấn — đúng vấn đề ở [bài 13.6](../../stage-04-database-production/module-13-entity-framework-core/13.6-n-plus-1-problem.mdx), chỉ khác là bạn không nhìn thấy nó trong code. `DataLoader` gom các lời gọi trong cùng một vòng thực thi thành một truy vấn `WHERE Id IN (...)`:
 
 ```csharp
 public sealed class LeadsByCustomerDataLoader(

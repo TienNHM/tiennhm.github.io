@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 7.2.1 — Code dính chặt
+### 7.1.1 — Code dính chặt
 
 ```csharp
 public class CustomerService
@@ -50,7 +50,7 @@ public class CustomerService
 
 Đoạn code này chạy được. Vấn đề chỉ lộ ra khi bạn cần **thay đổi** thứ gì đó.
 
-### 7.2.2 — Năm vấn đề, theo thứ tự mức độ đau
+### 7.1.2 — Năm vấn đề, theo thứ tự mức độ đau
 
 **1. Không viết được unit test.**
 
@@ -89,7 +89,7 @@ Nhìn `new CustomerService()` bạn nghĩ nó không cần gì. Thực tế nó 
 | Vòng đời mất kiểm soát | Connection không dùng chung, `Dispose` không được gọi |
 | Phụ thuộc ẩn | Constructor không cho biết lớp này thật sự cần gì |
 
-### 7.2.3 — Thêm interface chưa phải là giải pháp
+### 7.1.3 — Thêm interface chưa phải là giải pháp
 
 Đây là bước nửa vời rất hay gặp:
 
@@ -109,7 +109,7 @@ Kiểu của field đã là interface, nhưng lớp vẫn **tự quyết định
 
 Thứ thật sự thay đổi mọi chuyện không phải là interface, mà là **ai gọi `new`**.
 
-### 7.2.4 — Đảo chiều: lớp khai báo, nơi khác cung cấp
+### 7.1.4 — Đảo chiều: lớp khai báo, nơi khác cung cấp
 
 ```csharp
 public class CustomerService
@@ -149,9 +149,9 @@ Năm vấn đề biến mất cùng lúc:
 - **Vòng đời do container quản**: nó biết khi nào tạo, khi nào dùng lại, khi nào `Dispose`.
 - **Phụ thuộc hiện rõ**: đọc constructor là biết lớp này cần gì.
 
-Điểm cuối đáng nói thêm: constructor trở thành **tài liệu trung thực**. Một constructor có 9 tham số không phải là lỗi của DI — đó là DI đang cho bạn thấy lớp này đang làm quá nhiều việc. Xem [bài 7.10 — Anti-patterns](7.9-anti-patterns.mdx).
+Điểm cuối đáng nói thêm: constructor trở thành **tài liệu trung thực**. Một constructor có 9 tham số không phải là lỗi của DI — đó là DI đang cho bạn thấy lớp này đang làm quá nhiều việc. Xem [bài 7.9 — Anti-patterns](7.9-anti-patterns.mdx).
 
-### 7.2.5 — Khi nào không cần DI
+### 7.1.5 — Khi nào không cần DI
 
 DI không miễn phí: thêm interface, thêm đăng ký, thêm một lớp gián tiếp khi đọc code. Đừng dùng khi:
 
@@ -164,7 +164,7 @@ Tiêu chí thực dụng: **có I/O, có thời gian, có ngẫu nhiên, hoặc 
 
 `DateTime.Now` chính là ví dụ kinh điển của "có thời gian": nó khiến test không lặp lại được. .NET 8 có `TimeProvider` để tiêm đúng chỗ đó.
 
-### 7.2.6 — Rà lại code của bạn
+### 7.1.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát phụ thuộc"
@@ -345,7 +345,7 @@ Không một file nghiệp vụ nào bị sửa, vì chúng chỉ biết tới `
 
 2. **Khác nhau theo môi trường.** Ghi ra file khi phát triển, gửi thật khi chạy production — một dòng `if`.
 
-3. **Bọc thêm hành vi mà không sửa gì.** Thêm thử lại, ghi log, giới hạn tần suất bằng decorator như [bài 7.6](7.5-registering-services.mdx) trình bày.
+3. **Bọc thêm hành vi mà không sửa gì.** Thêm thử lại, ghi log, giới hạn tần suất bằng decorator như [bài 7.5](7.5-registering-services.mdx) trình bày.
 
 **Một lưu ý về việc đếm.** Không phải mọi `new` đều là vấn đề. `new` các đối tượng sau hoàn toàn bình thường:
 
@@ -371,7 +371,7 @@ Viết một hàm dùng `DateTime.Now` để quyết định có áp dụng khuy
 <details>
 <summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
 
-**Gợi ý.** Bài này lặp lại ý ở [bài 1.5](../../stage-01-foundation/module-01-programming-logic/1.4-functions-methods.mdx) và [bài 4.5](../module-04-csharp-core/4.4-interface.mdx), nhưng ở đây trọng tâm là **tiêm qua DI** thay vì truyền tham số.
+**Gợi ý.** Bài này lặp lại ý ở [bài 1.4](../../stage-01-foundation/module-01-programming-logic/1.4-functions-methods.mdx) và [bài 4.4](../module-04-csharp-core/4.4-interface.mdx), nhưng ở đây trọng tâm là **tiêm qua DI** thay vì truyền tham số.
 
 **Lời giải — trước:**
 
@@ -469,7 +469,7 @@ public interface IGuidGenerator { Guid New(); }
 time.LocalTimeZone
 ```
 
-**Vì sao tiêm qua DI tốt hơn truyền tham số.** Với hàm nhỏ thì truyền `DateTime` làm tham số là đủ, như [bài 1.5](../../stage-01-foundation/module-01-programming-logic/1.4-functions-methods.mdx) đã nêu. Nhưng khi chuỗi gọi sâu — controller gọi service gọi repository — truyền tay qua mọi tầng là không khả thi. DI giải quyết đúng vấn đề đó: khai báo một lần ở constructor, container lo phần còn lại.
+**Vì sao tiêm qua DI tốt hơn truyền tham số.** Với hàm nhỏ thì truyền `DateTime` làm tham số là đủ, như [bài 1.4](../../stage-01-foundation/module-01-programming-logic/1.4-functions-methods.mdx) đã nêu. Nhưng khi chuỗi gọi sâu — controller gọi service gọi repository — truyền tay qua mọi tầng là không khả thi. DI giải quyết đúng vấn đề đó: khai báo một lần ở constructor, container lo phần còn lại.
 
 </details>
 

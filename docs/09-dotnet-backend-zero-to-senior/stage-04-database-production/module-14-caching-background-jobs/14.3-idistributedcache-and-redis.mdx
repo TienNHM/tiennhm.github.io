@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 14.4.1 — Chi phí thật
+### 14.3.1 — Chi phí thật
 
 ```
 IMemoryCache:      ~100 nano giay   (doc thang tu heap)
@@ -41,7 +41,7 @@ Và **serialize thường đắt hơn mạng**. Một đối tượng 100KB mấ
 
 Nguyên tắc: **cache vào Redis những thứ đắt để tạo ra, không phải những thứ chỉ hơi chậm**.
 
-### 14.4.2 — Cấu hình
+### 14.3.2 — Cấu hình
 
 ```csharp
 builder.Services.AddStackExchangeRedisCache(options =>
@@ -73,7 +73,7 @@ options.ConfigurationOptions = new ConfigurationOptions
 
 `SyncTimeout` thấp là có chủ đích: nếu Redis chậm, **thất bại nhanh và đi thẳng database** tốt hơn là chờ.
 
-### 14.4.3 — Serialize
+### 14.3.3 — Serialize
 
 `IDistributedCache` chỉ làm việc với `byte[]`:
 
@@ -109,7 +109,7 @@ public static class DistributedCacheExtensions
 
 **Ba lưu ý về serialize:**
 
-1. **Kiểu phải serialize được.** Entity EF Core có navigation vòng tròn sẽ ném exception hoặc sinh JSON khổng lồ. Cache DTO ([bài 14.3](14.2-imemorycache.mdx)).
+1. **Kiểu phải serialize được.** Entity EF Core có navigation vòng tròn sẽ ném exception hoặc sinh JSON khổng lồ. Cache DTO ([bài 14.2](14.2-imemorycache.mdx)).
 2. **Đổi hình dạng DTO phá cache cũ.** Thêm trường thì thường ổn; xoá hoặc đổi kiểu thì deserialize ném exception. Đưa **phiên bản vào khoá**: `customer:v2:42`.
 3. **JSON không phải lựa chọn duy nhất.** MessagePack nhỏ hơn 30–50% và nhanh hơn; đáng dùng cho đối tượng lớn hoặc lưu lượng cao.
 
@@ -127,7 +127,7 @@ catch (JsonException ex)
 
 Một entry hỏng không được làm sập request — coi nó là miss và đi nguồn.
 
-### 14.4.4 — Thiết kế khoá
+### 14.3.4 — Thiết kế khoá
 
 ```csharp
 public static class CacheKeys
@@ -147,14 +147,14 @@ public static class CacheKeys
 
 Bốn nguyên tắc:
 
-1. **Có tenant id** — nếu không là rò rỉ dữ liệu ([bài 14.2](14.1-caching-fundamentals.mdx)).
+1. **Có tenant id** — nếu không là rò rỉ dữ liệu ([bài 14.1](14.1-caching-fundamentals.mdx)).
 2. **Có phiên bản** — đổi DTO thì tăng, cache cũ tự bị bỏ qua.
 3. **Phân cấp bằng dấu hai chấm** — quy ước Redis, và công cụ quản trị hiển thị theo cây.
 4. **Sinh từ hằng số**, không nối chuỗi rải rác — gõ sai một chỗ là một khoá khác và tỷ lệ trúng 0.
 
 Nguyên tắc 2 giải quyết vấn đề triển khai rất gọn: bạn **không cần xoá cache cũ** khi đổi hình dạng DTO — chúng tự hết hạn.
 
-### 14.4.5 — Redis chết thì sao
+### 14.3.5 — Redis chết thì sao
 
 ```csharp
 // SAI — Redis chet la ung dung chet
@@ -206,7 +206,7 @@ flowchart TD
 
 Ngoại lệ: nếu database **không chịu nổi** tải khi không có cache, thì Redis **đã trở thành** phụ thuộc bắt buộc — và bạn cần Redis Sentinel hoặc Cluster, cộng cơ chế hạ tải.
 
-Health check cho Redis nên trả `Degraded`, không phải `Unhealthy` ([bài 8.10](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.9-health-checks.mdx)):
+Health check cho Redis nên trả `Degraded`, không phải `Unhealthy` ([bài 8.9](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.9-health-checks.mdx)):
 
 ```csharp
 builder.Services.AddHealthChecks()
@@ -214,7 +214,7 @@ builder.Services.AddHealthChecks()
               failureStatus: HealthStatus.Degraded, tags: ["ready"]);
 ```
 
-### 14.4.6 — Khi nào bỏ `IDistributedCache`
+### 14.3.6 — Khi nào bỏ `IDistributedCache`
 
 `IDistributedCache` chỉ có năm thao tác, nên bạn **mất** gần như mọi thứ khiến Redis đáng dùng:
 
@@ -242,13 +242,13 @@ if (requests == 1) await db.KeyExpireAsync($"rate:{userId}", TimeSpan.FromMinute
 if (requests > 100) return TooManyRequests();
 ```
 
-Ví dụ thứ hai giải quyết đúng giới hạn của rate limiter in-memory ở [bài 9.7](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.6-rate-limiting.mdx).
+Ví dụ thứ hai giải quyết đúng giới hạn của rate limiter in-memory ở [bài 9.6](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.6-rate-limiting.mdx).
 
 `IConnectionMultiplexer` phải là **singleton** — nó quản lý pool kết nối bên trong, và tạo nhiều instance là cách làm cạn kết nối tới Redis.
 
 **Mẫu thực dụng:** dùng `IDistributedCache` cho cache thông thường (đổi provider được), và `IConnectionMultiplexer` cho những chỗ cần sức mạnh Redis.
 
-### 14.4.7 — Lệnh không bao giờ chạy trên production
+### 14.3.7 — Lệnh không bao giờ chạy trên production
 
 ```
 KEYS *              -> quét TOÀN BỘ keyspace, CHẶN Redis (đơn luồng)
@@ -278,7 +278,7 @@ await db.KeyDeleteAsync(keys.Select(k => (RedisKey)k.ToString()).ToArray());
 await db.KeyDeleteAsync($"tag:customer:{customerId}");
 ```
 
-Đây là nền tảng của xoá theo tag ở [bài 14.5](14.4-cache-invalidation-strategies.mdx).
+Đây là nền tảng của xoá theo tag ở [bài 14.4](14.4-cache-invalidation-strategies.mdx).
 
 Ba cấu hình vận hành nên đặt:
 
@@ -289,7 +289,7 @@ maxmemory-policy allkeys-lru      # dung cho cache thuan tuy
 
 `allkeys-lru` khiến Redis tự dọn khoá ít dùng khi đầy, thay vì từ chối ghi. **Nhưng nếu Redis cũng chứa dữ liệu không phải cache** (session, hàng đợi), `allkeys-lru` sẽ xoá cả chúng — khi đó dùng `volatile-lru` và đặt TTL cho khoá cache.
 
-### 14.4.8 — Rà lại code của bạn
+### 14.3.8 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát cache phân tán"

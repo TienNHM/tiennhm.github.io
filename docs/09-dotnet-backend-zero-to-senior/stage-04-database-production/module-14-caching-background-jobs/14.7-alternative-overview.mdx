@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 14.8.1 — Hai bài toán khác nhau
+### 14.7.1 — Hai bài toán khác nhau
 
 | | Hangfire | Quartz.NET |
 |---|---|---|
@@ -46,7 +46,7 @@ Hai hàng đầu và hai hàng cuối quyết định lựa chọn.
 
 Với một CRM điển hình, **Hangfire thường đúng hơn** — phần lớn việc là gửi email, đồng bộ dữ liệu, dọn dẹp. Quartz đáng khi bạn đang xây thứ mà lập lịch **là** nghiệp vụ.
 
-### 14.8.2 — Cấu hình
+### 14.7.2 — Cấu hình
 
 ```bash
 dotnet add package Quartz.Extensions.Hosting
@@ -106,10 +106,10 @@ Bốn chi tiết:
 
 - **`JobExecutionException`** là cách đúng để báo lỗi cho Quartz; `refireImmediately: false` tránh vòng lặp chạy lại ngay.
 - **`context.CancellationToken`** được kích hoạt khi scheduler dừng — truyền nó xuống.
-- **`IServiceScopeFactory`** vì job không có scope riêng, đúng như `BackgroundService` ([bài 9.10](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.9-hosted-service-background-jobs.mdx)).
+- **`IServiceScopeFactory`** vì job không có scope riêng, đúng như `BackgroundService` ([bài 9.9](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.9-hosted-service-background-jobs.mdx)).
 - **`WaitForJobsToComplete = true`** cho job đang chạy hoàn tất khi shutdown.
 
-### 14.8.3 — Misfire
+### 14.7.3 — Misfire
 
 Đây là khái niệm quan trọng nhất của Quartz.
 
@@ -158,7 +158,7 @@ flowchart TD
 
 Hangfire không có khái niệm này: recurring job bị lỡ thì **chạy ngay khi server lên**, tương đương `FireAndProceed`. Đơn giản hơn, nhưng không chọn được hành vi khác.
 
-### 14.8.4 — Trigger phức tạp
+### 14.7.4 — Trigger phức tạp
 
 ```csharp
 // Lich lap don gian
@@ -197,7 +197,7 @@ await scheduler.AddCalendar("vn-holidays", holidays, replace: true, updateTrigge
 
 Với job nghiệp vụ như "gửi báo cáo mỗi ngày làm việc", đây là lý do chính đáng để chọn Quartz.
 
-### 14.8.5 — `DisallowConcurrentExecution`
+### 14.7.5 — `DisallowConcurrentExecution`
 
 ```csharp
 [DisallowConcurrentExecution]
@@ -208,7 +208,7 @@ Không có nó, job chạy 10 phút với lịch mỗi 5 phút sẽ **chồng l�
 
 Attribute này áp cho **cùng một `JobKey`**, và trong cluster nó áp **trên toàn cluster** — chỉ một node chạy tại một thời điểm.
 
-Đây là điểm mạnh so với `BackgroundService`, nơi bạn phải tự viết khoá phân tán ([bài 9.10](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.9-hosted-service-background-jobs.mdx)).
+Đây là điểm mạnh so với `BackgroundService`, nơi bạn phải tự viết khoá phân tán ([bài 9.9](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.9-hosted-service-background-jobs.mdx)).
 
 Kết hợp với `[PersistJobDataAfterExecution]` khi job cần nhớ trạng thái giữa các lần chạy:
 
@@ -231,7 +231,7 @@ public sealed class IncrementalSyncJob : IJob
 
 Hai attribute này **phải đi cùng nhau** — `PersistJobDataAfterExecution` một mình với job chạy song song sẽ ghi đè dữ liệu lẫn nhau.
 
-### 14.8.6 — Clustering
+### 14.7.6 — Clustering
 
 ```csharp
 q.UsePersistentStore(s =>
@@ -248,7 +248,7 @@ q.UsePersistentStore(s =>
 
 Trong cluster, mọi node dùng **chung database** và tự điều phối: mỗi trigger chỉ chạy trên **một** node, và node chết thì node khác **nhận lại** job đang chạy dở của nó.
 
-Cơ chế nhận lại đó là khác biệt lớn nhất so với Hangfire. Nhưng nó cũng nghĩa là **job có thể chạy hai lần** — node A chưa chết hẳn nhưng ngừng báo danh, node B nhận job. Nên job vẫn phải **idempotent** ([bài 14.7](14.6-hangfire-background-jobs.mdx)).
+Cơ chế nhận lại đó là khác biệt lớn nhất so với Hangfire. Nhưng nó cũng nghĩa là **job có thể chạy hai lần** — node A chưa chết hẳn nhưng ngừng báo danh, node B nhận job. Nên job vẫn phải **idempotent** ([bài 14.6](14.6-hangfire-background-jobs.mdx)).
 
 Cách node B nhận lại job của node A, và vì sao job vẫn có thể chạy hai lần:
 
@@ -269,7 +269,7 @@ sequenceDiagram
 
 Ba yêu cầu: đồng hồ các node phải **đồng bộ** (NTP), `SchedulerInstanceId` phải là `AUTO`, và **không** dùng `RAMJobStore`.
 
-### 14.8.7 — Rà lại code của bạn
+### 14.7.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát Quartz"

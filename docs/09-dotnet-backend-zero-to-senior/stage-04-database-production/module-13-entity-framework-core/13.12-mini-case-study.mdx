@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 13.13.1 — Sự cố
+### 13.12.1 — Sự cố
 
 ```csharp
 // Đổi tên thuộc tính cho nhất quán
@@ -59,7 +59,7 @@ Không có exception nào. Migration chạy **thành công**.
 
 **EF Core không làm sai.** Nó so sánh model hiện tại với `ModelSnapshot` và thấy: một cột không còn, một cột mới xuất hiện. Nó không có cách nào biết đó là cùng một cột được đổi tên — thông tin đó chỉ nằm trong đầu bạn.
 
-### 13.13.2 — Cách đúng: RenameColumn
+### 13.12.2 — Cách đúng: RenameColumn
 
 ```csharp
 // Sửa thủ công file migration
@@ -84,7 +84,7 @@ protected override void Down(MigrationBuilder migrationBuilder)
 
 **Đây là lý do phải đọc mọi file migration trước khi commit.** Lỗi này hiển hiện rõ ràng khi đọc `Up()`, và hoàn toàn vô hình nếu bạn chỉ chạy `dotnet ef migrations add` rồi commit.
 
-### 13.13.3 — Bốn loại lệnh cần cảnh giác
+### 13.12.3 — Bốn loại lệnh cần cảnh giác
 
 | Lệnh | Rủi ro |
 |---|---|
@@ -110,7 +110,7 @@ migrationBuilder.AlterColumn<string>(
 
 Thứ tự trong ví dụ thứ hai quan trọng: điền giá trị mặc định **trước**, rồi mới đổi ràng buộc.
 
-### 13.13.4 — Quy trình ba bước
+### 13.12.4 — Quy trình ba bước
 
 **Bước 1 — đọc và sửa file migration:**
 
@@ -140,7 +140,7 @@ sqlcmd -S staging -d CrmStaging -i review.sql
 
 Bước này bắt được hai thứ mà môi trường phát triển không bao giờ bắt được: **thời gian chạy thật** (thêm index trên 10 triệu hàng có thể mất 20 phút và khoá bảng) và **dữ liệu thật vi phạm ràng buộc mới**.
 
-### 13.13.5 — Thay đổi không downtime
+### 13.12.5 — Thay đổi không downtime
 
 Với bảng lớn đang phục vụ, đổi tên cột trong một bước vẫn gây gián đoạn: code cũ và code mới không cùng chạy được. Dùng **expand-contract**:
 
@@ -170,11 +170,11 @@ public string Phone
 }
 ```
 
-Dài hơn nhiều so với một migration, nhưng đây là cách **duy nhất** thay đổi schema của bảng lớn mà không dừng hệ thống ([bài 12.9](../module-12-sql-deep-dive/12.8-database-migration-strategy.mdx)).
+Dài hơn nhiều so với một migration, nhưng đây là cách **duy nhất** thay đổi schema của bảng lớn mà không dừng hệ thống ([bài 12.8](../module-12-sql-deep-dive/12.8-database-migration-strategy.mdx)).
 
 Cùng nguyên tắc áp dụng cho việc đổi kiểu cột, tách bảng, hoặc gộp bảng.
 
-### 13.13.6 — Khi đã lỡ chạy
+### 13.12.6 — Khi đã lỡ chạy
 
 **Nếu phát hiện trong vài phút:**
 
@@ -197,7 +197,7 @@ Khôi phục vào database **tạm** rồi chép dữ liệu sang — không kh�
 
 **Điều kiện tiên quyết:** database phải ở `FULL` recovery model và có sao lưu transaction log định kỳ. Không có nó, point-in-time recovery không khả thi — và đó là điều cần kiểm tra **trước** khi cần tới nó.
 
-### 13.13.7 — Rà lại code của bạn
+### 13.12.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát migration"

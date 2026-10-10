@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 12.2.1 — Schema cốt lõi
+### 12.1.1 — Schema cốt lõi
 
 ```sql
 CREATE TABLE Users (
@@ -70,7 +70,7 @@ Bốn quyết định trong đoạn trên đáng giải thích:
 
 **`CountryCode CHAR(2)` thay vì `CountryName`.** Lưu tên quốc gia là vi phạm 3NF — mục sau.
 
-### 12.2.2 — Chuẩn hoá tới 3NF
+### 12.1.2 — Chuẩn hoá tới 3NF
 
 Ba dạng chuẩn đầu, diễn giải thực dụng:
 
@@ -107,7 +107,7 @@ ALTER TABLE Customers ADD ContactCount INT NOT NULL DEFAULT 0;
 
 Không có comment này, người sau sẽ thấy một cột trùng lặp và hoặc xoá nó, hoặc để nó lệch dần với sự thật.
 
-### 12.2.3 — Khoá chính và index gom cụm
+### 12.1.3 — Khoá chính và index gom cụm
 
 Trong SQL Server, khoá chính mặc định là **index gom cụm** — nghĩa là **dữ liệu thật được sắp xếp vật lý theo nó**.
 
@@ -157,7 +157,7 @@ CONSTRAINT UQ_Customers_PublicId UNIQUE NONCLUSTERED (PublicId)
 
 Khoá ngoại và JOIN dùng `INT`; API dùng `PublicId` nên không ai đoán được bạn có bao nhiêu khách hàng.
 
-### 12.2.4 — Ràng buộc là hợp đồng cuối cùng
+### 12.1.4 — Ràng buộc là hợp đồng cuối cùng
 
 Validation ở tầng ứng dụng **bị bỏ qua** bởi: script sửa dữ liệu thủ công, job import, một service khác nối vào cùng database, và chính bạn lúc 2 giờ sáng đang chữa cháy.
 
@@ -196,7 +196,7 @@ FOREIGN KEY (ProductId) REFERENCES Products(ProductId)
 
 Cẩn thận với `CASCADE` nhiều tầng: xoá một `Customer` kéo theo `Contacts`, rồi `ContactNotes`, rồi… Một lệnh `DELETE` tưởng nhỏ có thể xoá hàng chục nghìn dòng và giữ khoá rất lâu. SQL Server còn **từ chối** tạo nhiều đường cascade cùng tới một bảng.
 
-### 12.2.5 — Soft delete
+### 12.1.5 — Soft delete
 
 ```sql
 DeletedAt DATETIME2(3) NULL     -- NULL = chưa xoá
@@ -220,13 +220,13 @@ Chỉ những dòng **chưa xoá** mới phải duy nhất. Filtered index còn 
 
 Soft delete còn ba hệ quả nữa:
 
-1. **Mọi truy vấn phải lọc `DeletedAt IS NULL`** — quên một chỗ là dữ liệu đã xoá hiện lại. Dùng global query filter của EF Core ([bài 10.7](../../stage-03-aspnet-core-backend/module-10-authentication-authorization/10.6-resource-based-authorization.mdx)).
+1. **Mọi truy vấn phải lọc `DeletedAt IS NULL`** — quên một chỗ là dữ liệu đã xoá hiện lại. Dùng global query filter của EF Core ([bài 10.6](../../stage-03-aspnet-core-backend/module-10-authentication-authorization/10.6-resource-based-authorization.mdx)).
 2. **Khoá ngoại vẫn giữ** dòng đã xoá mềm, nên bạn có thể tham chiếu tới thứ "đã xoá".
 3. **Bảng không bao giờ nhỏ lại.** Cần một job chuyển dữ liệu đã xoá quá lâu sang bảng lưu trữ.
 
 Nếu không có yêu cầu khôi phục hay tuân thủ, **xoá cứng đơn giản hơn nhiều**. Đừng mặc định soft delete cho mọi bảng.
 
-### 12.2.6 — Audit trail
+### 12.1.6 — Audit trail
 
 ```sql
 CREATE TABLE AuditLog (
@@ -274,7 +274,7 @@ WHERE CustomerId = 42;
 
 Đây là câu trả lời trực tiếp cho "dữ liệu này hôm qua là gì" — không cần tự dựng gì.
 
-### 12.2.7 — Rà lại code của bạn
+### 12.1.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát thiết kế schema"
@@ -396,7 +396,7 @@ CREATE TABLE Leads (
 );
 ```
 
-**Cách 2 thường là lựa chọn tốt nhất hiện nay:** ứng dụng tự sinh id (không cần round-trip để lấy id sau khi chèn), id không đoán được từ bên ngoài, mà vẫn tăng dần nên không phân mảnh. Xem thêm [bài 13.3](../module-13-entity-framework-core/13.2-dbcontext-and-entity-configuration.mdx) về strongly-typed ID.
+**Cách 2 thường là lựa chọn tốt nhất hiện nay:** ứng dụng tự sinh id (không cần round-trip để lấy id sau khi chèn), id không đoán được từ bên ngoài, mà vẫn tăng dần nên không phân mảnh. Xem thêm [bài 13.2](../module-13-entity-framework-core/13.2-dbcontext-and-entity-configuration.mdx) về strongly-typed ID.
 
 </details>
 
@@ -489,7 +489,7 @@ CREATE UNIQUE INDEX ux_users_email_active
        .HasFilter("[DeletedAt] IS NULL");
    ```
 
-   Và kết hợp với global query filter thì mọi truy vấn tự mang điều kiện đó — xem [bài 13.11](../module-13-entity-framework-core/13.10-global-query-filters.mdx).
+   Và kết hợp với global query filter thì mọi truy vấn tự mang điều kiện đó — xem [bài 13.10](../module-13-entity-framework-core/13.10-global-query-filters.mdx).
 
 **Một lựa chọn thay thế khi database không hỗ trợ filtered index** (MySQL chẳng hạn): đưa trạng thái vào chính khoá.
 

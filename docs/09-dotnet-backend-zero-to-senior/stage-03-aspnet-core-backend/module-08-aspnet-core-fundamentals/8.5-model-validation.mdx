@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 8.6.1 — Ranh giới
+### 8.5.1 — Ranh giới
 
 | Thuộc về validation đầu vào | Thuộc về nghiệp vụ |
 |---|---|
@@ -47,7 +47,7 @@ Hai cột của bảng đầu mục là hai chặng khác nhau của một reque
 
 <small>File gốc: [nền sáng](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-03-aspnet-core-backend-module-08-aspnet-core-fundamentals-model-validation/vi/validation-boundary.html) · [nền tối](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-03-aspnet-core-backend-module-08-aspnet-core-fundamentals-model-validation/vi/validation-boundary-dark.html)</small>
 
-### 8.6.2 — DataAnnotations
+### 8.5.2 — DataAnnotations
 
 ```csharp
 public sealed record CreateCustomerRequest
@@ -75,7 +75,7 @@ Ba lưu ý:
 - **`[StringLength]` thay cho `[MaxLength]`** khi bạn cần cả cận dưới. `[MaxLength]` dành cho EF Core (độ dài cột), `[StringLength]` dành cho validation.
 - **`[EmailAddress]` rất lỏng** — nó chỉ kiểm tra có đúng một dấu `@` không ở đầu hay cuối. `a@b` qua được. Muốn chặt hơn thì phải gửi email xác nhận, không phải viết regex phức tạp hơn.
 
-### 8.6.3 — Quy tắc liên quan nhiều thuộc tính
+### 8.5.3 — Quy tắc liên quan nhiều thuộc tính
 
 DataAnnotations nhìn từng thuộc tính một. Với quy tắc liên quan hai thuộc tính, dùng `IValidatableObject`:
 
@@ -104,7 +104,7 @@ public sealed record CreateCampaignRequest : IValidatableObject
 
 Danh sách tên thuộc tính ở tham số thứ hai quyết định lỗi hiện dưới trường nào trong `errors` — bỏ trống thì nó thành lỗi cấp toàn bộ model và form phía client không biết tô đỏ ô nào.
 
-### 8.6.4 — `ValidationAttribute` tuỳ biến
+### 8.5.4 — `ValidationAttribute` tuỳ biến
 
 ```csharp
 [AttributeUsage(AttributeTargets.Property)]
@@ -135,7 +135,7 @@ Ba nguyên tắc:
 2. **Không truy cập database.** `ValidationContext` có `GetService()` nên về kỹ thuật làm được — nhưng đó chính là service locator, và nó chạy cho mọi request.
 3. **Dùng `ctx.MemberName`** để lỗi gắn đúng trường.
 
-### 8.6.5 — `ProblemDetails` theo RFC 7807
+### 8.5.5 — `ProblemDetails` theo RFC 7807
 
 Với `[ApiController]`, validation thất bại trả sẵn:
 
@@ -176,7 +176,7 @@ return Problem(
     statusCode: StatusCodes.Status422UnprocessableEntity);
 ```
 
-### 8.6.6 — Khi nào chuyển sang FluentValidation
+### 8.5.6 — Khi nào chuyển sang FluentValidation
 
 ```bash
 dotnet add package FluentValidation.AspNetCore
@@ -214,7 +214,7 @@ Ngưỡng thực dụng: **bắt đầu bằng DataAnnotations**. Chuyển sang 
 
 Đừng dùng cả hai cho cùng một model — hai nơi định nghĩa quy tắc là hai nơi để quên cập nhật.
 
-### 8.6.7 — Rà lại code của bạn
+### 8.5.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát validation"
@@ -285,7 +285,7 @@ info: Executed DbCommand (4ms) [...]
 **Ba vấn đề:**
 
 1. **Lãng phí tài nguyên.** Mỗi request sai định dạng vẫn tốn một lần đi tới database. Với một endpoint bị quét tự động, đó là một cách làm quá tải database rất rẻ tiền cho kẻ tấn công.
-2. **Xác thực chạy đồng bộ.** `ValidationAttribute` không có bản bất đồng bộ, nên truy vấn chạy đồng bộ và **chặn luồng** — đúng vấn đề ở [bài 6.2](../../stage-02-csharp-professional/module-06-async-programming/6.1-why-async-matters.mdx).
+2. **Xác thực chạy đồng bộ.** `ValidationAttribute` không có bản bất đồng bộ, nên truy vấn chạy đồng bộ và **chặn luồng** — đúng vấn đề ở [bài 6.1](../../stage-02-csharp-professional/module-06-async-programming/6.1-why-async-matters.mdx).
 3. **Có khoảng trống đua.** Giữa lúc kiểm tra và lúc ghi, một request khác có thể đã chèn cùng email. Kiểm tra này **không bảo đảm** được gì.
 
 **Ranh giới đúng:**
@@ -326,7 +326,7 @@ public async Task<Result<Customer>> CreateAsync(CreateCustomerRequest req, Cance
 }
 ```
 
-**Hai lớp, và cả hai đều cần.** Kiểm tra trước cho **thông báo đẹp** trong trường hợp thường; ràng buộc duy nhất ở database là **bảo đảm thật** cho trường hợp đua. Chỉ có lớp thứ hai mới thật sự ngăn được dữ liệu trùng, như [bài 2.7](../../stage-01-foundation/module-02-computer-science-basics/2.6-what-is-a-database.mdx) đã phân tích.
+**Hai lớp, và cả hai đều cần.** Kiểm tra trước cho **thông báo đẹp** trong trường hợp thường; ràng buộc duy nhất ở database là **bảo đảm thật** cho trường hợp đua. Chỉ có lớp thứ hai mới thật sự ngăn được dữ liệu trùng, như [bài 2.6](../../stage-01-foundation/module-02-computer-science-basics/2.6-what-is-a-database.mdx) đã phân tích.
 
 **Dừng sớm khi cú pháp đã sai.** Với `[ApiController]`, action không chạy khi model không hợp lệ — nên xác thực nghiệp vụ trong service tự động được bỏ qua. Đó chính là thứ tự đúng: rẻ trước, đắt sau.
 

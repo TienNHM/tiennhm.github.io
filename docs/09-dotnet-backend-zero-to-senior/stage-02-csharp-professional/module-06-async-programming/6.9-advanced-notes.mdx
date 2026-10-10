@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 6.10.1 — TimeProvider: dùng ngay
+### 6.9.1 — TimeProvider: dùng ngay
 
 **Điều kiện kích hoạt:** ngay khi có logic phụ thuộc thời gian.
 
@@ -60,9 +60,9 @@ Assert.True(service.IsExpired(token));
 
 Gói `Microsoft.Extensions.TimeProvider.Testing` cung cấp `FakeTimeProvider`. Test chạy trong **micro giây** thay vì 16 phút, và nó kiểm tra chính xác mốc hết hạn thay vì xấp xỉ.
 
-`TimeProvider` cũng thay được `Task.Delay` và `Timer`, nên logic retry và lịch chạy cũng test được ([bài 16.10](../../stage-05-senior-engineering/module-16-clean-architecture/16.9-testing-strategy-overview.mdx)).
+`TimeProvider` cũng thay được `Task.Delay` và `Timer`, nên logic retry và lịch chạy cũng test được ([bài 16.9](../../stage-05-senior-engineering/module-16-clean-architecture/16.9-testing-strategy-overview.mdx)).
 
-### 6.10.2 — ValueTask: cẩn thận
+### 6.9.2 — ValueTask: cẩn thận
 
 **Điều kiện kích hoạt:** phương thức async được gọi **rất nhiều lần** và **thường trả về đồng bộ**.
 
@@ -102,7 +102,7 @@ Lý do: `ValueTask` có thể **tái sử dụng** đối tượng nội bộ sa
 
 **Khuyến nghị:** dùng `Task` làm mặc định. Chỉ chuyển sang `ValueTask` khi profiler chỉ ra cấp phát `Task` là vấn đề thật ở một hot path cụ thể.
 
-### 6.10.3 — PeriodicTimer
+### 6.9.3 — PeriodicTimer
 
 **Điều kiện kích hoạt:** vòng lặp chạy định kỳ trong `BackgroundService`.
 
@@ -127,11 +127,11 @@ while (await timer.WaitForNextTickAsync(ct))
 
 Khác biệt tích luỹ: với `Task.Delay`, thời gian xử lý **cộng vào** chu kỳ, nên sau một giờ lịch chạy đã trôi rất xa so với dự kiến.
 
-`PeriodicTimer` cũng xử lý huỷ gọn hơn: `WaitForNextTickAsync` trả về `false` khi bị huỷ, nên vòng lặp thoát tự nhiên mà không cần `try/catch` cho `OperationCanceledException` ([bài 17.8](../../stage-05-senior-engineering/module-17-distributed-systems/17.7-outbox-idempotency-demo.mdx)).
+`PeriodicTimer` cũng xử lý huỷ gọn hơn: `WaitForNextTickAsync` trả về `false` khi bị huỷ, nên vòng lặp thoát tự nhiên mà không cần `try/catch` cho `OperationCanceledException` ([bài 17.7](../../stage-05-senior-engineering/module-17-distributed-systems/17.7-outbox-idempotency-demo.mdx)).
 
 **Lưu ý:** nếu `XuLyAsync` tốn **lâu hơn** chu kỳ, `PeriodicTimer` bỏ qua các tick đã lỡ chứ không dồn lại — đó là hành vi bạn muốn, vì dồn lại sẽ tạo ra một đợt xử lý ồ ạt.
 
-### 6.10.4 — IAsyncDisposable
+### 6.9.4 — IAsyncDisposable
 
 **Điều kiện kích hoạt:** lớp giữ tài nguyên mà việc đóng tốn thời gian.
 
@@ -154,7 +154,7 @@ await using var publisher = new MessagePublisher(...);
 
 Đừng cài `IAsyncDisposable` nếu việc dọn dẹp là đồng bộ — `IDisposable` đơn giản hơn và đủ dùng.
 
-### 6.10.5 — Async state machine
+### 6.9.5 — Async state machine
 
 **Điều kiện kích hoạt:** hiểu để đọc stack trace, không cần tự viết gì.
 
@@ -187,7 +187,7 @@ Hai hệ quả thực tế:
 public Task<int> GetCountAsync() => Task.FromResult(_cache.Count);
 ```
 
-### 6.10.6 — Những chủ đề khác
+### 6.9.6 — Những chủ đề khác
 
 | Chủ đề | Nội dung | Ưu tiên |
 |---|---|---|
@@ -197,9 +197,9 @@ public Task<int> GetCountAsync() => Task.FromResult(_cache.Count);
 | `TaskCompletionSource` | Tạo `Task` hoàn thành thủ công | Thấp |
 | `ConfigureAwait(false)` | Bỏ qua context đồng bộ hoá | Thấp trong ASP.NET Core |
 
-`ConfigureAwait(false)` đáng nói riêng: trong **ASP.NET Core** nó gần như không cần, vì framework này không có synchronization context. Nó vẫn quan trọng khi viết **thư viện** dùng được ở cả ứng dụng desktop ([ConfigureAwait FAQ](https://devblogs.microsoft.com/dotnet/configureawait-faq/) và [bài 6.4](6.3-configureawait.mdx)).
+`ConfigureAwait(false)` đáng nói riêng: trong **ASP.NET Core** nó gần như không cần, vì framework này không có synchronization context. Nó vẫn quan trọng khi viết **thư viện** dùng được ở cả ứng dụng desktop ([ConfigureAwait FAQ](https://devblogs.microsoft.com/dotnet/configureawait-faq/) và [bài 6.3](6.3-configureawait.mdx)).
 
-### 6.10.7 — Thứ tự nên học
+### 6.9.7 — Thứ tự nên học
 
 | Ưu tiên | Chủ đề | Vì sao |
 |---|---|---|
@@ -212,7 +212,7 @@ public Task<int> GetCountAsync() => Task.FromResult(_cache.Count);
 
 Sau Module 6, bước tiếp theo là [Module 7 — Dependency Injection](../module-07-dependency-injection/).
 
-### 6.10.8 — Rà lại code của bạn
+### 6.9.8 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát async nâng cao"

@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 5.8.1 — Hai thứ rất giống nhau, khác nhau một chữ
+### 5.7.1 — Hai thứ rất giống nhau, khác nhau một chữ
 
 ```csharp
 // Delegate — code ĐÃ BIÊN DỊCH, chỉ gọi được
@@ -47,7 +47,7 @@ Console.WriteLine(body.Right);      // 100000
 
 Cây đó có thể được duyệt và **dịch sang ngôn ngữ khác** — ví dụ SQL.
 
-### 5.8.2 — Vì sao ORM cần expression tree
+### 5.7.2 — Vì sao ORM cần expression tree
 
 ```csharp
 // IQueryable nhận Expression -> dịch được sang SQL
@@ -71,11 +71,11 @@ Where<T>(this IEnumerable<T> source, Func<T, bool> predicate)
 Where<T>(this IQueryable<T> source, Expression<Func<T, bool>> predicate)
 ```
 
-Đây là lời giải thích kỹ thuật cho cái bẫy `.ToList()` đặt sai chỗ ở [bài 5.4](5.3-linq.mdx): gọi `AsEnumerable()` hay `ToList()` là **đổi kiểu tham số từ `Expression` sang `Func`**, và từ đó không còn gì để dịch sang SQL nữa.
+Đây là lời giải thích kỹ thuật cho cái bẫy `.ToList()` đặt sai chỗ ở [bài 5.3](5.3-linq.mdx): gọi `AsEnumerable()` hay `ToList()` là **đổi kiểu tham số từ `Expression` sang `Func`**, và từ đó không còn gì để dịch sang SQL nữa.
 
 Hệ quả kèm theo: chỉ những biểu thức mà provider **biết cách dịch** mới dùng được. Gọi một hàm C# tự viết trong `Where` sẽ ném ngoại lệ, vì cây biểu thức chứa một nút mà EF Core không hiểu.
 
-### 5.8.3 — Tự dựng expression tree
+### 5.7.3 — Tự dựng expression tree
 
 ```csharp
 // Tương đương: o => o.Total > 100000
@@ -97,7 +97,7 @@ Chỗ dùng thật của kỹ thuật này: **dựng bộ lọc động** khi ng
 
 Lưu ý về `Compile()`: nó **rất tốn kém** vì phải sinh IL lúc chạy. Gọi nó trong một vòng lặp hoặc trong mỗi request là một lỗi hiệu năng nghiêm trọng — hãy biên dịch một lần và cache lại.
 
-### 5.8.4 — Reflection: đọc và gọi lúc chạy
+### 5.7.4 — Reflection: đọc và gọi lúc chạy
 
 ```csharp
 var type = typeof(Customer);
@@ -117,7 +117,7 @@ var handlers = Assembly.GetExecutingAssembly()
 
 Bạn dùng reflection mỗi ngày mà không biết: DI container phân giải constructor bằng nó, `System.Text.Json` đọc thuộc tính bằng nó, ASP.NET Core tìm controller và action bằng nó, EF Core ánh xạ entity sang bảng bằng nó.
 
-### 5.8.5 — Cái giá
+### 5.7.5 — Cái giá
 
 ```csharp
 // Gọi trực tiếp — nhanh nhất
@@ -139,7 +139,7 @@ Phần chậm nhất của reflection là **tra cứu metadata** (`GetProperty`,
 
 Hướng hiện đại hơn là **source generator**: sinh mã lúc biên dịch thay vì suy diễn lúc chạy. `System.Text.Json` đã có chế độ này, cho hiệu năng gần bằng mã viết tay và hoạt động được với AOT.
 
-### 5.8.6 — Xung đột với Native AOT và trimming
+### 5.7.6 — Xung đột với Native AOT và trimming
 
 Đây là điểm ngày càng quan trọng.
 
@@ -163,7 +163,7 @@ Cách xử lý, theo thứ tự nên dùng:
 
 Nếu dự án của bạn không dùng AOT thì chưa phải lo. Nhưng đây là hướng mà .NET đang đi, nên mỗi chỗ dùng reflection là một khoản nợ tương lai.
 
-### 5.8.7 — Rà lại code của bạn
+### 5.7.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát expression tree và reflection"
@@ -247,7 +247,7 @@ WHERE o."Total" > @p0 AND o."Status" = @p1
 
 **Vì sao `Func` thì không.** `Func<Order, bool>` đã được biên dịch thành **mã máy**. EF Core nhận được một con trỏ hàm và không có cách nào biết bên trong nó làm gì — nó chỉ gọi được hàm đó với một `Order` cụ thể. Vì vậy EF Core buộc phải **tải toàn bộ bảng về** rồi mới lọc trong bộ nhớ.
 
-Đây chính là khác biệt giữa `IQueryable<T>` và `IEnumerable<T>` mà [bài 5.4](5.3-linq.mdx) đo bằng câu SQL sinh ra:
+Đây chính là khác biệt giữa `IQueryable<T>` và `IEnumerable<T>` mà [bài 5.3](5.3-linq.mdx) đo bằng câu SQL sinh ra:
 
 ```csharp
 IQueryable<Order> q = db.Orders;
@@ -284,7 +284,7 @@ Khi viết hàm nhận điều kiện lọc và truyền xuống `IQueryable`, *
 <details>
 <summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
 
-**Gợi ý.** Làm nóng trước và lấy giá trị nhỏ nhất của nhiều lần chạy, như [bài 1.8](../../stage-01-foundation/module-01-programming-logic/1.7-data-structures-and-big-o.mdx) đã nêu. Ngoài ra phải **dùng** kết quả, nếu không JIT sẽ loại bỏ luôn vòng lặp.
+**Gợi ý.** Làm nóng trước và lấy giá trị nhỏ nhất của nhiều lần chạy, như [bài 1.7](../../stage-01-foundation/module-01-programming-logic/1.7-data-structures-and-big-o.mdx) đã nêu. Ngoài ra phải **dùng** kết quả, nếu không JIT sẽ loại bỏ luôn vòng lặp.
 
 **Lời giải.**
 
@@ -345,7 +345,7 @@ public static class FastAccessor<T>
 }
 ```
 
-Kết hợp với mẫu `static` theo kiểu generic ở [bài 5.3](5.2-generics.mdx): cache được dựng đúng một lần cho mỗi kiểu, không cần khoá.
+Kết hợp với mẫu `static` theo kiểu generic ở [bài 5.2](5.2-generics.mdx): cache được dựng đúng một lần cho mỗi kiểu, không cần khoá.
 
 **Khi nào reflection là lựa chọn đúng.** Khi nó chạy **một lần lúc khởi động** hoặc **vài lần mỗi request**, không phải trong vòng lặp triệu lần. Ví dụ hợp lý: quét assembly để đăng ký DI, đọc thuộc tính cấu hình lúc khởi động, dựng metadata cho tuần tự hoá.
 
@@ -431,7 +431,7 @@ public static IQueryable<T> LocTheo<T>(this IQueryable<T> nguon, string tenCot, 
 }
 ```
 
-Danh sách **cho phép** chứ không phải danh sách **cấm** — thêm một cột nhạy cảm vào entity sau này sẽ không tự động bị lộ. Đây là cùng một nguyên tắc với việc tách DTO khỏi entity ở [bài 9.2](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.1-rest-api-design-principles.mdx).
+Danh sách **cho phép** chứ không phải danh sách **cấm** — thêm một cột nhạy cảm vào entity sau này sẽ không tự động bị lộ. Đây là cùng một nguyên tắc với việc tách DTO khỏi entity ở [bài 9.1](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.1-rest-api-design-principles.mdx).
 
 **Khi nào nên tự dựng expression tree.** Ít khi. Ba lựa chọn thường tốt hơn:
 

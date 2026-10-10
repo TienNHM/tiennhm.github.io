@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 13.2.1 — EF Core làm gì
+### 13.1.1 — EF Core làm gì
 
 ```mermaid
 flowchart LR
@@ -46,7 +46,7 @@ Bốn việc, và việc thứ tư là thứ phân biệt EF Core với một th
 
 Dapper làm việc 1 và 2. Việc 3 và 4 là lý do EF Core tiện hơn — và cũng là nơi chi phí nằm.
 
-### 13.2.2 — Change tracker
+### 13.1.2 — Change tracker
 
 ```csharp
 var customer = await db.Customers.FindAsync(42);   // EF lưu BẢN SAO giá trị gốc
@@ -91,9 +91,9 @@ Console.WriteLine(ReferenceEquals(a, b));    // True — CÙNG một đối tư�
 
 Đây là **identity map**: trong một `DbContext`, mỗi khoá chính chỉ có **một** instance. `FindAsync` còn kiểm tra change tracker **trước** khi đi xuống database — nên lần gọi thứ hai không sinh truy vấn nào.
 
-Mặt trái: `DbContext` sống lâu tích luỹ entity và **trả về dữ liệu cũ**. Đó là lý do `DbContext` phải là `Scoped` ([bài 7.5](../../stage-02-csharp-professional/module-07-dependency-injection/7.4-service-lifetimes.mdx)).
+Mặt trái: `DbContext` sống lâu tích luỹ entity và **trả về dữ liệu cũ**. Đó là lý do `DbContext` phải là `Scoped` ([bài 7.4](../../stage-02-csharp-professional/module-07-dependency-injection/7.4-service-lifetimes.mdx)).
 
-### 13.2.3 — `IQueryable` là cây biểu thức
+### 13.1.3 — `IQueryable` là cây biểu thức
 
 ```csharp
 // CHUA co truy van nao chay
@@ -136,7 +136,7 @@ public IQueryable<Customer> GetActive() =>
 
 Phiên bản đầu trông vô hại vì `IQueryable` **kế thừa** `IEnumerable`, nên nó biên dịch. Nhưng người gọi thêm `.Where(...).Take(20)` sẽ lọc trong bộ nhớ sau khi đã nạp toàn bộ khách hàng active. Chi tiết ở [Module 5](../../stage-02-csharp-professional/module-05-advanced-csharp/).
 
-### 13.2.4 — Khi EF Core không dịch được
+### 13.1.4 — Khi EF Core không dịch được
 
 ```csharp
 // KHÔNG dịch được — EF Core ném exception lúc chạy
@@ -169,7 +169,7 @@ Cách 2 là đúng khi bộ lọc thật sự cần logic C# — điểm mấu c
 
 `FromSql` (EF Core 8+) dùng chuỗi nội suy nhưng **tham số hoá tự động** — an toàn với SQL injection. `FromSqlRaw` thì không; nó chỉ nên dùng với tham số khai rõ.
 
-### 13.2.5 — EF Core, Dapper hay ADO.NET
+### 13.1.5 — EF Core, Dapper hay ADO.NET
 
 | | EF Core | Dapper | ADO.NET |
 |---|---|---|---|
@@ -214,7 +214,7 @@ await db.Leads
     .ExecuteUpdateAsync(s => s.SetProperty(l => l.Status, LeadStatus.Lost), ct);
 ```
 
-### 13.2.6 — Thấy SQL thật
+### 13.1.6 — Thấy SQL thật
 
 Đây là thói quen quan trọng nhất khi làm việc với EF Core:
 
@@ -232,7 +232,7 @@ builder.Services.AddDbContext<CrmDbContext>(options =>
 });
 ```
 
-`EnableSensitiveDataLogging` hiện giá trị tham số trong log — rất hữu ích khi gỡ lỗi và **tuyệt đối không bật ở production** ([bài 8.8](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.7-logging-with-serilog.mdx)).
+`EnableSensitiveDataLogging` hiện giá trị tham số trong log — rất hữu ích khi gỡ lỗi và **tuyệt đối không bật ở production** ([bài 8.7](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.7-logging-with-serilog.mdx)).
 
 Xem SQL của một truy vấn cụ thể mà không chạy nó:
 
@@ -243,7 +243,7 @@ var sql = db.Customers.Where(c => c.Status == CustomerStatus.Active)
 
 `ToQueryString()` (EF Core 5+) là cách nhanh nhất để trả lời "EF Core thật sự sinh ra gì". Nhiều vấn đề hiệu năng hiện ra ngay khi bạn nhìn thấy câu SQL.
 
-### 13.2.7 — Rà lại code của bạn
+### 13.1.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát EF Core cơ bản"

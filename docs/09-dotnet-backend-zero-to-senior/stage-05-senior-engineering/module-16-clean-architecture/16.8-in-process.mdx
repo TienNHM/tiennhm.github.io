@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 16.9.1 — Vấn đề nó giải
+### 16.8.1 — Vấn đề nó giải
 
 ```csharp
 // Ghép chặt — mỗi phản ứng mới phải sửa handler này
@@ -45,7 +45,7 @@ public async Task<Result> Handle(ConvertLeadCommand command, CancellationToken c
 }
 ```
 
-Handler này giờ biết về email, analytics, đồng bộ và thông báo. Thêm phản ứng thứ năm là sửa lại nó — và nó đã thành thứ mà [bài 16.2](16.1-when-growth-exposes-architecture.mdx) cảnh báo.
+Handler này giờ biết về email, analytics, đồng bộ và thông báo. Thêm phản ứng thứ năm là sửa lại nó — và nó đã thành thứ mà [bài 16.1](16.1-when-growth-exposes-architecture.mdx) cảnh báo.
 
 ```csharp
 // Ghep long — aggregate chi noi "da xay ra"
@@ -66,7 +66,7 @@ public sealed class Lead
 
 Thêm phản ứng mới = thêm một handler, **không sửa `Lead` và không sửa command handler**.
 
-### 16.9.2 — Raise trong aggregate
+### 16.8.2 — Raise trong aggregate
 
 ```csharp
 public abstract class AggregateRoot
@@ -91,15 +91,15 @@ public sealed record LeadConverted(LeadId LeadId, string Name, string Email, Dat
 
 Ba nguyên tắc về nội dung event:
 
-**1. Tên ở thì quá khứ.** `LeadConverted`, không phải `ConvertLead` — nó mô tả việc **đã xảy ra** ([bài 14.9](../../stage-04-database-production/module-14-caching-background-jobs/14.8-message-bus-intro.mdx)).
+**1. Tên ở thì quá khứ.** `LeadConverted`, không phải `ConvertLead` — nó mô tả việc **đã xảy ra** ([bài 14.8](../../stage-04-database-production/module-14-caching-background-jobs/14.8-message-bus-intro.mdx)).
 
 **2. Chứa dữ liệu handler cần, không chỉ id.** Nếu chỉ có id, mọi handler phải truy vấn lại — và nếu dispatch sau commit, dữ liệu có thể đã đổi.
 
 **3. Bất biến.** `record` với thuộc tính `init`. Event là sự thật lịch sử; sửa nó là vô nghĩa.
 
-**Event được tích luỹ, không phát ngay.** `Raise` chỉ thêm vào danh sách; việc phát xảy ra ở tầng Application. Nhờ đó aggregate **không biết gì** về cơ chế phát — đúng dependency rule ([bài 16.4](16.3-uncle-bob.mdx)).
+**Event được tích luỹ, không phát ngay.** `Raise` chỉ thêm vào danh sách; việc phát xảy ra ở tầng Application. Nhờ đó aggregate **không biết gì** về cơ chế phát — đúng dependency rule ([bài 16.3](16.3-uncle-bob.mdx)).
 
-### 16.9.3 — Dispatch trước hay sau commit
+### 16.8.3 — Dispatch trước hay sau commit
 
 Đây là quyết định thiết kế quan trọng nhất của bài.
 
@@ -140,7 +140,7 @@ foreach (var domainEvent in events)
 **Quy tắc thực dụng: phân loại handler.**
 
 - Handler **thay đổi dữ liệu trong cùng database** (cập nhật bộ đếm, ghi audit) → **trước commit**, để nhất quán.
-- Handler **gọi ra ngoài** (email, HTTP, message bus) → **sau commit**, để không giữ khoá suốt thời gian chờ mạng ([bài 12.7](../../stage-04-database-production/module-12-sql-deep-dive/12.6-transactions-and-locking.mdx)).
+- Handler **gọi ra ngoài** (email, HTTP, message bus) → **sau commit**, để không giữ khoá suốt thời gian chờ mạng ([bài 12.6](../../stage-04-database-production/module-12-sql-deep-dive/12.6-transactions-and-locking.mdx)).
 
 ```mermaid
 sequenceDiagram
@@ -165,7 +165,7 @@ public interface IIntegrationEvent;         // dispatch SAU commit, qua outbox
 
 Chú ý `ClearDomainEvents()` gọi **trước** vòng lặp phát: nếu handler lại gọi `SaveChanges`, event cũ sẽ bị phát **hai lần** khi không xoá trước.
 
-### 16.9.4 — Handler thất bại
+### 16.8.4 — Handler thất bại
 
 ```csharp
 public sealed class SendWelcomeEmailHandler(
@@ -187,7 +187,7 @@ public sealed class SendWelcomeEmailHandler(
 }
 ```
 
-Với dispatch **sau commit**, nuốt exception là **đúng**: nghiệp vụ chính đã hoàn tất, và để một email hỏng làm request thất bại là đánh đổi sai ([bài 11.8](../../stage-03-aspnet-core-backend/module-11-signalr/11.7-ihubcontext-server-push-outside-hub.mdx)).
+Với dispatch **sau commit**, nuốt exception là **đúng**: nghiệp vụ chính đã hoàn tất, và để một email hỏng làm request thất bại là đánh đổi sai ([bài 11.7](../../stage-03-aspnet-core-backend/module-11-signalr/11.7-ihubcontext-server-push-outside-hub.mdx)).
 
 Nhưng "nuốt và log" nghĩa là **email có thể không bao giờ được gửi**. Nếu điều đó không chấp nhận được, handler phải **đẩy vào hàng đợi**:
 
@@ -198,13 +198,13 @@ public async Task Handle(LeadConverted notification, CancellationToken ct)
 }
 ```
 
-Hangfire lo retry và lo việc sống sót qua restart ([bài 14.7](../../stage-04-database-production/module-14-caching-background-jobs/14.6-hangfire-background-jobs.mdx)).
+Hangfire lo retry và lo việc sống sót qua restart ([bài 14.6](../../stage-04-database-production/module-14-caching-background-jobs/14.6-hangfire-background-jobs.mdx)).
 
 Với dispatch **trước commit**, ngược lại: handler **nên** để exception thoát ra, vì rollback là hành vi đúng khi một phần của đơn vị công việc thất bại.
 
 **MediatR `Publish` mặc định chạy handler tuần tự** và **dừng ở handler đầu tiên ném exception** — nên handler thứ ba không chạy nếu handler thứ hai lỗi. Đổi bằng `PublishStrategy`, hoặc tự bắt exception trong từng handler.
 
-### 16.9.5 — Chuỗi event
+### 16.8.5 — Chuỗi event
 
 ```
 LeadConverted
@@ -242,7 +242,7 @@ public async Task<Result> Handle(ConvertLeadCommand command, CancellationToken c
 
 Ranh giới: *"nếu việc này không xảy ra, nghiệp vụ có sai không?"* Nếu **có**, nó thuộc về handler tường minh.
 
-### 16.9.6 — Domain event và integration event
+### 16.8.6 — Domain event và integration event
 
 | | Domain event | Integration event |
 |---|---|---|
@@ -274,9 +274,9 @@ public sealed class PublishLeadConvertedHandler(IOutboxWriter outbox)
 }
 ```
 
-Và **phải qua outbox** để không mất event khi tiến trình chết giữa commit và publish ([bài 14.9](../../stage-04-database-production/module-14-caching-background-jobs/14.8-message-bus-intro.mdx)). Chi tiết ở [Module 17](../module-17-distributed-systems/).
+Và **phải qua outbox** để không mất event khi tiến trình chết giữa commit và publish ([bài 14.8](../../stage-04-database-production/module-14-caching-background-jobs/14.8-message-bus-intro.mdx)). Chi tiết ở [Module 17](../module-17-distributed-systems/).
 
-### 16.9.7 — Rà lại code của bạn
+### 16.8.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát domain event"

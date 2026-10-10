@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 16.3.1 — Bốn tầng
+### 16.2.1 — Bốn tầng
 
 ```
 API  ──►  Application  ──►  Domain
@@ -59,7 +59,7 @@ internal sealed class EfLeadRepository(CrmDbContext db) : ILeadRepository { ... 
 
 `internal` ở implementation là chi tiết đáng dùng: không project nào ngoài Infrastructure **nhìn thấy** lớp đó, nên không ai vô tình phụ thuộc vào nó.
 
-### 16.3.2 — Ranh giới do trình biên dịch ép
+### 16.2.2 — Ranh giới do trình biên dịch ép
 
 ```
 # Ranh giới đó KỶ LUẬT — thất bại lúc 5 giờ chiều thứ Sáu
@@ -104,9 +104,9 @@ public void Domain_ShouldNotDependOn_Infrastructure()
 
 Thư viện `NetArchTest` biến quy tắc kiến trúc thành **bài test chạy trong CI** — mạnh hơn nhiều so với một dòng trong tài liệu mà không ai đọc.
 
-**Nhưng đừng tách project quá sớm.** Bốn project cho một CRUD 10 bảng là chi phí thuần ([bài 16.2](16.1-when-growth-exposes-architecture.mdx)). Bắt đầu bằng thư mục, chuyển sang project khi ranh giới **đã rõ** và kỷ luật **đã bắt đầu thất bại**.
+**Nhưng đừng tách project quá sớm.** Bốn project cho một CRUD 10 bảng là chi phí thuần ([bài 16.1](16.1-when-growth-exposes-architecture.mdx)). Bắt đầu bằng thư mục, chuyển sang project khi ranh giới **đã rõ** và kỷ luật **đã bắt đầu thất bại**.
 
-### 16.3.3 — Anemic domain model
+### 16.2.3 — Anemic domain model
 
 ```csharp
 // ANEMIC — entity chỉ là túi dữ liệu
@@ -184,7 +184,7 @@ Kết quả: quy tắc có **một nhà duy nhất**, test được mà không c
 
 Ép entity giàu logic cho một bảng `Country` chỉ có `Code` và `Name` là chi phí thừa. Anemic là **mặc định hợp lý**; entity giàu logic là thứ bạn thêm **khi có bất biến cần bảo vệ**.
 
-### 16.3.4 — Ranh giới transaction
+### 16.2.4 — Ranh giới transaction
 
 ```csharp
 // Application — đây là nơi transaction bắt đầu và kết thúc
@@ -211,9 +211,9 @@ public sealed class ConvertLeadHandler(
 
 **Application quyết định ranh giới transaction**, không phải Domain và không phải API.
 
-Lý do: Domain không được biết về database ([bài 16.4](16.3-uncle-bob.mdx)), còn API không biết use case nào cần nguyên tử với nhau.
+Lý do: Domain không được biết về database ([bài 16.3](16.3-uncle-bob.mdx)), còn API không biết use case nào cần nguyên tử với nhau.
 
-Và như [bài 13.10](../../stage-04-database-production/module-13-entity-framework-core/13.9-unit-of-work-and-repository-pattern.mdx) đã nói: `DbContext` **đã là** Unit of Work, nên `IUnitOfWork` ở đây chỉ đáng có nếu Application **không được** biết về EF Core. Nếu Application tham chiếu EF Core (điều nhiều dự án chấp nhận), gọi thẳng `DbContext.SaveChangesAsync` đơn giản hơn.
+Và như [bài 13.9](../../stage-04-database-production/module-13-entity-framework-core/13.9-unit-of-work-and-repository-pattern.mdx) đã nói: `DbContext` **đã là** Unit of Work, nên `IUnitOfWork` ở đây chỉ đáng có nếu Application **không được** biết về EF Core. Nếu Application tham chiếu EF Core (điều nhiều dự án chấp nhận), gọi thẳng `DbContext.SaveChangesAsync` đơn giản hơn.
 
 **Tác dụng phụ bên ngoài nằm ngoài transaction:**
 
@@ -223,7 +223,7 @@ await uow.SaveChangesAsync(ct);                  // commit TRƯỚC
 await _notifications.PublishAsync(...);          // rồi mới gửi
 ```
 
-Đúng nguyên tắc ở [bài 11.8](../../stage-03-aspnet-core-backend/module-11-signalr/11.7-ihubcontext-server-push-outside-hub.mdx) và [bài 12.7](../../stage-04-database-production/module-12-sql-deep-dive/12.6-transactions-and-locking.mdx).
+Đúng nguyên tắc ở [bài 11.7](../../stage-03-aspnet-core-backend/module-11-signalr/11.7-ihubcontext-server-push-outside-hub.mdx) và [bài 12.6](../../stage-04-database-production/module-12-sql-deep-dive/12.6-transactions-and-locking.mdx).
 
 Thứ tự trong một lần convert lead, từ API tới tác dụng phụ:
 
@@ -243,9 +243,9 @@ sequenceDiagram
     H->>N: PublishAsync, sau khi commit
 ```
 
-### 16.3.5 — Hạn chế của mô hình phân tầng
+### 16.2.5 — Hạn chế của mô hình phân tầng
 
-Ba hạn chế thật, và chúng dẫn tới [bài 16.5](16.4-vertical-slice-architecture.mdx):
+Ba hạn chế thật, và chúng dẫn tới [bài 16.4](16.4-vertical-slice-architecture.mdx):
 
 **1. Một tính năng nằm rải khắp bốn project.** Thêm "xuất danh sách lead" cần sửa file ở API, Application, Domain và Infrastructure — bốn thư mục khác nhau trong bốn project khác nhau.
 
@@ -257,7 +257,7 @@ Ba hạn chế thật, và chúng dẫn tới [bài 16.5](16.4-vertical-slice-ar
 
 Đó là lý do Vertical Slice tồn tại, và vì sao nhiều dự án dùng **kết hợp**: giữ Domain tách bạch, nhưng tổ chức Application theo tính năng thay vì theo loại kỹ thuật.
 
-### 16.3.6 — Rà lại code của bạn
+### 16.2.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát phân tầng"

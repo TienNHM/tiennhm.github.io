@@ -9,7 +9,7 @@ import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 # 16.14 - Mini case study
 
 <SummaryBox>
-Một ca refactor thật: `CrmService` dài **4.217 dòng**, 19 dependency trong constructor, 63 phương thức public, và **mọi** controller đều gọi nó. Đội 6 người, không được dừng phát triển tính năng. Điều đáng học nhất không phải kỹ thuật — Strangler Fig đã biết ở [bài 16.11](16.10-anti-patterns-to-avoid.mdx) — mà là **cách làm việc đó song song với phát triển tính năng**: quy tắc "chạm đâu gỡ đó", cách đo tiến độ, và **ba sai lầm** đội mắc phải trong ba tháng đầu khiến tiến độ gần như bằng không trước khi họ đổi cách làm.
+Một ca refactor thật: `CrmService` dài **4.217 dòng**, 19 dependency trong constructor, 63 phương thức public, và **mọi** controller đều gọi nó. Đội 6 người, không được dừng phát triển tính năng. Điều đáng học nhất không phải kỹ thuật — Strangler Fig đã biết ở [bài 16.10](16.10-anti-patterns-to-avoid.mdx) — mà là **cách làm việc đó song song với phát triển tính năng**: quy tắc "chạm đâu gỡ đó", cách đo tiến độ, và **ba sai lầm** đội mắc phải trong ba tháng đầu khiến tiến độ gần như bằng không trước khi họ đổi cách làm.
 </SummaryBox>
 
 ## Mục tiêu bài học
@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 16.15.1 — Hiện trạng
+### 16.14.1 — Hiện trạng
 
 ```csharp
 public class CrmService
@@ -52,17 +52,17 @@ Ba hậu quả đo được, không phải cảm tính:
 - Thời gian đồng bộ của developer mới:     ~3 ngày chỉ để hiểu file này
 ```
 
-### 16.15.2 — Ba sai lầm trong ba tháng đầu
+### 16.14.2 — Ba sai lầm trong ba tháng đầu
 
 **Sai lầm 1 — lập kế hoạch refactor toàn bộ.** Đội dành hai tuần viết tài liệu thiết kế cho kiến trúc đích, rồi phát hiện không có cách nào đi từ A tới B trong một lần. Tài liệu bị bỏ.
 
-**Sai lầm 2 — tách theo tầng kỹ thuật.** Nỗ lực đầu tiên là tách `CrmService` thành `CrmReadService`, `CrmWriteService`, `CrmValidationService`. Kết quả: ba file lớn thay vì một, và **mỗi tính năng vẫn phải sửa cả ba** ([bài 16.11](16.10-anti-patterns-to-avoid.mdx)).
+**Sai lầm 2 — tách theo tầng kỹ thuật.** Nỗ lực đầu tiên là tách `CrmService` thành `CrmReadService`, `CrmWriteService`, `CrmValidationService`. Kết quả: ba file lớn thay vì một, và **mỗi tính năng vẫn phải sửa cả ba** ([bài 16.10](16.10-anti-patterns-to-avoid.mdx)).
 
 **Sai lầm 3 — refactor trên nhánh riêng.** Một người refactor trên nhánh `refactor/crm-service` trong 5 tuần. Khi merge, có **340 conflict** vì phần còn lại của đội vẫn sửa file đó hàng ngày. Nhánh bị bỏ.
 
 Ba tháng, tiến độ gần bằng không. Điểm chung của cả ba sai lầm: chúng đều cố làm refactor thành **một dự án tách biệt** thay vì một phần của công việc hàng ngày.
 
-### 16.15.3 — Cách làm mới: chạm đâu gỡ đó
+### 16.14.3 — Cách làm mới: chạm đâu gỡ đó
 
 Quy tắc duy nhất, viết vào định nghĩa hoàn thành của đội:
 
@@ -97,7 +97,7 @@ Ba đặc điểm khiến cách này hoạt động được:
 
 Bước 2 quan trọng: giữ `CrmService` như một lớp uỷ quyền nghĩa là **không caller nào phải sửa** cùng lúc. Việc dọn caller làm dần sau.
 
-### 16.15.4 — Đo tiến độ
+### 16.14.4 — Đo tiến độ
 
 Ba chỉ số, đo hàng tuần và vẽ theo thời gian:
 
@@ -126,7 +126,7 @@ grep -c "public async Task" CrmService.cs
 
 Biểu đồ này cũng là công cụ **thuyết phục quản lý**: nó cho thấy refactor đang tiến triển mà không tốn sprint riêng nào.
 
-### 16.15.5 — Kết quả
+### 16.14.5 — Kết quả
 
 | Chỉ số | Trước | Sau |
 |---|---|---|
@@ -140,7 +140,7 @@ Hàng cuối là điều đáng nói nhất: toàn bộ việc này diễn ra **
 
 Test nhanh hơn 12 lần không chỉ là con số dễ chịu: nó đổi hành vi của đội — khi bộ test chạy 40 giây, người ta chạy nó trước mỗi commit; khi nó chạy 8 phút, người ta chỉ chạy lúc CI báo đỏ.
 
-### 16.15.6 — Khi nào dừng
+### 16.14.6 — Khi nào dừng
 
 Không phải mọi God Service đều đáng gỡ hết. Ba tình huống nên dừng:
 
@@ -150,7 +150,7 @@ Không phải mọi God Service đều đáng gỡ hết. Ba tình huống nên 
 
 **3. Không có test.** Refactor code không có test là đánh bạc. Viết test đặc tả hành vi hiện tại trước — kể cả khi hành vi đó trông sai, vì có thể có ai đó đang phụ thuộc vào nó ([bài 16.9](16.9-testing-strategy-overview.mdx)).
 
-### 16.15.7 — Rà lại code của bạn
+### 16.14.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát khi gỡ God Service"
@@ -171,7 +171,7 @@ Không phải mọi God Service đều đáng gỡ hết. Ba tình huống nên 
 
 #### Bài 1 — Đo hiện trạng
 
-Tìm lớp lớn nhất trong dự án và đo ba chỉ số ở mục 16.15.4.
+Tìm lớp lớn nhất trong dự án và đo ba chỉ số ở mục 16.14.4.
 
 **Tiêu chí hoàn thành:** bạn có ba con số cho ít nhất ba lớp, và giải thích được vì sao **ba chỉ số này** chứ không phải ba chỉ số khác.
 

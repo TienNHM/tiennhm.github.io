@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 12.8.1 — Khi nào dùng stored procedure
+### 12.7.1 — Khi nào dùng stored procedure
 
 | Nghiêng về SP | Nghiêng về ORM / SQL trong ứng dụng |
 |---|---|
@@ -46,9 +46,9 @@ Ba cái giá của SP:
 
 Cái giá thứ nhất là nghiêm trọng nhất: "ai đó sửa SP trên production để chữa cháy" là kịch bản có thật, và không ai biết cho tới lần deploy sau ghi đè lên.
 
-Nếu dùng SP, hãy **quản lý chúng như code**: file `.sql` trong repo, áp dụng qua migration ([bài 12.9](12.8-database-migration-strategy.mdx)).
+Nếu dùng SP, hãy **quản lý chúng như code**: file `.sql` trong repo, áp dụng qua migration ([bài 12.8](12.8-database-migration-strategy.mdx)).
 
-### 12.8.2 — SP không tự an toàn
+### 12.7.2 — SP không tự an toàn
 
 ```sql
 -- BỊ SQL INJECTION dù là stored procedure
@@ -89,7 +89,7 @@ Hai kỹ thuật kết hợp:
 
 `QUOTENAME` một mình **không đủ**: nó bọc tên trong ngoặc vuông và escape đúng cách, nhưng vẫn cho phép truy cập những cột bạn không muốn lộ. Whitelist mới là lớp kiểm soát thật.
 
-Mẫu tham số tuỳ chọn thì quay lại vấn đề catch-all ở [bài 12.6](12.5-query-optimization.mdx):
+Mẫu tham số tuỳ chọn thì quay lại vấn đề catch-all ở [bài 12.5](12.5-query-optimization.mdx):
 
 ```sql
 CREATE OR ALTER PROCEDURE sp_SearchLeadsFiltered
@@ -113,9 +113,9 @@ BEGIN
 END;
 ```
 
-Ba chi tiết: `SET NOCOUNT ON` bỏ thông báo "n rows affected" tốn một lượt đi về mạng cho mỗi câu lệnh; **trần cứng cho `@PageSize`** ([bài 9.5](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.4-pagination-filtering-sorting.mdx)); và **tie-breaker** trong `ORDER BY` để phân trang ổn định.
+Ba chi tiết: `SET NOCOUNT ON` bỏ thông báo "n rows affected" tốn một lượt đi về mạng cho mỗi câu lệnh; **trần cứng cho `@PageSize`** ([bài 9.4](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.4-pagination-filtering-sorting.mdx)); và **tie-breaker** trong `ORDER BY` để phân trang ổn định.
 
-### 12.8.3 — View: đặt tên, không tăng tốc
+### 12.7.3 — View: đặt tên, không tăng tốc
 
 ```sql
 CREATE OR ALTER VIEW vw_LeadSummary AS
@@ -157,9 +157,9 @@ Optimizer phải mở rộng toàn bộ chuỗi, và nó **không phải lúc n�
 
 Quy tắc thực dụng: **một tầng view, không lồng**. Cần phức tạp hơn thì viết truy vấn thật hoặc dùng materialized view.
 
-`DATEDIFF(...) AS AgeInDays` trong ví dụ trên còn một vấn đề nữa: truy vấn `WHERE AgeInDays > 30` **không SARGable** ([bài 12.5](12.4-indexing.mdx)). Viết `WHERE CreatedAt < DATEADD(DAY, -30, SYSUTCDATETIME())` trên bảng gốc thì mới dùng được index.
+`DATEDIFF(...) AS AgeInDays` trong ví dụ trên còn một vấn đề nữa: truy vấn `WHERE AgeInDays > 30` **không SARGable** ([bài 12.4](12.4-indexing.mdx)). Viết `WHERE CreatedAt < DATEADD(DAY, -30, SYSUTCDATETIME())` trên bảng gốc thì mới dùng được index.
 
-### 12.8.4 — Indexed view và materialized view
+### 12.7.4 — Indexed view và materialized view
 
 ```sql
 -- SQL Server: indexed view — CẬP NHẬT ĐỒNG BỘ
@@ -220,7 +220,7 @@ flowchart TB
     end
 ```
 
-### 12.8.5 — Logic nghiệp vụ đặt ở đâu
+### 12.7.5 — Logic nghiệp vụ đặt ở đâu
 
 ```sql
 -- Nen tranh: quy tac nghiep vu trong SP
@@ -239,9 +239,9 @@ Quy tắc này ở trong database thì: không test được bằng unit test, k
 
 Ranh giới: database bảo vệ **dữ liệu không bao giờ được sai**; ứng dụng chứa **quy tắc có thể thay đổi theo yêu cầu kinh doanh**.
 
-"Email phải duy nhất" là toàn vẹn dữ liệu — thuộc về database. "Khách hàng Bronze không được tạo deal lớn" là quy tắc kinh doanh có thể đổi tháng sau — thuộc về ứng dụng ([bài 8.6](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.5-model-validation.mdx)).
+"Email phải duy nhất" là toàn vẹn dữ liệu — thuộc về database. "Khách hàng Bronze không được tạo deal lớn" là quy tắc kinh doanh có thể đổi tháng sau — thuộc về ứng dụng ([bài 8.5](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.5-model-validation.mdx)).
 
-### 12.8.6 — Rà lại code của bạn
+### 12.7.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát SP và view"

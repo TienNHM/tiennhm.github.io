@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 9.12.1 — Sự cố
+### 9.11.1 — Sự cố
 
 ```csharp
 // Trước
@@ -51,7 +51,7 @@ public record LeadDto(Guid CustomerId, string Name, decimal Value);
 
 Web app không bị ảnh hưởng vì nó dùng JavaScript (không kiểu chặt) và người dùng chỉ cần refresh. **Mobile thì không**: bản vá phải qua kiểm duyệt cửa hàng, và kể cả sau đó người dùng phải chủ động cập nhật.
 
-### 9.12.2 — Phân loại thay đổi
+### 9.11.2 — Phân loại thay đổi
 
 **An toàn — không phá client cũ:**
 
@@ -79,7 +79,7 @@ app.MapGet("/api/leads/{id}/history", ...);
 
 Hàng **đổi nghĩa** đáng sợ nhất: đổi `Value` từ "chưa thuế" sang "đã gồm thuế" không gây lỗi nào, chỉ khiến mọi con số hiển thị sai — và có thể vài tuần sau mới có người phát hiện.
 
-### 9.12.3 — Ba chiến lược versioning
+### 9.11.3 — Ba chiến lược versioning
 
 ```csharp
 builder.Services.AddApiVersioning(options =>
@@ -99,7 +99,7 @@ builder.Services.AddApiVersioning(options =>
 | **Header** | `X-Api-Version: 2` | URL ổn định | Khó thử bằng trình duyệt |
 | **Media type** | `Accept: application/json;v=2` | Đúng chuẩn REST | Khó dùng nhất |
 
-**Khuyến nghị:** dùng **URL**. Nó rõ ràng nhất khi đọc log, dễ thử bằng `curl`, và dễ định tuyến ở gateway ([bài 18.4](../../stage-05-senior-engineering/module-18-microservices/18.3-api-gateway-yarp-dotnet.mdx)).
+**Khuyến nghị:** dùng **URL**. Nó rõ ràng nhất khi đọc log, dễ thử bằng `curl`, và dễ định tuyến ở gateway ([bài 18.3](../../stage-05-senior-engineering/module-18-microservices/18.3-api-gateway-yarp-dotnet.mdx)).
 
 ```csharp
 [ApiController]
@@ -126,7 +126,7 @@ public class LeadsController : ControllerBase
 }
 ```
 
-### 9.12.4 — Không nhân đôi code
+### 9.11.4 — Không nhân đôi code
 
 Sai lầm phổ biến khi versioning: chép toàn bộ tầng service cho mỗi phiên bản.
 
@@ -161,7 +161,7 @@ public record LeadDtoV2(Guid CustomerId, string Name, MoneyDto Value)
 }
 ```
 
-Quy tắc: **phiên bản hoá ranh giới, không phiên bản hoá logic**. Nếu bạn thấy mình chép một service, ranh giới đang bị đặt sai chỗ ([bài 16.4](../../stage-05-senior-engineering/module-16-clean-architecture/16.3-uncle-bob.mdx)).
+Quy tắc: **phiên bản hoá ranh giới, không phiên bản hoá logic**. Nếu bạn thấy mình chép một service, ranh giới đang bị đặt sai chỗ ([bài 16.3](../../stage-05-senior-engineering/module-16-clean-architecture/16.3-uncle-bob.mdx)).
 
 ```mermaid
 flowchart LR
@@ -172,7 +172,7 @@ flowchart LR
     L --> D2["LeadDtoV2.From<br/>CustomerId: Guid"]
 ```
 
-### 9.12.5 — Phát hiện breaking change trong CI
+### 9.11.5 — Phát hiện breaking change trong CI
 
 Đây là phần có giá trị cao nhất: chặn sự cố **trước khi** nó tới production.
 
@@ -205,7 +205,7 @@ public async Task LeadDtoV1_GiuNguyenHopDong()
 
 Khẳng định **kiểu** chứ không chỉ sự tồn tại — vì đó chính xác là thứ đã gãy ở ca này.
 
-### 9.12.6 — Vòng đời một phiên bản
+### 9.11.6 — Vòng đời một phiên bản
 
 ```
 1. Phat hanh v2, GIU v1 chay song song
@@ -234,7 +234,7 @@ _meter.CreateCounter<long>("api.requests")
               new KeyValuePair<string, object?>("client", clientId));
 ```
 
-### 9.12.7 — Rà lại code của bạn
+### 9.11.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát versioning API"

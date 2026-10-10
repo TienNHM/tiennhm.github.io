@@ -9,7 +9,7 @@ import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 # 13.10 - Global Query Filters
 
 <SummaryBox>
-Global query filter tự thêm điều kiện `WHERE` vào **mọi** truy vấn trên một entity — công cụ mạnh nhất cho soft delete và đa khách hàng, vì **không ai quên được**. Nhưng nó có ba cái bẫy nghiêm trọng. **Một: mô hình EF Core được cache theo kiểu `DbContext`**, nên filter tham chiếu tới giá trị thay đổi theo request (tenant id) **chỉ được đánh giá đúng khi filter đọc từ một field của context** — hiểu sai điểm này dẫn tới việc mọi request dùng tenant id của request **đầu tiên**. **Hai: `FindAsync` bỏ qua filter** hoàn toàn. **Ba: `IgnoreQueryFilters()` bỏ qua *tất cả* filter**, nên tắt soft delete cũng tắt luôn cách ly tenant — một lỗ hổng dữ liệu nghiêm trọng.
+Global query filter tự thêm điều kiện `WHERE` vào **mọi** truy vấn trên một entity — công cụ mạnh nhất cho soft delete và đa khách hàng, vì **không ai quên được**. Nhưng nó có ba cái bẫy nghiêm trọng. **Một: mô hình EF Core được cache theo kiểu `DbContext`**, nên filter tham chiếu tới giá trị thay đổi theo request (tenant id) **chỉ được đánh giá lại đúng khi giá trị đó lấy từ chính instance context** (field, property, tham số primary constructor) — bắt một biến cục bộ hay field static thì mọi request dùng tenant id của request **đầu tiên**. **Hai: `FindAsync` không áp filter** khi entity đã nằm trong change tracker. **Ba: `IgnoreQueryFilters()` bỏ qua *tất cả* filter**, nên tắt soft delete cũng tắt luôn cách ly tenant — một lỗ hổng dữ liệu nghiêm trọng.
 </SummaryBox>
 
 ## Mục tiêu bài học
@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 13.11.1 — Soft delete
+### 13.10.1 — Soft delete
 
 ```csharp
 modelBuilder.Entity<Customer>().HasQueryFilter(c => c.DeletedAt == null);
@@ -79,19 +79,20 @@ public override ValueTask<InterceptionResult<int>> SavingChangesAsync(
 }
 ```
 
-Và nhớ filtered unique index ([bài 12.2](../module-12-sql-deep-dive/12.1-crm-database-design.mdx)):
+Và nhớ filtered unique index ([bài 12.1](../module-12-sql-deep-dive/12.1-crm-database-design.mdx)):
 
 ```csharp
 builder.HasIndex(c => c.Email).IsUnique().HasFilter("[DeletedAt] IS NULL");
 ```
 
-### 13.11.2 — Đa khách hàng và cái bẫy cache mô hình
+### 13.10.2 — Đa khách hàng và cái bẫy cache mô hình
 
 ```csharp
 public class CrmDbContext(DbContextOptions<CrmDbContext> options, ICurrentTenant tenant)
     : DbContext(options)
 {
     private readonly int _tenantId = tenant.Id;          // doc MOT LAN vao field
+    public int TenantId => _tenantId;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -101,29 +102,37 @@ public class CrmDbContext(DbContextOptions<CrmDbContext> options, ICurrentTenant
 }
 ```
 
-Điểm mấu chốt là `_tenantId` phải là **field của context**, không phải lời gọi tới service:
+Điểm mấu chốt là giá trị trong filter phải được đọc **từ chính instance context**, không phải từ một giá trị nằm ngoài nó:
 
 ```csharp
-// SAI — mọi request dùng tenant id của request ĐẦU TIÊN
-.HasQueryFilter(c => c.TenantId == tenant.Id);
+protected override void OnModelCreating(ModelBuilder modelBuilder)
+{
+    // SAI — mọi request dùng tenant id của request ĐẦU TIÊN
+    var tenantId = _tenantId;                       // biến cục bộ, nằm ngoài context
+    modelBuilder.Entity<Customer>()
+        .HasQueryFilter(c => c.TenantId == tenantId);
+
+    // SAI tương tự — field static, hoặc service resolve một lần rồi giữ ngoài context
+    // .HasQueryFilter(c => c.TenantId == TenantHolder.CurrentId);
+}
 ```
 
-**Vì sao:** EF Core **cache mô hình** theo kiểu `DbContext` và chỉ chạy `OnModelCreating` **một lần** cho cả vòng đời ứng dụng. Cây biểu thức của filter được dựng lúc đó.
+**Vì sao:** EF Core **cache mô hình** theo kiểu `DbContext` và chỉ chạy `OnModelCreating` **một lần** cho cả vòng đời ứng dụng. Cây biểu thức của filter được dựng lúc đó, trên instance context của lần đầu tiên.
 
-Khi filter tham chiếu tới **field của instance context**, EF Core nhận ra đó là giá trị thay đổi được và sinh ra một **tham số** — giá trị được đọc lại mỗi lần truy vấn chạy, từ instance context hiện tại.
+Khi filter tham chiếu tới **thành viên của instance context** — field `_tenantId`, một property, hay cả tham số primary constructor như `tenant.Id` (compiler lưu tham số đó thành field ẩn của context) — EF Core nhận ra biểu thức bắt nguồn từ context và sinh ra một **tham số**: giá trị được đọc lại mỗi lần truy vấn chạy, từ instance context **hiện tại**. Tài liệu EF Core dùng đúng cách viết `HasQueryFilter(b => b.TenantId == tenantId)` với `tenantId` là tham số primary constructor.
 
-Khi filter gọi `tenant.Id` trên một **service được capture trong closure**, biểu thức bắt giữ chính instance service của lần dựng mô hình đầu tiên. Mọi request sau đó dùng **tenant id của request đầu tiên** — một lỗ hổng rò rỉ dữ liệu nghiêm trọng, và nó **chỉ xuất hiện khi có nhiều tenant thật**.
+Khi filter bắt một giá trị **không thuộc instance context** — biến cục bộ trong `OnModelCreating`, field static, service resolve một lần rồi giữ ở nơi khác — EF Core không có context nào để đọc lại. Giá trị của lần đầu tiên dính vào mô hình đã cache, và mọi request sau đó dùng **tenant id của request đầu tiên** — một lỗ hổng rò rỉ dữ liệu nghiêm trọng, và nó **chỉ xuất hiện khi có nhiều tenant thật**.
 
 Vì sao hai cách viết filter trông giống nhau lại cho kết quả khác nhau:
 
 ```mermaid
 flowchart TB
     M["Lần đầu dùng context: chạy OnModelCreating MỘT lần"] --> K["Mô hình và cây biểu thức filter được cache theo kiểu DbContext"]
-    K --> F1["Filter đọc field _tenantId của context"]
-    K --> F2["Filter gọi tenant.Id trên service bắt trong closure"]
+    K --> F1["Filter đọc thành viên của instance context: field, property, tham số primary constructor"]
+    K --> F2["Filter bắt giá trị ngoài context: biến cục bộ, field static"]
     F1 --> P1["EF sinh tham số, đọc lại từ context hiện tại mỗi lần truy vấn"]
     P1 --> R1["Request của tenant B chỉ thấy dữ liệu tenant B"]
-    F2 --> P2["Biểu thức giữ instance service của lần dựng mô hình đầu tiên"]
+    F2 --> P2["Giá trị của lần đầu tiên dính vào mô hình đã cache"]
     P2 --> R2["Request của tenant B vẫn lọc theo tenant A: rò rỉ dữ liệu"]
 ```
 
@@ -148,7 +157,7 @@ builder.Services.AddDbContext<CrmDbContext>(o =>
 
 Cẩn thận: nó dựng **một mô hình cho mỗi tenant**, nên với hàng nghìn tenant đó là vấn đề bộ nhớ thật.
 
-### 13.11.3 — `IgnoreQueryFilters` bỏ qua tất cả
+### 13.10.3 — `IgnoreQueryFilters` bỏ qua tất cả
 
 ```csharp
 // Bỏ qua MỌI filter — cả soft delete LẪN tenant
@@ -157,7 +166,7 @@ var all = await db.Customers.IgnoreQueryFilters().ToListAsync(ct);
 
 Đây là điểm nguy hiểm nhất của cơ chế này. Một lập trình viên muốn xem cả bản ghi đã xoá của **tenant hiện tại** sẽ viết dòng trên — và nhận dữ liệu của **mọi tenant**.
 
-EF Core không cho bỏ qua **một** filter cụ thể. Phải tự áp lại phần còn lại:
+Tới EF Core 9, không có cách bỏ qua **một** filter cụ thể. Phải tự áp lại phần còn lại (từ EF Core 10, đặt tên filter bằng `HasQueryFilter("Ten", ...)` rồi gọi `IgnoreQueryFilters(["Ten"])` để tắt riêng từng cái):
 
 ```csharp
 var deleted = await db.Customers
@@ -181,14 +190,14 @@ Thêm một analyzer hoặc một bước grep trong CI để bắt `IgnoreQuery
 
 | | Bỏ qua filter? |
 |---|---|
-| `FindAsync` | **Có** — tìm cả bản ghi đã xoá |
+| `FindAsync` | **Có**, nếu entity đã trong change tracker — trả về ngay, kể cả bản ghi đã xoá. Phải truy vấn database thì filter vẫn được áp |
 | `FromSql` | **Không** — filter vẫn được áp |
 | `ExecuteUpdate` / `ExecuteDelete` | Không |
 | Navigation property đã nạp | Có thể — nếu entity đã trong tracker |
 
-Hàng đầu là nguồn của "tại sao `FindAsync` lấy được khách hàng đã xoá" ([bài 13.6](13.5-query-patterns.mdx)).
+Hàng đầu là nguồn của "tại sao `FindAsync` lấy được khách hàng đã xoá" ([bài 13.5](13.5-query-patterns.mdx)).
 
-### 13.11.4 — Navigation property và khoá ngoại bắt buộc
+### 13.10.4 — Navigation property và khoá ngoại bắt buộc
 
 ```csharp
 modelBuilder.Entity<Customer>().HasQueryFilter(c => c.DeletedAt == null);
@@ -216,9 +225,9 @@ modelBuilder.Entity<Contact>()
     .HasQueryFilter(c => c.DeletedAt == null && c.TenantId == _tenantId);
 ```
 
-Đây là phi chuẩn hoá có chủ đích, và nó đáng ([bài 12.2](../module-12-sql-deep-dive/12.1-crm-database-design.mdx)).
+Đây là phi chuẩn hoá có chủ đích, và nó đáng ([bài 12.1](../module-12-sql-deep-dive/12.1-crm-database-design.mdx)).
 
-### 13.11.5 — Hiệu năng
+### 13.10.5 — Hiệu năng
 
 Filter xuất hiện trong **mọi** truy vấn, nên index phải hỗ trợ nó:
 
@@ -227,7 +236,7 @@ Filter xuất hiện trong **mọi** truy vấn, nên index phải hỗ trợ n�
 builder.HasIndex(c => new { c.TenantId, c.DeletedAt, c.Status });
 ```
 
-Thứ tự này đúng theo nguyên tắc ở [bài 12.5](../module-12-sql-deep-dive/12.4-indexing.mdx): cột dùng với so sánh bằng đặt trước.
+Thứ tự này đúng theo nguyên tắc ở [bài 12.4](../module-12-sql-deep-dive/12.4-indexing.mdx): cột dùng với so sánh bằng đặt trước.
 
 Với soft delete, **filtered index** còn tốt hơn:
 
@@ -253,19 +262,19 @@ modelBuilder.Entity<AuditLog>().HasQueryFilter(null);
 
 Bảng audit và bảng tham chiếu không nên có filter — chúng không thuộc về tenant nào và không bị xoá mềm.
 
-### 13.11.6 — Rà lại code của bạn
+### 13.10.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát global query filter"
   items={[
-    { text: "Filter đa khách hàng đọc từ field của context, không gọi service trong biểu thức." },
+    { text: "Filter đa khách hàng đọc giá trị từ instance context (field, property, tham số primary constructor), không bắt biến cục bộ hay field static." },
     { text: "Có integration test xác nhận hai tenant không thấy dữ liệu của nhau trong cùng tiến trình." },
     { text: "Filter soft delete được áp tự động qua interface, không khai thủ công từng entity." },
     { text: "Remove được chuyển thành xoá mềm bằng interceptor." },
     { text: "Ràng buộc unique dùng filtered index loại bản ghi đã xoá." },
     { text: "IgnoreQueryFilters không xuất hiện trong code nghiệp vụ." },
     { text: "Mọi chỗ dùng IgnoreQueryFilters đều tự áp lại điều kiện tenant." },
-    { text: "Biết FindAsync bỏ qua filter." },
+    { text: "Biết FindAsync không áp filter khi entity đã có trong change tracker." },
     { text: "Entity con có filter tương ứng khi entity cha có filter." },
     { text: "Filter không tham chiếu navigation nếu tránh được; sao chép cột xuống bảng con." },
     { text: "Index có cột filter đặt trước, hoặc dùng filtered index." },
@@ -277,7 +286,7 @@ Bảng audit và bảng tham chiếu không nên có filter — chúng không th
 
 #### Bài 1 — Tenant id bị đóng băng trong mô hình
 
-Cài filter gọi `tenant.Id` trực tiếp trong biểu thức, gửi request với hai tenant khác nhau trên cùng tiến trình, và xác nhận request thứ hai thấy dữ liệu của tenant đầu. Sửa bằng field và kiểm chứng.
+Cài filter đọc tenant id qua một biến cục bộ trong `OnModelCreating`, gửi request với hai tenant khác nhau trên cùng tiến trình, và xác nhận request thứ hai thấy dữ liệu của tenant đầu. Sửa bằng field và kiểm chứng.
 
 **Tiêu chí hoàn thành:** bạn giải thích được **chính xác** cái gì bị đóng băng, và vì sao lỗi không xuất hiện khi test một request đơn lẻ.
 
@@ -298,8 +307,9 @@ public class CrmDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
-        builder.Entity<Lead>().HasQueryFilter(l => l.TenantId == _tenant.Id);
-        //                                                       ^^^^^^^^^^
+        var tenantId = _tenant.Id;               // chép ra biến cục bộ "cho gọn"
+        builder.Entity<Lead>().HasQueryFilter(l => l.TenantId == tenantId);
+        //                                                       ^^^^^^^^
         //                                                       giá trị bị đóng băng
     }
 }
@@ -312,23 +322,23 @@ curl -H "X-Tenant: globex" http://localhost:5000/leads   # 120 lead của acme  
 
 Tenant `globex` thấy toàn bộ dữ liệu của `acme`. Đây là rò rỉ dữ liệu giữa khách hàng — loại sự cố nghiêm trọng nhất trong một hệ thống multi-tenant.
 
-**Chính xác cái gì bị đóng băng.** Không phải `_tenant` (đối tượng), mà là **giá trị `_tenant.Id` tại thời điểm mô hình được dựng lần đầu**.
+**Chính xác cái gì bị đóng băng.** Không phải `_tenant` (đối tượng), mà là **giá trị `tenantId` mà lambda bắt được tại thời điểm mô hình được dựng lần đầu**.
 
 `OnModelCreating` chạy **đúng một lần mỗi tiến trình**, không phải mỗi request. EF Core dựng `IModel` rồi **cache theo kiểu `DbContext`**, vì dựng mô hình là việc rất tốn kém.
 
 ```text
 Request 1 (acme):    DbContext được tạo -> mô hình CHƯA có trong cache
                      -> OnModelCreating chạy
-                     -> đọc _tenant.Id = "acme"
-                     -> BIÊN DỊCH biểu thức lọc thành: l => l.TenantId == "acme"
-                     -> cache mô hình đã biên dịch
+                     -> tenantId = _tenant.Id = "acme"
+                     -> lambda bắt biến tenantId: l => l.TenantId == tenantId ("acme")
+                     -> cache mô hình
 
 Request 2 (globex):  DbContext được tạo -> mô hình ĐÃ có trong cache
                      -> OnModelCreating KHÔNG chạy
                      -> filter vẫn là: l => l.TenantId == "acme"
 ```
 
-Điểm tinh tế: `_tenant.Id` trong biểu thức lambda được đánh giá **khi cây biểu thức được dựng**, không phải khi truy vấn chạy. Nó trở thành một **hằng số** nằm trong mô hình đã cache.
+Điểm tinh tế: biến `tenantId` mà lambda bắt **nằm ngoài instance context**. EF Core chỉ đọc lại được những gì bắt nguồn từ context hiện tại; với giá trị bên ngoài, nó dùng đúng giá trị đã bắt trong mô hình đã cache. Với mọi truy vấn, giá trị đó luôn là `"acme"`.
 
 ```sql
 -- Mọi request, mọi tenant, mãi mãi
@@ -352,7 +362,7 @@ public class CrmDbContext : DbContext
 }
 ```
 
-Khác biệt trông nhỏ đến mức khó tin, nhưng nó quyết định. EF Core nhận ra `_tenantId` là **field của chính `DbContext` instance**, nên nó không nhúng giá trị vào mô hình mà sinh một **tham số** đọc từ instance tại thời điểm truy vấn:
+Khác biệt trông nhỏ đến mức khó tin, nhưng nó quyết định. Viết thẳng `l.TenantId == _tenant.Id` cũng đúng, vì `_tenant` là field của context. EF Core nhận ra `_tenantId` là **field của chính `DbContext` instance**, nên nó không nhúng giá trị vào mô hình mà sinh một **tham số** đọc từ instance tại thời điểm truy vấn:
 
 ```sql
 SELECT [l].[Id], [l].[Name] FROM [Leads] AS [l] WHERE [l].[TenantId] = @__ef_filter__tenantId_0
@@ -367,9 +377,9 @@ Ba quy tắc rút ra:
 
 | Viết | Kết quả |
 |---|---|
-| `l.TenantId == _tenant.Id` | Đọc **thuộc tính của dịch vụ khác** → giá trị bị nhúng vào mô hình |
-| `l.TenantId == _tenantId` | Đọc **field của `DbContext`** → thành tham số, đúng |
-| `l.TenantId == LayTenantId()` | Gọi phương thức → EF Core không dịch được hoặc gọi một lần rồi đóng băng |
+| `l.TenantId == tenantId` (biến cục bộ trong `OnModelCreating`) | Giá trị **ngoài context**, bị lambda bắt một lần → đóng băng trong mô hình |
+| `l.TenantId == TenantHolder.CurrentId` (field static) | Giá trị **ngoài context** → không đọc lại theo context hiện tại, đóng băng như trên |
+| `l.TenantId == _tenantId` hoặc `_tenant.Id` | Bắt nguồn từ **instance `DbContext`** → thành tham số, đúng |
 
 **Vì sao lỗi không xuất hiện khi test một request đơn lẻ** — đây là phần quan trọng nhất:
 
@@ -377,8 +387,8 @@ Vì với **request đầu tiên trong tiến trình**, giá trị đóng băng 
 
 ```text
 Test đơn lẻ:            1 request, 1 tenant -> đúng, test XANH
-Integration test:       mỗi test một WebApplicationFactory mới
-                        -> tiến trình mới -> mô hình mới -> đúng, test XANH
+Integration test:       mỗi test chỉ dùng một tenant mẫu
+                        -> giá trị đóng băng tình cờ trùng tenant đang test -> XANH
 Chạy tay trên dev:      một người, một tenant -> đúng
 Production:             nhiều tenant, cùng tiến trình -> SAI
 ```
@@ -407,20 +417,22 @@ public async Task Hai_tenant_tren_cung_tien_trinh_phai_thay_du_lieu_rieng()
 }
 ```
 
-Điểm mấu chốt là **dùng chung một `WebApplicationFactory`** cho cả hai request. Nếu bạn tạo factory mới cho request thứ hai, test sẽ xanh cả khi code sai.
+Điểm mấu chốt là **hai tenant trong cùng một `WebApplicationFactory`**. Đừng tách mỗi tenant một factory: EF Core cache mô hình ở mức tiến trình (qua internal service provider), nên kết quả khi tách factory phụ thuộc vào thứ tự chạy test — lúc xanh lúc đỏ.
 
 **Và một kiểm tra ở tầng mô hình, chạy một lần cho mọi entity:**
 
 ```csharp
 [Fact]
-public void Filter_theo_tenant_phai_sinh_tham_so_chu_khong_phai_hang_so()
+public void Filter_theo_tenant_phai_doc_lai_tu_context_hien_tai()
 {
-    using var db = TaoContext(tenantId: "acme");
+    using var dbAcme   = TaoContext(tenantId: "acme");
+    using var dbGlobex = TaoContext(tenantId: "globex");
 
-    var sql = db.Leads.ToQueryString();
+    _ = dbAcme.Leads.ToQueryString();             // dựng mô hình với acme trước
+    var sql = dbGlobex.Leads.ToQueryString();     // ToQueryString in cả giá trị tham số
 
-    sql.Should().NotContain("'acme'", "tenant id bị nhúng thành hằng số trong mô hình");
-    sql.Should().Contain("@__ef_filter__");
+    sql.Should().Contain("globex");
+    sql.Should().NotContain("acme", "tenant id của context đầu tiên bị đóng băng trong mô hình");
 }
 ```
 
@@ -475,7 +487,7 @@ Admin của `acme` nhìn thấy dữ liệu của mọi khách hàng khác.
 public static IQueryable<TEntity> IgnoreQueryFilters<TEntity>(this IQueryable<TEntity> source)
 ```
 
-Không có cách nào nói "chỉ tắt phần soft delete". Nó tắt **toàn bộ** biểu thức lọc.
+Không có cách nào nói "chỉ tắt phần soft delete". Nó tắt **toàn bộ** biểu thức lọc. (Điều này đúng tới EF Core 9; EF Core 10 thêm named filter và overload `IgnoreQueryFilters(filterKeys)` — xem mục 13.10.3.)
 
 Lý do nằm ở cách EF Core lưu trữ filter: mỗi entity type có **đúng một** query filter, là một cây biểu thức duy nhất. Gọi `HasQueryFilter` lần thứ hai **thay thế** lần thứ nhất, không cộng thêm:
 
@@ -721,16 +733,16 @@ Mỗi kết quả là một chỗ có thể ném `NullReferenceException` sau kh
       answer: "Nó tự thêm điều kiện WHERE vào mọi truy vấn trên một entity, nên không ai quên lọc bản ghi đã xoá mềm hay lọc theo tenant. Đó là toàn bộ giá trị: biến một quy tắc mà con người phải nhớ thành một quy tắc mà hệ thống đảm bảo."
     },
     {
-      question: "Vì sao filter tenant phải đọc từ field của context?",
-      answer: "Vì EF Core cache mô hình theo kiểu DbContext và chỉ chạy OnModelCreating một lần cho cả vòng đời ứng dụng. Filter tham chiếu field của instance context được EF sinh thành tham số đọc lại mỗi truy vấn; còn filter gọi service sẽ bắt giữ instance của lần dựng mô hình đầu tiên, nên mọi request dùng tenant id của request đầu tiên."
+      question: "Vì sao filter tenant phải đọc giá trị từ instance context?",
+      answer: "Vì EF Core cache mô hình theo kiểu DbContext và chỉ chạy OnModelCreating một lần cho cả vòng đời ứng dụng. Filter tham chiếu thành viên của instance context (field, property, tham số primary constructor) được EF sinh thành tham số đọc lại từ context hiện tại mỗi truy vấn; còn filter bắt giá trị ngoài context như biến cục bộ trong OnModelCreating hay field static sẽ giữ giá trị của lần đầu, nên mọi request dùng tenant id của request đầu tiên."
     },
     {
       question: "Vì sao IgnoreQueryFilters nguy hiểm?",
-      answer: "Vì nó bỏ qua tất cả filter chứ không chỉ một. Người muốn xem bản ghi đã xoá của tenant hiện tại sẽ nhận dữ liệu của mọi tenant. EF Core không cho bỏ qua một filter cụ thể, nên phải tự áp lại điều kiện tenant, và tốt nhất là cấm dùng nó trong code nghiệp vụ."
+      answer: "Vì nó bỏ qua tất cả filter chứ không chỉ một. Người muốn xem bản ghi đã xoá của tenant hiện tại sẽ nhận dữ liệu của mọi tenant. Tới EF Core 9 không có cách bỏ qua một filter cụ thể (EF Core 10 mới có named filter), nên phải tự áp lại điều kiện tenant, và tốt nhất là cấm dùng nó trong code nghiệp vụ."
     },
     {
       question: "Những API nào bỏ qua global query filter?",
-      answer: "FindAsync bỏ qua hoàn toàn, nên nó tìm thấy cả bản ghi đã xoá mềm. FromSql, ExecuteUpdate và ExecuteDelete thì vẫn áp filter. Ngoài ra navigation property có thể trả về entity đã bị lọc nếu entity đó đã nằm trong change tracker."
+      answer: "FindAsync không áp filter khi entity đã nằm trong change tracker, nên lúc đó nó có thể trả về cả bản ghi đã xoá mềm; nếu phải truy vấn database thì filter vẫn được áp. FromSql, ExecuteUpdate và ExecuteDelete thì vẫn áp filter. Ngoài ra navigation property có thể trả về entity đã bị lọc nếu entity đó đã nằm trong change tracker."
     },
     {
       question: "Vì sao navigation property có thể thành null dù khoá ngoại bắt buộc?",
@@ -747,9 +759,9 @@ Mỗi kết quả là một chỗ có thể ném `NullReferenceException` sau kh
 
 Ba điều đáng nhớ nhất:
 
-1. **Filter tenant phải đọc từ field của context** — gọi service trong biểu thức làm mọi request dùng tenant đầu tiên.
+1. **Filter tenant phải đọc giá trị từ instance context** — bắt biến cục bộ hay field static làm mọi request dùng tenant đầu tiên.
 2. **`IgnoreQueryFilters` bỏ qua tất cả**, kể cả cách ly tenant.
-3. **`FindAsync` bỏ qua filter** — nó thấy cả bản ghi đã xoá mềm.
+3. **`FindAsync` không áp filter khi entity đã có trong change tracker** — lúc đó nó có thể thấy cả bản ghi đã xoá mềm.
 
 ## Tham khảo
 

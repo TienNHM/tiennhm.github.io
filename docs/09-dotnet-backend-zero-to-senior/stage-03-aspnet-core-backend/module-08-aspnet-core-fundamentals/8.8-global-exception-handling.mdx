@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 8.9.1 — `IExceptionHandler`
+### 8.8.1 — `IExceptionHandler`
 
 ```csharp
 public sealed class GlobalExceptionHandler(
@@ -80,11 +80,11 @@ app.UseExceptionHandler();       // DAU pipeline
 
 Ba chi tiết đáng chú ý:
 
-- **`IProblemDetailsService`** áp `CustomizeProblemDetails` bạn cấu hình ở [bài 8.6](8.5-model-validation.mdx), nên định dạng lỗi thống nhất với lỗi validation.
+- **`IProblemDetailsService`** áp `CustomizeProblemDetails` bạn cấu hình ở [bài 8.5](8.5-model-validation.mdx), nên định dạng lỗi thống nhất với lỗi validation.
 - **Mức log phân theo mã.** 500 là sự cố của bạn; 404 và 422 là hành vi bình thường của hệ thống. Log tất cả ở `Error` thì cảnh báo mất ý nghĩa.
 - **`traceId`** nối phản hồi lỗi với log. Người dùng báo lỗi kèm `traceId` là bạn tìm ra log trong vài giây.
 
-### 8.9.2 — Chuỗi nhiều handler
+### 8.8.2 — Chuỗi nhiều handler
 
 ```csharp
 builder.Services.AddExceptionHandler<ValidationExceptionHandler>();  // chạy trước
@@ -129,7 +129,7 @@ flowchart LR
     G -->|"false"| R4["500 mặc định"]
 ```
 
-### 8.9.3 — Cây exception nghiệp vụ
+### 8.8.3 — Cây exception nghiệp vụ
 
 ```csharp
 public abstract class DomainException(string message) : Exception(message);
@@ -173,7 +173,7 @@ return customer is null ? NotFound() : Ok(customer);
 
 Exception dành cho những gì **thật sự bất thường**: vi phạm ràng buộc sâu trong tầng domain, trạng thái không thể xảy ra, lỗi hạ tầng.
 
-### 8.9.4 — Không bao giờ lọt ra ngoài
+### 8.8.4 — Không bao giờ lọt ra ngoài
 
 ```csharp
 // SAI — lo cau truc noi bo
@@ -194,14 +194,14 @@ Nguyên tắc: **client nhận `title`, `status`, `traceId`. Còn lại nằm tr
 
 Trên Development thì trả `exception.Message` cho tiện — đó là lý do có `env.IsProduction()` ở trên. Đừng nhầm nó với `UseDeveloperExceptionPage()`, thứ tuyệt đối không được bật ở Production.
 
-### 8.9.5 — Những gì handler không bắt được
+### 8.8.5 — Những gì handler không bắt được
 
 `UseExceptionHandler()` chỉ bắt exception từ các lớp **bên trong** nó. Bốn trường hợp nằm ngoài:
 
 1. **Exception trong middleware đăng ký trước nó.** Vì vậy nó phải đứng đầu — sau `UseForwardedHeaders()` là hợp lý nhất.
-2. **Exception sau khi response đã bắt đầu.** Không đổi được status code nữa ([bài 8.3](8.2-request-pipeline-and-middleware.mdx)); ASP.NET Core chỉ có thể ngắt kết nối. Đây là lý do stream một `IAsyncEnumerable` lớn có rủi ro ([bài 6.7](../../stage-02-csharp-professional/module-06-async-programming/6.6-async-patterns.mdx)).
-3. **Exception trong `BackgroundService`.** Nó không đi qua pipeline HTTP. Phải tự `try/catch` quanh từng công việc ([bài 6.9](../../stage-02-csharp-professional/module-06-async-programming/6.8-channels-and-producer-consumer.mdx)).
-4. **`async void`.** Exception đi thẳng lên và làm sập tiến trình ([bài 6.3](../../stage-02-csharp-professional/module-06-async-programming/6.2-task-and-async-await.mdx)).
+2. **Exception sau khi response đã bắt đầu.** Không đổi được status code nữa ([bài 8.2](8.2-request-pipeline-and-middleware.mdx)); ASP.NET Core chỉ có thể ngắt kết nối. Đây là lý do stream một `IAsyncEnumerable` lớn có rủi ro ([bài 6.6](../../stage-02-csharp-professional/module-06-async-programming/6.6-async-patterns.mdx)).
+3. **Exception trong `BackgroundService`.** Nó không đi qua pipeline HTTP. Phải tự `try/catch` quanh từng công việc ([bài 6.8](../../stage-02-csharp-professional/module-06-async-programming/6.8-channels-and-producer-consumer.mdx)).
+4. **`async void`.** Exception đi thẳng lên và làm sập tiến trình ([bài 6.2](../../stage-02-csharp-professional/module-06-async-programming/6.2-task-and-async-await.mdx)).
 
 Với trường hợp 3 và 4, thêm lưới an toàn ở `Program.cs`:
 
@@ -216,7 +216,7 @@ TaskScheduler.UnobservedTaskException += (_, e) =>
 };
 ```
 
-### 8.9.6 — Rà lại code của bạn
+### 8.8.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát xử lý lỗi"
@@ -239,7 +239,7 @@ TaskScheduler.UnobservedTaskException += (_, e) =>
 
 Đặt `UseExceptionHandler()` **sau** một middleware ném ngoại lệ, xác nhận client nhận trang lỗi mặc định thay vì `ProblemDetails`. Chuyển lên đầu và kiểm chứng lại.
 
-**Tiêu chí hoàn thành:** bạn giải thích được bằng mô hình đường ống hai chiều ở [bài 8.3](8.2-request-pipeline-and-middleware.mdx).
+**Tiêu chí hoàn thành:** bạn giải thích được bằng mô hình đường ống hai chiều ở [bài 8.2](8.2-request-pipeline-and-middleware.mdx).
 
 <details>
 <summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
@@ -319,7 +319,7 @@ app.MapControllers();
 | Ném **sau khi** phản hồi đã bắt đầu | Không sửa được phản hồi đang gửi | Kiểm tra `Response.HasStarted` |
 | Ném lúc **khởi động**, trước `app.Run()` | Đường ống chưa tồn tại | `try/catch` quanh `Program.Main` |
 
-Loại thứ hai đáng chú ý: nếu một endpoint đã ghi một phần body rồi mới ném, `ProblemDetails` không thể được gửi vì header đã đi — đúng vấn đề `HasStarted` ở [bài 8.3](8.2-request-pipeline-and-middleware.mdx). Client nhận một phản hồi **cụt**, và đây là một trong những lỗi khó chẩn đoán nhất.
+Loại thứ hai đáng chú ý: nếu một endpoint đã ghi một phần body rồi mới ném, `ProblemDetails` không thể được gửi vì header đã đi — đúng vấn đề `HasStarted` ở [bài 8.2](8.2-request-pipeline-and-middleware.mdx). Client nhận một phản hồi **cụt**, và đây là một trong những lỗi khó chẩn đoán nhất.
 
 **Bắt lỗi khởi động:**
 
@@ -466,7 +466,7 @@ Viết hai endpoint "không tìm thấy", một ném `NotFoundException` và m�
 <details>
 <summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
 
-**Gợi ý.** Bài này nối tiếp phép đo ở [bài 4.10](../../stage-02-csharp-professional/module-04-csharp-core/4.9-common-mistakes.mdx), nơi ngoại lệ chậm hơn `TryParse` 778 lần. Nhưng ở đây ngăn xếp **sâu hơn nhiều**, nên chi phí cũng khác.
+**Gợi ý.** Bài này nối tiếp phép đo ở [bài 4.9](../../stage-02-csharp-professional/module-04-csharp-core/4.9-common-mistakes.mdx), nơi ngoại lệ chậm hơn `TryParse` 778 lần. Nhưng ở đây ngăn xếp **sâu hơn nhiều**, nên chi phí cũng khác.
 
 **Lời giải.**
 
@@ -529,7 +529,7 @@ return result.Kind switch
 
 Không ném ngoại lệ cho luồng bình thường, nhưng vẫn có xử lý ngoại lệ toàn cục làm lưới an toàn cho những gì thật sự bất thường.
 
-**Một điều đáng đo hơn cả tốc độ: ảnh hưởng tới log và cảnh báo.** Mỗi ngoại lệ ném ra thường sinh một dòng log mức `Error`. Một endpoint trả "không tìm thấy" 10.000 lần mỗi ngày sẽ tạo 10.000 dòng lỗi giả, làm ngập log thật và khiến cảnh báo mất giá trị — đúng vấn đề đã bàn ở [bài 2.5](../../stage-01-foundation/module-02-computer-science-basics/2.4-http-https.mdx) về mã trạng thái.
+**Một điều đáng đo hơn cả tốc độ: ảnh hưởng tới log và cảnh báo.** Mỗi ngoại lệ ném ra thường sinh một dòng log mức `Error`. Một endpoint trả "không tìm thấy" 10.000 lần mỗi ngày sẽ tạo 10.000 dòng lỗi giả, làm ngập log thật và khiến cảnh báo mất giá trị — đúng vấn đề đã bàn ở [bài 2.4](../../stage-01-foundation/module-02-computer-science-basics/2.4-http-https.mdx) về mã trạng thái.
 
 </details>
 

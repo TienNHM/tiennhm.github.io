@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 19.13.1 — Ví dụ: export Excel
+### 19.12.1 — Ví dụ: export Excel
 
 ```csharp
 // Code that — chay tot voi 5.000 lead, GIET container voi 200.000
@@ -65,7 +65,7 @@ Object trung gian của thư viện Excel        = ~200 MB
 
 Container có `memory limit: 512Mi` → **OOM kill**.
 
-### 19.13.2 — Vì sao OOM kill tệ hơn một lỗi thường
+### 19.12.2 — Vì sao OOM kill tệ hơn một lỗi thường
 
 ```
 Request export bắt đầu
@@ -79,7 +79,7 @@ Hậu quả:
   - Lần sau vẫn vậy
 ```
 
-Đây là điểm quan trọng nhất: một lỗi thường chỉ làm **một** request thất bại và để lại stack trace. OOM kill giết **cả tiến trình**, không để lại gì trong log ứng dụng, và kéo theo mọi request đang chạy ([bài 15.10](../../stage-04-database-production/module-15-docker-deployment/15.9-awareness-level.mdx)).
+Đây là điểm quan trọng nhất: một lỗi thường chỉ làm **một** request thất bại và để lại stack trace. OOM kill giết **cả tiến trình**, không để lại gì trong log ứng dụng, và kéo theo mọi request đang chạy ([bài 15.9](../../stage-04-database-production/module-15-docker-deployment/15.9-awareness-level.mdx)).
 
 Dấu hiệu nhận ra trong Kubernetes:
 
@@ -93,7 +93,7 @@ kubectl describe pod crm-api-7d8f9
 
 `Exit Code 137` là chữ ký của OOM kill. Nếu thấy nó trong lịch sử pod, bạn có vấn đề bộ nhớ chứ không phải bug logic.
 
-### 19.13.3 — Sửa bằng streaming
+### 19.12.3 — Sửa bằng streaming
 
 ```csharp
 [HttpGet("export")]
@@ -130,9 +130,9 @@ Bốn thay đổi tạo nên khác biệt:
 | `AsNoTracking` | Không giữ snapshot change tracking |
 | Ghi thẳng `Response.Body` | Không có bản sao trung gian nào |
 
-Đổi từ Excel sang CSV cũng là một quyết định có chủ đích: định dạng Excel **buộc phải** dựng toàn bộ workbook trong bộ nhớ trước khi ghi ra. Nếu nghiệp vụ bắt buộc `.xlsx`, dùng thư viện hỗ trợ streaming (ví dụ chế độ `SpreadsheetWriter` của OpenXML SDK), hoặc chuyển export sang **job nền** và gửi link tải về sau ([bài 14.7](../../stage-04-database-production/module-14-caching-background-jobs/14.6-hangfire-background-jobs.mdx)).
+Đổi từ Excel sang CSV cũng là một quyết định có chủ đích: định dạng Excel **buộc phải** dựng toàn bộ workbook trong bộ nhớ trước khi ghi ra. Nếu nghiệp vụ bắt buộc `.xlsx`, dùng thư viện hỗ trợ streaming (ví dụ chế độ `SpreadsheetWriter` của OpenXML SDK), hoặc chuyển export sang **job nền** và gửi link tải về sau ([bài 14.6](../../stage-04-database-production/module-14-caching-background-jobs/14.6-hangfire-background-jobs.mdx)).
 
-### 19.13.4 — Lỗi phổ biến nhất khi sửa
+### 19.12.4 — Lỗi phổ biến nhất khi sửa
 
 ```csharp
 // VẪN SAI — ToListAsync vẫn nạp hết rồi mới ghi từng dòng
@@ -158,7 +158,7 @@ for (int page = 0; ; page++)
 
 Phân trang chỉ giúp nếu bạn **xử lý xong rồi bỏ** mỗi lô, không giữ lại.
 
-### 19.13.5 — Tự kiểm tra trong 5 phút
+### 19.12.5 — Tự kiểm tra trong 5 phút
 
 Ba câu hỏi rà nhanh toàn dự án:
 
@@ -188,7 +188,7 @@ kubectl get pods -o json | jq -r '
 
 Nếu có kết quả, đã có OOM kill xảy ra mà có thể chưa ai để ý — vì nó không xuất hiện trong log ứng dụng.
 
-### 19.13.6 — Rà lại code của bạn
+### 19.12.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát bộ nhớ theo dữ liệu đầu vào"
@@ -503,7 +503,7 @@ Với streaming, tỉ lệ bám sát 100 lần (tuyến tính theo dữ liệu, 
 
 #### Bài 3 — Rà dự án
 
-Chạy ba lệnh kiểm tra ở mục 19.13.5 trên dự án thật và đếm số vị trí cần xem lại.
+Chạy ba lệnh kiểm tra ở mục 19.12.5 trên dự án thật và đếm số vị trí cần xem lại.
 
 **Tiêu chí hoàn thành:** bạn có **con số cụ thể**, đã phân loại kết quả, và biết phân biệt kết quả đáng lo với kết quả vô hại.
 

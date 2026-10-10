@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 17.4.1 — Ý tưởng và luồng
+### 17.3.1 — Ý tưởng và luồng
 
 ```mermaid
 flowchart TD
@@ -40,7 +40,7 @@ flowchart TD
 
 Đường đứt nét là điểm mấu chốt: nếu worker chết **sau** khi publish nhưng **trước** khi đánh dấu, message sẽ được publish lại. Outbox là **at-least-once**, đúng như broker.
 
-### 17.4.2 — Bảng outbox
+### 17.3.2 — Bảng outbox
 
 ```sql
 CREATE TABLE OutboxMessages (
@@ -60,11 +60,11 @@ CREATE NONCLUSTERED INDEX IX_Outbox_Unprocessed
     WHERE ProcessedOnUtc IS NULL;
 ```
 
-Mệnh đề `WHERE ProcessedOnUtc IS NULL` là **filtered index**. Nó chỉ chứa hàng chưa xử lý, nên index vẫn nhỏ kể cả khi bảng có hàng triệu dòng ([bài 12.5](../../stage-04-database-production/module-12-sql-deep-dive/12.4-indexing.mdx)). Không có nó, mỗi lần poll là một lần quét bảng.
+Mệnh đề `WHERE ProcessedOnUtc IS NULL` là **filtered index**. Nó chỉ chứa hàng chưa xử lý, nên index vẫn nhỏ kể cả khi bảng có hàng triệu dòng ([bài 12.4](../../stage-04-database-production/module-12-sql-deep-dive/12.4-indexing.mdx)). Không có nó, mỗi lần poll là một lần quét bảng.
 
 Ba cột hay bị bỏ qua nhưng cần khi có sự cố lúc 2 giờ sáng: `Error` để biết vì sao message kẹt, `RetryCount` để phát hiện message lặp vô hạn, `CorrelationId` để nối message với request gốc trong log.
 
-### 17.4.3 — Ghi outbox tự động
+### 17.3.3 — Ghi outbox tự động
 
 Viết tay `_db.OutboxMessages.Add(...)` ở mỗi use case sẽ bị quên. Dùng interceptor để tự động chuyển domain event thành outbox message:
 
@@ -110,9 +110,9 @@ builder.Services.AddDbContext<AppDbContext>((sp, options) =>
            .AddInterceptors(sp.GetRequiredService<ConvertDomainEventsToOutboxInterceptor>()));
 ```
 
-**Cảnh báo:** `ExecuteUpdate` và `ExecuteDelete` **không đi qua** `SaveChangesAsync`, nên không sinh outbox message ([bài 13.8](../../stage-04-database-production/module-13-entity-framework-core/13.7-performance.mdx)). Dùng chúng cho thao tác có ý nghĩa nghiệp vụ là mất event một cách im lặng.
+**Cảnh báo:** `ExecuteUpdate` và `ExecuteDelete` **không đi qua** `SaveChangesAsync`, nên không sinh outbox message ([bài 13.7](../../stage-04-database-production/module-13-entity-framework-core/13.7-performance.mdx)). Dùng chúng cho thao tác có ý nghĩa nghiệp vụ là mất event một cách im lặng.
 
-### 17.4.4 — Dispatcher an toàn khi chạy nhiều instance
+### 17.3.4 — Dispatcher an toàn khi chạy nhiều instance
 
 Đây là phần dễ sai nhất. Dispatcher ngây thơ:
 
@@ -175,9 +175,9 @@ public sealed class OutboxDispatcher(IServiceScopeFactory scopeFactory, ILogger<
 }
 ```
 
-`try/catch` bao quanh toàn bộ vòng lặp là bắt buộc: một exception thoát ra khỏi `ExecuteAsync` sẽ **giết luôn** `BackgroundService` và nó không tự khởi động lại ([bài 14.9](../../stage-04-database-production/module-14-caching-background-jobs/14.8-message-bus-intro.mdx)).
+`try/catch` bao quanh toàn bộ vòng lặp là bắt buộc: một exception thoát ra khỏi `ExecuteAsync` sẽ **giết luôn** `BackgroundService` và nó không tự khởi động lại ([bài 14.8](../../stage-04-database-production/module-14-caching-background-jobs/14.8-message-bus-intro.mdx)).
 
-### 17.4.5 — Thứ tự
+### 17.3.5 — Thứ tự
 
 Outbox không đảm bảo thứ tự khi có nhiều dispatcher. Nếu nghiệp vụ **thật sự** cần thứ tự trong phạm vi một aggregate:
 
@@ -197,7 +197,7 @@ foreach (var group in batch.GroupBy(m => m.AggregateId))
 
 Hỏi kỹ trước khi làm việc này: **có thật sự cần thứ tự không?** Thường thì không. Consumer kiểm tra trạng thái hiện tại thay vì giả định trạng thái trước đó sẽ đơn giản hơn nhiều so với đảm bảo thứ tự xuyên hệ thống.
 
-### 17.4.6 — Dọn bảng
+### 17.3.6 — Dọn bảng
 
 Bảng outbox tăng vô hạn nếu không dọn — một hệ thống vừa phải sinh vài triệu hàng mỗi tháng.
 
@@ -213,9 +213,9 @@ BEGIN
 END
 ```
 
-Giữ 7 ngày là đủ để điều tra sự cố. `DELETE` một phát vài triệu hàng sẽ leo thang khoá lên toàn bảng và chặn mọi insert ([bài 12.7](../../stage-04-database-production/module-12-sql-deep-dive/12.6-transactions-and-locking.mdx)).
+Giữ 7 ngày là đủ để điều tra sự cố. `DELETE` một phát vài triệu hàng sẽ leo thang khoá lên toàn bảng và chặn mọi insert ([bài 12.6](../../stage-04-database-production/module-12-sql-deep-dive/12.6-transactions-and-locking.mdx)).
 
-### 17.4.7 — Tự viết hay dùng framework
+### 17.3.7 — Tự viết hay dùng framework
 
 MassTransit đã có [transactional outbox](https://masstransit.io/documentation/patterns/transactional-outbox) tích hợp EF Core:
 
@@ -241,7 +241,7 @@ builder.Services.AddMassTransit(x =>
 
 Khuyến nghị: **tự viết một lần để hiểu**, rồi dùng framework trên production nếu bạn đã dùng MassTransit. Dùng framework mà không hiểu outbox làm gì sẽ khiến bạn bất lực khi nó kẹt.
 
-### 17.4.8 — Rà lại code của bạn
+### 17.3.8 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát outbox"

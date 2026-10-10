@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 9.3.1 — Thay đổi nào là breaking
+### 9.2.1 — Thay đổi nào là breaking
 
 | Thay đổi | Breaking? |
 |---|---|
@@ -48,7 +48,7 @@ Hai dòng cuối cần giải thích.
 
 Nguyên tắc rút ra: nếu client cũ **vẫn chạy đúng** sau thay đổi thì không cần version mới. Version là thứ **đắt** — mỗi version còn sống là một tập code phải bảo trì, test và vá lỗi bảo mật.
 
-### 9.3.2 — Ba cách đặt version
+### 9.2.2 — Ba cách đặt version
 
 ```csharp
 builder.Services.AddApiVersioning(options =>
@@ -79,7 +79,7 @@ Thực tế: **URL segment thắng** vì nó hiển nhiên. Khi một client bá
 
 `AssumeDefaultVersionWhenUnspecified = true` là con dao hai lưỡi: nó giúp client cũ không gãy khi bạn **thêm** versioning vào API đang chạy, nhưng nó cũng nghĩa là client không bao giờ bị buộc phải khai báo version — và khi bạn gỡ v1, họ gãy mà không được báo trước. Bật nó lúc chuyển đổi, tắt nó khi mọi client đã khai báo rõ.
 
-### 9.3.3 — Đánh dấu deprecated và lịch gỡ bỏ
+### 9.2.3 — Đánh dấu deprecated và lịch gỡ bỏ
 
 ```csharp
 [ApiController]
@@ -143,7 +143,7 @@ flowchart LR
     C --> D["2 tuần sau<br/>tắt hẳn v1"]
 ```
 
-### 9.3.4 — Tổ chức code cho nhiều version
+### 9.2.4 — Tổ chức code cho nhiều version
 
 Cạm bẫy lớn nhất là **nhân đôi cả tầng nghiệp vụ**:
 
@@ -177,7 +177,7 @@ Khi V2 cần **hành vi** khác chứ không chỉ hình dạng khác, đừng n
 
 Và giữ số version còn sống ở mức tối thiểu: **hai** là con số lành mạnh. Ba trở lên nghĩa là bạn chưa gỡ được cái cũ.
 
-### 9.3.5 — Rà lại code của bạn
+### 9.2.5 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát versioning"
@@ -198,7 +198,7 @@ Và giữ số version còn sống ở mức tối thiểu: **hai** là con số
 
 #### Bài 1 — Phân loại thay đổi trong chính API của bạn
 
-Lấy 10 thay đổi gần nhất trong API của bạn (đọc `git log` của thư mục DTO và controller). Phân loại từng cái là breaking hay không theo bảng ở mục 9.3.1. Đếm xem bao nhiêu cái đã lên version mới mà lẽ ra không cần, và bao nhiêu cái **không** lên version mà lẽ ra phải lên.
+Lấy 10 thay đổi gần nhất trong API của bạn (đọc `git log` của thư mục DTO và controller). Phân loại từng cái là breaking hay không theo bảng ở mục 9.2.1. Đếm xem bao nhiêu cái đã lên version mới mà lẽ ra không cần, và bao nhiêu cái **không** lên version mà lẽ ra phải lên.
 
 **Tiêu chí hoàn thành:** với mỗi thay đổi, bạn nêu được **client cũ còn chạy đúng không** — chứ không chỉ nói "có sửa DTO".
 
@@ -279,7 +279,7 @@ app.Use(async (ctx, next) =>
 });
 ```
 
-Đặt nó **sau** `UseRouting` — trước đó `GetRequestedApiVersion()` chưa có giá trị, đúng như [bài 8.3](../module-08-aspnet-core-fundamentals/8.2-request-pipeline-and-middleware.mdx) giải thích.
+Đặt nó **sau** `UseRouting` — trước đó `GetRequestedApiVersion()` chưa có giá trị, đúng như [bài 8.2](../module-08-aspnet-core-fundamentals/8.2-request-pipeline-and-middleware.mdx) giải thích.
 
 **Truy vấn tổng hợp sau một tuần:**
 
@@ -354,7 +354,7 @@ app.Use(async (ctx, next) =>
 });
 ```
 
-Đặt cờ trong cấu hình đọc lại được (`IOptionsMonitor`, [bài 7.8](../../stage-02-csharp-professional/module-07-dependency-injection/7.7-options-pattern.mdx)) để bật tắt không cần deploy.
+Đặt cờ trong cấu hình đọc lại được (`IOptionsMonitor`, [bài 7.7](../../stage-02-csharp-professional/module-07-dependency-injection/7.7-options-pattern.mdx)) để bật tắt không cần deploy.
 
 **Kết quả điển hình của một đợt brownout 5 phút:**
 

@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 16.6.1 — Entity và value object
+### 16.5.1 — Entity và value object
 
 | | Entity | Value Object |
 |---|---|---|
@@ -67,7 +67,7 @@ public readonly record struct EmailAddress
 }
 ```
 
-Chuẩn hoá chữ thường ngay trong constructor giải quyết luôn vấn đề collation ở [bài 12.3](../../stage-04-database-production/module-12-sql-deep-dive/12.2-sql-server-vs-postgresql.mdx).
+Chuẩn hoá chữ thường ngay trong constructor giải quyết luôn vấn đề collation ở [bài 12.2](../../stage-04-database-production/module-12-sql-deep-dive/12.2-sql-server-vs-postgresql.mdx).
 
 **2. Chặn lỗi truyền nhầm tham số:**
 
@@ -81,9 +81,9 @@ public void Transfer(Guid from, Guid to, decimal amount);
 
 **3. Gom hành vi về đúng chỗ.** `money.Percent(10)` rõ hơn `amount * 10 / 100` rải khắp code.
 
-Map vào EF Core bằng owned type hoặc value converter ([bài 13.3](../../stage-04-database-production/module-13-entity-framework-core/13.2-dbcontext-and-entity-configuration.mdx)).
+Map vào EF Core bằng owned type hoặc value converter ([bài 13.2](../../stage-04-database-production/module-13-entity-framework-core/13.2-dbcontext-and-entity-configuration.mdx)).
 
-### 16.6.2 — Aggregate là ranh giới nhất quán
+### 16.5.2 — Aggregate là ranh giới nhất quán
 
 **Định nghĩa dùng được:** aggregate là tập đối tượng mà **mọi bất biến bên trong phải đúng sau mỗi transaction**, và **mọi thay đổi đi qua root**.
 
@@ -132,9 +132,9 @@ Trong cùng aggregate:  tổng đơn hàng = tổng các dòng      -> PHẢI đ
 Khác aggregate:        số đơn hàng của khách hàng          -> đúng sau vài giây là được
 ```
 
-**Aggregate nhỏ là aggregate tốt.** Aggregate lớn nghĩa là transaction lớn, khoá nhiều dòng, và xung đột đồng thời cao ([bài 12.7](../../stage-04-database-production/module-12-sql-deep-dive/12.6-transactions-and-locking.mdx)).
+**Aggregate nhỏ là aggregate tốt.** Aggregate lớn nghĩa là transaction lớn, khoá nhiều dòng, và xung đột đồng thời cao ([bài 12.6](../../stage-04-database-production/module-12-sql-deep-dive/12.6-transactions-and-locking.mdx)).
 
-### 16.6.3 — Tham chiếu bằng id
+### 16.5.3 — Tham chiếu bằng id
 
 Đây là quy tắc hay bị vi phạm nhất, và hậu quả của nó rất cụ thể.
 
@@ -209,9 +209,9 @@ flowchart LR
     H -->|"customer.ReserveCredit"| C
 ```
 
-Nhưng **thay đổi lan sang aggregate ở service khác** thì phải bất đồng bộ qua domain event ([bài 16.9](16.8-in-process.mdx)) hoặc message bus ([bài 14.9](../../stage-04-database-production/module-14-caching-background-jobs/14.8-message-bus-intro.mdx)).
+Nhưng **thay đổi lan sang aggregate ở service khác** thì phải bất đồng bộ qua domain event ([bài 16.8](16.8-in-process.mdx)) hoặc message bus ([bài 14.8](../../stage-04-database-production/module-14-caching-background-jobs/14.8-message-bus-intro.mdx)).
 
-### 16.6.4 — Bounded context
+### 16.5.4 — Bounded context
 
 Cùng một từ, hai nghĩa khác nhau ở hai nơi:
 
@@ -256,7 +256,7 @@ public sealed class CustomerRegisteredHandler : INotificationHandler<CustomerReg
 
 **Bounded context không bắt buộc là microservice.** Trong một monolith, chúng là **module** — thư mục riêng, model riêng, không tham chiếu trực tiếp vào nhau. Đó là modular monolith, và nó cho phần lớn lợi ích mà không có chi phí vận hành của microservice ([Module 18](../module-18-microservices/)).
 
-### 16.6.5 — Khi nào DDD là quá mức
+### 16.5.5 — Khi nào DDD là quá mức
 
 | Tình huống | DDD chiến thuật? |
 |---|---|
@@ -270,7 +270,7 @@ public sealed class CustomerRegisteredHandler : INotificationHandler<CustomerReg
 
 **Trong một hệ thống thật, cả hai cùng tồn tại.** Module `Orders` có aggregate đầy đủ; module `Countries` chỉ là một bảng và một endpoint. Ép DDD lên cái thứ hai là chi phí thuần.
 
-Và **đường đọc gần như không bao giờ cần DDD**: báo cáo, danh sách, tìm kiếm đều chỉ cần truy vấn nhanh — đúng thoả hiệp CQRS ở [bài 16.4](16.3-uncle-bob.mdx).
+Và **đường đọc gần như không bao giờ cần DDD**: báo cáo, danh sách, tìm kiếm đều chỉ cần truy vấn nhanh — đúng thoả hiệp CQRS ở [bài 16.3](16.3-uncle-bob.mdx).
 
 Ba công cụ nên áp dụng **ngay cả khi không làm DDD đầy đủ**:
 
@@ -280,7 +280,7 @@ Ba công cụ nên áp dụng **ngay cả khi không làm DDD đầy đủ**:
 
 Ba thứ đó cho phần lớn lợi ích với rất ít chi phí. Aggregate đầy đủ, domain event và bounded context thì thêm khi domain thật sự cần.
 
-### 16.6.6 — Rà lại code của bạn
+### 16.5.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát DDD chiến thuật"

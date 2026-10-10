@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 10.5.1 — Định nghĩa vai trò
+### 10.4.1 — Định nghĩa vai trò
 
 ```csharp
 public static class CrmRoles
@@ -41,7 +41,7 @@ Hằng số thay cho chuỗi trực tiếp là chi tiết nhỏ nhưng quan tr�
 
 Số vai trò nên ở mức **một chữ số**. Vượt quá là dấu hiệu bạn đang mã hoá quyền vào tên vai trò.
 
-### 10.5.2 — OR, AND, và `[AllowAnonymous]`
+### 10.4.2 — OR, AND, và `[AllowAnonymous]`
 
 ```csharp
 // OR — chi can MOT trong hai
@@ -68,7 +68,7 @@ public class DealsController : ControllerBase
 
 Hệ quả bất ngờ: một `Admin` **không** qua được action trên, vì `Admin` không có trong danh sách ở cấp controller. Đây là lỗi thường gặp — người ta giả định `Admin` luôn qua mọi thứ, nhưng ASP.NET Core không có khái niệm đó.
 
-Muốn `Admin` luôn qua thì phải nói rõ ở **mọi** chỗ, hoặc dùng policy ([bài 10.6](10.5-policy-based-authorization.mdx)) — đó là một lý do chính để chuyển sang policy.
+Muốn `Admin` luôn qua thì phải nói rõ ở **mọi** chỗ, hoặc dùng policy ([bài 10.5](10.5-policy-based-authorization.mdx)) — đó là một lý do chính để chuyển sang policy.
 
 ```csharp
 [Authorize]
@@ -84,7 +84,7 @@ public class CustomersController : ControllerBase
 
 Đây là thứ cần tìm trong mọi lần review bảo mật: một `[AllowAnonymous]` đặt nhầm chỗ, hoặc để lại sau khi debug, mở toang một endpoint mà không có cảnh báo nào.
 
-### 10.5.3 — Mặc định an toàn
+### 10.4.3 — Mặc định an toàn
 
 Cách trên có một điểm yếu: **quên `[Authorize]` là endpoint mở công khai**. Với 200 endpoint, một lần quên là đủ.
 
@@ -125,7 +125,7 @@ flowchart TB
 
 Nhớ thêm `[AllowAnonymous]` cho những endpoint thật sự công khai: đăng nhập, đăng ký, health check, `/swagger`.
 
-### 10.5.4 — Gán vai trò
+### 10.4.4 — Gán vai trò
 
 ```csharp
 await _userManager.CreateAsync(user, password);
@@ -135,11 +135,11 @@ await _userManager.AddToRoleAsync(user, CrmRoles.SalesRep);
 await _userManager.AddToRolesAsync(user, [CrmRoles.SalesRep, CrmRoles.ReadOnly]);
 ```
 
-Vai trò được đưa vào token lúc đăng nhập ([bài 10.3](10.2-jwt-authentication.mdx)), nên:
+Vai trò được đưa vào token lúc đăng nhập ([bài 10.2](10.2-jwt-authentication.mdx)), nên:
 
 > **Đổi vai trò không có hiệu lực cho tới khi người dùng lấy token mới.**
 
-Gỡ vai trò `Admin` lúc 10:00, nhưng họ vẫn là `Admin` cho tới khi access token hết hạn. Với TTL 15 phút thì chấp nhận được; với vai trò nhạy cảm thì cần thu hồi cả refresh token ([bài 10.4](10.3-refresh-token.mdx)) để buộc đăng nhập lại.
+Gỡ vai trò `Admin` lúc 10:00, nhưng họ vẫn là `Admin` cho tới khi access token hết hạn. Với TTL 15 phút thì chấp nhận được; với vai trò nhạy cảm thì cần thu hồi cả refresh token ([bài 10.3](10.3-refresh-token.mdx)) để buộc đăng nhập lại.
 
 Việc gán vai trò **phải được ghi log**:
 
@@ -150,7 +150,7 @@ logger.LogInformation("{Actor} gan vai tro {Role} cho {Target}",
 
 "Ai cấp quyền admin cho tài khoản này, lúc nào" là câu hỏi đầu tiên trong mọi cuộc điều tra sự cố bảo mật. Không có log này, bạn không trả lời được.
 
-### 10.5.5 — Khi vai trò không còn đủ
+### 10.4.5 — Khi vai trò không còn đủ
 
 Dấu hiệu rõ nhất là **tên vai trò bắt đầu mã hoá thông tin**:
 
@@ -170,15 +170,15 @@ Vấn đề thật sự: **vai trò trả lời "bạn là ai trong tổ chức"
 | Câu hỏi | Công cụ |
 |---|---|
 | "Có phải Manager không?" | Vai trò |
-| "Có quyền duyệt deal không?" | Permission — [bài 10.8](10.7-permission-system.mdx) |
-| "Có quản lý khu vực này không?" | Policy với claim — [bài 10.6](10.5-policy-based-authorization.mdx) |
-| "Có sở hữu **bản ghi cụ thể này** không?" | Resource-based — [bài 10.7](10.6-resource-based-authorization.mdx) |
+| "Có quyền duyệt deal không?" | Permission — [bài 10.7](10.7-permission-system.mdx) |
+| "Có quản lý khu vực này không?" | Policy với claim — [bài 10.5](10.5-policy-based-authorization.mdx) |
+| "Có sở hữu **bản ghi cụ thể này** không?" | Resource-based — [bài 10.6](10.6-resource-based-authorization.mdx) |
 
 Chỉ hàng đầu tiên thuộc về vai trò. Ba hàng sau là ba bài tiếp theo của module.
 
 Cách tiến hoá thực dụng: giữ vai trò cho phân loại thô, và **đặt policy lên trên** vai trò. Khi quy tắc đổi, bạn sửa định nghĩa policy ở một chỗ thay vì sửa hàng chục attribute rải khắp controller.
 
-### 10.5.6 — Rà lại code của bạn
+### 10.4.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát phân quyền theo vai trò"
@@ -339,7 +339,7 @@ app.MapHealthChecks("/health/live").AllowAnonymous();
 app.MapGet("/", () => Results.Redirect("/swagger")).AllowAnonymous();
 ```
 
-**Bỏ sót health check là sự cố thật.** Kubernetes gọi `/health/live` không kèm token, nhận `401`, coi như pod chết, và **khởi động lại liên tục** — đúng ca ở [bài 8.12](../module-08-aspnet-core-fundamentals/8.11-mini-case-study.mdx). Triệu chứng là pod restart vòng lặp ngay sau khi bật `FallbackPolicy`, và nguyên nhân thì không hiện ra trong log ứng dụng.
+**Bỏ sót health check là sự cố thật.** Kubernetes gọi `/health/live` không kèm token, nhận `401`, coi như pod chết, và **khởi động lại liên tục** — đúng ca ở [bài 8.11](../module-08-aspnet-core-fundamentals/8.11-mini-case-study.mdx). Triệu chứng là pod restart vòng lặp ngay sau khi bật `FallbackPolicy`, và nguyên nhân thì không hiện ra trong log ứng dụng.
 
 **Danh sách phải kiểm khi bật `FallbackPolicy`:**
 
@@ -409,7 +409,7 @@ Thời gian sống còn lại của access token
 
 Với access token 15 phút và `ClockSkew` mặc định, đó là **tối đa 20 phút**. Đo trong hệ thống của bạn bằng cách lặp lời gọi mỗi 30 giây cho tới khi nhận `401`.
 
-**Đây chính là sự cố ở [bài 10.13](10.12-mini-case-study.mdx)**, nhưng ở đó tệ hơn nhiều: endpoint `/refresh` không kiểm tra trạng thái tài khoản, nên người đã nghỉ việc cứ 15 phút lại tự gia hạn — cửa sổ 20 phút trở thành **vô hạn**.
+**Đây chính là sự cố ở [bài 10.12](10.12-mini-case-study.mdx)**, nhưng ở đó tệ hơn nhiều: endpoint `/refresh` không kiểm tra trạng thái tài khoản, nên người đã nghỉ việc cứ 15 phút lại tự gia hạn — cửa sổ 20 phút trở thành **vô hạn**.
 
 **Bốn cách thu hẹp, theo thứ tự nên áp dụng:**
 

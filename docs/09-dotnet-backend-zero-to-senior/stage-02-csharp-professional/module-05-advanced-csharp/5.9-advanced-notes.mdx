@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 5.10.1 — IAsyncEnumerable: dùng ngay
+### 5.9.1 — IAsyncEnumerable: dùng ngay
 
 **Điều kiện kích hoạt:** xử lý tập dữ liệu có thể rất lớn.
 
@@ -49,7 +49,7 @@ await foreach (var lead in _service.GetAllAsync(ct))
 
 Thuộc tính `[EnumeratorCancellation]` là chi tiết dễ quên nhưng quan trọng: không có nó, `CancellationToken` truyền qua `WithCancellation` **không tới được** phần thân phương thức, nên việc huỷ không có tác dụng.
 
-Đây là công cụ giải quyết đúng lớp bug làm container bị OOM kill khi export dữ liệu ([bài 19.13](../../stage-05-senior-engineering/module-19-performance-engineering/19.12-quick-real-world-example.mdx)).
+Đây là công cụ giải quyết đúng lớp bug làm container bị OOM kill khi export dữ liệu ([bài 19.12](../../stage-05-senior-engineering/module-19-performance-engineering/19.12-quick-real-world-example.mdx)).
 
 Trong ASP.NET Core, trả về `IAsyncEnumerable` trực tiếp từ controller cũng stream được kết quả:
 
@@ -59,7 +59,7 @@ public IAsyncEnumerable<LeadDto> Stream(CancellationToken ct)
     => _db.Leads.AsNoTracking().Select(l => new LeadDto(l.Id, l.Name)).AsAsyncEnumerable();
 ```
 
-### 5.10.2 — Source generator: dùng cái có sẵn
+### 5.9.2 — Source generator: dùng cái có sẵn
 
 **Điều kiện kích hoạt:** serialize JSON trong đường xử lý nóng, hoặc cần tương thích Native AOT.
 
@@ -74,7 +74,7 @@ internal partial class AppJsonContext : JsonSerializerContext { }
 var json = JsonSerializer.Serialize(lead, AppJsonContext.Default.LeadDto);
 ```
 
-Trình biên dịch sinh ra code serialize **lúc biên dịch** thay vì dùng reflection lúc chạy. Lợi ích: nhanh hơn, cấp phát ít hơn, và chạy được dưới Native AOT ([bài 19.11](../../stage-05-senior-engineering/module-19-performance-engineering/19.10-advanced-notes.mdx)).
+Trình biên dịch sinh ra code serialize **lúc biên dịch** thay vì dùng reflection lúc chạy. Lợi ích: nhanh hơn, cấp phát ít hơn, và chạy được dưới Native AOT ([bài 19.10](../../stage-05-senior-engineering/module-19-performance-engineering/19.10-advanced-notes.mdx)).
 
 Đăng ký cho toàn bộ ứng dụng:
 
@@ -85,7 +85,7 @@ builder.Services.ConfigureHttpJsonOptions(o =>
 
 Source generator khác biệt với reflection ở một điểm quan trọng: nó **hoàn toàn tường minh**. Bạn thấy được code sinh ra, gỡ lỗi được, và trình biên dịch kiểm tra được — khác với reflection vốn chỉ lộ lỗi lúc chạy.
 
-### 5.10.3 — Expression tree
+### 5.9.3 — Expression tree
 
 **Điều kiện kích hoạt:** bạn dùng nó **hàng ngày** qua EF Core; chỉ cần tự viết khi xây thư viện.
 
@@ -118,9 +118,9 @@ _db.Leads.Where(l => IsValid(l))
 
 `Where` của `IQueryable` nhận `Expression<Func<...>>`, không phải `Func<...>`. Một lời gọi phương thức thường là một nút "gọi hàm" trong cây, và EF Core không biết dịch nó thành SQL gì.
 
-Hiểu điều này giúp bạn đọc được thông báo lỗi "could not be translated" và biết ngay phải sửa ở đâu ([bài 13.6](../../stage-04-database-production/module-13-entity-framework-core/13.5-query-patterns.mdx)).
+Hiểu điều này giúp bạn đọc được thông báo lỗi "could not be translated" và biết ngay phải sửa ở đâu ([bài 13.5](../../stage-04-database-production/module-13-entity-framework-core/13.5-query-patterns.mdx)).
 
-### 5.10.4 — Span và Memory
+### 5.9.4 — Span và Memory
 
 **Điều kiện kích hoạt:** hot path đã đo được là tốn cấp phát; hoặc bạn viết thư viện.
 
@@ -141,7 +141,7 @@ ReadOnlySpan<char> code = input.AsSpan(0, 3);
 
 Thực tế: bạn **dùng nó gián tiếp** liên tục. `int.Parse(ReadOnlySpan<char>)`, `string.Split` phiên bản mới, và phần lớn API xử lý chuỗi trong .NET hiện đại đều nhận `Span`. Tự viết code dùng `Span` chỉ đáng khi profiler đã chỉ ra một hot path cụ thể.
 
-### 5.10.5 — Covariance và contravariance
+### 5.9.5 — Covariance và contravariance
 
 **Điều kiện kích hoạt:** thiết kế interface generic dùng lại nhiều nơi.
 
@@ -171,7 +171,7 @@ Quy tắc dễ nhớ: **`out` cho kiểu chỉ xuất hiện ở đầu ra**, **
 
 Ít khi bạn cần tự khai báo, nhưng hiểu nó giải thích được vì sao một số phép gán generic hợp lệ còn số khác thì không.
 
-### 5.10.6 — Thứ tự nên học
+### 5.9.6 — Thứ tự nên học
 
 | Ưu tiên | Chủ đề | Vì sao |
 |---|---|---|
@@ -184,7 +184,7 @@ Quy tắc dễ nhớ: **`out` cho kiểu chỉ xuất hiện ở đầu ra**, **
 
 Sau Module 5, bước tiếp theo là [Module 6 — Async Programming](../module-06-async-programming/).
 
-### 5.10.7 — Rà lại code của bạn
+### 5.9.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát C# nâng cao"

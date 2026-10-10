@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 9.13.1 — Vấn đề
+### 9.12.1 — Vấn đề
 
 ```
 10:02:31  POST /api/orders  { items: [...], total: 5.000.000 }
@@ -47,7 +47,7 @@ Bốn nguyên nhân khiến request bị gửi hai lần, và chỉ nguyên nhâ
 
 Vì vậy chống trùng **phải** nằm ở backend.
 
-### 9.13.2 — Idempotency-Key
+### 9.12.2 — Idempotency-Key
 
 Client sinh một khoá **duy nhất cho mỗi ý định**, gửi kèm request:
 
@@ -68,7 +68,7 @@ Request #2 với key K  -> Thấy K đã có    -> Trả 201 + đơn hàng #1 (K
 
 Điểm quan trọng: request thứ hai trả về **thành công với kết quả cũ**, không phải lỗi. Với client, hai lần gọi trông như nhau — đó chính là ý nghĩa của idempotent.
 
-### 9.13.3 — Cài đặt
+### 9.12.3 — Cài đặt
 
 ```csharp
 public sealed class IdempotencyFilter(AppDbContext db) : IAsyncActionFilter
@@ -133,7 +133,7 @@ public sealed class IdempotencyFilter(AppDbContext db) : IAsyncActionFilter
 public async Task<IActionResult> Create(CreateOrderRequest request, CancellationToken ct)
 ```
 
-### 9.13.4 — Cái bẫy: hai request cùng lúc
+### 9.12.4 — Cái bẫy: hai request cùng lúc
 
 Đoạn code trên vẫn có một khoảng hở:
 
@@ -144,7 +144,7 @@ t=2ms   Request #1: tạo đơn hàng
 t=3ms   Request #2: tạo đơn hàng                 <- VẪN TRÙNG
 ```
 
-Đây đúng là race condition của mẫu "kiểm tra trước rồi ghi" ([bài 17.3](../../stage-05-senior-engineering/module-17-distributed-systems/17.2-messaging-fears-lost-duplicates.mdx)).
+Đây đúng là race condition của mẫu "kiểm tra trước rồi ghi" ([bài 17.2](../../stage-05-senior-engineering/module-17-distributed-systems/17.2-messaging-fears-lost-duplicates.mdx)).
 
 **Sửa: giành chỗ trước khi xử lý.**
 
@@ -195,7 +195,7 @@ sequenceDiagram
     Note over R2,DB: retry sau vài giây nhận kết quả đã lưu
 ```
 
-### 9.13.5 — Endpoint nào cần
+### 9.12.5 — Endpoint nào cần
 
 | Method | Idempotent sẵn? | Cần `Idempotency-Key`? |
 |---|---|---|
@@ -216,7 +216,7 @@ KHÔNG CẦN: tìm kiếm bằng POST, ghi log, tính toán không lưu trữ
 
 Bắt buộc `Idempotency-Key` cho mọi endpoint là thêm gánh nặng cho client mà không đổi lại được gì.
 
-### 9.13.6 — Dọn bảng
+### 9.12.6 — Dọn bảng
 
 ```sql
 DELETE TOP (5000) FROM IdempotencyRecords
@@ -225,9 +225,9 @@ WHERE CreatedUtc < DATEADD(hour, -24, SYSUTCDATETIME());
 
 Giữ 24 giờ là đủ: retry hợp lệ xảy ra trong vòng vài giây tới vài phút. Giữ lâu hơn chỉ làm bảng phình to.
 
-Xoá theo lô để không khoá bảng, và chạy định kỳ bằng job nền ([bài 14.7](../../stage-04-database-production/module-14-caching-background-jobs/14.6-hangfire-background-jobs.mdx)).
+Xoá theo lô để không khoá bảng, và chạy định kỳ bằng job nền ([bài 14.6](../../stage-04-database-production/module-14-caching-background-jobs/14.6-hangfire-background-jobs.mdx)).
 
-### 9.13.7 — Rà lại code của bạn
+### 9.12.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát idempotency"
@@ -448,7 +448,7 @@ SELECT COUNT(*) FROM Orders WHERE CustomerId = '8f3a1b2c-...';
 
 **Đạt cả ba tiêu chí.**
 
-**Vì sao ràng buộc database là thứ duy nhất đủ.** Giữa `AnyAsync` và `Add` luôn có một khoảng thời gian, dù nhỏ tới đâu. Mọi cách "kiểm tra rồi ghi" ở tầng ứng dụng đều chỉ **thu hẹp** khoảng đó chứ không xoá được — đúng lập luận ở [bài 17.3](../../stage-05-senior-engineering/module-17-distributed-systems/17.2-messaging-fears-lost-duplicates.mdx). Ràng buộc `UNIQUE` thì được kiểm tra **nguyên tử bên trong** lệnh ghi.
+**Vì sao ràng buộc database là thứ duy nhất đủ.** Giữa `AnyAsync` và `Add` luôn có một khoảng thời gian, dù nhỏ tới đâu. Mọi cách "kiểm tra rồi ghi" ở tầng ứng dụng đều chỉ **thu hẹp** khoảng đó chứ không xoá được — đúng lập luận ở [bài 17.2](../../stage-05-senior-engineering/module-17-distributed-systems/17.2-messaging-fears-lost-duplicates.mdx). Ràng buộc `UNIQUE` thì được kiểm tra **nguyên tử bên trong** lệnh ghi.
 
 **Index bắt buộc:**
 
@@ -475,7 +475,7 @@ Thiếu nó thì `SaveChangesAsync` không ném gì cả, và bạn quay lại k
    context.HttpContext.Response.Headers.RetryAfter = "2";
    ```
 
-**Một lựa chọn thiết kế đáng cân nhắc.** Thay vì `409`, có hệ thống cho request thứ hai **chờ** bản ghi chuyển sang `Completed` rồi trả luôn kết quả. Trải nghiệm mượt hơn, nhưng đổi lại là giữ kết nối và thread trong lúc chờ — chính là kiểu tải sinh ra thread pool starvation ở [bài 6.12](../../stage-02-csharp-professional/module-06-async-programming/6.11-quick-real-world-example.mdx). Với API công khai, `409` kèm `Retry-After` an toàn hơn.
+**Một lựa chọn thiết kế đáng cân nhắc.** Thay vì `409`, có hệ thống cho request thứ hai **chờ** bản ghi chuyển sang `Completed` rồi trả luôn kết quả. Trải nghiệm mượt hơn, nhưng đổi lại là giữ kết nối và thread trong lúc chờ — chính là kiểu tải sinh ra thread pool starvation ở [bài 6.11](../../stage-02-csharp-professional/module-06-async-programming/6.11-quick-real-world-example.mdx). Với API công khai, `409` kèm `Retry-After` an toàn hơn.
 
 </details>
 

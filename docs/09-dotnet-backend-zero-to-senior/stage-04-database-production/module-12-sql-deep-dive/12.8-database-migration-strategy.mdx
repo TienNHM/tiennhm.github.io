@@ -25,7 +25,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 12.9.1 — Migration là mã nguồn
+### 12.8.1 — Migration là mã nguồn
 
 ```
 migrations/
@@ -60,7 +60,7 @@ END
 
 EF Core Migrations được học kỹ ở [Module 13](../module-13-entity-framework-core/). Với database dùng chung nhiều ứng dụng, Flyway hoặc DbUp thường hợp hơn — chúng không giả định một ứng dụng sở hữu schema.
 
-### 12.9.2 — Tương thích ngược cả hai chiều
+### 12.8.2 — Tương thích ngược cả hai chiều
 
 Trong một lần triển khai rolling, có khoảng thời gian **code cũ và code mới cùng chạy** trên cùng một database:
 
@@ -90,7 +90,7 @@ Nên migration phải thoả:
 
 Mọi dòng "Không" đều giải được bằng expand-contract.
 
-### 12.9.3 — Expand-contract
+### 12.8.3 — Expand-contract
 
 Đổi tên cột `Email` thành `ContactEmail`, không downtime:
 
@@ -142,7 +142,7 @@ Giữa deploy 3 và 4 nên chờ ít nhất **một chu kỳ phát hành** — �
 
 Đổi **kiểu** cột cũng theo mẫu này: thêm cột kiểu mới, ghi cả hai, backfill, chuyển đọc, xoá cột cũ.
 
-### 12.9.4 — DDL nào khoá bảng
+### 12.8.4 — DDL nào khoá bảng
 
 ```sql
 -- NHANH — chi doi metadata (SQL Server 2012+, PostgreSQL 11+)
@@ -194,7 +194,7 @@ CREATE INDEX CONCURRENTLY idx_leads_status ON leads(status);
 SELECT indexrelid::regclass FROM pg_index WHERE NOT indisvalid;
 ```
 
-### 12.9.5 — Backfill theo lô
+### 12.8.5 — Backfill theo lô
 
 ```sql
 -- SAI — một UPDATE cho 50 triệu dòng
@@ -234,7 +234,7 @@ Bốn yếu tố làm nó an toàn:
 
 Với bảng rất lớn, tách backfill thành một **job nền** chạy vài ngày thay vì một script chạy trong cửa sổ bảo trì. Nó chậm hơn nhưng không cần downtime nào.
 
-### 12.9.6 — Chạy migration khi nào
+### 12.8.6 — Chạy migration khi nào
 
 | Cách | Ưu | Nhược |
 |---|---|---|
@@ -250,7 +250,7 @@ await scope.ServiceProvider.GetRequiredService<AppDbContext>()
     .Database.MigrateAsync();
 ```
 
-Với nhiều instance, ba pod cùng khởi động sẽ cùng chạy migration. EF Core và Flyway đều có khoá, nên thường không hỏng — nhưng hai pod còn lại **chờ** suốt thời gian đó, và nếu migration mất 10 phút thì health check đã báo hỏng từ lâu ([bài 8.10](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.9-health-checks.mdx)).
+Với nhiều instance, ba pod cùng khởi động sẽ cùng chạy migration. EF Core và Flyway đều có khoá, nên thường không hỏng — nhưng hai pod còn lại **chờ** suốt thời gian đó, và nếu migration mất 10 phút thì health check đã báo hỏng từ lâu ([bài 8.9](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.9-health-checks.mdx)).
 
 **Cách được khuyến nghị**: bước riêng trong pipeline triển khai, **trước** khi pod mới lên.
 
@@ -262,11 +262,11 @@ Với nhiều instance, ba pod cùng khởi động sẽ cùng chạy migration.
   run: kubectl rollout restart deployment/crm-api
 ```
 
-Thứ tự này chỉ đúng vì migration **tương thích ngược** — schema mới chạy được với code cũ đang phục vụ. Đó là lý do mục 12.9.2 là nền tảng của cả bài.
+Thứ tự này chỉ đúng vì migration **tương thích ngược** — schema mới chạy được với code cũ đang phục vụ. Đó là lý do mục 12.8.2 là nền tảng của cả bài.
 
 Và **luôn sao lưu trước migration phá huỷ**. Không phải vì bạn nghĩ nó sẽ hỏng, mà vì `DROP COLUMN` không có `undo`.
 
-### 12.9.7 — Rà lại code của bạn
+### 12.8.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát migration"

@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 15.13.1 — Sự cố
+### 15.12.1 — Sự cố
 
 ```bash
 kubectl describe pod crm-api-7d8f9
@@ -58,7 +58,7 @@ kubectl exec crm-api-7d8f9 -- cat /proc/1/status | grep VmRSS
 
 **Khoảng cách 1,7 GB** giữa heap và RSS. Đó mới là con số Kubernetes nhìn vào.
 
-### 15.13.2 — Nguyên nhân
+### 15.12.2 — Nguyên nhân
 
 ```
 .NET Server GC (mặc định cho ASP.NET Core):
@@ -87,7 +87,7 @@ Container giới hạn 2 GB, nhưng GC nhìn thấy 32 core
 
 Từ .NET 5 trở đi, runtime **có** đọc cgroup limit và điều chỉnh — nhưng nếu container không được cấu hình đúng, hoặc chạy trên nền tảng runtime không phát hiện được limit, nó lại dùng thông tin của máy chủ.
 
-### 15.13.3 — Sửa 1: Workstation GC
+### 15.12.3 — Sửa 1: Workstation GC
 
 ```xml
 <PropertyGroup>
@@ -112,9 +112,9 @@ OOM kill: không còn
 
 **Đánh đổi rõ ràng:** Workstation GC dùng **một** heap, thu gom thường xuyên hơn, nên tốn ít bộ nhớ hơn nhiều nhưng thông lượng thấp hơn một chút.
 
-Với container nhỏ (dưới 1–2 GB) và tải vừa phải, đây gần như luôn là lựa chọn đúng — bạn đổi 10% thông lượng lấy việc **không bị giết** ([bài 19.11](../../stage-05-senior-engineering/module-19-performance-engineering/19.10-advanced-notes.mdx)).
+Với container nhỏ (dưới 1–2 GB) và tải vừa phải, đây gần như luôn là lựa chọn đúng — bạn đổi 10% thông lượng lấy việc **không bị giết** ([bài 19.10](../../stage-05-senior-engineering/module-19-performance-engineering/19.10-advanced-notes.mdx)).
 
-### 15.13.4 — Sửa 2: giới hạn heap tường minh
+### 15.12.4 — Sửa 2: giới hạn heap tường minh
 
 Nếu cần giữ Server GC vì thông lượng:
 
@@ -138,7 +138,7 @@ env:
 
 Chừa 25% cho native memory, thread stack và assembly là hợp lý — đó là phần `GC Heap Size` không đếm tới.
 
-### 15.13.5 — Sửa 3: đặt request và limit đúng
+### 15.12.5 — Sửa 3: đặt request và limit đúng
 
 ```yaml
 resources:
@@ -161,9 +161,9 @@ requests.memory: giá trị THỰC TẾ ở trạng thái ổn định
 limits.memory:   requests x 1,5 den 2
 ```
 
-Đặt hai giá trị **bằng nhau** cho QoS class `Guaranteed` — pod được ưu tiên cao nhất khi node thiếu bộ nhớ, và ít bị đuổi hơn ([bài 15.10](15.9-awareness-level.mdx)).
+Đặt hai giá trị **bằng nhau** cho QoS class `Guaranteed` — pod được ưu tiên cao nhất khi node thiếu bộ nhớ, và ít bị đuổi hơn ([bài 15.9](15.9-awareness-level.mdx)).
 
-### 15.13.6 — Giám sát
+### 15.12.6 — Giám sát
 
 ```yaml
 # Cảnh báo trước khi bị giết
@@ -185,7 +185,7 @@ Chỉ số thứ nhất là con số quan trọng nhất, và nó là thứ mà 
 
 Chỉ số thứ ba đáng để ý riêng: `Restart Count` tăng dần là dấu hiệu rõ ràng, nhưng nếu không ai nhìn vào nó thì sự cố có thể diễn ra hàng tuần mà không ai biết — vì Kubernetes khởi động lại pod nhanh tới mức người dùng chỉ thấy vài lỗi lẻ tẻ.
 
-### 15.13.7 — Rà lại code của bạn
+### 15.12.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát bộ nhớ container"

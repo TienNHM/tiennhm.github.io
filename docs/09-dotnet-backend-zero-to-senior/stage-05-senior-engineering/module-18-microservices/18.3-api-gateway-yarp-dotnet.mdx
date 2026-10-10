@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 18.4.1 — Gateway làm gì
+### 18.3.1 — Gateway làm gì
 
 | Nên làm ở gateway | Vì sao |
 |---|---|
@@ -56,7 +56,7 @@ Vấn đề cụ thể: quy tắc "đơn trên 10 triệu cần duyệt" giờ n
 
 **Ranh giới đơn giản:** gateway chỉ được ra quyết định dựa trên **HTTP** (đường dẫn, header, token), không bao giờ dựa trên **nghiệp vụ** (số tiền, trạng thái khách hàng).
 
-### 18.4.2 — YARP: cấu hình đầy đủ
+### 18.3.2 — YARP: cấu hình đầy đủ
 
 ```csharp
 var builder = WebApplication.CreateBuilder(args);
@@ -140,10 +140,10 @@ app.Run();
 Ba chi tiết đáng chú ý:
 
 - **`HealthCheck.Active`** cho YARP chủ động loại instance chết khỏi vòng cân bằng tải. Không có nó, request vẫn được gửi tới instance đã chết và người dùng nhận lỗi 502.
-- **Đường dẫn health check phải là `/health/ready`**, không phải `/health/live`. Liveness chỉ nói tiến trình còn sống; readiness nói nó sẵn sàng nhận request ([bài 15.9](../../stage-04-database-production/module-15-docker-deployment/15.8-production-monitoring.mdx)).
+- **Đường dẫn health check phải là `/health/ready`**, không phải `/health/live`. Liveness chỉ nói tiến trình còn sống; readiness nói nó sẵn sàng nhận request ([bài 15.8](../../stage-04-database-production/module-15-docker-deployment/15.8-production-monitoring.mdx)).
 - **`PowerOfTwoChoices`** là chính sách cân bằng tải mặc định tốt: chọn ngẫu nhiên hai đích rồi lấy cái ít tải hơn. Nó tránh được điểm yếu của round-robin (gửi đều cho cả instance đang chậm) mà không cần theo dõi toàn cục.
 
-### 18.4.3 — Correlation id
+### 18.3.3 — Correlation id
 
 Đây là thứ **phải có** trước khi tách service, và gateway là nơi đúng để sinh nó.
 
@@ -166,9 +166,9 @@ app.Use(async (context, next) =>
 
 Trả correlation id **về trong response header** là chi tiết nhỏ nhưng giá trị lớn: người dùng báo lỗi kèm mã đó, và bạn tìm được toàn bộ luồng trong log chỉ bằng một truy vấn.
 
-YARP tự động chuyển tiếp header `traceparent` theo chuẩn W3C Trace Context, nên nếu đã bật OpenTelemetry thì trace xuyên service hoạt động mà không cần cấu hình thêm ([bài 18.6](18.5-observability-three-pillars.mdx)).
+YARP tự động chuyển tiếp header `traceparent` theo chuẩn W3C Trace Context, nên nếu đã bật OpenTelemetry thì trace xuyên service hoạt động mà không cần cấu hình thêm ([bài 18.5](18.5-observability-three-pillars.mdx)).
 
-### 18.4.4 — Gateway là điểm chết đơn
+### 18.3.4 — Gateway là điểm chết đơn
 
 ```mermaid
 flowchart TB
@@ -194,7 +194,7 @@ builder.Services.AddHttpClient("yarp")
 
 Nếu client chờ 30 giây còn gateway chờ 60, client bỏ cuộc trước nhưng gateway vẫn giữ kết nối tới service — và dưới tải cao, số kết nối treo đó sẽ làm cạn tài nguyên gateway.
 
-### 18.4.5 — Gateway hay BFF
+### 18.3.5 — Gateway hay BFF
 
 | | API Gateway | BFF (Backend for Frontend) |
 |---|---|---|
@@ -220,11 +220,11 @@ app.MapGet("/mobile/dashboard", async (ISalesClient sales, IBillingClient billin
 });
 ```
 
-`Task.WhenAll` ở đây quan trọng: gọi tuần tự thì độ trễ là **tổng**, gọi song song thì độ trễ là **max** ([bài 6.6](../../stage-02-csharp-professional/module-06-async-programming/6.5-task-parallel-library.mdx)).
+`Task.WhenAll` ở đây quan trọng: gọi tuần tự thì độ trễ là **tổng**, gọi song song thì độ trễ là **max** ([bài 6.5](../../stage-02-csharp-professional/module-06-async-programming/6.5-task-parallel-library.mdx)).
 
 **Không phải hệ nào cũng cần BFF.** Nếu chỉ có một loại client, gateway là đủ và thêm BFF chỉ là thêm một tầng phải vận hành.
 
-### 18.4.6 — Rà lại code của bạn
+### 18.3.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát gateway"

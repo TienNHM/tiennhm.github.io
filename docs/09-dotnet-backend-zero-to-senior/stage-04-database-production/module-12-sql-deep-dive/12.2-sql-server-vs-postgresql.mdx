@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 12.3.1 — MVCC: khác biệt lớn nhất
+### 12.2.1 — MVCC: khác biệt lớn nhất
 
 **PostgreSQL** dùng MVCC làm cơ chế mặc định: mỗi lần `UPDATE` **không sửa dòng cũ** mà tạo một **phiên bản mới**, đánh dấu phiên bản cũ là chết.
 
@@ -69,9 +69,9 @@ Bỏ quên chuyện này là một trong những nguyên nhân phổ biến nh�
 ALTER DATABASE CrmDb SET READ_COMMITTED_SNAPSHOT ON;
 ```
 
-`RCSI` gần như luôn nên bật cho ứng dụng OLTP — nó xoá bỏ phần lớn tranh chấp đọc/ghi. Cái giá là `tempdb` phải chịu tải version store. Chi tiết ở [bài 12.7](12.6-transactions-and-locking.mdx) và trong bài [SQL isolation level](/blog/sql-isolation-level-lost-update-phantom-read).
+`RCSI` gần như luôn nên bật cho ứng dụng OLTP — nó xoá bỏ phần lớn tranh chấp đọc/ghi. Cái giá là `tempdb` phải chịu tải version store. Chi tiết ở [bài 12.6](12.6-transactions-and-locking.mdx) và trong bài [SQL isolation level](/blog/sql-isolation-level-lost-update-phantom-read).
 
-### 12.3.2 — Collation: bẫy khi chuyển đổi
+### 12.2.2 — Collation: bẫy khi chuyển đổi
 
 ```sql
 -- SQL Server, collation mặc định (ví dụ SQL_Latin1_General_CP1_CI_AS)
@@ -110,7 +110,7 @@ Còn một khác biệt về sắp xếp: `ORDER BY` với tiếng Việt cho k�
 CREATE DATABASE crm LC_COLLATE = 'vi_VN.UTF-8' LC_CTYPE = 'vi_VN.UTF-8';
 ```
 
-### 12.3.3 — Định danh và kiểu dữ liệu
+### 12.2.3 — Định danh và kiểu dữ liệu
 
 ```sql
 -- PostgreSQL TỰ CHUYỂN về chữ thường nếu không có nháy kép
@@ -143,7 +143,7 @@ Quy ước PostgreSQL là `snake_case` **không nháy kép**. EF Core có `UseSn
 
 `TIMESTAMPTZ` đáng nhấn mạnh: nó lưu thời điểm tuyệt đối và tự chuyển theo múi giờ phiên. `TIMESTAMP` không có múi giờ và gây nhầm lẫn khi hệ thống chạy ở nhiều vùng.
 
-### 12.3.4 — JSON: khác biệt thực chất
+### 12.2.4 — JSON: khác biệt thực chất
 
 ```sql
 -- SQL SERVER: chỉ là chuỗi, không index được trực tiếp
@@ -184,7 +184,7 @@ GIN index phục vụ **mọi** khoá trong tài liệu, không cần khai trư�
 Cột JSON không có ràng buộc, không có kiểu, và không có khoá ngoại. Dữ liệu **có cấu trúc rõ ràng** thuộc về cột thật. JSON dành cho phần **thực sự linh hoạt**: cấu hình theo khách hàng, trường tuỳ biến, dữ liệu từ bên thứ ba.
 :::
 
-### 12.3.5 — Chọn cái nào
+### 12.2.5 — Chọn cái nào
 
 **Chọn SQL Server khi:**
 
@@ -205,7 +205,7 @@ Cột JSON không có ràng buộc, không có kiểu, và không có khoá ngo�
 
 Và đừng cố viết code **chạy được trên cả hai**. Bạn mất mọi tính năng riêng của từng hệ để đổi lấy một khả năng mà 95% dự án không bao giờ dùng tới.
 
-### 12.3.6 — Rà lại code của bạn
+### 12.2.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát khác biệt giữa hai hệ"
@@ -493,7 +493,7 @@ SELECT * FROM Leads WHERE JSON_VALUE(Metadata, '$.source') = 'web';
 Estimated rows: 200000
 ```
 
-**Quét toàn bảng.** `JSON_VALUE` là một hàm bọc quanh cột, nên nó không SARGable — đúng nguyên tắc ở [bài 12.5](12.4-indexing.mdx). SQL Server phải phân tích JSON của **từng dòng** để biết giá trị.
+**Quét toàn bảng.** `JSON_VALUE` là một hàm bọc quanh cột, nên nó không SARGable — đúng nguyên tắc ở [bài 12.4](12.4-indexing.mdx). SQL Server phải phân tích JSON của **từng dòng** để biết giá trị.
 
 **Cách sửa trên SQL Server — cột tính toán rồi index lên nó:**
 
@@ -562,7 +562,7 @@ SELECT * FROM leads WHERE metadata @> '{"source":"ads","score":7}';
 
 Với SQL Server, JSON hợp lý cho dữ liệu bạn **chỉ đọc nguyên khối**, không lọc theo bên trong — ví dụ lưu lại bản gốc của một request để đối soát. Ngay khi cần lọc theo một trường, bạn phải khai báo trường đó ra, và lúc đó câu hỏi đúng là: **sao không làm luôn một cột bình thường?**
 
-**Và câu hỏi đó đáng hỏi ở cả hai hệ.** JSON không phải cách tránh việc thiết kế lược đồ. Nếu một trường luôn tồn tại và luôn được truy vấn, nó là một cột — với kiểu dữ liệu rõ ràng, ràng buộc, và index thường. JSON dành cho phần **thật sự** không biết trước, xem [bài 12.2](12.1-crm-database-design.mdx).
+**Và câu hỏi đó đáng hỏi ở cả hai hệ.** JSON không phải cách tránh việc thiết kế lược đồ. Nếu một trường luôn tồn tại và luôn được truy vấn, nó là một cột — với kiểu dữ liệu rõ ràng, ràng buộc, và index thường. JSON dành cho phần **thật sự** không biết trước, xem [bài 12.1](12.1-crm-database-design.mdx).
 
 **SQL Server 2025 có kiểu `json` gốc** gần với `jsonb` hơn, nhưng tại thời điểm viết bài thì phần lớn hệ thống production vẫn chạy trên bản cũ hơn — nên bảng so sánh trên vẫn là thứ bạn gặp trong thực tế.
 

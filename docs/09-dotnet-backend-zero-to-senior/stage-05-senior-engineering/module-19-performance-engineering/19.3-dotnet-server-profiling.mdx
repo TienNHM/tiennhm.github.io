@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 19.4.1 — dotnet-counters: bước đầu tiên
+### 19.3.1 — dotnet-counters: bước đầu tiên
 
 ```bash
 dotnet tool install -g dotnet-counters
@@ -59,7 +59,7 @@ Bốn con số đáng chú ý trong ví dụ này:
 
 `dotnet-counters` gần như không tốn tài nguyên, nên chạy được trên production an toàn. Đây luôn là công cụ đầu tiên.
 
-### 19.4.2 — Bốn loại vấn đề qua tổ hợp chỉ số
+### 19.3.2 — Bốn loại vấn đề qua tổ hợp chỉ số
 
 | CPU | Độ trễ | Queue length | Chẩn đoán |
 |---|---|---|---|
@@ -72,7 +72,7 @@ Hàng cuối đáng nhấn mạnh: **CPU cao không phải vấn đề** nếu �
 
 Hàng thứ hai là loại vấn đề gây nhầm lẫn nhất: CPU nhàn rỗi nên mọi biểu đồ hạ tầng trông bình thường, trong khi người dùng đang đợi hàng giây.
 
-### 19.4.3 — Thread pool starvation
+### 19.3.3 — Thread pool starvation
 
 ```csharp
 // NGUYÊN NHÂN SỐ MỘT — sync-over-async
@@ -106,7 +106,7 @@ public async Task<IActionResult> GetLeads(CancellationToken ct)
 }
 ```
 
-Các dạng sync-over-async cần tìm và loại bỏ ([bài 6.8](../../stage-02-csharp-professional/module-06-async-programming/6.7-common-pitfalls.mdx)):
+Các dạng sync-over-async cần tìm và loại bỏ ([bài 6.7](../../stage-02-csharp-professional/module-06-async-programming/6.7-common-pitfalls.mdx)):
 
 ```csharp
 task.Result                    // chiếm thread
@@ -132,7 +132,7 @@ ThreadPool.SetMinThreads(workerThreads: 200, completionPortThreads: 200);
 
 Tăng số thread tối thiểu khiến pool tạo thread ngay thay vì tăng dần. Nó **che** triệu chứng, và mỗi thread tốn 1 MB stack — 200 thread là 200 MB. Dùng để sống sót qua sự cố, không phải để kết thúc vấn đề.
 
-### 19.4.4 — dotnet-trace: tìm hot path
+### 19.3.4 — dotnet-trace: tìm hot path
 
 ```bash
 dotnet tool install -g dotnet-trace
@@ -161,7 +161,7 @@ Trace cũng ghi **GC event** và **exception**, nên nó trả lời được "v
 
 **Lưu ý trên production:** CPU sampling thêm khoảng 1–3% tải, chấp nhận được. Nhưng file trace lớn nhanh — 30 giây thường đủ, và giới hạn thời gian tránh làm đầy ổ đĩa.
 
-### 19.4.5 — dotnet-gcdump: tìm rò rỉ bộ nhớ
+### 19.3.5 — dotnet-gcdump: tìm rò rỉ bộ nhớ
 
 ```bash
 dotnet tool install -g dotnet-gcdump
@@ -189,7 +189,7 @@ Nguyên nhân thứ hai đặc biệt khó thấy: event handler giữ tham chi�
 
 `gcdump` nhẹ hơn full memory dump nhiều và **an toàn trên production**, nhưng nó gây một lần Gen 2 GC nên sẽ có một khoảng dừng ngắn.
 
-### 19.4.6 — Quy trình chẩn đoán
+### 19.3.6 — Quy trình chẩn đoán
 
 ```mermaid
 flowchart TD
@@ -204,7 +204,7 @@ flowchart TD
 
 Đi theo thứ tự này tránh được việc đoán mò. Mỗi nhánh dẫn tới một công cụ cụ thể và một loại nguyên nhân cụ thể.
 
-### 19.4.7 — Rà lại code của bạn
+### 19.3.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát profiling"
@@ -351,7 +351,7 @@ dotnet-counters monitor --process-id <pid-cua-server> \
     Request Duration (ms, p99)                 3.812      <- CAO
 ```
 
-Tổ hợp **CPU thấp + độ trễ cao + queue length cao** chính là hàng thứ hai trong bảng ở mục 19.4.2 — và nó là loại vấn đề gây nhầm lẫn nhất, vì mọi biểu đồ hạ tầng đều trông bình thường.
+Tổ hợp **CPU thấp + độ trễ cao + queue length cao** chính là hàng thứ hai trong bảng ở mục 19.3.2 — và nó là loại vấn đề gây nhầm lẫn nhất, vì mọi biểu đồ hạ tầng đều trông bình thường.
 
 **Vì sao CPU thấp là phần đánh lừa nhiều nhất:**
 
@@ -550,7 +550,7 @@ public static LeadDto ToDto(Lead lead)
 public static LeadDto ToDto(Lead lead) => new(lead.Id, lead.HoTen, lead.Email, lead.TrangThai);
 ```
 
-Đây đúng là thứ tự đã nêu ở mục 19.3.4 của [bài 19.2](19.2-benchmarkdotnet.mdx): **profiler chỉ ra chỗ đáng sửa, rồi BenchmarkDotNet so sánh các cách sửa.**
+Đây đúng là thứ tự đã nêu ở mục 19.2.4 của [bài 19.2](19.2-benchmarkdotnet.mdx): **profiler chỉ ra chỗ đáng sửa, rồi BenchmarkDotNet so sánh các cách sửa.**
 
 **Ba cái bẫy khi thu trace:**
 

@@ -25,7 +25,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 15.6.1 — Làm cứng server
+### 15.5.1 — Làm cứng server
 
 ```bash
 # 1. Cập nhật và tạo user không phải root
@@ -69,13 +69,13 @@ sudo apt install -y unattended-upgrades
 sudo dpkg-reconfigure -plow unattended-upgrades
 ```
 
-**Đừng mở cổng 1433, 5432 hay 6379.** Database và cache chỉ cần truy cập được **từ trong mạng Docker** ([bài 15.4](15.3-docker-compose.mdx)). Cần kết nối từ máy dev thì dùng SSH tunnel:
+**Đừng mở cổng 1433, 5432 hay 6379.** Database và cache chỉ cần truy cập được **từ trong mạng Docker** ([bài 15.3](15.3-docker-compose.mdx)). Cần kết nối từ máy dev thì dùng SSH tunnel:
 
 ```bash
 ssh -L 1433:localhost:1433 deploy@<ip>
 ```
 
-### 15.6.2 — Nginx làm reverse proxy
+### 15.5.2 — Nginx làm reverse proxy
 
 ```nginx
 # /etc/nginx/sites-available/crm-api
@@ -107,9 +107,9 @@ server {
 
 Bốn dòng đáng giải thích:
 
-**`client_max_body_size`** mặc định **1MB**. Ứng dụng cấu hình 20MB nhưng Nginx chặn ở 1MB, và client nhận **413 từ Nginx** — không có gì trong log ứng dụng ([bài 9.6](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.5-file-upload-and-download.mdx)).
+**`client_max_body_size`** mặc định **1MB**. Ứng dụng cấu hình 20MB nhưng Nginx chặn ở 1MB, và client nhận **413 từ Nginx** — không có gì trong log ứng dụng ([bài 9.5](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.5-file-upload-and-download.mdx)).
 
-**`Upgrade` và `Connection`** bắt buộc cho WebSocket; thiếu chúng thì SignalR **luôn rơi về long polling** mà không có lỗi nào ([bài 11.11](../../stage-03-aspnet-core-backend/module-11-signalr/11.10-scale-out-and-production.mdx)).
+**`Upgrade` và `Connection`** bắt buộc cho WebSocket; thiếu chúng thì SignalR **luôn rơi về long polling** mà không có lỗi nào ([bài 11.10](../../stage-03-aspnet-core-backend/module-11-signalr/11.10-scale-out-and-production.mdx)).
 
 **`proxy_read_timeout`** mặc định 60 giây — cắt kết nối SignalR mỗi phút.
 
@@ -132,7 +132,7 @@ app.UseForwardedHeaders();        // TRƯỚC mọi middleware khác
 
 `KnownProxies` là phần bảo mật: không giới hạn, bất kỳ ai cũng gửi `X-Forwarded-For` giả để vượt rate limit theo IP hoặc giả mạo địa chỉ trong log ([bài viết về forward header](/blog/forward-http-header-an-toan-aspnet-core)).
 
-### 15.6.3 — TLS
+### 15.5.3 — TLS
 
 ```bash
 sudo apt install -y certbot python3-certbot-nginx
@@ -154,11 +154,11 @@ add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" alway
 add_header X-Content-Type-Options "nosniff" always;
 ```
 
-HSTS nên đặt ở **một chỗ** — hoặc Nginx hoặc ứng dụng, không cả hai ([bài 10.11](../../stage-03-aspnet-core-backend/module-10-authentication-authorization/10.10-security-best-practices.mdx)).
+HSTS nên đặt ở **một chỗ** — hoặc Nginx hoặc ứng dụng, không cả hai ([bài 10.10](../../stage-03-aspnet-core-backend/module-10-authentication-authorization/10.10-security-best-practices.mdx)).
 
 Và khi đã có Nginx lo TLS, **tắt `UseHttpsRedirection`** trong ứng dụng — Nginx đã chuyển hướng, và ứng dụng chỉ nghe HTTP nội bộ.
 
-### 15.6.4 — Deploy có rollback
+### 15.5.4 — Deploy có rollback
 
 ```bash
 #!/usr/bin/env bash
@@ -198,7 +198,7 @@ exit 1
 
 Bốn điều làm nó an toàn: `set -euo pipefail` dừng ngay khi có lỗi; **pull trước** khi dừng gì (lỗi mạng không làm chết dịch vụ); **chờ healthy** thay vì giả định thành công; và **rollback tự động** khi health check thất bại.
 
-**Chạy migration trước deploy**, như một bước riêng ([bài 12.9](../module-12-sql-deep-dive/12.8-database-migration-strategy.mdx)):
+**Chạy migration trước deploy**, như một bước riêng ([bài 12.8](../module-12-sql-deep-dive/12.8-database-migration-strategy.mdx)):
 
 ```bash
 docker compose run --rm api dotnet CrmApi.dll --migrate
@@ -214,7 +214,7 @@ Toàn bộ luồng, kể cả bước migration chạy trước:
 
 <small>File gốc: [nền sáng](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-04-database-production-module-15-docker-deployment-linux-vps-deployment/vi/deploy-rollback.html) · [nền tối](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-04-database-production-module-15-docker-deployment-linux-vps-deployment/vi/deploy-rollback-dark.html)</small>
 
-### 15.6.5 — Giám sát những thứ làm chết VPS
+### 15.5.5 — Giám sát những thứ làm chết VPS
 
 Ba thứ phổ biến nhất, theo thứ tự:
 
@@ -240,7 +240,7 @@ logging:
 0 3 * * 0 docker image prune -af --filter "until=168h"
 ```
 
-**2. Hết bộ nhớ.** Container bị OOM kill ([bài 15.2](15.1-docker-fundamentals.mdx)).
+**2. Hết bộ nhớ.** Container bị OOM kill ([bài 15.1](15.1-docker-fundamentals.mdx)).
 
 ```bash
 # Kiểm tra đã từng bị OOM chưa
@@ -256,7 +256,7 @@ sudo mkswap /swapfile && sudo swapon /swapfile
 echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 ```
 
-**3. Chứng chỉ hết hạn.** Xem mục 15.6.3.
+**3. Chứng chỉ hết hạn.** Xem mục 15.5.3.
 
 Giám sát tối thiểu với một script cron:
 
@@ -283,7 +283,7 @@ Không cần hệ thống giám sát phức tạp — một cảnh báo khi đĩ
 
 Và **sao lưu phải được kiểm tra khôi phục** — một bản backup chưa từng khôi phục thử là một bản backup không tồn tại.
 
-### 15.6.6 — Rà lại code của bạn
+### 15.5.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát VPS"

@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 11.4.1 — Strongly-typed Hub
+### 11.3.1 — Strongly-typed Hub
 
 ```csharp
 // Những gì SERVER gọi trên CLIENT
@@ -59,7 +59,7 @@ Dòng đầu **biên dịch được**, chạy được, và tin nhắn **không
 
 Đặt interface vào một project **chia sẻ** thì client .NET (Blazor, MAUI) dùng lại được. Với client TypeScript, sinh kiểu từ interface đó bằng một công cụ như NSwag.
 
-### 11.4.2 — Exception trong Hub method
+### 11.3.2 — Exception trong Hub method
 
 ```csharp
 public async Task MarkAsRead(Guid notificationId)
@@ -102,13 +102,13 @@ Ba chi tiết:
 
 **`HubException` là kênh duy nhất** để gửi thông điệp có ý nghĩa cho client. Mọi exception khác bị che đi.
 
-**`Context.ConnectionAborted`** là `CancellationToken` của kết nối — truyền nó xuống mọi lời gọi async để công việc dừng khi client ngắt ([bài 6.5](../../stage-02-csharp-professional/module-06-async-programming/6.4-cancellationtoken.mdx)).
+**`Context.ConnectionAborted`** là `CancellationToken` của kết nối — truyền nó xuống mọi lời gọi async để công việc dừng khi client ngắt ([bài 6.4](../../stage-02-csharp-professional/module-06-async-programming/6.4-cancellationtoken.mdx)).
 
-**Cùng một thông điệp** cho "không tồn tại" và "không thuộc về bạn" — tránh lộ thông tin, đúng như IDOR ở [bài 10.7](../module-10-authentication-authorization/10.6-resource-based-authorization.mdx). Phân quyền trong Hub cũng dễ bị bỏ sót y như trong controller.
+**Cùng một thông điệp** cho "không tồn tại" và "không thuộc về bạn" — tránh lộ thông tin, đúng như IDOR ở [bài 10.6](../module-10-authentication-authorization/10.6-resource-based-authorization.mdx). Phân quyền trong Hub cũng dễ bị bỏ sót y như trong controller.
 
 `EnableDetailedErrors = true` gửi **toàn bộ** thông điệp exception cho client — chỉ bật ở Development.
 
-### 11.4.3 — `HubFilter`
+### 11.3.3 — `HubFilter`
 
 ```csharp
 public sealed class LoggingHubFilter(ILogger<LoggingHubFilter> logger) : IHubFilter
@@ -168,7 +168,7 @@ builder.Services.AddSignalR(options =>
 });
 ```
 
-`HubFilter` là tương đương của middleware cho Hub — cùng vai trò như `IExceptionHandler` trong controller ([bài 8.9](../module-08-aspnet-core-fundamentals/8.8-global-exception-handling.mdx)).
+`HubFilter` là tương đương của middleware cho Hub — cùng vai trò như `IExceptionHandler` trong controller ([bài 8.8](../module-08-aspnet-core-fundamentals/8.8-global-exception-handling.mdx)).
 
 Mẫu bắt lỗi ở trên rất đáng dùng: **log đầy đủ ở server, gửi thông điệp chung cho client**, đúng nguyên tắc bảo mật, và bạn không phải lặp `try/catch` trong từng Hub method.
 
@@ -185,7 +185,7 @@ flowchart LR
 
 Một ứng dụng khác của filter: **rate limit cho Hub method** — `[EnableRateLimiting]` **không** áp dụng cho lời gọi Hub, chỉ cho request HTTP. Client gọi một Hub method trong vòng lặp thì không có gì chặn.
 
-### 11.4.4 — Cấu hình
+### 11.3.4 — Cấu hình
 
 ```csharp
 builder.Services.AddSignalR(options =>
@@ -212,9 +212,9 @@ app.MapHub<NotificationHub>("/hubs/notifications")
 
 `MaximumParallelInvocationsPerClient = 1` là mặc định đáng biết: nó ngăn một client làm quá tải server, nhưng cũng nghĩa là một Hub method **chậm** sẽ chặn mọi lời gọi khác **của chính client đó**. Nếu Hub có method mất vài giây, hãy tăng giá trị này hoặc đẩy việc ra hàng đợi.
 
-`.RequireAuthorization()` trên `MapHub` là cách gọn nhất để bắt buộc xác thực — chi tiết ở [bài 11.6](11.5-signalr-authentication.mdx).
+`.RequireAuthorization()` trên `MapHub` là cách gọn nhất để bắt buộc xác thực — chi tiết ở [bài 11.5](11.5-signalr-authentication.mdx).
 
-### 11.4.5 — MessagePack
+### 11.3.5 — MessagePack
 
 ```bash
 dotnet add package Microsoft.AspNetCore.SignalR.Protocols.MessagePack
@@ -235,7 +235,7 @@ MessagePack là định dạng nhị phân, thường nhỏ hơn JSON **30–50%
 
 Đánh đổi: tin nhắn **không đọc được** trong DevTools, nên debug khó hơn đáng kể. Thực dụng nhất là **giữ JSON ở Development** và bật MessagePack ở production — SignalR hỗ trợ nhiều protocol cùng lúc, client chọn lúc kết nối.
 
-### 11.4.6 — Rà lại code của bạn
+### 11.3.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát Hub server"
@@ -336,7 +336,7 @@ export const HubEvents = {
 connection.on(HubEvents.ReceiveNotification, dto => showToast(dto));
 ```
 
-Kết hợp với bước sinh client từ OpenAPI ở [bài 9.11](../module-09-web-api-professional/9.10-advanced-notes.mdx), bạn có được kiểm tra hợp đồng ở cả hai đầu.
+Kết hợp với bước sinh client từ OpenAPI ở [bài 9.10](../module-09-web-api-professional/9.10-advanced-notes.mdx), bạn có được kiểm tra hợp đồng ở cả hai đầu.
 
 **Kết luận:** dùng `Hub<T>` cho mọi Hub mới. Chi phí là một interface; đổi lại là cả một lớp lỗi im lặng biến mất.
 
@@ -413,7 +413,7 @@ dbo.ChatRooms trên máy chủ sql-prod-02
 - một phần câu truy vấn hoặc giá trị tham số,
 - đôi khi cả chuỗi kết nối khi lỗi ở tầng hạ tầng.
 
-Ghép lại, đó là một bản đồ khá chi tiết về hệ thống của bạn — đúng loại thông tin mà [bài 10.11](../module-10-authentication-authorization/10.10-security-best-practices.mdx) khuyên không để lọt ra ngoài.
+Ghép lại, đó là một bản đồ khá chi tiết về hệ thống của bạn — đúng loại thông tin mà [bài 10.10](../module-10-authentication-authorization/10.10-security-best-practices.mdx) khuyên không để lọt ra ngoài.
 
 **Vì sao không bật trên production.** Stack trace lộ cấu trúc thư mục và tên lớp nội bộ; thông điệp lộ tên bảng và tên máy chủ. Nó hữu ích ở môi trường phát triển và vô giá trị với người dùng thật — họ không làm gì được với `NotificationHub.cs:line 42`.
 
@@ -446,7 +446,7 @@ public async Task JoinRoom(string room)
 }
 ```
 
-Chi tiết vào log, thông điệp chung chung tới client — cùng nguyên tắc với xử lý ngoại lệ toàn cục ở [bài 8.9](../module-08-aspnet-core-fundamentals/8.8-global-exception-handling.mdx).
+Chi tiết vào log, thông điệp chung chung tới client — cùng nguyên tắc với xử lý ngoại lệ toàn cục ở [bài 8.8](../module-08-aspnet-core-fundamentals/8.8-global-exception-handling.mdx).
 
 </details>
 

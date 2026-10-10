@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 10.10.1 — OAuth2 hay OpenID Connect
+### 10.9.1 — OAuth2 hay OpenID Connect
 
 | | OAuth 2.0 | OpenID Connect |
 |---|---|---|
@@ -35,11 +35,11 @@ Sau bài này bạn có thể:
 
 Dùng `access_token` của OAuth2 để xác thực là sai: nó là **chìa khoá cho một API**, không phải bằng chứng danh tính, và với phần lớn nhà cung cấp nó là chuỗi mờ mà bạn không tự xác thực được.
 
-`id_token` thì khác — nó là JWT có chữ ký, xác thực được bằng khoá công từ endpoint JWKS của nhà cung cấp, đúng như [bài 10.3](10.2-jwt-authentication.mdx).
+`id_token` thì khác — nó là JWT có chữ ký, xác thực được bằng khoá công từ endpoint JWKS của nhà cung cấp, đúng như [bài 10.2](10.2-jwt-authentication.mdx).
 
 Khi bạn thấy "Sign in with Google/Microsoft/GitHub", đó gần như luôn là OIDC.
 
-### 10.10.2 — Authorization Code + PKCE
+### 10.9.2 — Authorization Code + PKCE
 
 ```mermaid
 sequenceDiagram
@@ -75,7 +75,7 @@ Ba tham số bảo mật, mỗi cái chống một thứ khác nhau:
 
 **Implicit flow** — trả token thẳng trong URL fragment — đã bị khuyến cáo **không dùng**: token lọt vào lịch sử trình duyệt, vào log của proxy, vào header `Referer`.
 
-### 10.10.3 — Cấu hình
+### 10.9.3 — Cấu hình
 
 ```bash
 dotnet add package Microsoft.AspNetCore.Authentication.Google
@@ -98,13 +98,13 @@ builder.Services.AddAuthentication()
     });
 ```
 
-`ClientSecret` là **secret** — biến môi trường hoặc Key Vault, không phải `appsettings.json` ([bài 8.7](../module-08-aspnet-core-fundamentals/8.6-configuration-system.mdx)).
+`ClientSecret` là **secret** — biến môi trường hoặc Key Vault, không phải `appsettings.json` ([bài 8.6](../module-08-aspnet-core-fundamentals/8.6-configuration-system.mdx)).
 
 `SaveTokens = false` trừ khi bạn thật sự cần gọi API của Google sau đó. Lưu token của bên thứ ba là thêm một thứ phải bảo vệ.
 
 Dòng `ClaimActions` là quan trọng nhất trong đoạn cấu hình — nó đưa `email_verified` vào claim để mục sau dùng.
 
-### 10.10.4 — Rủi ro chiếm tài khoản
+### 10.9.4 — Rủi ro chiếm tài khoản
 
 ```csharp
 // SAI — liên kết theo email mà không kiểm tra gì
@@ -191,7 +191,7 @@ public async Task<Result<TokenPair>> HandleExternalLoginAsync(
 
 Chú ý dòng cuối: người dùng mới nhận **quyền thấp nhất**. Tự động cấp quyền theo tên miền email (`@company.com` thành `Manager`) là cách nhiều hệ thống bị xâm nhập — tên miền email không phải bằng chứng về vai trò trong tổ chức.
 
-### 10.10.5 — Xử lý ở phía client
+### 10.9.5 — Xử lý ở phía client
 
 Với SPA hoặc mobile, đừng trả JWT nội bộ trong **URL**:
 
@@ -213,9 +213,9 @@ return Redirect($"{clientUrl}/auth/callback");
 
 `SameSite = Lax` ở đây có chủ đích: `Strict` sẽ **không** gửi cookie trong lần điều hướng từ Google về — và luồng đăng nhập hỏng theo cách rất khó chẩn đoán.
 
-Client sau đó gọi `/api/auth/refresh` để lấy access token, đúng mẫu ở [bài 10.4](10.3-refresh-token.mdx).
+Client sau đó gọi `/api/auth/refresh` để lấy access token, đúng mẫu ở [bài 10.3](10.3-refresh-token.mdx).
 
-### 10.10.6 — Rà lại code của bạn
+### 10.9.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát đăng nhập ngoài"
@@ -496,7 +496,7 @@ Dòng thứ hai là dòng cứu luồng OAuth: người dùng **tự bấm** và
 
 Đây là `POST` xuyên site — **dòng thứ ba trong bảng** — nên `Lax` **không** gửi cookie, và request thất bại. Điều `Lax` cho phép chỉ là `GET` ở cấp cao nhất, mà `GET` theo đúng thiết kế thì không được thay đổi dữ liệu.
 
-**Điều này nói thêm một chuyện:** nếu API của bạn có endpoint `GET` gây thay đổi dữ liệu (`GET /customers/42/delete`), thì `Lax` **không** bảo vệ nó. Đó là một lý do nữa để tôn trọng ngữ nghĩa của HTTP method, như [bài 9.2](../module-09-web-api-professional/9.1-rest-api-design-principles.mdx) trình bày.
+**Điều này nói thêm một chuyện:** nếu API của bạn có endpoint `GET` gây thay đổi dữ liệu (`GET /customers/42/delete`), thì `Lax` **không** bảo vệ nó. Đó là một lý do nữa để tôn trọng ngữ nghĩa của HTTP method, như [bài 9.1](../module-09-web-api-professional/9.1-rest-api-design-principles.mdx) trình bày.
 
 **Cấu hình thực dụng:**
 

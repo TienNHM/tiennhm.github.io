@@ -20,7 +20,7 @@ draft: false
 
 import { SummaryBox } from '@site/src/components/SEO';
 
-# Agent Skills - Phần 6: UI Reasoning & Patterns
+# Agent Skills - Phần 13: UI Reasoning & Patterns
 
 <SummaryBox>
 Tài liệu tổng hợp UI Reasoning Patterns giúp chọn layout, phong cách, màu sắc, typography và hiệu ứng phù hợp cho từng loại sản phẩm (SaaS, E-commerce, Healthcare, Fintech, Dashboard, Landing page). Mỗi pattern được đánh giá mức độ quan trọng và có guidelines chiến lược về nên làm và không nên làm. Nội dung dựa trên ui-reasoning.csv từ ui-ux-pro-max-skill, giúp designers và developers đưa ra quyết định thiết kế dựa trên ngữ cảnh sản phẩm cụ thể.

@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 4.2.1 — Class là khuôn, object là sản phẩm
+### 4.1.1 — Class là khuôn, object là sản phẩm
 
 ```csharp
 // Khuôn — mô tả một khách hàng TRÔNG như thế nào và LÀM được gì
@@ -50,7 +50,7 @@ var b = new Customer(2, "Tran Thi B");
 
 `a` và `b` dùng chung một khuôn nhưng là **hai vùng nhớ độc lập**. Sửa `a` không đụng tới `b` — vì đây là kiểu tham chiếu, và như [bài 1.2](/docs/dotnet-backend-zero-to-senior/stage-01-foundation/module-01-programming-logic/1.1-variables-and-data-types) đã nói, phép gán `var c = a;` mới là chỗ cần cẩn thận.
 
-### 4.2.2 — Field hay property?
+### 4.1.2 — Field hay property?
 
 ```csharp
 public class Order
@@ -80,7 +80,7 @@ public decimal Total
 }
 ```
 
-### 4.2.3 — Constructor: cơ hội duy nhất để từ chối
+### 4.1.3 — Constructor: cơ hội duy nhất để từ chối
 
 Đây là ý quan trọng nhất của bài.
 
@@ -133,7 +133,7 @@ flowchart LR
     D --> E["Mọi hàm nhận Order không cần kiểm tra lại"]
 ```
 
-### 4.2.4 — `init` và `required`
+### 4.1.4 — `init` và `required`
 
 ```csharp
 public class Customer
@@ -156,7 +156,7 @@ Khi nào dùng cái nào:
 - **Constructor** khi việc tạo object cần kiểm tra chéo giữa nhiều trường, hoặc cần tính toán.
 - **`required` + `init`** khi chỉ cần gán thẳng và số trường nhiều (constructor 8 tham số rất khó đọc ở chỗ gọi).
 
-### 4.2.5 — `class` hay `struct`
+### 4.1.5 — `class` hay `struct`
 
 | | `class` | `struct` |
 |---|---|---|
@@ -200,7 +200,7 @@ var list = new List<Point> { new() { X = 1, Y = 2 } };
 
 Đây là nguồn nhầm lẫn kinh điển. Nếu bạn định làm `struct`, hãy làm nó bất biến — hoặc dùng `readonly record struct`.
 
-### 4.2.6 — `static`: thuộc về class, không thuộc về object
+### 4.1.6 — `static`: thuộc về class, không thuộc về object
 
 ```csharp
 public class Order
@@ -226,7 +226,7 @@ public static List<Order> Cache = new();
 
 Nếu cần trạng thái dùng chung, hãy đi qua dependency injection với vòng đời được khai báo rõ — chủ đề của Module 7 và của bài [Singleton, Scoped hay Transient](/blog/singleton-scoped-transient-captive-dependency).
 
-### 4.2.7 — Rà lại code của bạn
+### 4.1.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát class và object"
@@ -353,7 +353,7 @@ Dòng cuối là điều đáng giá nhất. Khi constructor là **lối vào du
 private Customer() { }    // chỉ EF Core dùng, qua reflection
 ```
 
-Trình biên dịch vẫn chặn code thường gọi nó, còn EF Core vẫn hoạt động. [Bài 13.3](../../stage-04-database-production/module-13-entity-framework-core/13.2-dbcontext-and-entity-configuration.mdx) trình bày chi tiết.
+Trình biên dịch vẫn chặn code thường gọi nó, còn EF Core vẫn hoạt động. [Bài 13.2](../../stage-04-database-production/module-13-entity-framework-core/13.2-dbcontext-and-entity-configuration.mdx) trình bày chi tiết.
 
 </details>
 
@@ -418,7 +418,7 @@ Cách 2 lấy tham chiếu thẳng tới bộ nhớ nội bộ của `List`. Nó
 
 `struct` có thể thay đổi là nguồn của một lớp lỗi rất khó tìm, vì bạn sửa một bản sao mà tưởng đang sửa bản gốc. Trình biên dịch bắt được trường hợp `List` ở trên, nhưng không bắt được mọi trường hợp — ví dụ truyền `struct` vào một hàm rồi hàm đó sửa nó.
 
-**Khi nào dùng `struct`.** Khi đối tượng nhỏ (dưới 16 byte), bất biến, và được tạo với số lượng rất lớn — ví dụ toạ độ, khoảng thời gian, số tiền. Ngoài ra thì `class` là mặc định đúng. [Bài 4.8](4.7-records-and-value-objects.mdx) bàn về `record struct`, kết hợp tính bất biến với so sánh theo giá trị.
+**Khi nào dùng `struct`.** Khi đối tượng nhỏ (dưới 16 byte), bất biến, và được tạo với số lượng rất lớn — ví dụ toạ độ, khoảng thời gian, số tiền. Ngoài ra thì `class` là mặc định đúng. [Bài 4.7](4.7-records-and-value-objects.mdx) bàn về `record struct`, kết hợp tính bất biến với so sánh theo giá trị.
 
 </details>
 
@@ -487,7 +487,7 @@ public static void Add(string name)
 **Vì sao cách 1 gần như luôn đúng.** Ngay cả khi bạn làm cho `static List` an toàn về mặt đồng thời, nó vẫn còn ba vấn đề chưa được giải quyết:
 
 1. **Mất khi khởi động lại.** Mỗi lần triển khai là dữ liệu bay hết.
-2. **Không dùng chung giữa các thể hiện.** Chạy hai bản ứng dụng là có hai danh sách khác nhau — đúng vấn đề đã chứng minh ở [bài 2.9](../../stage-01-foundation/module-02-computer-science-basics/2.8-hosting-and-cloud-basics.mdx).
+2. **Không dùng chung giữa các thể hiện.** Chạy hai bản ứng dụng là có hai danh sách khác nhau — đúng vấn đề đã chứng minh ở [bài 2.8](../../stage-01-foundation/module-02-computer-science-basics/2.8-hosting-and-cloud-basics.mdx).
 3. **Tăng vô hạn.** Không có gì dọn nó, nên bộ nhớ chỉ có tăng.
 
 **Trạng thái `static` chấp nhận được khi nào.** Khi nó **bất biến** và chỉ đọc: bảng tra hằng số, cấu hình nạp một lần lúc khởi động, biểu thức chính quy đã biên dịch. Đặc điểm chung là **không ai ghi vào nó sau khi khởi tạo**.

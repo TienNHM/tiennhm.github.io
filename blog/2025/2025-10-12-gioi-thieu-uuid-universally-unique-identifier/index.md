@@ -1,7 +1,7 @@
 ---
 slug: gioi-thieu-uuid-universally-unique-identifier
 title: Giới thiệu UUID (Universally Unique Identifier) - Định danh duy nhất toàn cầu
-description: "UUID là chuẩn định danh 128-bit tạo được ID duy nhất toàn cầu mà không cần cơ quan trung tâm. Bài viết đi qua 5 phiên bản (v1 theo thời gian, v4 ngẫu nhiên, v3/v5 theo tên), ưu nhược điểm từng loại và cách dùng trong hệ phân tán, microservices và thiết kế database."
+description: "UUID là chuẩn định danh 128-bit tạo được ID duy nhất toàn cầu mà không cần cơ quan trung tâm. Bài viết đi qua 5 phiên bản gốc (v1 theo thời gian, v4 ngẫu nhiên, v3/v5 theo tên) cùng v6/v7/v8 bổ sung trong RFC 9562, ưu nhược điểm từng loại và cách dùng trong hệ phân tán, microservices và thiết kế database."
 keywords: [uuid, universally unique identifier, uuid v4, uuid v7, guid, dinh danh duy nhat, uuid vs auto increment, khoa chinh database, uuid trong database, uuid la gi]
 authors: [tiennhm]
 tags: [database, fundamentals]
@@ -13,7 +13,7 @@ import { SummaryBox, FAQSection } from '@site/src/components/SEO';
 # Giới thiệu UUID (Universally Unique Identifier) - Định danh duy nhất toàn cầu
 
 <SummaryBox>
-UUID (Universally Unique Identifier) là chuẩn định danh 128-bit được sử dụng rộng rãi trong lập trình và cơ sở dữ liệu để tạo ID duy nhất toàn cầu mà không cần cơ quan trung tâm quản lý. Bài viết giới thiệu 5 phiên bản UUID (v1 time-based, v4 random, v3/v5 name-based), ưu nhược điểm của từng loại, cách sử dụng trong các ngôn ngữ lập trình phổ biến, và các use case thực tế trong distributed systems, microservices và database design.
+UUID (Universally Unique Identifier) là chuẩn định danh 128-bit được sử dụng rộng rãi trong lập trình và cơ sở dữ liệu để tạo ID duy nhất toàn cầu mà không cần cơ quan trung tâm quản lý. Bài viết giới thiệu 5 phiên bản UUID gốc (v1 time-based, v4 random, v3/v5 name-based) cùng các phiên bản v6/v7/v8 mới được RFC 9562 bổ sung, ưu nhược điểm của từng loại, cách sử dụng trong các ngôn ngữ lập trình phổ biến, và các use case thực tế trong distributed systems, microservices và database design.
 </SummaryBox>
 
 UUID (Universally Unique Identifier) là một chuẩn định danh duy nhất được sử dụng rộng rãi trong lập trình và cơ sở dữ liệu. Trong bài viết này, chúng ta sẽ tìm hiểu chi tiết về UUID, tại sao nên sử dụng nó, ưu nhược điểm và các ví dụ thực tế.
@@ -39,21 +39,22 @@ Chuỗi ví dụ trên là một UUID v4. Tách ra từng phần, có hai chỗ 
 
 ## Các phiên bản UUID chi tiết
 
-UUID có 5 phiên bản chính, mỗi phiên bản có cách tạo và mục đích sử dụng khác nhau:
+RFC 4122 định nghĩa 5 phiên bản (v1–v5); RFC 9562 (năm 2024) thay thế RFC 4122 và bổ sung thêm v6, v7, v8. Mỗi phiên bản có cách tạo và mục đích sử dụng khác nhau:
 
 ### UUID Version 1 (Time-based)
 
 **Cấu trúc:**
 - 60 bits: Timestamp (số khoảng 100 nano giây kể từ 00:00 UTC ngày 15/10/1582)
 - 14 bits: Clock sequence (để tránh trùng lặp)
-- 48 bits: MAC address của máy tạo UUID
+- 48 bits: Node ID, thường là MAC address của máy tạo UUID (RFC 9562 cho phép thay bằng số ngẫu nhiên)
 
 **Đặc điểm:**
-- ✅ Có thể sắp xếp theo thời gian
+- ✅ Đọc ra được thời điểm tạo (sau khi ghép lại các trường timestamp)
 - ✅ Đảm bảo tính duy nhất cao
+- ❌ Không sắp xếp được theo thời gian khi so sánh chuỗi hay byte: timestamp bị chia làm ba trường và phần thấp nhất (`time_low`) lại đứng đầu, nên thứ tự chuỗi không phải thứ tự thời gian. Đây chính là lý do RFC 9562 thêm v6 và v7
 - ❌ Tiết lộ thông tin về máy tạo
 - ❌ Có thể dự đoán được thời gian tạo
-- ❌ Có thể trùng lặp nếu tạo cùng lúc
+- ❌ Có thể trùng lặp nếu đồng hồ bị chỉnh lùi hoặc hai máy dùng chung node ID mà clock sequence không được cập nhật
 
 **Ví dụ:**
 ```
@@ -61,7 +62,7 @@ UUID có 5 phiên bản chính, mỗi phiên bản có cách tạo và mục đ�
 ```
 
 **Khi nào sử dụng:**
-- Cần sắp xếp theo thời gian tạo
+- Hệ thống cũ đã dùng sẵn v1 (với hệ thống mới, RFC 9562 khuyến nghị dùng v7 thay cho v1)
 - Hệ thống đơn lẻ, không quan tâm bảo mật
 - Cần trace được thời điểm tạo UUID
 
@@ -97,7 +98,7 @@ import uuid
 namespace = uuid.NAMESPACE_DNS
 name = "example.com"
 uuid3 = uuid.uuid3(namespace, name)
-print(uuid3)  # 6fa459ea-ee8a-3ca4-894e-db77e160355e
+print(uuid3)  # 9073926b-929f-31c2-abc9-fad77ae3e8eb
 ```
 
 **Khi nào sử dụng:**
@@ -153,7 +154,7 @@ import uuid
 namespace = uuid.NAMESPACE_DNS
 name = "example.com"
 uuid5 = uuid.uuid5(namespace, name)
-print(uuid5)  # 886313e1-3b8a-5372-9b90-0c9aee199e5d
+print(uuid5)  # cfbff0d1-9375-5685-968c-48ce8b15ae17
 
 # Cùng input sẽ tạo ra cùng UUID
 uuid5_2 = uuid.uuid5(namespace, name)
@@ -166,15 +167,25 @@ print(uuid5 == uuid5_2)  # True
 - Thay thế cho UUID v3
 - Tạo UUID từ URL, email, tên file
 
+### UUID Version 6, 7, 8 (RFC 9562)
+
+RFC 9562 bổ sung ba phiên bản mới:
+
+- **v6 (Reordered Time)**: cùng nội dung với v1 (timestamp 60 bit tính từ 15/10/1582, clock sequence, node) nhưng xếp phần cao của timestamp lên đầu, nên sắp xếp theo chuỗi/byte ra đúng thứ tự thời gian. Chủ yếu dùng khi cần tương thích với dữ liệu v1 sẵn có.
+- **v7 (Unix Epoch Time)**: 48 bit đầu là Unix timestamp tính bằng mili giây, 74 bit còn lại là số ngẫu nhiên (cùng 4 bit version và 2 bit variant). Sắp xếp được theo thời gian tạo nên chèn vào B-tree index hiệu quả hơn v4 nhiều; RFC 9562 khuyến nghị dùng v7 thay cho v1 và v6 khi có thể. Đây là lựa chọn tốt cho khoá chính.
+- **v8 (Custom)**: chỉ cố định 4 bit version và 2 bit variant, 122 bit còn lại do người triển khai tự quy định cấu trúc.
+
 ## So sánh các phiên bản UUID
 
 | Version | Tính duy nhất | Bảo mật | Deterministic | Sắp xếp được | Sử dụng phổ biến |
 |---------|---------------|---------|---------------|--------------|------------------|
-| v1 | Cao | Thấp | Không | Có | Trung bình |
-| v2 | Cao | Thấp | Không | Có | Thấp |
+| v1 | Cao | Thấp | Không | Không (phải tách timestamp ra mới so được) | Trung bình |
+| v2 | Cao | Thấp | Không | Không | Thấp |
 | v3 | Cao | Thấp | Có | Không | Thấp |
 | v4 | Cao | Cao | Không | Không | Cao |
 | v5 | Cao | Trung bình | Có | Không | Trung bình |
+| v6 | Cao | Thấp | Không | Có | Thấp |
+| v7 | Cao | Trung bình (lộ thời điểm tạo) | Không | Có | Đang tăng |
 
 ## Namespace UUIDs chuẩn
 
@@ -195,7 +206,7 @@ print(uuid.NAMESPACE_X500)   # 6ba7b814-9dad-11d1-80b4-00c04fd430c8
 ```python
 # Tạo UUID từ URL
 url_uuid = uuid.uuid5(uuid.NAMESPACE_URL, "https://example.com")
-print(url_uuid)  # 6ba7b811-9dad-51d1-80b4-00c04fd430c8
+print(url_uuid)  # 4fd35a71-71ef-5a55-a9d9-aa75c889a6d0
 
 # Tạo UUID từ email
 email_uuid = uuid.uuid5(uuid.NAMESPACE_DNS, "user@example.com")
@@ -334,8 +345,11 @@ func main() {
     id := uuid.New()
     fmt.Println(id.String())
     
-    // Tạo UUID version 1
-    id1 := uuid.NewUUID()
+    // Tạo UUID version 1 (NewUUID trả về cả error)
+    id1, err := uuid.NewUUID()
+    if err != nil {
+        panic(err)
+    }
     fmt.Println(id1.String())
     
     // Parse UUID từ string
@@ -382,7 +396,7 @@ CREATE TABLE users (
     email VARCHAR(100)
 );
 
--- Chèn dữ liệu với UUID
+-- Chèn dữ liệu với UUID (hàm UUID() của MySQL sinh UUID v1)
 INSERT INTO users (id, name, email) VALUES 
 (UUID(), 'John Doe', 'john@example.com');
 
@@ -402,7 +416,7 @@ db.users.insertOne({
 });
 
 // Tìm kiếm theo UUID
-db.users.findOne({uuid: "550e8400-e29b-41d4-a716-446655440000"});
+db.users.findOne({uuid: UUID("550e8400-e29b-41d4-a716-446655440000")});
 ```
 
 ## So sánh UUID với các phương pháp khác
@@ -433,7 +447,8 @@ db.users.findOne({uuid: "550e8400-e29b-41d4-a716-446655440000"});
 
 ### 1. Chọn đúng version
 - **UUID v4**: Cho hầu hết trường hợp
-- **UUID v1**: Khi cần timestamp
+- **UUID v7**: Khi cần ID sắp xếp được theo thời gian tạo, ví dụ làm khoá chính
+- **UUID v1**: Khi phải tương thích hệ thống cũ cần timestamp
 - **UUID v5**: Khi cần tạo UUID từ dữ liệu có sẵn
 
 ### 2. Database optimization
@@ -452,7 +467,7 @@ const userId = useMemo(() => uuidv4(), []);
 
 // Validate UUID format
 const isValidUUID = (str) => {
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     return uuidRegex.test(str);
 };
 ```
@@ -467,7 +482,7 @@ Khi quyết định sử dụng UUID, hãy cân nhắc kỹ lưỡng về yêu c
   items={[
     {
       question: "Nên dùng UUID phiên bản nào?",
-      answer: "UUID v4 (random) phù hợp cho hầu hết trường hợp vì không thể dự đoán và bảo mật cao. Dùng v1 khi cần sắp xếp theo thời gian tạo. Dùng v5 khi cần UUID deterministic sinh từ dữ liệu có sẵn như URL, email hay tên file; v5 dùng SHA-1 nên an toàn hơn và được khuyến khích thay cho v3 vốn dùng MD5 đã lỗi thời."
+      answer: "UUID v4 (random) phù hợp cho hầu hết trường hợp vì không thể dự đoán và bảo mật cao. Dùng v7 khi cần ID sắp xếp được theo thời gian tạo (v1 không sắp xếp trực tiếp được vì phần thấp của timestamp đứng đầu). Dùng v5 khi cần UUID deterministic sinh từ dữ liệu có sẵn như URL, email hay tên file; v5 dùng SHA-1 nên an toàn hơn và được khuyến khích thay cho v3 vốn dùng MD5 đã lỗi thời."
     },
     {
       question: "UUID v3, v5 khác gì so với v4?",
@@ -491,7 +506,8 @@ Khi quyết định sử dụng UUID, hãy cân nhắc kỹ lưỡng về yêu c
 ---
 
 **Tài liệu tham khảo:**
-- [RFC 4122 - UUID Specification](https://tools.ietf.org/html/rfc4122)
+- [RFC 9562 - Universally Unique IDentifiers (UUIDs)](https://www.rfc-editor.org/rfc/rfc9562) (thay thế RFC 4122)
+- [RFC 4122 - UUID Specification (cũ)](https://tools.ietf.org/html/rfc4122)
 - [UUID Wikipedia](https://en.wikipedia.org/wiki/Universally_unique_identifier)
 - [PostgreSQL UUID Documentation](https://www.postgresql.org/docs/current/datatype-uuid.html)
 

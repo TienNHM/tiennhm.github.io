@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 10.8.1 — Vì sao bitmask không đủ
+### 10.7.1 — Vì sao bitmask không đủ
 
 ```csharp
 [Flags]
@@ -50,7 +50,7 @@ Dòng cuối là rủi ro thật sự: một lập trình viên chèn `CustomerE
 
 Bitmask chỉ hợp khi tập quyền **nhỏ, cố định, và không bao giờ đổi thứ tự** — ví dụ cờ nội bộ của một thư viện.
 
-### 10.8.2 — Chuỗi có cấu trúc
+### 10.7.2 — Chuỗi có cấu trúc
 
 ```csharp
 public static class Permissions
@@ -82,7 +82,7 @@ Quy ước `{tài nguyên}.{hành động}` giữ mọi thứ nhất quán và c
 
 `All` sinh bằng reflection phục vụ hai việc: seed database và màn hình quản trị phân quyền.
 
-### 10.8.3 — Mô hình dữ liệu
+### 10.7.3 — Mô hình dữ liệu
 
 ```mermaid
 erDiagram
@@ -122,7 +122,7 @@ CREATE TABLE UserPermissions (
 
 Thứ tự áp dụng: **quyền từ vai trò**, rồi **cộng** quyền được cấp riêng, rồi **trừ** quyền bị gỡ riêng. Quyền bị gỡ thắng — mặc định an toàn.
 
-### 10.8.4 — Quyền trong token hay tra từ cache
+### 10.7.4 — Quyền trong token hay tra từ cache
 
 | | Trong token | Tra từ cache |
 |---|---|---|
@@ -140,7 +140,7 @@ Với dưới 10 quyền, đặt vào token là hợp lý. Với hàng chục qu
 => 431 Request Header Fields Too Large
 ```
 
-Và vấn đề lớn hơn kích thước: **gỡ quyền không có hiệu lực** cho tới khi token hết hạn ([bài 10.2](10.1-authentication-vs-authorization.mdx)).
+Và vấn đề lớn hơn kích thước: **gỡ quyền không có hiệu lực** cho tới khi token hết hạn ([bài 10.1](10.1-authentication-vs-authorization.mdx)).
 
 ```csharp
 public sealed class PermissionService(
@@ -188,7 +188,7 @@ Với nhiều instance, `IMemoryCache` chỉ xoá trên **một** pod. Dùng `ID
 
 TTL 5 phút là trần rủi ro: kể cả khi bạn quên xoá cache ở đâu đó, quyền cũ chỉ sống thêm tối đa 5 phút.
 
-### 10.8.5 — Handler và attribute
+### 10.7.5 — Handler và attribute
 
 ```csharp
 public sealed class PermissionRequirement(string permission) : IAuthorizationRequirement
@@ -225,9 +225,9 @@ public sealed class RequirePermissionAttribute(string permission)
 public Task<IActionResult> Delete(Guid id, CancellationToken ct);
 ```
 
-Kết hợp với `PermissionPolicyProvider` ở [bài 10.6](10.5-policy-based-authorization.mdx), bạn có một hệ thống mà **gõ sai tên quyền là lỗi biên dịch**.
+Kết hợp với `PermissionPolicyProvider` ở [bài 10.5](10.5-policy-based-authorization.mdx), bạn có một hệ thống mà **gõ sai tên quyền là lỗi biên dịch**.
 
-### 10.8.6 — Đừng quên phía client
+### 10.7.6 — Đừng quên phía client
 
 API đã chặn đúng, nhưng giao diện hiển thị nút "Xoá" cho người không có quyền là trải nghiệm tệ — người dùng bấm và nhận lỗi.
 
@@ -244,7 +244,7 @@ Client gọi một lần sau đăng nhập và ẩn những gì không được 
 Client ẩn nút chỉ là trải nghiệm. **Server vẫn phải kiểm tra mọi request** — client có thể bị sửa, và API gọi trực tiếp được.
 :::
 
-### 10.8.7 — Rà lại code của bạn
+### 10.7.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát hệ thống quyền"
@@ -329,7 +329,7 @@ SELECT UserId, Permissions FROM UserPermissions WHERE UserId = '8f3a...';
 
 Người dùng **mất quyền xoá** và **được thêm quyền sửa** — không ai yêu cầu, không ai biết. Với vài nghìn bản ghi quyền, đó là một đợt cấp phát lại quyền im lặng trên toàn hệ thống.
 
-**Câu trả lời cho tiêu chí:** vấn đề 2 nguy hiểm hơn hẳn, vì vấn đề 1 chặn bạn ở lúc biên dịch còn vấn đề 2 thì lặng lẽ **đổi nghĩa dữ liệu đã lưu**. Đây đúng loại "đổi ý nghĩa mà không đổi hình dạng" ở [bài 9.3](../module-09-web-api-professional/9.2-api-versioning.mdx), chỉ khác là xảy ra với database thay vì với API.
+**Câu trả lời cho tiêu chí:** vấn đề 2 nguy hiểm hơn hẳn, vì vấn đề 1 chặn bạn ở lúc biên dịch còn vấn đề 2 thì lặng lẽ **đổi nghĩa dữ liệu đã lưu**. Đây đúng loại "đổi ý nghĩa mà không đổi hình dạng" ở [bài 9.2](../module-09-web-api-professional/9.2-api-versioning.mdx), chỉ khác là xảy ra với database thay vì với API.
 
 **Cách làm đúng — lưu mã chuỗi, không lưu bit:**
 
@@ -403,7 +403,7 @@ Và nó vỡ **theo người dùng**: chỉ tài khoản nhiều quyền mới s
 
 Cửa sổ 15 phút này tồn tại **kể cả khi token chỉ có 3 quyền**. Thu nhỏ token không sửa được nó.
 
-Và nếu endpoint `/refresh` không kiểm tra lại quyền — lỗi ở [bài 10.13](10.12-mini-case-study.mdx) — thì cửa sổ thành **vô hạn**.
+Và nếu endpoint `/refresh` không kiểm tra lại quyền — lỗi ở [bài 10.12](10.12-mini-case-study.mdx) — thì cửa sổ thành **vô hạn**.
 
 **Cách đúng: token mang danh tính, quyền nạp theo request.**
 
@@ -522,7 +522,7 @@ await _hybridCache.GetOrCreateAsync(
 await _hybridCache.RemoveByTagAsync($"role:{roleId}", ct);
 ```
 
-Rõ ràng hơn cách 1, nhưng cần `HybridCache` — xem [bài 14.6](../../stage-04-database-production/module-14-caching-background-jobs/14.5-hybridcache-dotnet-9.mdx).
+Rõ ràng hơn cách 1, nhưng cần `HybridCache` — xem [bài 14.5](../../stage-04-database-production/module-14-caching-background-jobs/14.5-hybridcache-dotnet-9.mdx).
 
 **3. Chấp nhận TTL ngắn.** Hạ TTL xuống 30 giây và không xoá gì cả. Đơn giản nhất, đổi lại là tải database tăng 10 lần. Hợp lý khi hệ thống nhỏ và quyền hiếm khi đổi.
 
@@ -535,7 +535,7 @@ Rõ ràng hơn cách 1, nhưng cần `HybridCache` — xem [bài 14.6](../../sta
 10:01  Người dùng gọi API, request rơi vào pod B -> VẪN CÒN QUYỀN
 ```
 
-Với nhiều instance, cache quyền phải nằm ở Redis, hoặc bạn phải phát một thông báo để mọi pod cùng xoá — vấn đề và cách giải ở [bài 14.5](../../stage-04-database-production/module-14-caching-background-jobs/14.4-cache-invalidation-strategies.mdx).
+Với nhiều instance, cache quyền phải nằm ở Redis, hoặc bạn phải phát một thông báo để mọi pod cùng xoá — vấn đề và cách giải ở [bài 14.4](../../stage-04-database-production/module-14-caching-background-jobs/14.4-cache-invalidation-strategies.mdx).
 
 **Khuyến nghị theo quy mô:**
 

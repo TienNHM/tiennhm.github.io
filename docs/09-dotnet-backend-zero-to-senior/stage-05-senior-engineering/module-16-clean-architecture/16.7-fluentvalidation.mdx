@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 16.8.1 — Ba tầng, ba loại quy tắc
+### 16.7.1 — Ba tầng, ba loại quy tắc
 
 | Tầng | Kiểm tra | Ví dụ |
 |---|---|---|
@@ -69,7 +69,7 @@ public sealed class Deal
 
 Giờ **mọi** đường vào đều đi qua nó.
 
-### 16.8.2 — Validator
+### 16.7.2 — Validator
 
 ```csharp
 public sealed class CreateLeadValidator : AbstractValidator<CreateLeadCommand>
@@ -95,7 +95,7 @@ public sealed class CreateLeadValidator : AbstractValidator<CreateLeadCommand>
 }
 ```
 
-Ba điều FluentValidation làm tốt hơn DataAnnotations ([bài 8.6](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.5-model-validation.mdx)):
+Ba điều FluentValidation làm tốt hơn DataAnnotations ([bài 8.5](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.5-model-validation.mdx)):
 
 **1. Quy tắc có điều kiện rõ ràng:**
 
@@ -122,7 +122,7 @@ RuleFor(x => x.EndDate)
     .WithMessage("Ngày kết thúc phải sau ngày bắt đầu");
 ```
 
-**3. Test được như một lớp bình thường** — mục 16.8.5.
+**3. Test được như một lớp bình thường** — mục 16.7.5.
 
 `RuleLevelCascadeMode` tránh thông báo lỗi trùng lặp:
 
@@ -136,7 +136,7 @@ public CreateLeadValidator()
 }
 ```
 
-### 16.8.3 — Validator không gọi database
+### 16.7.3 — Validator không gọi database
 
 ```csharp
 // SAI — truy van trong validator
@@ -163,7 +163,7 @@ public async Task<Result<Guid>> Handle(CreateLeadCommand command, CancellationTo
 }
 ```
 
-Và **ràng buộc `UNIQUE` vẫn là hàng rào cuối** ([bài 12.2](../../stage-04-database-production/module-12-sql-deep-dive/12.1-crm-database-design.mdx)):
+Và **ràng buộc `UNIQUE` vẫn là hàng rào cuối** ([bài 12.1](../../stage-04-database-production/module-12-sql-deep-dive/12.1-crm-database-design.mdx)):
 
 ```csharp
 try
@@ -178,7 +178,7 @@ catch (DbUpdateException ex) when (IsUniqueViolation(ex))
 
 Kiểm tra trước cho **thông báo tốt**; ràng buộc database cho **tính đúng đắn**. Cần cả hai.
 
-### 16.8.4 — Chuyển lỗi thành phản hồi HTTP
+### 16.7.4 — Chuyển lỗi thành phản hồi HTTP
 
 ```csharp
 public sealed class ValidationExceptionHandler(IProblemDetailsService pds) : IExceptionHandler
@@ -207,7 +207,7 @@ public sealed class ValidationExceptionHandler(IProblemDetailsService pds) : IEx
 }
 ```
 
-Giữ nguyên `ValidationProblemDetails` để client sinh tự động parse được ([bài 8.6](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.5-model-validation.mdx)).
+Giữ nguyên `ValidationProblemDetails` để client sinh tự động parse được ([bài 8.5](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.5-model-validation.mdx)).
 
 **Phân biệt ba mã trạng thái:**
 
@@ -234,7 +234,7 @@ flowchart TD
     S -->|"Không"| OK["Lưu thành công"]
 ```
 
-### 16.8.5 — Test validator
+### 16.7.5 — Test validator
 
 ```csharp
 public sealed class CreateLeadValidatorTests
@@ -281,9 +281,9 @@ public sealed class CreateLeadValidatorTests
 builder.Services.AddValidatorsFromAssemblyContaining<CreateLeadValidator>();
 ```
 
-Và **một validator mỗi command**. Validator dùng chung cho nhiều command tạo ghép chặt giống như DTO dùng chung ở [bài 16.5](16.4-vertical-slice-architecture.mdx).
+Và **một validator mỗi command**. Validator dùng chung cho nhiều command tạo ghép chặt giống như DTO dùng chung ở [bài 16.4](16.4-vertical-slice-architecture.mdx).
 
-### 16.8.6 — Rà lại code của bạn
+### 16.7.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát validation"

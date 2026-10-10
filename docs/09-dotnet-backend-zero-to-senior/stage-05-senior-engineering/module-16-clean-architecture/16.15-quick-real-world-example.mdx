@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 16.16.1 — Bốn nơi, ba phiên bản
+### 16.15.1 — Bốn nơi, ba phiên bản
 
 ```csharp
 // Nơi 1: LeadService — kiểm tra đầy đủ
@@ -76,9 +76,9 @@ Bốn vấn đề cụ thể:
 | 3 | So sánh chuỗi thường — không khớp nếu dữ liệu là `"LOST"` |
 | 4 | **Không có quy tắc nào**, và `ExecuteUpdate` bỏ qua cả interceptor |
 
-Nơi 4 nguy hiểm nhất: nó không chỉ bỏ qua quy tắc mà còn bỏ qua `SaveChangesAsync`, nên không sinh domain event và không ghi audit ([bài 13.8](../../stage-04-database-production/module-13-entity-framework-core/13.7-performance.mdx)).
+Nơi 4 nguy hiểm nhất: nó không chỉ bỏ qua quy tắc mà còn bỏ qua `SaveChangesAsync`, nên không sinh domain event và không ghi audit ([bài 13.7](../../stage-04-database-production/module-13-entity-framework-core/13.7-performance.mdx)).
 
-### 16.16.2 — Vì sao chuyện này xảy ra
+### 16.15.2 — Vì sao chuyện này xảy ra
 
 ```csharp
 // Entity cho phep MOI DOAN CODE gan truc tiep
@@ -93,9 +93,9 @@ public class Lead
 
 Không ai cố tình vi phạm. Mỗi lập trình viên viết một tính năng mới, thấy cần đổi trạng thái lead, và gán trực tiếp — vì **không có gì ngăn họ** và cũng không có đường nào rõ ràng hơn để đi.
 
-Đây chính là cái giá của Anemic Domain Model ([bài 16.11](16.10-anti-patterns-to-avoid.mdx)): entity không bảo vệ được invariant của chính nó, nên mọi đoạn code đều là một chỗ có thể phá vỡ nó.
+Đây chính là cái giá của Anemic Domain Model ([bài 16.10](16.10-anti-patterns-to-avoid.mdx)): entity không bảo vệ được invariant của chính nó, nên mọi đoạn code đều là một chỗ có thể phá vỡ nó.
 
-### 16.16.3 — Gom về entity
+### 16.15.3 — Gom về entity
 
 ```csharp
 public sealed class Lead
@@ -143,7 +143,7 @@ Năm thay đổi, mỗi cái đóng một đường lách:
 - **`LeadStatus` là enum**, không phải `string` — hết chuyện so sánh chữ hoa chữ thường.
 - **`ConvertedAtUtc`** — tên cột nói rõ múi giờ, và `utcNow` truyền vào nên test kiểm soát được.
 - **Idempotent** — gọi `Convert` hai lần không gây lỗi, hữu ích khi có retry.
-- **`Raise` domain event** — mọi lần chuyển đổi đều sinh event, không phụ thuộc người gọi nhớ làm ([bài 16.9](16.8-in-process.mdx)).
+- **`Raise` domain event** — mọi lần chuyển đổi đều sinh event, không phụ thuộc người gọi nhớ làm ([bài 16.8](16.8-in-process.mdx)).
 
 Bốn nơi gọi giờ đều thành một dòng:
 
@@ -151,9 +151,9 @@ Bốn nơi gọi giờ đều thành một dòng:
 lead.Convert(_clock.UtcNow);
 ```
 
-Nơi 4 (`ExecuteUpdate`) **phải** viết lại thành vòng lặp qua entity — chậm hơn, nhưng đúng. Nếu hiệu năng là vấn đề thật, xử lý theo lô với `DbContext` mới mỗi lô ([bài 19.10](../module-19-performance-engineering/19.9-crm-context.mdx)).
+Nơi 4 (`ExecuteUpdate`) **phải** viết lại thành vòng lặp qua entity — chậm hơn, nhưng đúng. Nếu hiệu năng là vấn đề thật, xử lý theo lô với `DbContext` mới mỗi lô ([bài 19.9](../module-19-performance-engineering/19.9-crm-context.mdx)).
 
-### 16.16.4 — Xử lý dữ liệu đã sai
+### 16.15.4 — Xử lý dữ liệu đã sai
 
 Trước khi triển khai, tìm dữ liệu đã bị nhập sai trong lúc chưa có quy tắc:
 
@@ -175,7 +175,7 @@ WHERE ConvertedAt > SYSUTCDATETIME();      -- tương lai => sai múi giờ
 
 Nếu có kết quả, **sửa dữ liệu trước khi triển khai code mới** — nếu không, entity sẽ ném `DomainException` khi nạp và sửa những bản ghi đó, và bạn gặp lỗi ở nơi khó đoán.
 
-### 16.16.5 — Tự kiểm tra trong vài phút
+### 16.15.5 — Tự kiểm tra trong vài phút
 
 **1. Tìm entity có public setter:**
 
@@ -201,7 +201,7 @@ grep -rn "ExecuteUpdate\|ExecuteDelete" --include=*.cs src/
 
 Mỗi chỗ đều bỏ qua entity, interceptor và domain event. Kiểm tra từng cái xem trường được cập nhật có mang ý nghĩa nghiệp vụ không.
 
-### 16.16.6 — Rà lại code của bạn
+### 16.15.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát quy tắc nghiệp vụ"

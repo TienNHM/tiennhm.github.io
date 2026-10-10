@@ -25,7 +25,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 19.8.1 — Vì sao không an toàn tuyệt đối
+### 19.7.1 — Vì sao không an toàn tuyệt đối
 
 ```
 t=0   Process A lay khoa, TTL 30 giay
@@ -46,9 +46,9 @@ t=40  A tỉnh dậy, TIN rằng mình vẫn giữ khoá, tiếp tục xử lý
 | **Hiệu quả** — tránh làm trùng việc | Làm trùng thì tốn tài nguyên, không sai | **Đủ** |
 | **Tính đúng đắn** — không được phép trùng | Làm trùng là sai dữ liệu hoặc mất tiền | **Không đủ** |
 
-Hầu hết trường hợp thực tế thuộc loại đầu: outbox dispatcher chạy trùng chỉ gây publish trùng, mà consumer idempotent đã xử lý ([bài 17.3](../module-17-distributed-systems/17.2-messaging-fears-lost-duplicates.mdx)).
+Hầu hết trường hợp thực tế thuộc loại đầu: outbox dispatcher chạy trùng chỉ gây publish trùng, mà consumer idempotent đã xử lý ([bài 17.2](../module-17-distributed-systems/17.2-messaging-fears-lost-duplicates.mdx)).
 
-### 19.8.2 — Khoá Redis đúng cách
+### 19.7.2 — Khoá Redis đúng cách
 
 ```csharp
 public sealed class RedisLock(IConnectionMultiplexer redis)
@@ -110,7 +110,7 @@ await DispatchOutboxAsync(ct);
 
 **TTL phải dài hơn thời gian xử lý tối đa**, nhưng không quá dài — nếu tiến trình chết, mọi người phải chờ hết TTL. Với công việc dài, gia hạn khoá định kỳ trong lúc chạy an toàn hơn là đặt TTL rất lớn.
 
-### 19.8.3 — sp_getapplock: không cần thêm hạ tầng
+### 19.7.3 — sp_getapplock: không cần thêm hạ tầng
 
 Nếu đã có SQL Server, đây thường là lựa chọn tốt hơn Redis — một hạ tầng ít hơn để vận hành.
 
@@ -144,7 +144,7 @@ public async Task<bool> TryAcquireAsync(string resource, TimeSpan timeout, Cance
 
 PostgreSQL có `pg_advisory_lock` với cơ chế tương tự.
 
-### 19.8.4 — Fencing token: khi cần tính đúng đắn thật
+### 19.7.4 — Fencing token: khi cần tính đúng đắn thật
 
 Khi làm trùng là **sai dữ liệu**, khoá một mình không đủ. Thêm một số tăng dần và để **tài nguyên đích** từ chối token cũ.
 
@@ -163,7 +163,7 @@ SET Data = @data, FencingToken = @token
 WHERE Id = @id AND FencingToken < @token;    -- process cũ bị CHẶN tại đây
 ```
 
-Quay lại kịch bản ở mục 19.8.1: A có token 41, B có token 42. B ghi trước, `FencingToken` thành 42. A tỉnh dậy ghi với token 41 → điều kiện `FencingToken < 41` sai → **`UPDATE` không ảnh hưởng hàng nào**. Ghi cũ bị từ chối, dữ liệu đúng.
+Quay lại kịch bản ở mục 19.7.1: A có token 41, B có token 42. B ghi trước, `FencingToken` thành 42. A tỉnh dậy ghi với token 41 → điều kiện `FencingToken < 41` sai → **`UPDATE` không ảnh hưởng hàng nào**. Ghi cũ bị từ chối, dữ liệu đúng.
 
 ![Sơ đồ tuần tự fencing token với bốn bên Process A, Redis, Process B và bảng Reports. A lấy khoá và nhận token 41, rồi bị dừng vì GC pause. Trong lúc đó khoá hết TTL, B lấy khoá và nhận token 42, ghi báo cáo với token 42 và cập nhật 1 hàng. A tỉnh dậy ghi với token 41, điều kiện FencingToken nhỏ hơn 41 sai nên UPDATE trả về 0 hàng: ghi cũ bị chặn.](./img/fencing-token.png#gh-light-mode-only)
 ![Sơ đồ tuần tự fencing token với bốn bên Process A, Redis, Process B và bảng Reports. A lấy khoá và nhận token 41, rồi bị dừng vì GC pause. Trong lúc đó khoá hết TTL, B lấy khoá và nhận token 42, ghi báo cáo với token 42 và cập nhật 1 hàng. A tỉnh dậy ghi với token 41, điều kiện FencingToken nhỏ hơn 41 sai nên UPDATE trả về 0 hàng: ghi cũ bị chặn.](./img/fencing-token-dark.png#gh-dark-mode-only)
@@ -172,7 +172,7 @@ Quay lại kịch bản ở mục 19.8.1: A có token 41, B có token 42. B ghi 
 
 Điều kiện để dùng được: **tài nguyên đích phải hỗ trợ kiểm tra này**. Database làm được qua `WHERE`. Blob storage làm được qua ETag. Một API bên thứ ba thường thì không — và khi đó bạn không có cách nào đảm bảo tính đúng đắn bằng khoá.
 
-### 19.8.5 — Những lựa chọn tốt hơn khoá
+### 19.7.5 — Những lựa chọn tốt hơn khoá
 
 Trước khi dùng khoá, kiểm tra xem bài toán có thuộc ba loại sau không — cả ba đều **loại bỏ** nhu cầu khoá thay vì quản lý nó.
 
@@ -197,7 +197,7 @@ LIMIT 10
 FOR UPDATE SKIP LOCKED;
 ```
 
-Đây chính là cách outbox dispatcher hoạt động mà **không cần khoá phân tán** ([bài 17.4](../module-17-distributed-systems/17.3-outbox-pattern-applied.mdx)). Database đã có cơ chế khoá đúng đắn — dùng nó thay vì xây thêm một lớp khoá riêng ở trên.
+Đây chính là cách outbox dispatcher hoạt động mà **không cần khoá phân tán** ([bài 17.3](../module-17-distributed-systems/17.3-outbox-pattern-applied.mdx)). Database đã có cơ chế khoá đúng đắn — dùng nó thay vì xây thêm một lớp khoá riêng ở trên.
 
 **3. Idempotency + unique constraint.**
 
@@ -225,7 +225,7 @@ catch (DbUpdateException ex) when (ex.IsUniqueViolation())
 | Không được tạo trùng bản ghi | **Unique constraint** |
 | Cần ghi tuần tự vào tài nguyên ngoài | Khoá **kèm fencing token** |
 
-### 19.8.6 — Rà lại code của bạn
+### 19.7.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát distributed lock"
@@ -315,7 +315,7 @@ Khoá phân tán cho bạn LOẠI TRỪ PHẦN LỚN THỜI GIAN.
 Nó không cho bạn loại trừ TUYỆT ĐỐI.
 ```
 
-Đây chính là điều mục 19.8.1 nói, và bài tập này là bằng chứng chạy được của nó.
+Đây chính là điều mục 19.7.1 nói, và bài tập này là bằng chứng chạy được của nó.
 
 **Hai cách giảm rủi ro, và một cách loại bỏ hẳn:**
 
@@ -375,7 +375,7 @@ Dùng cả hai: khoá để 6 pod không cùng chạy,
              ràng buộc để nếu khoá có phá vỡ thì kết quả vẫn đúng.
 ```
 
-Đây là cách phân vai đúng, và nó đưa thẳng tới mục 19.8.5 — những lựa chọn tốt hơn khoá.
+Đây là cách phân vai đúng, và nó đưa thẳng tới mục 19.7.5 — những lựa chọn tốt hơn khoá.
 
 </details>
 

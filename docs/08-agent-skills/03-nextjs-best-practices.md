@@ -19,7 +19,7 @@ draft: false
 
 import { SummaryBox } from '@site/src/components/SEO';
 
-# Agent Skills - Phần 2: Next.js Best Practices
+# Agent Skills - Phần 3: Next.js Best Practices
 
 <SummaryBox>
 Tài liệu tổng hợp Next.js Best Practices dùng làm nguồn tham chiếu cho Agent Skills (ví dụ trong Cursor), bao gồm các chủ đề: Routing, Rendering, Data Fetching, Images, Fonts, Metadata, API, Middleware, Environment, Performance và Security. Mỗi guideline được đánh giá mức độ quan trọng và có ví dụ code cụ thể. Nội dung dựa trên bộ guideline từ ui-ux-pro-max-skill, giúp developers và AI Agents xây dựng ứng dụng Next.js hiệu quả và tuân thủ best practices.

@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 19.12.1 — Đề bài
+### 19.11.1 — Đề bài
 
 **Hệ thống:** CRM multi-tenant, ASP.NET Core 9, SQL Server, 3 instance API sau load balancer.
 
@@ -47,9 +47,9 @@ Không có thay đổi code nào trong 3 tuần
 
 Trước khi đọc tiếp, hãy tự trả lời: bạn sẽ đo cái gì đầu tiên?
 
-### 19.12.2 — Bước 1: khoanh vùng
+### 19.11.2 — Bước 1: khoanh vùng
 
-CPU server thấp, CPU database cao → nghẽn nằm ở tầng dữ liệu, không phải ở code C# ([bài 19.4](19.3-dotnet-server-profiling.mdx)).
+CPU server thấp, CPU database cao → nghẽn nằm ở tầng dữ liệu, không phải ở code C# ([bài 19.3](19.3-dotnet-server-profiling.mdx)).
 
 Bước tiếp theo là xác định **khối nào** trong 5 khối gây chậm. Thêm đo thời gian từng khối:
 
@@ -72,7 +72,7 @@ tong (tuan tu)             9115ms
 
 Hai thông tin ngay lập tức: `top_deals` chiếm 85% thời gian, và **tổng bằng tổng các phần** — nghĩa là 5 khối đang chạy **tuần tự**.
 
-### 19.12.3 — Bước 2: đào vào top_deals
+### 19.11.3 — Bước 2: đào vào top_deals
 
 ```csharp
 // Code hien tai
@@ -110,7 +110,7 @@ Bốn vấn đề lộ ra, không phải một:
 | 3 | Lấy entity đầy đủ rồi mới map sang DTO | Truyền dư cột qua mạng |
 | 4 | 5 khối chạy tuần tự | Tổng = tổng các phần |
 
-### 19.12.4 — Bước 3: sửa từng cái, đo từng lần
+### 19.11.4 — Bước 3: sửa từng cái, đo từng lần
 
 **Thay đổi 1 — thêm index.**
 
@@ -145,7 +145,7 @@ var deals = await _db.Deals
     .ToListAsync(ct);
 ```
 
-`d.Activities.Count()` được EF Core dịch thành subquery `COUNT` — database trả về **một số**, không phải hàng nghìn hàng ([bài 19.5](19.4-database-first-bottleneck.mdx)).
+`d.Activities.Count()` được EF Core dịch thành subquery `COUNT` — database trả về **một số**, không phải hàng nghìn hàng ([bài 19.4](19.4-database-first-bottleneck.mdx)).
 
 ```
 top_deals: 1240ms -> 95ms
@@ -177,7 +177,7 @@ p99 toàn endpoint: 1400ms -> 560ms      (bằng khối chậm nhất, không ph
 
 **Thay đổi 4 — cache biểu đồ doanh thu.**
 
-Doanh thu 12 tháng là dữ liệu tổng hợp nặng nhưng **chỉ đổi khi có deal đóng** — chịu cũ 10 phút được ([bài 19.6](19.5-systematic-caching-overview.mdx)).
+Doanh thu 12 tháng là dữ liệu tổng hợp nặng nhưng **chỉ đổi khi có deal đóng** — chịu cũ 10 phút được ([bài 19.5](19.5-systematic-caching-overview.mdx)).
 
 ```csharp
 var revenue = await _hybridCache.GetOrCreateAsync(
@@ -193,7 +193,7 @@ Dùng `HybridCache` thay vì tự cache để chống stampede — nếu không,
 p99 toan endpoint: 560ms -> 280ms
 ```
 
-### 19.12.5 — Kết quả và bài học
+### 19.11.5 — Kết quả và bài học
 
 | Bước | p99 | Cải thiện tích luỹ |
 |---|---|---|
@@ -207,15 +207,15 @@ Và chỉ số ít ai nhìn nhưng quan trọng: **CPU database từ 85% xuống
 
 Bốn bài học từ ca này:
 
-**1. Vấn đề ẩn cho tới khi dữ liệu đủ lớn.** Cả bốn vấn đề tồn tại từ ngày đầu. Với tenant 5.000 lead, thiếu index chỉ tốn 20ms nên không ai để ý. Đó là lý do phải kiểm thử hiệu năng trên **dữ liệu cỡ production** ([bài 19.2](19.1-measure-before-and-after.mdx)).
+**1. Vấn đề ẩn cho tới khi dữ liệu đủ lớn.** Cả bốn vấn đề tồn tại từ ngày đầu. Với tenant 5.000 lead, thiếu index chỉ tốn 20ms nên không ai để ý. Đó là lý do phải kiểm thử hiệu năng trên **dữ liệu cỡ production** ([bài 19.1](19.1-measure-before-and-after.mdx)).
 
 **2. Nhiều vấn đề chồng nhau.** Chỉ thêm index thì p99 vẫn 2,6 giây — vẫn tệ. Nếu dừng ở đó và kết luận "đã tối ưu rồi", vấn đề vẫn còn nguyên.
 
 **3. Đo sau mỗi thay đổi.** Nhờ đo từng bước mới biết projection có tác dụng lớn hơn cả chạy song song. Sửa cả bốn cùng lúc thì không học được gì và không biết cái nào thực sự cần.
 
-**4. Một tenant lớn phơi bày mọi điểm yếu.** Đây là lập luận cho việc **kiểm thử với phân bố dữ liệu lệch**, không chỉ với dữ liệu lớn đều ([bài 19.7](19.6-scaling-strategy.mdx)).
+**4. Một tenant lớn phơi bày mọi điểm yếu.** Đây là lập luận cho việc **kiểm thử với phân bố dữ liệu lệch**, không chỉ với dữ liệu lớn đều ([bài 19.6](19.6-scaling-strategy.mdx)).
 
-### 19.12.6 — Rà lại code của bạn
+### 19.11.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát rút ra từ ca này"
@@ -292,7 +292,7 @@ Tenant nhỏ cũng nhanh lên: 340 ms -> 120 ms
 -> chúng sửa những vấn đề vốn có, chỉ là MegaCorp làm chúng lộ ra
 ```
 
-Đây là bằng chứng cho bài học thứ tư trong mục 19.12.5: một tenant lớn phơi bày mọi điểm yếu, và sửa chúng có lợi cho tất cả.
+Đây là bằng chứng cho bài học thứ tư trong mục 19.11.5: một tenant lớn phơi bày mọi điểm yếu, và sửa chúng có lợi cho tất cả.
 
 **Điều mà sửa cả bốn cùng lúc sẽ giấu đi:**
 

@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 14.12.1 — Sự cố
+### 14.11.1 — Sự cố
 
 ```csharp
 public sealed class EmailNhacLichJob(IServiceScopeFactory scopeFactory) : BackgroundService
@@ -55,7 +55,7 @@ Tổng: 36.000 email, 12.000 khách nhận 3 lần
 
 Hậu quả ngoài phiền toái: 24.000 email thừa làm tăng tỷ lệ báo cáo spam, và nhà cung cấp email có thể hạ uy tín tên miền gửi.
 
-### 14.12.2 — Mức 1: khoá phân tán
+### 14.11.2 — Mức 1: khoá phân tán
 
 ```csharp
 protected override async Task ExecuteAsync(CancellationToken ct)
@@ -81,11 +81,11 @@ protected override async Task ExecuteAsync(CancellationToken ct)
 }
 ```
 
-Giải quyết được vấn đề ngay, nhưng có một giới hạn phải hiểu: **khoá phân tán không an toàn tuyệt đối**. Nếu instance A bị GC pause dài hơn TTL, khoá hết hạn và instance B lấy được — rồi A tỉnh dậy và tiếp tục chạy ([bài 19.8](../../stage-05-senior-engineering/module-19-performance-engineering/19.7-distributed-lock.mdx)).
+Giải quyết được vấn đề ngay, nhưng có một giới hạn phải hiểu: **khoá phân tán không an toàn tuyệt đối**. Nếu instance A bị GC pause dài hơn TTL, khoá hết hạn và instance B lấy được — rồi A tỉnh dậy và tiếp tục chạy ([bài 19.7](../../stage-05-senior-engineering/module-19-performance-engineering/19.7-distributed-lock.mdx)).
 
 Với job gửi email, xác suất đó thấp nhưng khác không. Vì vậy khoá là **lớp thứ nhất**, không phải lớp duy nhất.
 
-### 14.12.3 — Mức 2: job idempotent
+### 14.11.3 — Mức 2: job idempotent
 
 Đây là lớp thật sự đảm bảo, và nó dựa vào database chứ không dựa vào giả định về thời gian:
 
@@ -123,13 +123,13 @@ public async Task SendAppointmentRemindersAsync(CancellationToken ct)
 }
 ```
 
-Giờ job chạy **ba lần cũng chỉ gửi mỗi email một lần**, vì unique constraint của database quyết định — không phụ thuộc vào khoá có hoạt động đúng hay không ([bài 17.3](../../stage-05-senior-engineering/module-17-distributed-systems/17.2-messaging-fears-lost-duplicates.mdx)).
+Giờ job chạy **ba lần cũng chỉ gửi mỗi email một lần**, vì unique constraint của database quyết định — không phụ thuộc vào khoá có hoạt động đúng hay không ([bài 17.2](../../stage-05-senior-engineering/module-17-distributed-systems/17.2-messaging-fears-lost-duplicates.mdx)).
 
 **Thứ tự quan trọng:** ghi bản ghi "đã gửi" **trước** rồi mới gửi email. Ngược lại, nếu tiến trình chết giữa hai bước thì email đã gửi nhưng không có dấu vết, và lần chạy sau gửi lại.
 
 Đánh đổi: nếu ghi thành công mà gửi email thất bại, email đó **không được gửi lại**. Với thông báo quan trọng, cần thêm cột trạng thái và một job dọn những bản ghi "đã đánh dấu nhưng chưa gửi thành công".
 
-### 14.12.4 — Mức 3: dùng Hangfire
+### 14.11.4 — Mức 3: dùng Hangfire
 
 Hangfire lưu job trong database nên nó tự lo việc chỉ chạy một lần:
 
@@ -155,11 +155,11 @@ Nhiều server Hangfire cùng chạy sẽ **tranh nhau** lấy job từ database
 | Lịch chạy cron | Tự viết | **Có sẵn** |
 | Phụ thuộc thêm | Không | Database schema riêng |
 
-**Khuyến nghị:** dùng `BackgroundService` cho việc chạy liên tục trên mọi instance (outbox dispatcher, consumer hàng đợi). Dùng Hangfire cho việc chạy **theo lịch** hoặc **một lần** ([bài 14.7](14.6-hangfire-background-jobs.mdx)).
+**Khuyến nghị:** dùng `BackgroundService` cho việc chạy liên tục trên mọi instance (outbox dispatcher, consumer hàng đợi). Dùng Hangfire cho việc chạy **theo lịch** hoặc **một lần** ([bài 14.6](14.6-hangfire-background-jobs.mdx)).
 
 Và **vẫn cần idempotent**: Hangfire đảm bảo at-least-once, không phải exactly-once. Khi một server chết giữa chừng, job được giao lại cho server khác — và phần đã làm có thể bị làm lại.
 
-### 14.12.5 — Cái bẫy: múi giờ
+### 14.11.5 — Cái bẫy: múi giờ
 
 ```csharp
 // SAI — trên container thường là UTC, không phải giờ Việt Nam
@@ -183,7 +183,7 @@ Trên Linux, id múi giờ là `"Asia/Ho_Chi_Minh"`. Từ .NET 6, `FindSystemTim
 
 **Và lưu dữ liệu luôn dùng UTC.** Chỉ đổi sang giờ địa phương ở tầng hiển thị và ở lịch chạy job.
 
-### 14.12.6 — Giám sát job
+### 14.11.6 — Giám sát job
 
 ```csharp
 _meter.CreateCounter<long>("job.runs").Add(1,
@@ -206,7 +206,7 @@ Cảnh báo đầu tiên đáng nhấn mạnh: job **không chạy** là loại 
 
 Cách cài đơn giản: mỗi lần chạy thành công thì cập nhật một mốc thời gian, và cảnh báo khi mốc đó quá cũ.
 
-### 14.12.7 — Rà lại code của bạn
+### 14.11.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát background job"

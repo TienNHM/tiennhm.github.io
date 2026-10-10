@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 18.5.1 — Đồng bộ hay bất đồng bộ
+### 18.4.1 — Đồng bộ hay bất đồng bộ
 
 | Câu hỏi | Nếu có | Nếu không |
 |---|---|---|
@@ -51,7 +51,7 @@ await _db.SaveChangesAsync(ct);
 
 Một use case dùng **cả hai** là chuyện bình thường, không phải thiếu nhất quán.
 
-### 18.5.2 — Lỗi tích luỹ
+### 18.4.2 — Lỗi tích luỹ
 
 ```
 Chuoi: API -> Sales -> Billing -> Inventory
@@ -73,7 +73,7 @@ vì xác suất chậm ít nhất một chặng tăng theo độ dài chuỗi.
 
 Ba cách rút ngắn chuỗi, theo thứ tự nên ưu tiên:
 
-**1. Nhân bản dữ liệu.** Thay vì gọi Billing mỗi lần, Sales giữ bản sao tối thiểu được cập nhật qua event ([bài 18.3](18.2-service-decomposition.mdx)). Chuỗi từ 4 xuống 2.
+**1. Nhân bản dữ liệu.** Thay vì gọi Billing mỗi lần, Sales giữ bản sao tối thiểu được cập nhật qua event ([bài 18.2](18.2-service-decomposition.mdx)). Chuỗi từ 4 xuống 2.
 
 **2. Gọi song song thay vì tuần tự.**
 
@@ -95,7 +95,7 @@ Chỉ áp dụng được khi các lời gọi **không phụ thuộc nhau** —
 
 **3. Suy nghĩ lại ranh giới.** Chuỗi dài thường là triệu chứng của ranh giới sai, không phải vấn đề kỹ thuật cần tối ưu.
 
-### 18.5.3 — Vòng gọi: dấu hiệu ranh giới sai
+### 18.4.3 — Vòng gọi: dấu hiệu ranh giới sai
 
 ```
 Sales -> Billing -> Inventory -> Sales
@@ -122,7 +122,7 @@ public sealed class StockReservedConsumer(SalesDbContext db) : IConsumer<StockRe
 }
 ```
 
-**Cách 2: gộp service.** Nếu ba service luôn gọi vòng nhau, có thể chúng vốn là một ([bài 18.3](18.2-service-decomposition.mdx)).
+**Cách 2: gộp service.** Nếu ba service luôn gọi vòng nhau, có thể chúng vốn là một ([bài 18.2](18.2-service-decomposition.mdx)).
 
 Cách 1 nhìn trên sơ đồ: cạnh đóng vòng đổi từ lời gọi đồng bộ thành event.
 
@@ -139,7 +139,7 @@ flowchart LR
     end
 ```
 
-### 18.5.4 — gRPC: khi nào và kỷ luật versioning
+### 18.4.4 — gRPC: khi nào và kỷ luật versioning
 
 gRPC phù hợp cho giao tiếp **nội bộ** giữa các service: hợp đồng rõ ràng qua `.proto`, serialize nhị phân gọn hơn JSON, có streaming hai chiều, và sinh client tự động.
 
@@ -185,7 +185,7 @@ message CheckCreditRequest {
 
 **Hạn chế cần biết:** gRPC-Web cần proxy để chạy từ trình duyệt, và message nhị phân khó debug hơn JSON — không có chuyện mở DevTools đọc thẳng. Với API công khai cho bên thứ ba, REST vẫn dễ tiếp cận hơn nhiều.
 
-### 18.5.5 — Timeout và circuit breaker
+### 18.4.5 — Timeout và circuit breaker
 
 Mọi lời gọi đồng bộ **đều phải** có timeout. Không có timeout nghĩa là chờ vô hạn, và chờ vô hạn dưới tải cao nghĩa là cạn thread pool rồi sập theo dây chuyền.
 
@@ -236,7 +236,7 @@ public async Task<CreditCheckResult> CheckCreditAsync(Guid customerId, decimal a
 
 Đây là **quyết định nghiệp vụ**, không phải kỹ thuật — và phải hỏi người phụ trách nghiệp vụ, không tự quyết. Nhưng nếu không có phương án dự phòng, Billing chết đồng nghĩa với toàn bộ luồng bán hàng dừng.
 
-### 18.5.6 — Rà lại code của bạn
+### 18.4.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát giao tiếp giữa service"

@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 2.8.1 — Hai câu hỏi khác nhau
+### 2.7.1 — Hai câu hỏi khác nhau
 
 ```mermaid
 flowchart LR
@@ -44,7 +44,7 @@ flowchart LR
 
 Dòng cuối đáng chú ý: lỗi phân quyền thường **khó phát hiện hơn** lỗi xác thực, vì hệ thống vẫn chạy đúng với mọi người dùng trung thực.
 
-### 2.8.2 — Mật khẩu: băm, không mã hoá
+### 2.7.2 — Mật khẩu: băm, không mã hoá
 
 ```
 Mã hoá (encryption)  → giải ngược lại được. SAI cho mật khẩu.
@@ -64,7 +64,7 @@ Hàm băm cho mật khẩu được thiết kế để **cố tình chậm** và
 
 ASP.NET Core Identity đã dùng PBKDF2 với salt theo mặc định. Đừng tự viết lại phần này.
 
-### 2.8.3 — JWT: ba phần, và chỉ một phần được bảo vệ
+### 2.7.3 — JWT: ba phần, và chỉ một phần được bảo vệ
 
 ```
 eyJhbGciOiJIUzI1NiJ9 . eyJzdWIiOiI0MiIsInJvbGUiOiJ1c2VyIn0 . dBjftJeZ4CVP...
@@ -82,7 +82,7 @@ echo 'eyJzdWIiOiI0MiIsInJvbGUiOiJ1c2VyIn0' | base64 -d
 
 Chữ ký chỉ bảo đảm **không ai sửa được** nội dung, chứ không giấu nội dung. Hệ quả trực tiếp: **không bao giờ đặt dữ liệu nhạy cảm vào payload** — không số căn cước, không thông tin lương, không khoá nội bộ.
 
-### 2.8.4 — JWT không thu hồi được
+### 2.7.4 — JWT không thu hồi được
 
 Đây là đánh đổi cốt lõi của JWT và nó quyết định thiết kế đăng xuất của bạn.
 
@@ -98,7 +98,7 @@ Ba cách xử lý, theo thứ tự phổ biến:
 
 Cách 1 là mặc định hợp lý cho hầu hết hệ thống.
 
-### 2.8.5 — Kiểm tra vai trò là chưa đủ
+### 2.7.5 — Kiểm tra vai trò là chưa đủ
 
 Đây là phần quan trọng nhất của bài.
 
@@ -139,7 +139,7 @@ Lỗ hổng này có tên: **IDOR (Insecure Direct Object Reference)**, thuộc 
 
 Trong ASP.NET Core, cách làm đúng quy mô là [resource-based authorization](https://learn.microsoft.com/en-us/aspnet/core/security/authorization/introduction) với policy, thay vì kiểm tra thủ công ở từng action.
 
-### 2.8.6 — Lưu token ở đâu trong trình duyệt
+### 2.7.6 — Lưu token ở đâu trong trình duyệt
 
 | Nơi lưu | Chống XSS | Chống CSRF | Ghi chú |
 |---|---|---|---|
@@ -149,7 +149,7 @@ Trong ASP.NET Core, cách làm đúng quy mô là [resource-based authorization]
 
 Lựa chọn mặc định tốt: cookie `HttpOnly; Secure; SameSite=Lax`. JavaScript không chạm được vào token, nên một lỗ hổng XSS không lấy được phiên đăng nhập.
 
-### 2.8.7 — Rà lại hệ thống của bạn
+### 2.7.7 — Rà lại hệ thống của bạn
 
 <Checklist
   title="Danh sách rà soát xác thực và phân quyền"
@@ -220,7 +220,7 @@ Nói cách khác: ai cũng **đọc** được, nhưng không ai **sửa** đư�
 
 **Nguyên tắc.** Payload chỉ nên chứa thứ đủ để **nhận dạng** và **phân quyền**: mã người dùng, vai trò, thời điểm hết hạn, bên phát hành, bên nhận. Mọi thông tin khác thì tra từ database khi cần.
 
-**Ba trường bắt buộc kiểm tra ở phía máy chủ**, và đây là chỗ hay bị bỏ sót: `exp` để từ chối token hết hạn, `iss` để chắc token do đúng hệ thống của bạn phát hành, và `aud` để token cấp cho dịch vụ này không dùng được ở dịch vụ khác. Thư viện xác thực của ASP.NET Core kiểm tra cả ba khi bạn cấu hình `TokenValidationParameters` đầy đủ — [bài 10.3](../../stage-03-aspnet-core-backend/module-10-authentication-authorization/10.2-jwt-authentication.mdx) trình bày chi tiết.
+**Ba trường bắt buộc kiểm tra ở phía máy chủ**, và đây là chỗ hay bị bỏ sót: `exp` để từ chối token hết hạn, `iss` để chắc token do đúng hệ thống của bạn phát hành, và `aud` để token cấp cho dịch vụ này không dùng được ở dịch vụ khác. Thư viện xác thực của ASP.NET Core kiểm tra cả ba khi bạn cấu hình `TokenValidationParameters` đầy đủ — [bài 10.2](../../stage-03-aspnet-core-backend/module-10-authentication-authorization/10.2-jwt-authentication.mdx) trình bày chi tiết.
 
 </details>
 
@@ -288,7 +288,7 @@ public async Task<IActionResult> Get(int id, CancellationToken ct)
 2. **Endpoint sửa và xoá** — `PATCH` và `DELETE` thường bị quên vì người ta chỉ rà `GET`.
 3. **Endpoint lồng nhau** — `GET /api/v1/customers/{customerId}/orders` phải kiểm tra quyền trên `customerId`, không chỉ trên đơn hàng.
 
-**Cách phòng có hệ thống.** Với dữ liệu phân tách theo người dùng hoặc theo tổ chức, dùng bộ lọc truy vấn toàn cục của EF Core để **mọi** truy vấn tự động kèm điều kiện, thay vì trông chờ mỗi lập trình viên nhớ viết. [Bài 13.11](../../stage-04-database-production/module-13-entity-framework-core/13.10-global-query-filters.mdx) trình bày cách làm, và [bài 10.7](../../stage-03-aspnet-core-backend/module-10-authentication-authorization/10.6-resource-based-authorization.mdx) trình bày phân quyền theo tài nguyên cho các trường hợp phức tạp hơn.
+**Cách phòng có hệ thống.** Với dữ liệu phân tách theo người dùng hoặc theo tổ chức, dùng bộ lọc truy vấn toàn cục của EF Core để **mọi** truy vấn tự động kèm điều kiện, thay vì trông chờ mỗi lập trình viên nhớ viết. [Bài 13.10](../../stage-04-database-production/module-13-entity-framework-core/13.10-global-query-filters.mdx) trình bày cách làm, và [bài 10.6](../../stage-03-aspnet-core-backend/module-10-authentication-authorization/10.6-resource-based-authorization.mdx) trình bày phân quyền theo tài nguyên cho các trường hợp phức tạp hơn.
 
 Broken Access Control đứng **đầu bảng** [OWASP Top 10](https://owasp.org/Top10/) năm 2021, và IDOR là dạng phổ biến nhất của nó.
 

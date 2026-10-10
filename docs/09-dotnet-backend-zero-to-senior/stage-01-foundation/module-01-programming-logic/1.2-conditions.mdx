@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 1.3.1 — `if` / `else` và bẫy lồng nhau
+### 1.2.1 — `if` / `else` và bẫy lồng nhau
 
 ```csharp
 int loyaltyPoints = 650;
@@ -62,7 +62,7 @@ public decimal CalculateDiscount(Customer? customer, Order? order)
 
 Bốn tầng thụt lề, và phần logic thật nằm ở tầng sâu nhất.
 
-### 1.3.2 — Guard clause: loại trừ trước, xử lý sau
+### 1.2.2 — Guard clause: loại trừ trước, xử lý sau
 
 ```mermaid
 flowchart TD
@@ -88,7 +88,7 @@ public decimal CalculateDiscount(Customer? customer, Order? order)
 
 Cùng một logic, nhưng người đọc thấy ngay **những gì bị loại trừ**, rồi mới tới phần việc thật. Đây là một trong vài kỹ thuật cải thiện code nhiều nhất trên mỗi ký tự bỏ ra.
 
-### 1.3.3 — Toán tử điều kiện và toán tử null
+### 1.2.3 — Toán tử điều kiện và toán tử null
 
 ```csharp
 // Ternary: chỉ dùng khi cả hai nhánh đều ngắn
@@ -106,7 +106,7 @@ config.Timeout ??= TimeSpan.FromSeconds(30);
 
 Đừng lồng ternary vào nhau. `a ? b : c ? d : e` đọc được trong 5 giây khi mới viết và không đọc được sau ba tháng.
 
-### 1.3.4 — `is null` thay vì `== null`
+### 1.2.4 — `is null` thay vì `== null`
 
 ```csharp
 if (customer is null) { }        // NÊN
@@ -117,7 +117,7 @@ Khác biệt: toán tử `==` **có thể bị nạp chồng**. Một lớp có 
 
 Trong thực tế, đa số kiểu không nạp chồng `==`. Nhưng `is null` ngắn hơn, không bao giờ sai, và đọc lên đúng nghĩa. Dạng phủ định là `is not null`.
 
-### 1.3.5 — `switch` statement
+### 1.2.5 — `switch` statement
 
 ```csharp
 string leadStatus = "new";
@@ -138,7 +138,7 @@ switch (leadStatus)
 
 C# **không cho phép rơi tự do** giữa các `case` như C hay JavaScript — quên `break` là lỗi biên dịch, không phải bug âm thầm. Đây là một trong những chỗ C# cố tình chặn một lớp lỗi kinh điển.
 
-### 1.3.6 — `switch` expression: gọn hơn và được kiểm tra vét cạn
+### 1.2.6 — `switch` expression: gọn hơn và được kiểm tra vét cạn
 
 ```csharp
 string label = leadStatus switch
@@ -168,7 +168,7 @@ decimal priority = status switch
 
 Đánh đổi: nếu chạy vào một giá trị không khớp nhánh nào, chương trình ném `SwitchExpressionException` lúc chạy. Với `enum` nội bộ do bạn kiểm soát, đó là đánh đổi xứng đáng — thà nổ rõ ràng còn hơn im lặng trả về giá trị mặc định sai.
 
-### 1.3.7 — Pattern matching
+### 1.2.7 — Pattern matching
 
 Đây là phần làm C# hiện đại khác hẳn C# cũ.
 
@@ -206,7 +206,7 @@ So với cách viết cũ, `payment switch` bên trên thay thế cho một chu�
 
 Danh sách đầy đủ các pattern: [Patterns — C# reference](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/patterns).
 
-### 1.3.8 — `&&` và `&`: đoản mạch
+### 1.2.8 — `&&` và `&`: đoản mạch
 
 ```csharp
 if (customer != null && customer.IsActive) { }   // AN TOÀN
@@ -215,7 +215,7 @@ if (customer != null &  customer.IsActive) { }   // NullReferenceException
 
 `&&` **đoản mạch**: vế trái sai thì không chạy vế phải. `&` luôn chạy cả hai vế. Trong điều kiện, hầu như luôn dùng `&&` và `||`. Dùng `&` hay `|` chỉ khi bạn đang thao tác trên bit — mà đó là chuyện của bài khác.
 
-### 1.3.9 — Khi nào `if-else` là sai cách
+### 1.2.9 — Khi nào `if-else` là sai cách
 
 ```csharp
 // KHÔNG NÊN — chính sách nghiệp vụ nhúng cứng vào code
@@ -244,7 +244,7 @@ Bước tiếp theo là đưa bảng đó xuống database hoặc file cấu hì
 
 **Dấu hiệu nhận biết:** nếu các nhánh `if` chỉ khác nhau ở *giá trị* chứ không khác nhau ở *hành vi*, đó là dữ liệu chứ không phải logic.
 
-### 1.3.10 — Rà lại code của bạn
+### 1.2.10 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát điều kiện"
@@ -262,7 +262,7 @@ Bước tiếp theo là đưa bảng đó xuống database hoặc file cấu hì
 
 #### Bài 1 — Làm phẳng ba lần
 
-Lấy hàm `TinhGiam` bốn tầng ở mục 1.3.1. Viết lại hai lần: một bằng guard clause, một bằng property pattern. So sánh số dòng và độ sâu thụt lề của ba phiên bản.
+Lấy hàm `TinhGiam` bốn tầng ở mục 1.2.1. Viết lại hai lần: một bằng guard clause, một bằng property pattern. So sánh số dòng và độ sâu thụt lề của ba phiên bản.
 
 **Tiêu chí hoàn thành:** cả ba phiên bản cho cùng kết quả trên bốn trường hợp — khách `null`, khách không hoạt động, đơn `null`, đơn hợp lệ.
 

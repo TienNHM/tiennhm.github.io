@@ -178,9 +178,8 @@ Mình đã test và đo lại thời gian build, và đây là kết quả:
 
 | Metric | Trước | Sau | Cải thiện |
 |--------|-------|-----|-----------|
-| **Build Time** | ~52 phút | ~26 phút | **-50%** 🎉 |
+| **Build Time** (lần build đầu, chưa có cache) | ~52 phút | ~26 phút | **-50%** 🎉 |
 | **Rebuild Time** | ~40 phút | ~18 phút | **-55%** 🚀 |
-| **Initial Build** | ~52 phút | ~26 phút | **-50%** ⚡ |
 
 ### Những lợi ích thực tế mình cảm nhận được
 
@@ -199,7 +198,7 @@ Mình đã test và đo lại thời gian build, và đây là kết quả:
 
 ✅ **CI/CD pipeline "sống lại"**: Release cycle nhanh hơn rất nhiều, team deploy được thường xuyên hơn, không còn sợ deploy nữa!
 
-✅ **Bundle size giữ nguyên**: Không có trade-off - vẫn giữ nguyên kích thước output, chỉ build nhanh hơn thôi!
+⚠️ **Bundle size chưa đo**: Bài này chỉ đo build time. Về cơ chế, Application Builder không có lý do làm bundle phình ra, nhưng hãy tự so sánh kích thước output trước và sau khi migrate.
 
 ✅ **Chi phí CI/CD giảm**: Với cloud CI/CD tính theo thời gian, tiết kiệm được **50% chi phí** cho mỗi lần build!
 
@@ -420,7 +419,7 @@ Migrate sang Application Builder không chỉ là một "technical upgrade" - n�
 - 💰 **Tiết kiệm chi phí CI/CD**: Giảm 50% thời gian build = tiết kiệm đáng kể với cloud CI/CD
 - 😊 **Developer experience tốt hơn**: Không còn phải chờ đợi, tập trung vào code và giải quyết vấn đề
 - 🎯 **Tăng độ hài lòng của các bên**: Stakeholders, customers, và team đều hài lòng hơn nhờ deploy nhanh hơn
-- 📦 **Bundle size không đổi**: Không có trade-off về performance - vẫn giữ nguyên chất lượng output
+- 📦 **Bundle size**: Chưa đo trong bài này, nên tự so sánh output trước và sau khi migrate
 
 ### Khuyến nghị cho bạn
 

@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 9.9.1 — Ba tầng test
+### 9.8.1 — Ba tầng test
 
 | Tầng | Test cái gì | Tốc độ | Số lượng |
 |---|---|---|---|
@@ -34,7 +34,7 @@ Sau bài này bạn có thể:
 
 Integration test là tầng **đáng đầu tư nhất** cho một Web API, vì nó bắt được đúng những lỗi mà unit test bỏ sót: sai route, binding không như mong đợi, validation không chạy, thứ tự middleware sai, DI thiếu đăng ký, serialization JSON khác dự kiến.
 
-### 9.9.2 — `WebApplicationFactory`
+### 9.8.2 — `WebApplicationFactory`
 
 ```csharp
 public sealed class CrmApiFactory : WebApplicationFactory<Program>
@@ -66,7 +66,7 @@ Nếu `Program.cs` dùng top-level statements, thêm dòng này vào cuối đ�
 public partial class Program;
 ```
 
-### 9.9.3 — `UseInMemoryDatabase` nói dối
+### 9.8.3 — `UseInMemoryDatabase` nói dối
 
 Đây là lời khuyên phổ biến nhất và cũng gây hại nhất trong testing .NET:
 
@@ -90,7 +90,7 @@ Dòng thứ tư nguy hiểm nhất: EF Core dịch **khác nhau** cho mỗi prov
 
 Chính tài liệu EF Core cũng khuyến cáo **không** dùng InMemory để test. Dùng nó chỉ cho những test **không chạm database thật sự**, ví dụ kiểm tra validation của controller.
 
-### 9.9.4 — Testcontainers: database thật
+### 9.8.4 — Testcontainers: database thật
 
 ```bash
 dotnet add package Testcontainers.MsSql
@@ -141,7 +141,7 @@ public sealed class ApiCollection : ICollectionFixture<CrmApiFactory>;
 public sealed class CustomerApiTests(CrmApiFactory factory) { }
 ```
 
-### 9.9.5 — Cô lập dữ liệu giữa các test
+### 9.8.5 — Cô lập dữ liệu giữa các test
 
 Test dùng chung một database sẽ ảnh hưởng lẫn nhau: một test tạo 5 khách hàng, test đếm ở lớp khác thất bại — và chỉ thất bại khi chạy **cùng nhau**, không khi chạy riêng.
 
@@ -175,7 +175,7 @@ Bài test này là ví dụ đúng cho lý do dùng database thật: với InMem
 
 Hai cách cô lập khác: mỗi test một transaction rồi rollback (nhanh hơn nhưng không test được code tự quản transaction), hoặc mỗi test một database riêng (sạch nhất nhưng chậm).
 
-### 9.9.6 — Xác thực trong test
+### 9.8.6 — Xác thực trong test
 
 Đừng tắt `[Authorize]` — nếu tắt, bạn **không** test được phân quyền, và đó chính là thứ cần test nhất.
 
@@ -245,7 +245,7 @@ flowchart LR
 `TestAuthHandler` chỉ được đăng ký trong `ConfigureTestServices` của test project. Đừng bao giờ đặt nó trong `Program.cs` sau một câu `if` về môi trường — một biến môi trường đặt nhầm là một API không xác thực.
 :::
 
-### 9.9.7 — Test những gì unit test không thấy
+### 9.8.7 — Test những gì unit test không thấy
 
 ```csharp
 [Fact]
@@ -284,7 +284,7 @@ public async Task Create_ReturnsLocationHeader()
 
 Bài test thứ ba đáng chú ý: nó kiểm tra rằng URL trong header `Location` **thật sự gọi được**. Đây là lỗi hay gặp khi đổi route mà quên sửa `CreatedAtRoute`, và không unit test nào bắt được.
 
-### 9.9.8 — Rà lại code của bạn
+### 9.8.8 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát API testing"

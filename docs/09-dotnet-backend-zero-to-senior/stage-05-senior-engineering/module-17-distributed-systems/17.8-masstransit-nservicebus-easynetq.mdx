@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 17.9.1 — Ba mức trừu tượng
+### 17.8.1 — Ba mức trừu tượng
 
 | | MassTransit | NServiceBus | EasyNetQ |
 |---|---|---|---|
@@ -40,7 +40,7 @@ Sau bài này bạn có thể:
 
 Ba dòng đáng chú ý nhất: **broker hỗ trợ** (EasyNetQ khoá bạn vào RabbitMQ), **saga** (nếu cần điều phối quy trình nhiều bước thì EasyNetQ loại khỏi danh sách), và **chi phí**.
 
-### 17.9.2 — Về giấy phép: kiểm tra trước khi cam kết
+### 17.8.2 — Về giấy phép: kiểm tra trước khi cam kết
 
 Đây là rủi ro ít người tính tới khi chọn thư viện: **mô hình cấp phép của dự án mã nguồn mở có thể thay đổi**. Một thư viện miễn phí hôm nay có thể yêu cầu trả phí ở phiên bản sau, và khi đó bạn đứng trước ba lựa chọn đều không dễ chịu: trả tiền, ở lại phiên bản cũ không còn được cập nhật, hoặc viết lại lớp hạ tầng messaging.
 
@@ -52,9 +52,9 @@ Ba việc nên làm cho **mọi** thư viện nền tảng, không riêng messag
 2. **Ước lượng chi phí thoát** — nếu ngày mai phải bỏ thư viện này, bao nhiêu file phải sửa?
 3. **Giữ abstraction mỏng của riêng bạn** để câu trả lời cho câu hỏi trên là "vài file", không phải "cả dự án".
 
-Điểm 3 là thứ bạn kiểm soát được, và mục 17.9.5 nói cách làm.
+Điểm 3 là thứ bạn kiểm soát được, và mục 17.8.5 nói cách làm.
 
-### 17.9.3 — MassTransit ở mức đủ dùng
+### 17.8.3 — MassTransit ở mức đủ dùng
 
 ```csharp
 builder.Services.AddMassTransit(x =>
@@ -88,7 +88,7 @@ builder.Services.AddMassTransit(x =>
 });
 ```
 
-Cấu hình này đã có ba thứ cần cho production: outbox chống mất tin ([bài 17.4](17.3-outbox-pattern-applied.mdx)), retry hai tầng ([bài 17.6](17.6-retry-and-backoff.mdx)), và prefetch để phân bổ tải đều giữa consumer ([bài 17.4](17.4-kafka-vs-rabbitmq-pragmatic.mdx)).
+Cấu hình này đã có ba thứ cần cho production: outbox chống mất tin ([bài 17.3](17.3-outbox-pattern-applied.mdx)), retry hai tầng ([bài 17.6](17.6-retry-and-backoff.mdx)), và prefetch để phân bổ tải đều giữa consumer ([bài 17.4](17.4-kafka-vs-rabbitmq-pragmatic.mdx)).
 
 **Saga** là thứ khó tự viết nhất và là lý do chính đáng nhất để dùng thư viện:
 
@@ -130,7 +130,7 @@ stateDiagram-v2
     AwaitingPayment --> [*]: PaymentTimeout, publish OrderCancelledEvent
 ```
 
-### 17.9.4 — EasyNetQ: khi mỏng là đủ
+### 17.8.4 — EasyNetQ: khi mỏng là đủ
 
 ```csharp
 using var bus = RabbitHutch.CreateBus("host=localhost;username=guest;password=guest");
@@ -147,7 +147,7 @@ Ba dòng, chạy được ngay, MIT, không có gì để hiểu thêm.
 
 **Đánh đổi:** không outbox, không saga, không scheduling, không retry hai tầng — bạn tự viết hoặc không có. Với một service nhỏ chỉ publish vài loại event đơn giản, đó là đánh đổi hợp lý. Với hệ thống có quy trình nhiều bước, bạn sẽ dần tự viết lại những gì MassTransit đã có, chỉ tệ hơn.
 
-### 17.9.5 — Giữ code nghiệp vụ độc lập
+### 17.8.5 — Giữ code nghiệp vụ độc lập
 
 Đây là phần quan trọng nhất của bài, và nó áp dụng cho **cả ba** lựa chọn.
 
@@ -180,12 +180,12 @@ public sealed class MassTransitEventPublisher(IPublishEndpoint publishEndpoint) 
 }
 ```
 
-Đây chính là dependency rule ([bài 16.4](../module-16-clean-architecture/16.3-uncle-bob.mdx)) áp dụng cho messaging. Đổi sang EasyNetQ chỉ phải viết lại **một** file hạ tầng.
+Đây chính là dependency rule ([bài 16.3](../module-16-clean-architecture/16.3-uncle-bob.mdx)) áp dụng cho messaging. Đổi sang EasyNetQ chỉ phải viết lại **một** file hạ tầng.
 
 Hai lợi ích thực tế nữa, có ngay cả khi bạn không bao giờ đổi thư viện:
 
 - **Test không cần broker.** Một `FakeEventPublisher` thu message vào `List` là đủ để assert.
-- **Application không bị ràng buộc vào vòng đời DI của thư viện**, thứ hay gây lỗi "cannot consume scoped service" khó chẩn đoán ([bài 7.5](../../stage-02-csharp-professional/module-07-dependency-injection/7.4-service-lifetimes.mdx)).
+- **Application không bị ràng buộc vào vòng đời DI của thư viện**, thứ hay gây lỗi "cannot consume scoped service" khó chẩn đoán ([bài 7.4](../../stage-02-csharp-professional/module-07-dependency-injection/7.4-service-lifetimes.mdx)).
 
 ```mermaid
 flowchart LR
@@ -199,9 +199,9 @@ flowchart LR
 
 **Giới hạn của lời khuyên này:** đừng bọc **tính năng nâng cao**. Saga state machine của MassTransit không thể bọc sau một interface chung mà vẫn giữ giá trị — nếu bạn dùng saga, hãy chấp nhận phụ thuộc và cô lập nó trong một project riêng.
 
-### 17.9.6 — Khi nào không cần thư viện nào
+### 17.8.6 — Khi nào không cần thư viện nào
 
-Nếu bạn chỉ publish vài loại event lên một broker duy nhất và **đã tự viết outbox** ([bài 17.8](17.7-outbox-idempotency-demo.mdx)), client gốc là đủ:
+Nếu bạn chỉ publish vài loại event lên một broker duy nhất và **đã tự viết outbox** ([bài 17.7](17.7-outbox-idempotency-demo.mdx)), client gốc là đủ:
 
 ```csharp
 // RabbitMQ.Client trực tiếp — ít phụ thuộc, kiểm soát hoàn toàn
@@ -223,7 +223,7 @@ public sealed class RabbitMqEventPublisher(IConnection connection) : IEventPubli
 
 Chọn cách này khi: một broker, không saga, không cần scheduling, và đội muốn ít phụ thuộc bên ngoài. Chọn thư viện khi: cần saga, cần retry/DLQ có sẵn, hoặc muốn đổi broker mà không sửa code nghiệp vụ.
 
-### 17.9.7 — Rà lại code của bạn
+### 17.8.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát khi chọn thư viện messaging"

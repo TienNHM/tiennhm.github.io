@@ -9,7 +9,7 @@ import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 # 7.5 - Registering Services
 
 <SummaryBox>
-Sáu cách đăng ký, mỗi cách cho một tình huống. Cách cơ bản (`AddScoped<IFoo, Foo>()`) phủ 90% trường hợp; phần còn lại là nơi mọi người vấp. **Factory registration** cho khởi tạo cần logic — và ở đây có bẫy: `sp` bạn nhận được là provider của **scope đang xin**, nên resolve một service `Scoped` bên trong factory của một `Singleton` là captive dependency, chỉ khác là container **không phát hiện được**. **Open generic** cho phép một dòng đăng ký phục vụ mọi `IRepository<T>`. Và **nhiều implementation cùng interface** là tính năng, không phải lỗi: container sẽ tiêm cả tập vào `IEnumerable<IFoo>`.
+Sáu cách đăng ký, mỗi cách cho một tình huống. Cách cơ bản (`AddScoped<IFoo, Foo>()`) phủ 90% trường hợp; phần còn lại là nơi mọi người vấp. **Factory registration** cho khởi tạo cần logic — và ở đây có bẫy: factory của một `Singleton` nhận **root provider**, nên resolve một service `Scoped` bên trong đó là captive dependency, chỉ khác là container **không phát hiện được lúc khởi động** — chỉ lộ ra lúc chạy nếu bật `ValidateScopes`, còn ở Production thì lọt. **Open generic** cho phép một dòng đăng ký phục vụ mọi `IRepository<T>`. Và **nhiều implementation cùng interface** là tính năng, không phải lỗi: container sẽ tiêm cả tập vào `IEnumerable<IFoo>`.
 </SummaryBox>
 
 ## Mục tiêu bài học
@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 7.6.1 — Đăng ký cơ bản
+### 7.5.1 — Đăng ký cơ bản
 
 ```csharp
 // Interface + implementation — 90% truong hop
@@ -43,7 +43,7 @@ Dòng cuối có một điểm dễ bỏ sót: khi bạn đưa vào một instan
 
 `AddScoped<CustomerService>()` không cần interface — container dựng được mọi lớp cụ thể miễn là giải được constructor. Đừng tạo interface chỉ để có interface: nếu một interface chỉ có đúng một implementation và bạn không mock nó trong test, nó chỉ là một lớp gián tiếp thừa.
 
-### 7.6.2 — Factory registration và cái bẫy trong đó
+### 7.5.2 — Factory registration và cái bẫy trong đó
 
 ```csharp
 services.AddSingleton<IEmailService>(sp =>
@@ -65,9 +65,13 @@ services.AddSingleton<IReportService>(sp =>
 });
 ```
 
-`sp` trong factory là provider của scope đang xin. Với `Singleton`, lần xin đầu tiên có thể đến từ một request, nên bạn lấy được một `Scoped` thật — và giam nó vĩnh viễn ([bài 7.5](7.4-service-lifetimes.mdx)).
+Với `Singleton`, `sp` trong factory là **root provider**, kể cả khi lần xin đầu tiên đến từ một request. Resolve `Scoped` từ root nghĩa là instance đó sống cùng root — tức là bị giam vĩnh viễn ([bài 7.4](7.4-service-lifetimes.mdx)).
 
-Nguy hiểm hơn constructor injection ở chỗ: `ValidateScopes` **bắt được** captive dependency qua constructor, nhưng **không bắt được** qua factory, vì nó không nhìn vào bên trong lambda.
+Nguy hiểm hơn constructor injection ở chỗ thời điểm phát hiện:
+
+- **Lúc build** (`ValidateOnBuild`): container bắt được captive dependency qua constructor, nhưng **không bắt được** qua factory, vì nó không nhìn vào bên trong lambda.
+- **Lúc chạy** (`ValidateScopes`): khi factory chạy và xin `Scoped` từ root, container ném `InvalidOperationException` ("Cannot resolve scoped service ... from root provider"). ASP.NET Core chỉ bật `ValidateScopes` mặc định ở môi trường Development.
+- **Ở Production** mặc định không bật, nên lỗi **lọt** hoàn toàn: không ngoại lệ, chỉ có một `Scoped` bị giam.
 
 ```csharp
 // DUNG — tiem scope factory, tao scope khi dung
@@ -77,7 +81,7 @@ services.AddSingleton<IReportService>(sp =>
 
 Quy tắc: **trong factory của một `Singleton`, chỉ resolve `Singleton`.**
 
-### 7.6.3 — Open generic
+### 7.5.3 — Open generic
 
 ```csharp
 services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
@@ -94,7 +98,7 @@ services.AddScoped<IRepository<Customer>, CachedCustomerRepository>();  // rieng
 
 Hai giới hạn: không dùng được với generic có ràng buộc mà container không kiểm tra được, và không có cú pháp generic cho nó — phải viết `typeof`.
 
-### 7.6.4 — Nhiều implementation cho một interface
+### 7.5.4 — Nhiều implementation cho một interface
 
 Đây là **tính năng**, không phải xung đột:
 
@@ -118,9 +122,9 @@ public class CustomerService(IEnumerable<IValidator<Customer>> validators)
 
 Thêm một luật kiểm tra mới = thêm một dòng đăng ký, **không sửa `CustomerService`**. Đây chính là Open/Closed trong thực tế.
 
-Nhớ hai điều từ [bài 7.3](7.2-ioc-container-and-di-container.mdx): `GetRequiredService<IValidator<Customer>>()` chỉ trả về cái **cuối cùng**, còn `IEnumerable<>` trả về **tất cả** theo thứ tự đăng ký.
+Nhớ hai điều từ [bài 7.2](7.2-ioc-container-and-di-container.mdx): `GetRequiredService<IValidator<Customer>>()` chỉ trả về cái **cuối cùng**, còn `IEnumerable<>` trả về **tất cả** theo thứ tự đăng ký.
 
-### 7.6.5 — `TryAdd` và `Replace`
+### 7.5.5 — `TryAdd` và `Replace`
 
 ```csharp
 services.TryAddScoped<IEmailService, SmtpEmailService>();            // chỉ thêm nếu chưa có
@@ -134,7 +138,7 @@ services.Replace(ServiceDescriptor.Scoped<IEmailService, FakeEmailService>()); /
 - **`TryAddEnumerable`**: khi một `AddXxx()` bị gọi hai lần, `Add` thường sẽ nhân đôi và validator chạy hai lần. `TryAddEnumerable` so cả `ServiceType` lẫn `ImplementationType` nên không trùng.
 - **`Replace`**: rất hữu ích trong integration test để thay hạ tầng thật bằng fake.
 
-### 7.6.6 — Decorator bằng container .NET thuần
+### 7.5.6 — Decorator bằng container .NET thuần
 
 Container .NET không có decorator sẵn, nhưng làm được bằng factory:
 
@@ -163,7 +167,7 @@ services.AddScoped<ICustomerRepository, EfCustomerRepository>();
 services.Decorate<ICustomerRepository, CachedCustomerRepository>();
 ```
 
-### 7.6.7 — Tóm tắt
+### 7.5.7 — Tóm tắt
 
 | Dạng | Khi dùng |
 |---|---|
@@ -175,7 +179,7 @@ services.Decorate<ICustomerRepository, CachedCustomerRepository>();
 | `TryAdd` / `TryAddEnumerable` | Trong thư viện, để không đè lựa chọn của ứng dụng |
 | `Replace` | Integration test |
 
-### 7.6.8 — Rà lại code của bạn
+### 7.5.8 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát đăng ký service"
@@ -252,8 +256,8 @@ Với factory, thứ được đăng ký chỉ là một **delegate**. Container
 
 **Ý nghĩa với code review và vận hành:**
 
-- **Constructor injection an toàn hơn** không chỉ vì rõ ràng hơn, mà vì nó **kiểm chứng được tự động**. Đây là một lý do nữa để ưu tiên nó, bên cạnh các lý do ở [bài 7.4](7.3-three-ways-register-services.mdx).
-- **Factory là điểm mù.** Ứng dụng khởi động bình thường, và lỗi chỉ xuất hiện khi có request đầu tiên chạm tới đường dẫn đó. Nếu đó là một tính năng ít dùng, có thể mất nhiều ngày.
+- **Constructor injection an toàn hơn** không chỉ vì rõ ràng hơn, mà vì nó **kiểm chứng được tự động**. Đây là một lý do nữa để ưu tiên nó, bên cạnh các lý do ở [bài 7.3](7.3-three-ways-register-services.mdx).
+- **Factory là điểm mù.** Ứng dụng khởi động bình thường, và lỗi chỉ xuất hiện khi có request đầu tiên chạm tới đường dẫn đó. Nếu đó là một tính năng ít dùng, có thể mất nhiều ngày. Ở Production, nơi `ValidateScopes` mặc định tắt, lỗi thậm chí không bao giờ xuất hiện — service `Scoped` cứ thế bị giam.
 - **Vì vậy factory phải được rà bằng mắt.** Mỗi `sp.GetRequiredService<T>()` bên trong một đăng ký `AddSingleton` là một chỗ cần kiểm tra vòng đời của `T`.
 
 **Khi buộc phải dùng factory cho `Singleton`,** đừng lấy service `Scoped` ra rồi giữ. Lấy `IServiceScopeFactory` và tạo phạm vi khi cần:
@@ -468,7 +472,7 @@ Khác biệt lớn nhất nằm ở dòng thứ hai: với container thuần, m�
   items={[
     {
       question: "Factory registration có bẫy gì?",
-      answer: "Tham số sp trong factory là provider của scope đang xin, nên resolve một service Scoped bên trong factory của một Singleton sẽ giam service đó vĩnh viễn. Nguy hiểm hơn constructor injection ở chỗ ValidateScopes không nhìn vào bên trong lambda nên không phát hiện được. Quy tắc là trong factory của Singleton chỉ resolve Singleton."
+      answer: "Factory của một Singleton nhận root provider, nên resolve một service Scoped bên trong đó sẽ giam service đó vĩnh viễn. Nguy hiểm hơn constructor injection ở chỗ ValidateOnBuild không nhìn vào bên trong lambda nên không bắt được lúc khởi động. ValidateScopes chỉ bắt được lúc chạy, khi factory thật sự chạy, và ASP.NET Core chỉ bật nó mặc định ở Development — ở Production lỗi lọt hoàn toàn. Quy tắc là trong factory của Singleton chỉ resolve Singleton."
     },
     {
       question: "Đăng ký instance có sẵn khác gì đăng ký kiểu?",

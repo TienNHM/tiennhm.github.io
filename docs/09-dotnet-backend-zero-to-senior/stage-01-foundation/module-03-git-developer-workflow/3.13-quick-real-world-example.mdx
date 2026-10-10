@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 3.14.1 — Tình huống
+### 3.13.1 — Tình huống
 
 ```
 An:   tạo migration "AddPhoneNumberToLead"
@@ -48,7 +48,7 @@ Bình merge sau  -> CONFLICT trong AppDbContextModelSnapshot.cs
 
 Nhìn thì có vẻ dễ: giữ cả hai đoạn là xong.
 
-### 3.14.2 — Vì sao ghép tay là sai
+### 3.13.2 — Vì sao ghép tay là sai
 
 `ModelSnapshot.cs` **không phải code bạn viết** — nó là **ảnh chụp trạng thái hiện tại** của mô hình dữ liệu, do EF Core sinh ra để so sánh khi tạo migration tiếp theo.
 
@@ -73,7 +73,7 @@ Hoặc tệ hơn theo hướng ngược lại: snapshot thừa một cột mà d
 
 **Đây là lý do `ModelSnapshot.cs` cần được đối xử như file sinh tự động: đừng sửa tay, hãy sinh lại.**
 
-### 3.14.3 — Ba bước xử lý đúng
+### 3.13.3 — Ba bước xử lý đúng
 
 **Bước 1 — bỏ migration của mình:**
 
@@ -111,7 +111,7 @@ cat Migrations/*_AddNoteTable.cs
 
 Đọc nó và xác nhận nó **chỉ** chứa những gì bạn mong đợi. Nếu thấy lệnh động tới bảng hay cột không liên quan, có gì đó sai.
 
-### 3.14.4 — Khi migration đã lên production
+### 3.13.4 — Khi migration đã lên production
 
 Ba bước trên chỉ áp dụng khi migration **chưa** được áp dụng ở đâu. Nếu nó đã chạy trên môi trường nào đó, `migrations remove` là sai — nó sẽ khiến lịch sử migration trong database lệch với mã nguồn.
 
@@ -125,7 +125,7 @@ dotnet ef migrations list
 20260921141522_AddNoteTable         (Pending)      <- chưa áp dụng, xoá được
 ```
 
-Nếu migration của bạn đã `Applied` trên staging hoặc production, cách xử lý là **thêm một migration mới** sửa phần khác biệt, không xoá cái cũ ([bài 13.5](../../stage-04-database-production/module-13-entity-framework-core/13.4-migrations.mdx)).
+Nếu migration của bạn đã `Applied` trên staging hoặc production, cách xử lý là **thêm một migration mới** sửa phần khác biệt, không xoá cái cũ ([bài 13.4](../../stage-04-database-production/module-13-entity-framework-core/13.4-migrations.mdx)).
 
 ```mermaid
 flowchart TD
@@ -137,7 +137,7 @@ flowchart TD
     B -->|Applied| G["Không xoá: thêm migration mới sửa phần khác biệt"]
 ```
 
-### 3.14.5 — Phòng ngừa
+### 3.13.5 — Phòng ngừa
 
 **1. Merge `main` thường xuyên.** Conflict tỷ lệ với thời gian nhánh tồn tại:
 
@@ -161,7 +161,7 @@ Nhánh sống 2 ngày hiếm khi có conflict nghiêm trọng; nhánh sống 3 t
 
 Nó không ngăn conflict nhưng báo cho GitHub biết đây là file sinh tự động, nên PR sẽ thu gọn phần diff đó lại — người review không bị nhiễu.
 
-### 3.14.6 — Loại file khác cũng đừng ghép tay
+### 3.13.6 — Loại file khác cũng đừng ghép tay
 
 Cùng một nguyên tắc áp dụng cho mọi file sinh tự động:
 
@@ -174,7 +174,7 @@ Cùng một nguyên tắc áp dụng cho mọi file sinh tự động:
 
 **Nguyên tắc chung:** nếu một file được **sinh ra** bởi công cụ, hãy để công cụ sinh lại nó thay vì ghép tay. Ghép tay tạo ra trạng thái mà công cụ không bao giờ tự sinh ra được, và đó là nơi lỗi kỳ lạ xuất hiện.
 
-### 3.14.7 — Rà lại code của bạn
+### 3.13.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát conflict migration"
@@ -298,7 +298,7 @@ Thứ tự chạy được quyết định bởi dấu thời gian đó, không 
    migration của An luôn chạy trước, kể cả khi Bình merge trước.
 ```
 
-Điều này thường đúng và vô hại. Nó chỉ thành vấn đề khi hai migration động tới cùng một bảng và thứ tự có ý nghĩa — lúc đó bước 3 của mục 3.14.3 (sinh lại migration) tự nhiên xử lý đúng, vì migration mới được sinh sau và mang dấu thời gian mới hơn.
+Điều này thường đúng và vô hại. Nó chỉ thành vấn đề khi hai migration động tới cùng một bảng và thứ tự có ý nghĩa — lúc đó bước 3 của mục 3.13.3 (sinh lại migration) tự nhiên xử lý đúng, vì migration mới được sinh sau và mang dấu thời gian mới hơn.
 
 </details>
 
@@ -306,7 +306,7 @@ Thứ tự chạy được quyết định bởi dấu thời gian đó, không 
 
 #### Bài 2 — Xử lý đúng cách
 
-Áp dụng ba bước ở mục 3.14.3 và đọc file migration sinh ra để xác nhận nó chỉ chứa thay đổi của bạn.
+Áp dụng ba bước ở mục 3.13.3 và đọc file migration sinh ra để xác nhận nó chỉ chứa thay đổi của bạn.
 
 **Tiêu chí hoàn thành:** migration mới **chỉ** chứa thay đổi của bạn, và bạn kiểm chứng được điều đó bằng cả mắt lẫn một lệnh.
 

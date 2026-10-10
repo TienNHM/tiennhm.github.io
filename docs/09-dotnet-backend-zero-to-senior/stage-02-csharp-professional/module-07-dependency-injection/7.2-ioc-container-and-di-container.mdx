@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 7.3.1 — Ba tầng khái niệm
+### 7.2.1 — Ba tầng khái niệm
 
 ```mermaid
 flowchart TB
@@ -52,7 +52,7 @@ var service    = new CustomerService(repository, email, logger);
 IoC là **tại sao**. DI là **cái gì**. Container là **bằng gì**.
 :::
 
-### 7.3.2 — `ServiceCollection`: công thức, chưa phải món ăn
+### 7.2.2 — `ServiceCollection`: công thức, chưa phải món ăn
 
 ```csharp
 var services = new ServiceCollection();
@@ -80,7 +80,7 @@ services.TryAddScoped<IEmailService, SmtpEmailService>();
 
 Đây là thứ mọi thư viện nên dùng, để không đè lên lựa chọn của ứng dụng.
 
-### 7.3.3 — `ServiceProvider`: nơi mọi thứ thật sự xảy ra
+### 7.2.3 — `ServiceProvider`: nơi mọi thứ thật sự xảy ra
 
 ```csharp
 ServiceProvider provider = services.BuildServiceProvider();
@@ -104,7 +104,7 @@ Bước 2 có một quy tắc quan trọng: nếu lớp có **nhiều constructo
 
 `GetService<T>()` trả `null` khi không tìm thấy; `GetRequiredService<T>()` ném exception với thông báo rõ ràng. **Luôn dùng bản `Required`** — `NullReferenceException` ở đâu đó sâu trong nghiệp vụ tệ hơn nhiều so với một lỗi khởi động nói rõ bạn quên đăng ký gì.
 
-### 7.3.4 — Trong ASP.NET Core bạn không thấy hai bước đó
+### 7.2.4 — Trong ASP.NET Core bạn không thấy hai bước đó
 
 ```csharp
 var builder = WebApplication.CreateBuilder(args);
@@ -114,18 +114,18 @@ builder.Services.AddScoped<ICustomerRepository, SqlCustomerRepository>();
 var app = builder.Build();     // BuildServiceProvider() xay ra o day
 ```
 
-`builder.Services` **chính là** một `IServiceCollection`, và `builder.Build()` gọi `BuildServiceProvider()` bên trong. Đó là lý do mọi đăng ký phải nằm **trước** `builder.Build()`. Chi tiết ở [bài 7.7](7.6-program-cs-and-webapplicationbuilder.mdx).
+`builder.Services` **chính là** một `IServiceCollection`, và `builder.Build()` gọi `BuildServiceProvider()` bên trong. Đó là lý do mọi đăng ký phải nằm **trước** `builder.Build()`. Chi tiết ở [bài 7.6](7.6-program-cs-and-webapplicationbuilder.mdx).
 
 Ba service có sẵn không cần đăng ký: `ILogger<T>`, `IConfiguration`, `IServiceProvider`.
 
-### 7.3.5 — Container .NET đủ chưa?
+### 7.2.5 — Container .NET đủ chưa?
 
 `Microsoft.Extensions.DependencyInjection` cố ý **tối giản**. Nó không có:
 
 - **Property injection** — chỉ hỗ trợ constructor.
 - **Assembly scanning** — không tự quét và đăng ký hàng loạt.
 - **Decorator** — không bọc service này bằng service khác một cách tự nhiên.
-- **Conditional registration** phức tạp — mặc dù .NET 8 đã có keyed services ([bài 7.9](7.8-keyed-services.mdx)).
+- **Conditional registration** phức tạp — mặc dù .NET 8 đã có keyed services ([bài 7.8](7.8-keyed-services.mdx)).
 
 Đó là lựa chọn thiết kế: nhanh, ít phép màu, ai đọc `Program.cs` cũng hiểu.
 
@@ -137,7 +137,7 @@ Ba service có sẵn không cần đăng ký: `ILogger<T>`, `IConfiguration`, `I
 
 Thực tế: **Scrutor** là lựa chọn nhẹ nhất, vì nó thêm assembly scanning và decorator **lên trên** container .NET chứ không thay thế nó.
 
-### 7.3.6 — Rà lại code của bạn
+### 7.2.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát container"
@@ -206,7 +206,7 @@ builder.ConfigureServices(services =>
 });
 ```
 
-**Cái bẫy của quy tắc này.** Nó cũng có nghĩa là đăng ký trùng do **vô ý** sẽ im lặng thay đổi hành vi. Đăng ký thừa vẫn nằm trong container, vẫn được tạo ra nếu ai đó gọi `GetServices`, và vẫn tốn bộ nhớ. Đây chính là vấn đề mà [bài 7.6](7.5-registering-services.mdx) xử lý bằng `TryAdd`.
+**Cái bẫy của quy tắc này.** Nó cũng có nghĩa là đăng ký trùng do **vô ý** sẽ im lặng thay đổi hành vi. Đăng ký thừa vẫn nằm trong container, vẫn được tạo ra nếu ai đó gọi `GetServices`, và vẫn tốn bộ nhớ. Đây chính là vấn đề mà [bài 7.5](7.5-registering-services.mdx) xử lý bằng `TryAdd`.
 
 **Ba cách lấy nhiều cài đặt cùng lúc:**
 
@@ -224,7 +224,7 @@ builder.Services.AddKeyedScoped<INotificationSender, SmsSender>("sms");
 public class Svc([FromKeyedServices("email")] INotificationSender sender) { }
 ```
 
-Cách 2 là mẫu chuẩn khi bạn muốn **chạy tất cả** — ví dụ chạy mọi validator, gửi qua mọi kênh. Cách 3 dành cho khi bạn muốn **chọn một**, và [bài 7.9](7.8-keyed-services.mdx) trình bày chi tiết.
+Cách 2 là mẫu chuẩn khi bạn muốn **chạy tất cả** — ví dụ chạy mọi validator, gửi qua mọi kênh. Cách 3 dành cho khi bạn muốn **chọn một**, và [bài 7.8](7.8-keyed-services.mdx) trình bày chi tiết.
 
 **Một chi tiết về thứ tự.** `GetServices` giữ nguyên thứ tự đăng ký, và điều đó **có ý nghĩa** với những thứ chạy tuần tự như bộ lọc hay đường ống xử lý. Nếu thứ tự quan trọng, hãy để nó rõ ràng trong code đăng ký thay vì trông chờ vào may mắn.
 

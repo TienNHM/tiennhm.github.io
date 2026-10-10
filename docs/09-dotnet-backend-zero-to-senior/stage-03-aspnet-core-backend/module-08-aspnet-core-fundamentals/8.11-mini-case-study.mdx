@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 8.12.1 — Sự cố
+### 8.11.1 — Sự cố
 
 ```
 14:20  Deploy ban dan don dep Program.cs
@@ -47,7 +47,7 @@ app.MapHealthChecks("/health/live");
 
 Không có exception nào, không có cảnh báo nào. Ứng dụng khởi động bình thường và trả 401 cho mọi thứ.
 
-### 8.12.2 — Vì sao
+### 8.11.2 — Vì sao
 
 Pipeline ASP.NET Core là một **chuỗi** middleware, chạy đúng theo thứ tự đăng ký:
 
@@ -67,9 +67,9 @@ Thu tu SAI:
 Hai hệ quả phụ cũng đến từ cùng nguyên nhân:
 
 - **Health check trả 401** vì nó cũng là một endpoint, và `[AllowAnonymous]` của nó không được đọc.
-- **CORS không hoạt động** vì `UseCors` nằm sau `UseAuthorization`, nên request preflight `OPTIONS` (không mang token) bị chặn trước khi tới CORS ([bài 2.13](../../stage-01-foundation/module-02-computer-science-basics/2.12-quick-real-world-example.mdx)).
+- **CORS không hoạt động** vì `UseCors` nằm sau `UseAuthorization`, nên request preflight `OPTIONS` (không mang token) bị chặn trước khi tới CORS ([bài 2.12](../../stage-01-foundation/module-02-computer-science-basics/2.12-quick-real-world-example.mdx)).
 
-### 8.12.3 — Thứ tự đúng
+### 8.11.3 — Thứ tự đúng
 
 ```csharp
 var app = builder.Build();
@@ -116,9 +116,9 @@ Lý do cho từng vị trí quan trọng:
 | `UseAuthentication` **trước** `UseAuthorization` | Phải biết bạn **là ai** rồi mới xét bạn **được làm gì** |
 | Middleware tenant **sau** auth | Cần claim đã xác thực để lấy `tenant_id` |
 
-Hàng đầu tiên đáng nhấn mạnh: đặt `UseExceptionHandler` ở giữa pipeline nghĩa là lỗi trong middleware phía trước nó **không được bắt** và trả về trang lỗi mặc định của server ([bài 8.9](8.8-global-exception-handling.mdx)).
+Hàng đầu tiên đáng nhấn mạnh: đặt `UseExceptionHandler` ở giữa pipeline nghĩa là lỗi trong middleware phía trước nó **không được bắt** và trả về trang lỗi mặc định của server ([bài 8.8](8.8-global-exception-handling.mdx)).
 
-### 8.12.4 — Middleware tuỳ chỉnh
+### 8.11.4 — Middleware tuỳ chỉnh
 
 ```csharp
 public sealed class TenantResolutionMiddleware(RequestDelegate next)
@@ -148,7 +148,7 @@ await context.Response.WriteAsync("them gi do");
 // InvalidOperationException: Headers are read-only, response has already started
 ```
 
-**3. Tiêm service scoped vào constructor.** Middleware được tạo **một lần** lúc khởi động — nó là singleton. Tiêm scoped vào constructor là captive dependency ([bài 7.12](../../stage-02-csharp-professional/module-07-dependency-injection/7.11-mini-case-study.mdx)).
+**3. Tiêm service scoped vào constructor.** Middleware được tạo **một lần** lúc khởi động — nó là singleton. Tiêm scoped vào constructor là captive dependency ([bài 7.11](../../stage-02-csharp-professional/module-07-dependency-injection/7.11-mini-case-study.mdx)).
 
 ```csharp
 // SAI — ITenantContext la scoped
@@ -160,7 +160,7 @@ public async Task InvokeAsync(HttpContext context, ITenantContext tenantContext)
 
 ASP.NET Core tiêm tham số của `InvokeAsync` từ **scope của request hiện tại** — đúng thứ bạn cần.
 
-### 8.12.5 — Bảo vệ bằng test
+### 8.11.5 — Bảo vệ bằng test
 
 ```csharp
 [Fact]
@@ -198,9 +198,9 @@ public async Task PreflightCors_TraVeHeaderDung()
 }
 ```
 
-Ba test này chạy trong vài trăm mili giây và bắt được **chính xác** sự cố ở trên. Chúng kiểm tra **hành vi quan sát được** của pipeline, nên không gãy khi bạn refactor ([bài 9.9](../module-09-web-api-professional/9.8-api-testing.mdx)).
+Ba test này chạy trong vài trăm mili giây và bắt được **chính xác** sự cố ở trên. Chúng kiểm tra **hành vi quan sát được** của pipeline, nên không gãy khi bạn refactor ([bài 9.8](../module-09-web-api-professional/9.8-api-testing.mdx)).
 
-### 8.12.6 — Kiểm tra thứ tự trong lúc chạy
+### 8.11.6 — Kiểm tra thứ tự trong lúc chạy
 
 Khi nghi ngờ, in ra pipeline:
 
@@ -222,7 +222,7 @@ app.Use(async (context, next) =>
 
 Đây là cách chẩn đoán nhanh nhất cho mọi sự cố liên quan tới thứ tự pipeline.
 
-### 8.12.7 — Rà lại code của bạn
+### 8.11.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát pipeline"
@@ -479,7 +479,7 @@ Cả ba đều là cùng một lỗi ở ba vị trí khác nhau, và cả ba đ
 
 #### Bài 3 — Viết test bảo vệ
 
-Thêm ba test ở mục 8.12.5 vào dự án và xác nhận chúng thất bại khi bạn xáo thứ tự.
+Thêm ba test ở mục 8.11.5 vào dự án và xác nhận chúng thất bại khi bạn xáo thứ tự.
 
 **Tiêu chí hoàn thành:** test **thất bại** khi bạn cố tình xáo thứ tự, và bạn biết vì sao test kiểm tra **hành vi** đáng tin hơn test kiểm tra **thứ tự**.
 

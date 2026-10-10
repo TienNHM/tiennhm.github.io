@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 7.11.1 — Decorator: ưu tiên cao
+### 7.10.1 — Decorator: ưu tiên cao
 
 **Điều kiện kích hoạt:** cần thêm caching, logging, retry hoặc đo lường vào một service có sẵn.
 
@@ -85,7 +85,7 @@ builder.Services.AddScoped<ILeadRepository>(sp =>
         sp.GetRequiredService<IMemoryCache>()));
 ```
 
-### 7.11.2 — Factory: khi chọn lúc chạy
+### 7.10.2 — Factory: khi chọn lúc chạy
 
 **Điều kiện kích hoạt:** cài đặt được chọn dựa trên dữ liệu chỉ biết lúc chạy.
 
@@ -116,9 +116,9 @@ var gateway = _factory.Create(donHang.NhaCungCapThanhToan);
 await gateway.ChargeAsync(donHang, ct);
 ```
 
-**Cảnh báo:** tiêm `IServiceProvider` trực tiếp vào service nghiệp vụ là anti-pattern service locator — nó giấu dependency thật và làm test khó ([bài 7.10](7.9-anti-patterns.mdx)). Bọc nó trong một factory có interface rõ ràng như trên thì chấp nhận được, vì dependency vẫn tường minh ở chỗ dùng.
+**Cảnh báo:** tiêm `IServiceProvider` trực tiếp vào service nghiệp vụ là anti-pattern service locator — nó giấu dependency thật và làm test khó ([bài 7.9](7.9-anti-patterns.mdx)). Bọc nó trong một factory có interface rõ ràng như trên thì chấp nhận được, vì dependency vẫn tường minh ở chỗ dùng.
 
-### 7.11.3 — Module đăng ký: ưu tiên cao
+### 7.10.3 — Module đăng ký: ưu tiên cao
 
 **Điều kiện kích hoạt:** `Program.cs` vượt quá khoảng 50 dòng đăng ký.
 
@@ -158,9 +158,9 @@ builder.Services
     .AddNotifications(builder.Configuration);
 ```
 
-Lợi ích ngoài khả năng đọc: mỗi module **tự chứa** mọi thứ nó cần, nên tách module thành service riêng sau này dễ hơn nhiều ([bài 18.2](../../stage-05-senior-engineering/module-18-microservices/18.1-when-not-to-use-microservices.mdx)).
+Lợi ích ngoài khả năng đọc: mỗi module **tự chứa** mọi thứ nó cần, nên tách module thành service riêng sau này dễ hơn nhiều ([bài 18.1](../../stage-05-senior-engineering/module-18-microservices/18.1-when-not-to-use-microservices.mdx)).
 
-### 7.11.4 — Đăng ký theo quy ước với Scrutor
+### 7.10.4 — Đăng ký theo quy ước với Scrutor
 
 **Điều kiện kích hoạt:** có hàng chục lớp theo cùng một mẫu đặt tên.
 
@@ -178,7 +178,7 @@ Thay 40 dòng `AddScoped` bằng một khối.
 
 Cách cân bằng: dùng quét cho nhóm lớp **đồng nhất và nhiều** (repository, handler, validator), đăng ký **tường minh** cho service có cấu hình đặc biệt hoặc vòng đời khác thường.
 
-### 7.11.5 — Container bên thứ ba: thường không cần
+### 7.10.5 — Container bên thứ ba: thường không cần
 
 Autofac, Lamar và các container khác từng cần thiết vì container tích hợp của .NET thiếu nhiều tính năng. Điều đó **không còn đúng**:
 
@@ -196,11 +196,11 @@ Autofac, Lamar và các container khác từng cần thiết vì container tích
 Hai hàng cuối là lý do duy nhất còn lại, và cả hai đều đáng cân nhắc lại:
 
 - **Property injection** giấu dependency, làm đối tượng có thể tồn tại ở trạng thái chưa đủ điều kiện hoạt động. Constructor injection tốt hơn về mọi mặt.
-- **Interception động** (chèn hành vi vào mọi lời gọi qua proxy) mạnh nhưng làm luồng thực thi khó theo dõi. Decorator tường minh thường rõ ràng hơn, và pipeline behavior của MediatR giải quyết phần lớn nhu cầu ([bài 16.7](../../stage-05-senior-engineering/module-16-clean-architecture/16.6-mediatr-use-case-pipeline.mdx)).
+- **Interception động** (chèn hành vi vào mọi lời gọi qua proxy) mạnh nhưng làm luồng thực thi khó theo dõi. Decorator tường minh thường rõ ràng hơn, và pipeline behavior của MediatR giải quyết phần lớn nhu cầu ([bài 16.6](../../stage-05-senior-engineering/module-16-clean-architecture/16.6-mediatr-use-case-pipeline.mdx)).
 
 **Khuyến nghị:** container tích hợp + Scrutor đủ cho hầu hết dự án .NET hiện nay. Thêm một container khác là thêm một thứ cả đội phải học.
 
-### 7.11.6 — Thứ tự nên học
+### 7.10.6 — Thứ tự nên học
 
 | Ưu tiên | Kỹ thuật | Vì sao |
 |---|---|---|
@@ -213,7 +213,7 @@ Hai hàng cuối là lý do duy nhất còn lại, và cả hai đều đáng c�
 
 Sau Module 7, bước tiếp theo là [Module 8 — ASP.NET Core Fundamentals](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/).
 
-### 7.11.7 — Rà lại code của bạn
+### 7.10.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát DI nâng cao"

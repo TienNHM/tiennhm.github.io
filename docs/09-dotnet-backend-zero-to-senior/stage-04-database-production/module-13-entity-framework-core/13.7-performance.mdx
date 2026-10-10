@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 13.8.1 — Thứ tự ưu tiên
+### 13.7.1 — Thứ tự ưu tiên
 
 | # | Việc | Mức cải thiện điển hình |
 |---|---|---|
@@ -39,9 +39,9 @@ Sau bài này bạn có thể:
 
 Hàng 1 và 4 lớn hơn tất cả những hàng khác cộng lại. Hàng 7 và 8 là thứ người ta hay nói tới nhưng hầu như không đáng nếu 1–5 chưa xong.
 
-Nguyên tắc: **đo trước**. Bật log SQL ([bài 13.2](13.1-ef-core-overview.mdx)), tìm truy vấn chậm nhất và truy vấn chạy nhiều nhất, rồi mới sửa.
+Nguyên tắc: **đo trước**. Bật log SQL ([bài 13.1](13.1-ef-core-overview.mdx)), tìm truy vấn chậm nhất và truy vấn chạy nhiều nhất, rồi mới sửa.
 
-### 13.8.2 — `ExecuteUpdate` và `ExecuteDelete`
+### 13.7.2 — `ExecuteUpdate` và `ExecuteDelete`
 
 ```csharp
 // CÁCH CŨ — nạp, sửa, lưu
@@ -84,7 +84,7 @@ await db.Products
 | Bỏ qua | Hệ quả |
 |---|---|
 | **Change tracker** | Entity đang được tracking **không** được cập nhật; đọc lại từ context cho giá trị **cũ** |
-| **`SaveChangesInterceptor`** | Audit tự động **không chạy** ([bài 13.3](13.2-dbcontext-and-entity-configuration.mdx)) |
+| **`SaveChangesInterceptor`** | Audit tự động **không chạy** ([bài 13.2](13.2-dbcontext-and-entity-configuration.mdx)) |
 | **Optimistic concurrency** | `RowVersion` **không** được kiểm tra |
 | **Cascade delete của EF** | `ExecuteDelete` dựa hoàn toàn vào cascade của database |
 
@@ -123,7 +123,7 @@ Cách xử lý: gọi `ExecuteUpdate` **trước** khi nạp entity, hoặc `db.
 
 Và chúng **thực thi ngay lập tức**, không chờ `SaveChanges`. Muốn nằm trong transaction với thay đổi khác thì phải mở transaction tường minh.
 
-### 13.8.3 — Chèn hàng loạt
+### 13.7.3 — Chèn hàng loạt
 
 ```csharp
 // CHẬM — 10.000 lệnh INSERT riêng
@@ -178,7 +178,7 @@ Bạn có thể gặp lời khuyên "tắt `AutoDetectChangesEnabled` khi chèn 
 
 Và **dùng context mới cho mỗi lô** khi xử lý rất nhiều dữ liệu: context tích luỹ entity và chậm dần.
 
-### 13.8.4 — Connection pooling và `DbContext` pooling
+### 13.7.4 — Connection pooling và `DbContext` pooling
 
 Hai thứ khác nhau, hay bị nhầm:
 
@@ -188,7 +188,7 @@ Hai thứ khác nhau, hay bị nhầm:
 Server=...;Max Pool Size=100;Min Pool Size=5;
 ```
 
-Cạn pool cho lỗi `Timeout expired. The timeout period elapsed prior to obtaining a connection from the pool` — và nguyên nhân gần như luôn là **connection không được trả lại**: `DbContext` không được `Dispose`, hoặc truy vấn chạy quá lâu, hoặc `Task.WhenAll` không giới hạn ([bài 6.6](../../stage-02-csharp-professional/module-06-async-programming/6.5-task-parallel-library.mdx)).
+Cạn pool cho lỗi `Timeout expired. The timeout period elapsed prior to obtaining a connection from the pool` — và nguyên nhân gần như luôn là **connection không được trả lại**: `DbContext` không được `Dispose`, hoặc truy vấn chạy quá lâu, hoặc `Task.WhenAll` không giới hạn ([bài 6.5](../../stage-02-csharp-professional/module-06-async-programming/6.5-task-parallel-library.mdx)).
 
 **`DbContext` pooling** thì phải bật:
 
@@ -206,9 +206,9 @@ Ba ràng buộc quan trọng:
 2. Constructor chỉ nhận `DbContextOptions`; **không tiêm service khác** vào.
 3. Trạng thái theo request (tenant id, người dùng hiện tại) phải lấy qua cơ chế khác.
 
-Ràng buộc 2 và 3 khiến `AddDbContextPool` **không dùng được** với những mẫu phổ biến như global query filter theo tenant lấy từ `ICurrentUser` ([bài 13.11](13.10-global-query-filters.mdx)). Đó thường là lý do không dùng nó.
+Ràng buộc 2 và 3 khiến `AddDbContextPool` **không dùng được** với những mẫu phổ biến như global query filter theo tenant lấy từ `ICurrentUser` ([bài 13.10](13.10-global-query-filters.mdx)). Đó thường là lý do không dùng nó.
 
-### 13.8.5 — SQL thuần khi cần
+### 13.7.5 — SQL thuần khi cần
 
 ```csharp
 // EF Core 8+: FromSql — nội suy nhưng THAM SỐ HOÁ tự động
@@ -245,9 +245,9 @@ var counts = await db.Database
     .ToListAsync(ct);
 ```
 
-Hoặc dùng Dapper — nó tự nhiên hơn cho truy vấn không map về entity ([bài 13.2](13.1-ef-core-overview.mdx)).
+Hoặc dùng Dapper — nó tự nhiên hơn cho truy vấn không map về entity ([bài 13.1](13.1-ef-core-overview.mdx)).
 
-### 13.8.6 — Đo đúng cách
+### 13.7.6 — Đo đúng cách
 
 ```csharp
 // 1. Log SQL kèm thời gian
@@ -269,11 +269,11 @@ Ba chỉ số đáng theo dõi:
 
 Ba sai lầm khi đo:
 
-1. **Đo trên dữ liệu nhỏ.** Optimizer chọn chiến lược khác theo kích thước ([bài 12.6](../module-12-sql-deep-dive/12.5-query-optimization.mdx)).
+1. **Đo trên dữ liệu nhỏ.** Optimizer chọn chiến lược khác theo kích thước ([bài 12.5](../module-12-sql-deep-dive/12.5-query-optimization.mdx)).
 2. **Đo lần chạy đầu.** Nó gồm chi phí khởi tạo mô hình EF Core, thường vài trăm mili giây. Bỏ qua lần đầu.
 3. **Chỉ đo thời gian.** Đo cả số truy vấn và số dòng trả về — chúng ổn định hơn và chỉ ra nguyên nhân.
 
-### 13.8.7 — Rà lại code của bạn
+### 13.7.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát hiệu năng EF Core"
@@ -691,7 +691,7 @@ using var bulk = new SqlBulkCopy(connectionString)
 await bulk.WriteToServerAsync(bang, ct);
 ```
 
-`SqlBulkCopy` dùng giao thức nạp hàng loạt của SQL Server, nhanh hơn `SaveChanges` khoảng **một bậc độ lớn**. Thư viện `EFCore.BulkExtensions` bọc nó lại với API quen thuộc hơn, nhưng vẫn mang đúng những đánh đổi của `ExecuteUpdate` ở bài 1: không interceptor, không change tracker, không query filter.
+`SqlBulkCopy` dùng giao thức nạp hàng loạt của SQL Server, nhanh hơn `SaveChanges` khoảng **một bậc độ lớn**. Thư viện `EFCore.BulkExtensions` bọc nó lại với API quen thuộc hơn, nhưng vẫn mang những đánh đổi của `ExecuteUpdate` ở bài 1 — không interceptor, không change tracker — và thêm một cái nữa: không query filter (`ExecuteUpdate` vẫn đi qua pipeline dịch nên vẫn áp filter, còn `SqlBulkCopy` thì không).
 
 **Kết luận đáng mang theo:** trước khi áp dụng một mẹo tối ưu, hãy **đo lại trên phiên bản đang dùng**. Lời khuyên về `AutoDetectChangesEnabled` từng đúng và được lặp lại nhiều năm; trên EF Core 9 nó gần như không còn giá trị, trong khi vấn đề thật — `SaveChanges` đặt sai chỗ — vẫn nguyên đó và tốn gấp bảy lần.
 

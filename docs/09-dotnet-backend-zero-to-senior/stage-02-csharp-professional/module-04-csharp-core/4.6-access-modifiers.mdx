@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 4.7.1 — Sáu mức
+### 4.6.1 — Sáu mức
 
 | Mức | Ai truy cập được |
 |---|---|
@@ -49,7 +49,7 @@ Mẹo nhớ: đọc dấu cách giữa hai từ như một phép toán. `protect
 
 Trong thực tế `private protected` rất hiếm dùng; `protected internal` cũng vậy. Đừng dùng chúng chỉ vì chúng tồn tại.
 
-### 4.7.2 — Mức mặc định: nguồn của nhiều bối rối
+### 4.6.2 — Mức mặc định: nguồn của nhiều bối rối
 
 ```csharp
 class Order { }                 // internal — KHÔNG thấy từ project khác
@@ -78,7 +78,7 @@ Bảng mặc định khi bạn không viết gì:
 
 Câu hỏi "vì sao project kia không thấy class của tôi" gần như luôn có cùng một câu trả lời: bạn quên chữ `public`, và nó đang là `internal`.
 
-### 4.7.3 — `internal`: ranh giới của assembly
+### 4.6.3 — `internal`: ranh giới của assembly
 
 `internal` là mức bị dùng ít hơn mức nó đáng được dùng.
 
@@ -102,7 +102,7 @@ public static class DependencyInjection
 
 Mẫu này rất đáng dùng: **hợp đồng `public`, cài đặt `internal`**. Nó biến ranh giới kiến trúc thành thứ trình biên dịch ép buộc, thay vì chỉ là quy ước trong tài liệu. Một người viết code ở tầng khác **không thể** vô tình phụ thuộc vào lớp cài đặt, vì nó không nhìn thấy được.
 
-### 4.7.4 — Cho test truy cập `internal`
+### 4.6.4 — Cho test truy cập `internal`
 
 Vấn đề quen thuộc: bạn muốn test một class `internal` nhưng project test là assembly khác.
 
@@ -127,7 +127,7 @@ Chỉ đúng assembly được nêu tên mới nhìn thấy. Phần còn lại c
 
 Một lưu ý về triết lý: nếu bạn thường xuyên phải mở `internal` ra để test, hãy tự hỏi có phải mình đang test **chi tiết cài đặt** thay vì test **hành vi qua API công khai**. Đôi khi câu trả lời là có, và bài test đó sẽ vỡ mỗi lần refactor dù hành vi không đổi.
 
-### 4.7.5 — Mức truy cập của accessor
+### 4.6.5 — Mức truy cập của accessor
 
 ```csharp
 public class Order
@@ -144,9 +144,9 @@ Quy tắc: mức của accessor phải **hẹp hơn hoặc bằng** mức của 
 private decimal Total { get; public set; }   // Lỗi biên dịch: set rộng hơn property
 ```
 
-`{ get; private set; }` là dạng hữu dụng nhất trong nhóm này: bên ngoài đọc được giá trị nhưng chỉ phương thức của class mới thay đổi được — tức là mọi thay đổi đều đi qua một quy tắc, đúng tinh thần [đóng gói ở bài 4.3](4.2-encapsulation.mdx).
+`{ get; private set; }` là dạng hữu dụng nhất trong nhóm này: bên ngoài đọc được giá trị nhưng chỉ phương thức của class mới thay đổi được — tức là mọi thay đổi đều đi qua một quy tắc, đúng tinh thần [đóng gói ở bài 4.2](4.2-encapsulation.mdx).
 
-### 4.7.6 — Đóng trước, mở sau
+### 4.6.6 — Đóng trước, mở sau
 
 ```mermaid
 flowchart LR
@@ -167,7 +167,7 @@ Nói cách khác, bạn luôn mở ra được, nhưng đóng lại thì rất t
 
 Với thư viện dùng chung, điều này còn quan trọng hơn: **mọi thứ `public` là một lời hứa** bạn phải giữ ở các phiên bản sau, và phá vỡ nó buộc tăng số major theo [SemVer](https://semver.org/).
 
-### 4.7.7 — Rà lại code của bạn
+### 4.6.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát mức truy cập"
@@ -222,7 +222,7 @@ internal sealed class SmtpEmailSender : IEmailSender { }
 internal static class SqlErrorMapper { }
 ```
 
-Interface vẫn `public` vì tầng nghiệp vụ cần chúng — nhưng interface nằm ở `Crm.Application`, không nằm ở đây, đúng như [bài 4.5](4.4-interface.mdx) đã phân tích. Vậy thứ duy nhất `Crm.Infrastructure` cần công khai là **lớp đăng ký DI**:
+Interface vẫn `public` vì tầng nghiệp vụ cần chúng — nhưng interface nằm ở `Crm.Application`, không nằm ở đây, đúng như [bài 4.4](4.4-interface.mdx) đã phân tích. Vậy thứ duy nhất `Crm.Infrastructure` cần công khai là **lớp đăng ký DI**:
 
 ```csharp
 public static class ServiceCollectionExtensions
@@ -319,7 +319,7 @@ public class OrderController(IOrderRepository repo) { }   // hợp lệ
 | Lúc gấp, 2 giờ sáng | Dễ bị bỏ qua | Không bỏ qua được |
 | Sau hai năm | Thường đã bị quên | Vẫn nguyên hiệu lực |
 
-Nguyên tắc chung: **biến quy ước thành ràng buộc kỹ thuật bất cứ khi nào có thể**. Đây là cùng một ý với việc dùng `enum` thay `string` ở [bài 4.8](4.7-records-and-value-objects.mdx), và dùng constructor để chặn dữ liệu sai ở [bài 4.2](4.1-class-and-object.mdx) — đẩy việc kiểm tra từ "phải nhớ" sang "không thể sai".
+Nguyên tắc chung: **biến quy ước thành ràng buộc kỹ thuật bất cứ khi nào có thể**. Đây là cùng một ý với việc dùng `enum` thay `string` ở [bài 4.7](4.7-records-and-value-objects.mdx), và dùng constructor để chặn dữ liệu sai ở [bài 4.1](4.1-class-and-object.mdx) — đẩy việc kiểm tra từ "phải nhớ" sang "không thể sai".
 
 **Ba mức ranh giới, từ yếu tới mạnh:**
 

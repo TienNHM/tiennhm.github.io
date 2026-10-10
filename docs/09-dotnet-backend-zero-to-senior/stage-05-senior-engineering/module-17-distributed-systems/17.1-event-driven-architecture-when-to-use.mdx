@@ -9,7 +9,7 @@ import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
 # 17.1 - Event-driven architecture (EDA) - khi nào dùng?
 
 <SummaryBox>
-EDA giải quyết một vấn đề cụ thể: **coupling thời gian** — bên gửi không phải chờ bên nhận xử lý xong, và không sập khi bên nhận sập. Nhưng nó **không miễn phí**, và cái giá không nằm ở chỗ dựng broker (một `docker compose` là xong) mà ở chỗ **hệ thống của bạn không còn nhất quán ngay lập tức**: đơn hàng tạo xong nhưng tồn kho chưa trừ, và trong vài trăm mili giây đó mọi câu hỏi "dữ liệu đúng chưa" đều có câu trả lời "còn tuỳ". Thêm vào đó là **schema versioning**, **thứ tự**, **message trùng**, **DLQ** và debug xuyên tiến trình. Nguyên tắc chọn: nếu bạn chỉ có **một** service và một database, **domain event in-process** ([bài 16.9](../module-16-clean-architecture/16.8-in-process.mdx)) cộng một job nền gần như luôn là lựa chọn đúng.
+EDA giải quyết một vấn đề cụ thể: **coupling thời gian** — bên gửi không phải chờ bên nhận xử lý xong, và không sập khi bên nhận sập. Nhưng nó **không miễn phí**, và cái giá không nằm ở chỗ dựng broker (một `docker compose` là xong) mà ở chỗ **hệ thống của bạn không còn nhất quán ngay lập tức**: đơn hàng tạo xong nhưng tồn kho chưa trừ, và trong vài trăm mili giây đó mọi câu hỏi "dữ liệu đúng chưa" đều có câu trả lời "còn tuỳ". Thêm vào đó là **schema versioning**, **thứ tự**, **message trùng**, **DLQ** và debug xuyên tiến trình. Nguyên tắc chọn: nếu bạn chỉ có **một** service và một database, **domain event in-process** ([bài 16.8](../module-16-clean-architecture/16.8-in-process.mdx)) cộng một job nền gần như luôn là lựa chọn đúng.
 </SummaryBox>
 
 ## Mục tiêu bài học
@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 17.2.1 — Ba lý do chính đáng
+### 17.1.1 — Ba lý do chính đáng
 
 **1. Giảm coupling thời gian.**
 
@@ -80,7 +80,7 @@ Chiến dịch marketing đẩy 10.000 đơn trong 5 phút. Xử lý đồng b�
 
 Đổi lại: độ trễ. Đơn thứ 9.000 có thể đợi vài phút. Điều đó **chấp nhận được** với email xác nhận, **không chấp nhận được** với kiểm tra thẻ tín dụng.
 
-### 17.2.2 — Chi phí thật, cái mà ít ai nói trước
+### 17.1.2 — Chi phí thật, cái mà ít ai nói trước
 
 Chi phí lớn nhất **không phải** dựng broker. Nó là bốn thứ sau.
 
@@ -112,9 +112,9 @@ Quy tắc: **chỉ thêm trường tuỳ chọn, không bao giờ xoá hay đổ
 
 **Thứ tự không được đảm bảo.** `LeadCreated` và `LeadConverted` có thể tới consumer **ngược thứ tự** nếu chúng đi qua các partition hoặc consumer khác nhau. Consumer phải chịu được điều này — thường bằng cách kiểm tra trạng thái hiện tại thay vì giả định trạng thái trước đó.
 
-**Debug xuyên tiến trình.** Một lỗi giờ nằm ở "đâu đó" giữa bốn service. Không có `correlation id` truyền qua message và log tập trung, bạn gần như mù. Đây là chi phí bắt buộc, không phải tuỳ chọn ([bài 15.9](../../stage-04-database-production/module-15-docker-deployment/15.8-production-monitoring.mdx)).
+**Debug xuyên tiến trình.** Một lỗi giờ nằm ở "đâu đó" giữa bốn service. Không có `correlation id` truyền qua message và log tập trung, bạn gần như mù. Đây là chi phí bắt buộc, không phải tuỳ chọn ([bài 15.8](../../stage-04-database-production/module-15-docker-deployment/15.8-production-monitoring.mdx)).
 
-### 17.2.3 — Domain event và integration event
+### 17.1.3 — Domain event và integration event
 
 Hai khái niệm hay bị trộn, và trộn chúng gây hậu quả thật.
 
@@ -141,9 +141,9 @@ public sealed record LeadConvertedIntegrationEvent(
 
 **Sai lầm phổ biến:** publish thẳng domain event ra broker. Khi đó mọi lần refactor entity nội bộ đều thành breaking change với các service khác — bạn vừa biến cấu trúc bên trong của mình thành API công khai.
 
-Luồng đúng: domain event kích hoạt handler nội bộ, handler đó **dịch** sang integration event và đưa vào outbox ([bài 17.4](17.3-outbox-pattern-applied.mdx)).
+Luồng đúng: domain event kích hoạt handler nội bộ, handler đó **dịch** sang integration event và đưa vào outbox ([bài 17.3](17.3-outbox-pattern-applied.mdx)).
 
-### 17.2.4 — Khi nào KHÔNG cần broker
+### 17.1.4 — Khi nào KHÔNG cần broker
 
 ```csharp
 // Một service, một database -> in-process là đủ và ĐƠN GIẢN HƠN NHIỀU
@@ -155,7 +155,7 @@ public async Task Handle(LeadConvertedDomainEvent e, CancellationToken ct)
 
 Không broker, không serialize, không trùng lặp, không DLQ, **trong cùng transaction** nên không có trạng thái nửa vời. Debug bằng một breakpoint.
 
-**Cần chạy nền nhưng vẫn một service?** Job nền ([bài 14.7](../../stage-04-database-production/module-14-caching-background-jobs/14.6-hangfire-background-jobs.mdx)) rẻ hơn broker rất nhiều:
+**Cần chạy nền nhưng vẫn một service?** Job nền ([bài 14.6](../../stage-04-database-production/module-14-caching-background-jobs/14.6-hangfire-background-jobs.mdx)) rẻ hơn broker rất nhiều:
 
 ```csharp
 _jobs.Enqueue<IEmailSender>(s => s.SendWelcomeEmailAsync(customerId));
@@ -177,7 +177,7 @@ Hàng thứ tư đáng chú ý: EDA **không thay thế** gọi đồng bộ. "S
 
 **Dấu hiệu EDA đang bị dùng sai:** bạn publish một event rồi **chờ** event phản hồi để trả về cho người dùng. Đó là gọi đồng bộ được viết bằng cách phức tạp gấp năm lần — và mất luôn khả năng gỡ lỗi bằng stack trace.
 
-### 17.2.5 — Rà lại code của bạn
+### 17.1.5 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát trước khi đưa broker vào"

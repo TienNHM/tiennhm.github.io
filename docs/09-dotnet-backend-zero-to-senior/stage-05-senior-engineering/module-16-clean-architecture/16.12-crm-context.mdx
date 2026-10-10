@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 16.13.1 — Bốn bounded context
+### 16.12.1 — Bốn bounded context
 
 | Context | Khái niệm cốt lõi | "Customer" nghĩa là gì ở đây |
 |---|---|---|
@@ -32,7 +32,7 @@ Sau bài này bạn có thể:
 | **Support** | Ticket, SLA, Knowledge base | Người cần hỗ trợ — lịch sử ticket, mức ưu tiên |
 | **Marketing** | Campaign, Segment, Email | Đối tượng tiếp cận — nguồn, hành vi, trạng thái đăng ký |
 
-Cùng một người thật, **bốn mô hình khác nhau** — và đó là đúng, không phải thiếu chuẩn hoá ([bài 16.6](16.5-ddd-tactics-backend-pragmatic.mdx)).
+Cùng một người thật, **bốn mô hình khác nhau** — và đó là đúng, không phải thiếu chuẩn hoá ([bài 16.5](16.5-ddd-tactics-backend-pragmatic.mdx)).
 
 ```csharp
 // Sales
@@ -56,7 +56,7 @@ public sealed class Customer
 
 Liên kết giữa các context qua **`CustomerId`**, không qua tham chiếu entity. Ép chúng thành một lớp dùng chung tạo ra một entity khổng lồ mà không context nào dùng hết, và mọi thay đổi ở một bên đều ảnh hưởng ba bên còn lại.
 
-### 16.13.2 — Ranh giới aggregate
+### 16.12.2 — Ranh giới aggregate
 
 **Cùng aggregate — phải nhất quán ngay:**
 
@@ -113,7 +113,7 @@ Nạp 500 bản ghi để thêm một. Và với aggregate lớn, tranh chấp �
 
 **Quy tắc kiểm tra:** *"nếu hai thứ này lệch nhau trong 5 giây, có ai bị thiệt hại không?"* Không → khác aggregate.
 
-### 16.13.3 — Ba quyết định gây tranh cãi
+### 16.12.3 — Ba quyết định gây tranh cãi
 
 **Câu hỏi 1: Lead và Customer là một hay hai entity?**
 
@@ -135,7 +135,7 @@ public interface IRepository<T> where T : class
 }
 ```
 
-Hai vấn đề: nó cho phép truy cập **mọi** entity kể cả những entity không phải aggregate root — phá vỡ ranh giới aggregate; và nó thường là một lớp mỏng trên `DbContext`, vốn đã là repository và unit of work ([bài 13.10](../../stage-04-database-production/module-13-entity-framework-core/13.9-unit-of-work-and-repository-pattern.mdx)).
+Hai vấn đề: nó cho phép truy cập **mọi** entity kể cả những entity không phải aggregate root — phá vỡ ranh giới aggregate; và nó thường là một lớp mỏng trên `DbContext`, vốn đã là repository và unit of work ([bài 13.9](../../stage-04-database-production/module-13-entity-framework-core/13.9-unit-of-work-and-repository-pattern.mdx)).
 
 **Trả lời: repository riêng cho từng aggregate root**, với phương thức mang ý nghĩa nghiệp vụ.
 
@@ -152,7 +152,7 @@ Không có `Delete` nếu nghiệp vụ không cho xoá lead — interface chỉ
 
 **Câu hỏi 3: Truy vấn đọc có đi qua repository không?**
 
-**Trả lời: không.** Truy vấn đọc cho màn hình danh sách nên đi thẳng, dùng projection ([bài 16.5](16.4-vertical-slice-architecture.mdx)):
+**Trả lời: không.** Truy vấn đọc cho màn hình danh sách nên đi thẳng, dùng projection ([bài 16.4](16.4-vertical-slice-architecture.mdx)):
 
 ```csharp
 // Đọc — không qua repository, không nạp entity
@@ -165,7 +165,7 @@ var leads = await _db.Leads
 
 Repository phục vụ **đường ghi**, nơi cần aggregate đầy đủ để áp dụng quy tắc. Đường đọc chỉ cần dữ liệu, và bắt nó đi qua repository buộc phải nạp entity đầy đủ rồi vứt đi phần lớn.
 
-### 16.13.4 — Liên kết giữa các context
+### 16.12.4 — Liên kết giữa các context
 
 ```csharp
 // Sales phát event khi lead chuyển đổi
@@ -194,11 +194,11 @@ public sealed class PublishLeadConvertedHandler(AppDbContext db)
 }
 ```
 
-Billing và Support nghe integration event và tạo dữ liệu của mình. Không context nào truy cập database của context khác ([bài 17.11](../module-17-distributed-systems/17.10-crm-context.mdx)).
+Billing và Support nghe integration event và tạo dữ liệu của mình. Không context nào truy cập database của context khác ([bài 17.10](../module-17-distributed-systems/17.10-crm-context.mdx)).
 
-Điểm quan trọng: domain event nằm **trong** Sales và có thể refactor tự do; integration event là **hợp đồng công khai** với Billing và Support, đổi là breaking change ([bài 17.2](../module-17-distributed-systems/17.1-event-driven-architecture-when-to-use.mdx)).
+Điểm quan trọng: domain event nằm **trong** Sales và có thể refactor tự do; integration event là **hợp đồng công khai** với Billing và Support, đổi là breaking change ([bài 17.1](../module-17-distributed-systems/17.1-event-driven-architecture-when-to-use.mdx)).
 
-### 16.13.5 — Rà lại code của bạn
+### 16.12.5 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát kiến trúc CRM"

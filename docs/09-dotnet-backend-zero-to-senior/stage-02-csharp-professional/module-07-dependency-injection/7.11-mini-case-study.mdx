@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 7.12.1 — Sự cố
+### 7.11.1 — Sự cố
 
 ```
 09:14  Khách hàng tenant "acme" báo: thấy 3 lead của công ty khác
@@ -41,7 +41,7 @@ Bốn đặc điểm khiến nó khó chẩn đoán:
 - Môi trường phát triển **không tái hiện** (chỉ một người dùng).
 - **Không có lỗi** nào trong log.
 
-### 7.12.2 — Nguyên nhân
+### 7.11.2 — Nguyên nhân
 
 ```csharp
 // Scoped — một instance MỚI cho mỗi request HTTP
@@ -91,7 +91,7 @@ Service scoped bị **giam** trong singleton — đó là tên gọi **captive d
 
 **Vì sao môi trường phát triển không phát hiện:** chỉ có một người dùng, một tenant, nên `TenantId` bị giam **tình cờ đúng** với mọi request. Sự cố chỉ xuất hiện khi có tenant thứ hai.
 
-### 7.12.3 — Vì sao DI container không báo lỗi
+### 7.11.3 — Vì sao DI container không báo lỗi
 
 Mặc định, .NET DI **không kiểm tra** vòng đời khi khởi động. Nó chỉ phát hiện lúc chạy và chỉ trong một số trường hợp:
 
@@ -104,9 +104,9 @@ Scoped     <- Transient   : OK, transient sống bằng scope
 Transient  <- Scoped      : OK trong scope
 ```
 
-Hàng thứ hai là ca này. Hàng thứ ba cũng đáng lưu ý: `Transient` trong `Singleton` **không** được tạo mới mỗi lần như tên gọi gợi ý — nó cũng bị giam ([bài 7.5](7.4-service-lifetimes.mdx)).
+Hàng thứ hai là ca này. Hàng thứ ba cũng đáng lưu ý: `Transient` trong `Singleton` **không** được tạo mới mỗi lần như tên gọi gợi ý — nó cũng bị giam ([bài 7.4](7.4-service-lifetimes.mdx)).
 
-### 7.12.4 — Sửa
+### 7.11.4 — Sửa
 
 **Cách 1 — dùng `IServiceScopeFactory`** (đúng cho hầu hết trường hợp):
 
@@ -145,7 +145,7 @@ builder.Services.AddScoped<ICacheService, CacheService>();     // thay vì Singl
 
 Chỉ đúng nếu service **thật sự** không cần là singleton. Nếu nó giữ trạng thái dùng chung (một `ConcurrentDictionary` làm cache trong bộ nhớ chẳng hạn), đổi sang scoped sẽ tạo cache mới mỗi request và mất hết tác dụng.
 
-### 7.12.5 — Bật kiểm tra tự động
+### 7.11.5 — Bật kiểm tra tự động
 
 ```csharp
 // Program.cs
@@ -192,7 +192,7 @@ public void MoiService_DeuGiaiDuoc()
 }
 ```
 
-### 7.12.6 — Rà dự án
+### 7.11.6 — Rà dự án
 
 ```bash
 # Tim moi dang ky singleton
@@ -225,7 +225,7 @@ public class MyService(IHttpContextAccessor accessor)
 }
 ```
 
-### 7.12.7 — Rà lại code của bạn
+### 7.11.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát captive dependency"

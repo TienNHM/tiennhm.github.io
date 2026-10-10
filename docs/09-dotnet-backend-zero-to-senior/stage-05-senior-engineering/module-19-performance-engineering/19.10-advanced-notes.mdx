@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 19.11.1 — GC tuning
+### 19.10.1 — GC tuning
 
 **Điều kiện kích hoạt:** Gen 2 GC trên 1 lần/giây, hoặc `% Time in GC` trên 10%.
 
@@ -49,7 +49,7 @@ Sau bài này bạn có thể:
 
 **Large Object Heap (LOH):** object trên 85.000 byte vào thẳng LOH, và LOH **không được nén** mặc định. Mảng byte lớn cấp phát liên tục gây phân mảnh — biểu hiện là `OutOfMemoryException` dù tổng bộ nhớ còn trống.
 
-### 19.11.2 — Span và ArrayPool
+### 19.10.2 — Span và ArrayPool
 
 **Điều kiện kích hoạt:** profiler cho thấy allocation rate cao trong một hot path chạy hàng triệu lần.
 
@@ -82,7 +82,7 @@ Hai cảnh báo thực tế: `Rent` có thể trả về mảng **lớn hơn** k
 
 Đây là công cụ cho **thư viện và hot path thật sự nóng**, không phải cho code nghiệp vụ thông thường. Trong code CRM điển hình, nó làm code khó đọc mà không đổi gì đo được.
 
-### 19.11.3 — Native AOT
+### 19.10.3 — Native AOT
 
 **Điều kiện kích hoạt:** cold start quan trọng (serverless, scale-to-zero), hoặc cần giảm kích thước image.
 
@@ -104,7 +104,7 @@ Hàng áp chót là rào cản thật: nhiều thư viện phổ biến dựa v�
 
 Đọc thêm: [Native AOT deployment](https://learn.microsoft.com/en-us/dotnet/core/deploying/native-aot/).
 
-### 19.11.4 — Object pooling
+### 19.10.4 — Object pooling
 
 **Điều kiện kích hoạt:** cấp phát lặp lại cùng một loại object đắt, đã thấy trên profiler.
 
@@ -123,7 +123,7 @@ finally { _pool.Return(sb); }      // Return TỰ ĐỘNG clear StringBuilder
 
 Chỉ đáng dùng cho object **đắt để tạo** và **dùng rất thường xuyên**. Với object nhỏ ngắn hạn, Gen 0 GC đã rất rẻ — pooling chỉ thêm độ phức tạp và rủi ro trạng thái sót lại giữa các lần dùng.
 
-### 19.11.5 — Những chủ đề khác đáng biết
+### 19.10.5 — Những chủ đề khác đáng biết
 
 | Chủ đề | Giải quyết | Khi nào đào |
 |---|---|---|
@@ -136,20 +136,20 @@ Chỉ đáng dùng cho object **đắt để tạo** và **dùng rất thường
 
 `System.Text.Json` source generator là mục dễ áp dụng nhất trong bảng này: thêm một `JsonSerializerContext` và bạn bỏ được reflection khi serialize, có lợi cho cả thông lượng lẫn khả năng tương thích AOT.
 
-### 19.11.6 — Thứ tự ưu tiên
+### 19.10.6 — Thứ tự ưu tiên
 
 Trước khi đụng tới bất kỳ mục nào ở trên, hãy chắc chắn đã làm xong:
 
-1. **Sửa N+1** — thường cho cải thiện hàng chục lần ([bài 19.5](19.4-database-first-bottleneck.mdx)).
+1. **Sửa N+1** — thường cho cải thiện hàng chục lần ([bài 19.4](19.4-database-first-bottleneck.mdx)).
 2. **Thêm index còn thiếu** — hàng trăm lần, bằng một câu lệnh.
-3. **Bỏ sync-over-async** — sửa thread pool starvation ([bài 19.4](19.3-dotnet-server-profiling.mdx)).
+3. **Bỏ sync-over-async** — sửa thread pool starvation ([bài 19.3](19.3-dotnet-server-profiling.mdx)).
 4. **Projection thay vì entity đầy đủ.**
-5. **Cache dữ liệu tổng hợp nặng** ([bài 19.6](19.5-systematic-caching-overview.mdx)).
+5. **Cache dữ liệu tổng hợp nặng** ([bài 19.5](19.5-systematic-caching-overview.mdx)).
 6. **Chạy song song các lời gọi độc lập.**
 
 Năm mục trong bài này nằm ở vị trí thứ **bảy trở đi**. Làm chúng trước là tối ưu 1% trong khi 90% vấn đề vẫn còn nguyên.
 
-### 19.11.7 — Rà lại code của bạn
+### 19.10.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát trước khi tối ưu sâu"
@@ -445,7 +445,7 @@ Dùng chúng ở: vòng lặp nóng, xử lý tệp lớn, tuần tự hoá,
              và các đường đi chạy hàng nghìn lần mỗi giây.
 ```
 
-Thứ tự đúng vẫn là thứ tự ở mục 19.11.6: sửa N+1 và index trước, cache tiếp theo, rồi mới tới span và pool. Tối ưu cấp phát khi còn một truy vấn N+1 là đổi 96 ms lấy một chỗ mà 200 ms đang bị mất.
+Thứ tự đúng vẫn là thứ tự ở mục 19.10.6: sửa N+1 và index trước, cache tiếp theo, rồi mới tới span và pool. Tối ưu cấp phát khi còn một truy vấn N+1 là đổi 96 ms lấy một chỗ mà 200 ms đang bị mất.
 
 </details>
 
@@ -595,7 +595,7 @@ Mỗi kiểu khai báo sinh ra một lượng code
 | API thường, tuần tự hoá không phải điểm nghẽn | Không cần vội |
 | Có converter tuỳ biến phức tạp | Cân nhắc — có thể không dùng được |
 
-Hàng thứ ba đáng nhấn: với một API mất 200 ms mỗi request, tiết kiệm 17 µs khi serialize 100 đối tượng là 0,008%. Đây chính là loại tối ưu mà mục 19.3.4 cảnh báo — đo được trên benchmark, không đo được trên hệ thống.
+Hàng thứ ba đáng nhấn: với một API mất 200 ms mỗi request, tiết kiệm 17 µs khi serialize 100 đối tượng là 0,008%. Đây chính là loại tối ưu mà mục 19.2.4 cảnh báo — đo được trên benchmark, không đo được trên hệ thống.
 
 </details>
 

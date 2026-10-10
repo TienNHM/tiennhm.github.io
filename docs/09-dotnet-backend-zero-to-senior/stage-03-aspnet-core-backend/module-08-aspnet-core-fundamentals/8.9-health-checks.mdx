@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 8.10.1 — Hai câu hỏi khác nhau
+### 8.9.1 — Hai câu hỏi khác nhau
 
 | | Liveness | Readiness |
 |---|---|---|
@@ -53,7 +53,7 @@ Một sự cố database đã biến thành sự cố toàn hệ thống, và v�
 
 **Quy tắc: liveness không kiểm tra gì bên ngoài tiến trình.**
 
-### 8.10.2 — Cấu hình bằng tag
+### 8.9.2 — Cấu hình bằng tag
 
 ```csharp
 builder.Services.AddHealthChecks()
@@ -98,7 +98,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 
 `Degraded` trả **200**, nên load balancer vẫn gửi request tới. Đó chính là điều bạn muốn khi Redis chết: ứng dụng chậm hơn vì mất cache, nhưng vẫn chạy. Đặt Redis là `Unhealthy` sẽ rút **toàn bộ** pod khỏi load balancer vì một phụ thuộc không bắt buộc — tức tự gây ra downtime.
 
-### 8.10.3 — Custom health check
+### 8.9.3 — Custom health check
 
 ```csharp
 public sealed class PaymentGatewayHealthCheck(IHttpClientFactory factory) : IHealthCheck
@@ -141,7 +141,7 @@ Ba nguyên tắc:
 
 Với database, `AddSqlServer` mặc định chạy `SELECT 1` — vừa đủ.
 
-### 8.10.4 — Đừng lộ chi tiết ra ngoài
+### 8.9.4 — Đừng lộ chi tiết ra ngoài
 
 ```csharp
 static Task WriteJsonResponse(HttpContext context, HealthReport report)
@@ -163,7 +163,7 @@ static Task WriteJsonResponse(HttpContext context, HealthReport report)
 }
 ```
 
-`Description` và `Exception` thường chứa connection string, tên máy chủ và thông điệp lỗi của database — đúng những thứ [bài 8.9](8.8-global-exception-handling.mdx) nói là không được lộ.
+`Description` và `Exception` thường chứa connection string, tên máy chủ và thông điệp lỗi của database — đúng những thứ [bài 8.8](8.8-global-exception-handling.mdx) nói là không được lộ.
 
 Nếu cần endpoint chi tiết cho đội vận hành, giới hạn truy cập:
 
@@ -175,9 +175,9 @@ app.MapHealthChecks("/health/detail", new HealthCheckOptions
 }).RequireAuthorization("OpsOnly");
 ```
 
-Và nhớ loại health check khỏi log truy cập ([bài 8.8](8.7-logging-with-serilog.mdx)) — probe mỗi 10 giây là 8.640 dòng log mỗi ngày cho mỗi instance.
+Và nhớ loại health check khỏi log truy cập ([bài 8.7](8.7-logging-with-serilog.mdx)) — probe mỗi 10 giây là 8.640 dòng log mỗi ngày cho mỗi instance.
 
-### 8.10.5 — Cấu hình probe
+### 8.9.5 — Cấu hình probe
 
 ```yaml
 # docker-compose.yml
@@ -211,7 +211,7 @@ readinessProbe:
 
 `startupProbe` là cách đúng cho ứng dụng khởi động chậm: khi nó còn chạy, liveness và readiness **bị tạm dừng**. Không có nó, bạn buộc phải đặt `initialDelaySeconds` lớn cho liveness — và như vậy suốt vòng đời pod, mọi sự cố thật đều được phát hiện chậm hơn.
 
-### 8.10.6 — Rà lại code của bạn
+### 8.9.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát health checks"
@@ -418,7 +418,7 @@ Degraded  -> cảnh báo mức thấp, xem trong giờ làm việc
 
 Nhờ vậy bạn biết Redis đang hỏng và cần xử lý, nhưng không ai bị đánh thức lúc 3 giờ sáng cho một vấn đề chỉ làm hệ thống chậm đi.
 
-**Một lưu ý về phản hồi mặc định.** `MapHealthChecks` mặc định chỉ trả **một chuỗi** như `Healthy`, không phải JSON như ví dụ trên. Muốn có chi tiết thì phải viết `ResponseWriter` — và khi viết, hãy cẩn thận không lộ thông tin nội bộ ra endpoint công khai, như bài tiếp theo trong mục 8.10.4 trình bày.
+**Một lưu ý về phản hồi mặc định.** `MapHealthChecks` mặc định chỉ trả **một chuỗi** như `Healthy`, không phải JSON như ví dụ trên. Muốn có chi tiết thì phải viết `ResponseWriter` — và khi viết, hãy cẩn thận không lộ thông tin nội bộ ra endpoint công khai, như bài tiếp theo trong mục 8.9.4 trình bày.
 
 </details>
 

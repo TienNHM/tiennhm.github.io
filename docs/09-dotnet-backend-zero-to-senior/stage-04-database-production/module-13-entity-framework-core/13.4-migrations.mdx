@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 13.5.1 — Quy trình cơ bản
+### 13.4.1 — Quy trình cơ bản
 
 ```bash
 dotnet tool install --global dotnet-ef
@@ -57,7 +57,7 @@ Migrations/
 
 File thứ ba bị **ghi đè** mỗi lần thêm migration — và đó là nguồn của mục tiếp theo.
 
-### 13.5.2 — Xung đột merge
+### 13.4.2 — Xung đột merge
 
 ```
 Nhanh A: them migration 20260315_AddTier     -> sua ModelSnapshot
@@ -86,7 +86,7 @@ Nếu migration đã được merge và bạn không gỡ được, cách cứu 
 
 **Phòng tránh:** giữ migration **nhỏ và merge sớm**. Một nhánh sống ba tuần với bốn migration gần như chắc chắn sẽ xung đột.
 
-### 13.5.3 — Script idempotent cho production
+### 13.4.3 — Script idempotent cho production
 
 ```bash
 dotnet ef migrations script --idempotent --output migrate.sql
@@ -110,7 +110,7 @@ Ba lợi ích so với `dotnet ef database update`:
 2. **Review được** — DBA đọc SQL trước khi chạy.
 3. **Không cần .NET SDK** trên máy chạy migration.
 
-Điểm 2 quan trọng trong môi trường có kiểm soát: không ai muốn một lệnh `ALTER TABLE` khoá bảng 20 phút xuất hiện bất ngờ ([bài 12.9](../module-12-sql-deep-dive/12.8-database-migration-strategy.mdx)).
+Điểm 2 quan trọng trong môi trường có kiểm soát: không ai muốn một lệnh `ALTER TABLE` khoá bảng 20 phút xuất hiện bất ngờ ([bài 12.8](../module-12-sql-deep-dive/12.8-database-migration-strategy.mdx)).
 
 Sinh script cho một khoảng cụ thể:
 
@@ -126,7 +126,7 @@ migrationBuilder.RenameColumn(
     name: "Email", table: "Leads", newName: "ContactEmail");
 ```
 
-### 13.5.4 — Dữ liệu trong migration
+### 13.4.4 — Dữ liệu trong migration
 
 ```csharp
 // Cách 1: HasData — EF quản lý, sinh migration tự động
@@ -157,7 +157,7 @@ protected override void Up(MigrationBuilder migrationBuilder)
 }
 ```
 
-Với bảng lớn, **chia lô** thay vì một `UPDATE` ([bài 12.9](../module-12-sql-deep-dive/12.8-database-migration-strategy.mdx)) — hoặc tách hẳn thành một job nền, vì migration nên **nhanh**.
+Với bảng lớn, **chia lô** thay vì một `UPDATE` ([bài 12.8](../module-12-sql-deep-dive/12.8-database-migration-strategy.mdx)) — hoặc tách hẳn thành một job nền, vì migration nên **nhanh**.
 
 ```csharp
 // Cách 3: seeder riêng — cho dữ liệu khởi tạo có logic
@@ -175,7 +175,7 @@ public static class DatabaseSeeder
 
 Cách 3 cho dữ liệu cần **logic** (băm mật khẩu, gọi service). Nó không thuộc về migration — migration lo **schema**, seeder lo **dữ liệu ban đầu**.
 
-### 13.5.5 — Rollback: khi được và khi không
+### 13.4.5 — Rollback: khi được và khi không
 
 ```bash
 dotnet ef database update AddCustomerIndex     # quay ve migration nay
@@ -211,7 +211,7 @@ protected override void Down(MigrationBuilder migrationBuilder)
 
 Trên production, cách an toàn nhất là **không rollback schema** — expand-contract đảm bảo schema mới tương thích với code cũ, nên rollback **code** là đủ.
 
-### 13.5.6 — Nhiều `DbContext`
+### 13.4.6 — Nhiều `DbContext`
 
 ```bash
 dotnet ef migrations add InitialIdentity \
@@ -252,7 +252,7 @@ public sealed class CrmDbContextFactory : IDesignTimeDbContextFactory<CrmDbConte
 
 Connection string ở đây chỉ dùng để **sinh** migration, không bao giờ kết nối thật — nên nó không phải secret, nhưng cũng đừng để trỏ vào production.
 
-### 13.5.7 — Rà lại code của bạn
+### 13.4.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát migration EF Core"

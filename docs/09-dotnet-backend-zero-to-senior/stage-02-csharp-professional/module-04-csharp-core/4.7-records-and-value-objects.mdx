@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 4.8.1 — Một khác biệt, nhiều hệ quả
+### 4.7.1 — Một khác biệt, nhiều hệ quả
 
 ```csharp
 public class  CustomerClass(string Name, string Email);
@@ -48,7 +48,7 @@ Trình biên dịch sinh giúp record bốn thứ:
 
 Hai thứ đầu là lý do record dùng làm **khoá `Dictionary`** được ngay, không cần override gì — đúng vấn đề đã nêu ở [bài 1.6](/docs/dotnet-backend-zero-to-senior/stage-01-foundation/module-01-programming-logic/1.5-arrays-and-lists).
 
-### 4.8.2 — Value object: khi danh tính chính là giá trị
+### 4.7.2 — Value object: khi danh tính chính là giá trị
 
 ```csharp
 // Kiểu nguyên thuỷ trần — trình biên dịch không giúp được gì
@@ -83,11 +83,11 @@ Bốn thứ có được:
 3. **So sánh đúng nghĩa** — hai `Money(100, "VND")` là bằng nhau.
 4. **Tên nói lên ý nghĩa** — `Money` rõ hơn `decimal`.
 
-Đây là cách áp dụng nguyên tắc "làm cho trạng thái sai không biểu diễn được" ở [bài 4.2](4.1-class-and-object.mdx) vào từng tham số.
+Đây là cách áp dụng nguyên tắc "làm cho trạng thái sai không biểu diễn được" ở [bài 4.1](4.1-class-and-object.mdx) vào từng tham số.
 
 Dấu hiệu nên tạo value object: một nhóm giá trị **luôn đi cùng nhau** (số tiền và đơn vị tiền tệ), hoặc một kiểu nguyên thuỷ có **quy tắc riêng** (email, mã bưu chính, số tài khoản).
 
-### 4.8.3 — `with`: sao chép có sửa đổi
+### 4.7.3 — `with`: sao chép có sửa đổi
 
 ```csharp
 var original = new Money(1_000_000m, "VND");
@@ -100,7 +100,7 @@ Console.WriteLine(original.Amount);   // 1000000 — không đổi
 
 Đây là cách làm việc với dữ liệu bất biến: thay vì sửa tại chỗ, bạn tạo phiên bản mới. Hơi tốn bộ nhớ hơn, đổi lại không bao giờ có chuyện một chỗ khác trong hệ thống bị đổi giá trị dưới chân bạn.
 
-### 4.8.4 — Cái bẫy: bất biến chỉ ở mức nông
+### 4.7.4 — Cái bẫy: bất biến chỉ ở mức nông
 
 Đây là phần quan trọng nhất của bài.
 
@@ -111,7 +111,7 @@ var order = new Order(1, new List<OrderLine>());
 order.Lines.Add(new OrderLine(...));       // CHẠY ĐƯỢC — record không ngăn
 ```
 
-`record` làm cho **tham chiếu** tới `Lines` không đổi được, nhưng **nội dung** của list thì vẫn sửa thoải mái. Đúng vấn đề đã nói ở [bài 4.3](4.2-encapsulation.mdx), và `record` không giải quyết nó.
+`record` làm cho **tham chiếu** tới `Lines` không đổi được, nhưng **nội dung** của list thì vẫn sửa thoải mái. Đúng vấn đề đã nói ở [bài 4.2](4.2-encapsulation.mdx), và `record` không giải quyết nó.
 
 Hệ quả thứ hai còn khó chịu hơn — **phép so sánh cũng hỏng**:
 
@@ -147,7 +147,7 @@ public record Order
 
 Quy tắc thực dụng: **record hợp nhất với dữ liệu phẳng gồm các kiểu bất biến**. Có collection bên trong thì phải xử lý tay.
 
-### 4.8.5 — `record` hay `record struct`
+### 4.7.5 — `record` hay `record struct`
 
 ```csharp
 public record        Customer(string Name);       // kiểu tham chiếu
@@ -163,9 +163,9 @@ public readonly record struct Money2(decimal Amount, string Currency);  // nên 
 | Kế thừa | Có | Không |
 | Hợp với | Hầu hết trường hợp | Giá trị nhỏ, tạo rất nhiều |
 
-Khi dùng `record struct`, hãy thêm `readonly` — nếu không nó vẫn thay đổi được và gặp lại mọi vấn đề của `struct` đã nói ở [bài 4.2](4.1-class-and-object.mdx).
+Khi dùng `record struct`, hãy thêm `readonly` — nếu không nó vẫn thay đổi được và gặp lại mọi vấn đề của `struct` đã nói ở [bài 4.1](4.1-class-and-object.mdx).
 
-### 4.8.6 — Khi nào **đừng** dùng record
+### 4.7.6 — Khi nào **đừng** dùng record
 
 Ba trường hợp cụ thể:
 
@@ -183,7 +183,7 @@ public class Customer { public int Id { get; private set; } /* ... */ }
 
 **3. Khi cần thay đổi thường xuyên.** Mỗi lần `with` là một object mới. Trong vòng lặp nóng chạy hàng triệu lần, số lần cấp phát đó có thể thành vấn đề — dù với code nghiệp vụ thông thường thì không.
 
-### 4.8.7 — Rà lại code của bạn
+### 4.7.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát record và value object"
@@ -279,7 +279,7 @@ kiểu bọc có value equality : True
 **Ba chi tiết dễ sai khi tự viết:**
 
 1. **Phải là `public virtual bool Equals(R3? o)`.** Đúng chữ ký này thì trình biên dịch mới dùng nó thay cho bản tự sinh. Viết `override` hay đổi kiểu tham số là nó không thay thế được.
-2. **Ghi đè `Equals` thì phải ghi đè `GetHashCode`.** Quên là hỏng `Dictionary` và `HashSet` theo cách rất khó tìm — đúng vấn đề đã gặp ở [bài 1.6](../../stage-01-foundation/module-01-programming-logic/1.5-arrays-and-lists.mdx).
+2. **Ghi đè `Equals` thì phải ghi đè `GetHashCode`.** Quên là hỏng `Dictionary` và `HashSet` theo cách rất khó tìm — đúng vấn đề đã gặp ở [bài 1.5](../../stage-01-foundation/module-01-programming-logic/1.5-arrays-and-lists.mdx).
 3. **`SequenceEqual` phân biệt thứ tự.** Nếu nghiệp vụ coi `["a","b"]` bằng `["b","a"]` thì phải sắp xếp trước khi so, hoặc dùng `SetEquals`.
 
 **Cái bẫy thứ hai: bất biến chỉ ở mức nông.**
@@ -290,7 +290,7 @@ e.Tags.Add("thêm sau khi tạo");
 Console.WriteLine(e.Tags.Count);   // 2
 ```
 
-`record` ngăn việc **gán lại** thuộc tính `Tags`, nhưng không ngăn việc **sửa nội dung** danh sách mà nó trỏ tới. Một `record` chứa `List` là "bất biến" chỉ trên danh nghĩa — đúng cùng một vấn đề với `IReadOnlyList` ở [bài 4.3](4.2-encapsulation.mdx).
+`record` ngăn việc **gán lại** thuộc tính `Tags`, nhưng không ngăn việc **sửa nội dung** danh sách mà nó trỏ tới. Một `record` chứa `List` là "bất biến" chỉ trên danh nghĩa — đúng cùng một vấn đề với `IReadOnlyList` ở [bài 4.2](4.2-encapsulation.mdx).
 
 **Khuyến nghị thực dụng.** Với value object, hãy giữ chúng chỉ chứa **kiểu nguyên thuỷ và value object khác**. Cần chứa tập hợp thì dùng kiểu bọc như cách 2 — viết một lần, dùng lại khắp dự án.
 
@@ -394,7 +394,7 @@ builder.Property(c => c.Email)
        .HasConversion(e => e.Value, v => new Email(v));
 ```
 
-Chi tiết ở [bài 13.3](../../stage-04-database-production/module-13-entity-framework-core/13.2-dbcontext-and-entity-configuration.mdx).
+Chi tiết ở [bài 13.2](../../stage-04-database-production/module-13-entity-framework-core/13.2-dbcontext-and-entity-configuration.mdx).
 
 **Đừng bọc mọi thứ.** Bọc những kiểu có **quy tắc hợp lệ** hoặc **dễ nhầm với nhau**: email, số điện thoại, tiền tệ, mã định danh. Đừng bọc những thứ thật sự chỉ là văn bản tự do như ghi chú hay mô tả.
 
@@ -409,7 +409,7 @@ Tạo `record CustomerKey(int TenantId, int CustomerId)`, dùng làm khoá `Dict
 <details>
 <summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
 
-**Gợi ý.** Bài này lặp lại thí nghiệm ở [bài 1.6](../../stage-01-foundation/module-01-programming-logic/1.5-arrays-and-lists.mdx) nhưng với khoá ghép hai trường — tình huống thực tế trong hệ thống nhiều tổ chức dùng chung.
+**Gợi ý.** Bài này lặp lại thí nghiệm ở [bài 1.5](../../stage-01-foundation/module-01-programming-logic/1.5-arrays-and-lists.mdx) nhưng với khoá ghép hai trường — tình huống thực tế trong hệ thống nhiều tổ chức dùng chung.
 
 **Lời giải.**
 

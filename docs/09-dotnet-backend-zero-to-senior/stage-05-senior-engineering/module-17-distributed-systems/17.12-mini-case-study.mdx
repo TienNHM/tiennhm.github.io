@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 17.13.1 — Sự cố
+### 17.12.1 — Sự cố
 
 ```
 09:14  Đội vận hành restart RabbitMQ để áp bản vá bảo mật
@@ -38,7 +38,7 @@ Sau bài này bạn có thể:
 
 Tình tiết đáng chú ý: đội vận hành làm đúng quy trình — họ khởi động lại broker trong giờ thấp điểm, có thông báo trước. Vấn đề không nằm ở thao tác mà ở **giả định của code**.
 
-### 17.13.2 — Truy nguyên
+### 17.12.2 — Truy nguyên
 
 **Bước 1 — xác nhận có trùng thật, không phải lỗi hiển thị:**
 
@@ -82,7 +82,7 @@ FROM Invoices WHERE CustomerId = '...' AND Period = '2026-03';
 
 Cột `SourceMessageId` — may mắn đã được ghi để phục vụ log — cho bằng chứng dứt khoát: **cùng một message, xử lý hai lần**.
 
-### 17.13.3 — Xử lý hậu quả
+### 17.12.3 — Xử lý hậu quả
 
 Thứ tự này quan trọng: **dừng chảy máu trước, sửa dữ liệu sau**.
 
@@ -104,7 +104,7 @@ Không `DELETE`. Giữ bản ghi để đối soát và để kiểm toán — x
 
 **4. Gửi thông báo cho khách hàng bị ảnh hưởng** trước khi họ phát hiện.
 
-### 17.13.4 — Bốn thay đổi phòng ngừa
+### 17.12.4 — Bốn thay đổi phòng ngừa
 
 **Thay đổi 1 — unique constraint (làm ngay trong ngày):**
 
@@ -174,11 +174,11 @@ public async Task Consumer_ShouldCreateOneInvoice_WhenMessageDeliveredTwice()
 }
 ```
 
-Test này chạy trên database thật qua Testcontainers, vì unique constraint là thứ đang được kiểm tra — provider InMemory không có ràng buộc nên test sẽ xanh một cách vô nghĩa ([bài 16.10](../module-16-clean-architecture/16.9-testing-strategy-overview.mdx)).
+Test này chạy trên database thật qua Testcontainers, vì unique constraint là thứ đang được kiểm tra — provider InMemory không có ràng buộc nên test sẽ xanh một cách vô nghĩa ([bài 16.9](../module-16-clean-architecture/16.9-testing-strategy-overview.mdx)).
 
 Áp dụng mẫu test này cho **mọi** consumer, không riêng consumer vừa gây sự cố.
 
-### 17.13.5 — Ba bài học
+### 17.12.5 — Ba bài học
 
 **1. "Message chỉ giao một lần" là giả định sai.** Broker đảm bảo at-least-once, và đó là lựa chọn có chủ đích — thà giao hai lần còn hơn mất. Idempotency là trách nhiệm của consumer ([bài 17.2](17.2-messaging-fears-lost-duplicates.mdx)).
 
@@ -193,7 +193,7 @@ Test này chạy trên database thật qua Testcontainers, vì unique constraint
 
 **3. Ghi lại `SourceMessageId` từ đầu.** Nếu không có cột đó, việc truy nguyên sẽ mất nhiều giờ thay vì vài phút. Chi phí thêm một cột gần bằng không; giá trị của nó chỉ hiện ra đúng lúc bạn cần nhất.
 
-### 17.13.6 — Rà lại code của bạn
+### 17.12.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát rút ra từ ca này"
@@ -651,7 +651,7 @@ Con số này phải luôn bằng 0. Nếu nó khác 0 sau khi đã có unique i
 
 #### Bài 3 — Áp dụng mẫu test cho mọi consumer
 
-Áp dụng mẫu test ở mục 17.13.4 cho từng consumer trong dự án và ghi lại cái nào thất bại.
+Áp dụng mẫu test ở mục 17.12.4 cho từng consumer trong dự án và ghi lại cái nào thất bại.
 
 **Tiêu chí hoàn thành:** bạn có danh sách đầy đủ, và biến nó thành một kế hoạch có thứ tự ưu tiên.
 

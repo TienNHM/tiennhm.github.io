@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 15.3.1 — Dockerfile đầy đủ
+### 15.2.1 — Dockerfile đầy đủ
 
 ```dockerfile
 # syntax=docker/dockerfile:1
@@ -75,7 +75,7 @@ Bốn chi tiết đáng giải thích:
 
 **`/p:UseAppHost=false`** bỏ file thực thi gốc; bạn chạy bằng `dotnet App.dll` nên nó không cần thiết. Tiết kiệm vài MB.
 
-**`ENTRYPOINT` dạng exec** (mảng JSON) thay vì dạng shell — mục 15.3.4.
+**`ENTRYPOINT` dạng exec** (mảng JSON) thay vì dạng shell — mục 15.2.4.
 
 Chỉ output của `dotnet publish` đi sang image cuối; SDK và mã nguồn ở lại stage build:
 
@@ -92,7 +92,7 @@ flowchart LR
     D -- "COPY --from=build" --> E
 ```
 
-### 15.3.2 — Chọn image cơ sở
+### 15.2.2 — Chọn image cơ sở
 
 | Image | Kích thước | Có shell | Dùng khi |
 |---|---|---|---|
@@ -119,7 +119,7 @@ ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
 
 Bật `DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=true` làm image nhỏ hơn nhưng **đổi hành vi so sánh chuỗi** — `ToUpper()` với tiếng Thổ Nhĩ Kỳ, sắp xếp tiếng Việt. Chỉ bật khi chắc chắn ứng dụng không phụ thuộc văn hoá.
 
-### 15.3.3 — Non-root và cổng
+### 15.2.3 — Non-root và cổng
 
 **Từ .NET 8, image chính thức chạy non-root sẵn** với user `app` (UID 64198):
 
@@ -149,9 +149,9 @@ EXPOSE 5000
 
 `ASPNETCORE_URLS` vẫn dùng được nhưng `ASPNETCORE_HTTP_PORTS` đơn giản hơn cho trường hợp thường gặp.
 
-**Đừng dùng HTTPS trong container** khi đã có reverse proxy: TLS kết thúc ở proxy, container chỉ nghe HTTP ([bài 8.2](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.1-aspnet-core-architecture.mdx)). Quản lý chứng chỉ trong image là phức tạp không cần thiết.
+**Đừng dùng HTTPS trong container** khi đã có reverse proxy: TLS kết thúc ở proxy, container chỉ nghe HTTP ([bài 8.1](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.1-aspnet-core-architecture.mdx)). Quản lý chứng chỉ trong image là phức tạp không cần thiết.
 
-### 15.3.4 — `ENTRYPOINT` và shutdown gọn gàng
+### 15.2.4 — `ENTRYPOINT` và shutdown gọn gàng
 
 ```dockerfile
 # SAI — dang shell: /bin/sh -c "dotnet CrmApi.dll"
@@ -165,7 +165,7 @@ Với dạng shell, `sh` là PID 1 và `dotnet` là tiến trình con. `docker s
 
 Kết quả: ứng dụng .NET **không bao giờ nhận SIGTERM**, không chạy `IHostApplicationLifetime.ApplicationStopping`, không shutdown gọn gàng. Sau 10 giây, Docker gửi SIGKILL và giết cứng.
 
-Hậu quả thật: request đang xử lý bị cắt, `BackgroundService` bị cắt giữa chừng ([bài 9.10](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.9-hosted-service-background-jobs.mdx)), kết nối database không đóng sạch.
+Hậu quả thật: request đang xử lý bị cắt, `BackgroundService` bị cắt giữa chừng ([bài 9.9](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.9-hosted-service-background-jobs.mdx)), kết nối database không đóng sạch.
 
 Triệu chứng dễ nhận: **mỗi lần deploy đều có một loạt lỗi** trong log, và `docker stop` luôn mất đúng 10 giây.
 
@@ -182,7 +182,7 @@ builder.Services.Configure<HostOptions>(o =>
 
 `ShutdownTimeout` của ứng dụng phải **nhỏ hơn** timeout của Docker, nếu không Docker giết trước khi ứng dụng kịp dọn dẹp.
 
-### 15.3.5 — Health check
+### 15.2.5 — Health check
 
 ```dockerfile
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
@@ -200,13 +200,13 @@ HEALTHCHECK CMD ["dotnet", "CrmApi.dll", "--healthcheck"]
 # 3. KHÔNG đặt HEALTHCHECK trong Dockerfile — để orchestrator lo
 ```
 
-Cách 3 là đúng nhất cho Kubernetes: `livenessProbe` và `readinessProbe` mạnh hơn nhiều `HEALTHCHECK` của Docker, và chúng **phân biệt hai loại** ([bài 8.10](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.9-health-checks.mdx)).
+Cách 3 là đúng nhất cho Kubernetes: `livenessProbe` và `readinessProbe` mạnh hơn nhiều `HEALTHCHECK` của Docker, và chúng **phân biệt hai loại** ([bài 8.9](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.9-health-checks.mdx)).
 
 `HEALTHCHECK` của Docker chỉ hữu ích với Docker Compose và `docker run` đơn lẻ.
 
 `--start-period` là tham số hay bị quên: trong khoảng đó, thất bại **không tính**. Ứng dụng .NET cần vài giây để JIT và khởi tạo; không có nó, container bị đánh dấu unhealthy trước khi kịp khởi động.
 
-### 15.3.6 — Giảm kích thước thêm
+### 15.2.6 — Giảm kích thước thêm
 
 ```xml
 <!-- .csproj -->
@@ -230,7 +230,7 @@ Nếu dùng, **phải test kỹ** trên bản đã trim, không chỉ bản Debu
 
 Với phần lớn ứng dụng, **chiseled một mình đã đủ**: 110 MB không phải vấn đề, và chi phí kéo image chỉ trả một lần vì layer được cache.
 
-### 15.3.7 — Rà lại code của bạn
+### 15.2.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát Dockerfile"

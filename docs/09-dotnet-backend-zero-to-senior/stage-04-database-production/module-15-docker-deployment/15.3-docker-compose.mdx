@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 15.4.1 — `depends_on` không đủ
+### 15.3.1 — `depends_on` không đủ
 
 ```yaml
 # SAI — API khởi động khi SQL Server CHƯA sẵn sàng
@@ -58,14 +58,14 @@ services:
 
 Hai chi tiết: `$$` để Compose **không** thay biến mà để shell trong container xử lý; và `start_period: 30s` cho SQL Server thời gian khởi tạo mà thất bại **không tính**.
 
-**Ngay cả vậy, ứng dụng vẫn nên tự chịu lỗi.** Database có thể restart bất cứ lúc nào sau khi API đã lên, nên retry kết nối là bắt buộc ([bài 14.10](../module-14-caching-background-jobs/14.9-idempotency-and-retry.mdx)):
+**Ngay cả vậy, ứng dụng vẫn nên tự chịu lỗi.** Database có thể restart bất cứ lúc nào sau khi API đã lên, nên retry kết nối là bắt buộc ([bài 14.9](../module-14-caching-background-jobs/14.9-idempotency-and-retry.mdx)):
 
 ```csharp
 options.UseSqlServer(conn, sql => sql.EnableRetryOnFailure(
     maxRetryCount: 5, maxRetryDelay: TimeSpan.FromSeconds(10), errorNumbersToAdd: null));
 ```
 
-### 15.4.2 — Mạng và cổng
+### 15.3.2 — Mạng và cổng
 
 ```yaml
 services:
@@ -129,7 +129,7 @@ flowchart LR
     api -- "sqlserver:1433" --> sql
 ```
 
-### 15.4.3 — Cấu hình và biến môi trường
+### 15.3.3 — Cấu hình và biến môi trường
 
 ```yaml
 services:
@@ -154,7 +154,7 @@ JWT_SECRET=...
 .env
 ```
 
-Nhớ hai dấu gạch dưới cho khoá phân cấp ([bài 8.7](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.6-configuration-system.mdx)).
+Nhớ hai dấu gạch dưới cho khoá phân cấp ([bài 8.6](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.6-configuration-system.mdx)).
 
 **`.env` không phải giải pháp secret thật** — nó chỉ giữ giá trị ra khỏi file YAML đã commit. Với production, dùng Docker secret hoặc secret của orchestrator:
 
@@ -181,7 +181,7 @@ if (passwordFile is not null && File.Exists(passwordFile))
     connectionString = connectionString.Replace("{PASSWORD}", File.ReadAllText(passwordFile).Trim());
 ```
 
-### 15.4.4 — Override file
+### 15.3.4 — Override file
 
 ```
 compose.yaml                  # chung cho mọi môi trường
@@ -236,7 +236,7 @@ docker compose -f compose.yaml -f compose.prod.yaml up -d   # production
 
 `logging` với `max-size` là cấu hình hay bị quên: không có nó, file log Docker lớn **vô hạn** và có thể làm đầy đĩa host. Đây là nguyên nhân phổ biến của "server hết dung lượng" sau vài tháng.
 
-### 15.4.5 — Compose ở production
+### 15.3.5 — Compose ở production
 
 Compose **dùng được** ở production, nhưng chỉ trong một phạm vi hẹp:
 
@@ -284,7 +284,7 @@ docker compose down -v                   # dừng, XOÁ volume — CẨN THẬN
 
 `docker compose down -v` xoá **mọi dữ liệu** trong volume. Chạy nhầm lệnh này trên máy chủ có database là mất toàn bộ dữ liệu.
 
-### 15.4.6 — Rà lại code của bạn
+### 15.3.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát Docker Compose"

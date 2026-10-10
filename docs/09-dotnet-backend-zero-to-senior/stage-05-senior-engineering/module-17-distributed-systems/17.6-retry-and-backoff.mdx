@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 17.7.1 — Điều kiện tiên quyết: idempotency
+### 17.6.1 — Điều kiện tiên quyết: idempotency
 
 ```csharp
 // KHÔNG idempotent — retry = trừ tiền hai lần
@@ -49,7 +49,7 @@ public async Task ChargeAsync(Guid orderId, decimal amount, CancellationToken ct
 
 **Quy tắc:** không bật retry cho thao tác chưa idempotent ([bài 17.2](17.2-messaging-fears-lost-duplicates.mdx)). Làm idempotent trước, retry sau.
 
-### 17.7.2 — Phân loại lỗi
+### 17.6.2 — Phân loại lỗi
 
 | Loại | Ví dụ | Xử lý |
 |---|---|---|
@@ -86,9 +86,9 @@ private static bool IsTransient(Exception ex) => ex switch
 };
 ```
 
-Chi tiết dễ bỏ sót: `SqlException 1205` là **deadlock victim** — lỗi này **luôn** đáng retry, và retry gần như luôn thành công vì lần chạy sau thường không trùng thứ tự khoá ([bài 12.7](../../stage-04-database-production/module-12-sql-deep-dive/12.6-transactions-and-locking.mdx)).
+Chi tiết dễ bỏ sót: `SqlException 1205` là **deadlock victim** — lỗi này **luôn** đáng retry, và retry gần như luôn thành công vì lần chạy sau thường không trùng thứ tự khoá ([bài 12.6](../../stage-04-database-production/module-12-sql-deep-dive/12.6-transactions-and-locking.mdx)).
 
-### 17.7.3 — Jitter: vì sao bắt buộc
+### 17.6.3 — Jitter: vì sao bắt buộc
 
 ```csharp
 // SAI — 500 consumer cùng retry tại chính xác giây thứ 2, 4, 8
@@ -124,7 +124,7 @@ builder.Services.AddHttpClient<BillingClient>()
 
 `AddStandardResilienceHandler` gói sẵn timeout, retry, circuit breaker và rate limiter theo thứ tự đúng.
 
-### 17.7.4 — Retry hai tầng
+### 17.6.4 — Retry hai tầng
 
 Một mức retry duy nhất phục vụ hai nhu cầu mâu thuẫn: lỗi mạng chớp nhoáng cần thử **lại ngay**, còn service down cần **chờ lâu**. MassTransit tách làm hai tầng:
 
@@ -146,7 +146,7 @@ cfg.ReceiveEndpoint("lead-converted", e =>
 
 Khác biệt quan trọng giữa hai tầng: **retry ngay** giữ message trong bộ nhớ consumer và **chiếm** một slot xử lý; **redelivery** trả message về broker, giải phóng consumer để xử lý message khác. Nếu chỉ có tầng 1 với khoảng chờ dài, một service down 10 phút sẽ làm toàn bộ consumer của bạn ngồi chờ và hàng đợi dồn ứ.
 
-### 17.7.5 — Circuit breaker
+### 17.6.5 — Circuit breaker
 
 Retry giải quyết lỗi thoáng qua. Khi service phía sau **đang chết hẳn**, retry chỉ làm nó chết lâu hơn.
 
@@ -173,7 +173,7 @@ Khi mở, lời gọi **thất bại ngay** không cần đi ra mạng. Hai lợ
 
 `MinimumThroughput` quan trọng: không có nó, 1 lỗi trên 1 request cũng thành "100% lỗi" và mở circuit oan.
 
-### 17.7.6 — DLQ không phải thùng rác
+### 17.6.6 — DLQ không phải thùng rác
 
 Message vào DLQ nghĩa là **có việc cần người xử lý**. DLQ không ai nhìn là dữ liệu mất một cách im lặng, chỉ chậm hơn.
 
@@ -203,7 +203,7 @@ await context.Send(_dlqUri, context.Message, c =>
 
 Không có những header này, xử lý DLQ lúc 2 giờ sáng là đoán mò.
 
-### 17.7.7 — Rà lại code của bạn
+### 17.6.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát retry và backoff"

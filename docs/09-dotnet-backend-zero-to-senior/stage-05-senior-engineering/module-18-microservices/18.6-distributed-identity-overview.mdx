@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 18.7.1 — Ai làm gì
+### 18.6.1 — Ai làm gì
 
 ```mermaid
 flowchart LR
@@ -54,7 +54,7 @@ public sealed class LeadOwnerHandler(SalesDbContext db)
 }
 ```
 
-Gateway **không thể** làm việc này — nó không có bảng `Leads`, và nếu ta cho nó truy cập thì đã vi phạm database-per-service ([bài 18.3](18.2-service-decomposition.mdx)).
+Gateway **không thể** làm việc này — nó không có bảng `Leads`, và nếu ta cho nó truy cập thì đã vi phạm database-per-service ([bài 18.2](18.2-service-decomposition.mdx)).
 
 **Sai lầm cần tránh:** service tin tưởng hoàn toàn vì "request đến từ gateway". Nếu ai đó vào được mạng nội bộ, họ gọi thẳng service và bỏ qua mọi kiểm tra. Service **vẫn phải** xác thực token, chỉ là nó có thể tin rằng gateway đã lọc bớt phần lớn request xấu.
 
@@ -75,9 +75,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 ```
 
-`ClockSkew` mặc định là **5 phút**, nghĩa là token đã hết hạn vẫn được chấp nhận thêm 5 phút nữa ([bài 10.3](../../stage-03-aspnet-core-backend/module-10-authentication-authorization/10.2-jwt-authentication.mdx)). Với hệ thống có đồng bộ thời gian qua NTP, 30 giây là quá đủ.
+`ClockSkew` mặc định là **5 phút**, nghĩa là token đã hết hạn vẫn được chấp nhận thêm 5 phút nữa ([bài 10.2](../../stage-03-aspnet-core-backend/module-10-authentication-authorization/10.2-jwt-authentication.mdx)). Với hệ thống có đồng bộ thời gian qua NTP, 30 giây là quá đủ.
 
-### 18.7.2 — Vấn đề thu hồi token
+### 18.6.2 — Vấn đề thu hồi token
 
 JWT **tự chứa**: service kiểm tra chữ ký mà không hỏi ai cả. Đó là điểm mạnh về hiệu năng, và cũng là điểm yếu:
 
@@ -116,7 +116,7 @@ Chỉ cần lưu bản ghi **tới lúc token hết hạn tự nhiên** — sau 
 
 **Khuyến nghị thực dụng:** access token 15 phút + refresh token là đủ cho phần lớn hệ thống nội bộ. Chỉ thêm danh sách chặn khi nghiệp vụ thật sự yêu cầu thu hồi tức thì.
 
-### 18.7.3 — Token gọn, không nhồi quyền
+### 18.6.3 — Token gọn, không nhồi quyền
 
 ```csharp
 // SAI — token phinh to
@@ -156,9 +156,9 @@ public async Task<bool> CanAccessAsync(Guid userId, string permission, Cancellat
 }
 ```
 
-Cache 5 phút giữ hiệu năng gần như token tự chứa, nhưng thay đổi quyền có hiệu lực trong vòng 5 phút thay vì phải chờ cấp token mới ([bài 14.4](../../stage-04-database-production/module-14-caching-background-jobs/14.3-idistributedcache-and-redis.mdx)).
+Cache 5 phút giữ hiệu năng gần như token tự chứa, nhưng thay đổi quyền có hiệu lực trong vòng 5 phút thay vì phải chờ cấp token mới ([bài 14.3](../../stage-04-database-production/module-14-caching-background-jobs/14.3-idistributedcache-and-redis.mdx)).
 
-### 18.7.4 — Truyền danh tính giữa service
+### 18.6.4 — Truyền danh tính giữa service
 
 **Cách 1 — chuyển tiếp token người dùng.** Đơn giản nhất và phổ biến nhất:
 
@@ -200,7 +200,7 @@ Token bị lộ giờ chỉ đọc được hoá đơn, không làm được gì
 | Token exchange | Hệ nhạy cảm, nhiều đội | Phức tạp hơn, thêm một round-trip |
 | Client credentials | Job nền, không nhân danh ai | Cần quản lý secret |
 
-### 18.7.5 — Tenant trong hệ phân tán
+### 18.6.5 — Tenant trong hệ phân tán
 
 Với hệ multi-tenant, `tenant_id` phải đi **cùng danh tính**, không bao giờ lấy từ tham số do client gửi:
 
@@ -213,9 +213,9 @@ var tenantId = User.FindFirst("tenant_id")?.Value
     ?? throw new UnauthorizedAccessException("Thiếu tenant_id");
 ```
 
-Mỗi service tự áp dụng lọc theo tenant qua global query filter ([bài 13.11](../../stage-04-database-production/module-13-entity-framework-core/13.10-global-query-filters.mdx)). **Đừng tin** rằng gateway đã lọc — phòng thủ nhiều lớp, và rò rỉ dữ liệu giữa các tenant là loại sự cố khó khắc phục nhất về mặt uy tín.
+Mỗi service tự áp dụng lọc theo tenant qua global query filter ([bài 13.10](../../stage-04-database-production/module-13-entity-framework-core/13.10-global-query-filters.mdx)). **Đừng tin** rằng gateway đã lọc — phòng thủ nhiều lớp, và rò rỉ dữ liệu giữa các tenant là loại sự cố khó khắc phục nhất về mặt uy tín.
 
-### 18.7.6 — Rà lại code của bạn
+### 18.6.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát identity trong hệ phân tán"

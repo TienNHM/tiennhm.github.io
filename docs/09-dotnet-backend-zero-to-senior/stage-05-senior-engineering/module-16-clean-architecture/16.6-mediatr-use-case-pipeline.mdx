@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 16.7.1 — Command, query, handler
+### 16.6.1 — Command, query, handler
 
 ```csharp
 public sealed record CreateLeadCommand(string Name, string Email, decimal Value)
@@ -74,7 +74,7 @@ Nên nếu lý do duy nhất bạn dùng MediatR là "controller mỏng", bạn 
 
 **Tách command và query** là quy ước đáng giữ: command **thay đổi** trạng thái, query **chỉ đọc**. Nhờ đó bạn áp behavior khác nhau — transaction chỉ cho command, cache chỉ cho query.
 
-### 16.7.2 — Pipeline behavior là giá trị thật
+### 16.6.2 — Pipeline behavior là giá trị thật
 
 ```csharp
 public sealed class ValidationBehavior<TRequest, TResponse>(
@@ -148,7 +148,7 @@ public sealed class LoggingBehavior<TRequest, TResponse>(
 
 Kiểm tra `CurrentTransaction is not null` xử lý trường hợp handler gọi `sender.Send` lồng nhau — không có nó, bạn mở transaction lồng và nhận exception.
 
-### 16.7.3 — Thứ tự behavior quyết định hành vi
+### 16.6.3 — Thứ tự behavior quyết định hành vi
 
 ```csharp
 builder.Services.AddMediatR(cfg =>
@@ -162,7 +162,7 @@ builder.Services.AddMediatR(cfg =>
 });
 ```
 
-Behavior chạy theo thứ tự **đăng ký**, và bọc nhau như middleware ([bài 8.3](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.2-request-pipeline-and-middleware.mdx)):
+Behavior chạy theo thứ tự **đăng ký**, và bọc nhau như middleware ([bài 8.2](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.2-request-pipeline-and-middleware.mdx)):
 
 ```
 Logging   ─► Validation ─► Transaction ─► Performance ─► Handler
@@ -181,7 +181,7 @@ Hàng cuối là loại lỗi rất khó chẩn đoán: log nói "đã tạo lea
 
 **Quy tắc:** thứ **không cần transaction** đặt ngoài; thứ **cần biết transaction đã commit** đặt ngoài cùng.
 
-### 16.7.4 — Chi phí thật
+### 16.6.4 — Chi phí thật
 
 **1. Mất khả năng lần theo luồng.**
 
@@ -191,7 +191,7 @@ await _sender.Send(command, ct);          // Go to Definition -> ISender.Send
 
 Bạn không nhảy tới handler được. Phải tìm kiếm toàn giải pháp theo tên kiểu command. Với người mới, đó là rào cản đáng kể — và với codebase 200 handler, nó là chi phí hằng ngày.
 
-Giảm bằng quy ước đặt tên nghiêm ngặt: `CreateLeadCommand` → `CreateLeadCommandHandler`, cùng thư mục hoặc cùng file (đúng mẫu VSA ở [bài 16.5](16.4-vertical-slice-architecture.mdx)).
+Giảm bằng quy ước đặt tên nghiêm ngặt: `CreateLeadCommand` → `CreateLeadCommandHandler`, cùng thư mục hoặc cùng file (đúng mẫu VSA ở [bài 16.4](16.4-vertical-slice-architecture.mdx)).
 
 **2. Lỗi runtime thay vì lỗi biên dịch.**
 
@@ -221,7 +221,7 @@ public void EveryRequest_ShouldHave_Handler()
 
 **4. Giấy phép.** Từ MediatR v12, dùng trong doanh nghiệp cần giấy phép thương mại. Đây là yếu tố thực tế mà nhiều đội phải cân nhắc, và nó đã thúc đẩy các thư viện thay thế.
 
-### 16.7.5 — Phương án thay thế
+### 16.6.5 — Phương án thay thế
 
 ```csharp
 // 1. Interface thường + decorator — không phụ thuộc gì
@@ -266,7 +266,7 @@ Các thư viện thay thế cũng tồn tại với API gần giống MediatR v�
 
 Với một API 15 endpoint, controller gọi thẳng service là **đúng nhất** — ít file, dễ đọc, và bạn không mất gì.
 
-### 16.7.6 — Rà lại code của bạn
+### 16.6.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát MediatR"

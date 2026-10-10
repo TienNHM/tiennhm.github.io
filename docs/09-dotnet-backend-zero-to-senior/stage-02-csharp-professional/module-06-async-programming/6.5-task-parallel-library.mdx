@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 6.6.1 — `Task.WhenAll`: tổng thời gian là việc chậm nhất
+### 6.5.1 — `Task.WhenAll`: tổng thời gian là việc chậm nhất
 
 ```csharp
 // TUAN TU: 200ms + 150ms + 300ms = 650ms
@@ -61,7 +61,7 @@ gantt
 
 Chú ý dòng cuối: dùng `await customerTask` chứ **không** dùng `customerTask.Result`. Ở đây task đã xong nên `.Result` không deadlock, nhưng `.Result` gói exception vào `AggregateException` còn `await` thì ném ra exception gốc — đọc log dễ hơn nhiều.
 
-### 6.6.2 — `WhenAll` chỉ ném lại một exception
+### 6.5.2 — `WhenAll` chỉ ném lại một exception
 
 Đây là chỗ rất nhiều người mất dữ liệu chẩn đoán:
 
@@ -97,7 +97,7 @@ catch
 
 Quy tắc: **gán `WhenAll` vào một biến** nếu bạn cần log lỗi. Còn nếu chỉ cần "hỏng là hỏng" thì viết thẳng cũng được.
 
-### 6.6.3 — `DbContext` không thread-safe
+### 6.5.3 — `DbContext` không thread-safe
 
 Cái bẫy phổ biến nhất khi mới dùng `WhenAll`:
 
@@ -129,7 +129,7 @@ async Task<T> LoadAsync<T>(Func<AppDbContext, Task<T>> query)
 
 Với hai truy vấn nhỏ thì thường **không đáng**: mỗi context là một connection riêng, và chạy tuần tự trên một connection thường nhanh hơn mở thêm connection.
 
-### 6.6.4 — `Task.WhenAny` và cách viết timeout đúng
+### 6.5.4 — `Task.WhenAny` và cách viết timeout đúng
 
 Cách cũ, viết thủ công:
 
@@ -170,11 +170,11 @@ try { return await _api.FetchAsync(id, cts.Token); }
 catch (OperationCanceledException) when (!ct.IsCancellationRequested) { return null; }
 ```
 
-Đây mới là timeout thật sự — chi tiết về `CancellationToken` ở [bài 6.5](6.4-cancellationtoken.mdx).
+Đây mới là timeout thật sự — chi tiết về `CancellationToken` ở [bài 6.4](6.4-cancellationtoken.mdx).
 
 `WhenAny` vẫn hữu ích cho bài toán **đua**: gọi ba nhà cung cấp, lấy ai trả lời trước.
 
-### 6.6.5 — Ba cách chạy một danh sách, và khi nào dùng cái nào
+### 6.5.5 — Ba cách chạy một danh sách, và khi nào dùng cái nào
 
 ```csharp
 // 1. TUẦN TỰ — 1000 mục x 100ms = 100 giây. Chậm nhưng an toàn.
@@ -210,14 +210,14 @@ await Task.WhenAll(tasks);
 
 Thiếu `finally` là treo vĩnh viễn ngay lần đầu có exception — semaphore không bao giờ được trả lại.
 
-### 6.6.6 — `Parallel.For`/`Parallel.ForEach` là chuyện khác hẳn
+### 6.5.6 — `Parallel.For`/`Parallel.ForEach` là chuyện khác hẳn
 
 ```csharp
 // SAI — lambda async void, Parallel không chờ gì cả
 Parallel.ForEach(customers, async c => await ProcessAsync(c));
 ```
 
-`Parallel.ForEach` nhận `Action<T>`, nên lambda `async` ở đây trở thành **`async void`** (xem [bài 6.3](6.2-task-and-async-await.mdx)): vòng lặp "xong" ngay lập tức trong khi công việc còn đang chạy, và mọi exception làm sập tiến trình.
+`Parallel.ForEach` nhận `Action<T>`, nên lambda `async` ở đây trở thành **`async void`** (xem [bài 6.2](6.2-task-and-async-await.mdx)): vòng lặp "xong" ngay lập tức trong khi công việc còn đang chạy, và mọi exception làm sập tiến trình.
 
 Phân vai rõ ràng:
 
@@ -229,7 +229,7 @@ Phân vai rõ ràng:
 
 Trong backend web, **hầu như luôn là cột giữa**. `Parallel.ForEach` chỉ đúng khi bạn thật sự đang tính toán — nén ảnh, xử lý ma trận.
 
-### 6.6.7 — Rà lại code của bạn
+### 6.5.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát Task Parallel Library"
@@ -384,7 +384,7 @@ await db.Orders.AddRangeAsync(items.Select(ToEntity), ct);
 await db.SaveChangesAsync(ct);     // MỘT giao dịch, một kết nối
 ```
 
-Cách này thường nhanh hơn hẳn mọi phương án song song, vì nó tránh được toàn bộ chi phí kết nối và chỉ có một giao dịch. [Bài 13.8](../../stage-04-database-production/module-13-entity-framework-core/13.7-performance.mdx) trình bày các kỹ thuật ghi hàng loạt đầy đủ hơn.
+Cách này thường nhanh hơn hẳn mọi phương án song song, vì nó tránh được toàn bộ chi phí kết nối và chỉ có một giao dịch. [Bài 13.7](../../stage-04-database-production/module-13-entity-framework-core/13.7-performance.mdx) trình bày các kỹ thuật ghi hàng loạt đầy đủ hơn.
 
 **Quy tắc.** Trước khi song song hoá, hãy hỏi: *có cách nào làm việc này bằng một thao tác thay vì nhiều thao tác không?* Gộp gần như luôn thắng song song hoá.
 

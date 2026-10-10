@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 15.12.1 — Multi-stage build: làm ngay
+### 15.11.1 — Multi-stage build: làm ngay
 
 ```dockerfile
 # Giai doan BUILD — co SDK, cong cu, ma nguon
@@ -59,11 +59,11 @@ Giai đoạn cuối **không chứa** SDK, mã nguồn, hay công cụ build —
 
 **Chi tiết quan trọng — copy `csproj` trước:** Docker cache từng layer. Nếu bạn copy toàn bộ mã nguồn rồi mới `restore`, mọi thay đổi code đều làm mất cache và phải tải lại toàn bộ NuGet package. Copy `csproj` trước nghĩa là `restore` chỉ chạy lại khi **danh sách package** thay đổi.
 
-Khác biệt thực tế: build tăng dần từ 3 phút xuống khoảng 30 giây ([bài 15.3](15.2-dockerfile-for-aspnet-core.mdx)).
+Khác biệt thực tế: build tăng dần từ 3 phút xuống khoảng 30 giây ([bài 15.2](15.2-dockerfile-for-aspnet-core.mdx)).
 
 **`USER appuser` là một dòng** và nó ngăn được cả một lớp tấn công: nếu container bị xâm nhập, kẻ tấn công không có quyền root trong container, nên không cài được gói, không sửa được file hệ thống, và khó thoát ra host hơn nhiều.
 
-### 15.12.2 — Distroless và chainguard
+### 15.11.2 — Distroless và chainguard
 
 **Điều kiện kích hoạt:** yêu cầu bảo mật cao, hoặc muốn giảm số lỗ hổng phải vá.
 
@@ -86,7 +86,7 @@ Hàng cuối là cái giá thật: **không có shell** nghĩa là không `docke
 
 Cách cân bằng: image thường cho môi trường phát triển và staging, chiseled cho production.
 
-### 15.12.3 — Chiến lược triển khai
+### 15.11.3 — Chiến lược triển khai
 
 | Chiến lược | Cách hoạt động | Downtime | Tài nguyên | Quay lại |
 |---|---|---|---|---|
@@ -114,7 +114,7 @@ Phiên bản cũ VÀ mới cùng đọc/ghi CÙNG database
 -> Không thể vừa đổi tên cột vừa triển khai code mới
 ```
 
-Đây chính là lý do cần expand-contract cho thay đổi schema ([bài 13.13](../module-13-entity-framework-core/13.12-mini-case-study.mdx)).
+Đây chính là lý do cần expand-contract cho thay đổi schema ([bài 13.12](../module-13-entity-framework-core/13.12-mini-case-study.mdx)).
 
 **Canary** là chiến lược an toàn nhất cho thay đổi rủi ro:
 
@@ -133,7 +133,7 @@ strategy:
 
 Nếu tỷ lệ lỗi tăng ở mức 5%, bạn dừng lại và chỉ 5% người dùng bị ảnh hưởng — thay vì 100%.
 
-### 15.12.4 — GitOps
+### 15.11.4 — GitOps
 
 **Điều kiện kích hoạt:** nhiều môi trường, hoặc cần kiểm toán mọi thay đổi hạ tầng.
 
@@ -156,7 +156,7 @@ Ba lợi ích cụ thể:
 
 **Cái giá:** thêm một công cụ phải vận hành, và luồng triển khai gián tiếp hơn nên chẩn đoán khó hơn khi có sự cố.
 
-### 15.12.5 — SBOM và quét lỗ hổng
+### 15.11.5 — SBOM và quét lỗ hổng
 
 **Điều kiện kích hoạt:** ngay khi có image chạy production.
 
@@ -181,7 +181,7 @@ Giá trị thật của nó lộ ra khi có lỗ hổng nghiêm trọng được
 
 Đặt ngưỡng ở `critical` để bắt đầu — đặt `high` ngay sẽ làm CI đỏ liên tục vì hầu như image nào cũng có vài lỗ hổng mức trung bình chưa có bản vá.
 
-### 15.12.6 — Những chủ đề khác
+### 15.11.6 — Những chủ đề khác
 
 | Chủ đề | Nội dung | Ưu tiên |
 |---|---|---|
@@ -205,9 +205,9 @@ obj/
 *.user
 ```
 
-Không có nó, Docker copy cả `bin`, `obj` và `.git` vào build context — làm build chậm hơn đáng kể, và tệ hơn là **`.git` có thể chứa lịch sử với bí mật đã bị xoá** ([bài 3.13](../../stage-01-foundation/module-03-git-developer-workflow/3.12-mini-case-study.mdx)).
+Không có nó, Docker copy cả `bin`, `obj` và `.git` vào build context — làm build chậm hơn đáng kể, và tệ hơn là **`.git` có thể chứa lịch sử với bí mật đã bị xoá** ([bài 3.12](../../stage-01-foundation/module-03-git-developer-workflow/3.12-mini-case-study.mdx)).
 
-### 15.12.7 — Thứ tự nên làm
+### 15.11.7 — Thứ tự nên làm
 
 Bốn việc đáng làm **ngay hôm nay**, mỗi việc mất vài phút:
 
@@ -220,7 +220,7 @@ Sau đó mới cân nhắc chiseled image, canary, và GitOps — những thứ 
 
 Sau Module 15, bước tiếp theo là [Stage 5 — Senior Engineering](../../stage-05-senior-engineering/).
 
-### 15.12.8 — Rà lại code của bạn
+### 15.11.8 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát triển khai"

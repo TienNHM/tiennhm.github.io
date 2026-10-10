@@ -19,7 +19,7 @@ draft: false
 
 import { SummaryBox } from '@site/src/components/SEO';
 
-# Agent Skills - Phần 11: React Performance Best Practices
+# Agent Skills - Phần 2: React Performance Best Practices
 
 <SummaryBox>
 Tài liệu tóm tắt React/Next.js performance best practices dùng làm checklist cho Agent khi refactor hoặc review code, bao gồm 7 nhóm chính: Async Waterfall & Data fetching, Bundle Size & Code splitting, Server-side caching & RSC boundaries, Client caching (SWR) & event listeners, Rerender tối ưu, Rendering & hydration, và JS performance & advanced patterns. Mỗi mục có ví dụ cụ thể về nên làm và không nên làm để tối ưu hiệu năng ứng dụng React/Next.js.

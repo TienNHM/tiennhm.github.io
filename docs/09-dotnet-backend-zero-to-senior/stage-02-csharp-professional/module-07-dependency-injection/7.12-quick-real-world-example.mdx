@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 7.13.1 — Ba interface
+### 7.12.1 — Ba interface
 
 ```csharp
 public class EmailOptions
@@ -64,7 +64,7 @@ public class EmailSender(IOptionsMonitor<EmailOptions> options)
 
 Lưu ý `IOptionsMonitor` dùng `CurrentValue`, không phải `Value` — đây là chi tiết dễ nhầm.
 
-### 7.13.2 — Ba lỗi tương ứng
+### 7.12.2 — Ba lỗi tương ứng
 
 **Lỗi 1 — dùng `IOptions` rồi mong nó cập nhật:**
 
@@ -95,7 +95,7 @@ InvalidOperationException: Cannot consume scoped service
 'IOptionsSnapshot<CacheOptions>' from singleton 'ICacheService'.
 ```
 
-Đây chính là captive dependency ([bài 7.12](7.11-mini-case-study.mdx)). Với singleton, dùng `IOptions` (nếu giá trị cố định) hoặc `IOptionsMonitor` (nếu cần cập nhật).
+Đây chính là captive dependency ([bài 7.11](7.11-mini-case-study.mdx)). Với singleton, dùng `IOptions` (nếu giá trị cố định) hoặc `IOptionsMonitor` (nếu cần cập nhật).
 
 **Lỗi 3 — mong `IOptionsMonitor` cập nhật từ nguồn không hỗ trợ:**
 
@@ -116,9 +116,9 @@ builder.Configuration.AddAzureKeyVault(uri, credential,
 | Azure Key Vault | Chỉ khi đặt `ReloadInterval` |
 | User secrets | **Có** |
 
-Đây là câu trả lời cho câu hỏi ở đầu bài: nếu bạn đổi cấu hình trong **biến môi trường** của container, `IOptionsMonitor` cũng không giúp gì — phải khởi động lại container. Và nếu bạn đổi trong `appsettings.json` **bên trong image**, file trên đĩa không đổi chút nào ([bài 15.5](../../stage-04-database-production/module-15-docker-deployment/15.4-environment-and-secrets.mdx)).
+Đây là câu trả lời cho câu hỏi ở đầu bài: nếu bạn đổi cấu hình trong **biến môi trường** của container, `IOptionsMonitor` cũng không giúp gì — phải khởi động lại container. Và nếu bạn đổi trong `appsettings.json` **bên trong image**, file trên đĩa không đổi chút nào ([bài 15.4](../../stage-04-database-production/module-15-docker-deployment/15.4-environment-and-secrets.mdx)).
 
-### 7.13.3 — Chọn interface nào
+### 7.12.3 — Chọn interface nào
 
 ```
 Cấu hình có đổi lúc chạy không?
@@ -132,7 +132,7 @@ Cấu hình có đổi lúc chạy không?
 
 Chỉ dùng `IOptionsMonitor` cho những giá trị thật sự cần đổi nóng: mức ghi log, feature flag, ngưỡng rate limit.
 
-### 7.13.4 — Phản ứng khi cấu hình đổi
+### 7.12.4 — Phản ứng khi cấu hình đổi
 
 ```csharp
 public class EmailSender : IDisposable
@@ -156,7 +156,7 @@ public class EmailSender : IDisposable
 }
 ```
 
-`OnChange` trả về một `IDisposable` — **phải** huỷ nó, nếu không bạn có rò rỉ tương tự như với event ([bài 5.12](../module-05-advanced-csharp/5.11-quick-real-world-example.mdx)).
+`OnChange` trả về một `IDisposable` — **phải** huỷ nó, nếu không bạn có rò rỉ tương tự như với event ([bài 5.11](../module-05-advanced-csharp/5.11-quick-real-world-example.mdx)).
 
 **Cảnh báo:** `OnChange` có thể được gọi **nhiều lần** cho một lần thay đổi file, vì trình theo dõi file hệ điều hành đôi khi phát sinh nhiều sự kiện. Nếu callback làm việc tốn kém như kết nối lại, hãy khử trùng lặp:
 
@@ -171,7 +171,7 @@ _registration = monitor.OnChange(config =>
 });
 ```
 
-### 7.13.5 — Xác thực cấu hình lúc khởi động
+### 7.12.5 — Xác thực cấu hình lúc khởi động
 
 Cấu hình sai nên làm ứng dụng **không khởi động được**, thay vì lỗi lúc chạy vào 2 giờ sáng:
 
@@ -195,9 +195,9 @@ public class EmailOptions
 
 Thiếu `ValidateOnStart()`, việc xác thực chỉ chạy khi có ai đó **lần đầu** yêu cầu `IOptions<EmailOptions>` — có thể là nhiều giờ sau khi triển khai, trong một luồng nghiệp vụ quan trọng.
 
-Đây là một trong những cải thiện rẻ nhất có hiệu quả rõ nhất: một dòng, và mọi lỗi cấu hình lộ ra ngay lúc triển khai ([bài 8.7](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.6-configuration-system.mdx)).
+Đây là một trong những cải thiện rẻ nhất có hiệu quả rõ nhất: một dòng, và mọi lỗi cấu hình lộ ra ngay lúc triển khai ([bài 8.6](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.6-configuration-system.mdx)).
 
-### 7.13.6 — Rà lại code của bạn
+### 7.12.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát Options"

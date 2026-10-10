@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 11.14.1 — Vấn đề
+### 11.13.1 — Vấn đề
 
 ```javascript
 // HTTP thông thường — gửi header được
@@ -77,7 +77,7 @@ builder.Services.AddAuthentication()
 
 Điều kiện `path.StartsWithSegments("/hubs")` quan trọng: không có nó, **mọi** API đều chấp nhận token qua query string — và khi đó mọi lời gọi API cũng lộ token vào log.
 
-### 11.14.2 — Hậu quả: token trong log
+### 11.13.2 — Hậu quả: token trong log
 
 ```
 # Access log cua Nginx
@@ -118,9 +118,9 @@ builder.Services.AddHttpLogging(o =>
 });
 ```
 
-**Giảm nhẹ quan trọng nhất:** giữ access token **ngắn hạn** (5–15 phút). Token trong log cũ hết hạn nhanh, nên cửa sổ rủi ro nhỏ ([bài 10.13](../module-10-authentication-authorization/10.12-mini-case-study.mdx)).
+**Giảm nhẹ quan trọng nhất:** giữ access token **ngắn hạn** (5–15 phút). Token trong log cũ hết hạn nhanh, nên cửa sổ rủi ro nhỏ ([bài 10.12](../module-10-authentication-authorization/10.12-mini-case-study.mdx)).
 
-### 11.14.3 — Phân quyền trong hub
+### 11.13.3 — Phân quyền trong hub
 
 ```csharp
 [Authorize]
@@ -155,9 +155,9 @@ Ba điểm quan trọng:
 - **`[Authorize(Roles = ...)]` trên phương thức** cho phân quyền chi tiết hơn — client gọi phương thức không có quyền sẽ nhận lỗi.
 - **Nhóm theo tenant** là cách gửi đúng phạm vi. `Clients.All` trong hệ multi-tenant gần như luôn sai — nó gửi cho **mọi công ty**.
 
-Điểm cuối đáng nhấn mạnh: đây là lỗi rò rỉ dữ liệu giữa tenant, cùng lớp với [bài 7.12](../../stage-02-csharp-professional/module-07-dependency-injection/7.11-mini-case-study.mdx) nhưng qua một con đường khác.
+Điểm cuối đáng nhấn mạnh: đây là lỗi rò rỉ dữ liệu giữa tenant, cùng lớp với [bài 7.11](../../stage-02-csharp-professional/module-07-dependency-injection/7.11-mini-case-study.mdx) nhưng qua một con đường khác.
 
-### 11.14.4 — Gửi cho đúng người dùng
+### 11.13.4 — Gửi cho đúng người dùng
 
 ```csharp
 // Gửi theo user id — SignalR tự tìm MỌI kết nối của người đó
@@ -180,7 +180,7 @@ builder.Services.AddSingleton<IUserIdProvider, CustomUserIdProvider>();
 
 Mặc định SignalR dùng `ClaimTypes.NameIdentifier`. Nếu token của bạn dùng claim khác — `sub` theo chuẩn JWT chẳng hạn — `Clients.User` sẽ **không tìm thấy ai** và thông báo biến mất im lặng. Đây là lỗi hay gặp và khó chẩn đoán vì không có thông báo lỗi nào.
 
-### 11.14.5 — Token hết hạn trong kết nối dài
+### 11.13.5 — Token hết hạn trong kết nối dài
 
 ```
 Access token: 15 phut
@@ -222,7 +222,7 @@ sequenceDiagram
 
 Mảng truyền vào `withAutomaticReconnect` là các khoảng chờ trước mỗi lần thử: ngay lập tức, 2 giây, 10 giây, 30 giây. Mặc định chỉ thử 4 lần rồi bỏ cuộc — với ứng dụng cần kết nối bền, hãy cấu hình dài hơn hoặc tự xử lý sự kiện `onclose`.
 
-### 11.14.6 — Rà lại code của bạn
+### 11.13.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát bảo mật SignalR"
@@ -418,7 +418,7 @@ catch (e) {
 }
 ```
 
-Nhớ dùng `HubException` chứ không phải exception thường — exception thường bị SignalR che thông điệp, như [bài 11.4](11.3-setup-signalr-server.mdx) đã chỉ ra.
+Nhớ dùng `HubException` chứ không phải exception thường — exception thường bị SignalR che thông điệp, như [bài 11.3](11.3-setup-signalr-server.mdx) đã chỉ ra.
 
 **Ba tầng phân quyền trong SignalR, và mỗi tầng chặn ở đâu:**
 
@@ -428,7 +428,7 @@ Nhớ dùng `HubException` chứ không phải exception thường — exception
 | `[Authorize(Roles)]` trên method | Lúc gọi method | Exception |
 | Kiểm tra trong thân method | Lúc gọi, theo tài nguyên | `HubException` do bạn viết |
 
-**Tầng thứ ba là tầng không thể bỏ.** Hai tầng đầu chỉ kiểm **danh tính và vai trò**; chúng không biết tham số của lời gọi. Một người có vai trò `SalesRep` vẫn gọi được `JoinDealRoom(dealIdCuaNguoiKhac)` nếu bạn không kiểm trong thân phương thức — đúng lỗ hổng ở [bài 11.6](11.5-signalr-authentication.mdx).
+**Tầng thứ ba là tầng không thể bỏ.** Hai tầng đầu chỉ kiểm **danh tính và vai trò**; chúng không biết tham số của lời gọi. Một người có vai trò `SalesRep` vẫn gọi được `JoinDealRoom(dealIdCuaNguoiKhac)` nếu bạn không kiểm trong thân phương thức — đúng lỗ hổng ở [bài 11.5](11.5-signalr-authentication.mdx).
 
 </details>
 
@@ -490,7 +490,7 @@ await _hub.Clients.User("8f3a1b2c").ReceiveNotification(dto);
 (không exception, không log, không ai nhận được gì)
 ```
 
-Lại là một lỗi **hoàn toàn im lặng** — cùng họ với tên nhóm lệch ở [bài 11.7](11.6-groups-and-targeting.mdx). SignalR tìm trong ánh xạ, không thấy khoá nào khớp, và kết thúc bình thường.
+Lại là một lỗi **hoàn toàn im lặng** — cùng họ với tên nhóm lệch ở [bài 11.6](11.6-groups-and-targeting.mdx). SignalR tìm trong ánh xạ, không thấy khoá nào khớp, và kết thúc bình thường.
 
 **Sửa bằng một `IUserIdProvider` tường minh:**
 

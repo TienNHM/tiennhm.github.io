@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 11.3.1 — Bắt tay
+### 11.2.1 — Bắt tay
 
 ```mermaid
 sequenceDiagram
@@ -58,7 +58,7 @@ new signalR.HubConnectionBuilder()
 
 Nó bớt một vòng đi về và **bỏ luôn nhu cầu sticky session** — nhưng không còn dự phòng khi WebSocket bị chặn.
 
-### 11.3.2 — `Hub` là transient
+### 11.2.2 — `Hub` là transient
 
 ```csharp
 public class NotificationHub : Hub<INotificationClient>
@@ -88,9 +88,9 @@ public override Task OnConnectedAsync()
 }
 ```
 
-Muốn gửi từ ngoài ngữ cảnh một lời gọi thì dùng `IHubContext<T>` ([bài 11.8](11.7-ihubcontext-server-push-outside-hub.mdx)).
+Muốn gửi từ ngoài ngữ cảnh một lời gọi thì dùng `IHubContext<T>` ([bài 11.7](11.7-ihubcontext-server-push-outside-hub.mdx)).
 
-Về DI: Hub được resolve từ **scope của kết nối**, nên tiêm `DbContext` vào constructor Hub **chạy được** — nhưng scope đó sống suốt thời gian kết nối, có thể hàng giờ. Đó là một captive dependency trá hình ([bài 7.5](../../stage-02-csharp-professional/module-07-dependency-injection/7.4-service-lifetimes.mdx)): `DbContext` tích luỹ entity và trả dữ liệu cũ.
+Về DI: Hub được resolve từ **scope của kết nối**, nên tiêm `DbContext` vào constructor Hub **chạy được** — nhưng scope đó sống suốt thời gian kết nối, có thể hàng giờ. Đó là một captive dependency trá hình ([bài 7.4](../../stage-02-csharp-professional/module-07-dependency-injection/7.4-service-lifetimes.mdx)): `DbContext` tích luỹ entity và trả dữ liệu cũ.
 
 ```csharp
 // ĐÚNG — tạo scope riêng cho mỗi lần gọi
@@ -105,7 +105,7 @@ public class NotificationHub(IServiceScopeFactory scopeFactory) : Hub<INotificat
 }
 ```
 
-### 11.3.3 — Ba cách định danh
+### 11.2.3 — Ba cách định danh
 
 | | Là gì | Ổn định | Dùng để |
 |---|---|---|---|
@@ -136,7 +136,7 @@ builder.Services.AddSingleton<IUserIdProvider, UserIdProvider>();
 
 `Clients.User(id)` tự động gửi tới **mọi** kết nối của người đó — SignalR duy trì ánh xạ đó giúp bạn. Đây là lý do gần như luôn nên dùng `Clients.User` thay vì tự quản lý danh sách `ConnectionId`.
 
-### 11.3.4 — Vòng đời kết nối
+### 11.2.4 — Vòng đời kết nối
 
 ```csharp
 public class NotificationHub(IPresenceTracker presence) : Hub<INotificationClient>
@@ -173,13 +173,13 @@ public class NotificationHub(IPresenceTracker presence) : Hub<INotificationClien
 Bốn điều về `OnDisconnectedAsync`:
 
 1. **`exception` khác `null`** nghĩa là ngắt bất thường (mất mạng); `null` nghĩa là client chủ động đóng.
-2. Nó có thể **không chạy** nếu tiến trình server bị kill — trạng thái presence phải tự hết hạn, đừng chỉ dựa vào sự kiện này ([bài 11.10](11.9-presence-online-offline-status.mdx)).
+2. Nó có thể **không chạy** nếu tiến trình server bị kill — trạng thái presence phải tự hết hạn, đừng chỉ dựa vào sự kiện này ([bài 11.9](11.9-presence-online-offline-status.mdx)).
 3. Nó có thể chạy **muộn** — mất tới `ClientTimeoutInterval` (mặc định 30 giây) để phát hiện kết nối chết.
 4. Nhóm được dọn tự động, không cần `RemoveFromGroupAsync`.
 
 Và nhớ: người dùng mở 3 tab thì `OnDisconnectedAsync` chạy **3 lần**, mỗi lần một `ConnectionId`. "Người này đã offline" chỉ đúng khi **kết nối cuối cùng** đóng.
 
-### 11.3.5 — Giữ nhịp và timeout
+### 11.2.5 — Giữ nhịp và timeout
 
 ```csharp
 builder.Services.AddSignalR(options =>
@@ -196,11 +196,11 @@ Vì sao cần giữ nhịp: **TCP không báo ngay khi kết nối chết**. Rú
 
 Quy tắc: **`ClientTimeoutInterval` ít nhất gấp đôi `KeepAliveInterval`**, để một ping bị mất không làm đứt kết nối. Đặt sai tỷ lệ này gây ra hiện tượng "cứ vài phút lại mất kết nối" rất khó chẩn đoán.
 
-`EnableDetailedErrors` chỉ bật ở Development — ở production nó gửi **stack trace tới client** ([bài 8.9](../module-08-aspnet-core-fundamentals/8.8-global-exception-handling.mdx)).
+`EnableDetailedErrors` chỉ bật ở Development — ở production nó gửi **stack trace tới client** ([bài 8.8](../module-08-aspnet-core-fundamentals/8.8-global-exception-handling.mdx)).
 
-`MaximumReceiveMessageSize` mặc định 32KB. SignalR không dành cho truyền file; dùng HTTP upload thường ([bài 9.6](../module-09-web-api-professional/9.5-file-upload-and-download.mdx)).
+`MaximumReceiveMessageSize` mặc định 32KB. SignalR không dành cho truyền file; dùng HTTP upload thường ([bài 9.5](../module-09-web-api-professional/9.5-file-upload-and-download.mdx)).
 
-### 11.3.6 — Rà lại code của bạn
+### 11.2.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát kiến trúc SignalR"
@@ -318,7 +318,7 @@ public Task StartLongJob()
 }
 ```
 
-`IHubContext` là **singleton** và sống độc lập với vòng đời Hub — đó là thứ dùng để gửi tin từ ngoài Hub, như [bài 11.8](11.7-ihubcontext-server-push-outside-hub.mdx) trình bày.
+`IHubContext` là **singleton** và sống độc lập với vòng đời Hub — đó là thứ dùng để gửi tin từ ngoài Hub, như [bài 11.7](11.7-ihubcontext-server-push-outside-hub.mdx) trình bày.
 
 **Nhưng `Task.Run` trong Hub vẫn là mẫu xấu.** Nó không sống sót qua restart và không có retry. Việc dài nên đi vào hàng đợi, và worker gửi thông báo qua `IHubContext` khi xong.
 
@@ -399,9 +399,9 @@ public sealed class UserIdProvider : IUserIdProvider
 }
 ```
 
-**Khi nào `ConnectionId` vẫn hữu ích:** trả lời đúng **kết nối vừa gọi** — `Clients.Caller` dùng nó nội bộ — hoặc theo dõi trạng thái online trong Redis **có TTL**, để kết nối chết tự biến mất thay vì phải dọn tay. Xem [bài 11.10](11.9-presence-online-offline-status.mdx).
+**Khi nào `ConnectionId` vẫn hữu ích:** trả lời đúng **kết nối vừa gọi** — `Clients.Caller` dùng nó nội bộ — hoặc theo dõi trạng thái online trong Redis **có TTL**, để kết nối chết tự biến mất thay vì phải dọn tay. Xem [bài 11.9](11.9-presence-online-offline-status.mdx).
 
-**Một hệ quả thực tế của việc `ConnectionId` đổi:** **nhóm cũng biến mất**. Nhóm gắn với `ConnectionId`, nên sau khi kết nối lại, client **không còn** trong nhóm nào. Phải join lại trong `onreconnected` — đây là lỗi phổ biến nhất khi dùng SignalR, và là bài 1 của [bài 11.5](11.4-client-side-integration.mdx).
+**Một hệ quả thực tế của việc `ConnectionId` đổi:** **nhóm cũng biến mất**. Nhóm gắn với `ConnectionId`, nên sau khi kết nối lại, client **không còn** trong nhóm nào. Phải join lại trong `onreconnected` — đây là lỗi phổ biến nhất khi dùng SignalR, và là bài 1 của [bài 11.4](11.4-client-side-integration.mdx).
 
 </details>
 

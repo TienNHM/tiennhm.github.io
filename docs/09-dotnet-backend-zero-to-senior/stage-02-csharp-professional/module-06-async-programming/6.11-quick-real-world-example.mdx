@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 6.12.1 — Triệu chứng
+### 6.11.1 — Triệu chứng
 
 ```
 Giờ cao điểm, 200 request/giây:
@@ -39,7 +39,7 @@ Giờ cao điểm, 200 request/giây:
 
 Mọi thành phần đều khoẻ, nhưng hệ thống không dùng được. Đây là chữ ký của **đang chờ**, không phải của thiếu tài nguyên tính toán.
 
-### 6.12.2 — Chẩn đoán
+### 6.11.2 — Chẩn đoán
 
 ```bash
 dotnet-counters monitor -p 1 --counters System.Runtime
@@ -52,7 +52,7 @@ ThreadPool Completed Work Items    ~12/s      <- chỉ xong 12 việc mỗi giâ
 CPU Usage (%)                        8
 ```
 
-`ThreadPool Queue Length` cao với CPU thấp là kết luận dứt khoát: **thread pool starvation**. Có 1.847 việc chờ trong khi CPU nhàn rỗi, nghĩa là thread không bận tính toán — chúng đang **bị chiếm** trong lúc chờ thứ gì đó ([bài 19.4](../../stage-05-senior-engineering/module-19-performance-engineering/19.3-dotnet-server-profiling.mdx)).
+`ThreadPool Queue Length` cao với CPU thấp là kết luận dứt khoát: **thread pool starvation**. Có 1.847 việc chờ trong khi CPU nhàn rỗi, nghĩa là thread không bận tính toán — chúng đang **bị chiếm** trong lúc chờ thứ gì đó ([bài 19.3](../../stage-05-senior-engineering/module-19-performance-engineering/19.3-dotnet-server-profiling.mdx)).
 
 Tìm thủ phạm:
 
@@ -67,7 +67,7 @@ src/Crm.Api/Controllers/ReportsController.cs:47:
 
 Một dòng. Trong một endpoint xuất báo cáo được gọi khoảng **20 lần mỗi ngày**.
 
-### 6.12.3 — Cơ chế
+### 6.11.3 — Cơ chế
 
 ```
 Thread pool có N thread (mặc định ~ số core, tăng rất chậm)
@@ -85,7 +85,7 @@ Bước 6 là điều khiến sự cố khó chẩn đoán: **endpoint gây lỗ
 
 **Vì sao thread pool tăng chậm là có chủ đích:** tạo thread tốn kém (mỗi thread khoảng 1 MB stack), và trong trường hợp bình thường việc tăng ồ ạt sẽ hại nhiều hơn lợi. .NET cố ý tăng dần để tránh phản ứng thái quá với đỉnh tải ngắn — nhưng đặc tính đó khiến starvation trở thành vòng xoáy không thoát ra được.
 
-### 6.12.4 — Sửa
+### 6.11.4 — Sửa
 
 ```csharp
 // TRƯỚC
@@ -123,7 +123,7 @@ public async Task<byte[]> GenerateAsync(ReportRequest r, CancellationToken ct)
 }
 ```
 
-### 6.12.5 — Giảm nhẹ tạm thời
+### 6.11.5 — Giảm nhẹ tạm thời
 
 Khi chưa sửa kịp và hệ thống đang cháy:
 
@@ -140,7 +140,7 @@ Nó khiến pool tạo 200 thread **ngay** thay vì tăng dần, nên hệ thố
 
 Dùng để sống sót qua sự cố, rồi sửa đúng ngay sau đó.
 
-### 6.12.6 — Ba lệnh rà dự án
+### 6.11.6 — Ba lệnh rà dự án
 
 **1. Tìm mọi dạng sync-over-async:**
 
@@ -174,7 +174,7 @@ await _service.DoAsync();
 
 `Task.Run` đẩy việc sang một thread pool thread khác. Với code đã async, việc đó chỉ thêm chi phí — code async vốn không cần thread riêng trong lúc chờ I/O.
 
-### 6.12.7 — Ngăn tái diễn
+### 6.11.7 — Ngăn tái diễn
 
 ```xml
 <!-- .editorconfig -->
@@ -191,9 +191,9 @@ Thêm một cảnh báo trên số liệu:
 CẢNH BÁO khi: ThreadPool Queue Length > 100 trong 1 phút
 ```
 
-Nó bắt được vấn đề **trước khi** người dùng phàn nàn — và bắt được cả những nguyên nhân khác cũng gây starvation, không riêng `.Result` ([bài 15.9](../../stage-04-database-production/module-15-docker-deployment/15.8-production-monitoring.mdx)).
+Nó bắt được vấn đề **trước khi** người dùng phàn nàn — và bắt được cả những nguyên nhân khác cũng gây starvation, không riêng `.Result` ([bài 15.8](../../stage-04-database-production/module-15-docker-deployment/15.8-production-monitoring.mdx)).
 
-### 6.12.8 — Rà lại code của bạn
+### 6.11.8 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát thread pool starvation"

@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 18.3.1 — Tách theo subdomain, không theo tầng
+### 18.2.1 — Tách theo subdomain, không theo tầng
 
 ```
 SAI — tach theo tang ky thuat
@@ -70,7 +70,7 @@ public sealed class Customer
 
 Hai lớp cùng tên, khác nội dung, **và đó là đúng** — mỗi service mô hình hoá theo nhu cầu của mình. Cố ép chúng thành một model dùng chung sẽ tạo ra một lớp khổng lồ mà không service nào dùng hết, và mọi thay đổi ở một bên đều ảnh hưởng bên kia.
 
-### 18.3.2 — Database per service
+### 18.2.2 — Database per service
 
 ```mermaid
 flowchart TB
@@ -94,11 +94,11 @@ Dùng chung database gây ra bốn vấn đề, và cái thứ nhất phá hỏn
 | Coupling ngầm | Sales `JOIN` bảng Billing → Billing không dám đổi cột |
 | Tranh chấp tài nguyên | Truy vấn báo cáo nặng của Billing làm chậm Sales |
 
-Kết quả là **distributed monolith** ([bài 18.8](18.7-anti-pattern-distributed-monolith.mdx)): chi phí của microservices, lợi ích của monolith.
+Kết quả là **distributed monolith** ([bài 18.7](18.7-anti-pattern-distributed-monolith.mdx)): chi phí của microservices, lợi ích của monolith.
 
 Nguyên tắc: **một service, một schema, không ai khác đọc trực tiếp**.
 
-### 18.3.3 — Không còn JOIN thì làm sao?
+### 18.2.3 — Không còn JOIN thì làm sao?
 
 Đây là câu hỏi thực tế nhất khi tách, và có ba cách giải, mỗi cách đánh đổi khác nhau.
 
@@ -139,7 +139,7 @@ Giờ Sales truy vấn được "khách nào đang nợ quá hạn" **không c�
 
 Điểm quan trọng: **chỉ nhân bản đúng thứ bạn cần**, không sao chép cả bảng. `HasOverdueInvoice` là một `bool`, không phải toàn bộ danh sách hoá đơn.
 
-**Cách 3 — API composition.** Gateway hoặc BFF gọi nhiều service rồi ghép kết quả ([bài 18.4](18.3-api-gateway-yarp-dotnet.mdx)). Phù hợp cho màn hình tổng hợp, nhưng độ trễ bằng service chậm nhất.
+**Cách 3 — API composition.** Gateway hoặc BFF gọi nhiều service rồi ghép kết quả ([bài 18.3](18.3-api-gateway-yarp-dotnet.mdx)). Phù hợp cho màn hình tổng hợp, nhưng độ trễ bằng service chậm nhất.
 
 | Cách | Khi dùng | Đánh đổi |
 |---|---|---|
@@ -147,7 +147,7 @@ Giờ Sales truy vấn được "khách nào đang nợ quá hạn" **không c�
 | Nhân bản qua event | Dữ liệu ít đổi, chịu trễ được | Phải giữ đồng bộ |
 | API composition | Màn hình tổng hợp | Trễ bằng service chậm nhất |
 
-### 18.3.4 — Strangler Fig: tách dần
+### 18.2.4 — Strangler Fig: tách dần
 
 Viết lại một lần ("big bang rewrite") là cách thất bại đã được ghi nhận nhiều lần. [Strangler Fig](https://martinfowler.com/bliki/StranglerFigApplication.html) là cách an toàn: mọc thứ mới quanh thứ cũ cho tới khi thứ cũ không còn gì.
 
@@ -173,7 +173,7 @@ Ba nguyên tắc để không hỏng giữa chừng:
 - **Một module một lần.** Tách song song ba module là ba nguồn rủi ro cộng dồn.
 - **Xoá code cũ.** Để lại "phòng khi cần" nghĩa là duy trì hai bản của cùng một logic, và chúng sẽ lệch nhau.
 
-### 18.3.5 — Khi tách sai
+### 18.2.5 — Khi tách sai
 
 Dấu hiệu ranh giới sai, theo mức độ nghiêm trọng tăng dần:
 
@@ -186,7 +186,7 @@ Dấu hiệu ranh giới sai, theo mức độ nghiêm trọng tăng dần:
 
 **Gộp lại là quyết định hợp lệ.** Nếu hai service luôn đi cùng nhau, gộp chúng làm hệ thống **đơn giản hơn thật sự**. Đây không phải thừa nhận thất bại — đó là sửa một giả định sai bằng thông tin mới. Chi phí giữ một ranh giới sai cao hơn nhiều so với chi phí gộp lại.
 
-### 18.3.6 — Rà lại code của bạn
+### 18.2.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát khi tách service"
@@ -422,7 +422,7 @@ Ba dịch vụ này thường chiếm 40% nỗ lực của đội mà không đ�
 
 #### Bài 2 — Tìm coupling dữ liệu
 
-Tìm mọi truy vấn `JOIN` giữa bảng của hai module. Với mỗi cái, chọn một trong ba cách ở mục 18.3.3 và giải thích lý do.
+Tìm mọi truy vấn `JOIN` giữa bảng của hai module. Với mỗi cái, chọn một trong ba cách ở mục 18.2.3 và giải thích lý do.
 
 **Tiêu chí hoàn thành:** bạn phân loại được mọi `JOIN` và chọn cách xử lý có lý do, không chọn một cách cho tất cả.
 

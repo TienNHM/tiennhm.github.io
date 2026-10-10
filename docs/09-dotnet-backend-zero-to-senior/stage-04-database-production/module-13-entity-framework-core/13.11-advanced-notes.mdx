@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 13.12.1 — Interceptor: ưu tiên cao
+### 13.11.1 — Interceptor: ưu tiên cao
 
 **Điều kiện kích hoạt:** cần hành vi áp dụng cho mọi thao tác.
 
@@ -90,11 +90,11 @@ public sealed class SlowQueryInterceptor(ILogger<SlowQueryInterceptor> logger)
 }
 ```
 
-Nó bắt được truy vấn chậm **trên production với dữ liệu thật** — nơi vấn đề thực sự xuất hiện ([bài 19.5](../../stage-05-senior-engineering/module-19-performance-engineering/19.4-database-first-bottleneck.mdx)).
+Nó bắt được truy vấn chậm **trên production với dữ liệu thật** — nơi vấn đề thực sự xuất hiện ([bài 19.4](../../stage-05-senior-engineering/module-19-performance-engineering/19.4-database-first-bottleneck.mdx)).
 
-Interceptor cũng là cách cài outbox pattern gọn nhất ([bài 17.4](../../stage-05-senior-engineering/module-17-distributed-systems/17.3-outbox-pattern-applied.mdx)).
+Interceptor cũng là cách cài outbox pattern gọn nhất ([bài 17.3](../../stage-05-senior-engineering/module-17-distributed-systems/17.3-outbox-pattern-applied.mdx)).
 
-### 13.12.2 — Compiled query
+### 13.11.2 — Compiled query
 
 **Điều kiện kích hoạt:** truy vấn giống hệt nhau chạy hàng nghìn lần.
 
@@ -113,7 +113,7 @@ Cải thiện thực tế: khoảng **10–30%** thời gian chuẩn bị truy v
 
 **Hạn chế:** không dùng được cho truy vấn có cấu trúc thay đổi theo điều kiện (lọc động, sắp xếp động) — vì cây biểu thức phải cố định.
 
-### 13.12.3 — Compiled model
+### 13.11.3 — Compiled model
 
 **Điều kiện kích hoạt:** model có hàng trăm entity và cold start quan trọng.
 
@@ -130,7 +130,7 @@ EF Core dựng model từ cấu hình khi khởi tạo `DbContext` lần đầu.
 
 **Cái bẫy:** model đã sinh **không tự cập nhật** khi bạn đổi cấu hình entity. Phải chạy lại lệnh trên, và nếu quên thì ứng dụng dùng model cũ — gây lỗi khó hiểu vì code và model không khớp. Đưa lệnh này vào build script.
 
-### 13.12.4 — Owned entity và complex type
+### 13.11.4 — Owned entity và complex type
 
 **Điều kiện kích hoạt:** value object cần ánh xạ vào nhiều cột.
 
@@ -158,9 +158,9 @@ b.ComplexProperty(l => l.Address, a =>
 
 Khác biệt thực tế quan trọng: với owned entity, EF Core coi nó như một entity có định danh, nên **không** dùng chung một instance cho hai bản ghi được — gán cùng một object `DiaChi` cho hai `Lead` sẽ ném exception. Complex type không có vấn đề đó, vì nó thật sự là một **giá trị**.
 
-Với value object, complex type là lựa chọn đúng ([bài 16.14](../../stage-05-senior-engineering/module-16-clean-architecture/16.13-advanced-notes.mdx)).
+Với value object, complex type là lựa chọn đúng ([bài 16.13](../../stage-05-senior-engineering/module-16-clean-architecture/16.13-advanced-notes.mdx)).
 
-### 13.12.5 — Thư viện bulk: biết nó bỏ qua gì
+### 13.11.5 — Thư viện bulk: biết nó bỏ qua gì
 
 **Điều kiện kích hoạt:** thao tác hàng chục nghìn bản ghi trở lên.
 
@@ -182,13 +182,13 @@ Nhanh hơn `SaveChanges` hàng chục lần vì nó dùng `SqlBulkCopy` thay vì
 | **Global query filter** | **Không lọc theo tenant** |
 | Validation của EF Core | Dữ liệu sai vẫn ghi được |
 
-Ba hàng in đậm là lý do phải cẩn thận. Hàng cuối cùng đặc biệt nguy hiểm trong hệ multi-tenant: bulk update không áp global query filter, nên một điều kiện sai có thể sửa dữ liệu của **mọi** tenant ([bài 13.11](13.10-global-query-filters.mdx)).
+Ba hàng in đậm là lý do phải cẩn thận. Hàng cuối cùng đặc biệt nguy hiểm trong hệ multi-tenant: bulk update không áp global query filter, nên một điều kiện sai có thể sửa dữ liệu của **mọi** tenant ([bài 13.10](13.10-global-query-filters.mdx)).
 
 **Quy tắc:** dùng bulk cho **nhập dữ liệu kỹ thuật** — import ban đầu, đồng bộ từ hệ thống ngoài, dữ liệu tham chiếu. Dùng `SaveChanges` cho **thao tác có ý nghĩa nghiệp vụ**.
 
-`ExecuteUpdate` và `ExecuteDelete` có sẵn trong EF Core cũng bỏ qua những thứ tương tự, nhưng chúng ít nguy hiểm hơn vì **vẫn áp** global query filter ([bài 13.8](13.7-performance.mdx)).
+`ExecuteUpdate` và `ExecuteDelete` có sẵn trong EF Core cũng bỏ qua những thứ tương tự, nhưng chúng ít nguy hiểm hơn vì **vẫn áp** global query filter ([bài 13.7](13.7-performance.mdx)).
 
-### 13.12.6 — Những chủ đề khác
+### 13.11.6 — Những chủ đề khác
 
 | Chủ đề | Nội dung | Ưu tiên |
 |---|---|---|
@@ -211,7 +211,7 @@ public sealed class TenantModelCacheKeyFactory : IModelCacheKeyFactory
 
 Giải pháp đơn giản hơn cho hầu hết trường hợp: viết filter tham chiếu tới **service** chứ không tới **giá trị** — khi đó EF Core đánh giá lại nó mỗi lần truy vấn.
 
-### 13.12.7 — Thứ tự nên học
+### 13.11.7 — Thứ tự nên học
 
 | Ưu tiên | Kỹ thuật | Vì sao |
 |---|---|---|
@@ -224,7 +224,7 @@ Giải pháp đơn giản hơn cho hầu hết trường hợp: viết filter th
 
 Sau Module 13, bước tiếp theo là [Module 14 — Caching và Background Jobs](../module-14-caching-background-jobs/).
 
-### 13.12.8 — Rà lại code của bạn
+### 13.11.8 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát EF Core nâng cao"

@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 9.4.1 — Swashbuckle, NSwag hay `Microsoft.AspNetCore.OpenApi`
+### 9.3.1 — Swashbuckle, NSwag hay `Microsoft.AspNetCore.OpenApi`
 
 | | Swashbuckle | NSwag | `Microsoft.AspNetCore.OpenApi` |
 |---|---|---|---|
@@ -38,7 +38,7 @@ Từ .NET 9, template mặc định dùng `Microsoft.AspNetCore.OpenApi` và **k
 
 Với dự án đang chạy, **Swashbuckle vẫn là lựa chọn an toàn nhất**: hệ sinh thái filter lớn và mọi vấn đề đều đã có người gặp trước.
 
-### 9.4.2 — Cấu hình
+### 9.3.2 — Cấu hình
 
 ```xml
 <PropertyGroup>
@@ -88,7 +88,7 @@ builder.Services.AddSwaggerGen(options =>
 
 `includeControllerXmlComments: true` đưa cả mô tả cấp controller vào — nó trở thành mô tả của nhóm endpoint.
 
-### 9.4.3 — Cho Swagger biết những gì nó không tự đoán được
+### 9.3.3 — Cho Swagger biết những gì nó không tự đoán được
 
 ```csharp
 /// <summary>
@@ -147,7 +147,7 @@ public sealed record CreateCustomerRequest
 
 `<example>` hiện trong "Try it out" — người tích hợp bấm là chạy được ngay, thay vì phải tự đoán dữ liệu hợp lệ.
 
-### 9.4.4 — Nhiều version trong một UI
+### 9.3.4 — Nhiều version trong một UI
 
 ```csharp
 builder.Services.AddApiVersioning(...)
@@ -189,9 +189,9 @@ app.UseSwaggerUI(options =>
 });
 ```
 
-`IConfigureOptions<SwaggerGenOptions>` là cách đúng để cấu hình bằng một service khác — đúng mẫu ở [bài 7.8](../../stage-02-csharp-professional/module-07-dependency-injection/7.7-options-pattern.mdx), thay vì gọi `BuildServiceProvider()`.
+`IConfigureOptions<SwaggerGenOptions>` là cách đúng để cấu hình bằng một service khác — đúng mẫu ở [bài 7.7](../../stage-02-csharp-professional/module-07-dependency-injection/7.7-options-pattern.mdx), thay vì gọi `BuildServiceProvider()`.
 
-### 9.4.5 — Swagger UI ở production
+### 9.3.5 — Swagger UI ở production
 
 ```csharp
 if (app.Environment.IsDevelopment())
@@ -228,7 +228,7 @@ dotnet tool install --global Swashbuckle.AspNetCore.Cli
 swagger tofile --output swagger.json bin/Release/net9.0/CrmApi.dll v1
 ```
 
-### 9.4.6 — Sinh client từ OpenAPI
+### 9.3.6 — Sinh client từ OpenAPI
 
 Giá trị lớn nhất của OpenAPI không phải trang UI mà là **client sinh tự động**:
 
@@ -248,7 +248,7 @@ Thêm vào CI một bước so sánh file OpenAPI với bản trước để ph�
 npx @redocly/cli diff previous-swagger.json swagger.json --severity error
 ```
 
-Đây là cách biến bảng "thay đổi nào là breaking" ở [bài 9.3](9.2-api-versioning.mdx) thành một bước kiểm tra tự động, thay vì trông vào trí nhớ của người review.
+Đây là cách biến bảng "thay đổi nào là breaking" ở [bài 9.2](9.2-api-versioning.mdx) thành một bước kiểm tra tự động, thay vì trông vào trí nhớ của người review.
 
 ```mermaid
 flowchart LR
@@ -264,7 +264,7 @@ flowchart LR
     J --> CI["CI so với bản trước<br/>redocly diff"]
 ```
 
-### 9.4.7 — Rà lại code của bạn
+### 9.3.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát OpenAPI"
@@ -351,7 +351,7 @@ try { customer = await _api.GetByIdAsync(id); }
 catch (ApiException ex) when (ex.StatusCode == 404) { customer = null; }
 ```
 
-Tức là dùng ngoại lệ cho một **luồng hoàn toàn bình thường** — "không tìm thấy" là kết quả thường gặp, không phải sự cố. Ngoài chuyện đọc khó, nó còn tốn kém khi nằm trong vòng lặp, đúng như [bài 4.10](../../stage-02-csharp-professional/module-04-csharp-core/4.9-common-mistakes.mdx) đã đo.
+Tức là dùng ngoại lệ cho một **luồng hoàn toàn bình thường** — "không tìm thấy" là kết quả thường gặp, không phải sự cố. Ngoài chuyện đọc khó, nó còn tốn kém khi nằm trong vòng lặp, đúng như [bài 4.9](../../stage-02-csharp-professional/module-04-csharp-core/4.9-common-mistakes.mdx) đã đo.
 
 **Sau khi khai đúng:**
 
@@ -468,7 +468,7 @@ app.MapSwagger().RequireAuthorization("ApiDocsPolicy");
 app.MapSwagger().RequireHost("*.internal.example.com");
 ```
 
-**Và độc lập với ba cách trên: đừng để schema lộ trường không nên lộ.** Trả DTO riêng thay vì entity, đúng như [bài 8.5](../module-08-aspnet-core-fundamentals/8.4-controllers-and-actions.mdx) trình bày. Ẩn Swagger chỉ giấu tấm bản đồ; nó không sửa được việc endpoint thật vẫn trả `passwordHash` cho bất kỳ ai gọi.
+**Và độc lập với ba cách trên: đừng để schema lộ trường không nên lộ.** Trả DTO riêng thay vì entity, đúng như [bài 8.4](../module-08-aspnet-core-fundamentals/8.4-controllers-and-actions.mdx) trình bày. Ẩn Swagger chỉ giấu tấm bản đồ; nó không sửa được việc endpoint thật vẫn trả `passwordHash` cho bất kỳ ai gọi.
 
 </details>
 
@@ -521,7 +521,7 @@ Lệnh thoát với mã khác 0, nên bước CI đỏ.
 No breaking changes found.
 ```
 
-Xanh — đúng như bảng phân loại ở [bài 9.3](9.2-api-versioning.mdx).
+Xanh — đúng như bảng phân loại ở [bài 9.2](9.2-api-versioning.mdx).
 
 **Bước CI hoàn chỉnh:**
 

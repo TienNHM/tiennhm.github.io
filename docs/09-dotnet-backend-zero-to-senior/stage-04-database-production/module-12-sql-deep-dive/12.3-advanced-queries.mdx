@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 12.4.1 — Bẫy `LEFT JOIN` với `WHERE`
+### 12.3.1 — Bẫy `LEFT JOIN` với `WHERE`
 
 ```sql
 -- MONG MUỐN: mọi lead, kèm tên nhân viên nếu có, nhưng chỉ nhân viên đang làm
@@ -80,7 +80,7 @@ WHERE NOT EXISTS (SELECT 1 FROM Leads l WHERE l.AssignedToUserId = u.UserId);
 
 `NOT IN` với một `NULL` trong danh sách trả về **tập rỗng**, vì `x <> NULL` là `UNKNOWN`. `NOT EXISTS` không có vấn đề này. **Mặc định dùng `NOT EXISTS`.**
 
-### 12.4.2 — CTE không phải bảng tạm
+### 12.3.2 — CTE không phải bảng tạm
 
 ```sql
 WITH MonthlyRevenue AS (
@@ -134,7 +134,7 @@ SELECT * FROM OrgChart OPTION (MAXRECURSION 100);
 
 `MAXRECURSION` là lưới an toàn: dữ liệu có vòng lặp (A quản lý B, B quản lý A) sẽ chạy vô tận nếu không có nó.
 
-### 12.4.3 — Window function
+### 12.3.3 — Window function
 
 Khác biệt cốt lõi với `GROUP BY`: window function **giữ nguyên số dòng**, còn `GROUP BY` gộp chúng lại.
 
@@ -179,7 +179,7 @@ SUM(x) OVER (ORDER BY d RANGE BETWEEN 2 PRECEDING AND CURRENT ROW)
 
 Với `ORDER BY` có giá trị trùng, `RANGE` gộp tất cả dòng trùng vào cùng một khung — kết quả khác hẳn `ROWS`. Mặc định của SQL khi có `ORDER BY` mà không khai khung là **`RANGE UNBOUNDED PRECEDING`**, nên `SUM(...) OVER (ORDER BY d)` có thể không cho tổng luỹ kế như bạn nghĩ. **Khai rõ `ROWS`** khi muốn đếm theo dòng.
 
-### 12.4.4 — Lọc theo kết quả window function
+### 12.3.4 — Lọc theo kết quả window function
 
 ```sql
 -- SAI — không biên dịch được
@@ -212,7 +212,7 @@ WHERE  rn <= 3;
 
 Đây là **mẫu chuẩn cho "top N mỗi nhóm"** và là lý do phổ biến nhất để dùng CTE.
 
-### 12.4.5 — `APPLY` và `LATERAL`
+### 12.3.5 — `APPLY` và `LATERAL`
 
 `APPLY` (SQL Server) và `LATERAL` (PostgreSQL) cho phép subquery **tham chiếu tới cột của bảng bên trái** — điều mà `JOIN` thường không làm được.
 
@@ -255,7 +255,7 @@ Với 100.000 khách hàng, `APPLY` cộng index đúng thường nhanh hơn nhi
 
 Nhưng `APPLY` **không có index phù hợp** thì ngược lại: nó thành một vòng lặp chạy một truy vấn cho mỗi dòng bên trái — đúng bản chất N+1 ([bài viết về N+1](/blog/ef-core-n-plus-1-query)).
 
-### 12.4.6 — Rà lại code của bạn
+### 12.3.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát truy vấn"
