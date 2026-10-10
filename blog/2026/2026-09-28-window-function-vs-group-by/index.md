@@ -6,6 +6,7 @@ keywords: [window function sql, group by vs window function, over partition by, 
 tags: [sql, database, postgresql, backend, fundamentals]
 authors: [tiennhm]
 date: 2026-09-28
+image: ./range-vs-rows-frame.png
 ---
 
 import { SummaryBox, FAQSection } from '@site/src/components/SEO';
@@ -126,6 +127,13 @@ RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
 Và `RANGE` xác định "dòng hiện tại" theo **giá trị của cột `ORDER BY`**, chứ không theo vị trí dòng. Hai dòng cùng ngày `2026-01-01` là **đồng hạng** (peer), nên cả hai đều được coi là "tới hết ngày 01/01" — và cùng nhận 300.
 
 `ROWS` thì đếm theo **vị trí vật lý**: dòng thứ nhất chỉ gồm chính nó, nên ra 100.
+
+Khung cửa sổ của dòng đầu tiên trong hai trường hợp:
+
+![Sơ đồ hai khung cửa sổ trên cùng bảng ba dòng (2026-01-01 100, 2026-01-01 200, 2026-01-02 300). Bên trái, OVER (ORDER BY ngay) dùng RANGE mặc định: khung của dòng 1 gồm cả hai dòng đồng hạng cùng ngày 2026-01-01 nên sum là 300. Bên phải, ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW: khung của dòng 1 chỉ có chính nó nên sum là 100.](./range-vs-rows-frame.png#gh-light-mode-only)
+![Sơ đồ hai khung cửa sổ trên cùng bảng ba dòng (2026-01-01 100, 2026-01-01 200, 2026-01-02 300). Bên trái, OVER (ORDER BY ngay) dùng RANGE mặc định: khung của dòng 1 gồm cả hai dòng đồng hạng cùng ngày 2026-01-01 nên sum là 300. Bên phải, ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW: khung của dòng 1 chỉ có chính nó nên sum là 100.](./range-vs-rows-frame-dark.png#gh-dark-mode-only)
+
+<small>File gốc: [nền sáng](pathname:///files/diagrams/2026-09-28-window-function-vs-group-by/vi/range-vs-rows-frame.html) · [nền tối](pathname:///files/diagrams/2026-09-28-window-function-vs-group-by/vi/range-vs-rows-frame-dark.html)</small>
 
 ### Khi nào chọn cái nào
 

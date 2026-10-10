@@ -6,6 +6,7 @@ keywords: [n+1 query, n plus 1 ef core, ef core n+1, entity framework core perfo
 tags: [dotnet, csharp, database, performance, aspnetcore, ef-core]
 authors: [tiennhm]
 date: 2026-09-21
+image: ./include-vs-split-query.png
 ---
 
 import { SummaryBox, FAQSection } from '@site/src/components/SEO';
@@ -51,6 +52,18 @@ SELECT COUNT(*) FROM [Contacts] AS [c] WHERE [c].[CustomerId] = 2;
 ```
 
 What kills you is that the cost is not the database doing heavy work — it is the number of round trips. Every statement is a round trip: send the command, wait, receive the result. If each round trip costs 1 millisecond, 200 rows already means 200 milliseconds of pure travel; put the database on another network with 5 milliseconds of latency and that becomes a full second, while every database load chart stays green.
+
+```mermaid
+sequenceDiagram
+    participant API
+    participant DB as Database
+    API->>DB: SELECT Customers (1 query)
+    DB-->>API: N rows
+    loop For each customer, N times
+        API->>DB: SELECT COUNT(*) FROM Contacts WHERE CustomerId = @id
+        DB-->>API: 1 number
+    end
+```
 
 ## Three places N+1 likes to hide
 
@@ -179,6 +192,11 @@ Suppose a customer has 10 contacts and 20 leads. When you `Include` both collect
 Multiply by 100 customers and that is 20,000 rows crossing the wire, while the real data is only 100 + 1,000 + 2,000 = 3,100 rows. The query count drops from 201 to 1, but the bytes transferred multiply, and stitching it all back together in memory is not free either.
 
 `AsSplitQuery()` splits exactly there: EF Core issues three separate statements — one for customers, one for contacts, one for leads — and reassembles the relationships client-side. Three round trips instead of one, in exchange for no row being duplicated.
+
+![Including two collections versus AsSplitQuery for one customer with 10 contacts and 20 leads. On the left, Include(Contacts).Include(Leads) becomes a single JOIN that returns a 10 by 20 grid of 200 rows, each repeating every Customer, Contact and Lead column; times 100 customers that is 20,000 rows on the wire. On the right, AsSplitQuery sends three statements returning 1, 10 and 20 rows, and EF Core stitches the relationships on the client by key: 31 rows per customer, 3,100 rows for 100 customers, in exchange for 3 round trips](./include-vs-split-query.png#gh-light-mode-only)
+![Including two collections versus AsSplitQuery for one customer with 10 contacts and 20 leads. On the left, Include(Contacts).Include(Leads) becomes a single JOIN that returns a 10 by 20 grid of 200 rows, each repeating every Customer, Contact and Lead column; times 100 customers that is 20,000 rows on the wire. On the right, AsSplitQuery sends three statements returning 1, 10 and 20 rows, and EF Core stitches the relationships on the client by key: 31 rows per customer, 3,100 rows for 100 customers, in exchange for 3 round trips](./include-vs-split-query-dark.png#gh-dark-mode-only)
+
+<small>Source: [light](pathname:///files/diagrams/2026-09-21-ef-core-n-plus-1-query/en/include-vs-split-query.html) · [dark](pathname:///files/diagrams/2026-09-21-ef-core-n-plus-1-query/en/include-vs-split-query-dark.html)</small>
 
 The price of split queries is worth spelling out:
 

@@ -149,6 +149,13 @@ services.AddScoped<ICustomerRepository>(sp =>
 
 Lớp thật được đăng ký bằng **kiểu cụ thể**, còn interface trỏ tới lớp bọc. `CachedCustomerRepository` cài `ICustomerRepository` và nhận `EfCustomerRepository` làm inner.
 
+```mermaid
+flowchart LR
+    G["Code xin ICustomerRepository"] --> CR["CachedCustomerRepository"]
+    CR -- "inner" --> EF["EfCustomerRepository"]
+    CR --> MC["IMemoryCache"]
+```
+
 Cách này đọc được nhưng dài dòng khi bạn có nhiều lớp cần bọc. Khi đó **Scrutor** cho bạn một dòng:
 
 ```csharp

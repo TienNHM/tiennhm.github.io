@@ -2,7 +2,6 @@
 title: 4.01 | Spoofing an Authentication Cookie
 slug: spoofing-an-authentication-cookie-01
 description: Bài viết này sẽ hướng dẫn cách tấn công Spoofing an Authentication Cookie trên WebGoat 2023.8
-image: https://tiennhm.github.io/img/docs/database.jpg
 sidebar_position: 4
 # sidebar_class_name: hidden
 tags: 

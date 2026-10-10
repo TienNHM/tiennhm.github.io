@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Why .Result freezes WPF and ASP.NET Framework</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Display:ital,wdth,wght@0,62.5..100,400;1,62.5..100,400&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #1b1b1d;
+      --color-ink:    #e3e3e3;
+      --color-muted:  #b4b9c0;
+      --font-sans:    'Geist', system-ui, sans-serif;
+      /* Instrument Serif has no Vietnamese subset; a per-glyph fallback mixes two faces
+         inside one word, so Vietnamese titles swap the whole face instead. */
+      --font-serif:   'Noto Serif Display', serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-stretch: 75%; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 960px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Sequence · .Result on a single-thread context</p>
+    <h1>Why .Result freezes WPF and ASP.NET Framework</h1>
+    <div class="diagram-container">
+<svg viewBox="0 0 960 520" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="result-deadlock-sequence-dark-title result-deadlock-sequence-dark-desc">
+  <title id="result-deadlock-sequence-dark-title">The deadlock sequence behind .Result</title>
+  <desc id="result-deadlock-sequence-dark-desc">await captures the SynchronizationContext, .Result blocks that same thread, the continuation is posted back to the context but needs the blocked thread, so both sides wait forever.</desc>
+<defs>
+  <marker id="result-deadlock-sequence-dark-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#b4b9c0"/></marker>
+  <marker id="result-deadlock-sequence-dark-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#25c19f"/></marker>
+</defs>
+<rect width="100%" height="100%" fill="#1b1b1d"/>
+<line x1="200" y1="88" x2="200" y2="436" stroke="rgba(227,227,227,0.2)" stroke-width="1" stroke-dasharray="3,3"/>
+<line x1="480" y1="88" x2="480" y2="436" stroke="rgba(227,227,227,0.2)" stroke-width="1" stroke-dasharray="3,3"/>
+<line x1="760" y1="88" x2="760" y2="436" stroke="rgba(227,227,227,0.2)" stroke-width="1" stroke-dasharray="3,3"/>
+<rect x="196" y="112" width="8" height="100" fill="rgba(227,227,227,0.06)" stroke="#b4b9c0" stroke-width="0.8"/>
+<rect x="194" y="212" width="12" height="208" fill="rgba(227,227,227,0.16)" stroke="#e3e3e3" stroke-width="1"/>
+<rect x="756" y="248" width="8" height="44" fill="rgba(227,227,227,0.06)" stroke="#b4b9c0" stroke-width="0.8"/>
+<rect x="476" y="300" width="8" height="120" fill="rgba(227,227,227,0.03)" stroke="#b4b9c0" stroke-width="0.8" stroke-dasharray="3,2"/>
+<path d="M204 120 H232 Q240 120 240 128 V136 Q240 144 232 144 H206" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#result-deadlock-sequence-dark-arrow)"/>
+<path d="M204 176 H474" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#result-deadlock-sequence-dark-arrow)"/>
+<path d="M756 300 H486" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#result-deadlock-sequence-dark-arrow)"/>
+<path d="M476 352 H208" stroke="#25c19f" stroke-width="1.4" fill="none" marker-end="url(#result-deadlock-sequence-dark-arrow-accent)"/>
+<path d="M206 396 H474" stroke="#25c19f" stroke-width="1.4" fill="none" stroke-dasharray="5,4" marker-end="url(#result-deadlock-sequence-dark-arrow-accent)"/>
+<rect x="248" y="126" width="152" height="12" rx="2" fill="#1b1b1d"/><text x="253" y="135" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="start" letter-spacing="0.12em">1 · GetCustomerAsync(id)</text>
+<rect x="258.5" y="158" width="163" height="12" rx="2" fill="#1b1b1d"/><text x="340" y="167" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">2 · AWAIT CAPTURES CONTEXT</text>
+<rect x="30" y="222" width="158" height="12" rx="2" fill="#1b1b1d"/><text x="183" y="231" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="end" letter-spacing="0.12em">3 · .Result BLOCKS THREAD</text>
+<rect x="772" y="264" width="63" height="12" rx="2" fill="#1b1b1d"/><text x="777" y="273" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="start" letter-spacing="0.12em">HTTP DONE</text>
+<rect x="553" y="282" width="134" height="12" rx="2" fill="#1b1b1d"/><text x="620" y="291" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">4 · POST CONTINUATION</text>
+<rect x="494" y="316" width="122" height="12" rx="2" fill="#1b1b1d"/><text x="499" y="325" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="start" letter-spacing="0.12em">CONTINUATION QUEUED</text>
+<rect x="273" y="334" width="134" height="12" rx="2" fill="#1b1b1d"/><text x="340" y="343" fill="#25c19f" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">5 · NEEDS THIS THREAD</text>
+<rect x="282" y="378" width="116" height="12" rx="2" fill="#1b1b1d"/><text x="340" y="387" fill="#25c19f" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">WAITS FOR THE TASK</text>
+<rect x="100" y="32" width="200" height="56" rx="6" fill="#1b1b1d"/><rect x="100" y="32" width="200" height="56" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+<text x="200" y="56" fill="#e3e3e3" font-size="12" font-family="'Geist', sans-serif" text-anchor="middle" font-weight="600">UI / request thread</text>
+<text x="200" y="72" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">WPF · ASP.NET Framework</text>
+<rect x="370" y="32" width="220" height="56" rx="6" fill="#1b1b1d"/><rect x="370" y="32" width="220" height="56" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+<text x="480" y="56" fill="#e3e3e3" font-size="12" font-family="'Geist', sans-serif" text-anchor="middle" font-weight="600">SynchronizationContext</text>
+<text x="480" y="72" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">one thread at a time</text>
+<rect x="660" y="32" width="200" height="56" rx="6" fill="#1b1b1d"/><rect x="660" y="32" width="200" height="56" rx="6" fill="rgba(227,227,227,0.03)" stroke="rgba(227,227,227,0.3)" stroke-width="1"/>
+<text x="760" y="56" fill="#e3e3e3" font-size="12" font-family="'Geist', sans-serif" text-anchor="middle" font-weight="600">Thread pool</text>
+<text x="760" y="72" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">where the HTTP call completes</text>
+<text x="480" y="472" fill="#e3e3e3" font-size="15" font-family="'Noto Serif Display', serif" text-anchor="middle" font-style="italic">The thread waits for the Task, the Task for the continuation, the continuation for the thread.</text>
+<text id="tiennhm-copyright" x="936" y="508" text-anchor="end" fill="#b4b9c0" opacity="0.75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.08em">© tiennhm</text>
+</svg>
+    </div>
+  </div>
+</body>
+</html>

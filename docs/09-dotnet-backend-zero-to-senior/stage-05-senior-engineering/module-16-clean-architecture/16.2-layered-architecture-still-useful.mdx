@@ -225,6 +225,24 @@ await _notifications.PublishAsync(...);          // rồi mới gửi
 
 Đúng nguyên tắc ở [bài 11.8](../../stage-03-aspnet-core-backend/module-11-signalr/11.7-ihubcontext-server-push-outside-hub.mdx) và [bài 12.7](../../stage-04-database-production/module-12-sql-deep-dive/12.6-transactions-and-locking.mdx).
 
+Thứ tự trong một lần convert lead, từ API tới tác dụng phụ:
+
+```mermaid
+sequenceDiagram
+    participant API
+    participant H as ConvertLeadHandler
+    participant D as Domain (Lead, Customer)
+    participant DB as Database
+    participant N as Notifications
+    API->>H: ConvertLeadCommand
+    H->>DB: leads.GetByIdAsync
+    H->>D: lead.Convert(now)
+    H->>D: Customer.CreateFromLead(lead)
+    H->>DB: uow.SaveChangesAsync, một transaction
+    Note over H,DB: Application giữ ranh giới transaction
+    H->>N: PublishAsync, sau khi commit
+```
+
 ### 16.3.5 — Hạn chế của mô hình phân tầng
 
 Ba hạn chế thật, và chúng dẫn tới [bài 16.5](16.4-vertical-slice-architecture.mdx):

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Máy trạng thái trình biên dịch sinh ra cho GetOrderAsync</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Display:wdth,wght@62.5..100,400&family=Geist:ital,wght@0,400;0,500;0,600;1,400&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #fafaf7;
+      --color-ink:    #1c1e21;
+      --color-muted:  #525860;
+      --font-sans:    'Geist', system-ui, sans-serif;
+      /* Instrument Serif has no Vietnamese subset; Vietnamese titles swap the whole face instead. */
+      --font-serif:   'Noto Serif Display', serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-stretch: 75%; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 960px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">State machine · async/await</p>
+    <h1>Máy trạng thái trình biên dịch sinh ra cho GetOrderAsync</h1>
+    <div class="diagram-container">
+<svg viewBox="0 0 960 504" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="async-state-machine-title async-state-machine-desc">
+  <title id="async-state-machine-title">Máy trạng thái của GetOrderAsync</title>
+  <desc id="async-state-machine-desc">Phương thức async chạy ở state -1, mỗi await chưa xong chuyển máy sang trạng thái treo 0 hoặc 1 mà không giữ thread nào, khi I/O xong một thread bất kỳ chạy tiếp, và biến cục bộ sống qua await được nâng thành field trên heap.</desc>
+  <defs><marker id="async-state-machine-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#525860"/></marker><marker id="async-state-machine-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#18816a"/></marker></defs>
+  <rect width="100%" height="100%" fill="#fafaf7"/>
+  <g transform="translate(0,-40)">
+    <path d="M206,276 H300" fill="none" stroke="#525860" stroke-width="1.2" marker-end="url(#async-state-machine-arrow)"/>
+    <path d="M316,240 V144" fill="none" stroke="#525860" stroke-width="1.2" marker-end="url(#async-state-machine-arrow)"/>
+    <path d="M344,144 V240" fill="none" stroke="#525860" stroke-width="1.2" marker-end="url(#async-state-machine-arrow)"/>
+    <path d="M536,240 V144" fill="none" stroke="#525860" stroke-width="1.2" marker-end="url(#async-state-machine-arrow)"/>
+    <path d="M564,144 V240" fill="none" stroke="#525860" stroke-width="1.2" marker-end="url(#async-state-machine-arrow)"/>
+    <path d="M580,276 H700" fill="none" stroke="#525860" stroke-width="1.2" marker-end="url(#async-state-machine-arrow)"/>
+    <path d="M440,312 V376" fill="none" stroke="#525860" stroke-width="1.1" stroke-dasharray="5,4" marker-end="url(#async-state-machine-arrow)"/>
+    <rect x="227.5" y="256" width="51" height="12" rx="2" fill="#fafaf7"/><text x="253.0" y="265" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">GỌI HÀM</text>
+    <rect x="257.0" y="186" width="51" height="12" rx="2" fill="#fafaf7"/><text x="282.5" y="195" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">AWAIT 1</text>
+    <rect x="352.0" y="186" width="56" height="12" rx="2" fill="#fafaf7"/><text x="380.0" y="195" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">I/O XONG</text>
+    <rect x="477.0" y="186" width="51" height="12" rx="2" fill="#fafaf7"/><text x="502.5" y="195" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">AWAIT 2</text>
+    <rect x="572.0" y="186" width="56" height="12" rx="2" fill="#fafaf7"/><text x="600.0" y="195" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">I/O XONG</text>
+    <rect x="617.5" y="256" width="45" height="12" rx="2" fill="#fafaf7"/><text x="640.0" y="265" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">RETURN</text>
+    <rect x="448.0" y="338" width="56" height="12" rx="2" fill="#fafaf7"/><text x="476.0" y="347" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">NÂNG LÊN</text>
+    <rect x="160" y="72" width="200" height="72" rx="6" fill="#fafaf7"/><rect x="160" y="72" width="200" height="72" rx="6" fill="rgba(24,129,106,0.08)" stroke="#18816a" stroke-width="1"/><text x="260.0" y="98.0" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Treo ở await 1</text><text x="260.0" y="113.0" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">state = 0 · FindAsync</text><text x="260.0" y="127.0" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">không thread nào chờ</text>
+    <rect x="520" y="72" width="200" height="72" rx="6" fill="#fafaf7"/><rect x="520" y="72" width="200" height="72" rx="6" fill="rgba(24,129,106,0.08)" stroke="#18816a" stroke-width="1"/><text x="620.0" y="98.0" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Treo ở await 2</text><text x="620.0" y="113.0" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">state = 1 · GetAsync</text><text x="620.0" y="127.0" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">không thread nào chờ</text>
+    <rect x="300" y="240" width="280" height="72" rx="6" fill="#fafaf7"/><rect x="300" y="240" width="280" height="72" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/><text x="440.0" y="266.0" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Đang chạy MoveNext()</text><text x="440.0" y="281.0" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">state = -1</text><text x="440.0" y="295.0" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">sau await: có thể thread khác</text>
+    <rect x="700" y="240" width="200" height="72" rx="20" fill="#fafaf7"/><rect x="700" y="240" width="200" height="72" rx="20" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/><text x="800.0" y="273.0" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Task hoàn thành</text><text x="800.0" y="288.0" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">return order / null</text>
+    <rect x="340" y="376" width="200" height="64" rx="6" fill="#fafaf7"/><rect x="340" y="376" width="200" height="64" rx="6" fill="rgba(28,30,33,0.05)" stroke="#525860" stroke-width="1"/><text x="440.0" y="405.0" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Field của máy trạng thái</text><text x="440.0" y="420.0" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">biến sống qua await</text>
+    <circle cx="200" cy="276" r="6" fill="#1c1e21"/>
+    <line x1="40" y1="472" x2="920" y2="472" stroke="rgba(28,30,33,0.10)" stroke-width="0.8"/><text x="40" y="492" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">CHÚ GIẢI</text><rect x="40" y="502" width="28" height="12" rx="2" fill="rgba(24,129,106,0.08)" stroke="#18816a" stroke-width="1"/><text x="76" y="511.5" fill="#525860" font-size="9" font-family="'Geist', sans-serif">Đang treo: thread đã về pool</text><line x1="300" y1="508" x2="328" y2="508" stroke="#525860" stroke-width="1.3" marker-end="url(#async-state-machine-arrow)"/><text x="336" y="511.5" fill="#525860" font-size="9" font-family="'Geist', sans-serif">Chuyển trạng thái</text><rect x="480" y="502" width="28" height="12" rx="2" fill="rgba(28,30,33,0.05)" stroke="#525860" stroke-width="1"/><text x="516" y="511.5" fill="#525860" font-size="9" font-family="'Geist', sans-serif">Nằm trên heap</text><line x1="640" y1="508" x2="668" y2="508" stroke="#525860" stroke-width="1.3" stroke-dasharray="5,4" marker-end="url(#async-state-machine-arrow)"/><text x="676" y="511.5" fill="#525860" font-size="9" font-family="'Geist', sans-serif">Lưu lại qua await</text>
+  </g>
+<text id="tiennhm-copyright" x="936" y="492" text-anchor="end" fill="#525860" opacity="0.75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.08em">© tiennhm</text>
+</svg>
+    </div>
+  </div>
+</body>
+</html>

@@ -280,6 +280,24 @@ builder.Services.AddDbContext<CrmDbContext>((sp, options) =>
 
 Bốn lợi ích: áp cho **mọi** entity cài `IAuditable`; tiêm được dependency như `ICurrentUser`; test được riêng; và `DbContext` giữ nguyên trách nhiệm của nó.
 
+Interceptor chen vào đúng một điểm trong luồng `SaveChangesAsync`:
+
+```mermaid
+sequenceDiagram
+    participant S as Service
+    participant C as CrmDbContext
+    participant I as AuditInterceptor
+    participant DB as Database
+    S->>C: SaveChangesAsync()
+    C->>I: SavingChangesAsync(eventData)
+    I->>I: Duyệt các entry IAuditable trong ChangeTracker
+    Note right of I: Added: đặt CreatedAt, CreatedBy. Added hoặc Modified: đặt UpdatedAt, UpdatedBy
+    I-->>C: base.SavingChangesAsync(...)
+    C->>DB: INSERT, UPDATE trong một transaction
+    DB-->>C: Số dòng bị ảnh hưởng
+    C-->>S: Kết quả
+```
+
 Chú ý `AddDbContext` với overload nhận `IServiceProvider` — đó là cách lấy service scoped vào cấu hình context mà không gọi `BuildServiceProvider()` ([bài 7.7](../../stage-02-csharp-professional/module-07-dependency-injection/7.6-program-cs-and-webapplicationbuilder.mdx)).
 
 EF Core còn có các interceptor khác đáng biết: `DbCommandInterceptor` để log hoặc sửa SQL, `DbConnectionInterceptor` để chuyển connection theo tenant.

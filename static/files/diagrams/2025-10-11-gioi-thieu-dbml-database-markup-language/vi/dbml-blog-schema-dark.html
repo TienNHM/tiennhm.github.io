@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lược đồ blog mà đoạn DBML mô tả</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Display:wdth,wght@62.5..100,400&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #1b1b1d;
+      --color-ink:    #e3e3e3;
+      --color-muted:  #b4b9c0;
+      --font-sans:    'Geist', system-ui, sans-serif;
+      /* Instrument Serif has no Vietnamese subset; a per-glyph fallback mixes two faces
+         inside one word, so Vietnamese titles swap the whole face instead. */
+      --font-serif:   'Noto Serif Display', serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-stretch: 75%; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 960px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">ER · DBML blog system</p>
+    <h1>Lược đồ blog mà đoạn DBML mô tả</h1>
+    <div class="diagram-container">
+<svg viewBox="0 0 960 504" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="dbml-blog-schema-dark-title dbml-blog-schema-dark-desc">
+  <title id="dbml-blog-schema-dark-title">Sơ đồ quan hệ của schema blog viết bằng DBML</title>
+  <desc id="dbml-blog-schema-dark-desc">Sáu bảng của hệ thống blog: posts là trung tâm, nhiều posts thuộc một users (author_id) và một categories; comments trỏ tới posts, users và chính comments (parent_id); post_tags nối posts với tags thành quan hệ nhiều-nhiều; categories tự trỏ tới chính nó qua parent_id.</desc>
+  <defs>
+    <marker id="dbml-blog-schema-dark-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#b4b9c0"/></marker>
+    <marker id="dbml-blog-schema-dark-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#25c19f"/></marker>
+  </defs>
+  <rect width="100%" height="100%" fill="#1b1b1d"/>
+  <g transform="translate(0,-40)">
+  <!-- Relationship lines first, behind tables -->
+  <line x1="372" y1="152" x2="236" y2="152" stroke="#b4b9c0" stroke-width="1.2" fill="none"/>
+  <line x1="572" y1="152" x2="708" y2="152" stroke="#b4b9c0" stroke-width="1.2" fill="none"/>
+  <path d="M888 112 H900 Q908 112 908 120 V148 Q908 156 900 156 H888" stroke="#b4b9c0" stroke-width="1.2" fill="none"/>
+  <line x1="472" y1="320" x2="472" y2="224" stroke="#b4b9c0" stroke-width="1.2" fill="none"/>
+  <line x1="572" y1="360" x2="708" y2="360" stroke="#b4b9c0" stroke-width="1.2" fill="none"/>
+  <path d="M196 320 V280 Q196 272 204 272 H412 Q420 272 420 264 V224" stroke="#b4b9c0" stroke-width="1.2" fill="none"/>
+  <line x1="116" y1="320" x2="116" y2="192" stroke="#b4b9c0" stroke-width="1.2" fill="none"/>
+  <path d="M56 360 H48 Q40 360 40 368 V396 Q40 404 48 404 H56" stroke="#b4b9c0" stroke-width="1.2" fill="none"/>
+  <!-- Cardinality: N on the FK side, 1 on the referenced side -->
+  <rect x="351" y="135" width="14" height="12" rx="2" fill="#1b1b1d"/><text x="358" y="144" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">N</text>
+  <rect x="243" y="135" width="14" height="12" rx="2" fill="#1b1b1d"/><text x="250" y="144" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">1</text>
+  <rect x="579" y="135" width="14" height="12" rx="2" fill="#1b1b1d"/><text x="586" y="144" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">N</text>
+  <rect x="687" y="135" width="14" height="12" rx="2" fill="#1b1b1d"/><text x="694" y="144" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">1</text>
+  <rect x="918" y="115" width="14" height="12" rx="2" fill="#1b1b1d"/><text x="918" y="124" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="start">N</text>
+  <rect x="918" y="143" width="14" height="12" rx="2" fill="#1b1b1d"/><text x="918" y="152" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="start">1</text>
+  <rect x="477" y="303" width="14" height="12" rx="2" fill="#1b1b1d"/><text x="484" y="312" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">N</text>
+  <rect x="477" y="231" width="14" height="12" rx="2" fill="#1b1b1d"/><text x="484" y="240" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">1</text>
+  <rect x="579" y="343" width="14" height="12" rx="2" fill="#1b1b1d"/><text x="586" y="352" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">N</text>
+  <rect x="687" y="343" width="14" height="12" rx="2" fill="#1b1b1d"/><text x="694" y="352" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">1</text>
+  <rect x="201" y="303" width="14" height="12" rx="2" fill="#1b1b1d"/><text x="208" y="312" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">N</text>
+  <rect x="425" y="231" width="14" height="12" rx="2" fill="#1b1b1d"/><text x="432" y="240" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">1</text>
+  <rect x="121" y="303" width="14" height="12" rx="2" fill="#1b1b1d"/><text x="128" y="312" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">N</text>
+  <rect x="121" y="195" width="14" height="12" rx="2" fill="#1b1b1d"/><text x="128" y="204" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">1</text>
+  <rect x="16" y="367" width="14" height="12" rx="2" fill="#1b1b1d"/><text x="30" y="376" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">N</text>
+  <rect x="16" y="391" width="14" height="12" rx="2" fill="#1b1b1d"/><text x="30" y="400" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">1</text>
+  <!-- users -->
+  <rect x="56" y="80" width="180" height="112" rx="6" fill="#1b1b1d"/>
+  <rect x="56" y="80" width="180" height="112" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <line x1="56" y1="112" x2="236" y2="112" stroke="#e3e3e3" stroke-opacity="0.35" stroke-width="1"/>
+  <text x="68" y="101" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif">users</text>
+  <text x="224" y="100" fill="#b4b9c0" font-size="7" font-family="'Geist Mono', monospace" text-anchor="end" letter-spacing="0.14em">TABLE</text>
+  <text x="68" y="128" fill="#e3e3e3" font-size="9" font-family="'Geist Mono', monospace"><tspan fill="#b4b9c0">#</tspan> id</text>
+  <text x="224" y="128" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">integer</text>
+  <text x="68" y="144" fill="#e3e3e3" font-size="9" font-family="'Geist Mono', monospace"><tspan fill="#b4b9c0"></tspan> username</text>
+  <text x="224" y="144" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">varchar(50)</text>
+  <text x="68" y="160" fill="#e3e3e3" font-size="9" font-family="'Geist Mono', monospace"><tspan fill="#b4b9c0"></tspan> email</text>
+  <text x="224" y="160" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">varchar(100)</text>
+  <text x="68" y="176" fill="#e3e3e3" font-size="9" font-family="'Geist Mono', monospace"><tspan fill="#b4b9c0"></tspan> role</text>
+  <text x="224" y="176" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">user_role</text>
+  <!-- posts -->
+  <rect x="372" y="80" width="200" height="144" rx="6" fill="#1b1b1d"/>
+  <rect x="372" y="80" width="200" height="144" rx="6" fill="rgba(37,193,159,0.10)" stroke="#25c19f" stroke-width="1.2"/>
+  <line x1="372" y1="112" x2="572" y2="112" stroke="#25c19f" stroke-opacity="0.35" stroke-width="1"/>
+  <text x="384" y="101" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif">posts</text>
+  <text x="560" y="100" fill="#b4b9c0" font-size="7" font-family="'Geist Mono', monospace" text-anchor="end" letter-spacing="0.14em">TABLE</text>
+  <text x="384" y="128" fill="#e3e3e3" font-size="9" font-family="'Geist Mono', monospace"><tspan fill="#b4b9c0">#</tspan> id</text>
+  <text x="560" y="128" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">integer</text>
+  <text x="384" y="144" fill="#e3e3e3" font-size="9" font-family="'Geist Mono', monospace"><tspan fill="#b4b9c0"></tspan> title</text>
+  <text x="560" y="144" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">varchar(255)</text>
+  <text x="384" y="160" fill="#e3e3e3" font-size="9" font-family="'Geist Mono', monospace"><tspan fill="#b4b9c0"></tspan> slug</text>
+  <text x="560" y="160" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">varchar(255)</text>
+  <text x="384" y="176" fill="#e3e3e3" font-size="9" font-family="'Geist Mono', monospace"><tspan fill="#b4b9c0"></tspan> status</text>
+  <text x="560" y="176" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">post_status</text>
+  <text x="384" y="192" fill="#e3e3e3" font-size="9" font-family="'Geist Mono', monospace"><tspan fill="#b4b9c0">→</tspan> author_id</text>
+  <text x="560" y="192" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">integer</text>
+  <text x="384" y="208" fill="#e3e3e3" font-size="9" font-family="'Geist Mono', monospace"><tspan fill="#b4b9c0">→</tspan> category_id</text>
+  <text x="560" y="208" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">integer</text>
+  <!-- categories -->
+  <rect x="708" y="80" width="180" height="96" rx="6" fill="#1b1b1d"/>
+  <rect x="708" y="80" width="180" height="96" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <line x1="708" y1="112" x2="888" y2="112" stroke="#e3e3e3" stroke-opacity="0.35" stroke-width="1"/>
+  <text x="720" y="101" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif">categories</text>
+  <text x="876" y="100" fill="#b4b9c0" font-size="7" font-family="'Geist Mono', monospace" text-anchor="end" letter-spacing="0.14em">TABLE</text>
+  <text x="720" y="128" fill="#e3e3e3" font-size="9" font-family="'Geist Mono', monospace"><tspan fill="#b4b9c0">#</tspan> id</text>
+  <text x="876" y="128" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">integer</text>
+  <text x="720" y="144" fill="#e3e3e3" font-size="9" font-family="'Geist Mono', monospace"><tspan fill="#b4b9c0"></tspan> name</text>
+  <text x="876" y="144" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">varchar(100)</text>
+  <text x="720" y="160" fill="#e3e3e3" font-size="9" font-family="'Geist Mono', monospace"><tspan fill="#b4b9c0">→</tspan> parent_id</text>
+  <text x="876" y="160" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">integer</text>
+  <!-- comments -->
+  <rect x="56" y="320" width="180" height="112" rx="6" fill="#1b1b1d"/>
+  <rect x="56" y="320" width="180" height="112" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <line x1="56" y1="352" x2="236" y2="352" stroke="#e3e3e3" stroke-opacity="0.35" stroke-width="1"/>
+  <text x="68" y="341" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif">comments</text>
+  <text x="224" y="340" fill="#b4b9c0" font-size="7" font-family="'Geist Mono', monospace" text-anchor="end" letter-spacing="0.14em">TABLE</text>
+  <text x="68" y="368" fill="#e3e3e3" font-size="9" font-family="'Geist Mono', monospace"><tspan fill="#b4b9c0">#</tspan> id</text>
+  <text x="224" y="368" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">integer</text>
+  <text x="68" y="384" fill="#e3e3e3" font-size="9" font-family="'Geist Mono', monospace"><tspan fill="#b4b9c0">→</tspan> post_id</text>
+  <text x="224" y="384" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">integer</text>
+  <text x="68" y="400" fill="#e3e3e3" font-size="9" font-family="'Geist Mono', monospace"><tspan fill="#b4b9c0">→</tspan> user_id</text>
+  <text x="224" y="400" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">integer</text>
+  <text x="68" y="416" fill="#e3e3e3" font-size="9" font-family="'Geist Mono', monospace"><tspan fill="#b4b9c0">→</tspan> parent_id</text>
+  <text x="224" y="416" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">integer</text>
+  <!-- post_tags -->
+  <rect x="372" y="320" width="200" height="80" rx="6" fill="#1b1b1d"/>
+  <rect x="372" y="320" width="200" height="80" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <line x1="372" y1="352" x2="572" y2="352" stroke="#e3e3e3" stroke-opacity="0.35" stroke-width="1"/>
+  <text x="384" y="341" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif">post_tags</text>
+  <text x="560" y="340" fill="#b4b9c0" font-size="7" font-family="'Geist Mono', monospace" text-anchor="end" letter-spacing="0.14em">TABLE</text>
+  <text x="384" y="368" fill="#e3e3e3" font-size="9" font-family="'Geist Mono', monospace"><tspan fill="#b4b9c0">#→</tspan> post_id</text>
+  <text x="560" y="368" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">integer</text>
+  <text x="384" y="384" fill="#e3e3e3" font-size="9" font-family="'Geist Mono', monospace"><tspan fill="#b4b9c0">#→</tspan> tag_id</text>
+  <text x="560" y="384" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">integer</text>
+  <!-- tags -->
+  <rect x="708" y="320" width="180" height="80" rx="6" fill="#1b1b1d"/>
+  <rect x="708" y="320" width="180" height="80" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <line x1="708" y1="352" x2="888" y2="352" stroke="#e3e3e3" stroke-opacity="0.35" stroke-width="1"/>
+  <text x="720" y="341" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif">tags</text>
+  <text x="876" y="340" fill="#b4b9c0" font-size="7" font-family="'Geist Mono', monospace" text-anchor="end" letter-spacing="0.14em">TABLE</text>
+  <text x="720" y="368" fill="#e3e3e3" font-size="9" font-family="'Geist Mono', monospace"><tspan fill="#b4b9c0">#</tspan> id</text>
+  <text x="876" y="368" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">integer</text>
+  <text x="720" y="384" fill="#e3e3e3" font-size="9" font-family="'Geist Mono', monospace"><tspan fill="#b4b9c0"></tspan> name</text>
+  <text x="876" y="384" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">varchar(50)</text>
+
+  <!-- Legend -->
+  <line x1="40" y1="460" x2="920" y2="460" stroke="rgba(227,227,227,0.10)" stroke-width="0.8"/>
+  <text x="40" y="480" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">CHÚ GIẢI</text>
+  <text x="40" y="502" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace">#</text>
+  <text x="54" y="502" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif">Khoá chính</text>
+  <text x="160" y="502" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace">→</text>
+  <text x="174" y="502" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif">Khoá ngoại</text>
+  <text x="280" y="502" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace">N — 1</text>
+  <text x="318" y="502" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif">Quan hệ nhiều-một, viết trong DBML là Ref: posts.author_id &gt; users.id</text>
+
+  </g>
+<text id="tiennhm-copyright" x="936" y="492" text-anchor="end" fill="#b4b9c0" opacity="0.75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.08em">© tiennhm</text>
+</svg>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dependency inversion: dữ liệu ra ngoài, phụ thuộc vào trong</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Display:wdth,wght@62.5..100,400&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #1b1b1d;
+      --color-ink:    #e3e3e3;
+      --color-muted:  #b4b9c0;
+      --font-sans:    'Geist', system-ui, sans-serif;
+      /* Instrument Serif has no Vietnamese subset; a per-glyph fallback mixes two faces
+         inside one word, so Vietnamese titles swap the whole face instead. */
+      --font-serif:   'Noto Serif Display', serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-stretch: 75%; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 960px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Architecture · Clean Architecture</p>
+    <h1>Dependency inversion: dữ liệu ra ngoài, phụ thuộc vào trong</h1>
+    <div class="diagram-container">
+<svg viewBox="0 0 960 554" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="dep-inv-dark-title dep-inv-dark-desc">
+  <title id="dep-inv-dark-title">Dependency inversion giữa Application và Infrastructure</title>
+  <desc id="dep-inv-dark-desc">CreateLeadHandler gọi interface ILeadRepository do Application định nghĩa; EfLeadRepository ở Infrastructure cài đặt interface đó và truy vấn SQL Server; Program.cs là composition root duy nhất nối interface với implementation; dữ liệu chảy ra ngoài còn phụ thuộc chỉ hướng vào trong.</desc>
+  <defs>
+    <marker id="dep-inv-dark-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#b4b9c0"/></marker>
+    <marker id="dep-inv-dark-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#25c19f"/></marker>
+  </defs>
+  <rect width="100%" height="100%" fill="#1b1b1d"/>
+
+  <!-- Zones -->
+  <rect x="40" y="40" width="480" height="288" rx="8" fill="rgba(227,227,227,0.02)" stroke="rgba(227,227,227,0.10)" stroke-width="0.8"/>
+  <rect x="52" y="44" width="180" height="12" rx="2" fill="#1b1b1d"/>
+  <text x="56" y="53" fill="#b4b9c0" font-size="7" font-family="'Geist Mono', monospace" letter-spacing="0.14em">VÒNG TRONG · DOMAIN + APPLICATION</text>
+  <rect x="560" y="40" width="360" height="288" rx="8" fill="rgba(227,227,227,0.02)" stroke="rgba(227,227,227,0.10)" stroke-width="0.8"/>
+  <rect x="572" y="44" width="180" height="12" rx="2" fill="#1b1b1d"/>
+  <text x="576" y="53" fill="#b4b9c0" font-size="7" font-family="'Geist Mono', monospace" letter-spacing="0.14em">VÒNG NGOÀI · API + INFRASTRUCTURE</text>
+
+  <!-- Arrows first -->
+  <line x1="280" y1="140" x2="224" y2="140" stroke="#b4b9c0" stroke-width="1.2" marker-end="url(#dep-inv-dark-arrow)"/>
+  <line x1="340" y1="168" x2="340" y2="240" stroke="#b4b9c0" stroke-width="1.2" marker-end="url(#dep-inv-dark-arrow)"/>
+  <line x1="584" y1="268" x2="480" y2="268" stroke="#25c19f" stroke-width="1.4" marker-end="url(#dep-inv-dark-arrow-accent)"/>
+  <line x1="704" y1="168" x2="704" y2="240" stroke="#b4b9c0" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#dep-inv-dark-arrow)"/>
+  <path d="M616 168 V196 Q616 204 608 204 H448 Q440 204 440 212 V240" stroke="#b4b9c0" stroke-width="1.2" fill="none" stroke-dasharray="5,4" marker-end="url(#dep-inv-dark-arrow)"/>
+  <line x1="764" y1="268" x2="808" y2="268" stroke="#b4b9c0" stroke-width="1.2" marker-end="url(#dep-inv-dark-arrow)"/>
+
+  <!-- Arrow labels -->
+  <rect x="234" y="120" width="36" height="12" rx="2" fill="#1b1b1d"/><text x="252" y="129" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">DÙNG</text>
+  <rect x="300" y="198" width="32" height="12" rx="2" fill="#1b1b1d"/><text x="316" y="207" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">GỌI</text>
+  <rect x="502" y="248" width="60" height="12" rx="2" fill="#1b1b1d"/><text x="532" y="257" fill="#25c19f" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">CÀI ĐẶT</text>
+  <rect x="490" y="184" width="76" height="12" rx="2" fill="#1b1b1d"/><text x="528" y="193" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">NỐI DÂY DI</text>
+
+  <!-- Domain -->
+  <rect x="64" y="112" width="160" height="56" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="144" y="137" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Lead, Money</text>
+  <text x="144" y="153" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">Crm.Domain</text>
+
+  <!-- Handler -->
+  <rect x="280" y="112" width="200" height="56" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="380" y="137" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">CreateLeadHandler</text>
+  <text x="380" y="153" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">Crm.Application</text>
+
+  <!-- Port (focal) -->
+  <rect x="280" y="240" width="200" height="56" rx="6" fill="#1b1b1d"/>
+  <rect x="280" y="240" width="200" height="56" rx="6" fill="rgba(37,193,159,0.10)" stroke="#25c19f" stroke-width="1"/>
+  <text x="380" y="265" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">ILeadRepository</text>
+  <text x="380" y="281" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">port · interface</text>
+
+  <!-- Composition root -->
+  <rect x="584" y="112" width="320" height="56" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="744" y="137" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Program.cs</text>
+  <text x="744" y="153" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">Crm.Api · composition root</text>
+
+  <!-- Adapter -->
+  <rect x="584" y="240" width="180" height="56" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="674" y="265" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">EfLeadRepository</text>
+  <text x="674" y="281" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">adapter · EF Core</text>
+
+  <!-- Database -->
+  <rect x="808" y="240" width="96" height="56" rx="6" fill="#1b1b1d"/>
+  <rect x="808" y="240" width="96" height="56" rx="6" fill="rgba(227,227,227,0.05)" stroke="#b4b9c0" stroke-width="1"/>
+  <text x="856" y="265" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">SQL Server</text>
+  <text x="856" y="281" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">database</text>
+
+  <!-- Two directions -->
+  <text x="40" y="380" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif">Dòng chảy dữ liệu</text>
+  <text x="320" y="380" fill="#b4b9c0" font-size="11" font-family="'Geist Mono', monospace" text-anchor="end">Application</text>
+  <line x1="336" y1="376" x2="704" y2="376" stroke="#b4b9c0" stroke-width="1.2" marker-end="url(#dep-inv-dark-arrow)"/>
+  <text x="720" y="380" fill="#b4b9c0" font-size="11" font-family="'Geist Mono', monospace">Database</text>
+  <text x="40" y="420" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif">Dòng chảy phụ thuộc</text>
+  <text x="320" y="420" fill="#b4b9c0" font-size="11" font-family="'Geist Mono', monospace" text-anchor="end">Application</text>
+  <line x1="704" y1="416" x2="336" y2="416" stroke="#25c19f" stroke-width="1.4" marker-end="url(#dep-inv-dark-arrow-accent)"/>
+  <text x="720" y="420" fill="#b4b9c0" font-size="11" font-family="'Geist Mono', monospace">Infrastructure</text>
+
+  <!-- Legend -->
+  <line x1="40" y1="456" x2="920" y2="456" stroke="rgba(227,227,227,0.10)" stroke-width="0.8"/>
+  <text x="40" y="476" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">CHÚ GIẢI</text>
+  <line x1="40" y1="498" x2="68" y2="498" stroke="#25c19f" stroke-width="1.4" marker-end="url(#dep-inv-dark-arrow-accent)"/>
+  <text x="76" y="501" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif">Phụ thuộc hướng vào trong</text>
+  <line x1="260" y1="498" x2="288" y2="498" stroke="#b4b9c0" stroke-width="1.2" marker-end="url(#dep-inv-dark-arrow)"/>
+  <text x="296" y="501" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif">Gọi / dùng</text>
+  <line x1="420" y1="498" x2="448" y2="498" stroke="#b4b9c0" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#dep-inv-dark-arrow)"/>
+  <text x="456" y="501" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif">Composition root đăng ký DI</text>
+  <rect x="660" y="492" width="24" height="12" rx="2" fill="rgba(37,193,159,0.10)" stroke="#25c19f" stroke-width="1"/>
+  <text x="692" y="501" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif">Port do vòng trong định nghĩa</text>
+<text id="tiennhm-copyright" x="936" y="542" text-anchor="end" fill="#b4b9c0" opacity="0.75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.08em">© tiennhm</text>
+</svg>
+    </div>
+  </div>
+</body>
+</html>

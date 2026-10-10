@@ -2,6 +2,7 @@
 title: "7.7 - Options Pattern"
 description: "Bind cấu hình vào POCO type-safe: IOptions, IOptionsSnapshot, IOptionsMonitor khác nhau ra sao, ValidateOnStart, named options và secret."
 sidebar_position: 7
+image: ./img/options-pattern-flow.png
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
@@ -74,6 +75,11 @@ services.AddOptions<EmailSettings>()
 `ValidateOnStart()` chạy validation **lúc khởi động** chứ không phải lúc `IOptions<T>` được resolve lần đầu. Không có nó, ứng dụng khởi động bình thường với `Host` rỗng, và bạn phát hiện ra lúc có người bấm nút gửi email — thường là trên production.
 
 `const string SectionName` nằm trong chính lớp đó để tên section và lớp không bao giờ lệch nhau.
+
+![Sơ đồ Options pattern: appsettings.json (nằm trong Git), user-secrets (development) và biến môi trường như EmailSettings__Password cùng bind vào lớp EmailSettings có Required, Range và ValidateDataAnnotations; ValidateOnStart kiểm tra lúc khởi động, cấu hình thiếu hoặc sai thì ứng dụng không chạy; service đọc cấu hình qua IOptions (Singleton, không đọc lại), IOptionsSnapshot (Scoped, mỗi request) hoặc IOptionsMonitor (Singleton, CurrentValue)](./img/options-pattern-flow.png#gh-light-mode-only)
+![Sơ đồ Options pattern: appsettings.json (nằm trong Git), user-secrets (development) và biến môi trường như EmailSettings__Password cùng bind vào lớp EmailSettings có Required, Range và ValidateDataAnnotations; ValidateOnStart kiểm tra lúc khởi động, cấu hình thiếu hoặc sai thì ứng dụng không chạy; service đọc cấu hình qua IOptions (Singleton, không đọc lại), IOptionsSnapshot (Scoped, mỗi request) hoặc IOptionsMonitor (Singleton, CurrentValue)](./img/options-pattern-flow-dark.png#gh-dark-mode-only)
+
+<small>File gốc: [nền sáng](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-02-csharp-professional-module-07-dependency-injection-7.7-options-pattern/vi/options-pattern-flow.html) · [nền tối](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-02-csharp-professional-module-07-dependency-injection-7.7-options-pattern/vi/options-pattern-flow-dark.html)</small>
 
 ### 7.8.3 — Ba interface
 

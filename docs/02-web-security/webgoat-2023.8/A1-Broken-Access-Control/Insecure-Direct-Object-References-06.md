@@ -2,7 +2,7 @@
 title: 2.06 | Insecure Direct Object References
 slug: insecure-direct-object-references-06
 description: "Câu hỏi quan trọng: Bạn đã tài liệu hóa các quy tắc kiểm soát truy cập chưa?"
-image: https://tiennhm.github.io/img/docs/database.jpg
+image: ./img/idor-kiem-tra-quyen.png
 sidebar_position: 2
 # sidebar_class_name: hidden
 tags: 
@@ -37,6 +37,17 @@ draft: false # set to true to hide this post from the site
 - VD: **Người dùng thông thường không thể truy cập vào trang admin**  
 
 📌 **Cả hai loại kiểm soát này cần được thực thi!**  
+
+Một yêu cầu an toàn phải qua cả hai lớp kiểm soát: dọc (đúng cấp quyền) và ngang (đúng chủ sở hữu).
+
+```mermaid
+flowchart TD
+    R["Yêu cầu truy cập tài nguyên"] --> V{"Kiểm soát dọc VAC: đúng cấp quyền?"}
+    V -->|"Không, user thường gọi trang admin"| D1["Từ chối - 403"]
+    V -->|"Có"| H{"Kiểm soát ngang HAC: đúng chủ sở hữu?"}
+    H -->|"Không, xem dữ liệu người khác"| D2["Từ chối - 403"]
+    H -->|"Có"| OK["Cho phép truy cập"]
+```
 
 
 ## **3️⃣ Ví dụ về Ma trận Kiểm soát Truy cập**  

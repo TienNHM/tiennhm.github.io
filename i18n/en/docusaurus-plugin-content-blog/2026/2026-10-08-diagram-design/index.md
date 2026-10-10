@@ -6,6 +6,7 @@ keywords: [diagram design, diagram-design skill, cathryn lavery, ai diagrams, ai
 tags: [ai, ai-tools, tools]
 authors: [tiennhm]
 date: 2026-10-08
+image: ./diagram-design-flow-blog.png
 ---
 
 import { SummaryBox, FAQSection } from '@site/src/components/SEO';

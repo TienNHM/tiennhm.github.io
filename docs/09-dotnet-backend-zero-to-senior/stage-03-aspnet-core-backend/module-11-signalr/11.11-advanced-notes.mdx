@@ -177,6 +177,21 @@ Kết nối WebSocket giữ ở dịch vụ, không ở server ứng dụng. Ba 
 - **Triển khai không làm đứt kết nối**, vì client nối vào dịch vụ chứ không nối vào pod.
 - **Không cần backplane**, dịch vụ tự lo việc phân phối.
 
+```mermaid
+flowchart LR
+    subgraph SH["Tự host, Redis backplane"]
+        C1["Client"] -->|"WebSocket"| P1["Pod A"]
+        C2["Client"] -->|"WebSocket"| P2["Pod B"]
+        P1 <--> R[("Redis")]
+        P2 <--> R
+    end
+    subgraph AZ["Azure SignalR Service"]
+        C3["Client"] -->|"WebSocket"| AS["Azure SignalR Service<br/>giữ kết nối"]
+        P3["Pod A"] --> AS
+        P4["Pod B"] --> AS
+    end
+```
+
 Chi phí tính theo số kết nối và số tin nhắn, nên cần tính trước với quy mô dự kiến ([bài 11.11](11.10-scale-out-and-production.mdx)).
 
 ### 11.12.6 — Những chủ đề khác

@@ -76,6 +76,15 @@ public async Task<CustomerDto?> GetAsync(int id, CancellationToken ct)
 
 Ứng dụng quản lý cache; cache không biết gì về database. Đơn giản và chịu lỗi tốt: cache chết thì hệ thống vẫn chạy, chỉ chậm hơn.
 
+```mermaid
+flowchart LR
+    A["GetAsync(42)"] --> B{"customer:42<br/>có trong cache?"}
+    B -- "HIT" --> C["Trả giá trị cache"]
+    B -- "MISS" --> D[("Database")]
+    D --> E["Set cache<br/>TTL 5 phút"]
+    E --> F["Trả giá trị"]
+```
+
 Ba mẫu khác, và vì sao chúng hiếm dùng trong .NET:
 
 | Mẫu | Cách hoạt động | Thực tế |

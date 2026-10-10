@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Validation đầu vào chạy trước action, quy tắc nghiệp vụ chạy trong service</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Display:ital,wdth,wght@0,62.5..100,400;1,62.5..100,400&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #1b1b1d;
+      --color-ink:    #e3e3e3;
+      --color-muted:  #b4b9c0;
+      --font-sans:    'Geist', system-ui, sans-serif;
+      /* Instrument Serif has no Vietnamese subset; a per-glyph fallback mixes two faces
+         inside one word, so Vietnamese titles swap the whole face instead. */
+      --font-serif:   'Noto Serif Display', serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-stretch: 75%; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 960px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Flowchart · Model Validation</p>
+    <h1>Validation đầu vào chạy trước action, quy tắc nghiệp vụ chạy trong service</h1>
+    <div class="diagram-container">
+<svg viewBox="0 0 960 644" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="validation-boundary-dark-title validation-boundary-dark-desc">
+  <title id="validation-boundary-dark-title">Ranh giới validation đầu vào và nghiệp vụ</title>
+  <desc id="validation-boundary-dark-desc">Request qua model binding và validation; ModelState không hợp lệ thì [ApiController] trả 400 trước khi action chạy, còn quy tắc cần truy vấn database nằm trong service và trả 409 hoặc 422.</desc>
+  <defs><marker id="validation-boundary-dark-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#b4b9c0"/></marker><marker id="validation-boundary-dark-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#25c19f"/></marker></defs>
+  <rect width="100%" height="100%" fill="#1b1b1d"/>
+  <!-- zones -->
+  <rect x="24" y="40" width="920" height="136" rx="8" fill="rgba(227,227,227,0.02)" stroke="rgba(227,227,227,0.12)" stroke-width="0.8"/><rect x="36" y="44" width="208" height="12" rx="2" fill="#1b1b1d"/><text x="140.0" y="53" fill="#b4b9c0" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">TRƯỚC ACTION · CHỈ CẦN CHÍNH REQUEST</text>
+  <rect x="24" y="208" width="920" height="320" rx="8" fill="rgba(227,227,227,0.02)" stroke="rgba(227,227,227,0.12)" stroke-width="0.8"/><rect x="36" y="212" width="203" height="12" rx="2" fill="#1b1b1d"/><text x="137.5" y="221" fill="#b4b9c0" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">TRONG ACTION · CẦN TRUY CẬP DỮ LIỆU</text>
+  <!-- arrows (before nodes) -->
+  <path d="M40,108 H104" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#validation-boundary-dark-arrow)"/>
+  <path d="M280,108 H320" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#validation-boundary-dark-arrow)"/>
+  <path d="M536,108 H608" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#validation-boundary-dark-arrow)"/>
+  <path d="M752,108 H800" stroke="#25c19f" stroke-width="1.4" fill="none" marker-end="url(#validation-boundary-dark-arrow-accent)"/>
+  <path d="M680,160 V240" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#validation-boundary-dark-arrow)"/>
+  <path d="M580,268 H504" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#validation-boundary-dark-arrow)"/>
+  <path d="M680,296 V336" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#validation-boundary-dark-arrow)"/>
+  <path d="M752,388 H800" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#validation-boundary-dark-arrow)"/>
+  <path d="M680,440 V464" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#validation-boundary-dark-arrow)"/>
+  <!-- arrow labels -->
+  <rect x="45.5" y="88" width="53" height="12" rx="2" fill="#1b1b1d"/><text x="72" y="97" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">REQUEST</text>
+  <rect x="755" y="88" width="42" height="12" rx="2" fill="#1b1b1d"/><text x="776" y="97" fill="#25c19f" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">KHÔNG</text>
+  <rect x="688" y="186" width="24" height="12" rx="2" fill="#1b1b1d"/><text x="700" y="195" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">CÓ</text>
+  <rect x="512.5" y="248" width="59" height="12" rx="2" fill="#1b1b1d"/><text x="542" y="257" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">TRUY VẤN</text>
+  <rect x="764" y="368" width="24" height="12" rx="2" fill="#1b1b1d"/><text x="776" y="377" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">CÓ</text>
+  <rect x="688" y="446" width="42" height="12" rx="2" fill="#1b1b1d"/><text x="709" y="455" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">KHÔNG</text>
+  <!-- nodes -->
+  <rect x="104" y="80" width="176" height="56" rx="6" fill="#1b1b1d"/><rect x="104" y="80" width="176" height="56" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/><text x="192" y="105" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Model binding</text><text x="192" y="121" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">route · body · query</text>
+  <rect x="320" y="80" width="216" height="56" rx="6" fill="#1b1b1d"/><rect x="320" y="80" width="216" height="56" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/><text x="428" y="105" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Validation</text><text x="428" y="121" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">[Required] · IValidatableObject</text>
+  <polygon points="680,56 752,108 680,160 608,108" fill="#242526" stroke="#e3e3e3" stroke-width="1"/><text x="680" y="105" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">ModelState</text><text x="680" y="119" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">hợp lệ?</text>
+  <rect x="800" y="80" width="128" height="56" rx="20" fill="#1b1b1d"/><rect x="800" y="80" width="128" height="56" rx="20" fill="rgba(37,193,159,0.10)" stroke="#25c19f" stroke-width="1"/><text x="864" y="105" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">400 Bad Request</text><text x="864" y="121" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">[ApiController]</text>
+  <rect x="580" y="240" width="200" height="56" rx="6" fill="#1b1b1d"/><rect x="580" y="240" width="200" height="56" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/><text x="680" y="265" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Action → service</text><text x="680" y="281" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">email trùng? hạn mức?</text>
+  <rect x="304" y="240" width="200" height="56" rx="6" fill="#1b1b1d"/><rect x="304" y="240" width="200" height="56" rx="6" fill="rgba(227,227,227,0.05)" stroke="#b4b9c0" stroke-width="1"/><text x="404" y="265" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Database</text><text x="404" y="281" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">AppDbContext</text>
+  <polygon points="680,336 752,388 680,440 608,388" fill="#242526" stroke="#e3e3e3" stroke-width="1"/><text x="680" y="385" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Vi phạm</text><text x="680" y="399" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">nghiệp vụ?</text>
+  <rect x="800" y="364" width="128" height="48" rx="20" fill="#1b1b1d"/><rect x="800" y="364" width="128" height="48" rx="20" fill="rgba(227,227,227,0.03)" stroke="rgba(227,227,227,0.3)" stroke-width="1"/><text x="864" y="385" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">409 / 422</text><text x="864" y="401" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">ProblemDetails</text>
+  <rect x="600" y="464" width="160" height="48" rx="20" fill="#1b1b1d"/><rect x="600" y="464" width="160" height="48" rx="20" fill="rgba(227,227,227,0.03)" stroke="rgba(227,227,227,0.3)" stroke-width="1"/><text x="680" y="485" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Thành công</text><text x="680" y="501" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">200 · 201 · 204</text>
+  <!-- callouts, legend -->
+  <text x="48" y="380" fill="#e3e3e3" font-size="14" font-style="italic" font-stretch="75%" font-family="'Noto Serif Display', serif" text-anchor="start">Quy tắc cần database thuộc về service,</text><text x="48" y="397" fill="#e3e3e3" font-size="14" font-style="italic" font-stretch="75%" font-family="'Noto Serif Display', serif" text-anchor="start">không nhét vào ValidationAttribute.</text>
+  <line x1="40" y1="560" x2="920" y2="560" stroke="rgba(227,227,227,0.1)" stroke-width="0.8"/><text x="40" y="580" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">CHÚ GIẢI</text><rect x="40" y="596" width="24" height="12" rx="2" fill="#242526" stroke="#e3e3e3" stroke-width="1"/><text x="72" y="606" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif">Bước xử lý</text><polygon points="160,602 172,596 184,602 172,608" fill="#242526" stroke="#e3e3e3" stroke-width="1"/><text x="192" y="606" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif">Rẽ nhánh</text><rect x="270" y="596" width="24" height="12" rx="2" fill="rgba(227,227,227,0.05)" stroke="#b4b9c0" stroke-width="1"/><text x="302" y="606" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif">Kho dữ liệu</text><rect x="395" y="596" width="24" height="12" rx="6" fill="rgba(227,227,227,0.03)" stroke="rgba(227,227,227,0.3)" stroke-width="1"/><text x="427" y="606" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif">Phản hồi</text><rect x="505" y="596" width="24" height="12" rx="2" fill="rgba(37,193,159,0.10)" stroke="#25c19f" stroke-width="1"/><text x="537" y="606" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif">400 tự động, action không chạy</text>
+<text id="tiennhm-copyright" x="936" y="632" text-anchor="end" fill="#b4b9c0" opacity="0.75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.08em">© tiennhm</text>
+</svg>
+    </div>
+  </div>
+</body>
+</html>

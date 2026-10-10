@@ -2,6 +2,7 @@
 title: "13.8 - Concurrency Control"
 description: "RowVersion và concurrency token, ba chiến lược xử lý xung đột, vì sao ExecuteUpdate bỏ qua kiểm tra, và cập nhật không cần đọc trước."
 sidebar_position: 8
+image: ./img/optimistic-concurrency.png
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
@@ -69,6 +70,13 @@ WHERE Id = @p2 AND RowVersion = @p3;      -- token trong WHERE
 
 -- 0 dòng bị ảnh hưởng => DbUpdateConcurrencyException
 ```
+
+Quay lại tình huống An và Bình ở mục 13.9.1, lần này có token:
+
+![Sơ đồ tuần tự: An và Bình cùng GET Lead 42, nhận Value 100 và token v1. An PUT 150 kèm v1, API chạy UPDATE WHERE RowVersion = v1, khớp 1 dòng, token thành v2, trả 204. Bình PUT 200 kèm v1, UPDATE WHERE RowVersion = v1 khớp 0 dòng, EF ném DbUpdateConcurrencyException và API trả 409 Conflict](./img/optimistic-concurrency.png#gh-light-mode-only)
+![Sơ đồ tuần tự: An và Bình cùng GET Lead 42, nhận Value 100 và token v1. An PUT 150 kèm v1, API chạy UPDATE WHERE RowVersion = v1, khớp 1 dòng, token thành v2, trả 204. Bình PUT 200 kèm v1, UPDATE WHERE RowVersion = v1 khớp 0 dòng, EF ném DbUpdateConcurrencyException và API trả 409 Conflict](./img/optimistic-concurrency-dark.png#gh-dark-mode-only)
+
+<small>File gốc: [nền sáng](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-04-database-production-module-13-entity-framework-core-concurrency-control/vi/optimistic-concurrency.html) · [nền tối](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-04-database-production-module-13-entity-framework-core-concurrency-control/vi/optimistic-concurrency-dark.html)</small>
 
 **Không nhất thiết dùng `ROWVERSION`.** Bất kỳ cột nào cũng làm concurrency token được:
 

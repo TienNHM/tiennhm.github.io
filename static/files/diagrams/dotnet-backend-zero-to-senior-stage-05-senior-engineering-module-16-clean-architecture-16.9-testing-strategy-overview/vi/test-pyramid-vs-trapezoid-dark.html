@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kim tự tháp và hình thang: phân bổ test theo tầng</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Display:wdth,wght@62.5..100,400&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #1b1b1d;
+      --color-ink:    #e3e3e3;
+      --color-muted:  #b4b9c0;
+      --font-sans:    'Geist', system-ui, sans-serif;
+      /* Instrument Serif has no Vietnamese subset; a per-glyph fallback mixes two faces
+         inside one word, so Vietnamese titles swap the whole face instead. */
+      --font-serif:   'Noto Serif Display', serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-stretch: 75%; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 960px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Pyramid · Chiến lược test</p>
+    <h1>Kim tự tháp và hình thang: phân bổ test theo tầng</h1>
+    <div class="diagram-container">
+<svg viewBox="0 0 960 472" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="test-shape-dark-title test-shape-dark-desc">
+  <title id="test-shape-dark-title">Kim tự tháp test cổ điển và hình thang test</title>
+  <desc id="test-shape-dark-desc">Kim tự tháp cổ điển có rất nhiều unit test, ít integration test và rất ít E2E; hình thang giữ nhiều unit test Domain nhưng thêm nhiều integration test Application với database thật, vừa phải integration test API qua WebApplicationFactory và rất ít E2E; càng lên cao test càng chậm và giòn.</desc>
+  <defs>
+    <marker id="test-shape-dark-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#b4b9c0"/></marker>
+  </defs>
+  <rect width="100%" height="100%" fill="#1b1b1d"/>
+
+  <!-- Panel headers -->
+  <text x="240" y="72" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.18em">KIM TỰ THÁP CỔ ĐIỂN</text>
+  <text x="720" y="72" fill="#25c19f" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.18em">HÌNH THANG · ĐỀ XUẤT</text>
+
+  <!-- Middle axis -->
+  <line x1="480" y1="368" x2="480" y2="136" stroke="#b4b9c0" stroke-width="1.2" marker-end="url(#test-shape-dark-arrow)"/>
+  <rect x="446" y="112" width="68" height="12" rx="2" fill="#1b1b1d"/>
+  <text x="480" y="121" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">CHẬM · GIÒN</text>
+  <rect x="456" y="380" width="48" height="12" rx="2" fill="#1b1b1d"/>
+  <text x="480" y="389" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">NHANH</text>
+
+  <!-- Left: classic pyramid -->
+  <polygon points="60,376 420,376 364.6,312 115.4,312" fill="#242526" stroke="#b4b9c0" stroke-width="1"/>
+  <polygon points="115.4,312 364.6,312 309.2,248 170.8,248" fill="#242526" stroke="#b4b9c0" stroke-width="1"/>
+  <polygon points="170.8,248 309.2,248 240,168" fill="#242526" stroke="#b4b9c0" stroke-width="1"/>
+  <text x="240" y="342" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Unit test</text>
+  <text x="240" y="358" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">RẤT NHIỀU</text>
+  <text x="240" y="278" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Integration test</text>
+  <text x="240" y="294" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">ÍT</text>
+  <text x="240" y="224" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">E2E</text>
+  <text x="240" y="240" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">RẤT ÍT</text>
+
+  <!-- Right: trapezoid -->
+  <polygon points="540,376 900,376 900,312 540,312" fill="#242526" stroke="#b4b9c0" stroke-width="1"/>
+  <polygon points="540,248 900,248 840,184 600,184" fill="#242526" stroke="#b4b9c0" stroke-width="1"/>
+  <polygon points="600,184 840,184 780,120 660,120" fill="#242526" stroke="#b4b9c0" stroke-width="1"/>
+  <polygon points="540,312 900,312 900,248 540,248" fill="#1b1b1d"/>
+  <polygon points="540,312 900,312 900,248 540,248" fill="rgba(37,193,159,0.10)" stroke="#25c19f" stroke-width="1"/>
+  <text x="720" y="342" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Unit test Domain</text>
+  <text x="720" y="358" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">NHIỀU · không phụ thuộc gì</text>
+  <text x="720" y="278" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Integration test Application</text>
+  <text x="720" y="294" fill="#25c19f" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">NHIỀU · database thật (Testcontainers)</text>
+  <text x="720" y="214" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Integration test API</text>
+  <text x="720" y="230" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">VỪA · WebApplicationFactory</text>
+  <text x="720" y="150" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">E2E</text>
+  <text x="720" y="166" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">RẤT ÍT · hệ thống đã triển khai</text>
+
+  <!-- Captions -->
+  <text x="240" y="412" fill="#b4b9c0" font-size="11" font-family="'Geist', sans-serif" text-anchor="middle">Rất nhiều unit test, ít integration, rất ít E2E</text>
+  <text x="720" y="412" fill="#b4b9c0" font-size="11" font-family="'Geist', sans-serif" text-anchor="middle">Khác biệt lớn nhất: test Application với database thật</text>
+<text id="tiennhm-copyright" x="936" y="460" text-anchor="end" fill="#b4b9c0" opacity="0.75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.08em">© tiennhm</text>
+</svg>
+    </div>
+  </div>
+</body>
+</html>

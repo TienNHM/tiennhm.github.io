@@ -98,6 +98,19 @@ Hai yêu cầu cuối là lý do nên **dùng lại hạ tầng messaging** thay
 
 Timestamp trong chữ ký là chi tiết dễ bỏ sót: không có nó, kẻ tấn công chặn được một request hợp lệ có thể gửi lại nó mãi mãi và chữ ký vẫn đúng.
 
+```mermaid
+sequenceDiagram
+    participant S as API của bạn
+    participant P as Đối tác
+    S->>S: signature = HMAC(timestamp.payload, secret)
+    S->>P: POST payload + X-Signature + X-Event-Id
+    P->>P: tính lại HMAC và so chữ ký
+    P->>P: timestamp quá cũ thì từ chối, chống phát lại
+    P->>P: X-Event-Id đã xử lý thì bỏ qua
+    P-->>S: 2xx
+    Note over S,P: lỗi hoặc timeout thì retry có backoff, gửi qua outbox
+```
+
 ### 9.11.3 — GraphQL: cân nhắc kỹ
 
 **Điều kiện kích hoạt:** nhiều loại client cần hình dạng dữ liệu rất khác nhau, và bạn không kiểm soát được client.

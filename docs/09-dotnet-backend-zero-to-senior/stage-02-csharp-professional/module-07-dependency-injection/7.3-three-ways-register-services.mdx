@@ -132,6 +132,21 @@ public class AuditMiddleware(RequestDelegate next)
 
 Chỗ này **bắt buộc** dùng method injection: middleware được dựng **một lần** lúc khởi động (singleton), nên tiêm `IAuditService` (scoped) vào constructor là lỗi captive dependency — xem [bài 7.5](7.4-service-lifetimes.mdx).
 
+```mermaid
+sequenceDiagram
+    participant H as Khởi động
+    participant MW as AuditMiddleware
+    participant P as Pipeline
+    participant S as Scope của request
+    H->>MW: Dựng một lần, tiêm RequestDelegate next
+    loop Mỗi request
+        P->>S: Resolve IAuditService
+        S-->>P: Instance scoped của request này
+        P->>MW: InvokeAsync(context, audit)
+        MW->>P: await next(context)
+    end
+```
+
 ```csharp
 // 2. Minimal API — tiem thang vao handler
 app.MapGet("/customers/{id}", async (int id, ICustomerService service, CancellationToken ct)

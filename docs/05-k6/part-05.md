@@ -6,7 +6,7 @@ authors: [tiennhm]
 tags: [load-testing, k6, restful-api, performance-testing, setup, visualization, grafana, influxdb]
 enableComments: true # for Gisqus comments, set to true
 draft: false # set to true to hide this post from the site
-image: https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fk6.io/showcase/
+image: ./img/k6-influxdb-grafana.png
 ---
 
 Trong các bài viết trước, chúng ta đã biết cách viết kịch bản test và xem kết quả trên màn hình console khi chạy kịch bản với k6. Tuy nhiên, để có thể quan sát và phân tích kết quả một cách trực quan hơn, chúng ta có thể kết hợp k6 với Grafana và InfluxDB.
@@ -141,6 +141,13 @@ Chúng ta mount thư mục `scripts` trong container k6 vào thư mục `/script
 - `influxdb: Tên container InfluxDB được khai báo trong `docker-compose.yml`.
 - `8086`: Cổng InfluxDB mặc định.
 - `k6`: Tên bucket được tạo trong InfluxDB để lưu trữ dữ liệu từ k6.
+
+Ghép ba file cấu hình lại, các container liên kết với nhau như sau:
+
+![Sơ đồ triển khai bằng Docker Compose trên máy host. Container k6 (grafana/k6:latest, network k6, cổng 6565) chạy kịch bản được mount từ ./scripts/script.js và ghi metric vào InfluxDB qua K6_OUT=influxdb=http://influxdb:8086/k6. Container InfluxDB (influxdb 1.8, database k6, cổng 8086, nằm trên cả network k6 và grafana) lưu metric. Container Grafana (grafana/grafana 8.5.21, network grafana, cổng 3000) được mount grafana-datasource.yaml, grafana-dashboard.yaml và thư mục ./dashboards, dùng datasource k6influxdb để truy vấn http://influxdb:8086. Người dùng mở dashboard qua trình duyệt tại localhost:3000.](./img/k6-influxdb-grafana.png#gh-light-mode-only)
+![Sơ đồ triển khai bằng Docker Compose trên máy host. Container k6 (grafana/k6:latest, network k6, cổng 6565) chạy kịch bản được mount từ ./scripts/script.js và ghi metric vào InfluxDB qua K6_OUT=influxdb=http://influxdb:8086/k6. Container InfluxDB (influxdb 1.8, database k6, cổng 8086, nằm trên cả network k6 và grafana) lưu metric. Container Grafana (grafana/grafana 8.5.21, network grafana, cổng 3000) được mount grafana-datasource.yaml, grafana-dashboard.yaml và thư mục ./dashboards, dùng datasource k6influxdb để truy vấn http://influxdb:8086. Người dùng mở dashboard qua trình duyệt tại localhost:3000.](./img/k6-influxdb-grafana-dark.png#gh-dark-mode-only)
+
+<small>File gốc: [nền sáng](pathname:///files/diagrams/k6-part-05/vi/k6-influxdb-grafana.html) · [nền tối](pathname:///files/diagrams/k6-part-05/vi/k6-influxdb-grafana-dark.html)</small>
 
 Cấu trúc thư mục sẽ như sau:
 ```bash

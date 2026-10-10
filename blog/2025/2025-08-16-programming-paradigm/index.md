@@ -116,6 +116,18 @@ public class Main {
 }
 ```
 
+```mermaid
+classDiagram
+    class Animal {
+        String name
+        speak()
+    }
+    class Dog {
+        speak()
+    }
+    Animal <|-- Dog : extends
+```
+
 
 ## 3. Lập Trình Hàm (Functional Programming) {#FP}
 
@@ -175,6 +187,13 @@ Trong mô hình này, luồng chương trình **bị chi phối bởi sự kiệ
 document.getElementById("myButton").addEventListener("click", function() {
     alert("Button clicked!");
 });
+```
+
+```mermaid
+flowchart LR
+    E["Sự kiện: click, nhập liệu, thông báo từ server"] --> L["Listener đã đăng ký (addEventListener)"]
+    L --> CB["Callback chạy"]
+    CB -.->|"chờ sự kiện tiếp theo"| E
 ```
 
 

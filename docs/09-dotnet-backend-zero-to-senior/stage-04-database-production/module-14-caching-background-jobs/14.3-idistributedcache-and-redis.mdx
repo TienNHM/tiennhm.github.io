@@ -191,6 +191,19 @@ public async Task<CustomerDto?> GetAsync(int id, CancellationToken ct)
 
 **Nguyên tắc: cache là tối ưu, không phải phụ thuộc bắt buộc.** Mất cache thì hệ thống chậm hơn, không dừng lại.
 
+Luồng của `GetAsync` ở trên khi Redis còn sống và khi Redis chết:
+
+```mermaid
+flowchart TD
+    A["GetAsync(id)"] --> B{"Đọc Redis"}
+    B -->|"Trúng"| R["Trả CustomerDto"]
+    B -->|"Miss"| D["LoadFromDatabaseAsync"]
+    B -->|"RedisConnectionException"| L["Log cảnh báo"]
+    L --> D
+    D --> S["SetAsync vào Redis, TTL 5 phút, lỗi thì bỏ qua"]
+    S --> R
+```
+
 Ngoại lệ: nếu database **không chịu nổi** tải khi không có cache, thì Redis **đã trở thành** phụ thuộc bắt buộc — và bạn cần Redis Sentinel hoặc Cluster, cộng cơ chế hạ tải.
 
 Health check cho Redis nên trả `Degraded`, không phải `Unhealthy` ([bài 8.10](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.9-health-checks.mdx)):

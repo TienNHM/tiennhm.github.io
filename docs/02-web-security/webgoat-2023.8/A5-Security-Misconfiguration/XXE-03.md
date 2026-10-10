@@ -2,7 +2,7 @@
 title: 1.03 | XXE
 slug: XXE-03
 description: "Khi email.xml được xử lý, nó sẽ tham chiếu đến email.dtd để xác định cấu trúc hợp lệ."
-image: https://tiennhm.github.io/img/docs/database.jpg
+image: ./img/xxe-doc-file.png
 sidebar_position: 1
 # sidebar_class_name: hidden
 tags: 

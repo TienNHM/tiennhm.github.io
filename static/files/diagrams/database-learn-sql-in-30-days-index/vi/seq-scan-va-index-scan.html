@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Không có index thì đọc cả bảng, có index thì đi thẳng tới dòng cần</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Display:ital,wdth,wght@0,62.5..100,400;1,62.5..100,400&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #fafaf7;
+      --color-ink:    #1c1e21;
+      --color-muted:  #525860;
+      --font-sans:    'Geist', system-ui, sans-serif;
+      /* Instrument Serif has no Vietnamese subset; a per-glyph fallback mixes two faces
+         inside one word, so Vietnamese titles swap the whole face instead. */
+      --font-serif:   'Noto Serif Display', serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-stretch: 75%; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 960px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Index · Seq Scan và Index Scan</p>
+    <h1>Không có index thì đọc cả bảng, có index thì đi thẳng tới dòng cần</h1>
+    <div class="diagram-container">
+<svg viewBox="0 0 960 492" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="seq-scan-va-index-scan-title seq-scan-va-index-scan-desc">
+  <title id="seq-scan-va-index-scan-title">Sequential Scan so với Index Scan qua B-Tree</title>
+  <desc id="seq-scan-va-index-scan-desc">Không có index, database đọc mọi dòng của bảng orders để kiểm tra order_date; có index idx_order_date, database đi từ gốc B-Tree xuống nhánh chứa khoá lớn hơn 2024-01-01, tới lá đã sắp xếp rồi chỉ đọc các dòng khớp.</desc>
+  <defs>
+    <marker id="seq-scan-va-index-scan-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#525860"/></marker>
+    <marker id="seq-scan-va-index-scan-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#18816a"/></marker>
+
+  </defs>
+  <rect width="100%" height="100%" fill="#fafaf7"/>
+<rect x="40" y="28" width="880" height="32" rx="4" fill="rgba(28,30,33,0.03)" stroke="rgba(28,30,33,0.30)" stroke-width="1"/>
+<text x="480" y="48" fill="#1c1e21" font-size="11" font-weight="500" font-family="'Geist Mono', monospace" text-anchor="middle">SELECT * FROM orders WHERE order_date &gt; '2024-01-01';</text>
+<line x1="408" y1="88" x2="408" y2="456" stroke="rgba(28,30,33,0.10)" stroke-width="1"/>
+<text x="40" y="104" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" text-anchor="start" letter-spacing="0.18em">KHÔNG CÓ INDEX</text>
+<text x="40" y="126" fill="#1c1e21" font-size="14" font-weight="600" font-family="'Geist', sans-serif" text-anchor="start">Sequential Scan</text>
+<line x1="296" y1="180" x2="296" y2="400" stroke="#525860" stroke-width="1.2" marker-end="url(#seq-scan-va-index-scan-arrow)"/>
+<rect x="308" y="284" width="80" height="12" rx="2" fill="#fafaf7"/><text x="348.0" y="293" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">ĐỌC MỌI DÒNG</text>
+<rect x="96" y="148" width="176" height="264" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+<line x1="96" y1="176" x2="272" y2="176" stroke="rgba(28,30,33,0.10)" stroke-width="1"/>
+<text x="184" y="166" fill="#1c1e21" font-size="10" font-weight="500" font-family="'Geist Mono', monospace" text-anchor="middle">orders</text>
+<rect x="108" y="184" width="152" height="16" rx="2" fill="rgba(28,30,33,0.03)" stroke="rgba(28,30,33,0.22)" stroke-width="0.8"/>
+<rect x="108" y="208" width="152" height="16" rx="2" fill="rgba(28,30,33,0.03)" stroke="rgba(28,30,33,0.22)" stroke-width="0.8"/>
+<rect x="108" y="232" width="152" height="16" rx="2" fill="rgba(28,30,33,0.03)" stroke="rgba(28,30,33,0.22)" stroke-width="0.8"/>
+<rect x="108" y="256" width="152" height="16" rx="2" fill="rgba(28,30,33,0.03)" stroke="rgba(28,30,33,0.22)" stroke-width="0.8"/>
+<rect x="108" y="280" width="152" height="16" rx="2" fill="rgba(28,30,33,0.03)" stroke="rgba(28,30,33,0.22)" stroke-width="0.8"/>
+<rect x="108" y="304" width="152" height="16" rx="2" fill="rgba(28,30,33,0.03)" stroke="rgba(28,30,33,0.22)" stroke-width="0.8"/>
+<rect x="108" y="328" width="152" height="16" rx="2" fill="rgba(28,30,33,0.03)" stroke="rgba(28,30,33,0.22)" stroke-width="0.8"/>
+<rect x="108" y="352" width="152" height="16" rx="2" fill="rgba(28,30,33,0.03)" stroke="rgba(28,30,33,0.22)" stroke-width="0.8"/>
+<rect x="108" y="376" width="152" height="16" rx="2" fill="rgba(28,30,33,0.03)" stroke="rgba(28,30,33,0.22)" stroke-width="0.8"/>
+<text x="184" y="440" fill="#525860" font-size="11" font-family="'Geist', sans-serif" text-anchor="middle">kiểm tra order_date ở từng dòng</text>
+<text x="448" y="104" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" text-anchor="start" letter-spacing="0.18em">CÓ INDEX · idx_order_date</text>
+<text x="448" y="126" fill="#1c1e21" font-size="14" font-weight="600" font-family="'Geist', sans-serif" text-anchor="start">Index Scan qua B-Tree</text>
+<path d="M640 196 V208 Q640 216 632 216 H568 Q560 216 560 224 V236" stroke="#525860" stroke-width="1.2" fill="none" stroke-dasharray="5,4" marker-end="url(#seq-scan-va-index-scan-arrow)"/>
+<path d="M720 196 V208 Q720 216 728 216 H792 Q800 216 800 224 V236" stroke="#18816a" stroke-width="1.4" fill="none" marker-end="url(#seq-scan-va-index-scan-arrow-accent)"/>
+<line x1="800" y1="284" x2="800" y2="316" stroke="#18816a" stroke-width="1.4" marker-end="url(#seq-scan-va-index-scan-arrow-accent)"/>
+<line x1="800" y1="364" x2="800" y2="396" stroke="#18816a" stroke-width="1.4" marker-end="url(#seq-scan-va-index-scan-arrow-accent)"/>
+<rect x="812" y="374" width="88" height="12" rx="2" fill="#fafaf7"/><text x="856.0" y="383" fill="#18816a" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">ĐỌC DÒNG KHỚP</text>
+<rect x="600" y="148" width="160" height="48" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+<text x="680.0" y="168.0" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Gốc</text>
+<text x="680.0" y="185.0" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">idx_order_date</text>
+<rect x="472" y="236" width="176" height="48" rx="6" fill="#fafaf7"/><rect x="472" y="236" width="176" height="48" rx="6" fill="rgba(28,30,33,0.02)" stroke="rgba(28,30,33,0.22)" stroke-width="1" stroke-dasharray="4,3"/>
+<text x="560.0" y="256.0" fill="#525860" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Khoá cũ hơn</text>
+<text x="560.0" y="273.0" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">&lt;= '2024-01-01'</text>
+<text x="560" y="304" fill="#525860" font-size="10" font-family="'Geist', sans-serif" text-anchor="middle">bỏ qua cả nhánh</text>
+<rect x="712" y="236" width="176" height="48" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+<text x="800.0" y="256.0" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Khoá mới hơn</text>
+<text x="800.0" y="273.0" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">&gt; '2024-01-01'</text>
+<rect x="712" y="316" width="176" height="48" rx="6" fill="#fafaf7"/><rect x="712" y="316" width="176" height="48" rx="6" fill="rgba(24,129,106,0.08)" stroke="#18816a" stroke-width="1"/>
+<text x="800.0" y="336.0" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Lá: khoá đã sắp xếp</text>
+<text x="800.0" y="353.0" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">order_date → vị trí dòng</text>
+<rect x="712" y="396" width="176" height="48" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+<text x="800.0" y="416.0" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Bảng orders</text>
+<text x="800.0" y="433.0" fill="#525860" font-size="10" font-family="'Geist', sans-serif" text-anchor="middle">chỉ đọc dòng khớp</text>
+<text id="tiennhm-copyright" x="936" y="480" text-anchor="end" fill="#525860" opacity="0.75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.08em">© tiennhm</text>
+</svg>
+    </div>
+  </div>
+</body>
+</html>

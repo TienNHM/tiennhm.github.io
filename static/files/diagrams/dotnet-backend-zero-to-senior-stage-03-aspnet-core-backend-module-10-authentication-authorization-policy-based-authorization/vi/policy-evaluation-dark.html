@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Policy chấm requirement thế nào: AND, OR và Fail()</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Display:ital,wdth,wght@0,62.5..100,400;1,62.5..100,400&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #1b1b1d;
+      --color-ink:    #e3e3e3;
+      --color-muted:  #b4b9c0;
+      --font-sans:    'Geist', system-ui, sans-serif;
+      /* Instrument Serif has no Vietnamese subset; a per-glyph fallback mixes two faces
+         inside one word, so Vietnamese titles swap the whole face instead. */
+      --font-serif:   'Noto Serif Display', serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-stretch: 75%; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 960px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Flowchart · Authorization policy</p>
+    <h1>Policy chấm requirement thế nào: AND, OR và Fail()</h1>
+    <div class="diagram-container">
+<svg viewBox="0 0 960 652" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="policy-evaluation-dark-title policy-evaluation-dark-desc">
+  <title id="policy-evaluation-dark-title">Ba quy tắc kết hợp của authorization policy</title>
+  <desc id="policy-evaluation-dark-desc">Các requirement trong một policy kết hợp bằng AND, nhiều handler của cùng requirement kết hợp bằng OR, còn một handler gọi Fail() như SuspendedAccountHandler thì chặn tuyệt đối dù handler khác đã Succeed.</desc>
+  <defs><marker id="policy-evaluation-dark-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#b4b9c0"/></marker><marker id="policy-evaluation-dark-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#25c19f"/></marker></defs>
+  <rect width="100%" height="100%" fill="#1b1b1d"/>
+  <!-- zones -->
+  <rect x="24" y="64" width="672" height="232" rx="8" fill="rgba(227,227,227,0.02)" stroke="rgba(227,227,227,0.12)" stroke-width="0.8"/><rect x="36" y="68" width="219" height="12" rx="2" fill="#1b1b1d"/><text x="145.5" y="77" fill="#b4b9c0" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">POLICY · CÁC REQUIREMENT GHÉP BẰNG AND</text>
+  <!-- arrows (before nodes) -->
+  <path d="M328,216 V192 Q328,184 336,184 H404 Q412,184 412,176 V152" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#policy-evaluation-dark-arrow)"/>
+  <path d="M472,216 V152" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#policy-evaluation-dark-arrow)"/>
+  <path d="M616,216 V192 Q616,184 608,184 H540 Q532,184 532,176 V152" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#policy-evaluation-dark-arrow)"/>
+  <path d="M148,152 V392 Q148,400 156,400 H256" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#policy-evaluation-dark-arrow)"/>
+  <path d="M592,124 H700 Q708,124 708,132 V304 Q708,312 700,312 H360 Q352,312 352,320 V344" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#policy-evaluation-dark-arrow)"/>
+  <path d="M836,152 V376" stroke="#25c19f" stroke-width="1.4" fill="none" marker-end="url(#policy-evaluation-dark-arrow-accent)"/>
+  <path d="M448,400 H744" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#policy-evaluation-dark-arrow)"/>
+  <path d="M352,456 V488" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#policy-evaluation-dark-arrow)"/>
+  <!-- arrow labels -->
+  <rect x="191" y="380" width="30" height="12" rx="2" fill="#1b1b1d"/><text x="206" y="389" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">AND</text>
+  <rect x="515" y="320" width="30" height="12" rx="2" fill="#1b1b1d"/><text x="530" y="329" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">AND</text>
+  <rect x="844" y="258" width="47" height="12" rx="2" fill="#1b1b1d"/><text x="867.5" y="267" fill="#25c19f" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">FAIL()</text>
+  <rect x="579" y="380" width="42" height="12" rx="2" fill="#1b1b1d"/><text x="600" y="389" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">KHÔNG</text>
+  <rect x="360" y="466" width="24" height="12" rx="2" fill="#1b1b1d"/><text x="372" y="475" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">CÓ</text>
+  <!-- nodes -->
+  <rect x="48" y="96" width="200" height="56" rx="6" fill="#1b1b1d"/><rect x="48" y="96" width="200" height="56" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/><rect x="56" y="102" width="26" height="12" rx="2" fill="none" stroke="#e3e3e3" stroke-opacity="0.45" stroke-width="0.8"/><text x="69.0" y="111" fill="#b4b9c0" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">REQ</text><text x="148" y="121" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">MinimumExperience</text><text x="148" y="137" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">handler đọc claim hire_date</text>
+  <rect x="352" y="96" width="240" height="56" rx="6" fill="#1b1b1d"/><rect x="352" y="96" width="240" height="56" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/><rect x="360" y="102" width="26" height="12" rx="2" fill="none" stroke="#e3e3e3" stroke-opacity="0.45" stroke-width="0.8"/><text x="373.0" y="111" fill="#b4b9c0" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">REQ</text><text x="472" y="121" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">SameOwnerRequirement</text><text x="472" y="137" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">một Succeed là đủ (OR)</text>
+  <rect x="264" y="216" width="128" height="48" rx="6" fill="#1b1b1d"/><rect x="264" y="216" width="128" height="48" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/><text x="328" y="244" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">OwnerHandler</text>
+  <rect x="408" y="216" width="128" height="48" rx="6" fill="#1b1b1d"/><rect x="408" y="216" width="128" height="48" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/><text x="472" y="244" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">ManagerHandler</text>
+  <rect x="552" y="216" width="128" height="48" rx="6" fill="#1b1b1d"/><rect x="552" y="216" width="128" height="48" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/><text x="616" y="244" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">AdminHandler</text>
+  <rect x="736" y="96" width="200" height="56" rx="6" fill="#1b1b1d"/><rect x="736" y="96" width="200" height="56" rx="6" fill="rgba(37,193,159,0.10)" stroke="#25c19f" stroke-width="1"/><text x="836" y="121" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">SuspendedAccountHandler</text><text x="836" y="137" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">context.Fail() · phủ quyết</text>
+  <polygon points="352,344 448,400 352,456 256,400" fill="#242526" stroke="#e3e3e3" stroke-width="1"/><text x="352" y="397" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Mọi requirement</text><text x="352" y="411" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">đều Succeed?</text>
+  <rect x="744" y="376" width="184" height="48" rx="20" fill="#1b1b1d"/><rect x="744" y="376" width="184" height="48" rx="20" fill="rgba(227,227,227,0.03)" stroke="rgba(227,227,227,0.3)" stroke-width="1"/><text x="836" y="397" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">403 Forbidden</text><text x="836" y="413" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">bất kể handler khác</text>
+  <rect x="272" y="488" width="160" height="48" rx="20" fill="#1b1b1d"/><rect x="272" y="488" width="160" height="48" rx="20" fill="rgba(227,227,227,0.03)" stroke="rgba(227,227,227,0.3)" stroke-width="1"/><text x="352" y="509" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Cho phép</text><text x="352" y="525" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">endpoint chạy</text>
+  <!-- callouts, legend -->
+  <line x1="40" y1="568" x2="920" y2="568" stroke="rgba(227,227,227,0.1)" stroke-width="0.8"/><text x="40" y="588" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">CHÚ GIẢI</text><rect x="40" y="604" width="24" height="12" rx="2" fill="#242526" stroke="#e3e3e3" stroke-width="1"/><text x="72" y="614" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif">Requirement / handler</text><polygon points="217,610 229,604 241,610 229,616" fill="#242526" stroke="#e3e3e3" stroke-width="1"/><text x="249" y="614" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif">Quyết định</text><rect x="337" y="604" width="24" height="12" rx="6" fill="rgba(227,227,227,0.03)" stroke="rgba(227,227,227,0.3)" stroke-width="1"/><text x="369" y="614" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif">Kết quả</text><rect x="441" y="604" width="24" height="12" rx="2" fill="rgba(37,193,159,0.10)" stroke="#25c19f" stroke-width="1"/><text x="473" y="614" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif">Fail() thắng mọi Succeed</text><rect x="634" y="604" width="24" height="12" rx="3" fill="rgba(227,227,227,0.02)" stroke="rgba(227,227,227,0.12)" stroke-width="0.8"/><text x="666" y="614" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif">Một policy</text>
+<text id="tiennhm-copyright" x="936" y="640" text-anchor="end" fill="#b4b9c0" opacity="0.75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.08em">© tiennhm</text>
+</svg>
+    </div>
+  </div>
+</body>
+</html>

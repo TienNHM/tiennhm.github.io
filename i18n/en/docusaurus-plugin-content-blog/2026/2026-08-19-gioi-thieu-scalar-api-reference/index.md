@@ -57,6 +57,16 @@ No. Swashbuckle is still a community package and still works on .NET 10. What ch
 
 **Scalar** is an open-source API Reference UI that reads OpenAPI 3.1 and renders it as interactive API documentation. It plugs into ASP.NET Core through the `Scalar.AspNetCore` NuGet package.
 
+Scalar only reads the JSON file; generating the document is ASP.NET Core's job:
+
+```mermaid
+flowchart LR
+    E["Endpoints<br/>Minimal API or controllers"] --> G["AddOpenApi + MapOpenApi<br/>Microsoft.AspNetCore.OpenApi"]
+    G --> J["/openapi/v1.json<br/>OpenAPI 3.1"]
+    J --> S["MapScalarApiReference<br/>/scalar/v1"]
+    J -.-> W["Swagger UI<br/>optional, side by side"]
+```
+
 Scalar is not merely "a prettier Swagger UI" — it brings a number of features of its own:
 
 - **Dark mode out of the box** — no custom theme required

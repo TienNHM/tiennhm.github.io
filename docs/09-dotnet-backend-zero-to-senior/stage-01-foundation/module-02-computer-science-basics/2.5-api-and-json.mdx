@@ -64,6 +64,13 @@ JSON.parse('{"id": 9007199254740993}').id   // 9007199254740992  ← sai 1 đơn
 
 **Không có ngoại lệ nào được ném.** Dữ liệu chỉ lặng lẽ sai. Với `Id` kiểu `long`, Snowflake ID hoặc mã giao dịch, hậu quả là client thao tác nhầm bản ghi.
 
+```mermaid
+flowchart LR
+    A["C# long Id = 9007199254740993"] --> B{"Kiểu trong JSON"}
+    B -->|số| C["JSON.parse: double 64-bit"] --> D["9007199254740992: sai 1, không báo lỗi"]
+    B -->|chuỗi| E["JSON.parse giữ nguyên chuỗi"] --> F["9007199254740993: đúng"]
+```
+
 Cách xử lý: trả số lớn dưới dạng **chuỗi**.
 
 ```csharp

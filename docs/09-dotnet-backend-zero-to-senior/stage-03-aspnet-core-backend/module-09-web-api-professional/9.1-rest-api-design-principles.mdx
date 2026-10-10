@@ -41,6 +41,20 @@ Vi phạm nó thì scale ngang gãy ngay: request đầu vào pod A, request sau
 
 Trạng thái phải nằm ở **client** (token JWT) hoặc ở **kho dùng chung** (Redis, database).
 
+```mermaid
+flowchart LR
+    subgraph S1["Trạng thái trong bộ nhớ pod"]
+        C1["Client"] -->|"request 1"| A1["Pod A<br/>giữ bước wizard"]
+        C1 -->|"request 2"| B1["Pod B<br/>không biết gì"]
+    end
+    subgraph S2["Stateless"]
+        C2["Client<br/>gửi kèm JWT"] -->|"request 1"| A2["Pod A"]
+        C2 -->|"request 2"| B2["Pod B"]
+        A2 --> R[("Redis, database<br/>dùng chung")]
+        B2 --> R
+    end
+```
+
 ### 9.2.2 — URL định danh tài nguyên
 
 ```

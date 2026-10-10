@@ -2,6 +2,7 @@
 title: "10.5 - Policy-based Authorization"
 description: "Requirement và handler, nhiều handler cho một requirement là OR, Fail() không thể ghi đè, policy provider động, và vì sao handler là singleton."
 sidebar_position: 5
+image: ./img/policy-evaluation.png
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
@@ -166,6 +167,13 @@ public sealed class SuspendedAccountHandler : AuthorizationHandler<IAuthorizatio
 Dùng `Fail()` cho **chính sách chặn**: tài khoản bị khoá, IP trong danh sách đen, ngoài giờ làm việc với thao tác nhạy cảm. Đừng dùng nó cho "người này không thoả điều kiện của tôi" — vì nó sẽ chặn luôn cả những con đường hợp lệ khác.
 
 Từ .NET 7, `context.Fail(new AuthorizationFailureReason(this, "Tài khoản đã bị khoá"))` cho phép kèm lý do, hữu ích để log và chẩn đoán.
+
+Ba quy tắc gộp lại trong một policy ví dụ:
+
+![Sơ đồ ba quy tắc kết hợp: trong một policy, requirement MinimumExperience và SameOwnerRequirement ghép bằng AND. SameOwnerRequirement có ba handler OwnerHandler, ManagerHandler, AdminHandler ghép bằng OR, chỉ cần một handler Succeed. Nếu mọi requirement đều Succeed thì cho phép, endpoint chạy; nếu không thì 403 Forbidden. SuspendedAccountHandler gọi context.Fail() thì đi thẳng tới 403, bất kể handler khác đã Succeed.](./img/policy-evaluation.png#gh-light-mode-only)
+![Sơ đồ ba quy tắc kết hợp: trong một policy, requirement MinimumExperience và SameOwnerRequirement ghép bằng AND. SameOwnerRequirement có ba handler OwnerHandler, ManagerHandler, AdminHandler ghép bằng OR, chỉ cần một handler Succeed. Nếu mọi requirement đều Succeed thì cho phép, endpoint chạy; nếu không thì 403 Forbidden. SuspendedAccountHandler gọi context.Fail() thì đi thẳng tới 403, bất kể handler khác đã Succeed.](./img/policy-evaluation-dark.png#gh-dark-mode-only)
+
+<small>File gốc: [nền sáng](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-03-aspnet-core-backend-module-10-authentication-authorization-policy-based-authorization/vi/policy-evaluation.html) · [nền tối](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-03-aspnet-core-backend-module-10-authentication-authorization-policy-based-authorization/vi/policy-evaluation-dark.html)</small>
 
 ### 10.6.4 — Policy động
 

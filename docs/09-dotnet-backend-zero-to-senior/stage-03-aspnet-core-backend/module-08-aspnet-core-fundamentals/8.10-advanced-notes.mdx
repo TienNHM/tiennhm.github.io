@@ -108,6 +108,16 @@ group.MapPost("/", Create).AddEndpointFilter<ValidationFilter<CreateLeadRequest>
 
 Endpoint filter chạy **sau** model binding và **trước** handler, nên nó thấy được tham số đã được bind — khác với middleware, vốn chỉ thấy `HttpContext` thô.
 
+```mermaid
+flowchart LR
+    R["Request"] --> M["Middleware<br/>chỉ thấy HttpContext thô"]
+    M --> RT["Routing<br/>chọn endpoint"]
+    RT --> B["Model binding"]
+    B --> F["Endpoint filter<br/>thấy tham số đã bind"]
+    F -->|"next"| H["Handler"]
+    F -->|"không hợp lệ"| VP["Results.ValidationProblem"]
+```
+
 **Chọn cái nào:**
 
 | Cần gì | Dùng |

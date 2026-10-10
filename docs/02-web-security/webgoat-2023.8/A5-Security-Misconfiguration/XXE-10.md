@@ -2,7 +2,7 @@
 title: 1.10 | XXE
 slug: XXE-10
 description: "Làm thế nào để kiểm tra xem XXE có thành công hay không? 👉 Gửi dữ liệu đến một server do kẻ tấn công kiểm soát."
-image: https://tiennhm.github.io/img/docs/database.jpg
+image: ./img/xxe-doc-file.png
 sidebar_position: 1
 # sidebar_class_name: hidden
 tags: 
@@ -32,6 +32,22 @@ draft: false # set to true to hide this post from the site
 **Ví dụ:**  
 - Gửi một request **ping đến WebWolf**.  
 - Gửi nội dung file **ra ngoài** qua HTTP/DNS request.  
+
+Toàn bộ quá trình out-of-band diễn ra như sau:
+
+```mermaid
+sequenceDiagram
+    participant A as Attacker
+    participant S as Server WebGoat
+    participant W as WebWolf
+    A->>S: Gửi XML có %remote trỏ tới attack.dtd
+    S->>W: Tải attack.dtd từ xa
+    W-->>S: DTD (đọc file + gửi ra ngoài)
+    S->>S: Đọc file bí mật trên server
+    S->>W: GET /landing?text=noi-dung-file
+    A->>W: Xem Incoming requests
+    W-->>A: Nội dung file bị rò rỉ
+```
 
 
 ## **2. Cách thực hiện Blind XXE**  

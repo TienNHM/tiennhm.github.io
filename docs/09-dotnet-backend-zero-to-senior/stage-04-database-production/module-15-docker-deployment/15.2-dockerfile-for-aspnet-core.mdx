@@ -77,6 +77,21 @@ Bốn chi tiết đáng giải thích:
 
 **`ENTRYPOINT` dạng exec** (mảng JSON) thay vì dạng shell — mục 15.3.4.
 
+Chỉ output của `dotnet publish` đi sang image cuối; SDK và mã nguồn ở lại stage build:
+
+```mermaid
+flowchart LR
+    subgraph build["Stage build · sdk:9.0"]
+        A["COPY các .csproj"] --> B["dotnet restore<br/>cache mount NuGet"]
+        B --> C["COPY . ."]
+        C --> D["dotnet publish<br/>ra /app/publish"]
+    end
+    subgraph final["Stage final · aspnet:9.0-noble-chiseled"]
+        E["Thư mục /app<br/>chỉ có output publish"] --> F["ENTRYPOINT<br/>dotnet CrmApi.dll"]
+    end
+    D -- "COPY --from=build" --> E
+```
+
 ### 15.3.2 — Chọn image cơ sở
 
 | Image | Kích thước | Có shell | Dùng khi |

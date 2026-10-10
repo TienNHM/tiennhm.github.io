@@ -2,7 +2,7 @@
 title: 1.07 | XXE
 slug: XXE-07
 description: "Trong trường hợp sử dụng Windows, bạn có thể thay đổi đường dẫn file C:\\Windows\\System32\\drivers\\etc\\hosts thay cho /etc/passwd để kiểm tra."
-image: https://tiennhm.github.io/img/docs/database.jpg
+image: ./img/xxe-doc-file.png
 sidebar_position: 1
 # sidebar_class_name: hidden
 tags: 
@@ -28,6 +28,20 @@ draft: false # set to true to hide this post from the site
 - API đang xử lý JSON (`Content-Type: application/json`).
 - Nếu API cũng hỗ trợ XML mà không kiểm soát đúng cách, có thể bị **XXE Attack**.
 - **Mục tiêu:** Chuyển đổi request từ JSON sang XML và thực hiện XXE Injection.
+
+Cơ chế XXE trên REST API hiện đại: ép API xử lý XML bằng cách đổi Content-Type rồi chèn external entity.
+
+```mermaid
+sequenceDiagram
+    participant A as Attacker
+    participant S as REST API WebGoat
+    A->>S: POST /xxe/simple - Content-Type application/json
+    Note over A,S: Request hợp lệ bình thường
+    A->>S: Đổi Content-Type sang application/xml + chèn DOCTYPE và ENTITY
+    Note over S: Parser XML không tắt external entity
+    S->>S: Thay entity xxe bằng nội dung file:///etc/passwd
+    S-->>A: Phản hồi chứa nội dung file - XXE thành công
+```
 
 
 ## 🛠 **2. Thử nghiệm tấn công XXE**

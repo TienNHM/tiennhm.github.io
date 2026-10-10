@@ -214,6 +214,16 @@ Giữ Client Component ở leaf node để tối thiểu hóa JS phía client.
 - ('use client') on page.tsx
 ```
 
+Ranh giới `'use client'` càng nằm sâu thì càng ít JS phải gửi xuống trình duyệt:
+
+```mermaid
+flowchart TD
+    P["page.tsx (Server Component)"] --> H["Nội dung tĩnh (Server)"]
+    P --> L["Danh sách dữ liệu (Server)"]
+    L --> B["InteractiveButton ('use client')"]
+```
+
+
 ---
 
 ### 2.4 🟡 Use streaming with Suspense

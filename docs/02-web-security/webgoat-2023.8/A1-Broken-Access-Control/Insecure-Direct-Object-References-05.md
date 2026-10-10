@@ -2,7 +2,7 @@
 title: 2.05 | Insecure Direct Object References
 slug: insecure-direct-object-references-05
 description: "Các ứng dụng RESTful thường thay đổi phương thức HTTP để thực hiện các hành động khác nhau."
-image: https://tiennhm.github.io/img/docs/database.jpg
+image: ./img/idor-kiem-tra-quyen.png
 sidebar_position: 2
 # sidebar_class_name: hidden
 tags: 
@@ -33,6 +33,18 @@ Tương tự, để xem **hồ sơ của người khác**, bạn có thể **tha
   WebGoat/IDOR/profile/{otherUserId}
   ```
 - **Cách 3:** Sử dụng **công cụ như Postman hoặc cURL** để gửi yêu cầu GET  
+
+Từ việc xem được hồ sơ của mình, kẻ tấn công đổi id để xem, và đổi method để sửa hồ sơ người khác:
+
+```mermaid
+flowchart TD
+    A["Biết mẫu URL /IDOR/profile/ID và id của mình"] --> B["Đổi id sang id người khác"]
+    B --> C["GET /IDOR/profile/otherId"]
+    C --> D["Xem hồ sơ người khác - IDOR ngang"]
+    A --> E["Đổi method từ GET sang PUT"]
+    E --> F["PUT /IDOR/profile/otherId với payload mới"]
+    F --> G["Sửa hồ sơ Buffalo Bill: màu red, hạ quyền"]
+```
 
 ---
 

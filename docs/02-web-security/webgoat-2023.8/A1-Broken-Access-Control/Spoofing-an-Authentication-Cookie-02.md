@@ -2,7 +2,6 @@
 title: 4.02 | Spoofing an Authentication Cookie
 slug: spoofing-an-authentication-cookie-02
 description: "Mô tả: Hacker cố gắng tìm ra cách hệ thống tạo authentication cookie, sau đó tạo một cookie giả mạo để đăng nhập vào tài khoản khác (Tom)."
-image: https://tiennhm.github.io/img/docs/database.jpg
 sidebar_position: 4
 # sidebar_class_name: hidden
 tags: 
@@ -28,6 +27,19 @@ draft: false # set to true to hide this post from the site
 3. **Thay đổi giá trị username trong cookie** (ví dụ: "webgoat" ➝ "tom").  
 4. **Mã hóa lại thành Base64 hoặc HEX** và gửi lại request.  
 5. **Hệ thống không kiểm tra chữ ký của cookie** ➝ Cho phép hacker đăng nhập vào tài khoản Tom!  
+
+```mermaid
+sequenceDiagram
+    participant A as Attacker
+    participant S as Server
+    A->>S: Đăng nhập hợp lệ (webgoat)
+    S-->>A: Set-Cookie (Base64 / HEX)
+    A->>A: Giải mã, đổi username webgoat → tom
+    A->>A: Mã hóa lại cookie
+    A->>S: Gửi request với cookie giả mạo
+    Note over S: Không kiểm tra chữ ký cookie
+    S-->>A: Đăng nhập vào tài khoản Tom
+```
 
 💀 **Nguyên nhân lỗ hổng:**  
 ❌ Cookie không được ký hoặc mã hóa đúng cách.  

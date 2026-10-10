@@ -195,6 +195,16 @@ Nguyên tắc **build một lần**: cùng một image đi qua staging rồi pro
 
 Với production, bật "Required reviewers" — mọi lần deploy phải có người bấm duyệt.
 
+Cả pipeline, từ lúc push tới lúc image chạy trên server:
+
+```mermaid
+flowchart LR
+    A["push / pull request"] --> B["test"]
+    B -- "chỉ nhánh main" --> C["build-image<br/>push ghcr.io, tag sha-commit"]
+    C --> D{"environment production<br/>chờ người duyệt"}
+    D -- "đã duyệt" --> E["deploy.sh sha-commit<br/>trên server"]
+```
+
 **Khoá SSH dài hạn trong secret là điểm yếu.** Ba cách tốt hơn:
 
 | Cách | Ưu |

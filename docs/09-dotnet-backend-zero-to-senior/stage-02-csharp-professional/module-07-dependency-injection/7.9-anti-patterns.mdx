@@ -76,6 +76,17 @@ public static class CurrentTenant
 
 Trong ứng dụng web, `static` mutable là **trạng thái chia sẻ giữa mọi request đồng thời**. Request A đặt `Id = "acme"`, request B đặt `Id = "globex"` ngay sau đó, và request A đọc lại thì thấy `"globex"` — nó vừa truy vấn dữ liệu của khách hàng khác.
 
+```mermaid
+sequenceDiagram
+    participant A as Request A
+    participant T as CurrentTenant.Id (static)
+    participant B as Request B
+    A->>T: Id = "acme"
+    B->>T: Id = "globex"
+    A->>T: Đọc Id
+    T-->>A: "globex", truy vấn nhầm dữ liệu khách khác
+```
+
 Lỗi này gần như **không xuất hiện khi test thủ công** (một người dùng tại một thời điểm) và xuất hiện ngay khi có tải. Đó là kiểu lỗi tệ nhất.
 
 ```csharp

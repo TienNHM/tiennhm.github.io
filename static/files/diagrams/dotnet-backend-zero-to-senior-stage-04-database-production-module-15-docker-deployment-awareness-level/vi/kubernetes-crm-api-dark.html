@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kubernetes: đường đi tới pod crm-api</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Display:wdth,wght@62.5..100,400&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #1b1b1d;
+      --color-ink:    #e3e3e3;
+      --color-muted:  #b4b9c0;
+      --font-sans:    'Geist', system-ui, sans-serif;
+      /* Instrument Serif has no Vietnamese subset; a per-glyph fallback mixes two faces
+         inside one word, so Vietnamese titles swap the whole face instead. */
+      --font-serif:   'Noto Serif Display', serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-stretch: 75%; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 960px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Deployment · Kubernetes</p>
+    <h1>Kubernetes: đường đi tới pod crm-api</h1>
+    <div class="diagram-container">
+<svg viewBox="0 48 960 464" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="kubernetes-crm-api-dark-title kubernetes-crm-api-dark-desc">
+  <title id="kubernetes-crm-api-dark-title">Kubernetes: đường đi tới pod crm-api</title>
+  <desc id="kubernetes-crm-api-dark-desc">Request từ Internet đi qua Ingress tới Service crm-api, Service cân bằng tải vào ba bản sao pod do Deployment quản lý, còn Secret crm-secrets cấp connection string cho pod qua biến môi trường.</desc>
+  <defs>
+    <marker id="kubernetes-crm-api-dark-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#b4b9c0"/></marker>
+    <marker id="kubernetes-crm-api-dark-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#25c19f"/></marker>
+  </defs>
+  <rect x="0" y="0" width="960" height="488" fill="#1b1b1d"/>
+  <!-- zone -->
+  <rect x="192" y="96" width="736" height="304" rx="8" fill="rgba(227,227,227,0.02)" stroke="rgba(227,227,227,0.20)" stroke-width="0.8" stroke-dasharray="4,4"/>
+  <rect x="208" y="90" width="64" height="12" rx="2" fill="#1b1b1d"/>
+  <text x="240" y="99" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">CLUSTER</text>
+  <!-- arrows -->
+  <path d="M160,192 H224" fill="none" stroke="#b4b9c0" stroke-width="1.2" marker-end="url(#kubernetes-crm-api-dark-arrow)"/>
+  <path d="M384,192 H432" fill="none" stroke="#b4b9c0" stroke-width="1.2" marker-end="url(#kubernetes-crm-api-dark-arrow)"/>
+  <path d="M592,192 H656" fill="none" stroke="#25c19f" stroke-width="1.4" marker-end="url(#kubernetes-crm-api-dark-arrow-accent)"/>
+  <path d="M776,304 V248" fill="none" stroke="#b4b9c0" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#kubernetes-crm-api-dark-arrow)"/>
+  <path d="M592,336 H616 Q624,336 624,328 V236 Q624,228 632,228 H656" fill="none" stroke="#b4b9c0" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#kubernetes-crm-api-dark-arrow)"/>
+  <!-- labels -->
+  <rect x="166" y="172" width="52" height="12" rx="2" fill="#1b1b1d"/><text x="192" y="181" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">HTTPS:443</text>
+  <rect x="602" y="172" width="44" height="12" rx="2" fill="#1b1b1d"/><text x="624" y="181" fill="#25c19f" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">:8080</text>
+  <rect x="784" y="270" width="48" height="12" rx="2" fill="#1b1b1d"/><text x="808" y="279" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">QUẢN LÝ</text>
+  <rect x="592" y="262" width="24" height="12" rx="2" fill="#1b1b1d"/><text x="604" y="271" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">ENV</text>
+  <!-- nodes -->
+  <!-- client -->
+  <rect x="40" y="160" width="120" height="64" rx="6" fill="#1b1b1d"/>
+  <rect x="40" y="160" width="120" height="64" rx="6" fill="rgba(227,227,227,0.03)" stroke="rgba(227,227,227,0.30)" stroke-width="1"/>
+  <text x="100" y="194" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Người dùng</text>
+  <text x="100" y="210" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">Internet</text>
+  <!-- ingress -->
+  <rect x="224" y="160" width="160" height="64" rx="6" fill="#1b1b1d"/>
+  <rect x="224" y="160" width="160" height="64" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <rect x="232" y="166" width="40" height="12" rx="2" fill="none" stroke="rgba(227,227,227,0.40)" stroke-width="0.8"/>
+  <text x="252" y="175" fill="#b4b9c0" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">INGRESS</text>
+  <text x="304" y="198" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Ingress</text>
+  <text x="304" y="214" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">định tuyến HTTP · TLS</text>
+  <!-- service -->
+  <rect x="432" y="160" width="160" height="64" rx="6" fill="#1b1b1d"/>
+  <rect x="432" y="160" width="160" height="64" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <rect x="440" y="166" width="40" height="12" rx="2" fill="none" stroke="rgba(227,227,227,0.40)" stroke-width="0.8"/>
+  <text x="460" y="175" fill="#b4b9c0" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">SERVICE</text>
+  <text x="512" y="198" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Service crm-api</text>
+  <text x="512" y="214" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">DNS ổn định · cân bằng tải</text>
+  <!-- pod (focal) -->
+  <rect x="656" y="136" width="240" height="112" rx="6" fill="#1b1b1d"/>
+  <rect x="656" y="136" width="240" height="112" rx="6" fill="rgba(37,193,159,0.10)" stroke="#25c19f" stroke-width="1"/>
+  <rect x="664" y="142" width="28" height="12" rx="2" fill="none" stroke="#25c19f" stroke-width="0.8"/>
+  <text x="678" y="151" fill="#25c19f" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">POD</text>
+  <rect x="864" y="142" width="24" height="12" rx="2" fill="#1b1b1d" stroke="#25c19f" stroke-width="0.8"/>
+  <text x="876" y="151" fill="#25c19f" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">x3</text>
+  <text x="776" y="170" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Pod crm-api</text>
+  <rect x="672" y="180" width="208" height="24" rx="4" fill="rgba(227,227,227,0.05)" stroke="#b4b9c0" stroke-width="0.8"/>
+  <text x="682" y="196" fill="#e3e3e3" font-size="12" font-family="'Geist', sans-serif">crm-api</text>
+  <text x="870" y="195" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">sha-abc123</text>
+  <text x="776" y="222" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">requests 256Mi · limits 512Mi</text>
+  <text x="776" y="236" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">startup · liveness · readiness</text>
+  <!-- secret -->
+  <rect x="432" y="304" width="160" height="64" rx="6" fill="#1b1b1d"/>
+  <rect x="432" y="304" width="160" height="64" rx="6" fill="rgba(227,227,227,0.05)" stroke="#b4b9c0" stroke-width="1"/>
+  <rect x="440" y="310" width="36" height="12" rx="2" fill="none" stroke="rgba(227,227,227,0.40)" stroke-width="0.8"/>
+  <text x="458" y="319" fill="#b4b9c0" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">SECRET</text>
+  <text x="512" y="342" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">crm-secrets</text>
+  <text x="512" y="358" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">base64, không mã hoá</text>
+  <!-- deployment -->
+  <rect x="656" y="304" width="240" height="64" rx="6" fill="#1b1b1d"/>
+  <rect x="656" y="304" width="240" height="64" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <rect x="664" y="310" width="52" height="12" rx="2" fill="none" stroke="rgba(227,227,227,0.40)" stroke-width="0.8"/>
+  <text x="690" y="319" fill="#b4b9c0" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">DEPLOYMENT</text>
+  <text x="776" y="342" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Deployment crm-api</text>
+  <text x="776" y="358" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">replicas 3 · maxUnavailable 0</text>
+  <!-- annotation -->
+  <text x="208" y="276" fill="#b4b9c0" font-size="11" font-family="'Geist', sans-serif">Probe quyết định số phận pod:</text>
+  <text x="208" y="294" fill="#b4b9c0" font-size="11" font-family="'Geist', sans-serif">readiness lỗi: rút khỏi Service</text>
+  <text x="208" y="310" fill="#b4b9c0" font-size="11" font-family="'Geist', sans-serif">liveness lỗi: restart container</text>
+  <text x="208" y="326" fill="#b4b9c0" font-size="11" font-family="'Geist', sans-serif">startup: chờ tối đa 150 giây</text>
+  <!-- legend -->
+  <line x1="40" y1="424" x2="920" y2="424" stroke="rgba(227,227,227,0.10)" stroke-width="0.8"/>
+  <text x="40" y="444" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">CHÚ GIẢI</text>
+  <rect x="40" y="454" width="24" height="12" rx="2" fill="rgba(227,227,227,0.03)" stroke="rgba(227,227,227,0.30)" stroke-width="1"/>
+  <text x="74" y="463" fill="#b4b9c0" font-size="9" font-family="'Geist', sans-serif">Ngoài cụm</text>
+  <rect x="160" y="454" width="24" height="12" rx="2" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="194" y="463" fill="#b4b9c0" font-size="9" font-family="'Geist', sans-serif">Đối tượng điều phối</text>
+  <rect x="320" y="454" width="24" height="12" rx="2" fill="rgba(227,227,227,0.05)" stroke="#b4b9c0" stroke-width="1"/>
+  <text x="354" y="463" fill="#b4b9c0" font-size="9" font-family="'Geist', sans-serif">Cấu hình nhạy cảm</text>
+  <rect x="472" y="454" width="24" height="12" rx="2" fill="rgba(37,193,159,0.10)" stroke="#25c19f" stroke-width="1"/>
+  <text x="506" y="463" fill="#b4b9c0" font-size="9" font-family="'Geist', sans-serif">Pod chạy ứng dụng</text>
+  <line x1="624" y1="460" x2="648" y2="460" stroke="#b4b9c0" stroke-width="1.2" stroke-dasharray="5,4"/>
+  <text x="658" y="463" fill="#b4b9c0" font-size="9" font-family="'Geist', sans-serif">Quản lý, cấp cấu hình</text>
+<text id="tiennhm-copyright" x="936" y="500" text-anchor="end" fill="#b4b9c0" opacity="0.75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.08em">© tiennhm</text>
+</svg>
+    </div>
+  </div>
+</body>
+</html>

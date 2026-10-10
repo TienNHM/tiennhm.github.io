@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Exchange định tuyến message theo routing key</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Display:wdth,wght@62.5..100,400&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #1b1b1d;
+      --color-ink:    #e3e3e3;
+      --color-muted:  #b4b9c0;
+      --font-sans:    'Geist', system-ui, sans-serif;
+      /* Instrument Serif has no Vietnamese subset; a per-glyph fallback mixes two faces
+         inside one word, so Vietnamese titles swap the whole face instead. */
+      --font-serif:   'Noto Serif Display', serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-stretch: 75%; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 960px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Architecture · RabbitMQ direct exchange</p>
+    <h1>Exchange định tuyến message theo routing key</h1>
+    <div class="diagram-container">
+<svg viewBox="0 0 960 524" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="rabbitmq-direct-exchange-dark-title rabbitmq-direct-exchange-dark-desc">
+  <title id="rabbitmq-direct-exchange-dark-title">RabbitMQ: direct exchange định tuyến theo routing key</title>
+  <desc id="rabbitmq-direct-exchange-dark-desc">Producer gửi message có routing key error tới exchange logs kiểu direct; exchange so routing key với binding key và chỉ đẩy message vào queue error, nơi consumer đăng ký level error nhận và xử lý. Hai queue warning và info không nhận message này.</desc>
+  <defs>
+    <marker id="rabbitmq-direct-exchange-dark-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#b4b9c0"/></marker>
+    <marker id="rabbitmq-direct-exchange-dark-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#25c19f"/></marker>
+  </defs>
+  <rect width="100%" height="100%" fill="#1b1b1d"/>
+  <g transform="translate(0,-40)">
+  <!-- Column headers -->
+  <text x="120" y="92" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.18em">PRODUCER</text>
+  <text x="370" y="92" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.18em">EXCHANGE</text>
+  <text x="680" y="92" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.18em">BINDING · QUEUE</text>
+  <text x="870" y="92" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.18em">CONSUMER</text>
+
+  <!-- Arrows first, behind nodes -->
+  <line x1="200" y1="268" x2="280" y2="268" stroke="#25c19f" stroke-width="1.4" marker-end="url(#rabbitmq-direct-exchange-dark-arrow-accent)"/>
+  <path d="M460 248 H520 Q528 248 528 240 V156 Q528 148 536 148 H600" stroke="#25c19f" stroke-width="1.4" fill="none" marker-end="url(#rabbitmq-direct-exchange-dark-arrow-accent)"/>
+  <line x1="460" y1="268" x2="600" y2="268" stroke="#b4b9c0" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#rabbitmq-direct-exchange-dark-arrow)"/>
+  <path d="M460 288 H520 Q528 288 528 296 V380 Q528 388 536 388 H600" stroke="#b4b9c0" stroke-width="1.2" stroke-dasharray="5,4" fill="none" marker-end="url(#rabbitmq-direct-exchange-dark-arrow)"/>
+  <line x1="760" y1="148" x2="800" y2="148" stroke="#25c19f" stroke-width="1.4" marker-end="url(#rabbitmq-direct-exchange-dark-arrow-accent)"/>
+  <line x1="760" y1="268" x2="800" y2="268" stroke="#b4b9c0" stroke-width="1.2" marker-end="url(#rabbitmq-direct-exchange-dark-arrow)"/>
+  <line x1="760" y1="388" x2="800" y2="388" stroke="#b4b9c0" stroke-width="1.2" marker-end="url(#rabbitmq-direct-exchange-dark-arrow)"/>
+
+  <!-- Arrow label -->
+  <rect x="208" y="244" width="64" height="12" rx="2" fill="#1b1b1d"/><text x="240" y="253" fill="#25c19f" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">KEY: ERROR</text>
+
+  <!-- Producer -->
+  <rect x="40" y="236" width="160" height="64" rx="6" fill="#1b1b1d"/>
+  <rect x="40" y="236" width="160" height="64" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="120" y="264" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Producer</text>
+  <text x="120" y="280" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">BasicPublish</text>
+
+  <!-- Exchange (focal) -->
+  <rect x="280" y="224" width="180" height="88" rx="6" fill="#1b1b1d"/>
+  <rect x="280" y="224" width="180" height="88" rx="6" fill="rgba(37,193,159,0.10)" stroke="#25c19f" stroke-width="1.2"/>
+  <text x="370" y="264" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Exchange logs</text>
+  <text x="370" y="280" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">ExchangeType.Direct</text>
+
+  <!-- Queues -->
+  <rect x="600" y="120" width="160" height="56" rx="6" fill="#1b1b1d"/>
+  <rect x="600" y="120" width="160" height="56" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="680" y="145" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Queue error</text>
+  <text x="680" y="161" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">binding key: error</text>
+
+  <rect x="600" y="240" width="160" height="56" rx="6" fill="#1b1b1d"/>
+  <rect x="600" y="240" width="160" height="56" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="680" y="265" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Queue warning</text>
+  <text x="680" y="281" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">binding key: warning</text>
+
+  <rect x="600" y="360" width="160" height="56" rx="6" fill="#1b1b1d"/>
+  <rect x="600" y="360" width="160" height="56" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="680" y="385" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Queue info</text>
+  <text x="680" y="401" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">binding key: info</text>
+
+  <!-- Consumers -->
+  <rect x="800" y="120" width="140" height="56" rx="6" fill="#1b1b1d"/>
+  <rect x="800" y="120" width="140" height="56" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="870" y="145" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Consumer</text>
+  <text x="870" y="161" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">BasicConsume(error)</text>
+
+  <rect x="800" y="240" width="140" height="56" rx="6" fill="#1b1b1d"/>
+  <rect x="800" y="240" width="140" height="56" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="870" y="265" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Consumer</text>
+  <text x="870" y="281" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">BasicConsume(warning)</text>
+
+  <rect x="800" y="360" width="140" height="56" rx="6" fill="#1b1b1d"/>
+  <rect x="800" y="360" width="140" height="56" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="870" y="385" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Consumer</text>
+  <text x="870" y="401" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">BasicConsume(info)</text>
+
+  <!-- Legend -->
+  <line x1="40" y1="460" x2="920" y2="460" stroke="rgba(227,227,227,0.10)" stroke-width="0.8"/>
+  <text x="40" y="480" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">CHÚ GIẢI</text>
+  <line x1="40" y1="502" x2="68" y2="502" stroke="#25c19f" stroke-width="1.4" marker-end="url(#rabbitmq-direct-exchange-dark-arrow-accent)"/>
+  <text x="76" y="505" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif">Đường đi của message có routing key error</text>
+  <line x1="320" y1="502" x2="348" y2="502" stroke="#b4b9c0" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#rabbitmq-direct-exchange-dark-arrow)"/>
+  <text x="356" y="505" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif">Binding có key khác, không nhận message này</text>
+  <line x1="620" y1="502" x2="648" y2="502" stroke="#b4b9c0" stroke-width="1.2" marker-end="url(#rabbitmq-direct-exchange-dark-arrow)"/>
+  <text x="656" y="505" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif">Queue giao message cho consumer</text>
+  </g>
+<text id="tiennhm-copyright" x="936" y="512" text-anchor="end" fill="#b4b9c0" opacity="0.75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.08em">© tiennhm</text>
+</svg>
+    </div>
+  </div>
+</body>
+</html>

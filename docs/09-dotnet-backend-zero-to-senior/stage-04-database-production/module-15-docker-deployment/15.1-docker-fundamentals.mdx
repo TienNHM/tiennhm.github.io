@@ -85,6 +85,26 @@ Chênh lệch thực tế: build đầy đủ 3 phút so với 20 giây khi cach
 
 **Cache bị vô hiệu theo dây chuyền:** một layer đổi thì **mọi layer sau nó** phải build lại, kể cả khi nội dung giống hệt.
 
+Sửa một dòng code rồi build lại với hai cách sắp lệnh ở trên:
+
+```mermaid
+flowchart TB
+    X["Sửa một dòng code"]
+    subgraph slow["CHẬM"]
+        direction TB
+        S1["COPY . . : build lại"] --> S2["RUN dotnet restore: build lại, tải lại package"]
+        S2 --> S3["RUN dotnet publish: build lại"]
+    end
+    subgraph fast["NHANH"]
+        direction TB
+        F1["COPY CrmApi.csproj: dùng cache"] --> F2["RUN dotnet restore: dùng cache"]
+        F2 --> F3["COPY . . : build lại"]
+        F3 --> F4["RUN dotnet publish --no-restore: build lại"]
+    end
+    X -.->|"layer đổi đầu tiên"| S1
+    X -.->|"layer đổi đầu tiên"| F3
+```
+
 `.dockerignore` quan trọng hơn nhiều người nghĩ:
 
 ```

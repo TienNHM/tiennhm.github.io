@@ -195,6 +195,20 @@ public async Task<Result> HandleAsync(PlaceOrderCommand command, CancellationTok
 
 Cập nhật hai aggregate trong một transaction là **chấp nhận được** khi chúng cùng database. Quy tắc "một transaction một aggregate" của DDD sinh ra cho hệ phân tán; với monolith dùng chung database, nó thường quá chặt.
 
+```mermaid
+flowchart LR
+    subgraph OA["Aggregate Order"]
+        O["Order (root)"] --> L1["OrderLine"]
+        O --> L2["OrderLine"]
+    end
+    subgraph CA["Aggregate Customer"]
+        C["Customer (root)"]
+    end
+    O -. "CustomerId, chỉ id" .-> C
+    H["Handler PlaceOrderCommand (Application)"] -->|"order.Place"| O
+    H -->|"customer.ReserveCredit"| C
+```
+
 Nhưng **thay đổi lan sang aggregate ở service khác** thì phải bất đồng bộ qua domain event ([bài 16.9](16.8-in-process.mdx)) hoặc message bus ([bài 14.9](../../stage-04-database-production/module-14-caching-background-jobs/14.8-message-bus-intro.mdx)).
 
 ### 16.6.4 — Bounded context

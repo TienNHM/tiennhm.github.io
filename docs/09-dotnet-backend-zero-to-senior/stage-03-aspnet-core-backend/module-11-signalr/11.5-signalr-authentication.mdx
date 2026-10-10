@@ -49,6 +49,15 @@ options.Events = new JwtBearerEvents
 
 **Vì sao phải qua query string:** WebSocket API của trình duyệt chỉ cho phép đặt URL và subprotocol, **không** cho header tuỳ ý. SignalR đành chuyển token sang query string.
 
+```mermaid
+flowchart LR
+    R["Request có ?access_token"] --> P{"Path bắt đầu<br/>bằng /hubs?"}
+    P -->|"Có"| T["context.Token = access_token"]
+    P -->|"Không"| H["Bỏ qua query string,<br/>chỉ đọc header"]
+    T --> V["JwtBearer xác thực token"]
+    H --> V
+```
+
 Ba cách giảm rủi ro:
 
 **1. Loại đường dẫn hub khỏi log truy cập:**

@@ -219,6 +219,21 @@ Giữ nguyên `ValidationProblemDetails` để client sinh tự động parse đ
 
 Ba mã khác nhau cho ba loại lỗi khác nhau giúp client xử lý đúng: 400 là "sửa form", 409 là "dữ liệu xung đột", 422 là "thao tác không hợp lệ ở trạng thái hiện tại".
 
+Một request đi qua ba tầng kiểm tra và hàng rào `UNIQUE` cuối cùng:
+
+```mermaid
+flowchart TD
+    R["CreateLeadCommand"] --> V{"Validator: hình dạng đúng?"}
+    V -->|"Không"| E400["400 Dữ liệu không hợp lệ"]
+    V -->|"Có"| A{"Handler: email đã tồn tại?"}
+    A -->|"Có"| E409["409 Email đã tồn tại"]
+    A -->|"Không"| D{"Domain: bất biến đúng?"}
+    D -->|"Không"| E422["422 Vi phạm bất biến"]
+    D -->|"Có"| S{"SaveChanges: vi phạm UNIQUE?"}
+    S -->|"Có, thua race condition"| E409B["409 Email đã tồn tại"]
+    S -->|"Không"| OK["Lưu thành công"]
+```
+
 ### 16.8.5 — Test validator
 
 ```csharp

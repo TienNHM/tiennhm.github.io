@@ -3,8 +3,8 @@ import Head from '@docusaurus/Head';
 import { PageMetadata } from '@docusaurus/theme-common';
 import { useBlogPost } from '@docusaurus/plugin-content-blog/client';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
-import useBaseUrl from '@docusaurus/useBaseUrl';
 import { markdownPath } from '@site/src/utils/markdownUrl';
+import useBlogPostImage from '@site/src/utils/useBlogPostImage';
 
 /**
  * Blog post metadata - đảm bảo og:title, og:description, og:image
@@ -16,10 +16,7 @@ export default function BlogPostPageMetadata(): JSX.Element {
 
   const title = metadata.title;
   const description = metadata.description ?? frontMatter.description ?? '';
-  const resolvedImagePath = useBaseUrl(frontMatter.image ?? '/img/copyright-tiennhm.webp');
-  const image = frontMatter.image?.startsWith('http')
-    ? frontMatter.image
-    : `${siteConfig.url}${resolvedImagePath}`;
+  const image = useBlogPostImage();
   const url = metadata.permalink
     ? `${siteConfig.url}${metadata.permalink}`
     : siteConfig.url;

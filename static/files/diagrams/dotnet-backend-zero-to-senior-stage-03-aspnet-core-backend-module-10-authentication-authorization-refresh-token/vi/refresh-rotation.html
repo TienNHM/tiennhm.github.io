@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rotation kèm phát hiện tái sử dụng</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Display:ital,wdth,wght@0,62.5..100,400;1,62.5..100,400&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #fafaf7;
+      --color-ink:    #1c1e21;
+      --color-muted:  #525860;
+      --font-sans:    'Geist', system-ui, sans-serif;
+      /* Instrument Serif has no Vietnamese subset; a per-glyph fallback mixes two faces
+         inside one word, so Vietnamese titles swap the whole face instead. */
+      --font-serif:   'Noto Serif Display', serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-stretch: 75%; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 960px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Flowchart · Refresh token</p>
+    <h1>Rotation kèm phát hiện tái sử dụng</h1>
+    <div class="diagram-container">
+<svg viewBox="0 0 960 836" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="refresh-rotation-title refresh-rotation-desc">
+  <title id="refresh-rotation-title">Luồng làm mới refresh token</title>
+  <desc id="refresh-rotation-desc">Refresh token được băm SHA-256 rồi tra cơ sở dữ liệu; token đã bị huỷ mà dùng lại thì huỷ mọi token của người dùng, token hết hạn thì từ chối, còn lại thì rotate sang token mới và trả cặp token mới.</desc>
+  <defs><marker id="refresh-rotation-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#525860"/></marker><marker id="refresh-rotation-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#18816a"/></marker></defs>
+  <rect width="100%" height="100%" fill="#fafaf7"/>
+  <!-- zones -->
+  <!-- arrows (before nodes) -->
+  <path d="M280,72 V104" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#refresh-rotation-arrow)"/>
+  <path d="M280,160 V184" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#refresh-rotation-arrow)"/>
+  <path d="M360,236 H776" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#refresh-rotation-arrow)"/>
+  <path d="M280,288 V312" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#refresh-rotation-arrow)"/>
+  <path d="M360,364 H448" stroke="#18816a" stroke-width="1.4" fill="none" marker-end="url(#refresh-rotation-arrow-accent)"/>
+  <path d="M672,364 H776" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#refresh-rotation-arrow)"/>
+  <path d="M280,416 V440" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#refresh-rotation-arrow)"/>
+  <path d="M360,492 H776" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#refresh-rotation-arrow)"/>
+  <path d="M280,544 V576" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#refresh-rotation-arrow)"/>
+  <path d="M280,640 V672" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#refresh-rotation-arrow)"/>
+  <!-- arrow labels -->
+  <rect x="399" y="216" width="42" height="12" rx="2" fill="#fafaf7"/><text x="420" y="225" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">KHÔNG</text>
+  <rect x="288" y="294" width="24" height="12" rx="2" fill="#fafaf7"/><text x="300" y="303" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">CÓ</text>
+  <rect x="392" y="344" width="24" height="12" rx="2" fill="#fafaf7"/><text x="404" y="353" fill="#18816a" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">CÓ</text>
+  <rect x="288" y="422" width="42" height="12" rx="2" fill="#fafaf7"/><text x="309" y="431" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">KHÔNG</text>
+  <rect x="392" y="472" width="24" height="12" rx="2" fill="#fafaf7"/><text x="404" y="481" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">CÓ</text>
+  <rect x="288" y="554" width="42" height="12" rx="2" fill="#fafaf7"/><text x="309" y="563" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">KHÔNG</text>
+  <!-- nodes -->
+  <rect x="200" y="24" width="160" height="48" rx="20" fill="#fafaf7"/><rect x="200" y="24" width="160" height="48" rx="20" fill="rgba(28,30,33,0.03)" stroke="rgba(28,30,33,0.3)" stroke-width="1"/><text x="280" y="45" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">POST /refresh</text><text x="280" y="61" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">refresh token thô</text>
+  <rect x="180" y="104" width="200" height="56" rx="6" fill="#fafaf7"/><rect x="180" y="104" width="200" height="56" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/><text x="280" y="129" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Băm rồi tra DB</text><text x="280" y="145" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">SHA-256 → TokenHash</text>
+  <polygon points="280,184 360,236 280,288 200,236" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/><text x="280" y="233" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Tìm thấy</text><text x="280" y="247" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">bản ghi?</text>
+  <polygon points="280,312 360,364 280,416 200,364" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/><text x="280" y="361" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Token đã</text><text x="280" y="375" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">bị huỷ?</text>
+  <polygon points="280,440 360,492 280,544 200,492" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/><text x="280" y="489" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Hết hạn</text><text x="280" y="503" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">hoặc quá trần?</text>
+  <rect x="448" y="336" width="224" height="56" rx="6" fill="#fafaf7"/><rect x="448" y="336" width="224" height="56" rx="6" fill="rgba(24,129,106,0.08)" stroke="#18816a" stroke-width="1"/><text x="560" y="361" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Huỷ mọi token của user</text><text x="560" y="377" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">LogCritical · reuse-detected</text>
+  <rect x="160" y="576" width="240" height="64" rx="6" fill="#fafaf7"/><rect x="160" y="576" width="240" height="64" rx="6" fill="rgba(24,129,106,0.08)" stroke="#18816a" stroke-width="1"/><text x="280" y="599" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Rotate R1 → R2</text><text x="280" y="615" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">R1.RevokedAt = now</text><text x="280" y="628" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">giữ nguyên AbsoluteExpiresAt</text>
+  <rect x="180" y="672" width="200" height="48" rx="20" fill="#fafaf7"/><rect x="180" y="672" width="200" height="48" rx="20" fill="rgba(28,30,33,0.03)" stroke="rgba(28,30,33,0.3)" stroke-width="1"/><text x="280" y="693" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Cặp token mới</text><text x="280" y="709" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">access token + R2</text>
+  <rect x="776" y="208" width="160" height="312" rx="20" fill="#fafaf7"/><rect x="776" y="208" width="160" height="312" rx="20" fill="rgba(28,30,33,0.03)" stroke="rgba(28,30,33,0.3)" stroke-width="1"/><text x="856" y="355" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Từ chối</text><text x="856" y="371" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">401</text><text x="856" y="384" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">đăng nhập lại</text>
+  <!-- callouts, legend -->
+  <text x="448" y="424" fill="#1c1e21" font-size="14" font-style="italic" font-stretch="75%" font-family="'Noto Serif Display', serif" text-anchor="start">Ngoại lệ: trong 10 giây đầu, trả lại R2</text><text x="448" y="441" fill="#1c1e21" font-size="14" font-style="italic" font-stretch="75%" font-family="'Noto Serif Display', serif" text-anchor="start">cho tab gọi song song (mục 10.4.6)</text>
+  <line x1="40" y1="752" x2="920" y2="752" stroke="rgba(28,30,33,0.1)" stroke-width="0.8"/><text x="40" y="772" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">CHÚ GIẢI</text><rect x="40" y="788" width="24" height="12" rx="6" fill="rgba(28,30,33,0.03)" stroke="rgba(28,30,33,0.3)" stroke-width="1"/><text x="72" y="798" fill="#525860" font-size="8.5" font-family="'Geist', sans-serif">Bắt đầu / kết thúc</text><rect x="202" y="788" width="24" height="12" rx="2" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/><text x="234" y="798" fill="#525860" font-size="8.5" font-family="'Geist', sans-serif">Bước xử lý</text><polygon points="322,794 334,788 346,794 334,800" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/><text x="354" y="798" fill="#525860" font-size="8.5" font-family="'Geist', sans-serif">Rẽ nhánh</text><rect x="432" y="788" width="24" height="12" rx="2" fill="rgba(24,129,106,0.08)" stroke="#18816a" stroke-width="1"/><text x="464" y="798" fill="#525860" font-size="8.5" font-family="'Geist', sans-serif">Rotation và phát hiện tái sử dụng</text>
+<text id="tiennhm-copyright" x="936" y="824" text-anchor="end" fill="#525860" opacity="0.75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.08em">© tiennhm</text>
+</svg>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Requests take one path, certificates another</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Display:wdth,wght@62.5..100,400&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #1b1b1d;
+      --color-ink:    #e3e3e3;
+      --color-muted:  #b4b9c0;
+      --font-sans:    'Geist', system-ui, sans-serif;
+      /* Instrument Serif has no Vietnamese subset; a per-glyph fallback mixes two faces
+         inside one word, so Vietnamese titles swap the whole face instead. */
+      --font-serif:   'Noto Serif Display', serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-stretch: 75%; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 960px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Architecture · Traefik + Cloudflare</p>
+    <h1>Requests take one path, certificates another</h1>
+    <div class="diagram-container">
+<svg viewBox="0 0 960 536" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="traefik-cloudflare-dns01-dark-title traefik-cloudflare-dns01-dark-desc">
+  <title id="traefik-cloudflare-dns01-dark-title">Traefik behind Cloudflare with ACME DNS-01</title>
+  <desc id="traefik-cloudflare-dns01-dark-desc">Visitor requests go through the Cloudflare proxy to Traefik on the edge network and on to the containers; certificates come from DNS-01, where Traefik writes a TXT record through the Cloudflare DNS API for Let&#x27;s Encrypt to check, so no validation request reaches the origin; the web app in another zone gets no certificate.</desc>
+  <defs>
+    <marker id="traefik-cloudflare-dns01-dark-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#b4b9c0"/></marker>
+    <marker id="traefik-cloudflare-dns01-dark-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#25c19f"/></marker>
+  </defs>
+  <rect width="100%" height="100%" fill="#1b1b1d"/>
+
+  <rect x="420" y="168" width="500" height="252" rx="8" fill="rgba(227,227,227,0.02)" stroke="rgba(227,227,227,0.14)" stroke-width="0.8"/>
+  <rect x="800" y="172" width="108" height="12" rx="2" fill="#1b1b1d"/>
+  <text x="854.0" y="181" fill="#b4b9c0" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.14em">VPS · NETWORK EDGE</text>
+  <line x1="136" y1="300" x2="200" y2="300" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#traefik-cloudflare-dns01-dark-arrow)"/>
+  <line x1="360" y1="300" x2="440" y2="300" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#traefik-cloudflare-dns01-dark-arrow)"/>
+  <line x1="620" y1="300" x2="680" y2="300" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#traefik-cloudflare-dns01-dark-arrow)"/>
+  <path d="M620,286 H642 Q650,286 650,278 V236 Q650,228 658,228 H680" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#traefik-cloudflare-dns01-dark-arrow)"/>
+  <path d="M620,314 H642 Q650,314 650,322 V364 Q650,372 658,372 H680" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#traefik-cloudflare-dns01-dark-arrow)"/>
+  <path d="M588,272 V96 Q588,88 596,88 H660" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#traefik-cloudflare-dns01-dark-arrow)"/>
+  <line x1="496" y1="272" x2="496" y2="104" stroke="#25c19f" stroke-width="1.4" fill="none" marker-end="url(#traefik-cloudflare-dns01-dark-arrow-accent)"/>
+  <line x1="660" y1="66" x2="560" y2="66" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#traefik-cloudflare-dns01-dark-arrow)"/>
+  <rect x="148.0" y="280" width="40" height="12" rx="2" fill="#1b1b1d"/>
+  <text x="168.0" y="289" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">HTTPS</text>
+  <rect x="366.0" y="280" width="68" height="12" rx="2" fill="#1b1b1d"/>
+  <text x="400.0" y="289" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">HTTPS :443</text>
+  <rect x="596" y="176" width="68" height="12" rx="2" fill="#1b1b1d"/>
+  <text x="630.0" y="185" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">ORDER CERT</text>
+  <rect x="420" y="176" width="68" height="12" rx="2" fill="#1b1b1d"/>
+  <text x="454.0" y="185" fill="#25c19f" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">CREATE TXT</text>
+  <rect x="580.0" y="46" width="60" height="12" rx="2" fill="#1b1b1d"/>
+  <text x="610.0" y="55" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">CHECK TXT</text>
+  <rect x="380" y="48" width="180" height="56" rx="6" fill="#1b1b1d"/>
+  <rect x="380" y="48" width="180" height="56" rx="6" fill="rgba(227,227,227,0.03)" stroke="rgba(227,227,227,0.3)" stroke-width="1"/>
+  <text x="470.0" y="73.0" fill="#e3e3e3" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="middle" font-weight="600">Cloudflare DNS API</text>
+  <text x="470.0" y="89.0" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">TXT _acme-challenge</text>
+  <rect x="660" y="48" width="180" height="56" rx="6" fill="#1b1b1d"/>
+  <rect x="660" y="48" width="180" height="56" rx="6" fill="rgba(227,227,227,0.03)" stroke="rgba(227,227,227,0.3)" stroke-width="1"/>
+  <text x="750.0" y="73.0" fill="#e3e3e3" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="middle" font-weight="600">Let&#x27;s Encrypt</text>
+  <text x="750.0" y="89.0" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">ACME · DNS-01</text>
+  <rect x="40" y="272" width="96" height="56" rx="6" fill="#1b1b1d"/>
+  <rect x="40" y="272" width="96" height="56" rx="6" fill="rgba(227,227,227,0.05)" stroke="#b4b9c0" stroke-width="1"/>
+  <text x="88.0" y="297.0" fill="#e3e3e3" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="middle" font-weight="600">Visitor</text>
+  <text x="88.0" y="313.0" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">browser</text>
+  <rect x="200" y="272" width="160" height="56" rx="6" fill="#1b1b1d"/>
+  <rect x="200" y="272" width="160" height="56" rx="6" fill="rgba(227,227,227,0.03)" stroke="rgba(227,227,227,0.3)" stroke-width="1"/>
+  <text x="280.0" y="297.0" fill="#e3e3e3" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="middle" font-weight="600">Cloudflare proxy</text>
+  <text x="280.0" y="313.0" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">proxied · Full (strict)</text>
+  <rect x="440" y="272" width="180" height="56" rx="6" fill="#1b1b1d"/>
+  <rect x="440" y="272" width="180" height="56" rx="6" fill="rgba(37,193,159,0.08)" stroke="#25c19f" stroke-width="1"/>
+  <text x="530.0" y="297.0" fill="#e3e3e3" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="middle" font-weight="600">Traefik v3</text>
+  <text x="530.0" y="313.0" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">entrypoint :443 · ACME</text>
+  <rect x="680" y="204" width="220" height="48" rx="6" fill="#1b1b1d"/>
+  <rect x="680" y="204" width="220" height="48" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="790.0" y="225.0" fill="#e3e3e3" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="middle" font-weight="600">10 WordPress sites</text>
+  <text x="790.0" y="241.0" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">6 labels per site</text>
+  <rect x="680" y="276" width="220" height="48" rx="6" fill="#1b1b1d"/>
+  <rect x="680" y="276" width="220" height="48" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="790.0" y="297.0" fill="#e3e3e3" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="middle" font-weight="600">.NET API · Angular app</text>
+  <text x="790.0" y="313.0" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">traefik.enable=true</text>
+  <rect x="680" y="348" width="220" height="48" rx="6" fill="#1b1b1d"/>
+  <rect x="680" y="348" width="220" height="48" rx="6" fill="rgba(227,227,227,0.02)" stroke="rgba(227,227,227,0.35)" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="790.0" y="369.0" fill="#e3e3e3" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="middle" font-weight="600">Event web app</text>
+  <text x="790.0" y="385.0" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">other zone → no cert</text>
+  <line x1="40" y1="448" x2="920" y2="448" stroke="rgba(227,227,227,0.1)" stroke-width="0.8"/>
+  <text x="40" y="468" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start" letter-spacing="0.18em">LEGEND</text>
+  <line x1="40" y1="484" x2="68" y2="484" stroke="#25c19f" stroke-width="1.4" fill="none" marker-end="url(#traefik-cloudflare-dns01-dark-arrow-accent)"/>
+  <text x="76" y="488" fill="#b4b9c0" font-size="9" font-family="'Geist', system-ui, sans-serif" text-anchor="start">DNS-01: Traefik writes a TXT record via the API, nothing touches the origin</text>
+  <line x1="517.0" y1="484" x2="545.0" y2="484" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#traefik-cloudflare-dns01-dark-arrow)"/>
+  <text x="553.0" y="488" fill="#b4b9c0" font-size="9" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Visitor request</text>
+  <rect x="670.0" y="478" width="24" height="12" rx="2" fill="rgba(227,227,227,0.02)" stroke="rgba(227,227,227,0.35)" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="702.0" y="488" fill="#b4b9c0" font-size="9" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Domain outside the token&#x27;s zone</text>
+<text id="tiennhm-copyright" x="936" y="524" text-anchor="end" fill="#b4b9c0" opacity="0.75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.08em">© tiennhm</text>
+</svg>
+    </div>
+  </div>
+</body>
+</html>

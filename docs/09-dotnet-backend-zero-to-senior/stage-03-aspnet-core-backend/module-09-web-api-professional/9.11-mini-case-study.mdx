@@ -163,6 +163,15 @@ public record LeadDtoV2(Guid CustomerId, string Name, MoneyDto Value)
 
 Quy tắc: **phiên bản hoá ranh giới, không phiên bản hoá logic**. Nếu bạn thấy mình chép một service, ranh giới đang bị đặt sai chỗ ([bài 16.4](../../stage-05-senior-engineering/module-16-clean-architecture/16.3-uncle-bob.mdx)).
 
+```mermaid
+flowchart LR
+    V1["GET /api/v1/leads/id<br/>GetV1"] --> Q["GetLeadQuery"]
+    V2["GET /api/v2/leads/id<br/>GetV2"] --> Q
+    Q --> L["Lead<br/>model nghiệp vụ, một bản"]
+    L --> D1["LeadDtoV1.From<br/>CustomerId: int"]
+    L --> D2["LeadDtoV2.From<br/>CustomerId: Guid"]
+```
+
 ### 9.12.5 — Phát hiện breaking change trong CI
 
 Đây là phần có giá trị cao nhất: chặn sự cố **trước khi** nó tới production.

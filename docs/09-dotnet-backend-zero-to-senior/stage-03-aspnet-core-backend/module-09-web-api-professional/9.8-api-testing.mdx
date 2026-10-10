@@ -227,6 +227,20 @@ Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
 
 Phân quyền vẫn chạy đầy đủ; chỉ phần lấy danh tính bị thay. Nhờ đó bạn test được cả đường thành công lẫn đường bị từ chối.
 
+Ghép lại, một bài kiểm thử tích hợp chạy qua những thành phần sau:
+
+```mermaid
+flowchart LR
+    T["Test xUnit"] -->|"HttpClient"| F["WebApplicationFactory<br/>Program.cs thật"]
+    subgraph CTS["ConfigureTestServices: đè sau Program.cs"]
+        FE["FakeEmailService<br/>FakePaymentGateway"]
+        TA["TestAuthHandler"]
+    end
+    F --> CTS
+    F -->|"migration thật"| DB[("SQL Server<br/>Testcontainers")]
+    RS["Respawn"] -->|"reset trước mỗi test"| DB
+```
+
 :::warning Đừng để lọt sang production
 `TestAuthHandler` chỉ được đăng ký trong `ConfigureTestServices` của test project. Đừng bao giờ đặt nó trong `Program.cs` sau một câu `if` về môi trường — một biến môi trường đặt nhầm là một API không xác thực.
 :::

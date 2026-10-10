@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Why onnxruntime-node dies on Alpine</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Display:wdth,wght@62.5..100,400&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #fafaf7;
+      --color-ink:    #1c1e21;
+      --color-muted:  #525860;
+      --font-sans:    'Geist', system-ui, sans-serif;
+      /* Instrument Serif has no Vietnamese subset; a per-glyph fallback mixes two faces
+         inside one word, so Vietnamese titles swap the whole face instead. */
+      --font-serif:   'Noto Serif Display', serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-stretch: 75%; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 960px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Dependency · native module</p>
+    <h1>Why onnxruntime-node dies on Alpine</h1>
+    <div class="diagram-container">
+<svg viewBox="0 0 960 600" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="onnx-alpine-dt-needed-title onnx-alpine-dt-needed-desc">
+  <title id="onnx-alpine-dt-needed-title">libonnxruntime.so.1 needs the glibc loader</title>
+  <desc id="onnx-alpine-dt-needed-desc">transformers.js pulls in onnxruntime-node, whose binding loads libonnxruntime.so.1 with DT_NEEDED ld-linux-x86-64.so.2; node:22-alpine uses musl and lacks that file, adding libc6-compat or gcompat only moves the failure to __vsnprintf_chk, while node:22-bookworm-slim ships glibc 2.36 and runs it for 89 MB more image.</desc>
+  <defs>
+    <marker id="onnx-alpine-dt-needed-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#525860"/></marker>
+    <marker id="onnx-alpine-dt-needed-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#18816a"/></marker>
+  </defs>
+  <rect width="100%" height="100%" fill="#fafaf7"/>
+
+  <line x1="220" y1="84" x2="260" y2="84" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#onnx-alpine-dt-needed-arrow)"/>
+  <line x1="440" y1="84" x2="480" y2="84" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#onnx-alpine-dt-needed-arrow)"/>
+  <line x1="680" y1="84" x2="720" y2="84" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#onnx-alpine-dt-needed-arrow)"/>
+  <line x1="820" y1="112" x2="820" y2="176" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#onnx-alpine-dt-needed-arrow)"/>
+  <rect x="744" y="138" width="68" height="12" rx="2" fill="#fafaf7"/>
+  <text x="778.0" y="147" fill="#525860" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">readelf -d</text>
+  <path d="M720,204 H288 Q280,204 280,212 V296" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#onnx-alpine-dt-needed-arrow)"/>
+  <line x1="800" y1="232" x2="800" y2="296" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#onnx-alpine-dt-needed-arrow)"/>
+  <line x1="280" y1="376" x2="280" y2="424" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#onnx-alpine-dt-needed-arrow)"/>
+  <rect x="442.0" y="184" width="116" height="12" rx="2" fill="#fafaf7"/>
+  <text x="500.0" y="193" fill="#525860" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">LOOKS FOR THIS FILE</text>
+  <rect x="808" y="258" width="52" height="12" rx="2" fill="#fafaf7"/>
+  <text x="834.0" y="267" fill="#525860" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">PRESENT</text>
+  <rect x="288" y="394" width="68" height="12" rx="2" fill="#fafaf7"/>
+  <text x="322.0" y="403" fill="#525860" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">ADD A SHIM</text>
+  <text x="40" y="36" fill="#525860" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start" letter-spacing="0.14em">TRANSITIVE CHAIN · NOTHING IN package.json MENTIONS glibc</text>
+  <rect x="40" y="56" width="180" height="56" rx="6" fill="#fafaf7"/>
+  <rect x="40" y="56" width="180" height="56" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="130.0" y="81.0" fill="#1c1e21" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="middle" font-weight="600">transformers.js</text>
+  <text x="130.0" y="97.0" fill="#525860" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">@huggingface/transformers</text>
+  <rect x="260" y="56" width="180" height="56" rx="6" fill="#fafaf7"/>
+  <rect x="260" y="56" width="180" height="56" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="350.0" y="81.0" fill="#1c1e21" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="middle" font-weight="600">onnxruntime-node</text>
+  <text x="350.0" y="97.0" fill="#525860" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">1.24.3</text>
+  <rect x="480" y="56" width="200" height="56" rx="6" fill="#fafaf7"/>
+  <rect x="480" y="56" width="200" height="56" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="580.0" y="81.0" fill="#1c1e21" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="middle" font-weight="600">onnxruntime_binding.node</text>
+  <text x="580.0" y="97.0" fill="#525860" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">376 KB · the file you load</text>
+  <rect x="720" y="56" width="200" height="56" rx="6" fill="#fafaf7"/>
+  <rect x="720" y="56" width="200" height="56" rx="6" fill="rgba(24,129,106,0.08)" stroke="#18816a" stroke-width="1"/>
+  <text x="820.0" y="81.0" fill="#1c1e21" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="middle" font-weight="600">libonnxruntime.so.1</text>
+  <text x="820.0" y="97.0" fill="#525860" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">34 MB · built for glibc</text>
+  <rect x="720" y="176" width="200" height="56" rx="6" fill="#fafaf7"/>
+  <rect x="720" y="176" width="200" height="56" rx="6" fill="rgba(28,30,33,0.05)" stroke="#525860" stroke-width="1"/>
+  <text x="820.0" y="201.0" fill="#1c1e21" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="middle" font-weight="600">DT_NEEDED</text>
+  <text x="820.0" y="217.0" fill="#525860" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">ld-linux-x86-64.so.2</text>
+  <rect x="120" y="296" width="320" height="80" rx="6" fill="#fafaf7"/>
+  <rect x="120" y="296" width="320" height="80" rx="6" fill="rgba(28,30,33,0.02)" stroke="rgba(28,30,33,0.35)" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="280.0" y="326.0" fill="#1c1e21" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="middle" font-weight="600">node:22-alpine</text>
+  <text x="280.0" y="342.0" fill="#525860" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">musl · /lib/ld-musl-x86_64.so.1</text>
+  <text x="280.0" y="356.0" fill="#525860" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">✕ Error loading shared library</text>
+  <rect x="560" y="296" width="360" height="80" rx="6" fill="#fafaf7"/>
+  <rect x="560" y="296" width="360" height="80" rx="6" fill="rgba(24,129,106,0.08)" stroke="#18816a" stroke-width="1"/>
+  <text x="740.0" y="326.0" fill="#1c1e21" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="middle" font-weight="600">node:22-bookworm-slim</text>
+  <text x="740.0" y="342.0" fill="#525860" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">glibc 2.36 · /lib64/ld-linux-x86-64.so.2</text>
+  <text x="740.0" y="356.0" fill="#525860" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">✓ dlopen works · image +89 MB</text>
+  <rect x="120" y="424" width="320" height="64" rx="6" fill="#fafaf7"/>
+  <rect x="120" y="424" width="320" height="64" rx="6" fill="rgba(28,30,33,0.02)" stroke="rgba(28,30,33,0.35)" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="280.0" y="453.0" fill="#1c1e21" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="middle" font-weight="600">+ libc6-compat / gcompat</text>
+  <text x="280.0" y="469.0" fill="#525860" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">✕ Error relocating: __vsnprintf_chk</text>
+  <line x1="40" y1="512" x2="920" y2="512" stroke="rgba(28,30,33,0.1)" stroke-width="0.8"/>
+  <text x="40" y="532" fill="#525860" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start" letter-spacing="0.18em">LEGEND</text>
+  <rect x="40" y="542" width="24" height="12" rx="2" fill="rgba(24,129,106,0.08)" stroke="#18816a" stroke-width="1"/>
+  <text x="72" y="552" fill="#525860" font-size="9" font-family="'Geist', system-ui, sans-serif" text-anchor="start">The culprit and the fix</text>
+  <rect x="232.2" y="542" width="24" height="12" rx="2" fill="rgba(28,30,33,0.02)" stroke="rgba(28,30,33,0.35)" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="264.2" y="552" fill="#525860" font-size="9" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Does not run</text>
+  <rect x="365.0" y="542" width="24" height="12" rx="2" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="397.0" y="552" fill="#525860" font-size="9" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Lives in node_modules</text>
+<text id="tiennhm-copyright" x="936" y="588" text-anchor="end" fill="#525860" opacity="0.75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.08em">© tiennhm</text>
+</svg>
+    </div>
+  </div>
+</body>
+</html>

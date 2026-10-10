@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Moving MessageTemplate to the notification service with no downtime</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Display:ital,wdth,wght@0,62.5..100,400;1,62.5..100,400&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #fafaf7;
+      --color-ink:    #1c1e21;
+      --color-muted:  #525860;
+      --font-sans:    'Geist', system-ui, sans-serif;
+      /* Instrument Serif has no Vietnamese subset; a per-glyph fallback mixes two faces
+         inside one word, so Vietnamese titles swap the whole face instead. */
+      --font-serif:   'Noto Serif Display', serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-stretch: 75%; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 960px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Architecture · Strangler Fig + feature toggle</p>
+    <h1>Moving MessageTemplate to the notification service with no downtime</h1>
+    <div class="diagram-container">
+<svg viewBox="0 0 960 396" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="strangler-fig-message-template-title strangler-fig-message-template-desc">
+  <title id="strangler-fig-message-template-title">Strangler Fig migration of MessageTemplate</title>
+  <desc id="strangler-fig-message-template-desc">Three services calling MessageTemplate go through a feature toggle that reads two sources; flag on reads the new source in the notification service, flag off falls back to the old one, one caller at a time.</desc>
+<defs>
+  <marker id="strangler-fig-message-template-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#525860"/></marker>
+  <marker id="strangler-fig-message-template-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#18816a"/></marker>
+</defs>
+<rect width="100%" height="100%" fill="#fafaf7"/>
+<text x="40" y="44" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" text-anchor="start" letter-spacing="0.14em">3 SERVICES CALLING IT DAILY</text>
+<path d="M240 92 H292 Q300 92 300 100 V138 Q300 146 308 146 H358" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#strangler-fig-message-template-arrow)"/>
+<path d="M240 172 H358" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#strangler-fig-message-template-arrow)"/>
+<path d="M240 252 H292 Q300 252 300 244 V206 Q300 198 308 198 H358" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#strangler-fig-message-template-arrow)"/>
+<path d="M560 146 H612 Q620 146 620 138 V104 Q620 96 628 96 H678" stroke="#18816a" stroke-width="1.4" fill="none" marker-end="url(#strangler-fig-message-template-arrow-accent)"/>
+<path d="M560 198 H612 Q620 198 620 206 V240 Q620 248 628 248 H678" stroke="#525860" stroke-width="1.2" fill="none" stroke-dasharray="5,4" marker-end="url(#strangler-fig-message-template-arrow)"/>
+<rect x="562.5" y="128" width="51" height="12" rx="2" fill="#fafaf7"/><text x="588" y="137" fill="#18816a" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">FLAG ON</text>
+<rect x="559.5" y="180" width="57" height="12" rx="2" fill="#fafaf7"/><text x="588" y="189" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">FLAG OFF</text>
+<rect x="40" y="60" width="200" height="64" rx="6" fill="#fafaf7"/><rect x="40" y="60" width="200" height="64" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+<rect x="48" y="66" width="44" height="12" rx="2" fill="none" stroke="rgba(28,30,33,0.3)" stroke-width="0.8"/><text x="70" y="75" fill="#525860" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">SLICE 1</text>
+<text x="140" y="92" fill="#1c1e21" font-size="12" font-family="'Geist', sans-serif" text-anchor="middle" font-weight="600">Ticket</text>
+<text x="140" y="108" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">1 small PR · verify on QA</text>
+<rect x="40" y="140" width="200" height="64" rx="6" fill="#fafaf7"/><rect x="40" y="140" width="200" height="64" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+<rect x="48" y="146" width="44" height="12" rx="2" fill="none" stroke="rgba(28,30,33,0.3)" stroke-width="0.8"/><text x="70" y="155" fill="#525860" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">SLICE 2</text>
+<text x="140" y="172" fill="#1c1e21" font-size="12" font-family="'Geist', sans-serif" text-anchor="middle" font-weight="600">Campaign</text>
+<text x="140" y="188" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">1 small PR · verify on QA</text>
+<rect x="40" y="220" width="200" height="64" rx="6" fill="#fafaf7"/><rect x="40" y="220" width="200" height="64" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+<rect x="48" y="226" width="44" height="12" rx="2" fill="none" stroke="rgba(28,30,33,0.3)" stroke-width="0.8"/><text x="70" y="235" fill="#525860" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">SLICE 3</text>
+<text x="140" y="252" fill="#1c1e21" font-size="12" font-family="'Geist', sans-serif" text-anchor="middle" font-weight="600">Remaining service</text>
+<text x="140" y="268" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">1 small PR · verify on QA</text>
+<rect x="360" y="120" width="200" height="104" rx="6" fill="#fafaf7"/><rect x="360" y="120" width="200" height="104" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+<text x="460" y="160" fill="#1c1e21" font-size="12" font-family="'Geist', sans-serif" text-anchor="middle" font-weight="600">Feature toggle</text>
+<text x="460" y="176" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">dual-read, switched by config</text>
+<text x="460" y="189" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">rollback: flag off, seconds</text>
+<rect x="680" y="64" width="240" height="64" rx="6" fill="#fafaf7"/><rect x="680" y="64" width="240" height="64" rx="6" fill="rgba(24,129,106,0.08)" stroke="#18816a" stroke-width="1"/>
+<text x="800" y="84" fill="#1c1e21" font-size="12" font-family="'Geist', sans-serif" text-anchor="middle" font-weight="600">New source</text>
+<text x="800" y="100" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">notification service</text>
+<text x="800" y="113" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">the right bounded context</text>
+<rect x="680" y="216" width="240" height="64" rx="6" fill="#fafaf7"/><rect x="680" y="216" width="240" height="64" rx="6" fill="rgba(28,30,33,0.05)" stroke="#525860" stroke-width="1"/>
+<text x="800" y="236" fill="#1c1e21" font-size="12" font-family="'Geist', sans-serif" text-anchor="middle" font-weight="600">Old source</text>
+<text x="800" y="252" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">MessageTemplate in 2 services</text>
+<text x="800" y="265" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">data left where it is</text>
+<line x1="40" y1="316" x2="920" y2="316" stroke="rgba(28,30,33,0.1)" stroke-width="0.8"/>
+<text x="40" y="336" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" text-anchor="start" letter-spacing="0.18em">LEGEND</text>
+<rect x="40" y="341" width="24" height="12" rx="2" fill="rgba(24,129,106,0.08)" stroke="#18816a" stroke-width="1"/>
+<text x="72" y="350" fill="#525860" font-size="8.5" font-family="'Geist', sans-serif" text-anchor="start">Migration target</text>
+<line x1="240" y1="347" x2="268" y2="347" stroke="#18816a" stroke-width="1.4" marker-end="url(#strangler-fig-message-template-arrow-accent)"/>
+<text x="276" y="350" fill="#525860" font-size="8.5" font-family="'Geist', sans-serif" text-anchor="start">Reads new source</text>
+<line x1="440" y1="347" x2="468" y2="347" stroke="#525860" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#strangler-fig-message-template-arrow)"/>
+<text x="476" y="350" fill="#525860" font-size="8.5" font-family="'Geist', sans-serif" text-anchor="start">Way back</text>
+<rect x="640" y="341" width="36" height="12" rx="2" fill="none" stroke="rgba(28,30,33,0.3)" stroke-width="0.8"/><text x="658" y="350" fill="#525860" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">SLICE</text>
+<text x="684" y="350" fill="#525860" font-size="8.5" font-family="'Geist', sans-serif" text-anchor="start">Cutover order</text>
+<text id="tiennhm-copyright" x="936" y="384" text-anchor="end" fill="#525860" opacity="0.75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.08em">© tiennhm</text>
+</svg>
+    </div>
+  </div>
+</body>
+</html>

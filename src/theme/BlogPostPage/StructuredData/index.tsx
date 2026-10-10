@@ -4,6 +4,7 @@ import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import { translate } from "@docusaurus/Translate";
 import { useBlogPost } from "@docusaurus/plugin-content-blog/client";
 import { ArticleStructuredData } from "@site/src/components/SEO";
+import useBlogPostImage from "@site/src/utils/useBlogPostImage";
 
 /**
  * Chuyển timestamp/date về dạng `YYYY-MM-DD`, trả về chuỗi rỗng nếu không parse được.
@@ -84,6 +85,7 @@ function BlogPostBreadcrumbs() {
 export function BlogPostStructuredData() {
   const { siteConfig } = useDocusaurusContext();
   const { metadata, frontMatter } = useBlogPost();
+  const image = useBlogPostImage();
 
   // Lấy thông tin author từ metadata hoặc frontMatter
   const authorName = metadata.authors?.[0]?.name || frontMatter.author || "Nguyễn Huỳnh Minh Tiến";
@@ -123,7 +125,7 @@ export function BlogPostStructuredData() {
         }}
         datePublished={datePublished}
         dateModified={dateModified}
-        image={frontMatter.image || `${siteConfig.url}/img/copyright-tiennhm.webp`}
+        image={image}
         url={metadata.permalink ? `${siteConfig.url}${metadata.permalink}` : undefined}
         keywords={frontMatter.keywords || metadata.tags?.map((tag) => tag.label) || []}
         articleType="BlogPosting"

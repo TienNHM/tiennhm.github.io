@@ -2,7 +2,7 @@
 title: 1.12 | XXE
 slug: XXE-12
 description: "Nếu ứng dụng không bắt buộc dùng XML, hãy cân nhắc sử dụng JSON, vì JSON không hỗ trợ các thực thể XML (<!ENTITY>), giảm thiểu rủi ro XXE."
-image: https://tiennhm.github.io/img/docs/database.jpg
+image: ./img/xxe-doc-file.png
 sidebar_position: 1
 # sidebar_class_name: hidden
 tags: 
@@ -17,6 +17,18 @@ draft: false # set to true to hide this post from the site
 ---
 
 > 🛡 **XXE Mitigation - Cách Phòng Chống XXE**  
+
+Các lớp phòng chống XXE theo thứ tự ưu tiên: bỏ XML nếu được, nếu không thì khoá chặt parser.
+
+```mermaid
+flowchart TD
+    A["Ứng dụng xử lý XML đầu vào"] --> B{"Có bắt buộc dùng XML?"}
+    B -->|"Không"| J["Dùng JSON thay XML"]
+    B -->|"Có"| C["Tắt DTD: SUPPORT_DTD = false"]
+    C --> D["Tắt external entities: IS_SUPPORTING_EXTERNAL_ENTITIES = false"]
+    D --> E["Kiểm tra Content-Type và xác thực đầu vào"]
+    E --> F["Dùng thư viện XML an toàn"]
+```
 
 ## **1️⃣ Kiểm soát và xác thực đầu vào**
 - Chỉ chấp nhận dữ liệu XML từ nguồn tin cậy.

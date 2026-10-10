@@ -2,6 +2,7 @@
 title: "6.4 - CancellationToken"
 description: "CancellationToken là cách .NET truyền tín hiệu \"thôi, không cần nữa\" xuyên qua mọi tầng. Bài này đi từ mô hình source/token, ba cách phản ứng, cách nối token, tới ba lỗi khiến việc huỷ trở nên vô dụng hoặc nguy hiểm."
 sidebar_position: 4
+image: ./img/cancellation-token-flow.png
 ---
 
 import { SummaryBox, Checklist, FAQSection } from '@site/src/components/SEO';
@@ -125,6 +126,11 @@ public async Task<IActionResult> GetReport(int id, CancellationToken ct)
 ```
 
 Nguyên tắc duy nhất cần nhớ: **truyền tiếp xuống mọi lời gọi I/O**. Token dừng ở tầng nào thì phía dưới tầng đó không huỷ được.
+
+![Sơ đồ đường đi của CancellationToken: client đóng tab làm HttpContext.RequestAborted bật cờ, token đi qua action GetReport, service GenerateAsync, EF Core xuống DbCommand và SQL Server huỷ câu query thật; nếu service quên truyền ct thì EF Core không có token và SQL Server chạy nốt câu query 40 giây](./img/cancellation-token-flow.png#gh-light-mode-only)
+![Sơ đồ đường đi của CancellationToken: client đóng tab làm HttpContext.RequestAborted bật cờ, token đi qua action GetReport, service GenerateAsync, EF Core xuống DbCommand và SQL Server huỷ câu query thật; nếu service quên truyền ct thì EF Core không có token và SQL Server chạy nốt câu query 40 giây](./img/cancellation-token-flow-dark.png#gh-dark-mode-only)
+
+<small>File gốc: [nền sáng](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-02-csharp-professional-module-06-async-programming-6.4-cancellationtoken/vi/cancellation-token-flow.html) · [nền tối](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-02-csharp-professional-module-06-async-programming-6.4-cancellationtoken/vi/cancellation-token-flow-dark.html)</small>
 
 ```csharp
 public async Task<CustomerReport> GenerateAsync(int customerId, CancellationToken ct)

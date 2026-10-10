@@ -6,7 +6,7 @@ authors: [tiennhm]
 tags: [load-testing, k6, restful-api, performance-testing, setup]
 enableComments: true # for Gisqus comments, set to true
 draft: false # set to true to hide this post from the site
-image: https://slorber-api-screenshot.netlify.app/https%3A%2F%2Fk6.io/showcase/
+image: ./img/k6-stages.png
 ---
 
 Trong [bài viết trước](./part-02.md), chúng ta đã tìm hiểu cách sử dụng k6 để kiểm tra tải cho RESTful API thông qua một kịch bản test đơn giản để tạo, đọc, cập nhật và xóa một người dùng. Trong bài viết này, chúng ta sẽ tìm hiểu cách sử dụng [k6](https://k6.io) để kiểm tra tải cho RESTful API thông qua một kịch bản test với nhiều [Virtual User](https://k6.io/docs/misc/glossary/#virtual-user).
@@ -153,6 +153,13 @@ export default function () {
 ```
 
 Trong đó, `stages` là một mảng các đối tượng, mỗi đối tượng đại diện cho một giai đoạn. Mỗi giai đoạn sẽ có hai thuộc tính là `duration` và `target`. Thuộc tính `duration` sẽ chỉ định thời gian chạy của giai đoạn, còn thuộc tính `target` sẽ chỉ định số lượng Virtual User cần chạy trong giai đoạn đó.
+
+So với cách dùng `--vus 10 --duration 30s` ở trên, số VU với `stages` thay đổi theo thời gian như sau:
+
+![Biểu đồ số VU theo thời gian. Với options.stages: số VU tăng tuyến tính từ 0 lên 20 trong 30 giây đầu, giảm dần về 10 trong 1 phút 30 giây tiếp theo (tới mốc 2 phút), rồi giảm về 0 trong 20 giây cuối, tổng cộng 2 phút 20 giây. Với --vus 10 --duration 30s: số VU giữ cố định 10 trong 30 giây.](./img/k6-stages.png#gh-light-mode-only)
+![Biểu đồ số VU theo thời gian. Với options.stages: số VU tăng tuyến tính từ 0 lên 20 trong 30 giây đầu, giảm dần về 10 trong 1 phút 30 giây tiếp theo (tới mốc 2 phút), rồi giảm về 0 trong 20 giây cuối, tổng cộng 2 phút 20 giây. Với --vus 10 --duration 30s: số VU giữ cố định 10 trong 30 giây.](./img/k6-stages-dark.png#gh-dark-mode-only)
+
+<small>File gốc: [nền sáng](pathname:///files/diagrams/k6-part-03/vi/k6-stages.html) · [nền tối](pathname:///files/diagrams/k6-part-03/vi/k6-stages-dark.html)</small>
 
 Ta chạy lệnh sau để chạy kịch bản test:
 

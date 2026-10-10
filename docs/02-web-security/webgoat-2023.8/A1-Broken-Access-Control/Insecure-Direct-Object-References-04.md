@@ -2,7 +2,7 @@
 title: 2.04 | Insecure Direct Object References
 slug: insecure-direct-object-references-04
 description: "Ứng dụng này dường như tuân theo mô hình RESTful, trong đó mỗi tài nguyên có thể được truy cập thông qua một đường dẫn cụ thể."
-image: https://tiennhm.github.io/img/docs/database.jpg
+image: ./img/idor-kiem-tra-quyen.png
 sidebar_position: 2
 # sidebar_class_name: hidden
 tags: 
@@ -25,6 +25,18 @@ Trong nhiều hệ thống, người dùng có thể có **vai trò cao hơn (ad
 
 #### **Nhiệm vụ**  
 Dựa vào cách đặt URL của hệ thống, hãy suy nghĩ về một **mẫu đường dẫn hợp lý** để truy cập hồ sơ cá nhân theo cách trực tiếp bằng **Direct Object Reference (DOR)**.  
+
+Luồng truy cập hồ sơ qua Direct Object Reference: lấy userId từ phản hồi trước, rồi ghép vào URL.
+
+```mermaid
+sequenceDiagram
+    participant A as Người dùng Tom
+    participant S as Server WebGoat
+    A->>S: GET /WebGoat/IDOR/profile
+    S-->>A: Hồ sơ kèm userId 2342384
+    A->>S: GET /WebGoat/IDOR/profile/2342384
+    S-->>A: 200 OK - xem hồ sơ qua Direct Object Reference
+```
 
 #### **Gợi ý**  
 - Trong nhiều hệ thống, hồ sơ cá nhân có thể được truy cập bằng cách thêm **ID người dùng** vào URL, ví dụ:  

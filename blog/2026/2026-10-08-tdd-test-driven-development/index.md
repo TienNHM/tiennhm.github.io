@@ -6,6 +6,7 @@ keywords: [tdd, test driven development, phat trien huong kiem thu, ai-dlc, ai d
 tags: [testing, ai-driven-development, ai-tools, backend, csharp, dotnet]
 authors: [tiennhm]
 date: 2026-10-08
+image: ./tdd-ai-dlc-roles.png
 ---
 
 import { SummaryBox, FAQSection, Checklist } from '@site/src/components/SEO';
@@ -122,6 +123,11 @@ Từ hai nhận xét trên, bài viết đề xuất một nguyên tắc phân v
 | Construction (Mob Construction), pha Red | Viết kiểm thử đơn vị mô tả hành vi tiếp theo | **Con người viết hoặc phê duyệt từng kiểm thử** trước khi AI viết mã |
 | Construction, pha Green | Cài đặt tối thiểu để kiểm thử đạt | **AI thực hiện**; kết quả được kiểm chứng bằng kiểm thử, không bằng việc đọc lướt |
 | Construction, pha Refactor | Tái cấu trúc khi toàn bộ kiểm thử đạt | AI đề xuất, con người xét duyệt; kiểm thử là lưới an toàn |
+
+![Sơ đồ hai làn con người và AI qua bốn pha. Inception: AI soạn kiểm thử hành vi từ tiêu chí chấp nhận, con người thẩm định để cố định ý định nghiệp vụ. Red: con người viết hoặc duyệt từng kiểm thử rồi bàn giao kiểm thử đỏ cho AI. Green: AI cài đặt tối thiểu cho kiểm thử đạt. Refactor: AI đề xuất tái cấu trúc khi mọi kiểm thử đạt, con người xét duyệt, rồi vòng lặp quay lại pha Red cho hành vi tiếp theo.](./tdd-ai-dlc-roles.png#gh-light-mode-only)
+![Sơ đồ hai làn con người và AI qua bốn pha. Inception: AI soạn kiểm thử hành vi từ tiêu chí chấp nhận, con người thẩm định để cố định ý định nghiệp vụ. Red: con người viết hoặc duyệt từng kiểm thử rồi bàn giao kiểm thử đỏ cho AI. Green: AI cài đặt tối thiểu cho kiểm thử đạt. Refactor: AI đề xuất tái cấu trúc khi mọi kiểm thử đạt, con người xét duyệt, rồi vòng lặp quay lại pha Red cho hành vi tiếp theo.](./tdd-ai-dlc-roles-dark.png#gh-dark-mode-only)
+
+<small>File gốc: [nền sáng](pathname:///files/diagrams/2026-10-08-tdd-test-driven-development/vi/tdd-ai-dlc-roles.html) · [nền tối](pathname:///files/diagrams/2026-10-08-tdd-test-driven-development/vi/tdd-ai-dlc-roles-dark.html)</small>
 
 Cơ sở của việc đặt thẩm quyền ở pha Red: đó là nơi định nghĩa sự đúng đắn, tương ứng với nguyên lý thẩm quyền quyết định thuộc về con người của AI-DLC. Cơ sở của việc giao pha Green cho AI: đây là phần có phản hồi tự động rõ ràng nhất, đúng loại tác vụ mà các nghiên cứu ở 4.1 cho thấy mô hình xử lý tốt hơn khi có kiểm thử dẫn dắt.
 

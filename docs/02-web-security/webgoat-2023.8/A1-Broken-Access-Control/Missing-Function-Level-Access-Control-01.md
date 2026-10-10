@@ -2,7 +2,6 @@
 title: 3.01 | Missing Function Level Access Control
 slug: missing-function-level-access-control-01
 description: Bài viết này sẽ hướng dẫn cách tấn công Missing Function Level Access Control trên WebGoat 2023.8
-image: https://tiennhm.github.io/img/docs/database.jpg
 sidebar_position: 3
 # sidebar_class_name: hidden
 tags: 
@@ -42,6 +41,17 @@ Một ứng dụng có giao diện quản trị viên để xóa người dùng:
   Body: { "userId": 5678 }
   ```
 - Nếu attacker biết API này, họ có thể gửi request xóa tài khoản **mà không cần quyền admin**.
+
+MFAC xảy ra khi giao diện ẩn chức năng nhưng backend không kiểm tra quyền khi gọi API trực tiếp:
+
+```mermaid
+flowchart TD
+    U["Người dùng thường"] --> UI["Giao diện ẩn nút Xóa người dùng"]
+    U --> API["Gọi trực tiếp POST /admin/deleteUser"]
+    API --> C{"Backend kiểm tra quyền admin?"}
+    C -->|"Không - lỗ hổng MFAC"| X["Xóa được user dù không phải admin"]
+    C -->|"Có - Authorize Roles Admin"| F["403 Forbidden"]
+```
 
 
 ## ✅ **3️⃣ Giải pháp bảo mật**

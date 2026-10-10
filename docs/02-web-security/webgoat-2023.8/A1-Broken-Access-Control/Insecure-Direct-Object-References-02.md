@@ -2,7 +2,7 @@
 title: 2.02 | Insecure Direct Object References
 slug: insecure-direct-object-references-02
 description: "Nhiều lỗ hổng kiểm soát truy cập có thể bị khai thác bởi một người dùng đã xác thực nhưng không được cấp quyền hợp lệ."
-image: https://tiennhm.github.io/img/docs/database.jpg
+image: ./img/idor-kiem-tra-quyen.png
 sidebar_position: 2
 # sidebar_class_name: hidden
 tags: 

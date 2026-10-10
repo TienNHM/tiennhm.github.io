@@ -6,6 +6,7 @@ keywords: [cloudflare header dotnet httpclient, cf-ipcity, non ascii http header
 tags: [dotnet, csharp, devops, http, troubleshooting, architecture, aspnetcore]
 authors: [tiennhm]
 date: 2026-09-23
+image: ./cf-ipcity-sendasync.png
 ---
 
 import { SummaryBox, FAQSection } from '@site/src/components/SEO';
@@ -142,6 +143,13 @@ bytes (hex)        : (header not found)
 **Not one byte.** The TCP connection never carried that request. It died inside the process, before touching the socket.
 
 The practical consequence of that detail is larger than it looks: every tool you normally reach for to debug network problems is **useless**. A packet capture shows nothing. The downstream access log is empty. There is no span on the receiving side. From every vantage point outside the process, that request **never existed**.
+
+Put the whole request path together and the failure sits entirely inside one process:
+
+![Sequence diagram of the incident: a browser of a customer in Vietnam sends a request to Cloudflare, Cloudflare adds the header cf-ipcity: Hồ Chí Minh and passes it to the API Gateway, and the gateway forwards every header to the .NET Service. Inside the service TryAddWithoutValidation returns true, but SendAsync throws HttpRequestException, so the call to the downstream puts zero bytes on the wire and the downstream receives nothing.](./cf-ipcity-sendasync.png#gh-light-mode-only)
+![Sequence diagram of the incident: a browser of a customer in Vietnam sends a request to Cloudflare, Cloudflare adds the header cf-ipcity: Hồ Chí Minh and passes it to the API Gateway, and the gateway forwards every header to the .NET Service. Inside the service TryAddWithoutValidation returns true, but SendAsync throws HttpRequestException, so the call to the downstream puts zero bytes on the wire and the downstream receives nothing.](./cf-ipcity-sendasync-dark.png#gh-dark-mode-only)
+
+<small>Source files: [light](pathname:///files/diagrams/2026-09-23-cloudflare-header-dotnet-httpclient/en/cf-ipcity-sendasync.html) · [dark](pathname:///files/diagrams/2026-09-23-cloudflare-header-dotnet-httpclient/en/cf-ipcity-sendasync-dark.html)</small>
 
 `Hồ` cannot even be represented in Latin-1, so not even the most permissive path the HTTP specification ever allowed could carry this value intact — I split that discussion into [part 2](/blog/http-header-unicode-ascii-dotnet).
 

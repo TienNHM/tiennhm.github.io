@@ -37,6 +37,21 @@ Sau:   [row v1: Active — CHẾT] [row v2: Churned — sống]
 
 Hệ quả tích cực: **người đọc không bao giờ chặn người ghi, và ngược lại**. Một `SELECT` dài 10 phút không cản trở `UPDATE` nào — nó chỉ đọc ảnh chụp tại thời điểm bắt đầu.
 
+Một phiên đọc dài và một phiên ghi chạy cùng lúc trên PostgreSQL:
+
+```mermaid
+sequenceDiagram
+    participant R as Phiên đọc (SELECT dài)
+    participant T as Bảng customers
+    participant W as Phiên ghi
+    R->>T: SELECT bắt đầu, lấy ảnh chụp
+    W->>T: UPDATE status = 'Churned'
+    Note over T: Tạo row v2 (sống), đánh dấu v1 chết
+    T-->>W: Ghi xong, không chờ phiên đọc
+    T-->>R: Vẫn đọc v1 theo ảnh chụp lúc bắt đầu
+    Note over T: Về sau VACUUM dọn v1
+```
+
 Hệ quả tiêu cực: **dòng chết tích luỹ**. Bảng cập nhật thường xuyên phình lên gấp nhiều lần dữ liệu thật nếu `VACUUM` không kịp chạy — gọi là **table bloat**. Autovacuum bật sẵn, nhưng với bảng ghi rất nhiều thì phải chỉnh:
 
 ```sql
