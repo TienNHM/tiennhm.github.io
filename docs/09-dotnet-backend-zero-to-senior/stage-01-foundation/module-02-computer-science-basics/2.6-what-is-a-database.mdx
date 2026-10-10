@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 2.7.1 — Vì sao không dùng file
+### 2.6.1 — Vì sao không dùng file
 
 Giả sử bạn lưu khách hàng vào `customers.json`. Bốn vấn đề xuất hiện ngay:
 
@@ -38,7 +38,7 @@ Giả sử bạn lưu khách hàng vào `customers.json`. Bốn vấn đề xu�
 
 DBMS tồn tại để giải quyết đúng bốn thứ này.
 
-### 2.7.2 — ACID, bằng ví dụ
+### 2.6.2 — ACID, bằng ví dụ
 
 ```mermaid
 flowchart LR
@@ -65,7 +65,7 @@ COMMIT;   -- mất điện trước dòng này -> tự động quay lui cả hai
 
 Chi tiết từng mức: [Transactions và ACID](/docs/database/learn-sql-in-30-days/16-transactions-acid).
 
-### 2.7.3 — Quan hệ hay NoSQL
+### 2.6.3 — Quan hệ hay NoSQL
 
 | | Quan hệ (PostgreSQL, SQL Server) | Tài liệu (MongoDB) | Khoá-giá trị (Redis) |
 |---|---|---|---|
@@ -79,7 +79,7 @@ Lời khuyên thực dụng: **mặc định chọn quan hệ**. Phần lớn d�
 
 Và hai loại này không loại trừ nhau. Kiến trúc rất phổ biến: PostgreSQL làm nguồn sự thật, Redis làm cache phía trước.
 
-### 2.7.4 — Ràng buộc: đặt ở database hay ở code?
+### 2.6.4 — Ràng buộc: đặt ở database hay ở code?
 
 Câu trả lời thường gây tranh cãi, nhưng có một lập luận khó bác:
 
@@ -100,7 +100,7 @@ Nghĩa là **cả hai**: kiểm tra ở ứng dụng để báo lỗi thân thi�
 
 Thiết kế lược đồ đi sâu ở bài [database design best practices](/docs/database/learn-sql-in-30-days/27-database-design-best-practices).
 
-### 2.7.5 — Index: đánh đổi giống hệt Big-O
+### 2.6.5 — Index: đánh đổi giống hệt Big-O
 
 Không có index, tìm một dòng trong 10 triệu dòng là quét toàn bảng — `O(n)`. Có index, database tra theo cây B-tree — `O(log n)`, khoảng 24 bước.
 
@@ -110,7 +110,7 @@ Và có index chưa chắc đã được dùng: bọc một hàm quanh cột tro
 
 Đây cùng là một ý tưởng với [Big-O ở bài 1.8](/docs/dotnet-backend-zero-to-senior/stage-01-foundation/module-01-programming-logic/1.7-data-structures-and-big-o), chỉ khác là áp dụng lên ổ đĩa.
 
-### 2.7.6 — Connection là tài nguyên khan hiếm
+### 2.6.6 — Connection là tài nguyên khan hiếm
 
 Đây là điều người mới hay bỏ qua nhất.
 
@@ -123,7 +123,7 @@ Chuyện xảy ra khi pool cạn: request mới **xếp hàng đợi**, rồi h�
 1. **Quên giải phóng.** Một `DbContext` không được dispose giữ kết nối mãi. Dùng dependency injection với vòng đời `Scoped` là đúng; giữ `DbContext` ở `Singleton` thì hỏng — chủ đề của [bài về captive dependency](/blog/singleton-scoped-transient-captive-dependency).
 2. **Giữ kết nối quá lâu.** Mở giao dịch rồi gọi một API bên ngoài mất 3 giây ở giữa. Nguyên tắc: **không bao giờ gọi I/O bên ngoài khi đang giữ giao dịch database**.
 
-### 2.7.7 — Rà lại hệ thống của bạn
+### 2.6.7 — Rà lại hệ thống của bạn
 
 <Checklist
   title="Danh sách rà soát cơ sở dữ liệu"
@@ -201,7 +201,7 @@ WHERE id = 1 AND version = 7;    -- trả về 0 dòng nếu ai đó đã sửa 
 | Cập nhật nguyên tử | Phép toán biểu diễn được bằng SQL | Gần như không có — **nên ưu tiên** |
 | Phiên bản (lạc quan) | Tranh chấp thấp, thao tác qua nhiều bước như form web | Phải xử lý trường hợp cập nhật hỏng |
 
-**Liên hệ về sau.** Cách 3 chính là cơ chế mà EF Core gọi là concurrency token, cài bằng `IsRowVersion()`. [Bài 13.9](../../stage-04-database-production/module-13-entity-framework-core/13.8-concurrency-control.mdx) trình bày đầy đủ, còn [bài 12.7](../../stage-04-database-production/module-12-sql-deep-dive/12.6-transactions-and-locking.mdx) đi sâu vào các mức cô lập và deadlock.
+**Liên hệ về sau.** Cách 3 chính là cơ chế mà EF Core gọi là concurrency token, cài bằng `IsRowVersion()`. [Bài 13.8](../../stage-04-database-production/module-13-entity-framework-core/13.8-concurrency-control.mdx) trình bày đầy đủ, còn [bài 12.6](../../stage-04-database-production/module-12-sql-deep-dive/12.6-transactions-and-locking.mdx) đi sâu vào các mức cô lập và deadlock.
 
 **Điểm đáng nhớ nhất.** Lỗi này **không bao giờ xuất hiện** khi bạn thử một mình trên máy phát triển. Nó chỉ xuất hiện khi có hai người dùng thật thao tác cùng lúc, và biểu hiện là "dữ liệu tự nhiên sai" mà không ai tái hiện được.
 
@@ -350,9 +350,9 @@ connections were in use and max pool size was reached.
 
 **Bốn nguyên nhân thật, theo tần suất:**
 
-1. **Truy vấn chậm** — thiếu chỉ mục, hoặc lỗi N+1 như [bài 1.4](../module-01-programming-logic/1.3-loops.mdx) đã nêu.
+1. **Truy vấn chậm** — thiếu chỉ mục, hoặc lỗi N+1 như [bài 1.3](../module-01-programming-logic/1.3-loops.mdx) đã nêu.
 2. **Gọi API bên ngoài khi đang mở giao dịch** — kết nối bị giữ suốt thời gian chờ mạng.
-3. **Quên giải phóng `DbContext`** — thường do đăng ký sai vòng đời trong DI, chủ đề của [bài 7.5](../../stage-02-csharp-professional/module-07-dependency-injection/7.4-service-lifetimes.mdx).
+3. **Quên giải phóng `DbContext`** — thường do đăng ký sai vòng đời trong DI, chủ đề của [bài 7.4](../../stage-02-csharp-professional/module-07-dependency-injection/7.4-service-lifetimes.mdx).
 4. **Chặn luồng bằng `.Result`** — [Module 6](../../stage-02-csharp-professional/module-06-async-programming/) phân tích kỹ.
 
 **Quy tắc thực dụng.** Mở kết nối **muộn nhất có thể**, đóng **sớm nhất có thể**, và **không bao giờ** gọi ra mạng ngoài trong khi đang giữ một giao dịch. Con số nhóm kết nối chỉ nên chỉnh sau khi đã loại trừ bốn nguyên nhân trên.

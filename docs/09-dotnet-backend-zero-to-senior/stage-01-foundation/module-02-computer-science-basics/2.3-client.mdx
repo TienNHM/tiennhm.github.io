@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 2.4.1 — Ai bắt chuyện trước
+### 2.3.1 — Ai bắt chuyện trước
 
 ```mermaid
 sequenceDiagram
@@ -46,7 +46,7 @@ Trong HTTP thuần, **máy chủ không bao giờ nói trước**. Nó chỉ tr�
 
 Trong .NET, cả ba đều gói lại trong SignalR, và nó tự chọn cách tốt nhất mà môi trường cho phép — chủ đề của Module 11.
 
-### 2.4.2 — HTTP không nhớ gì
+### 2.3.2 — HTTP không nhớ gì
 
 Đây là đặc tính bị bỏ qua nhiều nhất, và nó giải thích rất nhiều thứ.
 
@@ -72,7 +72,7 @@ Không có dòng `Authorization` đó, máy chủ coi bạn là người lạ �
 
 Đánh đổi của tính stateless: máy chủ không cần nhớ gì, nên **đặt bao nhiêu máy chủ cũng được** và request đi vào máy nào cũng xử lý được như nhau. Đó là nền tảng của việc mở rộng ngang. Cái giá là mỗi request nặng hơn vì phải mang theo thông tin xác thực.
 
-### 2.4.3 — Client không đáng tin. Không có ngoại lệ.
+### 2.3.3 — Client không đáng tin. Không có ngoại lệ.
 
 Đây là điều quan trọng nhất trong cả bài.
 
@@ -101,7 +101,7 @@ Danh sách những thứ **không bao giờ** được tin, dù client là do ch
 
 Lỗ hổng sinh ra từ việc tin `id` mà client gửi lên có tên riêng: **IDOR**. Bài [Đổi id trên URL ra dữ liệu người khác](/blog/idor-broken-access-control-aspnet-core) mổ xẻ nó và chỉ cách chặn ở một tầng duy nhất. Đây cũng là hạng mục đứng đầu [OWASP Top 10](https://owasp.org/Top10/).
 
-### 2.4.4 — Một máy chủ, nhiều loại client
+### 2.3.4 — Một máy chủ, nhiều loại client
 
 ```mermaid
 flowchart TD
@@ -125,7 +125,7 @@ Hệ quả thiết kế: **không được đổi API theo kiểu phá vỡ tư�
 
 Khi buộc phải phá vỡ, cách làm là đánh phiên bản (`/api/v2/customers`) và giữ bản cũ sống tới khi không còn ai dùng.
 
-### 2.4.5 — Client dày hay client mỏng
+### 2.3.5 — Client dày hay client mỏng
 
 | | Client mỏng (SSR) | Client dày (SPA) |
 |---|---|---|
@@ -137,7 +137,7 @@ Khi buộc phải phá vỡ, cách làm là đánh phiên bản (`/api/v2/custom
 
 Không có phương án đúng tuyệt đối. Nhưng chú ý dòng SEO: nội dung chỉ render ở client thì crawler phải chạy JavaScript mới thấy — cùng cơ chế khiến sơ đồ Mermaid trong chính trang tài liệu này không xuất hiện trong HTML tĩnh.
 
-### 2.4.6 — Rà lại hệ thống của bạn
+### 2.3.6 — Rà lại hệ thống của bạn
 
 <Checklist
   title="Danh sách rà soát client - server"
@@ -197,7 +197,7 @@ Lỗ hổng dạng này nằm trong nhóm **Broken Access Control**, đứng đ�
 
 **Hai biến thể cần kiểm tra thêm:**
 
-1. **Truy cập tài nguyên của người khác.** Đăng nhập bằng tài khoản A rồi gọi `GET /api/v1/orders/{id}` với `id` của đơn hàng thuộc về tài khoản B. Nếu trả về dữ liệu, đó là lỗi phân quyền theo tài nguyên — [bài 10.7](../../stage-03-aspnet-core-backend/module-10-authentication-authorization/10.6-resource-based-authorization.mdx) xử lý đúng vấn đề này.
+1. **Truy cập tài nguyên của người khác.** Đăng nhập bằng tài khoản A rồi gọi `GET /api/v1/orders/{id}` với `id` của đơn hàng thuộc về tài khoản B. Nếu trả về dữ liệu, đó là lỗi phân quyền theo tài nguyên — [bài 10.6](../../stage-03-aspnet-core-backend/module-10-authentication-authorization/10.6-resource-based-authorization.mdx) xử lý đúng vấn đề này.
 2. **Gửi trường không được phép sửa.** Gọi `PATCH /api/v1/users/me` kèm `{"role":"Admin"}`. Nếu server nhận cả trường `role`, người dùng tự nâng quyền cho mình. Cách phòng là dùng DTO chỉ chứa các trường được phép, thay vì gắn thẳng vào thực thể.
 
 **Quy tắc rút ra.** Giao diện là **trải nghiệm người dùng**, không phải **cơ chế bảo mật**. Mọi kiểm tra quyền phải có ở phía máy chủ, kể cả khi giao diện đã kiểm rồi.
@@ -238,7 +238,7 @@ curl -s -o /dev/null -w "%{http_code}\n" https://localhost:5001/api/v1/customers
 
 Token tự chứa thông tin giải quyết cả ba: mọi máy chủ đều xác minh được token bằng khoá chung mà không cần tra cứu ở đâu, nên thêm máy chủ chỉ là thêm máy chủ.
 
-**Cái giá của phi trạng thái.** Không có gì miễn phí. Vì máy chủ không lưu phiên, nó cũng **không thu hồi được token đã cấp**. Một token bị lộ vẫn dùng được tới khi hết hạn. Đó là lý do token truy cập nên có thời gian sống ngắn, thường 5 tới 15 phút, và đi kèm cơ chế làm mới — chủ đề của [bài 10.4](../../stage-03-aspnet-core-backend/module-10-authentication-authorization/10.3-refresh-token.mdx).
+**Cái giá của phi trạng thái.** Không có gì miễn phí. Vì máy chủ không lưu phiên, nó cũng **không thu hồi được token đã cấp**. Một token bị lộ vẫn dùng được tới khi hết hạn. Đó là lý do token truy cập nên có thời gian sống ngắn, thường 5 tới 15 phút, và đi kèm cơ chế làm mới — chủ đề của [bài 10.3](../../stage-03-aspnet-core-backend/module-10-authentication-authorization/10.3-refresh-token.mdx).
 
 **Phân biệt với cookie.** Cookie cũng được gửi kèm mỗi request, nên về bản chất vẫn là phi trạng thái ở tầng HTTP. Khác biệt nằm ở chỗ **trình duyệt tự động gửi** cookie, còn header `Authorization` thì code phải chủ động thêm. Chính tính tự động đó sinh ra lớp tấn công giả mạo yêu cầu liên trang, và là lý do API dùng token thường ít bị ảnh hưởng hơn.
 
@@ -246,7 +246,7 @@ Token tự chứa thông tin giải quyết cả ba: mọi máy chủ đều xá
 
 #### Bài 3 — Phân loại thay đổi API
 
-Lấy năm thay đổi gần nhất trong API của bạn và xếp vào bảng ở mục 2.4.4. Với những thay đổi phá vỡ tương thích, trả lời: ứng dụng di động phiên bản cũ có còn chạy được không?
+Lấy năm thay đổi gần nhất trong API của bạn và xếp vào bảng ở mục 2.3.4. Với những thay đổi phá vỡ tương thích, trả lời: ứng dụng di động phiên bản cũ có còn chạy được không?
 
 **Tiêu chí hoàn thành:** bạn phân loại đúng, và nhận ra ít nhất một thay đổi tưởng vô hại nhưng thực ra phá vỡ tương thích.
 
@@ -278,7 +278,7 @@ Lấy năm thay đổi gần nhất trong API của bạn và xếp vào bảng 
 
 **Trả lời câu hỏi của đề.** Với ứng dụng di động, một thay đổi phá vỡ khiến các phiên bản cũ ngừng hoạt động cho tới khi người dùng cập nhật. Dữ liệu thực tế cho thấy quá trình này kéo dài nhiều tháng, và một phần người dùng không bao giờ cập nhật. Vì vậy quy tắc là **không bao giờ thay đổi phá vỡ trên một phiên bản API đang phục vụ**; thay vào đó phát hành `v2` và giữ `v1` chạy song song.
 
-[Bài 9.3 — API Versioning](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.2-api-versioning.mdx) trình bày cách chạy song song hai phiên bản, và cách báo hiệu ngừng hỗ trợ bằng header `Sunset` để client biết trước thay vì bị cắt đột ngột.
+[Bài 9.2 — API Versioning](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.2-api-versioning.mdx) trình bày cách chạy song song hai phiên bản, và cách báo hiệu ngừng hỗ trợ bằng header `Sunset` để client biết trước thay vì bị cắt đột ngột.
 
 </details>
 

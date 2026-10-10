@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 19.10.1 — Dashboard tổng hợp
+### 19.9.1 — Dashboard tổng hợp
 
 Đây là endpoint chậm nhất của hầu hết CRM: nó gom số liệu từ nhiều bảng, tính tổng trên khoảng thời gian dài, và được gọi **mỗi lần người dùng đăng nhập**.
 
@@ -35,7 +35,7 @@ Ba mức xử lý, theo chi phí tăng dần:
 | **2** | Bảng tổng hợp cập nhật bằng job định kỳ | Trễ theo chu kỳ job |
 | **3** | Read model cập nhật qua event | Gần tức thì |
 
-Mức 1 giải quyết phần lớn trường hợp và rẻ nhất. Chỉ lên mức 2 khi truy vấn nặng tới mức **một lần chạy** cũng làm chậm hệ thống — khi đó cache không đủ vì mỗi lần miss vẫn gây tải ([bài 19.6](19.5-systematic-caching-overview.mdx)).
+Mức 1 giải quyết phần lớn trường hợp và rẻ nhất. Chỉ lên mức 2 khi truy vấn nặng tới mức **một lần chạy** cũng làm chậm hệ thống — khi đó cache không đủ vì mỗi lần miss vẫn gây tải ([bài 19.5](19.5-systematic-caching-overview.mdx)).
 
 ```sql
 -- Mức 2: bảng tổng hợp, job chạy mỗi 15 phút
@@ -51,7 +51,7 @@ CREATE TABLE DashboardSummary (
 
 Truy vấn dashboard giờ đọc **một hàng** thay vì tổng hợp trên hàng triệu.
 
-### 19.10.2 — Tìm kiếm
+### 19.9.2 — Tìm kiếm
 
 ```csharp
 // SAI — LIKE với wildcard đầu KHÔNG dùng được index
@@ -76,9 +76,9 @@ Wildcard ở **đầu** chuỗi khiến index vô dụng, vì index sắp xếp 
 
 Với phần lớn CRM nội bộ, **tìm theo tiền tố cộng full-text index** là đủ, và nó tránh được toàn bộ chi phí vận hành cùng vấn đề đồng bộ của một search engine riêng.
 
-Nếu dùng Elasticsearch, việc đồng bộ nên đi qua outbox hoặc CDC chứ không ghi trực tiếp từ use case ([bài 17.6](../module-17-distributed-systems/17.5-change-data-capture.mdx)) — ghi trực tiếp tạo dual write và dữ liệu sẽ lệch dần.
+Nếu dùng Elasticsearch, việc đồng bộ nên đi qua outbox hoặc CDC chứ không ghi trực tiếp từ use case ([bài 17.5](../module-17-distributed-systems/17.5-change-data-capture.mdx)) — ghi trực tiếp tạo dual write và dữ liệu sẽ lệch dần.
 
-### 19.10.3 — Danh sách phân trang
+### 19.9.3 — Danh sách phân trang
 
 ```csharp
 // SAI — OFFSET lon rat cham
@@ -105,7 +105,7 @@ var page = await query
 
 Tie-breaker `ThenByDescending(l => l.Id)` là bắt buộc: nếu hai bản ghi có cùng `CreatedAt`, thứ tự không xác định và phân trang sẽ **bỏ sót hoặc lặp** bản ghi giữa các trang.
 
-Đánh đổi: keyset không nhảy được tới "trang 47" tuỳ ý. Với giao diện cuộn vô hạn hoặc nút "tải thêm" — phổ biến trong CRM hiện đại — đó không phải hạn chế ([bài 9.5](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.4-pagination-filtering-sorting.mdx)).
+Đánh đổi: keyset không nhảy được tới "trang 47" tuỳ ý. Với giao diện cuộn vô hạn hoặc nút "tải thêm" — phổ biến trong CRM hiện đại — đó không phải hạn chế ([bài 9.4](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.4-pagination-filtering-sorting.mdx)).
 
 Và luôn đặt **trần** cho `pageSize`:
 
@@ -113,7 +113,7 @@ Và luôn đặt **trần** cho `pageSize`:
 var size = Math.Clamp(request.PageSize, 1, 100);   // không cho ?pageSize=999999
 ```
 
-### 19.10.4 — Import hàng loạt
+### 19.9.4 — Import hàng loạt
 
 Import 50.000 dòng từ Excel là nghiệp vụ CRM rất phổ biến, và cách làm ngây thơ gây hai vấn đề cùng lúc.
 
@@ -145,9 +145,9 @@ Dùng `DbContext` mới cho mỗi lô là chi tiết quan trọng: change tracke
 
 Với lượng rất lớn, `SqlBulkCopy` nhanh hơn nhiều — nhưng nó **bỏ qua** EF Core nên không kích hoạt interceptor, không sinh domain event, và không áp global query filter. Chỉ dùng cho dữ liệu không có ý nghĩa nghiệp vụ phức tạp.
 
-**Và quan trọng nhất:** import nên chạy trong **job nền**, không trong request HTTP. Người dùng nhận phản hồi ngay kèm mã theo dõi, và một file lớn không làm treo request hay chạm timeout của gateway ([bài 14.7](../../stage-04-database-production/module-14-caching-background-jobs/14.6-hangfire-background-jobs.mdx)).
+**Và quan trọng nhất:** import nên chạy trong **job nền**, không trong request HTTP. Người dùng nhận phản hồi ngay kèm mã theo dõi, và một file lớn không làm treo request hay chạm timeout của gateway ([bài 14.6](../../stage-04-database-production/module-14-caching-background-jobs/14.6-hangfire-background-jobs.mdx)).
 
-### 19.10.5 — Noisy neighbour
+### 19.9.5 — Noisy neighbour
 
 ```
 Tenant "MegaCorp" chạy báo cáo 12 tháng lúc 9h sáng
@@ -167,9 +167,9 @@ Bốn cách giảm nhẹ, theo chi phí tăng dần:
 
 Hai cách đầu nên làm trước vì rẻ và không đổi kiến trúc. Đẩy báo cáo sang hàng đợi có thêm một lợi ích: bạn kiểm soát được **số báo cáo chạy đồng thời**, nên không bao giờ có 10 báo cáo nặng cùng lúc.
 
-Với tenant lớn tách database riêng, nhớ cân nhắc chi phí vận hành: migration chạy trên N database, giám sát tổng hợp từ N nguồn ([bài 19.7](19.6-scaling-strategy.mdx)).
+Với tenant lớn tách database riêng, nhớ cân nhắc chi phí vận hành: migration chạy trên N database, giám sát tổng hợp từ N nguồn ([bài 19.6](19.6-scaling-strategy.mdx)).
 
-### 19.10.6 — Rà lại code của bạn
+### 19.9.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát hiệu năng CRM"

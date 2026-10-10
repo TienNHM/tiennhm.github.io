@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 11.6.1 — Token qua query string
+### 11.5.1 — Token qua query string
 
 ```csharp
 options.Events = new JwtBearerEvents
@@ -78,9 +78,9 @@ Và cấu hình tương tự ở reverse proxy — Nginx ghi query string vào `
 
 **3. Bỏ qua `negotiate` và dùng subprotocol** — phức tạp hơn, hiếm khi đáng.
 
-Trong thực tế, cách 1 cộng access token TTL ngắn ([bài 10.3](../module-10-authentication-authorization/10.2-jwt-authentication.mdx)) là cân bằng hợp lý.
+Trong thực tế, cách 1 cộng access token TTL ngắn ([bài 10.2](../module-10-authentication-authorization/10.2-jwt-authentication.mdx)) là cân bằng hợp lý.
 
-### 11.6.2 — Bảo vệ Hub
+### 11.5.2 — Bảo vệ Hub
 
 ```csharp
 [Authorize]
@@ -123,7 +123,7 @@ public async Task JoinTenantGroup(string tenantId)
 }
 ```
 
-Client gọi `JoinTenantGroup("tenant-cua-nguoi-khac")` và nhận **mọi** thông báo của tenant đó. Đây là IDOR ([bài 10.7](../module-10-authentication-authorization/10.6-resource-based-authorization.mdx)) dưới dạng SignalR, và nó dễ bị bỏ sót hơn vì Hub method không trông giống một endpoint.
+Client gọi `JoinTenantGroup("tenant-cua-nguoi-khac")` và nhận **mọi** thông báo của tenant đó. Đây là IDOR ([bài 10.6](../module-10-authentication-authorization/10.6-resource-based-authorization.mdx)) dưới dạng SignalR, và nó dễ bị bỏ sót hơn vì Hub method không trông giống một endpoint.
 
 Nếu vẫn cần client tự tham gia nhóm, **phải kiểm tra quyền**:
 
@@ -143,9 +143,9 @@ public async Task JoinDealRoom(Guid dealId)
 }
 ```
 
-Kèm theo đó là lợi ích phụ: server tự gán nhóm thì client **không cần join lại** sau reconnect ([bài 11.5](11.4-client-side-integration.mdx)) — `OnConnectedAsync` chạy lại và tự lo.
+Kèm theo đó là lợi ích phụ: server tự gán nhóm thì client **không cần join lại** sau reconnect ([bài 11.4](11.4-client-side-integration.mdx)) — `OnConnectedAsync` chạy lại và tự lo.
 
-### 11.6.3 — Token hết hạn giữa kết nối
+### 11.5.3 — Token hết hạn giữa kết nối
 
 Đây là đặc điểm ít người biết và hậu quả thì nghiêm trọng:
 
@@ -168,7 +168,7 @@ setTimeout(async () => {
 }, tokenLifetimeMs - 60_000);
 ```
 
-**2. Kiểm tra `SecurityStamp` định kỳ ở server** — dùng lại cơ chế ở [bài 10.9](../module-10-authentication-authorization/10.8-overview.mdx):
+**2. Kiểm tra `SecurityStamp` định kỳ ở server** — dùng lại cơ chế ở [bài 10.8](../module-10-authentication-authorization/10.8-overview.mdx):
 
 ```csharp
 public sealed class SecurityStampCheckFilter(IUserService users) : IHubFilter
@@ -208,7 +208,7 @@ public async Task RevokeAccessAsync(string userId, CancellationToken ct)
 
 Với hệ thống có yêu cầu bảo mật cao, cách 3 là bắt buộc. Với hệ thống thông thường, cách 1 là đủ và đơn giản nhất.
 
-### 11.6.4 — Phân quyền chi tiết
+### 11.5.4 — Phân quyền chi tiết
 
 ```csharp
 [Authorize]
@@ -234,7 +234,7 @@ Nhưng nhớ hai giới hạn:
 
 `[AllowAnonymous]` cũng dùng được, cho method như "lấy số người đang online" mà ai cũng xem được.
 
-### 11.6.5 — Rà lại code của bạn
+### 11.5.5 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát xác thực SignalR"
@@ -389,7 +389,7 @@ await connection.invoke('JoinTenantGroup', 'globex');
 
 **Câu trả lời cho tiêu chí.** `[Authorize]` chạy **trước** khi phương thức bắt đầu và chỉ kiểm tra danh tính: người gọi có token hợp lệ không. Nó hoàn toàn không biết phương thức nhận tham số gì, càng không biết `tenantId` đó có thuộc về người gọi hay không.
 
-Đây đúng cùng một lớp lỗi với IDOR ở [bài 10.7](../module-10-authentication-authorization/10.6-resource-based-authorization.mdx): xác thực đúng, phân quyền theo tài nguyên thì không có. Chỉ khác là ở đây "tài nguyên" là một nhóm SignalR.
+Đây đúng cùng một lớp lỗi với IDOR ở [bài 10.6](../module-10-authentication-authorization/10.6-resource-based-authorization.mdx): xác thực đúng, phân quyền theo tài nguyên thì không có. Chỉ khác là ở đây "tài nguyên" là một nhóm SignalR.
 
 **Bản sửa — server tự gán, không nhận tham số:**
 
@@ -414,7 +414,7 @@ public class NotificationHub : Hub<INotificationClient>
 }
 ```
 
-Không còn phương thức nào nhận `tenantId`, nên không còn gì để giả mạo. Và vì `OnConnectedAsync` chạy mỗi lần kết nối, nhóm tự khôi phục sau reconnect — giải quyết luôn vấn đề ở [bài 11.5](11.4-client-side-integration.mdx).
+Không còn phương thức nào nhận `tenantId`, nên không còn gì để giả mạo. Và vì `OnConnectedAsync` chạy mỗi lần kết nối, nhóm tự khôi phục sau reconnect — giải quyết luôn vấn đề ở [bài 11.4](11.4-client-side-integration.mdx).
 
 **Với nhóm mà người dùng thật sự được chọn** — ví dụ mở một deal cụ thể — thì vẫn nhận tham số, nhưng phải kiểm quyền:
 

@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 11.13.1 — Sự cố
+### 11.12.1 — Sự cố
 
 ```
 Trước: 1 instance,  1.200 kết nối  -> thông báo tới 100% người dùng
@@ -50,7 +50,7 @@ Request tạo lead rơi vào instance A -> chỉ 400/1.200 người nhận đư�
 
 `Clients.All` hoạt động **đúng như thiết kế** — nó gửi tới tất cả kết nối mà **instance hiện tại** đang giữ. Nó không có cách nào biết về kết nối ở instance khác.
 
-### 11.13.2 — Sửa: backplane
+### 11.12.2 — Sửa: backplane
 
 ```csharp
 builder.Services.AddSignalR()
@@ -72,7 +72,7 @@ Instance A gửi thông báo
 
 **Cái giá của backplane:** mỗi thông báo giờ đi qua Redis, nên độ trễ tăng vài mili giây và Redis trở thành một phụ thuộc bắt buộc. Với tính năng thời gian thực thì đó là đánh đổi hợp lý.
 
-### 11.13.3 — Lỗi tiếp theo: WebSocket không thiết lập được
+### 11.12.3 — Lỗi tiếp theo: WebSocket không thiết lập được
 
 Sau khi thêm backplane, một phần người dùng vẫn chậm — và trong DevTools thấy request `/hubs/notifications` liên tục lặp lại thay vì một kết nối WebSocket duy trì.
 
@@ -99,9 +99,9 @@ location /hubs/ {
 
 Kiểm tra bằng DevTools: tab Network, lọc `WS`. Nếu thấy một kết nối ở trạng thái `101 Switching Protocols` thì WebSocket đang hoạt động. Nếu thấy nhiều request HTTP lặp lại, nó đang dùng long polling.
 
-Với YARP, chuyển tiếp WebSocket hoạt động **mặc định** — chỉ cần chú ý timeout ([bài 18.4](../../stage-05-senior-engineering/module-18-microservices/18.3-api-gateway-yarp-dotnet.mdx)).
+Với YARP, chuyển tiếp WebSocket hoạt động **mặc định** — chỉ cần chú ý timeout ([bài 18.3](../../stage-05-senior-engineering/module-18-microservices/18.3-api-gateway-yarp-dotnet.mdx)).
 
-### 11.13.4 — Lỗi thứ ba: mất kết nối khi triển khai
+### 11.12.4 — Lỗi thứ ba: mất kết nối khi triển khai
 
 ```
 Triển khai phiên bản mới -> pod cũ bị dừng
@@ -145,9 +145,9 @@ var notification = await _notificationService.CreateAsync(userId, content, ct);
 await _hubContext.Clients.User(userId).SendAsync("NewNotification", notification.Id, ct);
 ```
 
-Với thông báo quan trọng, cách 3 là **bắt buộc**. SignalR là kênh **tăng tốc**, không phải kênh đảm bảo ([bài 11.9](11.8-notification-center-pattern.mdx)).
+Với thông báo quan trọng, cách 3 là **bắt buộc**. SignalR là kênh **tăng tốc**, không phải kênh đảm bảo ([bài 11.8](11.8-notification-center-pattern.mdx)).
 
-### 11.13.5 — Redis backplane hay Azure SignalR Service
+### 11.12.5 — Redis backplane hay Azure SignalR Service
 
 | | Redis backplane | Azure SignalR Service |
 |---|---|---|
@@ -161,7 +161,7 @@ Với thông báo quan trọng, cách 3 là **bắt buộc**. SignalR là kênh 
 
 Con số tham khảo: mỗi kết nối SignalR tốn khoảng vài chục KB bộ nhớ trên server. Với 10.000 kết nối đó là vài trăm MB chỉ để **giữ** kết nối, chưa tính xử lý.
 
-### 11.13.6 — Giám sát
+### 11.12.6 — Giám sát
 
 ```csharp
 // Chỉ số quan trọng nhất
@@ -178,9 +178,9 @@ Ba dấu hiệu cần cảnh báo:
 | Số lần kết nối lại tăng cao | Kết nối không ổn định — thường do proxy hoặc timeout |
 | Chênh lệch kết nối giữa các instance | Load balancer phân phối không đều |
 
-Dấu hiệu thứ hai đáng chú ý: nếu client liên tục kết nối lại, có thể `proxy_read_timeout` ngắn hơn chu kỳ keep-alive của SignalR, nên proxy cắt kết nối đều đặn ([bài 18.6](../../stage-05-senior-engineering/module-18-microservices/18.5-observability-three-pillars.mdx)).
+Dấu hiệu thứ hai đáng chú ý: nếu client liên tục kết nối lại, có thể `proxy_read_timeout` ngắn hơn chu kỳ keep-alive của SignalR, nên proxy cắt kết nối đều đặn ([bài 18.5](../../stage-05-senior-engineering/module-18-microservices/18.5-observability-three-pillars.mdx)).
 
-### 11.13.7 — Rà lại code của bạn
+### 11.12.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát scale SignalR"
@@ -277,7 +277,7 @@ Instance A gửi thông báo
   -> 1.200/1.200 người nhận được
 ```
 
-**Cách phát hiện sớm mà không cần chờ sự cố.** Thêm một chỉ số đếm số kết nối mỗi instance và so với tổng số người dùng đang hoạt động; hoặc đơn giản hơn, **luôn chạy hai instance trên môi trường phát triển**. Chi phí là một dòng trong `compose.yaml`, và nó lộ ra cả lớp lỗi này lẫn lỗi Data Protection ở [bài 10.12](../module-10-authentication-authorization/10.11-advanced-notes.mdx).
+**Cách phát hiện sớm mà không cần chờ sự cố.** Thêm một chỉ số đếm số kết nối mỗi instance và so với tổng số người dùng đang hoạt động; hoặc đơn giản hơn, **luôn chạy hai instance trên môi trường phát triển**. Chi phí là một dòng trong `compose.yaml`, và nó lộ ra cả lớp lỗi này lẫn lỗi Data Protection ở [bài 10.11](../module-10-authentication-authorization/10.11-advanced-notes.mdx).
 
 </details>
 
@@ -417,7 +417,7 @@ GET /api/v1/notifications?after=018f3a1b...
 
 **Vì sao không mất — nhờ ba thứ cùng hoạt động:**
 
-1. **Lưu trước, đẩy sau.** Cả 5 thông báo đã nằm trong database trước khi bước đẩy chạy, nên việc đẩy thất bại không làm mất gì ([bài 11.5](11.4-client-side-integration.mdx)).
+1. **Lưu trước, đẩy sau.** Cả 5 thông báo đã nằm trong database trước khi bước đẩy chạy, nên việc đẩy thất bại không làm mất gì ([bài 11.4](11.4-client-side-integration.mdx)).
 2. **`withAutomaticReconnect()`** tự thử lại theo chu kỳ 0s, 2s, 10s, 30s — không cần code gì thêm.
 3. **`syncMissed()` trong `onreconnected`** kéo về những gì đã bỏ lỡ. Thiếu bước này thì 5 thông báo kia không bao giờ tới, dù chúng vẫn nằm an toàn trong database.
 
@@ -442,7 +442,7 @@ spec:
 
 `maxUnavailable: 0` giữ pod cũ phục vụ cho tới khi pod mới sẵn sàng, nên client kết nối lại được ngay thay vì phải chờ pod mới khởi động.
 
-**Và `preStop` giải quyết một vấn đề tinh tế:** Kubernetes gỡ pod khỏi Service và gửi `SIGTERM` gần như cùng lúc, nhưng việc gỡ mất vài giây để lan tới mọi node. Không có `preStop`, pod ngừng nhận kết nối mới trong khi load balancer vẫn còn gửi request tới — chi tiết ở [bài 15.14](../../stage-04-database-production/module-15-docker-deployment/15.13-quick-real-world-example.mdx).
+**Và `preStop` giải quyết một vấn đề tinh tế:** Kubernetes gỡ pod khỏi Service và gửi `SIGTERM` gần như cùng lúc, nhưng việc gỡ mất vài giây để lan tới mọi node. Không có `preStop`, pod ngừng nhận kết nối mới trong khi load balancer vẫn còn gửi request tới — chi tiết ở [bài 15.13](../../stage-04-database-production/module-15-docker-deployment/15.13-quick-real-world-example.mdx).
 
 **Ba chỉ số nên theo dõi quanh mỗi lần deploy:**
 

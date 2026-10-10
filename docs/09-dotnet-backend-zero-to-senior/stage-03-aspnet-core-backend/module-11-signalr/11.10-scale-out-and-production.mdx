@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 11.11.1 — Điều gì hỏng khi không có backplane
+### 11.10.1 — Điều gì hỏng khi không có backplane
 
 ```
 Pod A giu: user-1, user-3
@@ -51,7 +51,7 @@ flowchart LR
 
 Pod A publish lên Redis, **mọi** pod nhận, và pod nào đang giữ người nhận thì gửi đi.
 
-### 11.11.2 — Redis backplane
+### 11.10.2 — Redis backplane
 
 ```bash
 dotnet add package Microsoft.AspNetCore.SignalR.StackExchangeRedis
@@ -75,7 +75,7 @@ builder.Services.AddSignalR()
 
 **Ba giới hạn phải biết:**
 
-**1. Nó là pub/sub, không phải hàng đợi.** Instance mất kết nối Redis trong 5 giây sẽ **mất hoàn toàn** những tin phát trong 5 giây đó. Không có gửi lại, không có xác nhận. Đây là lý do [bài 11.9](11.8-notification-center-pattern.mdx) nhấn mạnh ghi database trước — bản ghi vẫn còn dù tin nhắn mất.
+**1. Nó là pub/sub, không phải hàng đợi.** Instance mất kết nối Redis trong 5 giây sẽ **mất hoàn toàn** những tin phát trong 5 giây đó. Không có gửi lại, không có xác nhận. Đây là lý do [bài 11.8](11.8-notification-center-pattern.mdx) nhấn mạnh ghi database trước — bản ghi vẫn còn dù tin nhắn mất.
 
 **2. Nó nhân lưu lượng.** Mỗi tin gửi tới một nhóm được publish một lần, rồi **mọi** instance nhận và tự lọc. Với 10 instance, một tin nhắn thành 10 lượt nhận — 9 trong đó là vô ích nếu chỉ một instance giữ người nhận.
 
@@ -83,11 +83,11 @@ builder.Services.AddSignalR()
 1.000 tin/giây x 10 instance = 10.000 lượt nhận/giây trên mỗi instance
 ```
 
-Với lưu lượng cao, Redis thành nút cổ chai. Đó là lúc cần xem lại thiết kế ([bài 11.7](11.6-groups-and-targeting.mdx)): gom tin, gửi tín hiệu thay vì dữ liệu, giới hạn tần suất.
+Với lưu lượng cao, Redis thành nút cổ chai. Đó là lúc cần xem lại thiết kế ([bài 11.6](11.6-groups-and-targeting.mdx)): gom tin, gửi tín hiệu thay vì dữ liệu, giới hạn tần suất.
 
 **3. Redis trở thành điểm hỏng đơn.** Redis chết là SignalR ngừng hoạt động **xuyên instance** — trong instance thì vẫn chạy. Dùng Redis Sentinel hoặc Cluster cho production.
 
-### 11.11.3 — Sticky session
+### 11.10.3 — Sticky session
 
 Câu hỏi thường gặp: **có cần sticky session không?**
 
@@ -117,11 +117,11 @@ location /hubs/ {
 
 Ba dòng cuối hay bị quên và mỗi dòng gây một triệu chứng riêng: thiếu `Upgrade`/`Connection` thì WebSocket **không bao giờ** nâng cấp được và luôn rơi về long polling; `proxy_read_timeout` mặc định 60 giây sẽ **cắt kết nối mỗi phút**.
 
-Cách tránh sticky session hoàn toàn: bỏ `negotiate` và chỉ dùng WebSocket ([bài 11.3](11.2-signalr-architecture.mdx)) — đổi lại mất khả năng dự phòng khi WebSocket bị chặn.
+Cách tránh sticky session hoàn toàn: bỏ `negotiate` và chỉ dùng WebSocket ([bài 11.2](11.2-signalr-architecture.mdx)) — đổi lại mất khả năng dự phòng khi WebSocket bị chặn.
 
 `ip_hash` có nhược điểm: nhiều người sau cùng một NAT đi vào **cùng một instance**, nên tải phân bổ không đều. Cookie-based sticky (`sticky` của Nginx Plus, hoặc `ingress.kubernetes.io/affinity: cookie`) phân bổ tốt hơn.
 
-### 11.11.4 — Azure SignalR Service
+### 11.10.4 — Azure SignalR Service
 
 ```bash
 dotnet add package Microsoft.Azure.SignalR
@@ -149,7 +149,7 @@ Khi nào đáng: trên 10.000 kết nối đồng thời, hoặc khi bạn khôn
 
 Có phương án tương đương ở nhà cung cấp khác, nhưng nếu tự vận hành thì Redis backplane vẫn là lựa chọn mặc định.
 
-### 11.11.5 — Giám sát
+### 11.10.5 — Giám sát
 
 ```csharp
 builder.Services.AddOpenTelemetry()
@@ -167,7 +167,7 @@ Bốn chỉ số quan trọng nhất:
 
 Hàng thứ ba đáng chú ý: nếu tỷ lệ long polling đột nhiên tăng, thường là cấu hình proxy vừa đổi và mất header `Upgrade`. Hệ thống **vẫn chạy** — chỉ tốn tài nguyên hơn nhiều — nên không ai phát hiện nếu không giám sát.
 
-Health check cho backplane, đúng phân loại ở [bài 8.10](../module-08-aspnet-core-fundamentals/8.9-health-checks.mdx):
+Health check cho backplane, đúng phân loại ở [bài 8.9](../module-08-aspnet-core-fundamentals/8.9-health-checks.mdx):
 
 ```csharp
 builder.Services.AddHealthChecks()
@@ -178,7 +178,7 @@ builder.Services.AddHealthChecks()
 
 `Degraded` chứ không `Unhealthy`: Redis chết thì real-time hỏng nhưng **API vẫn phục vụ được**. Đặt `Unhealthy` sẽ rút toàn bộ pod khỏi load balancer vì một tính năng phụ.
 
-### 11.11.6 — Shutdown gọn gàng
+### 11.10.6 — Shutdown gọn gàng
 
 ```csharp
 builder.Services.Configure<HostOptions>(o =>
@@ -214,7 +214,7 @@ Client nhận `ServerShuttingDown` thì chủ động kết nối lại **ngay**
 
 Kết hợp với rolling deployment và `maxUnavailable` nhỏ để không phải toàn bộ client cùng kết nối lại một lúc.
 
-### 11.11.7 — Rà lại code của bạn
+### 11.10.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát production"
@@ -323,9 +323,9 @@ Instance A gửi thông báo
 1.000 tin/giây × 10 instance = 10.000 lượt nhận/giây trên mỗi instance
 ```
 
-Với lưu lượng lớn, đây là lý do nên gửi tín hiệu thay vì gửi dữ liệu đầy đủ, như [bài 11.7](11.6-groups-and-targeting.mdx) đã đo.
+Với lưu lượng lớn, đây là lý do nên gửi tín hiệu thay vì gửi dữ liệu đầy đủ, như [bài 11.6](11.6-groups-and-targeting.mdx) đã đo.
 
-**Và đừng chờ tới khi lên production mới phát hiện.** Chạy hai instance trên máy phát triển với một Nginx đơn giản là đủ để lộ mọi lỗi thuộc lớp này — cùng lý do với bài kiểm tra Data Protection ở [bài 10.12](../module-10-authentication-authorization/10.11-advanced-notes.mdx).
+**Và đừng chờ tới khi lên production mới phát hiện.** Chạy hai instance trên máy phát triển với một Nginx đơn giản là đủ để lộ mọi lỗi thuộc lớp này — cùng lý do với bài kiểm tra Data Protection ở [bài 10.11](../module-10-authentication-authorization/10.11-advanced-notes.mdx).
 
 </details>
 
@@ -385,7 +385,7 @@ Hệ quả chỉ lộ ra khi có tải:
 | Tải server | Thấp | **Cao hơn nhiều** |
 | Giới hạn 6 kết nối HTTP/1.1 | Không bị tính | **Bị tính** |
 
-Dòng cuối là thứ gây ra triệu chứng khó hiểu nhất: người dùng mở 6 tab thì tab thứ bảy treo hẳn, kể cả việc tải ảnh và gọi API — đúng cơ chế ở [bài 11.2](11.1-why-real-time-matters.mdx).
+Dòng cuối là thứ gây ra triệu chứng khó hiểu nhất: người dùng mở 6 tab thì tab thứ bảy treo hẳn, kể cả việc tải ảnh và gọi API — đúng cơ chế ở [bài 11.1](11.1-why-real-time-matters.mdx).
 
 **Cấu hình đúng:**
 
@@ -536,7 +536,7 @@ app.MapHealthChecks("/health/ready", new()
 });
 ```
 
-Liveness chạm database là nguyên nhân của ca restart dây chuyền ở [bài 18.13](../../stage-05-senior-engineering/module-18-microservices/18.12-quick-real-world-example.mdx) — database chậm một nhịp là Kubernetes giết sạch mọi pod.
+Liveness chạm database là nguyên nhân của ca restart dây chuyền ở [bài 18.12](../../stage-05-senior-engineering/module-18-microservices/18.12-quick-real-world-example.mdx) — database chậm một nhịp là Kubernetes giết sạch mọi pod.
 
 **Cuối cùng, hãy cho người dùng biết khi đang suy giảm:**
 

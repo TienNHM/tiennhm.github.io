@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 17.12.1 — Saga
+### 17.11.1 — Saga
 
 **Điều kiện kích hoạt:** một quy trình nghiệp vụ ghi dữ liệu ở nhiều service.
 
@@ -62,7 +62,7 @@ Câu hỏi thứ nhất là lý do nên xếp các bước **không hoàn tác �
 
 Đọc thêm: [Saga pattern](https://microservices.io/patterns/data/saga.html).
 
-### 17.12.2 — Event sourcing
+### 17.11.2 — Event sourcing
 
 **Điều kiện kích hoạt:** nghiệp vụ yêu cầu lịch sử thay đổi đầy đủ — kiểm toán, tài chính, pháp lý.
 
@@ -89,7 +89,7 @@ Trên .NET, [Marten](https://martendb.io/) cung cấp event store trên PostgreS
 
 **Lựa chọn trung gian, thường đúng hơn:** giữ mô hình quan hệ bình thường và thêm **bảng audit log** ghi mọi thay đổi. Bạn có lịch sử đầy đủ mà không phải đổi toàn bộ mô hình lập trình. Với phần lớn CRM/ERP, đây là điểm cân bằng đúng.
 
-### 17.12.3 — CQRS
+### 17.11.3 — CQRS
 
 **Điều kiện kích hoạt:** mô hình đọc và mô hình ghi **thật sự** khác nhau, không chỉ khác về hình dạng DTO.
 
@@ -102,13 +102,13 @@ var summary = await _readDb.QueryAsync<LeadSummaryDto>(
     "SELECT ... FROM LeadSummaryView WHERE TenantId = @tenantId", new { tenantId });
 ```
 
-CQRS **không bắt buộc** phải có database riêng cho đọc. Mức nhẹ nhất — dùng chung database nhưng tách đường đọc khỏi đường ghi — đã cho phần lớn lợi ích: đường đọc không phải nạp entity, không qua change tracking, và tối ưu được độc lập ([bài 16.5](../module-16-clean-architecture/16.4-vertical-slice-architecture.mdx)).
+CQRS **không bắt buộc** phải có database riêng cho đọc. Mức nhẹ nhất — dùng chung database nhưng tách đường đọc khỏi đường ghi — đã cho phần lớn lợi ích: đường đọc không phải nạp entity, không qua change tracking, và tối ưu được độc lập ([bài 16.4](../module-16-clean-architecture/16.4-vertical-slice-architecture.mdx)).
 
 Chỉ tách database riêng khi đọc và ghi có nhu cầu scale thật sự khác nhau. Khi đó bạn nhận thêm một vấn đề: **độ trễ đồng bộ** giữa hai bên, và giao diện phải xử lý được việc ghi xong mà đọc lại chưa thấy.
 
 Đọc thêm: [CQRS pattern](https://learn.microsoft.com/en-us/azure/architecture/patterns/cqrs).
 
-### 17.12.4 — Schema registry
+### 17.11.4 — Schema registry
 
 **Điều kiện kích hoạt:** nhiều đội cùng publish và consume event, và bạn đã gặp lần đầu tiên một breaking change lọt qua.
 
@@ -121,11 +121,11 @@ Producer đăng ký schema v2 -> Registry kiểm tra tương thích với v1
   - Đổi kiểu dữ liệu            -> TỪ CHỐI
 ```
 
-Đây là cách **tự động hoá** quy tắc versioning ở [bài 17.2](17.1-event-driven-architecture-when-to-use.mdx). Với một đội nhỏ, code review đủ. Với nhiều đội, code review **sẽ** bỏ sót — và hậu quả là consumer của đội khác gãy lúc 2 giờ sáng.
+Đây là cách **tự động hoá** quy tắc versioning ở [bài 17.1](17.1-event-driven-architecture-when-to-use.mdx). Với một đội nhỏ, code review đủ. Với nhiều đội, code review **sẽ** bỏ sót — và hậu quả là consumer của đội khác gãy lúc 2 giờ sáng.
 
 Confluent Schema Registry phổ biến nhất trong hệ Kafka. Với RabbitMQ, thường dùng một thư viện contract dùng chung được đánh phiên bản — kém chặt hơn nhưng đơn giản hơn nhiều.
 
-### 17.12.5 — Exactly-once của Kafka: giới hạn thật
+### 17.11.5 — Exactly-once của Kafka: giới hạn thật
 
 Kafka có transaction và idempotent producer, cho phép "exactly-once semantics" — nhưng phạm vi hẹp hơn tên gọi rất nhiều:
 
@@ -147,18 +147,18 @@ var config = new ProducerConfig
 
 `EnableIdempotence` đáng bật vì nó chống trùng do producer retry, nhưng nó **không** thay thế idempotency ở consumer. Với hệ thống .NET điển hình ghi vào SQL Server, bạn vẫn cần inbox hoặc unique constraint ([bài 17.2](17.2-messaging-fears-lost-duplicates.mdx)).
 
-### 17.12.6 — Thứ tự ưu tiên
+### 17.11.6 — Thứ tự ưu tiên
 
 Trước khi đụng tới bất kỳ mục nào ở trên:
 
-1. **Outbox** — chống mất tin ([bài 17.4](17.3-outbox-pattern-applied.mdx)).
+1. **Outbox** — chống mất tin ([bài 17.3](17.3-outbox-pattern-applied.mdx)).
 2. **Idempotency ở consumer** ([bài 17.2](17.2-messaging-fears-lost-duplicates.mdx)).
 3. **Retry có jitter và DLQ có người theo dõi** ([bài 17.6](17.6-retry-and-backoff.mdx)).
-4. **Giám sát độ sâu queue và tuổi message** ([bài 17.14](17.13-quick-real-world-example.mdx)).
+4. **Giám sát độ sâu queue và tuổi message** ([bài 17.13](17.13-quick-real-world-example.mdx)).
 
 Bốn mục này giải quyết phần lớn sự cố thực tế. Saga chỉ cần khi thật sự có quy trình xuyên service; event sourcing thì hiếm khi cần.
 
-### 17.12.7 — Rà lại code của bạn
+### 17.11.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát trước khi dùng mẫu nâng cao"

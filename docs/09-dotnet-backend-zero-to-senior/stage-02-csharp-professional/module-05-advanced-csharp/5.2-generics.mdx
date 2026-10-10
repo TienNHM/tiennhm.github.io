@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 5.3.1 — Vấn đề trước khi có generics
+### 5.2.1 — Vấn đề trước khi có generics
 
 ```csharp
 // .NET 1.x — danh sách chứa object
@@ -47,7 +47,7 @@ int x = list[0];                 // không ép kiểu
 
 Generics trong .NET được **thực thi ở mức runtime**, không phải bị xoá đi như Java. JIT sinh mã máy riêng cho từng kiểu giá trị (`List<int>` và `List<long>` có mã khác nhau) và dùng chung mã cho mọi kiểu tham chiếu. Nhờ vậy bạn có cả an toàn kiểu lẫn hiệu năng.
 
-### 5.3.2 — Ràng buộc `where`
+### 5.2.2 — Ràng buộc `where`
 
 Không có ràng buộc, `T` gần như không làm được gì — trình biên dịch chỉ biết nó là `object`.
 
@@ -78,7 +78,7 @@ public class Repository<T> where T : class, IEntity, new()
 
 Ràng buộc không phải hạn chế — nó là cách **mở khoá** khả năng. Mỗi ràng buộc thêm vào là thêm một nhóm thao tác dùng được trên `T`.
 
-### 5.3.3 — Phương thức generic và suy kiểu
+### 5.2.3 — Phương thức generic và suy kiểu
 
 ```csharp
 public static class Guard
@@ -102,7 +102,7 @@ var y = Parse<int>("42");       // phải viết rõ
 
 Đây là lý do các API kiểu `JsonSerializer.Deserialize<T>(json)` luôn bắt bạn viết tham số kiểu.
 
-### 5.3.4 — Covariance và contravariance
+### 5.2.4 — Covariance và contravariance
 
 Hai từ đáng sợ cho một ý đơn giản: **dữ liệu đi ra hay đi vào?**
 
@@ -156,7 +156,7 @@ flowchart LR
 
 Trong .NET, `IEnumerable<out T>`, `IReadOnlyList<out T>`, `Func<out TResult>` là covariant; `IComparer<in T>`, `Action<in T>` là contravariant.
 
-### 5.3.5 — `static` trong lớp generic: một biến cho mỗi kiểu
+### 5.2.5 — `static` trong lớp generic: một biến cho mỗi kiểu
 
 Chi tiết ít người biết nhưng gây bất ngờ khi gặp:
 
@@ -185,7 +185,7 @@ internal static class TypeCache<T>
 }
 ```
 
-### 5.3.6 — Generic trong code backend thật
+### 5.2.6 — Generic trong code backend thật
 
 ```csharp
 // Repository chung — nhưng cẩn thận, xem lưu ý bên dưới
@@ -205,7 +205,7 @@ public readonly record struct Result<T>(bool IsSuccess, T? Value, string? Error)
 
 Một lưu ý thực dụng về `IRepository<T>` chung: nó hấp dẫn nhưng hay dẫn tới interface **chung chung tới mức vô dụng**. Mỗi thực thể thường có nhu cầu truy vấn riêng (`GetOverdueOrders`, `FindByEmail`), và nhồi hết vào một interface generic thì quay lại đúng vấn đề interface quá lớn ở [bài 4.5](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-04-csharp-core/4.4-interface). Dùng generic cho phần thật sự chung, và viết interface riêng cho phần đặc thù.
 
-### 5.3.7 — Rà lại code của bạn
+### 5.2.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát generics"
@@ -360,7 +360,7 @@ Thứ so sánh được **mọi** `Animal` thì chắc chắn so sánh được 
 | `in T` | Contravariant — cha thay được con | Chỉ đầu vào | `IComparer<T>`, `Action<T>` |
 | `T` | Bất biến | Cả hai | `List<T>`, `IList<T>` |
 
-**Ứng dụng thực tế.** Đây là lý do nên trả về `IEnumerable<T>` hoặc `IReadOnlyList<T>` thay vì `List<T>` từ API công khai — ngoài lý do đóng gói ở [bài 4.3](../module-04-csharp-core/4.2-encapsulation.mdx), nó còn cho người gọi sự linh hoạt về kiểu:
+**Ứng dụng thực tế.** Đây là lý do nên trả về `IEnumerable<T>` hoặc `IReadOnlyList<T>` thay vì `List<T>` từ API công khai — ngoài lý do đóng gói ở [bài 4.2](../module-04-csharp-core/4.2-encapsulation.mdx), nó còn cho người gọi sự linh hoạt về kiểu:
 
 ```csharp
 public IReadOnlyList<Animal> GetAll() => _dogs;     // trả List<Dog> được, nhờ covariance
@@ -433,7 +433,7 @@ public class Counter<T>
 }
 ```
 
-`Counter<Customer>.Value` là **một** biến duy nhất cho toàn bộ ứng dụng. Hai request đồng thời cùng tăng nó sẽ gặp đúng vấn đề đua dữ liệu đã chứng minh ở [bài 4.2](../module-04-csharp-core/4.1-class-and-object.mdx).
+`Counter<Customer>.Value` là **một** biến duy nhất cho toàn bộ ứng dụng. Hai request đồng thời cùng tăng nó sẽ gặp đúng vấn đề đua dữ liệu đã chứng minh ở [bài 4.1](../module-04-csharp-core/4.1-class-and-object.mdx).
 
 Quy tắc giữ nguyên: **trạng thái tĩnh chỉ an toàn khi nó bất biến và chỉ đọc**. Generic không thay đổi điều đó, nó chỉ chia nhỏ phạm vi dùng chung theo kiểu.
 

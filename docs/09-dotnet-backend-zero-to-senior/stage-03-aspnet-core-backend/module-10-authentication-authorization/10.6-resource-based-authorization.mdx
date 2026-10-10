@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 10.7.1 — Vì sao attribute không đủ
+### 10.6.1 — Vì sao attribute không đủ
 
 ```csharp
 [Authorize(Roles = "SalesRep")]     // chạy TRƯỚC khi action bắt đầu
@@ -40,7 +40,7 @@ Attribute chạy ở tầng phân quyền, **trước** action — lúc đó ch�
 
 Thứ tự bắt buộc phải là: **nạp bản ghi → kiểm tra quyền trên bản ghi đó → thực hiện thao tác.**
 
-### 10.7.2 — Lỗ hổng IDOR
+### 10.6.2 — Lỗ hổng IDOR
 
 ```csharp
 // SAI — chỉ kiểm tra "đã đăng nhập chưa"
@@ -59,7 +59,7 @@ Bất kỳ ai đăng nhập cũng đọc được **mọi** khách hàng. Kẻ t
 
 Dùng GUID thay số tự tăng làm việc dò id khó hơn, nhưng **không phải** giải pháp: id vẫn xuất hiện trong URL, trong log, trong response của các endpoint khác. Đó là che giấu, không phải kiểm soát.
 
-### 10.7.3 — `IAuthorizationService`
+### 10.6.3 — `IAuthorizationService`
 
 ```csharp
 public sealed class SameOwnerRequirement : IAuthorizationRequirement;
@@ -99,7 +99,7 @@ public sealed class CustomerTerritoryHandler
 }
 ```
 
-Hai handler độc lập cho cùng một requirement, và vì nhiều handler là **OR** ([bài 10.6](10.5-policy-based-authorization.mdx)), chỉ cần một cái `Succeed` là qua. Thêm một con đường mới — ví dụ "người được uỷ quyền tạm thời" — là thêm một handler, không sửa hai handler cũ.
+Hai handler độc lập cho cùng một requirement, và vì nhiều handler là **OR** ([bài 10.5](10.5-policy-based-authorization.mdx)), chỉ cần một cái `Succeed` là qua. Thêm một con đường mới — ví dụ "người được uỷ quyền tạm thời" — là thêm một handler, không sửa hai handler cũ.
 
 ```csharp
 [Authorize]
@@ -147,7 +147,7 @@ sequenceDiagram
     end
 ```
 
-### 10.7.4 — 403 hay 404
+### 10.6.4 — 403 hay 404
 
 ```csharp
 if (!result.Succeeded) return Forbid();       // 403: "có tồn tại, bạn không được xem"
@@ -165,7 +165,7 @@ Với hệ thống đa khách hàng (multi-tenant), **404 gần như luôn đún
 
 Nhất quán trong toàn API, và ghi rõ lựa chọn trong tài liệu để người tích hợp không nhầm.
 
-### 10.7.5 — Danh sách: lọc trong truy vấn
+### 10.6.5 — Danh sách: lọc trong truy vấn
 
 Sai lầm hay gặp là áp cách làm của một bản ghi lên cả danh sách:
 
@@ -223,7 +223,7 @@ Rất mạnh cho **multi-tenant**: không thể quên, vì nó áp cho mọi tru
 
 **2. Một bộ test chạy trên cả hai đường.** Với mỗi vai trò, kiểm tra rằng "bản ghi X hiện trong danh sách" **khi và chỉ khi** "truy cập trực tiếp bản ghi X được cho phép". Đó là bất biến bạn cần bảo vệ.
 
-### 10.7.6 — Đừng quên các đường khác
+### 10.6.6 — Đừng quên các đường khác
 
 Phân quyền theo tài nguyên hay bị bỏ sót ở những nơi không phải `GET` và `PUT` chính:
 
@@ -235,7 +235,7 @@ Phân quyền theo tài nguyên hay bị bỏ sót ở những nơi không phả
 
 Trường hợp thứ tư đáng chú ý: bạn kiểm tra quyền trên `order` nhưng không kiểm tra rằng `customerId` trong body thuộc về người dùng — và họ gán đơn hàng của mình cho khách hàng của người khác.
 
-### 10.7.7 — Rà lại code của bạn
+### 10.6.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát phân quyền theo tài nguyên"
@@ -328,7 +328,7 @@ public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
 
 **Vì vậy đừng dựa vào việc nhớ.** Hai lớp phòng vệ hệ thống hơn:
 
-- **Global query filter** ở tầng `DbContext` — mọi truy vấn tự động lọc theo tenant hoặc chủ sở hữu, kể cả khi ai đó quên kiểm tra. Xem [bài 13.11](../../stage-04-database-production/module-13-entity-framework-core/13.10-global-query-filters.mdx).
+- **Global query filter** ở tầng `DbContext` — mọi truy vấn tự động lọc theo tenant hoặc chủ sở hữu, kể cả khi ai đó quên kiểm tra. Xem [bài 13.10](../../stage-04-database-production/module-13-entity-framework-core/13.10-global-query-filters.mdx).
 - **Id không đoán được** — `Guid` thay vì số tăng dần. Không chặn được tấn công có chủ đích, nhưng chặn được việc dò hàng loạt.
 
 </details>
@@ -510,7 +510,7 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
 }
 ```
 
-Giờ **mọi** truy vấn qua `DbContext` đều mang điều kiện tenant, kể cả endpoint export ai đó viết vội lúc 5 giờ chiều. Nó không thay thế được kiểm tra chủ sở hữu ở mức bản ghi, nhưng nó chặn được lớp rò rỉ nghiêm trọng nhất: dữ liệu đi **xuyên qua các công ty khác nhau**. Hai cái bẫy của filter này được trình bày ở [bài 13.11](../../stage-04-database-production/module-13-entity-framework-core/13.10-global-query-filters.mdx).
+Giờ **mọi** truy vấn qua `DbContext` đều mang điều kiện tenant, kể cả endpoint export ai đó viết vội lúc 5 giờ chiều. Nó không thay thế được kiểm tra chủ sở hữu ở mức bản ghi, nhưng nó chặn được lớp rò rỉ nghiêm trọng nhất: dữ liệu đi **xuyên qua các công ty khác nhau**. Hai cái bẫy của filter này được trình bày ở [bài 13.10](../../stage-04-database-production/module-13-entity-framework-core/13.10-global-query-filters.mdx).
 
 </details>
 

@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 8.13.1 — Vấn đề
+### 8.12.1 — Vấn đề
 
 ```json
 HTTP 500 Internal Server Error
@@ -49,7 +49,7 @@ Thông tin bị lộ trong một phản hồi:
 
 Và với người dùng bình thường, nó chỉ là một khối chữ vô nghĩa.
 
-### 8.13.2 — Hai nguyên nhân thường gặp
+### 8.12.2 — Hai nguyên nhân thường gặp
 
 ```csharp
 // Nguyên nhân 1 — trang lỗi của môi trường phát triển chạy trên production
@@ -76,7 +76,7 @@ catch (Exception ex)
 
 Nguyên nhân thứ hai tệ hơn vì nó **rải khắp codebase** — sửa một chỗ không đủ, và chỗ mới sẽ xuất hiện khi có người viết controller tiếp theo.
 
-### 8.13.3 — Xử lý tập trung
+### 8.12.3 — Xử lý tập trung
 
 ```csharp
 public sealed class GlobalExceptionHandler(
@@ -157,7 +157,7 @@ flowchart LR
     U -->|"truy vấn theo TraceId"| LOG
 ```
 
-### 8.13.4 — Nguyên tắc: lỗi nghiệp vụ và lỗi hệ thống
+### 8.12.4 — Nguyên tắc: lỗi nghiệp vụ và lỗi hệ thống
 
 | | Lỗi nghiệp vụ | Lỗi hệ thống |
 |---|---|---|
@@ -173,9 +173,9 @@ Phân biệt này quan trọng theo cả hai hướng.
 
 **Lộ lỗi hệ thống là tệ với bảo mật:** thông báo chi tiết cho kẻ tấn công biết chính xác thứ gì đang chạy bên trong.
 
-Cách đơn giản nhất để phân biệt trong code: **lỗi nghiệp vụ dùng exception riêng của bạn** (`DomainException`, `NotFoundException`), mọi thứ khác rơi vào nhánh mặc định ([bài 16.14](../../stage-05-senior-engineering/module-16-clean-architecture/16.13-advanced-notes.mdx)).
+Cách đơn giản nhất để phân biệt trong code: **lỗi nghiệp vụ dùng exception riêng của bạn** (`DomainException`, `NotFoundException`), mọi thứ khác rơi vào nhánh mặc định ([bài 16.13](../../stage-05-senior-engineering/module-16-clean-architecture/16.13-advanced-notes.mdx)).
 
-### 8.13.5 — Lỗi validation
+### 8.12.5 — Lỗi validation
 
 Validation cần định dạng riêng vì nó có **nhiều lỗi cùng lúc**, gắn với **từng trường**:
 
@@ -201,9 +201,9 @@ ValidationException e => new ValidationProblemDetails(
 }
 ```
 
-Frontend hiển thị được lỗi **ngay dưới từng ô nhập** thay vì một thông báo chung — khác biệt rõ rệt về trải nghiệm ([bài 8.6](8.5-model-validation.mdx)).
+Frontend hiển thị được lỗi **ngay dưới từng ô nhập** thay vì một thông báo chung — khác biệt rõ rệt về trải nghiệm ([bài 8.5](8.5-model-validation.mdx)).
 
-### 8.13.6 — Nối lỗi với log
+### 8.12.6 — Nối lỗi với log
 
 `traceId` trong phản hồi phải là **cùng một giá trị** với `TraceId` trong log:
 
@@ -222,11 +222,11 @@ var traceId = Activity.Current?.Id ?? context.TraceIdentifier;
 }
 ```
 
-Quy trình hỗ trợ trở thành: người dùng gửi mã, bạn truy vấn log bằng mã đó, và có **toàn bộ** ngữ cảnh — kể cả khi lỗi xảy ra xuyên nhiều service ([bài 18.6](../../stage-05-senior-engineering/module-18-microservices/18.5-observability-three-pillars.mdx)).
+Quy trình hỗ trợ trở thành: người dùng gửi mã, bạn truy vấn log bằng mã đó, và có **toàn bộ** ngữ cảnh — kể cả khi lỗi xảy ra xuyên nhiều service ([bài 18.5](../../stage-05-senior-engineering/module-18-microservices/18.5-observability-three-pillars.mdx)).
 
 Đây là thứ rẻ nhất trong bài này mà giá trị vận hành cao nhất.
 
-### 8.13.7 — Rà lại code của bạn
+### 8.12.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát xử lý lỗi"

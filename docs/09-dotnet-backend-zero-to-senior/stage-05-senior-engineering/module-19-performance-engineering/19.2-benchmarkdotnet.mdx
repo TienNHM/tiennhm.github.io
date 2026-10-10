@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 19.3.1 — Vì sao Stopwatch nói dối
+### 19.2.1 — Vì sao Stopwatch nói dối
 
 ```csharp
 // SAI — bốn vấn đề cùng lúc
@@ -43,7 +43,7 @@ Console.WriteLine(sw.ElapsedMilliseconds);
 
 Về dead code elimination: .NET JIT là trình biên dịch tối ưu hoá, và nó được phép loại bỏ tính toán không có tác dụng quan sát được. Kết quả là bạn đo được "0,3 nano giây" cho một hàm băm — con số vô lý nhưng dễ tin nếu không biết chuyện gì đang xảy ra.
 
-### 19.3.2 — Benchmark đúng cách
+### 19.2.2 — Benchmark đúng cách
 
 ```csharp
 [MemoryDiagnoser]                       // đo cả cấp phát bộ nhớ
@@ -93,7 +93,7 @@ dotnet run -c Release                   # BẮT BUỘC Release, không bao giờ
 
 Chạy ở Debug làm sai kết quả hoàn toàn — BenchmarkDotNet sẽ cảnh báo và từ chối.
 
-### 19.3.3 — Đọc kết quả
+### 19.2.3 — Đọc kết quả
 
 ```
 | Method         | Count | Mean         | Error      | StdDev     | Ratio | Allocated |
@@ -120,7 +120,7 @@ Chạy ở Debug làm sai kết quả hoàn toàn — BenchmarkDotNet sẽ cản
 
 **`StdDev` cao** (so với `Mean`) nghĩa là kết quả không đáng tin — thường do máy đang chạy việc khác. Đóng mọi thứ và đo lại.
 
-### 19.3.4 — Giới hạn: khi micro-benchmark là công cụ sai
+### 19.2.4 — Giới hạn: khi micro-benchmark là công cụ sai
 
 ```csharp
 // Tối ưu này nhanh gấp ĐÔI... và vô nghĩa trong thực tế
@@ -137,7 +137,7 @@ Nếu endpoint mất 200ms và phần mapping chiếm 120 **nano** giây, cải 
 | Kiểm chứng giả thuyết về thuật toán | Chưa biết vấn đề nằm ở đâu |
 | Code chạy hàng triệu lần | Code chạy vài lần mỗi request |
 
-**Thứ tự đúng:** profiler tìm ra chỗ tốn thời gian ([bài 19.4](19.3-dotnet-server-profiling.mdx)) → BenchmarkDotNet so sánh các cách sửa chỗ đó. Dùng ngược lại là tối ưu ngẫu nhiên.
+**Thứ tự đúng:** profiler tìm ra chỗ tốn thời gian ([bài 19.3](19.3-dotnet-server-profiling.mdx)) → BenchmarkDotNet so sánh các cách sửa chỗ đó. Dùng ngược lại là tối ưu ngẫu nhiên.
 
 ```mermaid
 flowchart LR
@@ -149,7 +149,7 @@ flowchart LR
     E --> F["Áp dụng cách thắng, đo lại endpoint"]
 ```
 
-### 19.3.5 — Ba cái bẫy khi viết benchmark
+### 19.2.5 — Ba cái bẫy khi viết benchmark
 
 **Bẫy 1 — Đo cả phần chuẩn bị dữ liệu.**
 
@@ -180,7 +180,7 @@ private int[] _data = null!;
 
 **Bẫy 3 — Kết luận từ một môi trường.** Kết quả phụ thuộc CPU, phiên bản .NET và hệ điều hành. Một tối ưu thắng trên x64 có thể thua trên ARM. Nếu production chạy ARM, hãy đo trên ARM.
 
-### 19.3.6 — Rà lại code của bạn
+### 19.2.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát micro-benchmark"
@@ -212,7 +212,7 @@ Viết benchmark có kết quả bị bỏ đi và một bản trả về kết 
 
 **Gợi ý.** Thử cả hai công cụ: `Stopwatch` thô và BenchmarkDotNet. Kết quả không giống nhau, và chỗ không giống nhau mới là phần đáng học.
 
-**Lời giải — bắt đầu bằng `Stopwatch` thô, đúng như cách sai trong mục 19.3.1:**
+**Lời giải — bắt đầu bằng `Stopwatch` thô, đúng như cách sai trong mục 19.2.1:**
 
 ```csharp
 const int N = 50_000_000;
@@ -716,7 +716,7 @@ Sai số rộng vì `iterationCount: 5`. Nhưng hai khoảng tin cậy **không 
 
 Và dù sao, con số quyết định ở bài này không phải `Mean` mà là `Allocated`: **392 B so với 0 B không có sai số.**
 
-Nối lại ba bài: bài 1 dạy cách nghi ngờ một con số, bài 2 dạy cách đọc độ phức tạp từ nhiều con số, bài 3 dạy cách chọn **đúng cột** để quyết định. Cả ba đều dẫn về một điểm ở mục 19.3.4 — micro-benchmark chỉ có ích sau khi profiler đã chỉ ra chỗ đáng tối ưu.
+Nối lại ba bài: bài 1 dạy cách nghi ngờ một con số, bài 2 dạy cách đọc độ phức tạp từ nhiều con số, bài 3 dạy cách chọn **đúng cột** để quyết định. Cả ba đều dẫn về một điểm ở mục 19.2.4 — micro-benchmark chỉ có ích sau khi profiler đã chỉ ra chỗ đáng tối ưu.
 
 </details>
 

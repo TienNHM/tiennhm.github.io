@@ -25,7 +25,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 14.9.1 — Vấn đề nó giải
+### 14.8.1 — Vấn đề nó giải
 
 ```csharp
 // Ghép chặt — mỗi tính năng mới phải sửa lớp này
@@ -54,7 +54,7 @@ public async Task CreateAsync(CreateCustomerRequest request, CancellationToken c
 
 Thêm một consumer mới **không sửa dòng nào** ở đây. Đây là điểm mạnh thật sự — không phải hiệu năng, mà là **khả năng thêm tính năng mà không đụng code cũ**.
 
-### 14.9.2 — Command và event
+### 14.8.2 — Command và event
 
 | | Command | Event |
 |---|---|---|
@@ -102,7 +102,7 @@ Cách 2 giữ các service độc lập thật sự, nhưng dữ liệu là **b�
 
 Thực dụng: **đủ dữ liệu cho consumer phổ biến nhất**, cộng id để consumer cần thêm thì tự nạp.
 
-### 14.9.3 — MassTransit với RabbitMQ
+### 14.8.3 — MassTransit với RabbitMQ
 
 ```bash
 dotnet add package MassTransit
@@ -170,7 +170,7 @@ cfg.ReceiveEndpoint("welcome-email", e =>
 });
 ```
 
-### 14.9.4 — Giao dịch kép và outbox
+### 14.8.4 — Giao dịch kép và outbox
 
 Đây là vấn đề khó nhất:
 
@@ -214,11 +214,11 @@ Kết quả: hoặc **cả hai** cùng được lưu, hoặc **không cái nào*
 
 <small>File gốc: [nền sáng](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-04-database-production-module-14-caching-background-jobs-message-bus-intro/vi/transactional-outbox.html) · [nền tối](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-04-database-production-module-14-caching-background-jobs-message-bus-intro/vi/transactional-outbox-dark.html)</small>
 
-Cái giá: thêm một bảng, thêm độ trễ bằng `QueryDelay`, và message có thể publish **hai lần** (tiến trình chết sau khi publish, trước khi đánh dấu đã gửi) — nên consumer vẫn phải **idempotent** ([bài 14.10](14.9-idempotency-and-retry.mdx)).
+Cái giá: thêm một bảng, thêm độ trễ bằng `QueryDelay`, và message có thể publish **hai lần** (tiến trình chết sau khi publish, trước khi đánh dấu đã gửi) — nên consumer vẫn phải **idempotent** ([bài 14.9](14.9-idempotency-and-retry.mdx)).
 
-Mẫu này đã nói ở [bài 11.8](../../stage-03-aspnet-core-backend/module-11-signalr/11.7-ihubcontext-server-push-outside-hub.mdx) và chi tiết ở [Module 17](../../stage-05-senior-engineering/module-17-distributed-systems/).
+Mẫu này đã nói ở [bài 11.7](../../stage-03-aspnet-core-backend/module-11-signalr/11.7-ihubcontext-server-push-outside-hub.mdx) và chi tiết ở [Module 17](../../stage-05-senior-engineering/module-17-distributed-systems/).
 
-### 14.9.5 — Dead-letter queue
+### 14.8.5 — Dead-letter queue
 
 Message thất bại hết số lần retry đi vào **`_error` queue**:
 
@@ -250,7 +250,7 @@ Hai tầng retry là mẫu chuẩn: **retry ngay** cho lỗi thoáng qua (mạng
 
 Queue `_skipped` chứa message **không có consumer nào** — thường nghĩa là bạn đổi tên kiểu message mà quên deploy consumer, hoặc namespace không khớp.
 
-### 14.9.6 — Khi nào message bus là thừa
+### 14.8.6 — Khi nào message bus là thừa
 
 | Tình huống | Nên dùng |
 |---|---|
@@ -258,7 +258,7 @@ Queue `_skipped` chứa message **không có consumer nào** — thường nghĩ
 | Nhiều service cần biết về một sự kiện | **Message bus** |
 | Cần đảm bảo giao hàng qua ranh giới service | **Message bus** |
 | Gọi service khác và **cần kết quả ngay** | **HTTP** |
-| Hàng đợi trong tiến trình | **`Channel`** — [bài 6.9](../../stage-02-csharp-professional/module-06-async-programming/6.8-channels-and-producer-consumer.mdx) |
+| Hàng đợi trong tiến trình | **`Channel`** — [bài 6.8](../../stage-02-csharp-professional/module-06-async-programming/6.8-channels-and-producer-consumer.mdx) |
 
 Message bus thêm **rất nhiều** độ phức tạp: một hạ tầng phải vận hành, gỡ lỗi khó hơn nhiều (luồng xử lý không còn tuyến tính), và test tích hợp phức tạp.
 
@@ -268,7 +268,7 @@ Message bus đáng khi bạn có **nhiều service triển khai độc lập** v
 
 Một lựa chọn trung gian: MassTransit chạy với **in-memory transport** cho môi trường dev và test, rồi đổi sang RabbitMQ khi thật sự cần — code consumer không đổi.
 
-### 14.9.7 — Rà lại code của bạn
+### 14.8.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát message bus"

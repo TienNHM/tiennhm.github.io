@@ -25,7 +25,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 13.9.1 — Vấn đề
+### 13.8.1 — Vấn đề
 
 ```
 t=0   An   doc Lead #42 (Value = 100)
@@ -38,7 +38,7 @@ t=3   Bình lưu Value = 200        <- ghi đè thay đổi của An
 
 Với dữ liệu tài chính hoặc tồn kho, đó là lỗi nghiêm trọng.
 
-### 13.9.2 — Concurrency token
+### 13.8.2 — Concurrency token
 
 ```csharp
 // SQL Server — ROWVERSION tự động đổi mỗi lần ghi
@@ -71,7 +71,7 @@ WHERE Id = @p2 AND RowVersion = @p3;      -- token trong WHERE
 -- 0 dòng bị ảnh hưởng => DbUpdateConcurrencyException
 ```
 
-Quay lại tình huống An và Bình ở mục 13.9.1, lần này có token:
+Quay lại tình huống An và Bình ở mục 13.8.1, lần này có token:
 
 ![Sơ đồ tuần tự: An và Bình cùng GET Lead 42, nhận Value 100 và token v1. An PUT 150 kèm v1, API chạy UPDATE WHERE RowVersion = v1, khớp 1 dòng, token thành v2, trả 204. Bình PUT 200 kèm v1, UPDATE WHERE RowVersion = v1 khớp 0 dòng, EF ném DbUpdateConcurrencyException và API trả 409 Conflict](./img/optimistic-concurrency.png#gh-light-mode-only)
 ![Sơ đồ tuần tự: An và Bình cùng GET Lead 42, nhận Value 100 và token v1. An PUT 150 kèm v1, API chạy UPDATE WHERE RowVersion = v1, khớp 1 dòng, token thành v2, trả 204. Bình PUT 200 kèm v1, UPDATE WHERE RowVersion = v1 khớp 0 dòng, EF ném DbUpdateConcurrencyException và API trả 409 Conflict](./img/optimistic-concurrency-dark.png#gh-dark-mode-only)
@@ -86,7 +86,7 @@ builder.Property(p => p.Stock).IsConcurrencyToken();
 
 Khi đó `WHERE` chứa `Stock = @giá_trị_gốc`, nên chỉ xung đột **trên chính cột đó** mới bị phát hiện. Hai người sửa hai cột khác nhau vẫn thành công cả hai — thường là điều bạn muốn.
 
-### 13.9.3 — Ba chiến lược
+### 13.8.3 — Ba chiến lược
 
 ```csharp
 try
@@ -155,9 +155,9 @@ return Conflict(new ProblemDetails
 });
 ```
 
-Đây là đúng mã trạng thái cho tình huống này ([bài 8.5](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.4-controllers-and-actions.mdx)).
+Đây là đúng mã trạng thái cho tình huống này ([bài 8.4](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.4-controllers-and-actions.mdx)).
 
-### 13.9.4 — Truyền token qua API
+### 13.8.4 — Truyền token qua API
 
 Với ứng dụng web, client không giữ `DbContext` giữa hai request — nên token phải đi qua API:
 
@@ -198,7 +198,7 @@ public async Task<IActionResult> Update(int id, UpdateLeadRequest request, Cance
 
 Dòng `OriginalValue` là mấu chốt: không có nó, EF dùng giá trị **vừa đọc từ database** làm token — và kiểm tra luôn thành công, vì bạn vừa đọc xong. Xung đột không bao giờ được phát hiện.
 
-Cách chuẩn hơn về mặt HTTP là dùng **ETag** và `If-Match` ([bài 9.8](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.7-response-caching-and-output-caching.mdx)):
+Cách chuẩn hơn về mặt HTTP là dùng **ETag** và `If-Match` ([bài 9.7](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.7-response-caching-and-output-caching.mdx)):
 
 ```http
 GET /api/v1/leads/42
@@ -210,7 +210,7 @@ If-Match: "AAAAAAAAB9E="
 
 Thiếu `If-Match` thì trả **428 Precondition Required**; token không khớp thì trả **412 Precondition Failed**.
 
-### 13.9.5 — `ExecuteUpdate` bỏ qua tất cả
+### 13.8.5 — `ExecuteUpdate` bỏ qua tất cả
 
 ```csharp
 // KHÔNG kiểm tra concurrency token
@@ -218,7 +218,7 @@ await db.Leads.Where(l => l.Id == 42)
               .ExecuteUpdateAsync(s => s.SetProperty(l => l.Value, 200), ct);
 ```
 
-`ExecuteUpdateAsync` sinh `UPDATE ... WHERE Id = 42` — **không** có token trong `WHERE` ([bài 13.8](13.7-performance.mdx)). Nó luôn thành công và luôn ghi đè.
+`ExecuteUpdateAsync` sinh `UPDATE ... WHERE Id = 42` — **không** có token trong `WHERE` ([bài 13.7](13.7-performance.mdx)). Nó luôn thành công và luôn ghi đè.
 
 Cần kiểm tra thì đưa token vào `Where` thủ công:
 
@@ -230,7 +230,7 @@ var affected = await db.Leads
 if (affected == 0) return Result.Conflict();
 ```
 
-### 13.9.6 — Tránh xung đột thay vì xử lý nó
+### 13.8.6 — Tránh xung đột thay vì xử lý nó
 
 Với **bộ đếm và số dư**, cách tốt nhất là **không đọc trước**:
 
@@ -248,7 +248,7 @@ var affected = await db.Products
 if (affected == 0) return Result.Fail("Không đủ hàng");
 ```
 
-Không có khoảng trống giữa đọc và ghi, nên **không có xung đột nào để xử lý** — đúng mẫu ở [bài 12.7](../module-12-sql-deep-dive/12.6-transactions-and-locking.mdx).
+Không có khoảng trống giữa đọc và ghi, nên **không có xung đột nào để xử lý** — đúng mẫu ở [bài 12.6](../module-12-sql-deep-dive/12.6-transactions-and-locking.mdx).
 
 Với thao tác quan trọng mà thử lại không chấp nhận được, dùng pessimistic lock:
 
@@ -260,7 +260,7 @@ var product = await db.Products
 
 Nhưng nhớ nó mở ra rủi ro deadlock, và phải nằm trong transaction.
 
-### 13.9.7 — Kiểm thử
+### 13.8.7 — Kiểm thử
 
 ```csharp
 [Fact]
@@ -281,11 +281,11 @@ public async Task ConcurrentUpdate_ShouldThrowConcurrencyException()
 }
 ```
 
-**Hai `DbContext` riêng** là điều kiện bắt buộc: cùng một context thì identity map trả về **cùng một instance**, và không có xung đột nào xảy ra ([bài 13.2](13.1-ef-core-overview.mdx)).
+**Hai `DbContext` riêng** là điều kiện bắt buộc: cùng một context thì identity map trả về **cùng một instance**, và không có xung đột nào xảy ra ([bài 13.1](13.1-ef-core-overview.mdx)).
 
-Bài test này phải chạy trên **database thật** — InMemory provider không có `ROWVERSION` ([bài 9.9](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.8-api-testing.mdx)).
+Bài test này phải chạy trên **database thật** — InMemory provider không có `ROWVERSION` ([bài 9.8](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.8-api-testing.mdx)).
 
-### 13.9.8 — Rà lại code của bạn
+### 13.8.8 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát concurrency"

@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 17.6.1 — Log-based khác gì poll
+### 17.5.1 — Log-based khác gì poll
 
 Cách thủ công thường gặp:
 
@@ -50,7 +50,7 @@ flowchart LR
     E --> F[Consumer]
 ```
 
-### 17.6.2 — SQL Server CDC
+### 17.5.2 — SQL Server CDC
 
 ```sql
 EXEC sys.sp_cdc_enable_db;
@@ -76,7 +76,7 @@ Hai điều phải biết khi vận hành:
 - **CDC cần SQL Server Agent chạy.** Agent dừng thì capture job dừng, log không được đọc và **transaction log phình to** — đây là nguyên nhân khá phổ biến của sự cố hết ổ đĩa.
 - **Có retention mặc định.** Dữ liệu capture bị dọn sau vài ngày; consumer dừng lâu hơn khoảng đó sẽ **mất thay đổi vĩnh viễn**.
 
-### 17.6.3 — Debezium
+### 17.5.3 — Debezium
 
 [Debezium](https://debezium.io/documentation/reference/stable/index.html) là connector đọc log của PostgreSQL, MySQL, SQL Server, MongoDB, Oracle và đẩy vào Kafka. Message nó sinh ra có dạng:
 
@@ -92,7 +92,7 @@ Hai điều phải biết khi vận hành:
 
 Nhìn message này và hỏi: **chuyện gì đã xảy ra về mặt nghiệp vụ?** Bạn biết `status` đổi từ `New` sang `Won`. Bạn **không** biết đó là lead được convert qua use case chính thức, hay là một lần sửa tay để chữa dữ liệu sai, hay là một script migration. Ba việc đó có ý nghĩa nghiệp vụ **hoàn toàn khác nhau** nhưng sinh ra **cùng một** row-diff.
 
-### 17.6.4 — Hai hạn chế cốt lõi
+### 17.5.4 — Hai hạn chế cốt lõi
 
 **Mất intent.** Consumer phải suy ra ý nghĩa từ row-diff:
 
@@ -114,9 +114,9 @@ public sealed record LeadConvertedIntegrationEvent(
 
 Không phải đoán gì cả.
 
-**Coupling schema.** Message CDC **là** cấu trúc bảng của bạn. Đổi tên cột `Value` thành `ContractValue` — một refactor nội bộ hoàn toàn bình thường — và mọi consumer gãy. Bạn vừa biến schema database thành API công khai, giống hệt sai lầm publish domain event ra broker ([bài 17.2](17.1-event-driven-architecture-when-to-use.mdx)).
+**Coupling schema.** Message CDC **là** cấu trúc bảng của bạn. Đổi tên cột `Value` thành `ContractValue` — một refactor nội bộ hoàn toàn bình thường — và mọi consumer gãy. Bạn vừa biến schema database thành API công khai, giống hệt sai lầm publish domain event ra broker ([bài 17.1](17.1-event-driven-architecture-when-to-use.mdx)).
 
-### 17.6.5 — Kết hợp CDC với outbox
+### 17.5.5 — Kết hợp CDC với outbox
 
 Đây là cách dùng CDC tốt nhất, và nó lấy được ưu điểm của cả hai: ứng dụng ghi **outbox** (có intent rõ ràng), còn CDC đọc **bảng outbox** thay vì bảng nghiệp vụ — thay thế worker poll.
 
@@ -141,7 +141,7 @@ flowchart LR
 }
 ```
 
-Lợi ích cụ thể so với worker poll ([bài 17.4](17.3-outbox-pattern-applied.mdx)):
+Lợi ích cụ thể so với worker poll ([bài 17.3](17.3-outbox-pattern-applied.mdx)):
 
 | | Worker poll | CDC trên outbox |
 |---|---|---|
@@ -152,7 +152,7 @@ Lợi ích cụ thể so với worker poll ([bài 17.4](17.3-outbox-pattern-appl
 
 Hàng cuối là cái giá: bạn phải vận hành thêm Kafka Connect. Với hệ thống vừa và nhỏ, worker poll đơn giản hơn nhiều và độ trễ vài giây thường không thành vấn đề.
 
-### 17.6.6 — Chọn cái nào
+### 17.5.6 — Chọn cái nào
 
 | Bối cảnh | Nên dùng |
 |---|---|
@@ -164,7 +164,7 @@ Hàng cuối là cái giá: bạn phải vận hành thêm Kafka Connect. Với 
 
 Hàng thứ hai đáng chú ý: khi đích đến là data warehouse hay Elasticsearch, bạn **thật sự muốn** row-diff chứ không phải intent — CDC là lựa chọn đúng chứ không phải lựa chọn đành chấp nhận.
 
-### 17.6.7 — Rà lại code của bạn
+### 17.5.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát khi dùng CDC"

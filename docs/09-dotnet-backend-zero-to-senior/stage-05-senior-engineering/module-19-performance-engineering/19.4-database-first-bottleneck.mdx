@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 19.5.1 — N+1 query
+### 19.4.1 — N+1 query
 
 ```csharp
 // SAI — 1 + N truy van
@@ -70,9 +70,9 @@ public async Task GetOrders_ShouldExecute_ExactlyOneQuery()
 }
 ```
 
-Test này chạy trong CI và bắt N+1 **ngay khi nó được thêm vào**, thay vì sau khi nó đã lên production ([bài 13.7](../../stage-04-database-production/module-13-entity-framework-core/13.6-n-plus-1-problem.mdx)).
+Test này chạy trong CI và bắt N+1 **ngay khi nó được thêm vào**, thay vì sau khi nó đã lên production ([bài 13.6](../../stage-04-database-production/module-13-entity-framework-core/13.6-n-plus-1-problem.mdx)).
 
-### 19.5.2 — Thiếu index
+### 19.4.2 — Thiếu index
 
 ```sql
 -- Bật xem kế hoạch và thống kê I/O
@@ -103,7 +103,7 @@ CPU time = 0 ms, elapsed time = 8 ms
 
 Từ 891ms xuống 8ms — **hơn một trăm lần**, bằng một câu lệnh.
 
-Ba nguyên tắc thiết kế index ([bài 12.5](../../stage-04-database-production/module-12-sql-deep-dive/12.4-indexing.mdx)):
+Ba nguyên tắc thiết kế index ([bài 12.4](../../stage-04-database-production/module-12-sql-deep-dive/12.4-indexing.mdx)):
 
 | Nguyên tắc | Vì sao |
 |---|---|
@@ -126,7 +126,7 @@ ORDER BY s.user_updates DESC;
 
 Những index này đang **thuần tuý tốn chi phí**: chúng làm chậm mọi thao tác ghi mà không giúp truy vấn nào.
 
-### 19.5.3 — Parameter sniffing
+### 19.4.3 — Parameter sniffing
 
 Đây là cái bẫy giải thích được nhiều sự cố "tự nhiên chậm".
 
@@ -178,7 +178,7 @@ EXEC sp_query_store_force_plan @query_id = 42, @plan_id = 17;
 
 [Query Store](https://learn.microsoft.com/en-us/sql/relational-databases/performance/monitoring-performance-by-using-the-query-store) nên được bật mặc định trên production — nó lưu lịch sử kế hoạch và cho phép so sánh "trước và sau khi chậm".
 
-### 19.5.4 — Projection: đừng lấy thừa
+### 19.4.4 — Projection: đừng lấy thừa
 
 ```csharp
 // SAI — lấy TOÀN BỘ entity để dùng 3 trường
@@ -216,7 +216,7 @@ var leads = await _db.Leads
 
 Đánh đổi: 3 round-trip thay vì 1, nhưng tổng dữ liệu truyền giảm rất nhiều. Đáng dùng khi có **từ hai collection trở lên**; với một collection thì `JOIN` thường nhanh hơn.
 
-### 19.5.5 — Khi nào cần read replica
+### 19.4.5 — Khi nào cần read replica
 
 Chỉ cân nhắc sau khi đã làm hết những việc rẻ ở trên. Read replica giải quyết một vấn đề cụ thể: **truy vấn báo cáo nặng làm chậm nghiệp vụ**.
 
@@ -243,7 +243,7 @@ Ba điều **phải** hiểu trước khi dùng:
 | Ghi chậm | Tối ưu ghi, sharding — replica vô ích |
 | Một tenant quá lớn | Tách database riêng cho tenant đó |
 
-### 19.5.6 — Rà lại code của bạn
+### 19.4.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát hiệu năng database"
@@ -720,7 +720,7 @@ Chỉ là: SQL Server khởi động lại lúc 3 giờ sáng,
 -> và nó tự khỏi khi plan cache bị xoá lần nữa
 ```
 
-**Ba cách xử lý và cách chọn — mục 19.5.3 đã liệt kê, đây là cách quyết định:**
+**Ba cách xử lý và cách chọn — mục 19.4.3 đã liệt kê, đây là cách quyết định:**
 
 | Tình huống | Cách nên dùng | Lý do |
 |---|---|---|

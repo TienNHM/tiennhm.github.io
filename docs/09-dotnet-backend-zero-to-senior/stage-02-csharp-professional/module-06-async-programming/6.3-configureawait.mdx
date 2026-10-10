@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 6.4.1 — `SynchronizationContext` là gì
+### 6.3.1 — `SynchronizationContext` là gì
 
 Khi bạn `await`, runtime hỏi một câu: *"phần còn lại của phương thức này nên chạy ở đâu?"*
 
@@ -39,7 +39,7 @@ Câu trả lời mặc định là: **ở nơi tôi vừa rời đi** — tức 
 
 Dòng in đậm là lý do cả bài này nhẹ đi rất nhiều với .NET hiện đại: ASP.NET Core đã **bỏ hẳn** `SynchronizationContext`.
 
-### 6.4.2 — Deadlock xảy ra chính xác như thế nào
+### 6.3.2 — Deadlock xảy ra chính xác như thế nào
 
 ```csharp
 // ASP.NET Framework (KHÔNG phải Core)
@@ -80,7 +80,7 @@ Hai bên chờ nhau vĩnh viễn. Không có exception, không có log — reque
 Bài [Gọi `.Result` khi nào thì deadlock, khi nào thì không?](/blog/deadlock-result-wait-csharp) đi sâu vào việc vì sao cùng một dòng code treo trong WPF/ASP.NET Framework nhưng chạy bình thường trong Console/ASP.NET Core.
 :::
 
-### 6.4.3 — `ConfigureAwait(false)` phá vòng lặp ra sao
+### 6.3.3 — `ConfigureAwait(false)` phá vòng lặp ra sao
 
 ```csharp
 private async Task<string> GetDataAsync()
@@ -98,7 +98,7 @@ Nhưng hãy nhìn cho đúng bản chất:
 
 Cách chữa thật sự là **async all the way**: `public async Task<ActionResult> GetData() => View(await GetDataAsync());`
 
-### 6.4.4 — Nó lan truyền theo từng `await`, không theo phương thức
+### 6.3.4 — Nó lan truyền theo từng `await`, không theo phương thức
 
 Đây là điểm rất hay bị hiểu sai:
 
@@ -114,7 +114,7 @@ public async Task ProcessAsync()
 
 Hệ quả: trong thư viện, nếu đã dùng thì phải dùng **nhất quán ở mọi `await`**. Dùng nửa vời gây ra hành vi phụ thuộc vào việc thao tác nào hoàn thành đồng bộ — nghĩa là bug chỉ xuất hiện khi có cache hit, hoặc chỉ trên máy production.
 
-### 6.4.5 — Dùng ở đâu
+### 6.3.5 — Dùng ở đâu
 
 | Loại code | `ConfigureAwait(false)`? | Lý do |
 |---|---|---|
@@ -126,7 +126,7 @@ Hệ quả: trong thư viện, nếu đã dùng thì phải dùng **nhất quán
 
 Với WPF/WinForms, bỏ `ConfigureAwait(false)` sai chỗ cho bạn `InvalidOperationException: The calling thread cannot access this object because a different thread owns it.`
 
-### 6.4.6 — `ConfigureAwait(ConfigureAwaitOptions)` từ .NET 8
+### 6.3.6 — `ConfigureAwait(ConfigureAwaitOptions)` từ .NET 8
 
 .NET 8 thêm một overload rõ nghĩa hơn cho `Task` (không phải `Task<T>`):
 
@@ -139,7 +139,7 @@ await task.ConfigureAwait(ConfigureAwaitOptions.ForceYielding);        // luôn 
 
 `SuppressThrowing` hữu ích khi bạn chỉ muốn **chờ xong** mà không quan tâm kết quả, thay cho `try { await t; } catch { }`.
 
-### 6.4.7 — Rà lại code của bạn
+### 6.3.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát ConfigureAwait"
@@ -221,7 +221,7 @@ private async Task<string> GetDataAsync()
 |---|---|---|
 | Gọi `.Result` | **Deadlock** — treo ngay | Không deadlock |
 | Hậu quả | Rõ ràng, phát hiện ngay | **Giam một luồng thread pool** |
-| Khi có tải | — | Thread pool starvation, như [bài 6.2](6.1-why-async-matters.mdx) |
+| Khi có tải | — | Thread pool starvation, như [bài 6.1](6.1-why-async-matters.mdx) |
 
 Nghịch lý: hành vi của ASP.NET Framework **dễ chịu hơn** về mặt phát hiện lỗi, vì nó hỏng ngay và hỏng rõ ràng. ASP.NET Core thì chạy tốt trên máy phát triển và chỉ sụp khi có tải thật.
 
@@ -235,7 +235,7 @@ private async void Button_Click(object sender, RoutedEventArgs e)
 }
 ```
 
-Đây là một trong những trường hợp hiếm hoi `async void` được chấp nhận, như [bài 6.3](6.2-task-and-async-await.mdx) đã nêu — và vẫn phải bọc `try/catch`.
+Đây là một trong những trường hợp hiếm hoi `async void` được chấp nhận, như [bài 6.2](6.2-task-and-async-await.mdx) đã nêu — và vẫn phải bọc `try/catch`.
 
 </details>
 
@@ -395,7 +395,7 @@ Crm.Shared                       await=34    cfg=34    100%
 </PropertyGroup>
 ```
 
-**Điều quan trọng nhất của bài này.** Vấn đề không phải "dùng hay không dùng `ConfigureAwait(false)`" — cả hai lựa chọn đều đúng trong ngữ cảnh của nó. Vấn đề là **không có quyết định nào được ghi lại**, nên mỗi người làm một kiểu. Hãy chọn một, ghi vào tài liệu của dự án, và **để công cụ ép buộc** thay vì trông chờ vào code review — đúng nguyên tắc ở [bài 4.7](../module-04-csharp-core/4.6-access-modifiers.mdx): biến quy ước thành ràng buộc kỹ thuật.
+**Điều quan trọng nhất của bài này.** Vấn đề không phải "dùng hay không dùng `ConfigureAwait(false)`" — cả hai lựa chọn đều đúng trong ngữ cảnh của nó. Vấn đề là **không có quyết định nào được ghi lại**, nên mỗi người làm một kiểu. Hãy chọn một, ghi vào tài liệu của dự án, và **để công cụ ép buộc** thay vì trông chờ vào code review — đúng nguyên tắc ở [bài 4.6](../module-04-csharp-core/4.6-access-modifiers.mdx): biến quy ước thành ràng buộc kỹ thuật.
 
 </details>
 

@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 13.10.1 — `DbContext` đã là Unit of Work
+### 13.9.1 — `DbContext` đã là Unit of Work
 
 Unit of Work theo định nghĩa của Martin Fowler: *"theo dõi mọi thứ bạn làm trong một giao dịch nghiệp vụ và điều phối việc ghi thay đổi"*.
 
@@ -38,7 +38,7 @@ db.Contacts.Remove(contact);
 await db.SaveChangesAsync(ct);      // MỘT transaction cho cả ba
 ```
 
-Change tracker theo dõi; `SaveChanges` điều phối và bọc trong transaction ([bài 13.3](13.2-dbcontext-and-entity-configuration.mdx)).
+Change tracker theo dõi; `SaveChanges` điều phối và bọc trong transaction ([bài 13.2](13.2-dbcontext-and-entity-configuration.mdx)).
 
 Tương tự, `DbSet<T>` là Repository: *"trung gian giữa domain và tầng ánh xạ dữ liệu, hoạt động như một tập đối tượng trong bộ nhớ"*.
 
@@ -59,7 +59,7 @@ Lớp này **không thêm gì**. Nó tồn tại để "trừu tượng hoá EF 
 
 Chi tiết trong bài [Unit of Work trong .NET và ABP: `SaveChangesAsync` không phải commit](/blog/unit-of-work-dotnet-abp).
 
-### 13.10.2 — Repository generic: cái giá
+### 13.9.2 — Repository generic: cái giá
 
 ```csharp
 public interface IRepository<T> where T : class
@@ -83,7 +83,7 @@ Nó **mất** những gì EF Core cho:
 | Phân trang | `GetAllAsync` nạp **cả bảng** |
 | `ExecuteUpdate` | Cập nhật hàng loạt phải nạp entity |
 
-Nghĩa là gần như **toàn bộ** nội dung [bài 13.6](13.5-query-patterns.mdx), [13.7](13.6-n-plus-1-problem.mdx) và [13.8](13.7-performance.mdx) trở thành không dùng được.
+Nghĩa là gần như **toàn bộ** nội dung [bài 13.5](13.5-query-patterns.mdx), [13.7](13.6-n-plus-1-problem.mdx) và [13.8](13.7-performance.mdx) trở thành không dùng được.
 
 Người ta thường "giải quyết" bằng cách nhồi thêm tham số:
 
@@ -99,7 +99,7 @@ Task<List<T>> GetAsync(
 
 Đây là **`IQueryable` viết lại bằng tay** — xấu hơn, ít khả năng hơn, và không kiểm tra được lúc biên dịch (`includeProperties` là chuỗi!). Đến bước này, lớp trừu tượng đã thất bại hoàn toàn.
 
-### 13.10.3 — Ba trường hợp repository có giá trị
+### 13.9.3 — Ba trường hợp repository có giá trị
 
 **1. Cô lập domain khỏi EF Core**
 
@@ -137,7 +137,7 @@ Mỗi phương thức là một **truy vấn nghiệp vụ có tên**. Logic "le
 
 Khi bạn **không muốn** ai đó viết truy vấn tuỳ ý — vì lý do bảo mật đa khách hàng, hoặc vì đã có truy vấn làm sập production. Repository với tập phương thức đóng là hàng rào.
 
-### 13.10.4 — `IQueryable` hay `IEnumerable`
+### 13.9.4 — `IQueryable` hay `IEnumerable`
 
 ```csharp
 // Tra IQueryable — giu suc manh EF Core
@@ -160,7 +160,7 @@ var dtos = await repo.Query()
 | Kiểm soát truy vấn | Không | **Có** |
 | Test bằng mock | Khó | **Dễ** |
 
-Trả `IQueryable` khiến lớp trừu tượng **rò rỉ**: người gọi có thể viết một biểu thức không dịch được, và nó nổ lúc chạy ([bài 13.2](13.1-ef-core-overview.mdx)). Về lý thuyết bạn "có thể đổi ORM", nhưng thực tế mọi nơi gọi đều phụ thuộc vào hành vi của EF Core.
+Trả `IQueryable` khiến lớp trừu tượng **rò rỉ**: người gọi có thể viết một biểu thức không dịch được, và nó nổ lúc chạy ([bài 13.1](13.1-ef-core-overview.mdx)). Về lý thuyết bạn "có thể đổi ORM", nhưng thực tế mọi nơi gọi đều phụ thuộc vào hành vi của EF Core.
 
 Vậy nên: **nếu trả `IQueryable`, thì lớp bọc gần như không có ý nghĩa** — cứ dùng `DbContext` trực tiếp.
 
@@ -185,7 +185,7 @@ var customers = await repo.ListAsync(new ActiveCustomersInTerritorySpec("HN"), c
 
 Nó giữ được `Include`, projection và phân trang, đồng thời đóng gói truy vấn thành một lớp có tên và test được riêng. Cái giá là thêm một khái niệm mà cả team phải học.
 
-### 13.10.5 — Phương án thay thế
+### 13.9.5 — Phương án thay thế
 
 **1. Dùng `DbContext` trực tiếp**
 
@@ -201,7 +201,7 @@ public sealed class CustomerService(CrmDbContext db)
 }
 ```
 
-Với ứng dụng nhỏ và vừa, đây là lựa chọn **đúng nhất**: ít code, đầy đủ sức mạnh EF Core, và ai đọc cũng hiểu ngay. Integration test với Testcontainers ([bài 9.9](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.8-api-testing.mdx)) thay thế hoàn toàn nhu cầu mock repository.
+Với ứng dụng nhỏ và vừa, đây là lựa chọn **đúng nhất**: ít code, đầy đủ sức mạnh EF Core, và ai đọc cũng hiểu ngay. Integration test với Testcontainers ([bài 9.8](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.8-api-testing.mdx)) thay thế hoàn toàn nhu cầu mock repository.
 
 **2. Extension method cho truy vấn dùng lại**
 
@@ -252,7 +252,7 @@ flowchart LR
     CTX --> DB[("Database")]
 ```
 
-### 13.10.6 — Câu hỏi quyết định
+### 13.9.6 — Câu hỏi quyết định
 
 Trước khi thêm repository, trả lời ba câu:
 
@@ -269,7 +269,7 @@ Lời khuyên thực dụng:
 | Kiến trúc yêu cầu domain độc lập | Repository trong domain, cài đặt ở hạ tầng |
 | "Vì best practice bảo thế" | **Không** |
 
-### 13.10.7 — Rà lại code của bạn
+### 13.9.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát repository"

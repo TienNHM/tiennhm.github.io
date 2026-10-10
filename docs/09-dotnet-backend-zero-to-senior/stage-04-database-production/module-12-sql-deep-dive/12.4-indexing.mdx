@@ -25,7 +25,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 12.5.1 — B-tree và index gom cụm
+### 12.4.1 — B-tree và index gom cụm
 
 Index là một **B-tree**: cây cân bằng mà mỗi nút chứa nhiều khoá đã sắp xếp. Tìm một giá trị trong 10 triệu dòng chỉ mất **3–4 lần đọc trang** thay vì quét toàn bộ.
 
@@ -37,11 +37,11 @@ Index là một **B-tree**: cây cân bằng mà mỗi nút chứa nhiều khoá
 
 **Index gom cụm** (clustered) **là chính dữ liệu**, được sắp xếp theo khoá. Mỗi bảng chỉ có **một**, vì dữ liệu chỉ sắp xếp được theo một thứ tự.
 
-**Index không gom cụm** là cấu trúc riêng chứa khoá index cộng một con trỏ về dòng thật. Trong SQL Server, con trỏ đó là **khoá gom cụm** — lý do khoá gom cụm nhỏ lại quan trọng ([bài 12.2](12.1-crm-database-design.mdx)).
+**Index không gom cụm** là cấu trúc riêng chứa khoá index cộng một con trỏ về dòng thật. Trong SQL Server, con trỏ đó là **khoá gom cụm** — lý do khoá gom cụm nhỏ lại quan trọng ([bài 12.1](12.1-crm-database-design.mdx)).
 
 Bảng **không** có index gom cụm gọi là heap: dữ liệu nằm lộn xộn, và mọi tra cứu phải qua RID. Gần như luôn nên có index gom cụm.
 
-### 12.5.2 — Thứ tự cột là tất cả
+### 12.4.2 — Thứ tự cột là tất cả
 
 ```sql
 CREATE INDEX IX_Leads_Status_CreatedAt ON Leads (Status, CreatedAt DESC);
@@ -73,7 +73,7 @@ Sau một cột dùng khoảng, mọi cột tiếp theo **không** còn dùng đ
 
 `DESC` trong định nghĩa index quan trọng khi bạn luôn `ORDER BY CreatedAt DESC`: nó cho phép đọc index theo đúng chiều, không cần bước sắp xếp.
 
-### 12.5.3 — SARGable
+### 12.4.3 — SARGable
 
 **SARGable** = Search ARGument able — điều kiện mà database dùng được index để seek.
 
@@ -110,7 +110,7 @@ CREATE INDEX IX_Leads_CreatedYear ON Leads(CreatedYear);
 CREATE INDEX idx_leads_created_year ON leads (EXTRACT(YEAR FROM created_at));
 ```
 
-### 12.5.4 — Key lookup và covering index
+### 12.4.4 — Key lookup và covering index
 
 ```sql
 CREATE INDEX IX_Leads_Status ON Leads (Status);
@@ -153,7 +153,7 @@ PostgreSQL có `INCLUDE` từ v11; trước đó phải đưa hết vào cột k
 
 **Đừng covering mọi thứ.** Một index `INCLUDE` 15 cột gần như là bản sao của bảng — nó làm mọi `UPDATE` chậm và chiếm gấp đôi dung lượng.
 
-### 12.5.5 — Filtered index
+### 12.4.5 — Filtered index
 
 ```sql
 -- 95% truy vấn chỉ quan tâm lead chưa kết thúc
@@ -166,14 +166,14 @@ Nếu 80% lead đã `Won`/`Lost`, index này chỉ bằng **1/5** kích thước
 
 Điều kiện `WHERE` của truy vấn phải **khớp hoặc hẹp hơn** điều kiện của index; nếu không optimizer bỏ qua nó.
 
-Ứng dụng quan trọng nhất là ép duy nhất trên tập con — soft delete ở [bài 12.2](12.1-crm-database-design.mdx):
+Ứng dụng quan trọng nhất là ép duy nhất trên tập con — soft delete ở [bài 12.1](12.1-crm-database-design.mdx):
 
 ```sql
 CREATE UNIQUE INDEX UQ_Users_Email_Active
     ON Users(Email) WHERE DeletedAt IS NULL;
 ```
 
-### 12.5.6 — Cái giá của index
+### 12.4.6 — Cái giá của index
 
 Mỗi index thêm vào phải trả:
 
@@ -214,7 +214,7 @@ Lưu ý: thống kê này **reset khi restart** SQL Server, nên phải thu th�
 CREATE INDEX IX_Contacts_CustomerId ON Contacts(CustomerId);
 ```
 
-### 12.5.7 — Rà lại code của bạn
+### 12.4.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát index"
@@ -336,7 +336,7 @@ var to   = new DateTime(2027, 1, 1);
 _db.Leads.Where(l => l.CreatedAt >= from && l.CreatedAt < to)
 ```
 
-Bật log SQL của EF Core khi phát triển là cách rẻ nhất để bắt những chỗ này — xem [bài 13.2](../module-13-entity-framework-core/13.1-ef-core-overview.mdx).
+Bật log SQL của EF Core khi phát triển là cách rẻ nhất để bắt những chỗ này — xem [bài 13.1](../module-13-entity-framework-core/13.1-ef-core-overview.mdx).
 
 **Cách rà soát nhanh:** tìm `CONVERT_IMPLICIT`, `Scan` và tên hàm trong execution plan của các truy vấn chậm nhất. Mỗi lần thấy một hàm áp lên tên cột là một index đang bị vô hiệu hoá.
 

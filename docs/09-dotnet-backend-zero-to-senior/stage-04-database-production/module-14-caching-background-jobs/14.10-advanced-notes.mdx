@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 14.11.1 — Cấu trúc dữ liệu Redis
+### 14.10.1 — Cấu trúc dữ liệu Redis
 
 **Điều kiện kích hoạt:** ngay khi bài toán không phải là "lưu một giá trị theo khoá".
 
@@ -65,7 +65,7 @@ var soNguoiDuyNhat = await db.HyperLogLogLengthAsync("luotxem:2026-09-24");
 
 HyperLogLog đáng chú ý về mặt bộ nhớ: nó đếm **xấp xỉ** với sai số khoảng 0,8%, nhưng chỉ tốn **12 KB** dù có hàng chục triệu phần tử. Với thống kê lượt truy cập, sai số đó hoàn toàn chấp nhận được, còn tiết kiệm bộ nhớ thì rất lớn.
 
-### 14.11.2 — Channel: hàng đợi trong tiến trình
+### 14.10.2 — Channel: hàng đợi trong tiến trình
 
 **Điều kiện kích hoạt:** cần hàng đợi nội bộ, chưa cần broker.
 
@@ -106,11 +106,11 @@ protected override async Task ExecuteAsync(CancellationToken ct)
 | Độ trễ | Rất thấp | Cao hơn |
 | Hạ tầng | **Không cần gì** | Cần vận hành broker |
 
-Hàng thứ hai là giới hạn quyết định: **restart là mất message**. Dùng `Channel` cho việc **được phép mất** — gửi email thông báo, ghi log, làm nóng cache. Việc không được mất thì dùng outbox và broker ([bài 17.4](../../stage-05-senior-engineering/module-17-distributed-systems/17.3-outbox-pattern-applied.mdx)).
+Hàng thứ hai là giới hạn quyết định: **restart là mất message**. Dùng `Channel` cho việc **được phép mất** — gửi email thông báo, ghi log, làm nóng cache. Việc không được mất thì dùng outbox và broker ([bài 17.3](../../stage-05-senior-engineering/module-17-distributed-systems/17.3-outbox-pattern-applied.mdx)).
 
 `try/catch` trong vòng lặp consumer là bắt buộc: một exception thoát ra sẽ dừng `ReadAllAsync` và consumer chết im lặng.
 
-### 14.11.3 — Quartz.NET và Hangfire
+### 14.10.3 — Quartz.NET và Hangfire
 
 **Điều kiện kích hoạt:** cần lịch chạy phức tạp hơn cron đơn giản.
 
@@ -135,7 +135,7 @@ builder.Services.AddQuartz(q =>
 
 **Khuyến nghị:** Hangfire cho hầu hết nhu cầu — dashboard và fire-and-forget là hai thứ dùng hàng ngày. Quartz.NET khi cần lịch thật sự phức tạp: "ngày làm việc cuối cùng của tháng, trừ ngày lễ".
 
-### 14.11.4 — Cache warming
+### 14.10.4 — Cache warming
 
 **Điều kiện kích hoạt:** truy vấn nặng mà lần đầu sau khi hết hạn quá chậm.
 
@@ -160,13 +160,13 @@ public sealed class CacheWarmingJob(IServiceScopeFactory scopeFactory) : Backgro
 
 Chu kỳ làm nóng **ngắn hơn** TTL (4 phút với TTL 5 phút) nên cache **không bao giờ** thật sự hết hạn — người dùng không bao giờ gặp cache miss cho dữ liệu quan trọng.
 
-Nó cũng loại bỏ **cache stampede** cho những khoá được làm nóng, vì không có thời điểm nào chúng trống ([bài 19.6](../../stage-05-senior-engineering/module-19-performance-engineering/19.5-systematic-caching-overview.mdx)).
+Nó cũng loại bỏ **cache stampede** cho những khoá được làm nóng, vì không có thời điểm nào chúng trống ([bài 19.5](../../stage-05-senior-engineering/module-19-performance-engineering/19.5-systematic-caching-overview.mdx)).
 
 Làm nóng **ngay lúc khởi động** cũng quan trọng: instance mới không nên phục vụ request đầu tiên với cache trống.
 
 **Chỉ áp dụng cho số ít khoá quan trọng** — làm nóng mọi thứ là tự tạo tải nền vô ích.
 
-### 14.11.5 — Write-behind cache
+### 14.10.5 — Write-behind cache
 
 **Điều kiện kích hoạt:** ghi rất nhiều, và trễ vài giây chấp nhận được.
 
@@ -202,7 +202,7 @@ Với đếm lượt xem, nó giảm số lần ghi database từ **hàng nghìn
 
 **Không bao giờ** dùng cho dữ liệu nghiệp vụ như số dư, tồn kho hay trạng thái đơn hàng.
 
-### 14.11.6 — Thứ tự nên học
+### 14.10.6 — Thứ tự nên học
 
 | Ưu tiên | Chủ đề | Vì sao |
 |---|---|---|
@@ -214,7 +214,7 @@ Với đếm lượt xem, nó giảm số lần ghi database từ **hàng nghìn
 
 Sau Module 14, bước tiếp theo là [Module 15 — Docker và Deployment](../module-15-docker-deployment/).
 
-### 14.11.7 — Rà lại code của bạn
+### 14.10.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát cache và job nâng cao"

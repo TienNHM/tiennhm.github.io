@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 18.10.1 — Bốn ứng viên tốt
+### 18.9.1 — Bốn ứng viên tốt
 
 | Service | Vì sao tách được | Nhu cầu scale |
 |---|---|---|
@@ -32,13 +32,13 @@ Sau bài này bạn có thể:
 | **Reporting** | Chỉ đọc, chịu được dữ liệu trễ | Truy vấn nặng, chạy theo đợt |
 | **Integration** | Đóng gói mọi thứ liên quan bên thứ ba | Phụ thuộc vào nhịp của đối tác |
 
-**Notification** là ứng viên số một trong hầu hết dự án: ít phụ thuộc, scale khác hẳn, và hỏng thì hậu quả nhẹ ([bài 18.12](18.11-mini-case-study.mdx)).
+**Notification** là ứng viên số một trong hầu hết dự án: ít phụ thuộc, scale khác hẳn, và hỏng thì hậu quả nhẹ ([bài 18.11](18.11-mini-case-study.mdx)).
 
 **Integration Service** đáng nói riêng. Nó gom mọi tích hợp bên thứ ba — cổng thanh toán, hoá đơn điện tử, chữ ký số, API đối tác — vào một chỗ. Lợi ích cụ thể: khi một đối tác đổi API hoặc down, **chỉ một service** bị ảnh hưởng, và mọi logic retry/mapping đặc thù của đối tác không lan vào lõi ([anti-corruption layer](https://learn.microsoft.com/en-us/azure/architecture/patterns/anti-corruption-layer)).
 
 **Reporting** tách được vì nó **chỉ đọc**. Không có transaction chung với lõi, nên không có saga nào cần thiết kế — đây là kiểu tách rẻ nhất.
 
-### 18.10.2 — Ba phần nên giữ nguyên
+### 18.9.2 — Ba phần nên giữ nguyên
 
 ```csharp
 // Một use case CRM điển hình: chuyển đổi lead
@@ -70,9 +70,9 @@ Deal Service:      tạo Deal          <- có thể thất bại
 
 Đổi một `SaveChangesAsync` lấy một saga ba bước có bù trừ, để nhận lại **không lợi ích nào** — ba phần này không có nhu cầu scale khác nhau và cùng một đội sở hữu.
 
-**Quy tắc kiểm tra:** nếu hai thực thể thường xuyên thay đổi trong cùng một transaction, chúng thuộc **cùng một** service ([bài 18.3](18.2-service-decomposition.mdx)).
+**Quy tắc kiểm tra:** nếu hai thực thể thường xuyên thay đổi trong cùng một transaction, chúng thuộc **cùng một** service ([bài 18.2](18.2-service-decomposition.mdx)).
 
-### 18.10.3 — Định tuyến ở gateway
+### 18.9.3 — Định tuyến ở gateway
 
 CRM multi-tenant cần hai chiều định tuyến, và cả hai đều thuộc về gateway.
 
@@ -90,7 +90,7 @@ app.Use(async (context, next) =>
 });
 ```
 
-**Cảnh báo bảo mật:** header này chỉ dùng để **định tuyến**, không bao giờ để **phân quyền**. Quyền truy cập tenant phải lấy từ claim đã ký trong token, vì header có thể bị giả mạo nếu ai đó gọi thẳng service ([bài 18.7](18.6-distributed-identity-overview.mdx)).
+**Cảnh báo bảo mật:** header này chỉ dùng để **định tuyến**, không bao giờ để **phân quyền**. Quyền truy cập tenant phải lấy từ claim đã ký trong token, vì header có thể bị giả mạo nếu ai đó gọi thẳng service ([bài 18.6](18.6-distributed-identity-overview.mdx)).
 
 **Theo phiên bản API:**
 
@@ -109,9 +109,9 @@ app.Use(async (context, next) =>
 }
 ```
 
-Hai phiên bản chạy song song cho phép client cũ tiếp tục hoạt động trong lúc client mới chuyển dần ([bài 9.3](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.2-api-versioning.mdx)).
+Hai phiên bản chạy song song cho phép client cũ tiếp tục hoạt động trong lúc client mới chuyển dần ([bài 9.2](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.2-api-versioning.mdx)).
 
-### 18.10.4 — Dữ liệu người dùng dùng chung
+### 18.9.4 — Dữ liệu người dùng dùng chung
 
 Mọi service đều cần biết tên và email người dùng để hiển thị. Ba cách, và cách thứ hai thường đúng nhất:
 
@@ -151,7 +151,7 @@ public sealed class UserUpdatedConsumer(SalesDbContext db) : IConsumer<UserUpdat
 
 Chỉ giữ những trường **cần để hiển thị**. Không sao chép vai trò, quyền hay trạng thái tài khoản — những thứ đó phải hỏi Identity vì chúng ảnh hưởng tới bảo mật và không được phép cũ.
 
-### 18.10.5 — Health check phản ánh đúng phụ thuộc
+### 18.9.5 — Health check phản ánh đúng phụ thuộc
 
 ```csharp
 builder.Services.AddHealthChecks()
@@ -168,9 +168,9 @@ Câu hỏi quyết định cho mỗi phụ thuộc: **"thiếu nó thì service 
 - Broker chết → không publish được event → tuỳ nghiệp vụ, thường **có**.
 - Notification Service chết → Sales vẫn tạo lead được → **không** tính vào readiness.
 
-Tính nhầm một phụ thuộc không bắt buộc vào readiness sẽ khiến service của bạn bị gỡ khỏi load balancer vì một lý do không liên quan — lỗi lan ngược, đúng thứ việc tách service muốn tránh ([bài 18.13](18.12-quick-real-world-example.mdx)).
+Tính nhầm một phụ thuộc không bắt buộc vào readiness sẽ khiến service của bạn bị gỡ khỏi load balancer vì một lý do không liên quan — lỗi lan ngược, đúng thứ việc tách service muốn tránh ([bài 18.12](18.12-quick-real-world-example.mdx)).
 
-### 18.10.6 — Rà lại code của bạn
+### 18.9.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát microservices trong CRM"

@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 7.5.1 — Ba lifetime
+### 7.4.1 — Ba lifetime
 
 | Lifetime | Tạo mới khi | `Dispose` khi | Điển hình |
 |---|---|---|---|
@@ -49,7 +49,7 @@ flowchart TB
 
 Điểm quan trọng nhất trong bảng là **cột `Dispose`**, không phải cột tạo mới.
 
-### 7.5.2 — Chọn lifetime theo trạng thái
+### 7.4.2 — Chọn lifetime theo trạng thái
 
 Quy tắc quyết định chỉ có một câu hỏi: **service này giữ trạng thái gì?**
 
@@ -70,7 +70,7 @@ services.AddTransient<ILeadScorer, RuleBasedLeadScorer>();       // không trạ
 
 `Singleton` phải thread-safe vì nhiều request chạm vào nó cùng lúc: `ConcurrentDictionary` thay vì `Dictionary`, và không có field nào bị ghi mà không đồng bộ hoá.
 
-### 7.5.3 — Captive dependency
+### 7.4.3 — Captive dependency
 
 Quy tắc: **một service chỉ được phụ thuộc vào service có lifetime dài bằng hoặc dài hơn nó.**
 
@@ -97,7 +97,7 @@ Hậu quả, theo thứ tự xuất hiện:
 
 1. **Dữ liệu cũ.** `DbContext` trả về entity từ change tracker chứ không đi xuống database. Bản ghi bạn vừa sửa vẫn hiện giá trị cũ.
 2. **Bộ nhớ phình dần.** Change tracker giữ mọi entity đã nạp, không bao giờ dọn. Biểu đồ memory đi lên đều suốt nhiều ngày.
-3. **Lỗi đồng thời.** `DbContext` không thread-safe ([bài 6.6](../module-06-async-programming/6.5-task-parallel-library.mdx)), nên hai request đồng thời cho `InvalidOperationException`.
+3. **Lỗi đồng thời.** `DbContext` không thread-safe ([bài 6.5](../module-06-async-programming/6.5-task-parallel-library.mdx)), nên hai request đồng thời cho `InvalidOperationException`.
 4. **Rò rỉ dữ liệu giữa tenant.** Nếu repository nhớ tenant hiện tại, tenant đầu tiên khởi động ứng dụng sẽ quyết định dữ liệu của tất cả.
 
 Cách chữa là **tạo scope khi cần dùng**:
@@ -116,13 +116,13 @@ public class CacheRefresher(IServiceScopeFactory scopeFactory)
 }
 ```
 
-Đây là mẫu bắt buộc trong `BackgroundService`, vì `BackgroundService` **luôn là Singleton** — xem [bài 6.9](../module-06-async-programming/6.8-channels-and-producer-consumer.mdx).
+Đây là mẫu bắt buộc trong `BackgroundService`, vì `BackgroundService` **luôn là Singleton** — xem [bài 6.8](../module-06-async-programming/6.8-channels-and-producer-consumer.mdx).
 
 :::tip Đọc thêm
 Bài [Singleton, Scoped hay Transient? Chọn sai là `DbContext` sống mãi](/blog/singleton-scoped-transient-captive-dependency) đi vào chi tiết từng hậu quả cùng cách phát hiện trong log.
 :::
 
-### 7.5.4 — `ValidateScopes` và vì sao nó không cứu bạn ở Production
+### 7.4.4 — `ValidateScopes` và vì sao nó không cứu bạn ở Production
 
 .NET tự phát hiện captive dependency, nhưng **chỉ khi được bật**:
 
@@ -148,7 +148,7 @@ builder.Host.UseDefaultServiceProvider(options =>
 
 Chi phí là vài trăm mili giây lúc khởi động. Đáng.
 
-### 7.5.5 — `Transient` cài `IDisposable` là một dạng rò rỉ
+### 7.4.5 — `Transient` cài `IDisposable` là một dạng rò rỉ
 
 ```csharp
 services.AddTransient<IFileProcessor, FileProcessor>();   // FileProcessor : IDisposable
@@ -164,13 +164,13 @@ Ba cách xử lý:
 2. Đổi sang `Scoped` nếu tài nguyên gắn với request.
 3. Không đăng ký vào container, **tự `new` trong `using`** nếu nó thật sự là tài nguyên ngắn hạn.
 
-### 7.5.6 — Hai trường hợp đặc biệt
+### 7.4.6 — Hai trường hợp đặc biệt
 
-**`DbContext`**: `AddDbContext<T>()` đăng ký `Scoped` sẵn. Đừng đổi lifetime. Cần dùng ngoài request thì dùng `AddDbContextFactory` ([bài 6.6](../module-06-async-programming/6.5-task-parallel-library.mdx)).
+**`DbContext`**: `AddDbContext<T>()` đăng ký `Scoped` sẵn. Đừng đổi lifetime. Cần dùng ngoài request thì dùng `AddDbContextFactory` ([bài 6.5](../module-06-async-programming/6.5-task-parallel-library.mdx)).
 
 **`HttpClient`**: đừng `new HttpClient()` và cũng đừng đăng ký nó `Singleton` trực tiếp. `AddHttpClient()` quản lý pool `HttpMessageHandler` cho bạn — `HttpClient` được tiêm là `Transient` nhưng handler bên dưới thì dùng chung và xoay vòng. Tự `new` sẽ cạn socket; `Singleton` thủ công thì không nhận được thay đổi DNS.
 
-### 7.5.7 — Rà lại code của bạn
+### 7.4.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát lifetime"
@@ -324,7 +324,7 @@ await db.Entry(branch).ReloadAsync(ct);
 
 - Nhanh hơn, vì không phải tạo bản chụp để so sánh thay đổi.
 - Tốn ít bộ nhớ hơn, vì không giữ thực thể trong bộ theo dõi.
-- Bắt buộc với `IAsyncEnumerable`, như [bài 6.7](../module-06-async-programming/6.6-async-patterns.mdx) đã nêu.
+- Bắt buộc với `IAsyncEnumerable`, như [bài 6.6](../module-06-async-programming/6.6-async-patterns.mdx) đã nêu.
 
 Có thể đặt làm mặc định cho toàn bộ context và chỉ bật theo dõi khi thật sự cần ghi:
 
@@ -332,7 +332,7 @@ Có thể đặt làm mặc định cho toàn bộ context và chỉ bật theo 
 optionsBuilder.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
 ```
 
-**Vì sao lỗi này khó chẩn đoán.** Người điều tra nhìn log SQL, thấy truy vấn chạy đúng và trả dữ liệu đúng, rồi kết luận "database ổn, chắc do cache ở tầng nào đó". Họ đi tìm Redis, tìm CDN, tìm cache của trình duyệt — trong khi cache thật nằm ngay trong tiến trình, ở một chỗ không ai gọi là cache. [Bài 13.6](../../stage-04-database-production/module-13-entity-framework-core/13.5-query-patterns.mdx) trình bày đầy đủ về bộ theo dõi thay đổi.
+**Vì sao lỗi này khó chẩn đoán.** Người điều tra nhìn log SQL, thấy truy vấn chạy đúng và trả dữ liệu đúng, rồi kết luận "database ổn, chắc do cache ở tầng nào đó". Họ đi tìm Redis, tìm CDN, tìm cache của trình duyệt — trong khi cache thật nằm ngay trong tiến trình, ở một chỗ không ai gọi là cache. [Bài 13.5](../../stage-04-database-production/module-13-entity-framework-core/13.5-query-patterns.mdx) trình bày đầy đủ về bộ theo dõi thay đổi.
 
 </details>
 
@@ -415,7 +415,7 @@ var svc = scope.ServiceProvider.GetRequiredService<MyDisposableService>();
 2. **`Singleton`** — nếu nó không giữ trạng thái riêng của người dùng và việc dùng lại là an toàn.
 3. **Tự quản lý bằng factory** — trả về một factory và để người gọi bọc trong `using`.
 
-**Một lưu ý về `HttpClient`.** Đây chính là lý do `IHttpClientFactory` tồn tại: `HttpClient` cài `IDisposable`, và cả hai cách dùng ngây thơ — tạo mới mỗi lần, hoặc đăng ký `Transient` — đều gây vấn đề, như [bài 2.3](../../stage-01-foundation/module-02-computer-science-basics/2.2-how-the-internet-works.mdx) đã đo.
+**Một lưu ý về `HttpClient`.** Đây chính là lý do `IHttpClientFactory` tồn tại: `HttpClient` cài `IDisposable`, và cả hai cách dùng ngây thơ — tạo mới mỗi lần, hoặc đăng ký `Transient` — đều gây vấn đề, như [bài 2.2](../../stage-01-foundation/module-02-computer-science-basics/2.2-how-the-internet-works.mdx) đã đo.
 
 </details>
 

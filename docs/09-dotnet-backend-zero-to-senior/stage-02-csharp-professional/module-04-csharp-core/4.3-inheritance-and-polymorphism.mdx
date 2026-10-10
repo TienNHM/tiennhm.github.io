@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 4.4.1 — Kế thừa và đa hình
+### 4.3.1 — Kế thừa và đa hình
 
 ```csharp
 public abstract class Payment
@@ -82,7 +82,7 @@ classDiagram
     Payment <|-- BankTransfer
 ```
 
-### 4.4.2 — `override` và `new`: một cái đa hình, một cái không
+### 4.3.2 — `override` và `new`: một cái đa hình, một cái không
 
 ```csharp
 public class Base
@@ -111,7 +111,7 @@ Console.WriteLine(b.Who());    // "Base"     ← chọn theo kiểu KHAI BÁO
 
 Khi nào `new` hợp lý: gần như không bao giờ trong code bạn kiểm soát. Nếu trình biên dịch cảnh báo "hides inherited member", đó thường là dấu hiệu một lớp cha vừa thêm phương thức trùng tên — và đó là thứ cần xem lại, không phải thứ cần dán `new` vào cho hết cảnh báo.
 
-### 4.4.3 — Nguyên tắc thay thế Liskov
+### 4.3.3 — Nguyên tắc thay thế Liskov
 
 > Mọi chỗ dùng được lớp cha thì cũng phải dùng được lớp con, **mà không cần biết mình đang cầm lớp nào**.
 
@@ -157,7 +157,7 @@ Ba dấu hiệu bạn đang vi phạm Liskov:
 2. Lớp con **không làm gì** trong một phương thức override.
 3. Code gọi phải **kiểm tra kiểu** (`if (x is Square)`) để xử lý đúng.
 
-### 4.4.4 — Bẫy: gọi `virtual` trong constructor
+### 4.3.4 — Bẫy: gọi `virtual` trong constructor
 
 ```csharp
 public abstract class Report
@@ -186,7 +186,7 @@ Thứ tự thực thi trong .NET: constructor của lớp **cha chạy trước*
 
 Cách tránh: đừng gọi phương thức `virtual` trong constructor. Nếu cần khởi tạo theo từng loại, dùng factory method hoặc một bước `Initialize()` mà người gọi chủ động gọi sau khi tạo xong.
 
-### 4.4.5 — Composition thường đúng hơn
+### 4.3.5 — Composition thường đúng hơn
 
 ```csharp
 // KẾ THỪA — ràng buộc chặt, khó đổi
@@ -219,7 +219,7 @@ Lời khuyên đã thành quy ước: **ưu tiên composition hơn kế thừa**
 
 Trong .NET hiện đại, phần lớn nhu cầu "chia sẻ code" được giải bằng interface cộng dependency injection, chứ không bằng một cây kế thừa sâu. Cây kế thừa quá ba tầng gần như luôn là dấu hiệu nên xem lại.
 
-### 4.4.6 — `sealed`: đóng lại khi không định cho mở rộng
+### 4.3.6 — `sealed`: đóng lại khi không định cho mở rộng
 
 ```csharp
 public sealed class OrderNumberGenerator { /* ... */ }
@@ -241,7 +241,7 @@ Hai lý do dùng `sealed`:
 
 Thiết kế cho kế thừa là việc tốn công: phải nghĩ xem lớp con override được gì, thứ tự gọi ra sao, bất biến nào phải giữ. Nếu bạn chưa làm việc đó, `sealed` là lựa chọn trung thực hơn là để ngỏ.
 
-### 4.4.7 — Rà lại code của bạn
+### 4.3.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát kế thừa"
@@ -260,7 +260,7 @@ Thiết kế cho kế thừa là việc tốn công: phải nghĩ xem lớp con 
 
 #### Bài 1 — Tự dựng vi phạm Liskov
 
-Cài đặt `Rectangle` và `Square` như mục 4.4.3, viết một hàm kiểm tra dùng cả hai kiểu. Ghi lại kết quả. Sau đó thiết kế lại để không vi phạm.
+Cài đặt `Rectangle` và `Square` như mục 4.3.3, viết một hàm kiểm tra dùng cả hai kiểu. Ghi lại kết quả. Sau đó thiết kế lại để không vi phạm.
 
 **Tiêu chí hoàn thành:** bạn chỉ ra được **dòng nào** trong hàm kiểm tra bộc lộ vi phạm, và vì sao trình biên dịch không bắt được.
 
@@ -336,7 +336,7 @@ public class Square  : IShape { /* ... */ }
 // Cách 3 — bỏ hẳn quan hệ, hai kiểu riêng biệt
 ```
 
-Cách 1 là cách sạch nhất và cũng là lý do `record` xuất hiện ở [bài 4.8](4.7-records-and-value-objects.mdx): **bất biến loại bỏ cả một lớp vấn đề về kế thừa.**
+Cách 1 là cách sạch nhất và cũng là lý do `record` xuất hiện ở [bài 4.7](4.7-records-and-value-objects.mdx): **bất biến loại bỏ cả một lớp vấn đề về kế thừa.**
 
 **Phép thử Liskov thực dụng cho code của bạn.** Với mỗi lớp con, hỏi ba câu:
 
@@ -350,7 +350,7 @@ Câu thứ ba bắt được trường hợp phổ biến nhất trong code th�
 
 #### Bài 2 — Chứng minh bẫy gọi `virtual` trong constructor
 
-Cài đặt ví dụ ở mục 4.4.4 và chạy. Ghi lại ngoại lệ đầy đủ kèm dấu vết ngăn xếp. Giải thích thứ tự khởi tạo đã gây ra nó.
+Cài đặt ví dụ ở mục 4.3.4 và chạy. Ghi lại ngoại lệ đầy đủ kèm dấu vết ngăn xếp. Giải thích thứ tự khởi tạo đã gây ra nó.
 
 **Tiêu chí hoàn thành:** bạn giải thích được vì sao cùng một mẫu code mà **có trường hợp không lỗi** — phụ thuộc vào cách khai báo field.
 
@@ -514,7 +514,7 @@ public class CrmApiClient : ICrmApiClient
 }
 ```
 
-Đăng ký bằng `IHttpClientFactory`, đúng như [bài 2.3](../../stage-01-foundation/module-02-computer-science-basics/2.2-how-the-internet-works.mdx) đã chứng minh là cần thiết:
+Đăng ký bằng `IHttpClientFactory`, đúng như [bài 2.2](../../stage-01-foundation/module-02-computer-science-basics/2.2-how-the-internet-works.mdx) đã chứng minh là cần thiết:
 
 ```csharp
 builder.Services.AddHttpClient<ICrmApiClient, CrmApiClient>(c =>

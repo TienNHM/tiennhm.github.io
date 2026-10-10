@@ -25,7 +25,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 5.4.1 — Hai cú pháp, một kết quả
+### 5.3.1 — Hai cú pháp, một kết quả
 
 ```csharp
 // Cú pháp truy vấn — gần với SQL
@@ -43,7 +43,7 @@ var q2 = orders
 
 Trình biên dịch dịch cú pháp truy vấn thành cú pháp phương thức, nên hai câu trên **giống hệt nhau** sau khi biên dịch. Cú pháp truy vấn dễ đọc hơn với `join` nhiều bảng; phần còn lại thì cú pháp phương thức gọn hơn.
 
-### 5.4.2 — Đánh giá trễ: câu lệnh chạy lúc nào
+### 5.3.2 — Đánh giá trễ: câu lệnh chạy lúc nào
 
 ```csharp
 var query = orders.Where(o => { Console.WriteLine("đang lọc"); return o.IsPaid; });
@@ -72,7 +72,7 @@ if (filter.OnlyPaid)                q = q.Where(o => o.IsPaid);
 var result = await q.ToListAsync(ct);      // MỘT câu SQL duy nhất
 ```
 
-### 5.4.3 — Bẫy 1: duyệt nhiều lần
+### 5.3.3 — Bẫy 1: duyệt nhiều lần
 
 ```csharp
 var expensive = orders.Where(o => SlowCheck(o));   // chưa chạy
@@ -91,7 +91,7 @@ var count = materialized.Count;          // đọc thuộc tính, không chạy 
 
 Quy tắc: **nếu dùng kết quả nhiều hơn một lần, hãy `ToList()`**. Nếu chỉ duyệt một lần, đừng.
 
-### 5.4.4 — Bẫy 2: `IQueryable` biến thành `IEnumerable`
+### 5.3.4 — Bẫy 2: `IQueryable` biến thành `IEnumerable`
 
 Đây là lỗi tốn kém nhất mà LINQ gây ra.
 
@@ -130,7 +130,7 @@ Nhận biết: `IQueryable` dịch biểu thức sang SQL; `IEnumerable` chạy 
 
 Phần bên phía SQL của câu chuyện này nằm ở bài [hiệu năng truy vấn](/docs/database/learn-sql-in-30-days/20-query-performance), và một biến thể khác của nó là [vấn đề N+1](/blog/ef-core-n-plus-1-query).
 
-### 5.4.5 — Bẫy 3: hàm không dịch được sang SQL
+### 5.3.5 — Bẫy 3: hàm không dịch được sang SQL
 
 ```csharp
 // Không dịch được — MyCustomCheck là code C#, SQL không biết nó
@@ -145,7 +145,7 @@ Hai hướng xử lý: viết lại điều kiện bằng thứ SQL hiểu đư�
 
 Một lưu ý liên quan: bọc hàm quanh cột trong `Where` làm **index không dùng được** dù câu lệnh vẫn dịch sang SQL. Đó là chủ đề của bài [Sargability](/blog/sql-index-khong-duoc-dung-sargable).
 
-### 5.4.6 — `First`, `Single` và các biến thể
+### 5.3.6 — `First`, `Single` và các biến thể
 
 | Phương thức | Không có phần tử | Nhiều hơn một |
 |---|---|---|
@@ -161,7 +161,7 @@ Chọn theo **ý định**, không chọn theo thói quen:
 
 Lưu ý hiệu năng: `Single` phải đọc **hai** bản ghi để xác nhận không có cái thứ hai, còn `First` dừng ở bản ghi đầu. Trên tập dữ liệu lớn không có index, khác biệt này có thật.
 
-### 5.4.7 — Vài thói quen nhỏ tạo khác biệt lớn
+### 5.3.7 — Vài thói quen nhỏ tạo khác biệt lớn
 
 ```csharp
 // Kiểm tra có tồn tại không
@@ -188,7 +188,7 @@ var stats = await _db.Orders
     .ToListAsync(ct);
 ```
 
-### 5.4.8 — Rà lại code của bạn
+### 5.3.8 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát LINQ"

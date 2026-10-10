@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 6.2.1 — Thread đang làm gì trong lúc chờ
+### 6.1.1 — Thread đang làm gì trong lúc chờ
 
 ```csharp
 // ĐỒNG BỘ — thread bị giữ suốt 50ms chờ database
@@ -58,7 +58,7 @@ sequenceDiagram
 
 Cả hai đều mất 50ms cho **một** request. Khác biệt chỉ xuất hiện khi có **nhiều** request cùng lúc.
 
-### 6.2.2 — Thread pool và ngưỡng sụp đổ
+### 6.1.2 — Thread pool và ngưỡng sụp đổ
 
 Thread pool của .NET khởi đầu với số thread bằng số nhân CPU. Khi mọi thread đều bận và còn việc trong hàng đợi, nó tạo thêm thread mới — nhưng **rất chậm**, khoảng **một thread mỗi giây** theo mặc định.
 
@@ -78,7 +78,7 @@ Hiện tượng này gọi là **thread pool starvation**, và nó có một tri
 
 Người ta thường phản ứng bằng cách thêm CPU hoặc thêm máy. Không giúp gì cả, vì nút cổ chai không phải CPU — mà là số thread đang ngồi chờ I/O.
 
-### 6.2.3 — I/O-bound và CPU-bound
+### 6.1.3 — I/O-bound và CPU-bound
 
 Đây là phân biệt quyết định bạn dùng công cụ nào.
 
@@ -111,7 +111,7 @@ await _db.Orders.FindAsync([id], ct);
 
 Trong ứng dụng ASP.NET Core, `Task.Run` cho CPU-bound cũng cần cân nhắc: nó lấy thread từ **chính pool đang phục vụ request**. Với việc tính toán nặng và kéo dài, hàng đợi nền hoặc một dịch vụ riêng là lựa chọn đúng hơn.
 
-### 6.2.4 — Async không giúp gì trong ba trường hợp
+### 6.1.4 — Async không giúp gì trong ba trường hợp
 
 **1. Ứng dụng console chạy tuần tự.** Không có ai để nhường thread cho.
 
@@ -123,7 +123,7 @@ Async cũng **không miễn phí**: trình biên dịch sinh ra một máy trạ
 
 Nhưng trong backend web — nơi hầu hết thời gian trôi vào database và HTTP — async gần như luôn đúng.
 
-### 6.2.5 — Quy tắc "async suốt chuỗi"
+### 6.1.5 — Quy tắc "async suốt chuỗi"
 
 ```csharp
 // SAI — chặn ở giữa chuỗi, phá bỏ toàn bộ lợi ích
@@ -141,11 +141,11 @@ public async Task<IActionResult> Get(int id, CancellationToken ct)
 }
 ```
 
-Gọi `.Result` hay `.Wait()` không chỉ mất lợi ích — trong một số môi trường nó còn **treo cứng ứng dụng**. Cơ chế deadlock đó được mổ xẻ trong bài [Gọi .Result khi nào thì deadlock, khi nào thì không?](/blog/deadlock-result-wait-csharp), và được nói tiếp ở [bài 6.4](6.3-configureawait.mdx) cùng [bài 6.8](6.7-common-pitfalls.mdx).
+Gọi `.Result` hay `.Wait()` không chỉ mất lợi ích — trong một số môi trường nó còn **treo cứng ứng dụng**. Cơ chế deadlock đó được mổ xẻ trong bài [Gọi .Result khi nào thì deadlock, khi nào thì không?](/blog/deadlock-result-wait-csharp), và được nói tiếp ở [bài 6.3](6.3-configureawait.mdx) cùng [bài 6.7](6.7-common-pitfalls.mdx).
 
 Nguyên tắc: **một chuỗi gọi đã async thì phải async suốt**, từ điểm vào tới tận thư viện I/O.
 
-### 6.2.6 — Rà lại hệ thống của bạn
+### 6.1.6 — Rà lại hệ thống của bạn
 
 <Checklist
   title="Danh sách rà soát async"

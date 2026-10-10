@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 11.9.1 — Mô hình dữ liệu
+### 11.8.1 — Mô hình dữ liệu
 
 ```csharp
 public sealed class Notification
@@ -62,7 +62,7 @@ modelBuilder.Entity<Notification>(e =>
 
 Index đầu tiên phục vụ truy vấn chính "thông báo của tôi, mới nhất trước"; index thứ hai phục vụ đếm chưa đọc.
 
-### 11.9.2 — Ghi trước, push sau
+### 11.8.2 — Ghi trước, push sau
 
 ```csharp
 public sealed class NotificationService(
@@ -106,13 +106,13 @@ public sealed class NotificationService(
 }
 ```
 
-Thứ tự này là bắt buộc ([bài 11.8](11.7-ihubcontext-server-push-outside-hub.mdx)): client offline thì push mất, nhưng bản ghi vẫn còn và họ thấy khi mở lại ứng dụng.
+Thứ tự này là bắt buộc ([bài 11.7](11.7-ihubcontext-server-push-outside-hub.mdx)): client offline thì push mất, nhưng bản ghi vẫn còn và họ thấy khi mở lại ứng dụng.
 
 `INotificationPublisher` là interface hẹp bọc `IHubContext`, nên `NotificationService` test được mà không cần SignalR.
 
 **Gom nhóm** ở bước 1 giải quyết một vấn đề thật: 50 người thích bài viết của bạn không nên là 50 thông báo. `GroupKey` kiểu `"post:{id}:like"` cho phép gộp thành "50 người đã thích bài viết của bạn".
 
-### 11.9.3 — API đồng bộ
+### 11.8.3 — API đồng bộ
 
 ```csharp
 [ApiController]
@@ -166,13 +166,13 @@ public sealed class NotificationsController(
 
 Ba chi tiết:
 
-**`since` là tham số then chốt** — nó cho client lấy đúng những gì đã bỏ lỡ sau khi kết nối lại ([bài 11.5](11.4-client-side-integration.mdx)), thay vì tải lại toàn bộ.
+**`since` là tham số then chốt** — nó cho client lấy đúng những gì đã bỏ lỡ sau khi kết nối lại ([bài 11.4](11.4-client-side-integration.mdx)), thay vì tải lại toàn bộ.
 
-**`ExecuteUpdateAsync`** cập nhật thẳng bằng một câu `UPDATE`, không nạp entity. Điều kiện `n.UserId == user.Id` vừa là phân quyền vừa là bộ lọc — không ai đánh dấu đọc thông báo của người khác ([bài 10.7](../module-10-authentication-authorization/10.6-resource-based-authorization.mdx)).
+**`ExecuteUpdateAsync`** cập nhật thẳng bằng một câu `UPDATE`, không nạp entity. Điều kiện `n.UserId == user.Id` vừa là phân quyền vừa là bộ lọc — không ai đánh dấu đọc thông báo của người khác ([bài 10.6](../module-10-authentication-authorization/10.6-resource-based-authorization.mdx)).
 
 **Push lại trạng thái đã đọc.** Người dùng đọc trên điện thoại thì badge trên laptop phải giảm theo. Đây là chi tiết nhỏ mà thiếu nó thì trải nghiệm trông hỏng.
 
-### 11.9.4 — Chống trùng lặp ở client
+### 11.8.4 — Chống trùng lặp ở client
 
 Một thông báo có thể tới **hai lần**: qua push, và qua lần đồng bộ REST kế tiếp. Khử trùng theo `Id`:
 
@@ -229,7 +229,7 @@ flowchart LR
 
 `Set` này lớn dần theo phiên. Với ứng dụng chạy nhiều giờ, giới hạn kích thước hoặc chỉ giữ `Id` của N thông báo gần nhất.
 
-### 11.9.5 — Dọn dẹp
+### 11.8.5 — Dọn dẹp
 
 Bảng thông báo phình rất nhanh — 1.000 người dùng × 20 thông báo mỗi ngày là 600.000 bản ghi mỗi tháng.
 
@@ -274,9 +274,9 @@ public sealed class NotificationCleanupWorker(
 
 Hai mốc khác nhau có chủ đích: đã đọc thì xoá sớm, chưa đọc thì giữ lâu hơn — nhưng vẫn phải xoá, vì thông báo 3 tháng tuổi không còn ý nghĩa.
 
-Nhớ khoá phân tán nếu chạy nhiều instance ([bài 9.10](../module-09-web-api-professional/9.9-hosted-service-background-jobs.mdx)), và `ExecuteDeleteAsync` trên bảng lớn nên chia lô để không giữ khoá quá lâu.
+Nhớ khoá phân tán nếu chạy nhiều instance ([bài 9.9](../module-09-web-api-professional/9.9-hosted-service-background-jobs.mdx)), và `ExecuteDeleteAsync` trên bảng lớn nên chia lô để không giữ khoá quá lâu.
 
-### 11.9.6 — Rà lại code của bạn
+### 11.8.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát trung tâm thông báo"
@@ -377,7 +377,7 @@ await _db.SaveChangesAsync(ct);                       // lưu trước, có Id
 await _hub.Clients.User(userId).ReceiveNotification(Map(notification));   // push CÙNG bản ghi
 ```
 
-**Dùng `Guid.CreateVersion7()` cho `Id`** vì nó sắp xếp được theo thời gian — cần cho truy vấn `WHERE Id > @lastSeen` ở đường đồng bộ, như [bài 11.5](11.4-client-side-integration.mdx) trình bày.
+**Dùng `Guid.CreateVersion7()` cho `Id`** vì nó sắp xếp được theo thời gian — cần cho truy vấn `WHERE Id > @lastSeen` ở đường đồng bộ, như [bài 11.4](11.4-client-side-integration.mdx) trình bày.
 
 </details>
 
@@ -416,7 +416,7 @@ Thực tế chỉ có 1 thông báo được đọc, nhưng bộ đếm giảm 4
 -> unreadCount = -1
 ```
 
-**Vì sao đây là lost update.** Mỗi thiết bị đọc giá trị hiện tại, tính giá trị mới từ đó, rồi ghi đè — đúng mẫu "đọc rồi ghi" ở [bài 13.9](../../stage-04-database-production/module-13-entity-framework-core/13.8-concurrency-control.mdx). Khác biệt duy nhất là trạng thái nằm trong bộ nhớ trình duyệt thay vì trong database, nên không có transaction nào bảo vệ.
+**Vì sao đây là lost update.** Mỗi thiết bị đọc giá trị hiện tại, tính giá trị mới từ đó, rồi ghi đè — đúng mẫu "đọc rồi ghi" ở [bài 13.8](../../stage-04-database-production/module-13-entity-framework-core/13.8-concurrency-control.mdx). Khác biệt duy nhất là trạng thái nằm trong bộ nhớ trình duyệt thay vì trong database, nên không có transaction nào bảo vệ.
 
 **Sửa ở client — kiểm tra trạng thái trước khi giảm:**
 
@@ -473,7 +473,7 @@ public async Task<IActionResult> MarkRead(Guid id, CancellationToken ct)
 }
 ```
 
-Điều kiện `n.ReadAt == null` nằm **trong** câu `UPDATE`, nên hai request đồng thời chỉ có một cái ảnh hưởng dòng — và chỉ một sự kiện được phát. Đây là mẫu "làm tất cả trong một câu lệnh" ở [bài 12.7](../../stage-04-database-production/module-12-sql-deep-dive/12.6-transactions-and-locking.mdx), áp dụng cho một bài toán rất đời thường.
+Điều kiện `n.ReadAt == null` nằm **trong** câu `UPDATE`, nên hai request đồng thời chỉ có một cái ảnh hưởng dòng — và chỉ một sự kiện được phát. Đây là mẫu "làm tất cả trong một câu lệnh" ở [bài 12.6](../../stage-04-database-production/module-12-sql-deep-dive/12.6-transactions-and-locking.mdx), áp dụng cho một bài toán rất đời thường.
 
 </details>
 
@@ -584,7 +584,7 @@ CREATE UNIQUE INDEX UX_Notifications_Group ON Notifications(UserId, GroupKey)
     WHERE ReadAt IS NULL;
 ```
 
-rồi bắt `DbUpdateException` và thử lại nhánh cập nhật — cùng mẫu với idempotency ở [bài 9.13](../module-09-web-api-professional/9.12-quick-real-world-example.mdx).
+rồi bắt `DbUpdateException` và thử lại nhánh cập nhật — cùng mẫu với idempotency ở [bài 9.12](../module-09-web-api-professional/9.12-quick-real-world-example.mdx).
 
 </details>
 

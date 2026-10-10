@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 13.4.1 — Khoá ngoại tường minh
+### 13.3.1 — Khoá ngoại tường minh
 
 ```csharp
 // KHÔNG có khoá ngoại tường minh — EF dùng shadow property
@@ -69,7 +69,7 @@ builder.HasOne(c => c.Customer)
        .HasForeignKey(c => c.OwnerCustomerId);
 ```
 
-### 13.4.2 — Required so với optional
+### 13.3.2 — Required so với optional
 
 ```csharp
 public int CustomerId { get; set; }       // REQUIRED — contact phai thuoc customer
@@ -95,7 +95,7 @@ builder.HasOne(c => c.Customer)
        .OnDelete(DeleteBehavior.Cascade);
 ```
 
-### 13.4.3 — `DeleteBehavior` ảnh hưởng hai tầng
+### 13.3.3 — `DeleteBehavior` ảnh hưởng hai tầng
 
 | `DeleteBehavior` | EF Core làm gì (entity đã nạp) | Database |
 |---|---|---|
@@ -150,7 +150,7 @@ await db.Customers.Where(c => c.Status == CustomerStatus.Inactive)
 
 **`Restrict` khác `NoAction`** ở chỗ `Restrict` khiến EF Core **không** tự động sửa gì cả và ném lỗi nếu bạn cố xoá cha còn con — hữu ích khi bạn muốn lỗi rõ ràng thay vì xoá ngầm.
 
-### 13.4.4 — Chu trình cascade
+### 13.3.4 — Chu trình cascade
 
 ```
 Customers --cascade--> Leads
@@ -187,7 +187,7 @@ foreach (var fk in modelBuilder.Model.GetEntityTypes()
 
 Nhiều team làm vậy với lý do: xoá dây chuyền ngoài ý muốn nguy hiểm hơn một lỗi rõ ràng bắt bạn xử lý tường minh.
 
-### 13.4.5 — Many-to-many
+### 13.3.5 — Many-to-many
 
 ```csharp
 // EF Core 5+: không cần lớp bảng nối
@@ -232,7 +232,7 @@ Bạn giữ được cả hai: navigation trực tiếp `lead.Tags`, **và** tru
 
 Lời khuyên thực dụng: nếu **có khả năng** quan hệ sẽ mang dữ liệu, khai bảng nối tường minh ngay từ đầu — chuyển đổi về sau cần migration và sửa code ở nhiều nơi.
 
-### 13.4.6 — Self-reference
+### 13.3.6 — Self-reference
 
 ```csharp
 public class User
@@ -251,7 +251,7 @@ builder.HasOne(u => u.Manager)
 
 `Restrict` ở đây gần như bắt buộc: `Cascade` trên self-reference có thể xoá **cả cây tổ chức** khi bạn xoá một người quản lý.
 
-Truy vấn cây có độ sâu tuỳ ý là giới hạn thật của EF Core — LINQ không diễn đạt được đệ quy. Dùng recursive CTE ([bài 12.4](../module-12-sql-deep-dive/12.3-advanced-queries.mdx)):
+Truy vấn cây có độ sâu tuỳ ý là giới hạn thật của EF Core — LINQ không diễn đạt được đệ quy. Dùng recursive CTE ([bài 12.3](../module-12-sql-deep-dive/12.3-advanced-queries.mdx)):
 
 ```csharp
 var subordinates = await db.Users.FromSql($"""
@@ -266,7 +266,7 @@ var subordinates = await db.Users.FromSql($"""
     """).ToListAsync(ct);
 ```
 
-### 13.4.7 — Rà lại code của bạn
+### 13.3.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát quan hệ"

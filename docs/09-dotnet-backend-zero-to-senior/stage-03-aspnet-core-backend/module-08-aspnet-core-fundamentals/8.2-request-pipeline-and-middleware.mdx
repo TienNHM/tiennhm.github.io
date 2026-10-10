@@ -36,7 +36,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 8.3.1 — Pipeline là các lớp bọc nhau
+### 8.2.1 — Pipeline là các lớp bọc nhau
 
 ```mermaid
 flowchart LR
@@ -64,7 +64,7 @@ Hai hệ quả trực tiếp:
 - Middleware đăng ký **sớm** thấy request **đầu tiên** và thấy response **cuối cùng**. Vì vậy `UseExceptionHandler` phải đứng đầu: nó cần bọc ngoài mọi thứ để bắt được exception từ mọi lớp bên trong.
 - `try/finally` quanh `next()` cho bạn một chỗ chắc chắn chạy dù bên trong có ném hay không — đó là cách đo thời gian request.
 
-### 8.3.2 — `Use`, `Run`, `Map`
+### 8.2.2 — `Use`, `Run`, `Map`
 
 ```csharp
 // Use — xử lý rồi chuyển tiếp
@@ -122,7 +122,7 @@ app.Use(async (context, next) =>
 });
 ```
 
-### 8.3.3 — Middleware là singleton
+### 8.2.3 — Middleware là singleton
 
 ```csharp
 // SAI — ICustomerRepository la Scoped
@@ -132,7 +132,7 @@ public class AuditMiddleware(RequestDelegate next, ICustomerRepository repo)
 }
 ```
 
-Middleware được dựng **một lần** lúc khởi động và dùng lại cho mọi request — tức nó là **singleton**. Tiêm service scoped vào constructor là captive dependency ([bài 7.5](../../stage-02-csharp-professional/module-07-dependency-injection/7.4-service-lifetimes.mdx)), và nó sẽ nổ ngay lúc khởi động khi `ValidateScopes` bật.
+Middleware được dựng **một lần** lúc khởi động và dùng lại cho mọi request — tức nó là **singleton**. Tiêm service scoped vào constructor là captive dependency ([bài 7.4](../../stage-02-csharp-professional/module-07-dependency-injection/7.4-service-lifetimes.mdx)), và nó sẽ nổ ngay lúc khởi động khi `ValidateScopes` bật.
 
 ```csharp
 // ĐÚNG — tiêm qua tham số của InvokeAsync, mỗi request một instance
@@ -150,7 +150,7 @@ public class AuditMiddleware(RequestDelegate next, ILogger<AuditMiddleware> logg
 
 Có một lựa chọn khác: cài `IMiddleware` và đăng ký nó `Scoped` — khi đó cả middleware được tạo mới mỗi request. Nó rõ ràng hơn nhưng tốn hơn, và phải nhớ đăng ký vào DI, nếu không bạn nhận lỗi lúc chạy.
 
-### 8.3.4 — Hai middleware thật sự hữu ích
+### 8.2.4 — Hai middleware thật sự hữu ích
 
 ```csharp
 // Đo thời gian — try/finally để luôn chạy dù có exception
@@ -205,7 +205,7 @@ public class CorrelationIdMiddleware(RequestDelegate next)
 
 Chú ý `OnStarting`. Viết thẳng `context.Response.Headers[Header] = ...` **sau** `await next(context)` là lỗi ở mục tiếp theo.
 
-### 8.3.5 — `HasStarted`: vì sao không ghi được header nữa
+### 8.2.5 — `HasStarted`: vì sao không ghi được header nữa
 
 Response được gửi đi **theo luồng**. Ngay khi byte đầu tiên rời server, header đã đi trước nó — và không có cách nào lấy lại.
 
@@ -224,7 +224,7 @@ if (!context.Response.HasStarted)
 
 Cách đúng là `Response.OnStarting(...)` — callback chạy **ngay trước** khi header được gửi, tức thời điểm cuối cùng còn sửa được.
 
-### 8.3.6 — Thứ tự
+### 8.2.6 — Thứ tự
 
 ```csharp
 app.UseForwardedHeaders();                       // trước mọi thứ đọc IP/scheme
@@ -241,7 +241,7 @@ app.UseAuthorization();
 app.MapControllers();
 ```
 
-Bốn hệ quả cụ thể khi sai, đã liệt kê ở [bài 7.7](../../stage-02-csharp-professional/module-07-dependency-injection/7.6-program-cs-and-webapplicationbuilder.mdx). Thêm một điểm riêng cho middleware của bạn: **đặt trước `UseRouting()` thì chưa biết endpoint nào sẽ xử lý**. Cần thông tin đó (ví dụ để đọc attribute trên action) thì phải đặt **giữa** `UseRouting()` và `UseEndpoints`/`MapControllers()`:
+Bốn hệ quả cụ thể khi sai, đã liệt kê ở [bài 7.6](../../stage-02-csharp-professional/module-07-dependency-injection/7.6-program-cs-and-webapplicationbuilder.mdx). Thêm một điểm riêng cho middleware của bạn: **đặt trước `UseRouting()` thì chưa biết endpoint nào sẽ xử lý**. Cần thông tin đó (ví dụ để đọc attribute trên action) thì phải đặt **giữa** `UseRouting()` và `UseEndpoints`/`MapControllers()`:
 
 ```csharp
 app.UseRouting();
@@ -255,14 +255,14 @@ app.Use(async (ctx, next) =>
 app.UseAuthorization();
 ```
 
-### 8.3.7 — Sai lầm hay gặp
+### 8.2.7 — Sai lầm hay gặp
 
 - **Quên `await next(context)`** — request rơi vào im lặng, client chờ tới timeout, không có lỗi nào trong log.
 - **Đọc body request mà không bật buffering** — body là stream đọc một lần; middleware đọc xong thì model binding nhận stream rỗng. Cần `context.Request.EnableBuffering()` rồi `Position = 0` sau khi đọc.
 - **Middleware có trạng thái** — nó là singleton, nên field instance bị chia sẻ giữa mọi request đồng thời. Trạng thái theo request thuộc về `HttpContext.Items`.
 - **Việc nặng, đồng bộ trong middleware** — nó chạy cho **mọi** request, kể cả file tĩnh và health check.
 
-### 8.3.8 — Rà lại code của bạn
+### 8.2.8 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát middleware"
@@ -383,7 +383,7 @@ Viết middleware ghi một header **sau** `await next(context)` với một end
 <details>
 <summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
 
-**Gợi ý.** Nhớ lại cấu trúc một phản hồi HTTP ở [bài 2.5](../../stage-01-foundation/module-02-computer-science-basics/2.4-http-https.mdx): dòng trạng thái, rồi header, rồi dòng trống, rồi body. Thứ tự đó là thứ tự **trên đường truyền**.
+**Gợi ý.** Nhớ lại cấu trúc một phản hồi HTTP ở [bài 2.4](../../stage-01-foundation/module-02-computer-science-basics/2.4-http-https.mdx): dòng trạng thái, rồi header, rồi dòng trống, rồi body. Thứ tự đó là thứ tự **trên đường truyền**.
 
 **Lời giải — bản hỏng:**
 

@@ -25,7 +25,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 10.4.1 — Vấn đề nó giải quyết
+### 10.3.1 — Vấn đề nó giải quyết
 
 | | Access token | Refresh token |
 |---|---|---|
@@ -37,9 +37,9 @@ Sau bài này bạn có thể:
 
 Ý tưởng: thứ đi qua mạng **liên tục** thì sống ngắn; thứ sống dài thì **hiếm khi** đi qua mạng và **thu hồi được**.
 
-Khác biệt quyết định là dòng "lưu ở server". Refresh token được lưu nên bạn **kiểm tra được** nó còn hiệu lực không — đó là điều access token không làm được ([bài 10.3](10.2-jwt-authentication.mdx)).
+Khác biệt quyết định là dòng "lưu ở server". Refresh token được lưu nên bạn **kiểm tra được** nó còn hiệu lực không — đó là điều access token không làm được ([bài 10.2](10.2-jwt-authentication.mdx)).
 
-### 10.4.2 — Lược đồ lưu trữ
+### 10.3.2 — Lược đồ lưu trữ
 
 ```sql
 CREATE TABLE RefreshTokens (
@@ -67,7 +67,7 @@ Hash thì lộ database không còn dùng được gì. SHA-256 là đủ ở đ
 
 `CreatedByIp` và `UserAgent` phục vụ điều tra và cho người dùng xem "các phiên đang đăng nhập".
 
-### 10.4.3 — Sinh và lưu
+### 10.3.3 — Sinh và lưu
 
 ```csharp
 public sealed class RefreshTokenService(AppDbContext db, TimeProvider clock)
@@ -97,7 +97,7 @@ public sealed class RefreshTokenService(AppDbContext db, TimeProvider clock)
 
 `RandomNumberGenerator` là CSPRNG. **Không bao giờ** dùng `Random` hay `Guid.NewGuid()` cho token bảo mật — `Guid` chỉ có 122 bit ngẫu nhiên và, tuỳ cách sinh, có thể đoán được.
 
-### 10.4.4 — Rotation và phát hiện tái sử dụng
+### 10.3.4 — Rotation và phát hiện tái sử dụng
 
 Đây là phần quan trọng nhất của cả bài:
 
@@ -180,12 +180,12 @@ Mức log ở đây là `LogCritical` có chủ đích: đây là sự kiện b�
 
 Toàn bộ `RefreshAsync` gói lại trong một sơ đồ:
 
-![Sơ đồ luồng POST /refresh: refresh token thô được băm SHA-256 rồi tra theo TokenHash. Không tìm thấy bản ghi thì từ chối với 401. Tìm thấy nhưng token đã bị huỷ thì huỷ mọi token của user, ghi LogCritical với lý do reuse-detected, rồi từ chối. Token hết hạn hoặc quá trần tuyệt đối thì từ chối. Còn lại thì rotate R1 sang R2: đặt R1.RevokedAt bằng thời điểm hiện tại, giữ nguyên AbsoluteExpiresAt, và trả cặp token mới gồm access token và R2. Ngoại lệ ở mục 10.4.6: trong 10 giây đầu, token vừa bị huỷ được trả lại R2 cho tab gọi song song.](./img/refresh-rotation.png#gh-light-mode-only)
-![Sơ đồ luồng POST /refresh: refresh token thô được băm SHA-256 rồi tra theo TokenHash. Không tìm thấy bản ghi thì từ chối với 401. Tìm thấy nhưng token đã bị huỷ thì huỷ mọi token của user, ghi LogCritical với lý do reuse-detected, rồi từ chối. Token hết hạn hoặc quá trần tuyệt đối thì từ chối. Còn lại thì rotate R1 sang R2: đặt R1.RevokedAt bằng thời điểm hiện tại, giữ nguyên AbsoluteExpiresAt, và trả cặp token mới gồm access token và R2. Ngoại lệ ở mục 10.4.6: trong 10 giây đầu, token vừa bị huỷ được trả lại R2 cho tab gọi song song.](./img/refresh-rotation-dark.png#gh-dark-mode-only)
+![Sơ đồ luồng POST /refresh: refresh token thô được băm SHA-256 rồi tra theo TokenHash. Không tìm thấy bản ghi thì từ chối với 401. Tìm thấy nhưng token đã bị huỷ thì huỷ mọi token của user, ghi LogCritical với lý do reuse-detected, rồi từ chối. Token hết hạn hoặc quá trần tuyệt đối thì từ chối. Còn lại thì rotate R1 sang R2: đặt R1.RevokedAt bằng thời điểm hiện tại, giữ nguyên AbsoluteExpiresAt, và trả cặp token mới gồm access token và R2. Ngoại lệ ở mục 10.3.6: trong 10 giây đầu, token vừa bị huỷ được trả lại R2 cho tab gọi song song.](./img/refresh-rotation.png#gh-light-mode-only)
+![Sơ đồ luồng POST /refresh: refresh token thô được băm SHA-256 rồi tra theo TokenHash. Không tìm thấy bản ghi thì từ chối với 401. Tìm thấy nhưng token đã bị huỷ thì huỷ mọi token của user, ghi LogCritical với lý do reuse-detected, rồi từ chối. Token hết hạn hoặc quá trần tuyệt đối thì từ chối. Còn lại thì rotate R1 sang R2: đặt R1.RevokedAt bằng thời điểm hiện tại, giữ nguyên AbsoluteExpiresAt, và trả cặp token mới gồm access token và R2. Ngoại lệ ở mục 10.3.6: trong 10 giây đầu, token vừa bị huỷ được trả lại R2 cho tab gọi song song.](./img/refresh-rotation-dark.png#gh-dark-mode-only)
 
 <small>File gốc: [nền sáng](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-03-aspnet-core-backend-module-10-authentication-authorization-refresh-token/vi/refresh-rotation.html) · [nền tối](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-03-aspnet-core-backend-module-10-authentication-authorization-refresh-token/vi/refresh-rotation-dark.html)</small>
 
-### 10.4.5 — Client lưu token ở đâu
+### 10.3.5 — Client lưu token ở đâu
 
 Đây là quyết định bảo mật quan trọng nhất về phía client:
 
@@ -213,9 +213,9 @@ Response.Cookies.Append("refresh_token", rawToken, new CookieOptions
 
 Mẫu thực dụng: **access token trong bộ nhớ JavaScript** (mất khi refresh trang, và lấy lại bằng refresh token), **refresh token trong cookie `HttpOnly`**. XSS không đọc được refresh token, còn access token chỉ sống 15 phút.
 
-Dùng cookie thì phải chống CSRF — `SameSite=Strict` xử lý phần lớn, nhưng với API gọi từ tên miền khác cần thêm antiforgery token ([bài 10.11](10.10-security-best-practices.mdx)).
+Dùng cookie thì phải chống CSRF — `SameSite=Strict` xử lý phần lớn, nhưng với API gọi từ tên miền khác cần thêm antiforgery token ([bài 10.10](10.10-security-best-practices.mdx)).
 
-### 10.4.6 — Race condition: nhiều tab cùng làm mới
+### 10.3.6 — Race condition: nhiều tab cùng làm mới
 
 Người dùng mở 3 tab. Access token hết hạn. Cả 3 tab cùng gọi `/refresh` với **cùng** một refresh token:
 
@@ -252,7 +252,7 @@ if (stored.RevokedAt is not null)
 
 Cách 1 là cân bằng tốt nhất: cửa sổ 10 giây đủ cho race condition thật, và quá hẹp để hữu ích cho kẻ tấn công.
 
-### 10.4.7 — Đăng xuất và dọn dẹp
+### 10.3.7 — Đăng xuất và dọn dẹp
 
 ```csharp
 [HttpPost("logout")]
@@ -278,7 +278,7 @@ public async Task<IActionResult> LogoutAll(CancellationToken ct)
 
 `logout-all` là tính năng người dùng thật sự cần khi nghi ngờ tài khoản bị xâm nhập. Nó cũng nên được gọi **tự động** khi đổi mật khẩu.
 
-Lưu ý: đăng xuất huỷ refresh token nhưng **access token vẫn hợp lệ** tới khi hết hạn. Đó là giới hạn đã nói ở [bài 10.3](10.2-jwt-authentication.mdx), và là lý do TTL phải ngắn.
+Lưu ý: đăng xuất huỷ refresh token nhưng **access token vẫn hợp lệ** tới khi hết hạn. Đó là giới hạn đã nói ở [bài 10.2](10.2-jwt-authentication.mdx), và là lý do TTL phải ngắn.
 
 Bảng `RefreshTokens` sẽ phình lên, nên cần dọn định kỳ:
 
@@ -315,9 +315,9 @@ public sealed class RefreshTokenCleanupWorker(
 }
 ```
 
-Mẫu `BackgroundService` này theo đúng [bài 9.10](../module-09-web-api-professional/9.9-hosted-service-background-jobs.mdx) — nhớ khoá phân tán nếu chạy nhiều instance.
+Mẫu `BackgroundService` này theo đúng [bài 9.9](../module-09-web-api-professional/9.9-hosted-service-background-jobs.mdx) — nhớ khoá phân tán nếu chạy nhiều instance.
 
-### 10.4.8 — Rà lại code của bạn
+### 10.3.8 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát refresh token"
@@ -522,7 +522,7 @@ Lưu refresh token trong `localStorage`, chèn một script đọc và gửi nó
 localStorage.setItem('refreshToken', 'eyJhbGciOi...');
 ```
 
-Một script chèn được vào trang — qua thư viện npm bị chiếm, qua quảng cáo bên thứ ba, hay qua chính lỗ hổng upload ở [bài 9.6](../module-09-web-api-professional/9.5-file-upload-and-download.mdx) — chỉ cần một dòng:
+Một script chèn được vào trang — qua thư viện npm bị chiếm, qua quảng cáo bên thứ ba, hay qua chính lỗ hổng upload ở [bài 9.5](../module-09-web-api-professional/9.5-file-upload-and-download.mdx) — chỉ cần một dòng:
 
 ```html
 <script>
@@ -581,7 +581,7 @@ Hắn không lấy được **refresh token**, nhưng lấy được **access to
 
 2. **Không render HTML thô từ dữ liệu người dùng.** React và Angular escape mặc định — cái nguy hiểm là `dangerouslySetInnerHTML` và `[innerHTML]`.
 
-3. **File người dùng upload phải ở tên miền khác**, như [bài 9.6](../module-09-web-api-professional/9.5-file-upload-and-download.mdx) trình bày.
+3. **File người dùng upload phải ở tên miền khác**, như [bài 9.5](../module-09-web-api-professional/9.5-file-upload-and-download.mdx) trình bày.
 
 4. **Kiểm soát phụ thuộc.** Một gói npm bị chiếm là một `<script>` chạy trên trang bạn. Ghim phiên bản và quét định kỳ.
 

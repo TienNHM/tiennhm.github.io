@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 6.5.1 — Vấn đề: client bỏ đi, server không biết
+### 6.4.1 — Vấn đề: client bỏ đi, server không biết
 
 Một request lấy báo cáo doanh thu trong CRM chạy mất 40 giây. Người dùng đợi 5 giây rồi đóng tab.
 
@@ -37,7 +37,7 @@ Nếu không có token, server vẫn:
 
 Với một người dùng thì không sao. Với 200 người dùng sốt ruột bấm F5, connection pool cạn và **những request hoàn toàn bình thường bắt đầu timeout**. Đây là kiểu sự cố rất khó chẩn đoán, vì nguyên nhân nằm ở những request đã chết chứ không nằm ở request đang lỗi.
 
-### 6.5.2 — Huỷ trong .NET là hợp tác, không phải cưỡng chế
+### 6.4.2 — Huỷ trong .NET là hợp tác, không phải cưỡng chế
 
 Đây là điểm quan trọng nhất của cả bài, và cũng là điểm hay bị hiểu sai nhất.
 
@@ -47,7 +47,7 @@ Với một người dùng thì không sao. Với 200 người dùng sốt ruộ
 
 Hệ quả trực tiếp: **một vòng lặp tính toán không nhìn token thì không bao giờ bị huỷ**, dù bạn có truyền token vào bao nhiêu tầng đi nữa. Token chỉ có tác dụng ở nơi có ai đó thật sự đọc nó — hoặc ở các API của .NET đã đọc sẵn giùm bạn (`EF Core`, `HttpClient`, `Stream`, `Channel`...).
 
-### 6.5.3 — Hai nửa: `CancellationTokenSource` và `CancellationToken`
+### 6.4.3 — Hai nửa: `CancellationTokenSource` và `CancellationToken`
 
 ```csharp
 // Bên PHÁT tín hiệu — giữ quyền huỷ
@@ -79,7 +79,7 @@ await cts.CancelAsync();
 
 `CancellationToken.None` là token không bao giờ bị huỷ; `default(CancellationToken)` cho ra đúng giá trị đó. Truyền `CancellationToken.None` là cách nói rõ ràng "chỗ này cố ý không cho huỷ", tốt hơn nhiều so với để trống.
 
-### 6.5.4 — Ba cách phản ứng với token
+### 6.4.4 — Ba cách phản ứng với token
 
 **Cách 1 — Kiểm tra cờ, dùng cho vòng lặp mà bạn muốn kết thúc êm:**
 
@@ -111,7 +111,7 @@ using var registration = token.Register(() => connection.Abort());
 
 `Register` trả về một `CancellationTokenRegistration` cần được `Dispose`. Với token sống lâu (ví dụ token shutdown của cả ứng dụng) mà bạn đăng ký callback theo từng request, quên dispose là rò rỉ bộ nhớ tích luỹ dần.
 
-### 6.5.5 — Token trong ASP.NET Core
+### 6.4.5 — Token trong ASP.NET Core
 
 ASP.NET Core bind tham số `CancellationToken` của action **thẳng vào `HttpContext.RequestAborted`**. Bạn không cần cấu hình gì:
 
@@ -167,7 +167,7 @@ protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 }
 ```
 
-### 6.5.6 — Nối token: vừa theo client, vừa có hạn của riêng mình
+### 6.4.6 — Nối token: vừa theo client, vừa có hạn của riêng mình
 
 Thường bạn muốn cả hai điều kiện: huỷ khi client bỏ đi, **và** huỷ khi quá 10 giây dù client vẫn đợi.
 
@@ -193,7 +193,7 @@ catch (OperationCanceledException)
 
 Mẫu `when (timeout.IsCancellationRequested)` là cách phân biệt **ai đã bấm nút huỷ**. Không có nó, hai tình huống rất khác nhau — một cái là sự cố hạ tầng, một cái là hành vi bình thường của người dùng — sẽ trông y hệt nhau trong log.
 
-### 6.5.7 — Ba lỗi làm hỏng toàn bộ ý nghĩa của việc huỷ
+### 6.4.7 — Ba lỗi làm hỏng toàn bộ ý nghĩa của việc huỷ
 
 **Lỗi 1 — Nuốt exception rồi trả về giá trị trông như hợp lệ.**
 
@@ -241,7 +241,7 @@ using var commit = new CancellationTokenSource(TimeSpan.FromSeconds(15));
 await _db.SaveChangesAsync(commit.Token);
 ```
 
-### 6.5.8 — Rà lại code của bạn
+### 6.4.8 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát CancellationToken"
@@ -328,7 +328,7 @@ using var registration = ct.Register(() => _connection.Cancel());
 
 **Quy tắc.** Mọi phương thức `async` trong hệ thống nên nhận `CancellationToken` làm **tham số cuối cùng** và truyền nó xuống mọi lời gọi async bên trong. Thêm tham số này từ đầu gần như miễn phí; thêm sau khi đã có hàng trăm phương thức là một dự án nhỏ.
 
-**Một lưu ý về xử lý ngoại lệ.** Khi bị huỷ, ASP.NET Core **không** ghi nó như một lỗi 500 — nó nhận ra `OperationCanceledException` gắn với `RequestAborted` và bỏ qua. Nhưng nếu bạn tự bắt rồi ném lại một ngoại lệ khác, hệ thống giám sát sẽ báo động giả. Đây chính là lỗi mà mục 6.5.7 cảnh báo.
+**Một lưu ý về xử lý ngoại lệ.** Khi bị huỷ, ASP.NET Core **không** ghi nó như một lỗi 500 — nó nhận ra `OperationCanceledException` gắn với `RequestAborted` và bỏ qua. Nhưng nếu bạn tự bắt rồi ném lại một ngoại lệ khác, hệ thống giám sát sẽ báo động giả. Đây chính là lỗi mà mục 6.4.7 cảnh báo.
 
 </details>
 

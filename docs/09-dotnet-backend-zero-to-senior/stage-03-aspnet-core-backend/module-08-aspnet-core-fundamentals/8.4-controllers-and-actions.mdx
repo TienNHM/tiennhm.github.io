@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 8.5.1 — `ControllerBase`, không phải `Controller`
+### 8.4.1 — `ControllerBase`, không phải `Controller`
 
 ```csharp
 public class CustomersController : ControllerBase   // Web API
@@ -35,7 +35,7 @@ public class HomeController : Controller            // MVC co View
 
 **Luôn dùng `ControllerBase` cho API.**
 
-### 8.5.2 — `[ApiController]` bật bốn thứ
+### 8.4.2 — `[ApiController]` bật bốn thứ
 
 ```csharp
 [ApiController]
@@ -50,7 +50,7 @@ public class CustomersController(ICustomerService service) : ControllerBase
 if (!ModelState.IsValid) return BadRequest(ModelState);
 ```
 
-Validation chạy **trước** khi action được gọi. Lỗi trả về dưới dạng `ValidationProblemDetails` theo chuẩn RFC 7807 ([bài 8.6](8.5-model-validation.mdx)).
+Validation chạy **trước** khi action được gọi. Lỗi trả về dưới dạng `ValidationProblemDetails` theo chuẩn RFC 7807 ([bài 8.5](8.5-model-validation.mdx)).
 
 ```mermaid
 flowchart LR
@@ -76,7 +76,7 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 });
 ```
 
-### 8.5.3 — Model binding và quy tắc suy luận
+### 8.4.3 — Model binding và quy tắc suy luận
 
 Với `[ApiController]`, nguồn dữ liệu được suy luận theo thứ tự:
 
@@ -126,9 +126,9 @@ public Task<IActionResult> GetAll([FromQuery] PagedRequest request, Cancellation
 
 `[FromQuery]` trên một kiểu phức tạp bind **từng thuộc tính** từ query string — và giờ bạn validate được chúng bằng data annotation.
 
-**`CancellationToken` là tham số đặc biệt.** Nó không đến từ request mà được framework tiêm — chính là `HttpContext.RequestAborted`, huỷ khi client ngắt kết nối. **Mọi action có I/O đều nên nhận nó và truyền xuống** ([bài 6.5](../../stage-02-csharp-professional/module-06-async-programming/6.4-cancellationtoken.mdx)).
+**`CancellationToken` là tham số đặc biệt.** Nó không đến từ request mà được framework tiêm — chính là `HttpContext.RequestAborted`, huỷ khi client ngắt kết nối. **Mọi action có I/O đều nên nhận nó và truyền xuống** ([bài 6.4](../../stage-02-csharp-professional/module-06-async-programming/6.4-cancellationtoken.mdx)).
 
-### 8.5.4 — Kiểu trả về
+### 8.4.4 — Kiểu trả về
 
 ```csharp
 // 1. ActionResult<T> — tốt nhất cho API
@@ -161,7 +161,7 @@ Bổ sung `[ProducesResponseType]` để tài liệu đầy đủ:
 public async Task<ActionResult<CustomerDto>> GetById(Guid id, CancellationToken ct);
 ```
 
-### 8.5.5 — Mã trạng thái
+### 8.4.5 — Mã trạng thái
 
 | Tình huống | Mã | Helper |
 |---|---|---|
@@ -182,7 +182,7 @@ Ba chỗ hay bị dùng sai:
 - **401 và 403 khác nhau**: 401 là "tôi không biết bạn là ai", 403 là "tôi biết bạn là ai và bạn không được phép".
 - **DELETE trả 204**, và **nên idempotent** — xoá một thứ đã xoá vẫn trả 204, không phải 404.
 
-### 8.5.6 — Controller phải mỏng
+### 8.4.6 — Controller phải mỏng
 
 ```csharp
 // SAI — nghiep vu nam trong controller
@@ -218,7 +218,7 @@ public async Task<ActionResult<CustomerDto>> Create(
 
 Nghiệp vụ trong controller không test được nếu không dựng cả `HttpContext`, không dùng lại được từ background job, và không di chuyển sang Minimal API được. Chi tiết về ranh giới này ở [Module 16 — Clean Architecture](../../stage-05-senior-engineering/module-16-clean-architecture/).
 
-### 8.5.7 — Rà lại code của bạn
+### 8.4.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát controller"
@@ -329,7 +329,7 @@ Viết endpoint mất 10 giây, gọi bằng `curl` rồi ngắt giữa chừng.
 <details>
 <summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
 
-**Gợi ý.** Bài này áp dụng những gì đã học ở [bài 6.5](../../stage-02-csharp-professional/module-06-async-programming/6.4-cancellationtoken.mdx) vào ngữ cảnh controller. Điểm mới: ASP.NET Core **tự động** cung cấp token, bạn không phải tạo.
+**Gợi ý.** Bài này áp dụng những gì đã học ở [bài 6.4](../../stage-02-csharp-professional/module-06-async-programming/6.4-cancellationtoken.mdx) vào ngữ cảnh controller. Điểm mới: ASP.NET Core **tự động** cung cấp token, bạn không phải tạo.
 
 **Lời giải.**
 

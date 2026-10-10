@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 14.5.1 — TTL là nền tảng
+### 14.4.1 — TTL là nền tảng
 
 ```csharp
 _cache.Set(key, value, TimeSpan.FromMinutes(5));
@@ -42,7 +42,7 @@ Chọn TTL dựa trên **một câu hỏi**: *"dữ liệu này cũ bao lâu th�
 | Danh sách khách hàng | 1–5 phút |
 | Số dư, tồn kho | **Không cache** |
 
-Hàng "quyền" đáng nhấn mạnh: TTL dài nghĩa là thu hồi quyền mất hiệu lực chậm ([bài 10.8](../../stage-03-aspnet-core-backend/module-10-authentication-authorization/10.7-permission-system.mdx)).
+Hàng "quyền" đáng nhấn mạnh: TTL dài nghĩa là thu hồi quyền mất hiệu lực chậm ([bài 10.7](../../stage-03-aspnet-core-backend/module-10-authentication-authorization/10.7-permission-system.mdx)).
 
 **TTL ngắn hơn bạn nghĩ thường đúng hơn.** Chênh lệch tỷ lệ trúng giữa TTL 5 phút và 60 phút thường nhỏ (vì dữ liệu nóng được truy cập liên tục), nhưng rủi ro dữ liệu cũ giảm **12 lần**.
 
@@ -52,7 +52,7 @@ Thêm jitter để tránh nhiều khoá cùng hết hạn:
 var ttl = TimeSpan.FromMinutes(5) + TimeSpan.FromSeconds(Random.Shared.Next(-30, 30));
 ```
 
-### 14.5.2 — Xoá chủ động: tìm mọi đường ghi
+### 14.4.2 — Xoá chủ động: tìm mọi đường ghi
 
 ```csharp
 public async Task UpdateAsync(int id, UpdateCustomerRequest request, CancellationToken ct)
@@ -102,9 +102,9 @@ public sealed class CacheInvalidationInterceptor(ICacheInvalidator invalidator)
 
 Chú ý `SavedChangesAsync` (sau khi lưu), không phải `SavingChangesAsync` — xoá cache **trước** khi commit là sai: nếu transaction rollback, cache đã bị xoá và sẽ nạp lại **dữ liệu cũ**.
 
-Nhưng interceptor **không** bắt được `ExecuteUpdateAsync` ([bài 13.8](../module-13-entity-framework-core/13.7-performance.mdx)) — chỗ đó vẫn phải xoá thủ công.
+Nhưng interceptor **không** bắt được `ExecuteUpdateAsync` ([bài 13.7](../module-13-entity-framework-core/13.7-performance.mdx)) — chỗ đó vẫn phải xoá thủ công.
 
-### 14.5.3 — Xoá theo tag
+### 14.4.3 — Xoá theo tag
 
 Vấn đề: cập nhật một khách hàng phải xoá **nhiều** khoá — chi tiết, danh sách trang 1, trang 2, kết quả tìm kiếm…
 
@@ -152,7 +152,7 @@ TTL cho chính tập tag là chi tiết quan trọng: không có nó, tập tag 
 
 Nguyên tắc: tag **hẹp nhất có thể**. Sửa khách hàng 42 thì xoá `customer:42` và `customers:list` — không xoá `customers:*`.
 
-### 14.5.4 — Đồng bộ L1 giữa các instance
+### 14.4.4 — Đồng bộ L1 giữa các instance
 
 Với `IMemoryCache` trên nhiều pod:
 
@@ -194,11 +194,11 @@ public sealed class CacheInvalidationService : IHostedService
 }
 ```
 
-**`HybridCache` làm sẵn việc này** khi backend L2 hỗ trợ — đây là lý do mạnh nhất để dùng nó ([bài 14.6](14.5-hybridcache-dotnet-9.mdx)).
+**`HybridCache` làm sẵn việc này** khi backend L2 hỗ trợ — đây là lý do mạnh nhất để dùng nó ([bài 14.5](14.5-hybridcache-dotnet-9.mdx)).
 
-Lưu ý: pub/sub **không đảm bảo giao hàng** ([bài 11.11](../../stage-03-aspnet-core-backend/module-11-signalr/11.10-scale-out-and-production.mdx)). Pod mất kết nối Redis trong 5 giây sẽ **bỏ lỡ** thông báo xoá. Vì vậy TTL của L1 phải **ngắn** — 30 giây tới 2 phút — làm lưới an toàn.
+Lưu ý: pub/sub **không đảm bảo giao hàng** ([bài 11.10](../../stage-03-aspnet-core-backend/module-11-signalr/11.10-scale-out-and-production.mdx)). Pod mất kết nối Redis trong 5 giây sẽ **bỏ lỡ** thông báo xoá. Vì vậy TTL của L1 phải **ngắn** — 30 giây tới 2 phút — làm lưới an toàn.
 
-### 14.5.5 — Race condition khi xoá
+### 14.4.5 — Race condition khi xoá
 
 ```
 t=0   Request A đọc cache MISS, bắt đầu truy vấn database
@@ -241,7 +241,7 @@ Nhưng nó chỉ đúng khi giá trị cache **giống hệt** thứ bạn vừa
 
 TTL ngắn là lưới cho cả ba trường hợp.
 
-### 14.5.6 — Rà lại code của bạn
+### 14.4.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát xoá cache"
@@ -504,7 +504,7 @@ t=3,0   instance 2 kết nối lại
 
 **2. Có độ trễ lan truyền.** Publish tới Redis, Redis đẩy tới các subscriber, mỗi subscriber xử lý — tổng cộng 1–10 ms trên mạng LAN. Request đến trong cửa sổ đó vẫn nhận dữ liệu cũ. Đây là nguồn của con số 2,2% ở trên.
 
-**3. Race condition giữa xoá và nạp lại** — chính kịch bản ở mục 14.5.5:
+**3. Race condition giữa xoá và nạp lại** — chính kịch bản ở mục 14.4.5:
 
 ```text
 t=0   instance 2 nhận request, cache miss, bắt đầu truy vấn
@@ -552,7 +552,7 @@ Trên dashboard, nếu các đường của các instance tách nhau lâu hơn v
 
 #### Bài 3 — Race condition giữa xoá và nạp lại
 
-Mô phỏng kịch bản ở mục 14.5.5 bằng cách thêm `Task.Delay` vào truy vấn, và xác nhận cache chứa dữ liệu cũ sau khi cập nhật. Sửa bằng ghi đè và kiểm chứng.
+Mô phỏng kịch bản ở mục 14.4.5 bằng cách thêm `Task.Delay` vào truy vấn, và xác nhận cache chứa dữ liệu cũ sau khi cập nhật. Sửa bằng ghi đè và kiểm chứng.
 
 **Tiêu chí hoàn thành:** bạn giải thích được vì sao ghi đè đóng được khe hở mà xoá không đóng được, và nêu được giới hạn của cách ghi đè.
 

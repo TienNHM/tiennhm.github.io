@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 1.5.1 — Hàm là cái tên đặt cho một ý tưởng
+### 1.4.1 — Hàm là cái tên đặt cho một ý tưởng
 
 Lý do thật sự để tách hàm không phải là "dùng lại được ở ba chỗ". Nhiều hàm giá trị nhất trong một codebase chỉ được gọi **đúng một lần**.
 
@@ -46,7 +46,7 @@ if (IsEligibleForLoyaltyDiscount(order))
 
 Hàm `IsEligibleForLoyaltyDiscount` có thể chỉ được gọi một lần. Nó vẫn đáng tồn tại, vì nó biến ba dòng điều kiện thành một khái niệm nghiệp vụ có tên.
 
-### 1.5.2 — Cú pháp và dạng biểu thức
+### 1.4.2 — Cú pháp và dạng biểu thức
 
 ```csharp
 // Đầy đủ
@@ -62,7 +62,7 @@ public decimal CalculateDiscount(decimal total, decimal rate) => total * rate;
 public void LogOrder(Order order) => _logger.LogInformation("Đơn {Code}", order.Code);
 ```
 
-### 1.5.3 — Tham số mặc định và tham số đặt tên
+### 1.4.3 — Tham số mặc định và tham số đặt tên
 
 ```csharp
 public decimal CalculateShipping(
@@ -83,7 +83,7 @@ Hai cảnh báo thực tế:
 1. **`true`/`false` trần trụi ở chỗ gọi là bẫy đọc hiểu.** `CalculateShipping(420_000m, true)` — `true` là gì? Dùng tham số đặt tên, hoặc dùng `enum` thay cho `bool`.
 2. **Giá trị mặc định được nhúng vào chỗ gọi lúc biên dịch.** Nếu hàm nằm trong một thư viện riêng và bạn đổi giá trị mặc định, những assembly đã biên dịch trước đó vẫn dùng giá trị cũ cho tới khi được build lại. Trong một solution thì không sao; giữa các thư viện thì đây là một cái bẫy có thật.
 
-### 1.5.4 — `ref`, `out`, `in`
+### 1.4.4 — `ref`, `out`, `in`
 
 ```csharp
 // out — hàm buộc phải gán giá trị trước khi trả về
@@ -110,9 +110,9 @@ var stats = GetStats(orders);
 Console.WriteLine(stats.Total);
 ```
 
-`out` vẫn còn đúng một chỗ dùng chuẩn mực: **mẫu `TryXxx`** ở mục 1.5.8.
+`out` vẫn còn đúng một chỗ dùng chuẩn mực: **mẫu `TryXxx`** ở mục 1.4.8.
 
-### 1.5.5 — Một hàm, một mức trừu tượng
+### 1.4.5 — Một hàm, một mức trừu tượng
 
 Đây là tiêu chí phân biệt hàm tốt với hàm dài, cụ thể hơn nhiều so với "hàm không nên quá 20 dòng".
 
@@ -142,7 +142,7 @@ public async Task ProcessOrder(int orderId)
 
 Phép thử nhanh: đọc to thân hàm lên. Nếu các câu nhảy cóc giữa "gửi email cho khách" và "mở kết nối SQL", hàm đang trộn hai mức.
 
-### 1.5.6 — Hàm thuần và tác dụng phụ
+### 1.4.6 — Hàm thuần và tác dụng phụ
 
 **Hàm thuần**: cùng đầu vào luôn cho cùng đầu ra, và không đụng gì bên ngoài.
 
@@ -163,7 +163,7 @@ Không phải mọi hàm đều thuần được — chương trình phải ghi 
 
 Mẹo áp dụng ngay: nhận `DateTimeOffset now` làm **tham số** thay vì gọi `DateTimeOffset.UtcNow` bên trong. Hàm lập tức trở nên kiểm thử được cho mọi mốc thời gian.
 
-### 1.5.7 — Local function và extension method
+### 1.4.7 — Local function và extension method
 
 ```csharp
 // Local function — hàm phụ chỉ có nghĩa bên trong hàm cha
@@ -190,7 +190,7 @@ if (input.IsValidEmail()) { }
 
 Extension method rất tiện và cũng rất dễ bị lạm dụng. Quy tắc giữ mình: chỉ viết extension cho kiểu bạn **không sở hữu** (`string`, `DateTime`, `IEnumerable`). Kiểu của chính bạn thì thêm phương thức vào thẳng lớp đó.
 
-### 1.5.8 — Ném ngoại lệ hay trả về `false`?
+### 1.4.8 — Ném ngoại lệ hay trả về `false`?
 
 ```csharp
 // Ném — khi thất bại là BẤT THƯỜNG
@@ -209,7 +209,7 @@ Tiêu chí chọn: **thất bại này có bình thường không?** Người d�
 
 Lý do kỹ thuật kèm theo: ném ngoại lệ tốn kém hơn trả về `bool` rất nhiều lần vì phải dựng stack trace. Trong một vòng lặp chạy hàng nghìn lần, dùng ngoại lệ cho luồng thông thường là một lỗi hiệu năng thật sự. Xem [Best practices for exceptions](https://learn.microsoft.com/en-us/dotnet/standard/exceptions/best-practices-for-exceptions).
 
-### 1.5.9 — Đặt tên
+### 1.4.9 — Đặt tên
 
 ```mermaid
 flowchart LR
@@ -228,7 +228,7 @@ flowchart LR
 
 Quy ước đầy đủ: [Names of type members](https://learn.microsoft.com/en-us/dotnet/standard/design-guidelines/names-of-type-members).
 
-### 1.5.10 — Rà lại code của bạn
+### 1.4.10 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát hàm"

@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 7.10.1 — Service locator
+### 7.9.1 — Service locator
 
 ```csharp
 // SAI
@@ -59,12 +59,12 @@ public static class ServiceLocator          // van la service locator
 Chỉ có **ba chỗ** được phép chạm vào `IServiceProvider`:
 
 - **Composition root** — `Program.cs`, nơi dựng scope cho migration.
-- **`BackgroundService`** qua `IServiceScopeFactory` ([bài 7.5](7.4-service-lifetimes.mdx)).
-- **Factory hẹp resolve đúng một kiểu đã biết**, như ở [bài 7.9](7.8-keyed-services.mdx).
+- **`BackgroundService`** qua `IServiceScopeFactory` ([bài 7.4](7.4-service-lifetimes.mdx)).
+- **Factory hẹp resolve đúng một kiểu đã biết**, như ở [bài 7.8](7.8-keyed-services.mdx).
 
 Ngoài ba chỗ đó, sửa bằng constructor injection.
 
-### 7.10.2 — Ambient context
+### 7.9.2 — Ambient context
 
 ```csharp
 // SAI
@@ -108,7 +108,7 @@ Cùng họ với lỗi này: `DateTime.Now` (dùng `TimeProvider`), `Random.Shar
 
 `AsyncLocal<T>` **không** phải ngoại lệ được miễn trừ: nó an toàn hơn `static` vì bám theo luồng thực thi async, nhưng vẫn là phụ thuộc ẩn. Nó chỉ hợp cho hạ tầng cắt ngang như tracing, nơi việc truyền qua mọi chữ ký hàm là bất khả thi.
 
-### 7.10.3 — Over-injection
+### 7.9.3 — Over-injection
 
 ```csharp
 public class CustomerService(
@@ -148,7 +148,7 @@ Facade chỉ chuyển 11 phụ thuộc xuống một tầng. Lớp vẫn làm 11
 
 Ngưỡng thực dụng: **quá 5 phụ thuộc thì dừng lại xem xét**. Đó là tín hiệu, không phải luật — `ILogger` gần như luôn có mặt và không tính, còn một handler điều phối thật sự có thể cần 6 thứ.
 
-### 7.10.4 — Interface chỉ để có interface
+### 7.9.4 — Interface chỉ để có interface
 
 ```csharp
 public interface ICustomerMapper { CustomerDto Map(Customer c); }
@@ -165,7 +165,7 @@ Ba lý do chính đáng để tạo interface:
 
 Hàm ánh xạ thuần, hàm tính toán thuần, extension method: đăng ký lớp cụ thể là đủ, hoặc thậm chí `static`.
 
-### 7.10.5 — Hai lỗi còn lại
+### 7.9.5 — Hai lỗi còn lại
 
 **Container leak sang domain.** Entity và value object không được biết gì về `IServiceProvider` hay `[FromKeyedServices]`. Domain phải dựng được bằng `new` trong một unit test không có container nào.
 
@@ -182,9 +182,9 @@ public class OrderService(ICustomerRepository repo)
 }
 ```
 
-Chỗ này thường xuất hiện khi ai đó thêm tính năng gấp. Nó mang lại đầy đủ năm vấn đề ở [bài 7.2](7.1-di-problem-scope.mdx), chỉ khác là bây giờ chúng nằm lẫn giữa code đã làm đúng.
+Chỗ này thường xuất hiện khi ai đó thêm tính năng gấp. Nó mang lại đầy đủ năm vấn đề ở [bài 7.1](7.1-di-problem-scope.mdx), chỉ khác là bây giờ chúng nằm lẫn giữa code đã làm đúng.
 
-### 7.10.6 — Rà lại code của bạn
+### 7.9.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát anti-pattern DI"
@@ -250,7 +250,7 @@ AsyncLocal  :  0/50 request đọc SAI tenant
 
 **Một nửa số request đọc sai tổ chức.** Trong hệ thống nhiều tổ chức dùng chung, đó là **rò rỉ dữ liệu giữa các khách hàng** — loại sự cố nghiêm trọng nhất có thể xảy ra với một hệ thống SaaS.
 
-**Vì sao `AsyncLocal` đúng.** Nó lưu giá trị theo **luồng thực thi logic** chứ không theo luồng vật lý. Mỗi nhánh `async` có bản sao riêng, và bản sao đó đi theo qua các lần `await` kể cả khi luồng vật lý thay đổi. Đây cũng là cơ chế mà `LogContext` của Serilog ở [bài 3.10](../../stage-01-foundation/module-03-git-developer-workflow/3.9-debugging-workflow.mdx) dùng.
+**Vì sao `AsyncLocal` đúng.** Nó lưu giá trị theo **luồng thực thi logic** chứ không theo luồng vật lý. Mỗi nhánh `async` có bản sao riêng, và bản sao đó đi theo qua các lần `await` kể cả khi luồng vật lý thay đổi. Đây cũng là cơ chế mà `LogContext` của Serilog ở [bài 3.9](../../stage-01-foundation/module-03-git-developer-workflow/3.9-debugging-workflow.mdx) dùng.
 
 **Nhưng `AsyncLocal` vẫn chưa phải giải pháp tốt nhất.** Nó đúng về mặt kỹ thuật, nhưng vẫn là một dạng **ambient context** — một phụ thuộc ẩn. Ba vấn đề còn lại:
 
@@ -299,7 +299,7 @@ public class OrderService(ITenantContext tenant, IOrderRepository repo)
 modelBuilder.Entity<Order>().HasQueryFilter(o => o.TenantId == _tenant.TenantId);
 ```
 
-Như vậy ngay cả khi một lập trình viên quên lọc, dữ liệu vẫn không rò rỉ. [Bài 13.11](../../stage-04-database-production/module-13-entity-framework-core/13.10-global-query-filters.mdx) trình bày đầy đủ.
+Như vậy ngay cả khi một lập trình viên quên lọc, dữ liệu vẫn không rò rỉ. [Bài 13.10](../../stage-04-database-production/module-13-entity-framework-core/13.10-global-query-filters.mdx) trình bày đầy đủ.
 
 </details>
 
@@ -390,7 +390,7 @@ Constructor injection biến việc này thành **lỗi biên dịch**: không t
 
 1. **Chữ ký nói dối.** `OrderService(IServiceProvider sp)` trông như chỉ cần một phụ thuộc, thực tế cần bốn. Muốn biết nó cần gì, phải đọc hết thân lớp.
 2. **Phụ thuộc thay đổi theo nhánh code.** Lớp có thể cần `IEmailSender` chỉ trong một nhánh `if` — nên "lớp này phụ thuộc vào gì" trở thành câu hỏi không có câu trả lời cố định.
-3. **Kiểm tra lúc khởi động mất tác dụng.** `ValidateOnBuild` ở [bài 7.6](7.5-registering-services.mdx) dựa trên constructor để dựng đồ thị phụ thuộc. Với Service Locator, đồ thị đó không tồn tại.
+3. **Kiểm tra lúc khởi động mất tác dụng.** `ValidateOnBuild` ở [bài 7.5](7.5-registering-services.mdx) dựa trên constructor để dựng đồ thị phụ thuộc. Với Service Locator, đồ thị đó không tồn tại.
 
 **Khi nào `IServiceProvider` là chính đáng.** Chỉ ba chỗ, và đều là những chỗ vòng đời thật sự phức tạp:
 
@@ -408,14 +408,14 @@ Lưu ý cả ba đều dùng `IServiceScopeFactory` hoặc nằm ở tầng hạ
 
 #### Bài 3 — Tách God Service
 
-Lấy lớp 11 phụ thuộc ở mục 7.10.3, tách theo trách nhiệm, ghi lại số phụ thuộc của từng lớp mới. Thử luôn cách gom vào một facade và giải thích vì sao nó **không** giải quyết được gì.
+Lấy lớp 11 phụ thuộc ở mục 7.9.3, tách theo trách nhiệm, ghi lại số phụ thuộc của từng lớp mới. Thử luôn cách gom vào một facade và giải thích vì sao nó **không** giải quyết được gì.
 
 **Tiêu chí hoàn thành:** bạn nêu được vì sao facade chỉ **giấu** vấn đề chứ không sửa nó.
 
 <details>
 <summary><strong>Gợi ý và lời giải — Bài 3</strong></summary>
 
-**Gợi ý.** Số phụ thuộc lớn là **triệu chứng**, không phải bệnh. Bệnh là lớp đang làm quá nhiều việc. Hãy hỏi lại câu hỏi ở [bài 5.2](../module-05-advanced-csharp/5.1-solid-principles.mdx): **ai yêu cầu thay đổi lớp này?**
+**Gợi ý.** Số phụ thuộc lớn là **triệu chứng**, không phải bệnh. Bệnh là lớp đang làm quá nhiều việc. Hãy hỏi lại câu hỏi ở [bài 5.1](../module-05-advanced-csharp/5.1-solid-principles.mdx): **ai yêu cầu thay đổi lớp này?**
 
 **Lời giải — lớp gốc:**
 
@@ -503,7 +503,7 @@ public class OrderService(IMediator mediator) { }               // nếu chỉ �
 
 **Phép thử thay cho việc đếm.** *Liệt kê các nhóm người có thể yêu cầu sửa lớp này.* Nhiều hơn một nhóm thì tách, bất kể số phụ thuộc là bao nhiêu. Một lớp 6 phụ thuộc phục vụ một nhóm duy nhất vẫn ổn; một lớp 3 phụ thuộc phục vụ ba nhóm thì không.
 
-**Lưu ý về `ILogger`.** Nó xuất hiện ở mọi lớp và thường không tính vào số phụ thuộc "thật", vì nó là mối quan tâm xuyên suốt chứ không phải một trách nhiệm nghiệp vụ. Nếu muốn bỏ nó khỏi constructor hoàn toàn, có thể chuyển việc ghi log sang decorator như [bài 7.6](7.5-registering-services.mdx) trình bày.
+**Lưu ý về `ILogger`.** Nó xuất hiện ở mọi lớp và thường không tính vào số phụ thuộc "thật", vì nó là mối quan tâm xuyên suốt chứ không phải một trách nhiệm nghiệp vụ. Nếu muốn bỏ nó khỏi constructor hoàn toàn, có thể chuyển việc ghi log sang decorator như [bài 7.5](7.5-registering-services.mdx) trình bày.
 
 </details>
 

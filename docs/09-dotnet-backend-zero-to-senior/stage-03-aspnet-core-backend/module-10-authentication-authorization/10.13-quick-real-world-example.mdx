@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 10.14.1 — Lỗ hổng
+### 10.13.1 — Lỗ hổng
 
 ```csharp
 [Authorize(Roles = "Sales")]
@@ -52,7 +52,7 @@ Nhân viên A đổi id trên URL:
 
 Lớp lỗ hổng này gọi là **Broken Object Level Authorization**, và nó đứng đầu danh sách rủi ro API của OWASP. Lý do nó phổ biến: endpoint trông đã được bảo vệ, và test thường chỉ dùng dữ liệu của chính người dùng đang đăng nhập nên không phát hiện ra.
 
-### 10.14.2 — Sửa nhanh và sửa đúng
+### 10.13.2 — Sửa nhanh và sửa đúng
 
 **Sửa nhanh — kiểm tra ngay trong controller:**
 
@@ -114,11 +114,11 @@ public async Task<IActionResult> Update(
 }
 ```
 
-Ba lợi ích so với cách sửa nhanh: quy tắc nằm **một chỗ**, test được độc lập, và khi quy tắc đổi (thêm vai trò được xem chéo chẳng hạn) bạn sửa một file thay vì rà cả codebase ([bài 10.7](10.6-resource-based-authorization.mdx)).
+Ba lợi ích so với cách sửa nhanh: quy tắc nằm **một chỗ**, test được độc lập, và khi quy tắc đổi (thêm vai trò được xem chéo chẳng hạn) bạn sửa một file thay vì rà cả codebase ([bài 10.6](10.6-resource-based-authorization.mdx)).
 
 Lưu ý thứ tự: **phải nạp tài nguyên trước** rồi mới phân quyền được — đó là lý do không dùng được attribute `[Authorize(Policy = "LeadOwner")]` đặt trên action.
 
-### 10.14.3 — Cái bẫy: 403 làm lộ thông tin
+### 10.13.3 — Cái bẫy: 403 làm lộ thông tin
 
 ```csharp
 if (lead is null) return NotFound();        // 404
@@ -149,7 +149,7 @@ if (!authorized) return NotFound();      // không phân biệt được
 
 Cân bằng thực dụng: dùng `403` cho ứng dụng nội bộ (nơi mọi người dùng đã được tin tưởng ở mức cơ bản) và `404` cho API công khai hoặc dữ liệu nhạy cảm.
 
-### 10.14.4 — Lọc theo tenant: phòng thủ hai lớp
+### 10.13.4 — Lọc theo tenant: phòng thủ hai lớp
 
 Trong hệ multi-tenant, kiểm tra ở tầng ứng dụng **không đủ** — một chỗ quên là rò rỉ dữ liệu giữa các công ty khác nhau.
 
@@ -162,7 +162,7 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
 }
 ```
 
-Giờ `_db.Leads.FindAsync(id)` **không bao giờ** trả về lead của tenant khác, kể cả khi lập trình viên quên kiểm tra. Đây là lớp phòng thủ ở tầng dữ liệu, dưới cả tầng phân quyền ([bài 13.11](../../stage-04-database-production/module-13-entity-framework-core/13.10-global-query-filters.mdx)).
+Giờ `_db.Leads.FindAsync(id)` **không bao giờ** trả về lead của tenant khác, kể cả khi lập trình viên quên kiểm tra. Đây là lớp phòng thủ ở tầng dữ liệu, dưới cả tầng phân quyền ([bài 13.10](../../stage-04-database-production/module-13-entity-framework-core/13.10-global-query-filters.mdx)).
 
 **Hai cái bẫy của global query filter:**
 
@@ -189,7 +189,7 @@ flowchart LR
     P -->|"Có"| U["Update, SaveChangesAsync"]
 ```
 
-### 10.14.5 — Test bắt được lỗ hổng
+### 10.13.5 — Test bắt được lỗ hổng
 
 Test thông thường không phát hiện được vì nó dùng dữ liệu của chính người dùng đang đăng nhập:
 
@@ -218,9 +218,9 @@ public async Task Get_TraVe404_KhiDocLeadCuaTenantKhac()
 }
 ```
 
-**Quy tắc:** mỗi endpoint nhận id từ client cần **ít nhất một** test dùng id của người khác. Đây là loại test dễ viết và bắt được đúng lớp lỗ hổng nghiêm trọng nhất ([bài 16.10](../../stage-05-senior-engineering/module-16-clean-architecture/16.9-testing-strategy-overview.mdx)).
+**Quy tắc:** mỗi endpoint nhận id từ client cần **ít nhất một** test dùng id của người khác. Đây là loại test dễ viết và bắt được đúng lớp lỗ hổng nghiêm trọng nhất ([bài 16.9](../../stage-05-senior-engineering/module-16-clean-architecture/16.9-testing-strategy-overview.mdx)).
 
-### 10.14.6 — Rà lại code của bạn
+### 10.13.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát phân quyền theo tài nguyên"
@@ -441,7 +441,7 @@ grep -rn 'FindAsync\|FirstOrDefaultAsync' --include=*Controller.cs src/ \
 
 Với `if` viết tay, mỗi chỗ một cách viết nên không có mẫu nào để tìm.
 
-**Một điều handler không làm được:** lọc **danh sách**. `IAuthorizationService` nhận một tài nguyên. Với `GET /leads`, bạn cần điều kiện dịch được sang SQL — hai bài toán khác nhau, xem lại [bài 10.7](10.6-resource-based-authorization.mdx).
+**Một điều handler không làm được:** lọc **danh sách**. `IAuthorizationService` nhận một tài nguyên. Với `GET /leads`, bạn cần điều kiện dịch được sang SQL — hai bài toán khác nhau, xem lại [bài 10.6](10.6-resource-based-authorization.mdx).
 
 </details>
 

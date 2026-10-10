@@ -25,7 +25,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 11.10.1 — Vì sao trong bộ nhớ không đủ
+### 11.9.1 — Vì sao trong bộ nhớ không đủ
 
 ```csharp
 private static readonly ConcurrentDictionary<string, HashSet<string>> _connections = new();
@@ -39,9 +39,9 @@ Hai vấn đề, và cả hai đều nghiêm trọng:
 
 Lỗi thứ hai xảy ra cả khi bạn **chỉ có một instance**, nên đây không chỉ là vấn đề của scale.
 
-Ngoài ra, `HashSet<string>` trong `ConcurrentDictionary` **không thread-safe** — `ConcurrentDictionary` bảo vệ chính nó, không bảo vệ giá trị bên trong. Hai kết nối cùng lúc của một người có thể làm hỏng `HashSet` ([bài 6.8](../../stage-02-csharp-professional/module-06-async-programming/6.7-common-pitfalls.mdx)).
+Ngoài ra, `HashSet<string>` trong `ConcurrentDictionary` **không thread-safe** — `ConcurrentDictionary` bảo vệ chính nó, không bảo vệ giá trị bên trong. Hai kết nối cùng lúc của một người có thể làm hỏng `HashSet` ([bài 6.7](../../stage-02-csharp-professional/module-06-async-programming/6.7-common-pitfalls.mdx)).
 
-### 11.10.2 — Redis với TTL
+### 11.9.2 — Redis với TTL
 
 Ý tưởng: mỗi kết nối là một khoá **tự hết hạn**, được gia hạn định kỳ. Server chết thì khoá tự biến mất — không cần ai dọn.
 
@@ -109,9 +109,9 @@ Cấu trúc hai tầng — một khoá cho mỗi kết nối, một `Set` cho m�
 
 **TTL là lưới an toàn**, không phải cơ chế chính. `OnDisconnectedAsync` vẫn dọn ngay khi đóng bình thường; TTL chỉ bắt những trường hợp nó không chạy.
 
-Chọn TTL: phải **dài hơn** chu kỳ heartbeat đủ để chịu được một vài nhịp bị mất. Heartbeat 30 giây với TTL 90 giây cho phép mất 2 nhịp — cùng nguyên tắc với `KeepAliveInterval` và `ClientTimeoutInterval` ([bài 11.3](11.2-signalr-architecture.mdx)).
+Chọn TTL: phải **dài hơn** chu kỳ heartbeat đủ để chịu được một vài nhịp bị mất. Heartbeat 30 giây với TTL 90 giây cho phép mất 2 nhịp — cùng nguyên tắc với `KeepAliveInterval` và `ClientTimeoutInterval` ([bài 11.2](11.2-signalr-architecture.mdx)).
 
-### 11.10.3 — Heartbeat
+### 11.9.3 — Heartbeat
 
 ```csharp
 public sealed class PresenceHeartbeatWorker(
@@ -142,7 +142,7 @@ Instance **tự gia hạn** cho những kết nối nó đang giữ. Instance ch
 
 <small>File gốc: [nền sáng](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-03-aspnet-core-backend-module-11-signalr-presence-online-offline-status/vi/presence-redis-ttl.html) · [nền tối](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-03-aspnet-core-backend-module-11-signalr-presence-online-offline-status/vi/presence-redis-ttl-dark.html)</small>
 
-### 11.10.4 — Một người, nhiều kết nối
+### 11.9.4 — Một người, nhiều kết nối
 
 ```csharp
 public override async Task OnConnectedAsync()
@@ -177,7 +177,7 @@ Không có hai lần kiểm tra này, người dùng mở 3 tab sẽ tạo **3 s
 
 Vẫn còn một race condition: hai tab đóng gần như đồng thời, cả hai cùng thấy "không còn kết nối nào" và cùng phát sự kiện offline. Với presence thì hai sự kiện trùng nhau vô hại, nhưng nếu nó kích hoạt một tác dụng phụ (gửi email "người dùng đã offline") thì cần khử trùng.
 
-### 11.10.5 — Bão sự kiện khi deploy
+### 11.9.5 — Bão sự kiện khi deploy
 
 Mỗi lần triển khai, **mọi** kết nối đứt và kết nối lại. Với 5.000 người dùng:
 
@@ -211,7 +211,7 @@ await Clients.Group(tenantGroup).PresenceBatchChanged(changes);
 
 Với nhóm lớn, cách 2 giảm số lần qua backplane từ hàng nghìn xuống vài chục.
 
-### 11.10.6 — Độ chính xác bạn thật sự cần
+### 11.9.6 — Độ chính xác bạn thật sự cần
 
 | Yêu cầu | Cách làm |
 |---|---|
@@ -224,7 +224,7 @@ Hàng thứ hai quan trọng: presence **không đủ tin cậy** cho bất cứ
 
 Với "hoạt động lần cuối", cập nhật một cột trong database **theo lô** (mỗi 5 phút) rẻ hơn nhiều so với giữ presence thời gian thực, và đủ chính xác cho mục đích hiển thị.
 
-### 11.10.7 — Rà lại code của bạn
+### 11.9.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát presence"
@@ -347,7 +347,7 @@ while (await timer.WaitForNextTickAsync(ct))
 
 #### Bài 2 — Ba tab, một người, và những sự kiện thừa
 
-Mở 3 tab, đóng một tab, và đếm số sự kiện `UserPresenceChanged` mà các client khác nhận. Thêm hai lần kiểm tra ở mục 11.10.4 và kiểm chứng lại.
+Mở 3 tab, đóng một tab, và đếm số sự kiện `UserPresenceChanged` mà các client khác nhận. Thêm hai lần kiểm tra ở mục 11.9.4 và kiểm chứng lại.
 
 **Tiêu chí hoàn thành:** bạn nêu được **hai** điều kiện phải kiểm, và vì sao thiếu một trong hai là sai.
 

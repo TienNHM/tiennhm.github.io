@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 12.11.1 — Sự cố
+### 12.10.1 — Sự cố
 
 ```
 Giờ cao điểm (9h-11h, 14h-16h):
@@ -66,7 +66,7 @@ t=3   B chờ khoá X  (A đang giữ)
 
 Cả hai giao dịch đều đúng về mặt logic. Vấn đề nằm ở **thứ tự** khoá được lấy.
 
-### 12.11.2 — Đọc deadlock graph
+### 12.10.2 — Đọc deadlock graph
 
 Log ứng dụng chỉ nói "deadlock xảy ra" — không nói giữa câu lệnh nào. Deadlock graph của SQL Server thì có.
 
@@ -117,9 +117,9 @@ Ba phần quan trọng trong graph:
 | `inputbuf` của từng process | **Câu lệnh cụ thể** — thông tin quan trọng nhất |
 | `resource-list` | Tài nguyên nào bị tranh chấp và theo kiểu khoá gì |
 
-Thấy **cùng một câu lệnh** trong cả hai process là dấu hiệu dứt khoát của deadlock do thứ tự khoá ([bài 12.7](12.6-transactions-and-locking.mdx)).
+Thấy **cùng một câu lệnh** trong cả hai process là dấu hiệu dứt khoát của deadlock do thứ tự khoá ([bài 12.6](12.6-transactions-and-locking.mdx)).
 
-### 12.11.3 — Cách sửa 1: sắp xếp thứ tự khoá
+### 12.10.3 — Cách sửa 1: sắp xếp thứ tự khoá
 
 Cách rẻ nhất và hiệu quả nhất: **luôn khoá theo một thứ tự nhất quán**.
 
@@ -160,7 +160,7 @@ Thay đổi thứ hai cũng quan trọng: gộp thành **một** `SaveChangesAsy
 
 **Nguyên tắc tổng quát:** mọi giao dịch chạm nhiều bản ghi nên truy cập chúng theo **cùng một thứ tự** — thường là theo khoá chính.
 
-### 12.11.4 — Cách sửa 2: rút ngắn giao dịch
+### 12.10.4 — Cách sửa 2: rút ngắn giao dịch
 
 Deadlock cần hai giao dịch **chồng lấn về thời gian**. Giao dịch càng ngắn, xác suất càng thấp.
 
@@ -190,7 +190,7 @@ await tx.CommitAsync(ct);
 
 Một giao dịch giữ khoá 200ms thay vì 5ms làm xác suất deadlock tăng **40 lần**.
 
-### 12.11.5 — Cách sửa 3: retry
+### 12.10.5 — Cách sửa 3: retry
 
 Kể cả sau hai cách trên, deadlock vẫn có thể xảy ra ở mức thấp. Đây là loại lỗi **đáng retry** vì lần chạy sau thường không trùng thời điểm với giao dịch kia:
 
@@ -215,11 +215,11 @@ await strategy.ExecuteAsync(async () =>
 });
 ```
 
-Không có `CreateExecutionStrategy`, EF Core sẽ ném exception khi bạn dùng transaction tường minh cùng retry — đó là cách nó báo cho bạn biết cấu hình chưa đúng ([bài 13.9](../module-13-entity-framework-core/13.8-concurrency-control.mdx)).
+Không có `CreateExecutionStrategy`, EF Core sẽ ném exception khi bạn dùng transaction tường minh cùng retry — đó là cách nó báo cho bạn biết cấu hình chưa đúng ([bài 13.8](../module-13-entity-framework-core/13.8-concurrency-control.mdx)).
 
 **Retry là lớp cuối, không phải lớp đầu.** Nếu bạn cần retry cho 40 deadlock mỗi giờ, vấn đề gốc chưa được sửa.
 
-### 12.11.6 — Kết quả và giám sát
+### 12.10.6 — Kết quả và giám sát
 
 | Thay đổi | Deadlock mỗi giờ |
 |---|---|
@@ -240,7 +240,7 @@ WHERE counter_name = 'Number of Deadlocks/sec'
 
 Đặt cảnh báo trên **xu hướng**, không trên giá trị tuyệt đối: vài deadlock mỗi ngày là bình thường trong hệ có tải cao; tăng đột ngột thì không.
 
-### 12.11.7 — Rà lại code của bạn
+### 12.10.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát deadlock"

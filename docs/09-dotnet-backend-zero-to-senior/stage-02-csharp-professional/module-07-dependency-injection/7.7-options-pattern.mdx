@@ -25,7 +25,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 7.8.1 — Vấn đề với `IConfiguration` trực tiếp
+### 7.7.1 — Vấn đề với `IConfiguration` trực tiếp
 
 ```csharp
 public class EmailService(IConfiguration config)
@@ -40,7 +40,7 @@ public class EmailService(IConfiguration config)
 
 Bốn vấn đề: gõ sai khoá thì nhận `null` chứ không phải lỗi biên dịch; mọi giá trị đều là `string` nên phải tự ép kiểu; không có cách nào biết cấu hình đủ hay chưa cho tới khi code chạy tới; và unit test phải dựng một `IConfiguration` giả.
 
-### 7.8.2 — Bind vào POCO
+### 7.7.2 — Bind vào POCO
 
 ```json
 {
@@ -81,7 +81,7 @@ services.AddOptions<EmailSettings>()
 
 <small>File gốc: [nền sáng](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-02-csharp-professional-module-07-dependency-injection-7.7-options-pattern/vi/options-pattern-flow.html) · [nền tối](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-02-csharp-professional-module-07-dependency-injection-7.7-options-pattern/vi/options-pattern-flow-dark.html)</small>
 
-### 7.8.3 — Ba interface
+### 7.7.3 — Ba interface
 
 | | Lifetime | Đọc lại khi file đổi | Tiêm được vào |
 |---|---|---|---|
@@ -120,7 +120,7 @@ Quy tắc chọn:
 - Cần đổi mà **không restart**, dùng trong service scoped (feature flag, thuế suất) → `IOptionsSnapshot<T>`.
 - Cần đổi mà không restart, nhưng service là **Singleton** → `IOptionsMonitor<T>`.
 
-Tiêm `IOptionsSnapshot<T>` vào một Singleton là **captive dependency** ([bài 7.5](7.4-service-lifetimes.mdx)) — nó bị giam và không bao giờ đọc lại nữa, im lặng.
+Tiêm `IOptionsSnapshot<T>` vào một Singleton là **captive dependency** ([bài 7.4](7.4-service-lifetimes.mdx)) — nó bị giam và không bao giờ đọc lại nữa, im lặng.
 
 **Một bẫy nhỏ với `OnChange`:**
 
@@ -130,7 +130,7 @@ monitor.OnChange(s => _logger.LogInformation("Config doi: {Host}", s.Host));
 
 `OnChange` thường **bắn hai lần** cho một lần sửa file, vì nhiều trình soạn thảo ghi file theo hai bước. Nếu callback có tác dụng phụ (kết nối lại, xoá cache), hãy tự chống trùng. Và `OnChange` trả về một `IDisposable` — không giữ và huỷ nó thì callback sống mãi.
 
-### 7.8.4 — Validation phức tạp
+### 7.7.4 — Validation phức tạp
 
 `ValidateDataAnnotations()` chỉ kiểm tra từng thuộc tính. Với luật liên quan nhiều thuộc tính:
 
@@ -159,7 +159,7 @@ public sealed class EmailSettingsValidator(IDnsChecker dns) : IValidateOptions<E
 services.AddSingleton<IValidateOptions<EmailSettings>, EmailSettingsValidator>();
 ```
 
-Đây cũng là câu trả lời cho vấn đề ở [bài 7.7](7.6-program-cs-and-webapplicationbuilder.mdx): cần một service để cấu hình một service khác mà **không** gọi `BuildServiceProvider()`. `IConfigureOptions<T>` làm điều tương tự cho việc thiết lập giá trị:
+Đây cũng là câu trả lời cho vấn đề ở [bài 7.6](7.6-program-cs-and-webapplicationbuilder.mdx): cần một service để cấu hình một service khác mà **không** gọi `BuildServiceProvider()`. `IConfigureOptions<T>` làm điều tương tự cho việc thiết lập giá trị:
 
 ```csharp
 public sealed class ConfigureEmailSettings(ITenantContext tenant) : IConfigureOptions<EmailSettings>
@@ -168,7 +168,7 @@ public sealed class ConfigureEmailSettings(ITenantContext tenant) : IConfigureOp
 }
 ```
 
-### 7.8.5 — Named options
+### 7.7.5 — Named options
 
 Khi cần **nhiều cấu hình cùng một kiểu**:
 
@@ -190,7 +190,7 @@ public class ReportService(IOptionsMonitor<ApiClientSettings> monitor)
 
 Chỉ `IOptionsSnapshot<T>` và `IOptionsMonitor<T>` có `Get(name)`; `IOptions<T>` thì không.
 
-### 7.8.6 — Secret không nằm trong `appsettings.json`
+### 7.7.6 — Secret không nằm trong `appsettings.json`
 
 `appsettings.json` **nằm trong Git**. Mật khẩu, API key và connection string có thông tin đăng nhập không được để ở đó.
 
@@ -204,7 +204,7 @@ Trên production dùng biến môi trường (`EmailSettings__Password`, hai d�
 
 Xem [Module 15 — Docker và Deployment](../../stage-04-database-production/module-15-docker-deployment/) về cách truyền secret vào container.
 
-### 7.8.7 — Rà lại code của bạn
+### 7.7.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát Options Pattern"
@@ -336,7 +336,7 @@ Tiêm `IOptionsSnapshot<T>` vào một `Singleton`, sửa `appsettings.json` khi
 <details>
 <summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
 
-**Gợi ý.** `IOptionsSnapshot<T>` được đăng ký là **`Scoped`**. Tiêm một `Scoped` vào một `Singleton` chính là captive dependency ở [bài 7.5](7.4-service-lifetimes.mdx).
+**Gợi ý.** `IOptionsSnapshot<T>` được đăng ký là **`Scoped`**. Tiêm một `Scoped` vào một `Singleton` chính là captive dependency ở [bài 7.4](7.4-service-lifetimes.mdx).
 
 **Lời giải.**
 
@@ -499,9 +499,9 @@ opts.OnChange(o => _cache.Set("smtp-host", o.Host));    // chạy mấy lần c�
 
 **Ba điều bắt buộc khi dùng `OnChange`:**
 
-1. **Giữ và giải phóng đăng ký.** `OnChange` trả về một `IDisposable`; bỏ nó đi là rò rỉ, đúng kiểu rò rỉ event ở [bài 5.5](../module-05-advanced-csharp/5.4-delegates-and-events.mdx).
+1. **Giữ và giải phóng đăng ký.** `OnChange` trả về một `IDisposable`; bỏ nó đi là rò rỉ, đúng kiểu rò rỉ event ở [bài 5.4](../module-05-advanced-csharp/5.4-delegates-and-events.mdx).
 2. **Không ném ngoại lệ trong callback.** Ngoại lệ ở đó có thể làm sập tiến trình, vì nó chạy trên luồng của `FileSystemWatcher` chứ không trong ngữ cảnh request.
-3. **Không làm việc nặng hoặc chờ lâu.** Callback chạy đồng bộ; việc nặng nên được đẩy sang một hàng đợi như [bài 6.9](../module-06-async-programming/6.8-channels-and-producer-consumer.mdx) mô tả.
+3. **Không làm việc nặng hoặc chờ lâu.** Callback chạy đồng bộ; việc nặng nên được đẩy sang một hàng đợi như [bài 6.8](../module-06-async-programming/6.8-channels-and-producer-consumer.mdx) mô tả.
 
 **Cân nhắc tắt hẳn việc theo dõi file.** Trong môi trường container, cấu hình đổi thường đi kèm với việc triển khai lại pod, nên theo dõi file không có ích mà chỉ thêm rủi ro:
 

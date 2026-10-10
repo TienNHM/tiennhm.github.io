@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 18.13.1 — Sự cố
+### 18.12.1 — Sự cố
 
 ```
 14:02:10  Database chuyển dự phòng, mọi truy vấn chậm ~12 giây
@@ -58,7 +58,7 @@ builder.Services.AddHealthChecks()
 app.MapHealthChecks("/health");
 ```
 
-### 18.13.2 — Vì sao sai
+### 18.12.2 — Vì sao sai
 
 | Probe | Trả lời câu hỏi | Hành động khi thất bại |
 |---|---|---|
@@ -72,7 +72,7 @@ Khởi động lại một pod **không sửa được** database chậm — pod
 
 Ngược lại, gỡ pod khỏi load balancer **là** phản ứng đúng khi phụ thuộc chết — request sẽ đi tới pod khác (nếu có), hoặc ít nhất người dùng nhận lỗi nhanh thay vì đợi timeout.
 
-### 18.13.3 — Cấu hình đúng
+### 18.12.3 — Cấu hình đúng
 
 ```csharp
 builder.Services.AddHealthChecks()
@@ -121,7 +121,7 @@ Với cấu hình này, cùng sự cố database chậm 12 giây sẽ diễn ra 
 
 `startupProbe` giải quyết một vấn đề riêng: ứng dụng .NET khởi động chậm (JIT, dựng EF Core model, chạy migration). Không có nó, bạn buộc phải đặt `initialDelaySeconds` lớn cho liveness — và khi đó pod thật sự chết sẽ mất rất lâu mới được phát hiện.
 
-### 18.13.4 — Lỗi phổ biến thứ hai
+### 18.12.4 — Lỗi phổ biến thứ hai
 
 ```csharp
 // SAI — readiness check chay truy van nang
@@ -145,7 +145,7 @@ Health check chạy **mỗi 5 giây trên mỗi pod**. Với 12 pod, đó là 14
 
 Health check phải **rẻ**. Mục đích là biết kết nối còn dùng được, không phải xác nhận dữ liệu đúng.
 
-### 18.13.5 — Tự kiểm tra trong vài phút
+### 18.12.5 — Tự kiểm tra trong vài phút
 
 **1. Liveness có chạm hệ thống ngoài không?**
 
@@ -175,7 +175,7 @@ time curl -s http://localhost:8080/health/ready
 
 Trên 100ms là dấu hiệu có truy vấn nặng bên trong.
 
-### 18.13.6 — Rà lại code của bạn
+### 18.12.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát health check"

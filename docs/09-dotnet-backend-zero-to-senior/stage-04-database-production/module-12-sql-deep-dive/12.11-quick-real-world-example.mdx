@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 12.12.1 — Nguyên tắc chung
+### 12.11.1 — Nguyên tắc chung
 
 ```
 Index là một cấu trúc ĐÃ SẮP XẾP theo giá trị cột.
@@ -36,7 +36,7 @@ sẽ rơi vào vị trí nào trong index -> phải tính hàm cho MỌI HÀNG
 
 Nguyên tắc: **cột phải đứng một mình ở một vế của phép so sánh**, ở dạng nguyên bản.
 
-### 12.12.2 — Cách 1: bọc cột trong hàm
+### 12.11.2 — Cách 1: bọc cột trong hàm
 
 ```sql
 -- KHÔNG dùng index trên CreatedAt
@@ -54,7 +54,7 @@ Mẫu chung để viết lại: đổi từ "hàm của cột bằng giá trị"
 
 Với ngày tháng, dùng `>= đầu khoảng AND < đầu khoảng tiếp theo` — tránh `BETWEEN` với thời gian vì nó bao gồm cả mốc cuối, dễ sai khi cột có phần giờ phút.
 
-### 12.12.3 — Cách 2: ép kiểu ngầm (nguy hiểm nhất)
+### 12.11.3 — Cách 2: ép kiểu ngầm (nguy hiểm nhất)
 
 ```sql
 -- Cột CustomerCode là VARCHAR(20), tham số là NVARCHAR
@@ -86,7 +86,7 @@ b.Property(c => c.CustomerCode).HasColumnType("varchar(20)");
 
 **Cách phát hiện:** tìm `CONVERT_IMPLICIT` trong execution plan. Mỗi lần thấy nó áp lên một cột là một index bị vô hiệu hoá.
 
-### 12.12.4 — Cách 3: wildcard ở đầu chuỗi
+### 12.11.4 — Cách 3: wildcard ở đầu chuỗi
 
 ```sql
 -- KHÔNG dùng index — không biết bắt đầu tìm từ đâu
@@ -100,7 +100,7 @@ Index sắp xếp theo thứ tự chuỗi, nên biết tiền tố là biết b�
 
 Khi nghiệp vụ **bắt buộc** tìm giữa chuỗi, có ba lựa chọn: full-text index của database, một search engine riêng, hoặc chấp nhận quét nếu bảng nhỏ ([bài 19.9](../../stage-05-senior-engineering/module-19-performance-engineering/19.9-crm-context.mdx)).
 
-### 12.12.5 — Cách 4: OR giữa các cột khác nhau
+### 12.11.5 — Cách 4: OR giữa các cột khác nhau
 
 ```sql
 -- Khó dùng index — mỗi nhánh cần index khác nhau
@@ -124,7 +124,7 @@ SELECT * FROM Leads WHERE Status = 'New' OR Status = 'Contacted';
 SELECT * FROM Leads WHERE Status IN ('New', 'Contacted');      -- tương đương
 ```
 
-### 12.12.6 — Cách 5: thứ tự cột sai trong index ghép
+### 12.11.6 — Cách 5: thứ tự cột sai trong index ghép
 
 ```sql
 CREATE INDEX IX_Leads_Tenant_Status ON Leads (TenantId, Status);
@@ -145,7 +145,7 @@ Nguyên tắc **leftmost prefix**: index `(A, B, C)` dùng được cho truy v�
 
 Hệ quả thực tế: thứ tự cột trong index là **quyết định thiết kế**, không phải chuyện tuỳ ý. Đặt cột được lọc bằng `=` lên trước, cột dùng để sắp xếp sau ([bài 12.4](12.4-indexing.mdx)).
 
-### 12.12.7 — Kiểm chứng bằng logical reads
+### 12.11.7 — Kiểm chứng bằng logical reads
 
 Đừng đoán — đo.
 
@@ -178,7 +178,7 @@ var leads = await _db.Leads.Where(l => l.CreatedAt >= dau && l.CreatedAt < cuoi)
 
 `ToQueryString()` là công cụ nhanh nhất để thấy EF Core đã dịch LINQ của bạn thành gì — nhiều biểu thức trông vô hại lại sinh ra hàm trên cột.
 
-### 12.12.8 — Rà lại code của bạn
+### 12.11.8 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát index bị vô hiệu hoá"

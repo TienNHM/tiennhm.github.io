@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 7.6.1 — Đăng ký cơ bản
+### 7.5.1 — Đăng ký cơ bản
 
 ```csharp
 // Interface + implementation — 90% truong hop
@@ -43,7 +43,7 @@ Dòng cuối có một điểm dễ bỏ sót: khi bạn đưa vào một instan
 
 `AddScoped<CustomerService>()` không cần interface — container dựng được mọi lớp cụ thể miễn là giải được constructor. Đừng tạo interface chỉ để có interface: nếu một interface chỉ có đúng một implementation và bạn không mock nó trong test, nó chỉ là một lớp gián tiếp thừa.
 
-### 7.6.2 — Factory registration và cái bẫy trong đó
+### 7.5.2 — Factory registration và cái bẫy trong đó
 
 ```csharp
 services.AddSingleton<IEmailService>(sp =>
@@ -65,7 +65,7 @@ services.AddSingleton<IReportService>(sp =>
 });
 ```
 
-`sp` trong factory là provider của scope đang xin. Với `Singleton`, lần xin đầu tiên có thể đến từ một request, nên bạn lấy được một `Scoped` thật — và giam nó vĩnh viễn ([bài 7.5](7.4-service-lifetimes.mdx)).
+`sp` trong factory là provider của scope đang xin. Với `Singleton`, lần xin đầu tiên có thể đến từ một request, nên bạn lấy được một `Scoped` thật — và giam nó vĩnh viễn ([bài 7.4](7.4-service-lifetimes.mdx)).
 
 Nguy hiểm hơn constructor injection ở chỗ: `ValidateScopes` **bắt được** captive dependency qua constructor, nhưng **không bắt được** qua factory, vì nó không nhìn vào bên trong lambda.
 
@@ -77,7 +77,7 @@ services.AddSingleton<IReportService>(sp =>
 
 Quy tắc: **trong factory của một `Singleton`, chỉ resolve `Singleton`.**
 
-### 7.6.3 — Open generic
+### 7.5.3 — Open generic
 
 ```csharp
 services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
@@ -94,7 +94,7 @@ services.AddScoped<IRepository<Customer>, CachedCustomerRepository>();  // rieng
 
 Hai giới hạn: không dùng được với generic có ràng buộc mà container không kiểm tra được, và không có cú pháp generic cho nó — phải viết `typeof`.
 
-### 7.6.4 — Nhiều implementation cho một interface
+### 7.5.4 — Nhiều implementation cho một interface
 
 Đây là **tính năng**, không phải xung đột:
 
@@ -118,9 +118,9 @@ public class CustomerService(IEnumerable<IValidator<Customer>> validators)
 
 Thêm một luật kiểm tra mới = thêm một dòng đăng ký, **không sửa `CustomerService`**. Đây chính là Open/Closed trong thực tế.
 
-Nhớ hai điều từ [bài 7.3](7.2-ioc-container-and-di-container.mdx): `GetRequiredService<IValidator<Customer>>()` chỉ trả về cái **cuối cùng**, còn `IEnumerable<>` trả về **tất cả** theo thứ tự đăng ký.
+Nhớ hai điều từ [bài 7.2](7.2-ioc-container-and-di-container.mdx): `GetRequiredService<IValidator<Customer>>()` chỉ trả về cái **cuối cùng**, còn `IEnumerable<>` trả về **tất cả** theo thứ tự đăng ký.
 
-### 7.6.5 — `TryAdd` và `Replace`
+### 7.5.5 — `TryAdd` và `Replace`
 
 ```csharp
 services.TryAddScoped<IEmailService, SmtpEmailService>();            // chỉ thêm nếu chưa có
@@ -134,7 +134,7 @@ services.Replace(ServiceDescriptor.Scoped<IEmailService, FakeEmailService>()); /
 - **`TryAddEnumerable`**: khi một `AddXxx()` bị gọi hai lần, `Add` thường sẽ nhân đôi và validator chạy hai lần. `TryAddEnumerable` so cả `ServiceType` lẫn `ImplementationType` nên không trùng.
 - **`Replace`**: rất hữu ích trong integration test để thay hạ tầng thật bằng fake.
 
-### 7.6.6 — Decorator bằng container .NET thuần
+### 7.5.6 — Decorator bằng container .NET thuần
 
 Container .NET không có decorator sẵn, nhưng làm được bằng factory:
 
@@ -163,7 +163,7 @@ services.AddScoped<ICustomerRepository, EfCustomerRepository>();
 services.Decorate<ICustomerRepository, CachedCustomerRepository>();
 ```
 
-### 7.6.7 — Tóm tắt
+### 7.5.7 — Tóm tắt
 
 | Dạng | Khi dùng |
 |---|---|
@@ -175,7 +175,7 @@ services.Decorate<ICustomerRepository, CachedCustomerRepository>();
 | `TryAdd` / `TryAddEnumerable` | Trong thư viện, để không đè lựa chọn của ứng dụng |
 | `Replace` | Integration test |
 
-### 7.6.8 — Rà lại code của bạn
+### 7.5.8 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát đăng ký service"
@@ -252,7 +252,7 @@ Với factory, thứ được đăng ký chỉ là một **delegate**. Container
 
 **Ý nghĩa với code review và vận hành:**
 
-- **Constructor injection an toàn hơn** không chỉ vì rõ ràng hơn, mà vì nó **kiểm chứng được tự động**. Đây là một lý do nữa để ưu tiên nó, bên cạnh các lý do ở [bài 7.4](7.3-three-ways-register-services.mdx).
+- **Constructor injection an toàn hơn** không chỉ vì rõ ràng hơn, mà vì nó **kiểm chứng được tự động**. Đây là một lý do nữa để ưu tiên nó, bên cạnh các lý do ở [bài 7.3](7.3-three-ways-register-services.mdx).
 - **Factory là điểm mù.** Ứng dụng khởi động bình thường, và lỗi chỉ xuất hiện khi có request đầu tiên chạm tới đường dẫn đó. Nếu đó là một tính năng ít dùng, có thể mất nhiều ngày.
 - **Vì vậy factory phải được rà bằng mắt.** Mỗi `sp.GetRequiredService<T>()` bên trong một đăng ký `AddSingleton` là một chỗ cần kiểm tra vòng đời của `T`.
 

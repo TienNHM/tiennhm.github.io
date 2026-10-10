@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 5.6.1 — Cú pháp và bản chất
+### 5.5.1 — Cú pháp và bản chất
 
 ```csharp
 public static class StringExtensions          // phải static
@@ -46,7 +46,7 @@ Ba điều kiện bắt buộc: class phải `static`, phương thức phải `s
 
 Điểm cuối cùng — **nó chỉ là đường cú pháp** — giải thích mọi hành vi còn lại của extension method.
 
-### 5.6.2 — Độ ưu tiên: class luôn thắng
+### 5.5.2 — Độ ưu tiên: class luôn thắng
 
 ```csharp
 public class Order
@@ -80,7 +80,7 @@ flowchart TD
     D -- "Không có" --> G["Lỗi không tìm thấy phương thức"]
 ```
 
-### 5.6.3 — Gọi được trên `null`
+### 5.5.3 — Gọi được trên `null`
 
 ```csharp
 public static bool IsEmpty(this string? s) => string.IsNullOrEmpty(s);
@@ -104,7 +104,7 @@ name.Normalize();      // NỔ, nhưng nổ BÊN TRONG extension chứ không ph
 
 Quy tắc: nếu extension có thể nhận `null`, hãy khai tham số là `string?` và xử lý tường minh. Nếu không, khai `string` và thêm `ArgumentNullException.ThrowIfNull` ở đầu để lỗi chỉ đúng chỗ.
 
-### 5.6.4 — LINQ là extension method
+### 5.5.4 — LINQ là extension method
 
 ```csharp
 // Toàn bộ LINQ nằm trong System.Linq.Enumerable
@@ -115,7 +115,7 @@ public static IEnumerable<T> Where<T>(this IEnumerable<T> source, Func<T, bool> 
 
 Và đây cũng là lý do LINQ hoạt động với **mọi** thứ cài đặt `IEnumerable<T>` — kể cả kiểu do bạn viết, mà không cần Microsoft biết trước về nó. Đó chính là bài toán extension method sinh ra để giải: **mở rộng một interface đã phát hành mà không sửa nó**.
 
-### 5.6.5 — Nơi extension toả sáng trong ASP.NET Core
+### 5.5.5 — Nơi extension toả sáng trong ASP.NET Core
 
 ```csharp
 // Không có extension — Program.cs phình ra hàng trăm dòng
@@ -146,7 +146,7 @@ public static class InfrastructureServiceCollectionExtensions
 
 Hai chi tiết đáng chú ý: **trả về chính đối tượng** để nối chuỗi được, và đặt lớp extension **trong cùng project với thứ nó đăng ký** — nhờ vậy `Program.cs` không cần biết `SqlOrderRepository` tồn tại, đúng tinh thần `internal` ở [bài 4.7](/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-04-csharp-core/4.6-access-modifiers).
 
-### 5.6.6 — Ba dấu hiệu lạm dụng
+### 5.5.6 — Ba dấu hiệu lạm dụng
 
 **1. Extension cho kiểu bạn sở hữu.**
 
@@ -176,7 +176,7 @@ Mọi file trong solution tự động thấy chúng, kể cả nơi không cầ
 
 Phép thử đơn giản: *"Người đọc code này có đoán được phương thức đó đến từ đâu không?"* Nếu không, extension đang gây hại nhiều hơn giúp.
 
-### 5.6.7 — Rà lại code của bạn
+### 5.5.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát extension method"
@@ -327,7 +327,7 @@ if (customer.Note.HasValue())
 }
 ```
 
-Đây là cách **dạy trình biên dịch** hiểu hàm của bạn, chủ đề chính của [bài 5.7](5.6-nullable-reference-types.mdx).
+Đây là cách **dạy trình biên dịch** hiểu hàm của bạn, chủ đề chính của [bài 5.6](5.6-nullable-reference-types.mdx).
 
 **Một lưu ý khi bật Nullable Reference Types.** Extension nhận `string` (không có dấu chấm hỏi) mà bị gọi trên một biến `string?` sẽ nhận cảnh báo `CS8604`. Đó là điều tốt — cảnh báo đúng chỗ. Đừng dập nó bằng toán tử `!`; hãy đổi tham số thành `string?` nếu hàm thật sự xử lý được `null`, hoặc kiểm tra `null` trước khi gọi.
 
@@ -408,11 +408,11 @@ public static class InfrastructureServiceCollectionExtensions
 
 **94 xuống 18 dòng.** Nhưng lợi ích kiến trúc mới là phần chính:
 
-1. **Mỗi dự án tự khai báo cách đăng ký của nó.** Thêm một repository vào `Crm.Infrastructure` chỉ cần sửa file trong chính dự án đó — `Program.cs` và các dự án khác không đụng tới. Đây cũng là cách để dự án hạ tầng **không lộ** các lớp cài đặt ra ngoài, đúng như [bài 4.7](../module-04-csharp-core/4.6-access-modifiers.mdx) đã nêu: chúng có thể là `internal`, chỉ extension method là `public`.
+1. **Mỗi dự án tự khai báo cách đăng ký của nó.** Thêm một repository vào `Crm.Infrastructure` chỉ cần sửa file trong chính dự án đó — `Program.cs` và các dự án khác không đụng tới. Đây cũng là cách để dự án hạ tầng **không lộ** các lớp cài đặt ra ngoài, đúng như [bài 4.6](../module-04-csharp-core/4.6-access-modifiers.mdx) đã nêu: chúng có thể là `internal`, chỉ extension method là `public`.
 
 2. **`Program.cs` thành bản đồ hệ thống.** Đọc 18 dòng là biết ứng dụng gồm những phần nào. Đọc 94 dòng đăng ký thì không.
 
-3. **Giảm xung đột Git.** Với `Program.cs` dài, mọi người thêm dịch vụ đều sửa cùng một file, nên xung đột liên tục — đúng vấn đề ở [bài 3.8](../../stage-01-foundation/module-03-git-developer-workflow/3.7-git-conflicts.mdx). Tách ra thì mỗi người sửa file của tầng mình.
+3. **Giảm xung đột Git.** Với `Program.cs` dài, mọi người thêm dịch vụ đều sửa cùng một file, nên xung đột liên tục — đúng vấn đề ở [bài 3.7](../../stage-01-foundation/module-03-git-developer-workflow/3.7-git-conflicts.mdx). Tách ra thì mỗi người sửa file của tầng mình.
 
 **Hai quy ước nên theo:**
 
@@ -434,7 +434,7 @@ public static WebApplication UseCrmPipeline(this WebApplication app)
 }
 ```
 
-Lưu ý ở đây thứ tự **vẫn quan trọng** như [bài 8.3](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.2-request-pipeline-and-middleware.mdx) trình bày — gom vào extension không làm thay đổi điều đó, chỉ đưa nó vào một chỗ duy nhất để dễ rà soát và ghi chú lý do.
+Lưu ý ở đây thứ tự **vẫn quan trọng** như [bài 8.2](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.2-request-pipeline-and-middleware.mdx) trình bày — gom vào extension không làm thay đổi điều đó, chỉ đưa nó vào một chỗ duy nhất để dễ rà soát và ghi chú lý do.
 
 </details>
 

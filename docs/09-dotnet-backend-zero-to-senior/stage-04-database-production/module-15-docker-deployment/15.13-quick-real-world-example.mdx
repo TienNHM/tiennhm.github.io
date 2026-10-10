@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 15.14.1 — Sự cố
+### 15.13.1 — Sự cố
 
 ```dockerfile
 # Dockerfile — shell form
@@ -65,7 +65,7 @@ docker exec <container> ps aux
 # Neu thay "/bin/sh -c dotnet ..." o PID 1 -> dang dung shell form
 ```
 
-### 15.14.2 — Điều kiện 2: ứng dụng phải xử lý SIGTERM
+### 15.13.2 — Điều kiện 2: ứng dụng phải xử lý SIGTERM
 
 Nhận được tín hiệu là chưa đủ — ứng dụng phải **làm gì đó** với nó.
 
@@ -100,7 +100,7 @@ protected override async Task ExecuteAsync(CancellationToken ct)
 
 Nếu `BackgroundService` bỏ qua `CancellationToken`, nó chạy tới khi bị SIGKILL — và một lô đang xử lý dở có thể để lại dữ liệu nửa vời.
 
-### 15.14.3 — Điều kiện 3: load balancer phải ngừng gửi request trước
+### 15.13.3 — Điều kiện 3: load balancer phải ngừng gửi request trước
 
 Đây là phần tinh vi nhất, và thiếu nó thì hai điều kiện trên vẫn chưa đủ:
 
@@ -126,7 +126,7 @@ lifecycle:
 
 Nghe phản trực giác — cố tình chờ để dừng nhanh hơn — nhưng đó chính là điều làm cho việc dừng **không mất request nào**.
 
-### 15.14.4 — Tổng hợp cấu hình
+### 15.13.4 — Tổng hợp cấu hình
 
 ```yaml
 spec:
@@ -167,7 +167,7 @@ terminationGracePeriodSeconds  >  preStop + ShutdownTimeout
 
 Sai quan hệ này là nguyên nhân phổ biến khiến cấu hình "trông đúng" nhưng vẫn mất request: nếu `terminationGracePeriodSeconds` là 30 và `preStop` là 15, ứng dụng chỉ còn 15 giây để hoàn thành mọi việc.
 
-### 15.14.5 — Kiểm chứng
+### 15.13.5 — Kiểm chứng
 
 ```bash
 # Chay tai lien tuc
@@ -199,7 +199,7 @@ kubectl logs <pod> --previous | grep -i "shutting down\|application stopping"
 
 Nếu log trước khi pod dừng **không có** dòng nào về việc dừng, ứng dụng không nhận được SIGTERM — tức vẫn đang dùng shell form hoặc có một lớp shell ở giữa.
 
-### 15.14.6 — Hai cái bẫy khác
+### 15.13.6 — Hai cái bẫy khác
 
 **Bẫy 1 — script khởi động bọc ngoài:**
 
@@ -238,7 +238,7 @@ lifetime.ApplicationStopping.Register(() =>
 
 `ApplicationStopping` chạy **trước** khi host dừng hẳn — đúng chỗ để đóng kết nối broker, huỷ đăng ký khỏi service discovery, hoặc đẩy nốt dữ liệu đang đệm.
 
-### 15.14.7 — Rà lại code của bạn
+### 15.13.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát dừng mượt"

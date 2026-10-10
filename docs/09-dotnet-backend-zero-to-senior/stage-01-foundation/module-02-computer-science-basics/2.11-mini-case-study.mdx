@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 2.12.1 — Triệu chứng
+### 2.11.1 — Triệu chứng
 
 ```
 Người dùng: "Tôi đăng nhập được, nhưng bấm vào bất kỳ menu nào
@@ -38,7 +38,7 @@ Kiểm tra ban đầu:
 
 Hai thông tin trong phần cuối đã thu hẹp phạm vi rất nhiều: **mọi người dùng** nghĩa là không phải vấn đề tài khoản cá nhân; **mới bắt đầu hôm nay** nghĩa là có gì đó vừa thay đổi.
 
-### 2.12.2 — Năm chặng của một request
+### 2.11.2 — Năm chặng của một request
 
 ```mermaid
 flowchart LR
@@ -51,7 +51,7 @@ flowchart LR
 
 Nguyên tắc: **kiểm tra từ ngoài vào trong**, vì mỗi chặng loại trừ được là bớt một nửa phạm vi tìm kiếm.
 
-### 2.12.3 — Chặng 1 và 2: trình duyệt, DNS, HTTPS
+### 2.11.3 — Chặng 1 và 2: trình duyệt, DNS, HTTPS
 
 Mở DevTools, tab Network, xem request `GET /api/leads`:
 
@@ -67,9 +67,9 @@ Hai kết luận ngay:
 - **DNS và HTTPS không phải vấn đề** — request đã tới server và nhận được phản hồi. Nếu DNS sai, bạn sẽ thấy lỗi `ERR_NAME_NOT_RESOLVED`; nếu chứng chỉ sai, `ERR_CERT_*`.
 - **Frontend có gửi token** — nếu thiếu header `Authorization`, vấn đề nằm ở frontend, không phải backend.
 
-Đây là bước kiểm tra **nhanh nhất** và loại trừ được hai chặng. Luôn bắt đầu từ đây ([bài 2.5](2.4-http-https.mdx)).
+Đây là bước kiểm tra **nhanh nhất** và loại trừ được hai chặng. Luôn bắt đầu từ đây ([bài 2.4](2.4-http-https.mdx)).
 
-### 2.12.4 — Chặng 3: request có tới backend không?
+### 2.11.4 — Chặng 3: request có tới backend không?
 
 ```bash
 # Gửi request trực tiếp, bỏ qua trình duyệt
@@ -89,7 +89,7 @@ Nhưng token vừa được cấp cách đây 30 giây. Nghĩa là thời gian h
 
 `curl` hữu ích ở đây vì nó loại bỏ mọi thứ của trình duyệt: cache, cookie, extension, CORS. Nếu `curl` cho kết quả khác trình duyệt thì vấn đề nằm ở phía trình duyệt.
 
-### 2.12.5 — Chặng 4: backend xử lý thế nào
+### 2.11.5 — Chặng 4: backend xử lý thế nào
 
 ```bash
 # Giai ma phan payload cua JWT (phan giua, ma hoa base64)
@@ -124,7 +124,7 @@ System clock synchronized: no                    <-- KHÔNG đồng bộ
 
 **Nguyên nhân gốc:** dịch vụ NTP bị tắt trong một đợt cập nhật hệ thống đêm qua. Đồng hồ server trôi dần, và tới sáng nay nó lệch đủ để mọi token vừa cấp đã bị coi là hết hạn.
 
-### 2.12.6 — Vì sao lệch đồng hồ gây ra chuyện này
+### 2.11.6 — Vì sao lệch đồng hồ gây ra chuyện này
 
 JWT chứa `exp` là một **mốc thời gian tuyệt đối** (số giây từ 1970). Bên cấp và bên kiểm tra đều so nó với đồng hồ của mình. Nếu hai đồng hồ lệch nhau, kết luận sẽ khác nhau.
 
@@ -147,9 +147,9 @@ timedatectl status | grep synchronized      # xác nhận: yes
 
 Vấn đề biến mất ngay, không cần deploy lại gì.
 
-**Phòng ngừa:** thêm kiểm tra đồng bộ thời gian vào health check, để lần sau hệ thống tự báo thay vì chờ người dùng phát hiện ([bài 18.13](../../stage-05-senior-engineering/module-18-microservices/18.12-quick-real-world-example.mdx)).
+**Phòng ngừa:** thêm kiểm tra đồng bộ thời gian vào health check, để lần sau hệ thống tự báo thay vì chờ người dùng phát hiện ([bài 18.12](../../stage-05-senior-engineering/module-18-microservices/18.12-quick-real-world-example.mdx)).
 
-### 2.12.7 — Bảng công cụ theo chặng
+### 2.11.7 — Bảng công cụ theo chặng
 
 | Chặng | Câu hỏi | Công cụ |
 |---|---|---|
@@ -162,7 +162,7 @@ Vấn đề biến mất ngay, không cần deploy lại gì.
 
 **Thứ tự quan trọng.** Bắt đầu từ chặng gần người dùng nhất và đi vào trong. Nhảy thẳng vào đọc code backend khi chưa biết request có tới đó không là cách tốn thời gian nhất.
 
-### 2.12.8 — Rà lại code của bạn
+### 2.11.8 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát khi chẩn đoán lỗi web"
@@ -208,7 +208,7 @@ Content Download           12,00 ms     <- chặng 5
 Total                     271,81 ms
 ```
 
-**Ánh xạ sang năm chặng ở mục 2.12.2:**
+**Ánh xạ sang năm chặng ở mục 2.11.2:**
 
 | Chặng | Trong DevTools | Thời gian | Tỉ lệ |
 |---|---|---:|---:|
@@ -626,7 +626,7 @@ Cảnh báo này xuất hiện TRƯỚC khi độ lệch vượt ClockSkew
    thay vì lúc mọi người đang không đăng nhập được
 ```
 
-Và đây là ý chung của mục 2.12.6: lệch đồng hồ không gây lỗi từ từ — nó hoạt động hoàn hảo cho tới khi vượt ngưỡng, rồi hỏng hoàn toàn. Một cảnh báo ở ngưỡng thấp hơn là cách duy nhất để thấy nó đang tới.
+Và đây là ý chung của mục 2.11.6: lệch đồng hồ không gây lỗi từ từ — nó hoạt động hoàn hảo cho tới khi vượt ngưỡng, rồi hỏng hoàn toàn. Một cảnh báo ở ngưỡng thấp hơn là cách duy nhất để thấy nó đang tới.
 
 </details>
 

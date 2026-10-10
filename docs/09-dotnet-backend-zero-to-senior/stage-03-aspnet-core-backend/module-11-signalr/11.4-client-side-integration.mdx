@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 11.5.1 — Thiết lập kết nối
+### 11.4.1 — Thiết lập kết nối
 
 ```typescript
 import * as signalR from "@microsoft/signalr";
@@ -66,7 +66,7 @@ Trả về token **đã hết hạn** cho kết quả rất khó chẩn đoán: 
 
 Trả `null` trong `nextRetryDelayInMilliseconds` là **ngừng thử**. Thử mãi mãi khiến tab nền của người dùng gửi request vô tận trong nhiều ngày — nên đặt một trần thời gian.
 
-### 11.5.2 — Nhóm biến mất sau khi kết nối lại
+### 11.4.2 — Nhóm biến mất sau khi kết nối lại
 
 Đây là lỗi phổ biến nhất của SignalR phía client.
 
@@ -82,9 +82,9 @@ this.connection.onreconnected(async connectionId => {
 });
 ```
 
-Kết nối lại tạo `ConnectionId` **mới** ([bài 11.3](11.2-signalr-architecture.mdx)), và nhóm gắn với id cũ. Không join lại thì client **vẫn "đang kết nối"** nhưng **không nhận được gì** từ nhóm — không lỗi, không cảnh báo, người dùng chỉ thấy thông báo ngừng đến.
+Kết nối lại tạo `ConnectionId` **mới** ([bài 11.2](11.2-signalr-architecture.mdx)), và nhóm gắn với id cũ. Không join lại thì client **vẫn "đang kết nối"** nhưng **không nhận được gì** từ nhóm — không lỗi, không cảnh báo, người dùng chỉ thấy thông báo ngừng đến.
 
-Cách chắc chắn hơn là để **server** tự join nhóm trong `OnConnectedAsync` dựa trên claim, thay vì trông vào client nhớ gọi lại ([bài 11.6](11.5-signalr-authentication.mdx)).
+Cách chắc chắn hơn là để **server** tự join nhóm trong `OnConnectedAsync` dựa trên claim, thay vì trông vào client nhớ gọi lại ([bài 11.5](11.5-signalr-authentication.mdx)).
 
 **Tin nhắn trong lúc mất kết nối bị mất hoàn toàn.** SignalR không có hàng đợi, không có xác nhận, không gửi lại. Mất mạng 30 giây là mất mọi tin nhắn trong 30 giây đó.
 
@@ -102,7 +102,7 @@ private async syncMissedNotifications(): Promise<void> {
 
 Đây là nguyên tắc thiết kế quan trọng nhất của bài: **real-time là lớp tăng tốc, không phải nguồn sự thật**. REST là nguồn sự thật; SignalR chỉ giúp bạn biết sớm hơn. Ứng dụng phải hoạt động đúng — chỉ chậm hơn — khi SignalR hỏng hoàn toàn.
 
-### 11.5.3 — Bốn trạng thái kết nối
+### 11.4.3 — Bốn trạng thái kết nối
 
 ```typescript
 this.connection.onreconnecting(error => {
@@ -133,7 +133,7 @@ stateDiagram-v2
 
 Hiển thị trạng thái cho người dùng là chi tiết nhỏ nhưng quan trọng: nó biến "ứng dụng hỏng" thành "đang kết nối lại", và họ biết dữ liệu mình thấy có thể không mới nhất.
 
-### 11.5.4 — Vòng đời trong SPA
+### 11.4.4 — Vòng đời trong SPA
 
 ```typescript
 // React
@@ -162,7 +162,7 @@ return () => connection.off("ReceiveNotification", handler);
 
 `connection.off("ReceiveNotification")` **không** truyền handler sẽ gỡ **mọi** handler của sự kiện đó — kể cả của component khác.
 
-### 11.5.5 — Gỡ lỗi
+### 11.4.5 — Gỡ lỗi
 
 ```typescript
 .configureLogging(signalR.LogLevel.Debug)     // chi khi dang go loi
@@ -172,14 +172,14 @@ Bốn lỗi hay gặp và nguyên nhân thật:
 
 | Triệu chứng | Nguyên nhân thường gặp |
 |---|---|
-| `negotiate` trả **401** | Token chưa vào query string phía server ([bài 11.6](11.5-signalr-authentication.mdx)) |
+| `negotiate` trả **401** | Token chưa vào query string phía server ([bài 11.5](11.5-signalr-authentication.mdx)) |
 | `negotiate` trả **404** | Sai đường dẫn, hoặc `MapHub` đặt sau `app.Run()` |
 | Kết nối được nhưng **không nhận tin** | Tên hàm client không khớp, hoặc chưa join nhóm sau reconnect |
 | Lỗi **CORS** ở `negotiate` | Thiếu `AllowCredentials`, hoặc origin không nằm trong danh sách |
 
 Hàng thứ ba là hàng tốn thời gian nhất, và cả hai nguyên nhân đều **không sinh lỗi nào**. Cách kiểm tra nhanh: tạm thêm một handler bắt mọi thứ để xác nhận tin nhắn có tới hay không.
 
-Với CORS cho SignalR, `AllowCredentials()` là **bắt buộc**, nên bạn **không thể** dùng `AllowAnyOrigin()` — đúng ràng buộc ở [bài 10.11](../module-10-authentication-authorization/10.10-security-best-practices.mdx):
+Với CORS cho SignalR, `AllowCredentials()` là **bắt buộc**, nên bạn **không thể** dùng `AllowAnyOrigin()` — đúng ràng buộc ở [bài 10.10](../module-10-authentication-authorization/10.10-security-best-practices.mdx):
 
 ```csharp
 options.AddPolicy("signalr", p => p
@@ -189,7 +189,7 @@ options.AddPolicy("signalr", p => p
     .AllowCredentials());
 ```
 
-### 11.5.6 — Rà lại code của bạn
+### 11.4.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát client SignalR"
@@ -524,7 +524,7 @@ function NotificationBell() {
 }
 ```
 
-**Chú ý `conn.off` phải nhận đúng tham chiếu hàm đã đăng ký.** Truyền một arrow function viết lại tại chỗ thì nó là một hàm khác và không gỡ được gì — cùng cơ chế với `-=` cho event trong C# ở [bài 5.12](../../stage-02-csharp-professional/module-05-advanced-csharp/5.11-quick-real-world-example.mdx).
+**Chú ý `conn.off` phải nhận đúng tham chiếu hàm đã đăng ký.** Truyền một arrow function viết lại tại chỗ thì nó là một hàm khác và không gỡ được gì — cùng cơ chế với `-=` cho event trong C# ở [bài 5.11](../../stage-02-csharp-professional/module-05-advanced-csharp/5.11-quick-real-world-example.mdx).
 
 **Cảnh báo nên đặt ở server:**
 

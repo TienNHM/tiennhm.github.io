@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 17.8.1 — Toàn cảnh
+### 17.7.1 — Toàn cảnh
 
 ```mermaid
 sequenceDiagram
@@ -47,7 +47,7 @@ sequenceDiagram
     Note over C: Trùng bị chặn bởi PRIMARY KEY
 ```
 
-### 17.8.2 — Entity và cấu hình
+### 17.7.2 — Entity và cấu hình
 
 ```csharp
 public sealed class OutboxMessage
@@ -88,7 +88,7 @@ public sealed class OutboxMessageConfiguration : IEntityTypeConfiguration<Outbox
 }
 ```
 
-### 17.8.3 — Use case ghi outbox
+### 17.7.3 — Use case ghi outbox
 
 ```csharp
 public sealed class ConvertLeadHandler(AppDbContext db) : IRequestHandler<ConvertLeadCommand, Result>
@@ -122,7 +122,7 @@ public sealed class ConvertLeadHandler(AppDbContext db) : IRequestHandler<Conver
 
 Một `SaveChangesAsync`, một transaction. Lead đổi trạng thái, customer được tạo, và message nằm trong outbox — **cùng nhau hoặc không gì cả**.
 
-### 17.8.4 — Dispatcher
+### 17.7.4 — Dispatcher
 
 ```csharp
 public sealed class OutboxDispatcher(
@@ -199,11 +199,11 @@ public sealed class OutboxDispatcher(
 
 Ba chi tiết dễ bị bỏ qua:
 
-- **`catch (OperationCanceledException)` riêng.** Khi shutdown, `Task.Delay` ném exception này; nếu bị bắt chung vào nhánh log lỗi, mỗi lần dừng container sẽ sinh một dòng log lỗi giả ([bài 15.3](../../stage-04-database-production/module-15-docker-deployment/15.2-dockerfile-for-aspnet-core.mdx)).
+- **`catch (OperationCanceledException)` riêng.** Khi shutdown, `Task.Delay` ném exception này; nếu bị bắt chung vào nhánh log lỗi, mỗi lần dừng container sẽ sinh một dòng log lỗi giả ([bài 15.2](../../stage-04-database-production/module-15-docker-deployment/15.2-dockerfile-for-aspnet-core.mdx)).
 - **Không `Delay` khi vừa xử lý xong một batch đầy.** Nếu hàng tồn 10.000 message mà mỗi 5 giây chỉ xử lý 100, bạn không bao giờ đuổi kịp.
 - **Một message lỗi không chặn cả batch.** `try/catch` nằm **trong** vòng lặp, không bao ngoài.
 
-### 17.8.5 — Consumer idempotent
+### 17.7.5 — Consumer idempotent
 
 ```csharp
 public sealed class LeadConvertedConsumer(BillingDbContext db, IBillingService billing)
@@ -243,7 +243,7 @@ public sealed class LeadConvertedConsumer(BillingDbContext db, IBillingService b
 
 `tx.CommitAsync` ở cuối là điều kiện cho tính đúng đắn: nếu tạo subscription thất bại, transaction rollback và **hàng inbox cũng biến mất**, nên lần retry sau sẽ xử lý lại bình thường chứ không bị bỏ qua nhầm.
 
-### 17.8.6 — Ba bài test bắt buộc
+### 17.7.6 — Ba bài test bắt buộc
 
 ```csharp
 // 1. Crash sau commit -> message KHÔNG mất
@@ -290,7 +290,7 @@ public async Task TwoDispatchers_ShouldNotPublish_SameMessageTwice()
 
 Test 3 **phải chạy trên database thật** (Testcontainers) — provider InMemory không có khoá nên `READPAST` không có ý nghĩa gì và test sẽ xanh một cách vô nghĩa ([bài 16.9](../module-16-clean-architecture/16.9-testing-strategy-overview.mdx)).
 
-### 17.8.7 — Giám sát
+### 17.7.7 — Giám sát
 
 ```csharp
 // Chỉ số quan trọng nhất: tuổi của message chưa xử lý CŨ NHẤT
@@ -308,7 +308,7 @@ Chỉ số này tốt hơn "số message chưa xử lý": 10.000 message vừa t
 
 Hai chỉ số nên có cùng: `outbox_publish_failures_total` và `inbox_duplicates_total` — cái sau tăng đột biến là dấu hiệu consumer đang ACK thất bại.
 
-### 17.8.8 — Rà lại code của bạn
+### 17.7.8 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát luồng outbox đầu-cuối"
@@ -541,7 +541,7 @@ Không có hai cột này, trace bị đứt làm hai: một phần cho request 
 
 #### Bài 2 — Viết ba bài test
 
-Cài cả ba test ở mục 17.8.6 với Testcontainers. Xác nhận test 3 **thất bại** khi bỏ `READPAST`.
+Cài cả ba test ở mục 17.7.6 với Testcontainers. Xác nhận test 3 **thất bại** khi bỏ `READPAST`.
 
 **Tiêu chí hoàn thành:** cả ba test chạy được, và bạn giải thích được vì sao test 3 **bắt buộc** phải dùng database thật.
 

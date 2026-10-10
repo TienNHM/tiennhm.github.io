@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 5.12.1 — Code gây rò rỉ
+### 5.11.1 — Code gây rò rỉ
 
 ```csharp
 // Singleton — sống suốt vòng đời ứng dụng
@@ -54,7 +54,7 @@ public class NotificationService
 
 Mỗi request HTTP tạo một `NotificationService` mới và đăng ký thêm một handler. Không cái nào được gỡ ra.
 
-### 5.12.2 — Vì sao rò rỉ
+### 5.11.2 — Vì sao rò rỉ
 
 ```
 StockTracker (singleton, song mai)
@@ -79,7 +79,7 @@ Sau 6 gio:  2.300 MB, ~51.000 handler  -> OOM
 
 Và một hệ quả tệ hơn cả bộ nhớ: mỗi lần tồn kho thay đổi, **51.000 handler cùng chạy**, mỗi cái cố ghi vào một `DbContext` đã bị `Dispose` từ lâu — sinh ra hàng nghìn exception mỗi giây.
 
-### 5.12.3 — Nhận ra từ số liệu
+### 5.11.3 — Nhận ra từ số liệu
 
 ```bash
 dotnet-counters monitor -p 1 --counters System.Runtime
@@ -91,7 +91,7 @@ Gen 2 GC Count / 1 sec                4        <- cao bất thường
 Exception Count / 1 sec           1,204        <- rất cao
 ```
 
-Chữ ký của rò rỉ bộ nhớ: **heap tăng đều và không giảm sau Gen 2 GC**. Nếu bộ nhớ tăng rồi giảm theo chu kỳ, đó là hoạt động bình thường; nếu chỉ tăng, có thứ gì đó đang bị giữ ([bài 19.4](../../stage-05-senior-engineering/module-19-performance-engineering/19.3-dotnet-server-profiling.mdx)).
+Chữ ký của rò rỉ bộ nhớ: **heap tăng đều và không giảm sau Gen 2 GC**. Nếu bộ nhớ tăng rồi giảm theo chu kỳ, đó là hoạt động bình thường; nếu chỉ tăng, có thứ gì đó đang bị giữ ([bài 19.3](../../stage-05-senior-engineering/module-19-performance-engineering/19.3-dotnet-server-profiling.mdx)).
 
 Xác nhận bằng cách so hai ảnh chụp bộ nhớ:
 
@@ -103,7 +103,7 @@ dotnet-gcdump collect -p 1 -o after.gcdump
 
 So sánh sẽ thấy số instance của `NotificationService` tăng tuyến tính theo số request — trong khi nó là scoped và đáng lẽ phải bị thu gom sau mỗi request.
 
-### 5.12.4 — Ba cách sửa
+### 5.11.4 — Ba cách sửa
 
 **Cách 1 — huỷ đăng ký qua `IDisposable`:**
 
@@ -160,7 +160,7 @@ public class StockTracker(IServiceScopeFactory scopeFactory)
 }
 ```
 
-Không có đăng ký nào để quên gỡ. Đây là cách **an toàn nhất** khi singleton cần dùng service scoped ([bài 7.5](../module-07-dependency-injection/7.4-service-lifetimes.mdx)).
+Không có đăng ký nào để quên gỡ. Đây là cách **an toàn nhất** khi singleton cần dùng service scoped ([bài 7.4](../module-07-dependency-injection/7.4-service-lifetimes.mdx)).
 
 **Cách 3 — dùng cơ chế khác.** Trong ASP.NET Core, phần lớn trường hợp dùng event .NET giữa các service có lựa chọn tốt hơn:
 
@@ -172,9 +172,9 @@ await _mediator.Publish(new StockChangedEvent(id, quantity), ct);
 await _publisher.PublishAsync(new StockChangedIntegrationEvent(id, quantity), ct);
 ```
 
-Cả hai đều không tạo tham chiếu kéo dài: handler được DI container tạo khi cần và huỷ ngay sau đó ([bài 16.9](../../stage-05-senior-engineering/module-16-clean-architecture/16.8-in-process.mdx)).
+Cả hai đều không tạo tham chiếu kéo dài: handler được DI container tạo khi cần và huỷ ngay sau đó ([bài 16.8](../../stage-05-senior-engineering/module-16-clean-architecture/16.8-in-process.mdx)).
 
-### 5.12.5 — Khi nào event .NET vẫn đúng
+### 5.11.5 — Khi nào event .NET vẫn đúng
 
 Event không xấu — nó chỉ không hợp với mô hình DI có vòng đời khác nhau. Nó vẫn đúng khi:
 
@@ -188,7 +188,7 @@ Ví dụ hợp lệ: một `BackgroundService` (singleton) đăng ký vào event
 
 **Quy tắc:** nếu bên nghe có vòng đời **ngắn hơn** bên phát, bạn **phải** huỷ đăng ký. Không có ngoại lệ.
 
-### 5.12.6 — Rà lại code của bạn
+### 5.11.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát rò rỉ do event"
@@ -322,7 +322,7 @@ min_over_time(dotnet_gc_heap_size_bytes[6h])
 Rò rỉ:         mức đáy trôi lên mỗi ngày
 ```
 
-Đây chính là điều mục 5.12.3 nói, và bài tập này cho thấy vì sao mức đáy là chỉ số đúng: giữa các đợt tải, phần rác thật được gom hết, nên thứ còn lại là thứ đang bị giữ.
+Đây chính là điều mục 5.11.3 nói, và bài tập này cho thấy vì sao mức đáy là chỉ số đúng: giữa các đợt tải, phần rác thật được gom hết, nên thứ còn lại là thứ đang bị giữ.
 
 </details>
 
@@ -636,7 +636,7 @@ for (int vong = 1; vong <= 4; vong++)
 
 So với bài 1 (20.000 handler, 41,6 MB và còn tăng tiếp), heap giữ nguyên — vì không có gì được giữ lại sau mỗi lần phát. Bản dùng `IServiceScopeFactory` cho cùng hình dạng đó, và đạt được nó mà không cần ai phải nhớ gọi `-=`.
 
-**Và khi nào event .NET vẫn đúng** (mục 5.12.5):
+**Và khi nào event .NET vẫn đúng** (mục 5.11.5):
 
 | Tình huống | Dùng gì |
 |---|---|

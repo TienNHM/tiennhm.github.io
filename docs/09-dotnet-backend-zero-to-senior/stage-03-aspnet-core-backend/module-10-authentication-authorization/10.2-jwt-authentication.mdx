@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 10.3.1 — Cấu trúc và những gì nó không làm
+### 10.2.1 — Cấu trúc và những gì nó không làm
 
 ```
 eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9      <- Header
@@ -69,7 +69,7 @@ claims.Add(new Claim("internal_notes", "..."));
 
 Cần bí mật thật thì dùng JWE (JSON Web Encryption), hoặc đơn giản hơn: **đừng đặt nó vào token**.
 
-### 10.3.2 — Cấu hình xác thực
+### 10.2.2 — Cấu hình xác thực
 
 ```csharp
 builder.Services
@@ -116,7 +116,7 @@ Người ta hay tắt chúng "tạm thời để debug" rồi quên bật lại.
 
 `ValidAlgorithms` là tầng phòng thủ đáng thêm: nó chốt cứng thuật toán, ngăn thuộc tính `alg` trong header token ảnh hưởng tới cách xác thực. Các phiên bản thư viện hiện đại đã xử lý chuyện này, nhưng khai rõ vẫn tốt hơn.
 
-### 10.3.3 — `ClockSkew`: mặc định 5 phút
+### 10.2.3 — `ClockSkew`: mặc định 5 phút
 
 Mặc định của `TokenValidationParameters` là **`ClockSkew = 5 phút`** — token đã hết hạn vẫn được chấp nhận thêm 5 phút nữa, để bù cho đồng hồ lệch giữa các máy.
 
@@ -131,7 +131,7 @@ ClockSkew = TimeSpan.FromSeconds(30);    // đủ cho NTP lệch bình thường
 
 Nếu bạn dùng `Zero`, hãy chắc chắn mọi máy đều đồng bộ NTP.
 
-### 10.3.4 — HMAC hay RSA
+### 10.2.4 — HMAC hay RSA
 
 ```csharp
 // HMAC (HS256) — MỘT khoá bí mật dùng chung
@@ -164,9 +164,9 @@ Quy tắc: **một ứng dụng tự phát và tự xác thực thì HMAC đủ.
 openssl rand -base64 48
 ```
 
-Và khoá đó là **secret** — nó thuộc về biến môi trường hoặc Key Vault, không phải `appsettings.json` ([bài 8.7](../module-08-aspnet-core-fundamentals/8.6-configuration-system.mdx)).
+Và khoá đó là **secret** — nó thuộc về biến môi trường hoặc Key Vault, không phải `appsettings.json` ([bài 8.6](../module-08-aspnet-core-fundamentals/8.6-configuration-system.mdx)).
 
-### 10.3.5 — Phát hành token
+### 10.2.5 — Phát hành token
 
 ```csharp
 public sealed class TokenService(IOptions<JwtOptions> options, TimeProvider clock) : ITokenService
@@ -203,11 +203,11 @@ public sealed class TokenService(IOptions<JwtOptions> options, TimeProvider cloc
 }
 ```
 
-Tiêm `TimeProvider` thay vì gọi `DateTime.UtcNow` để test được hành vi hết hạn — [bài 7.2](../../stage-02-csharp-professional/module-07-dependency-injection/7.1-di-problem-scope.mdx).
+Tiêm `TimeProvider` thay vì gọi `DateTime.UtcNow` để test được hành vi hết hạn — [bài 7.1](../../stage-02-csharp-professional/module-07-dependency-injection/7.1-di-problem-scope.mdx).
 
 `jti` cho phép blacklist một token cụ thể; `iat` giúp phát hiện token quá cũ ngay cả khi `exp` còn hạn.
 
-### 10.3.6 — Endpoint đăng nhập
+### 10.2.6 — Endpoint đăng nhập
 
 ```csharp
 [HttpPost("login")]
@@ -243,20 +243,20 @@ Ba điểm bảo mật trong đoạn ngắn này:
 
 **1. Thông báo lỗi giống nhau.** "Email không tồn tại" và "Mật khẩu sai" cho kẻ tấn công biết email nào có trong hệ thống — đó là bước đầu của tấn công dò tài khoản.
 
-**2. Rate limit là bắt buộc.** Không có nó, endpoint đăng nhập là cửa mở cho dò mật khẩu tự động ([bài 9.7](../module-09-web-api-professional/9.6-rate-limiting.mdx)). `UserManager.AccessFailedAsync` với lockout là tầng thứ hai.
+**2. Rate limit là bắt buộc.** Không có nó, endpoint đăng nhập là cửa mở cho dò mật khẩu tự động ([bài 9.6](../module-09-web-api-professional/9.6-rate-limiting.mdx)). `UserManager.AccessFailedAsync` với lockout là tầng thứ hai.
 
 **3. Log mọi lần thất bại** kèm IP. Đây là nguồn dữ liệu duy nhất để phát hiện tấn công đang diễn ra.
 
 Một điểm tinh tế: `FindByEmailAsync` trả `null` **nhanh hơn** `CheckPasswordAsync` chạy xong, nên thời gian phản hồi tiết lộ email có tồn tại hay không. Với hệ thống cần chống điều này, hãy băm một mật khẩu giả khi không tìm thấy user.
 
-Ghép cấu hình ở mục 10.3.2 với endpoint đăng nhập ở trên, cả vòng đời của access token chỉ xoay quanh một khoá:
+Ghép cấu hình ở mục 10.2.2 với endpoint đăng nhập ở trên, cả vòng đời của access token chỉ xoay quanh một khoá:
 
 ![Sơ đồ phát hành và xác thực JWT: client gọi endpoint đăng nhập ([AllowAnonymous], có rate limit), endpoint chuyển claims cho TokenService ký token HS256 chứa sub, jti, iat, role, rồi trả access token về client. Ở mỗi request sau, client gửi Bearer token tới JwtBearer handler; handler dùng cùng khoá ký bí mật (SymmetricSecurityKey, để trong biến môi trường hoặc Key Vault) kiểm chữ ký, alg, iss, aud và exp với ClockSkew 30 giây. Hợp lệ thì action có [Authorize] chạy với HttpContext.User; sai hoặc hết hạn thì trả 401 Unauthorized. Server không lưu token nên token hợp lệ tới khi hết exp và không thu hồi được.](./img/jwt-issue-validate.png#gh-light-mode-only)
 ![Sơ đồ phát hành và xác thực JWT: client gọi endpoint đăng nhập ([AllowAnonymous], có rate limit), endpoint chuyển claims cho TokenService ký token HS256 chứa sub, jti, iat, role, rồi trả access token về client. Ở mỗi request sau, client gửi Bearer token tới JwtBearer handler; handler dùng cùng khoá ký bí mật (SymmetricSecurityKey, để trong biến môi trường hoặc Key Vault) kiểm chữ ký, alg, iss, aud và exp với ClockSkew 30 giây. Hợp lệ thì action có [Authorize] chạy với HttpContext.User; sai hoặc hết hạn thì trả 401 Unauthorized. Server không lưu token nên token hợp lệ tới khi hết exp và không thu hồi được.](./img/jwt-issue-validate-dark.png#gh-dark-mode-only)
 
 <small>File gốc: [nền sáng](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-03-aspnet-core-backend-module-10-authentication-authorization-jwt-authentication/vi/jwt-issue-validate.html) · [nền tối](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-03-aspnet-core-backend-module-10-authentication-authorization-jwt-authentication/vi/jwt-issue-validate-dark.html)</small>
 
-### 10.3.7 — JWT không thu hồi được
+### 10.2.7 — JWT không thu hồi được
 
 Đây là đánh đổi cốt lõi của JWT, và phải hiểu rõ trước khi chọn nó.
 
@@ -277,7 +277,7 @@ Ba cách sống chung:
 
 Nếu bạn cần đăng xuất **ngay lập tức** và hệ thống chỉ có một service, session truyền thống có thể là lựa chọn đúng hơn JWT. JWT không phải luôn tốt hơn — nó đánh đổi khả năng thu hồi lấy khả năng scale.
 
-### 10.3.8 — Rà lại code của bạn
+### 10.2.8 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát JWT"
@@ -365,7 +365,7 @@ print(json.dumps(json.loads(base64.urlsafe_b64decode(p)), indent=2, ensure_ascii
 _logger.LogDebug("Gọi API với token {Token}", token);   // SAI
 ```
 
-Người đọc được log giờ đọc được mọi claim của mọi người dùng, và dùng lại token đó cho tới khi hết hạn. Cấu hình che header `Authorization` là bắt buộc, như [bài 8.8](../module-08-aspnet-core-fundamentals/8.7-logging-with-serilog.mdx) trình bày.
+Người đọc được log giờ đọc được mọi claim của mọi người dùng, và dùng lại token đó cho tới khi hết hạn. Cấu hình che header `Authorization` là bắt buộc, như [bài 8.7](../module-08-aspnet-core-fundamentals/8.7-logging-with-serilog.mdx) trình bày.
 
 **Nếu thật sự cần giấu nội dung**, JWT có bản mã hoá là **JWE** — nhưng gần như không đáng dùng cho API nội bộ. Cách đơn giản hơn nhiều: chỉ đặt một `sub` trong token và tra mọi thứ khác từ database.
 
@@ -434,7 +434,7 @@ WWW-Authenticate: Bearer error="invalid_token",
 
 Con số này quan trọng khi bạn thiết kế thời hạn. Chọn 5 phút cho access token mà không biết về `ClockSkew` thì thật ra bạn đang chạy với 10 phút — gấp đôi ý định.
 
-**Vì sao `Zero` không phải mặc định tốt.** Nó bắt đồng hồ của máy phát token và máy kiểm token khớp nhau tới từng giây. Trong container, lệch vài giây là chuyện bình thường, và hậu quả là **lỗi 401 ngẫu nhiên** cho token vừa được cấp — kiểu lỗi không tái hiện được, không có trong log ứng dụng, và rất tốn thời gian điều tra. Ca ở [bài 2.12](../../stage-01-foundation/module-02-computer-science-basics/2.11-mini-case-study.mdx) là đúng tình huống này, chỉ khác chiều lệch.
+**Vì sao `Zero` không phải mặc định tốt.** Nó bắt đồng hồ của máy phát token và máy kiểm token khớp nhau tới từng giây. Trong container, lệch vài giây là chuyện bình thường, và hậu quả là **lỗi 401 ngẫu nhiên** cho token vừa được cấp — kiểu lỗi không tái hiện được, không có trong log ứng dụng, và rất tốn thời gian điều tra. Ca ở [bài 2.11](../../stage-01-foundation/module-02-computer-science-basics/2.11-mini-case-study.mdx) là đúng tình huống này, chỉ khác chiều lệch.
 
 **`30 giây` là con số cân bằng:** đủ bù cho lệch NTP bình thường, và chỉ kéo dài tuổi token thêm 3%.
 

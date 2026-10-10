@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 14.3.1 — `SizeLimit` là bắt buộc
+### 14.2.1 — `SizeLimit` là bắt buộc
 
 ```csharp
 // SAI — cache lon vo han
@@ -76,7 +76,7 @@ public sealed class AppCache(IMemoryCache cache)
 
 Rồi cấm dùng `IMemoryCache` trực tiếp trong code nghiệp vụ.
 
-### 14.3.2 — Hết hạn
+### 14.2.2 — Hết hạn
 
 ```csharp
 var options = new MemoryCacheEntryOptions
@@ -134,7 +134,7 @@ options.RegisterPostEvictionCallback((key, value, reason, state) =>
 
 `reason` là `Expired`, `Capacity`, `Removed`, `Replaced` hay `TokenExpired`. Thấy nhiều `Capacity` nghĩa là `SizeLimit` quá nhỏ.
 
-### 14.3.3 — `GetOrCreateAsync` không chống stampede
+### 14.2.3 — `GetOrCreateAsync` không chống stampede
 
 ```csharp
 public Task<List<string>> GetPermissionsAsync(int userId)
@@ -150,7 +150,7 @@ public Task<List<string>> GetPermissionsAsync(int userId)
     })!;
 ```
 
-Tiện, nhưng **factory có thể chạy nhiều lần đồng thời** — `GetOrCreateAsync` không khoá. Với 50 request cùng lúc sau khi hết hạn, đó là 50 truy vấn ([bài 14.2](14.1-caching-fundamentals.mdx)).
+Tiện, nhưng **factory có thể chạy nhiều lần đồng thời** — `GetOrCreateAsync` không khoá. Với 50 request cùng lúc sau khi hết hạn, đó là 50 truy vấn ([bài 14.1](14.1-caching-fundamentals.mdx)).
 
 ```csharp
 // Chong stampede
@@ -204,9 +204,9 @@ flowchart TD
     G --> R
 ```
 
-**`HybridCache` của .NET 9 làm sẵn việc này** và nên là lựa chọn đầu tiên nếu bạn dùng .NET 9 ([bài 14.6](14.5-hybridcache-dotnet-9.mdx)).
+**`HybridCache` của .NET 9 làm sẵn việc này** và nên là lựa chọn đầu tiên nếu bạn dùng .NET 9 ([bài 14.5](14.5-hybridcache-dotnet-9.mdx)).
 
-### 14.3.4 — Đừng cache entity EF Core
+### 14.2.4 — Đừng cache entity EF Core
 
 ```csharp
 // SAI — nhiều tầng vấn đề
@@ -244,7 +244,7 @@ var dto = await _cache.GetOrCreateAsync($"customer:{id}", async entry =>
 
 Với kiểu **có thể thay đổi**, cân nhắc lưu bản sao thay vì tham chiếu; nếu không, một request sửa đối tượng sẽ ảnh hưởng mọi request khác.
 
-### 14.3.5 — Giới hạn của cache trong tiến trình
+### 14.2.5 — Giới hạn của cache trong tiến trình
 
 ```
 3 pod, moi pod cache RIENG
@@ -264,11 +264,11 @@ Ba hệ quả này quyết định khi nào `IMemoryCache` đủ:
 
 Hàng đầu là tiêu chí thật: cache danh sách quốc gia trong bộ nhớ mỗi pod là **hoàn toàn đúng** — dữ liệu giống nhau, và mỗi pod tự nạp một lần không tốn gì.
 
-Cache quyền của người dùng thì khác: người dùng có thể vào pod bất kỳ, và thu hồi quyền phải có hiệu lực trên **mọi** pod ([bài 10.8](../../stage-03-aspnet-core-backend/module-10-authentication-authorization/10.7-permission-system.mdx)).
+Cache quyền của người dùng thì khác: người dùng có thể vào pod bất kỳ, và thu hồi quyền phải có hiệu lực trên **mọi** pod ([bài 10.7](../../stage-03-aspnet-core-backend/module-10-authentication-authorization/10.7-permission-system.mdx)).
 
 **Đợt tải sau deploy** là vấn đề thật với cache lớn: mọi pod khởi động với cache rỗng và cùng nạp lại. Nếu đó là vấn đề, nạp trước những khoá quan trọng trong `IHostedService`.
 
-### 14.3.6 — Giám sát
+### 14.2.6 — Giám sát
 
 ```csharp
 builder.Services.AddOpenTelemetry()
@@ -295,7 +295,7 @@ Ba chỉ số cần theo dõi: **tỷ lệ trúng**, **số entry hiện có**, 
 
 Không có ba chỉ số này, bạn không biết cache đang giúp hay chỉ đang tốn bộ nhớ.
 
-### 14.3.7 — Rà lại code của bạn
+### 14.2.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát IMemoryCache"

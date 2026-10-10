@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 4.12.1 — Đề bài
+### 4.11.1 — Đề bài
 
 ```
 CRM bán ba loại sản phẩm:
@@ -34,7 +34,7 @@ CRM bán ba loại sản phẩm:
 Yêu cầu chung: mã sản phẩm, tên, giá, thuế suất, trạng thái kinh doanh
 ```
 
-### 4.12.2 — Thiết kế 1: kế thừa
+### 4.11.2 — Thiết kế 1: kế thừa
 
 ```csharp
 public abstract class Product
@@ -77,7 +77,7 @@ public class SubscriptionProduct : Product
 
 Thiết kế này **tốt** — trong hai tháng.
 
-### 4.12.3 — Chỗ nó gãy
+### 4.11.3 — Chỗ nó gãy
 
 **Yêu cầu tháng thứ ba:** *"Bán máy in kèm gói mực hàng tháng. Nó là hàng vật lý (giao hàng, tồn kho) và cũng là gói đăng ký (thu tiền hàng tháng)."*
 
@@ -98,7 +98,7 @@ Ba cách chữa, cả ba đều tệ:
 
 Số lớp tăng theo **tổ hợp**, không phải theo số loại. Đây chính là điểm gãy của kế thừa cho bài toán này.
 
-### 4.12.4 — Thiết kế 2: composition
+### 4.11.4 — Thiết kế 2: composition
 
 Câu hỏi cần hỏi lại từ đầu: **"hàng vật lý" là bản chất của sản phẩm, hay là một khả năng nó có?**
 
@@ -164,7 +164,7 @@ tuVan.EnableSubscription(BillingCycle.Monthly, autoRenew: false);
 
 Tám tổ hợp khả năng chỉ cần **một** lớp.
 
-### 4.12.5 — Vì sao dùng record cho khả năng
+### 4.11.5 — Vì sao dùng record cho khả năng
 
 ```csharp
 public sealed record ShippingInfo(decimal WeightKg, Dimensions Size);
@@ -176,9 +176,9 @@ Ba lý do cụ thể:
 
 **So sánh theo giá trị.** Hai `ShippingInfo` cùng số liệu là bằng nhau, điều này đúng về mặt nghĩa: chúng mô tả cùng một cấu hình vận chuyển, không phải hai thực thể khác nhau.
 
-**Ngắn gọn.** Một dòng thay cho constructor, property, `Equals`, `GetHashCode` và `ToString` viết tay ([bài 4.8](4.7-records-and-value-objects.mdx)).
+**Ngắn gọn.** Một dòng thay cho constructor, property, `Equals`, `GetHashCode` và `ToString` viết tay ([bài 4.7](4.7-records-and-value-objects.mdx)).
 
-### 4.12.6 — Khi nào kế thừa vẫn đúng
+### 4.11.6 — Khi nào kế thừa vẫn đúng
 
 Composition không phải lúc nào cũng thắng. Kế thừa phù hợp khi quan hệ "là một" **cố định và không chồng chéo**:
 
@@ -201,9 +201,9 @@ public class LeadsController : ControllerBase { }
 - Không bao giờ → kế thừa được.
 - Có thể → **composition**.
 
-Trong ca này, một sản phẩm **có thể** vừa cần giao hàng vừa thu định kỳ, nên câu trả lời là composition ([bài 4.4](4.3-inheritance-and-polymorphism.mdx)).
+Trong ca này, một sản phẩm **có thể** vừa cần giao hàng vừa thu định kỳ, nên câu trả lời là composition ([bài 4.3](4.3-inheritance-and-polymorphism.mdx)).
 
-### 4.12.7 — Đánh giá thiết kế bằng yêu cầu tiếp theo
+### 4.11.7 — Đánh giá thiết kế bằng yêu cầu tiếp theo
 
 Cách kiểm tra rẻ nhất trước khi cam kết một thiết kế: **nghĩ ra ba yêu cầu có thể tới trong sáu tháng** và xem thiết kế phản ứng thế nào.
 
@@ -216,7 +216,7 @@ Cách kiểm tra rẻ nhất trước khi cam kết một thiết kế: **nghĩ 
 
 Hàng cuối đáng chú ý: với kế thừa, "sản phẩm này không bán theo gói nữa" nghĩa là **đổi kiểu của đối tượng** — điều gần như không làm được khi nó đã có id và đang được tham chiếu ở nơi khác.
 
-### 4.12.8 — Rà lại code của bạn
+### 4.11.8 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát thiết kế lớp"
@@ -325,7 +325,7 @@ Composition: chi phí HẰNG SỐ
 Kế thừa:     chi phí NHÂN ĐÔI mỗi lần
 ```
 
-Đây chính là điều mục 4.12.7 nói — đánh giá một thiết kế bằng yêu cầu **tiếp theo**, không bằng yêu cầu hiện tại. Ở lần thêm đầu tiên, hai thiết kế chênh nhau vài chục dòng. Ở lần thứ năm, một bên vẫn là vài dòng còn bên kia không còn khả thi.
+Đây chính là điều mục 4.11.7 nói — đánh giá một thiết kế bằng yêu cầu **tiếp theo**, không bằng yêu cầu hiện tại. Ở lần thêm đầu tiên, hai thiết kế chênh nhau vài chục dòng. Ở lần thứ năm, một bên vẫn là vài dòng còn bên kia không còn khả thi.
 
 **Và một chi phí của kế thừa mà việc đếm file không thấy:**
 
@@ -342,7 +342,7 @@ Một sản phẩm đang là ShippableProduct, khách hàng muốn thêm gói d�
 sanPham.EnableSubscription(BillingCycle.Monthly, autoRenew: true);
 ```
 
-**Khi nào kế thừa vẫn đúng** (mục 4.12.6): khi các nhánh **loại trừ lẫn nhau** và **không đổi qua lại**. Một `PaymentMethod` là thẻ, chuyển khoản, hoặc tiền mặt — không bao giờ là hai thứ cùng lúc, và một giao dịch không đổi phương thức giữa chừng. Đó là lúc phân cấp diễn đạt đúng vấn đề.
+**Khi nào kế thừa vẫn đúng** (mục 4.11.6): khi các nhánh **loại trừ lẫn nhau** và **không đổi qua lại**. Một `PaymentMethod` là thẻ, chuyển khoản, hoặc tiền mặt — không bao giờ là hai thứ cùng lúc, và một giao dịch không đổi phương thức giữa chừng. Đó là lúc phân cấp diễn đạt đúng vấn đề.
 
 </details>
 

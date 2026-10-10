@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 13.7.1 — Dạng rõ ràng
+### 13.6.1 — Dạng rõ ràng
 
 ```csharp
 var customers = await db.Customers.ToListAsync(ct);          // 1 truy van
@@ -62,7 +62,7 @@ sequenceDiagram
 
 Điều khiến nó nguy hiểm là **nó không chậm trên máy dev**: với 10 bản ghi thử nghiệm, 11 truy vấn mất 20ms và không ai để ý. Với 2.000 bản ghi production, đó là 4 giây.
 
-### 13.7.2 — Ba dạng khó thấy
+### 13.6.2 — Ba dạng khó thấy
 
 **1. AutoMapper**
 
@@ -91,7 +91,7 @@ public async Task<IActionResult> GetAll(CancellationToken ct)
     => Ok(await db.Customers.ToListAsync(ct));     // tra ENTITY truc tiep
 ```
 
-Khi ASP.NET Core serialize, nó đọc **mọi** thuộc tính công khai — kể cả navigation. Với lazy loading, đó là N truy vấn xảy ra **trong lúc ghi response**, sau khi action đã trả về. Lỗi lúc đó không bắt được bởi exception handler ([bài 8.9](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.8-global-exception-handling.mdx)).
+Khi ASP.NET Core serialize, nó đọc **mọi** thuộc tính công khai — kể cả navigation. Với lazy loading, đó là N truy vấn xảy ra **trong lúc ghi response**, sau khi action đã trả về. Lỗi lúc đó không bắt được bởi exception handler ([bài 8.8](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.8-global-exception-handling.mdx)).
 
 Trả entity trực tiếp còn hai vấn đề khác: lộ cột nội bộ, và vòng lặp tham chiếu (`Customer` → `Contacts` → `Customer`). **Luôn trả DTO.**
 
@@ -110,7 +110,7 @@ foreach (var c in customers)
 
 Không có gì trong dòng đó gợi ý rằng nó chạm database.
 
-### 13.7.3 — Bốn cách sửa
+### 13.6.3 — Bốn cách sửa
 
 ```csharp
 // 1. Include — khi can ca entity con
@@ -142,7 +142,7 @@ Cách 3 đáng chú ý: nó biến N+1 thành **2 truy vấn** khi dữ liệu �
 
 Lưu ý với `Contains` trên danh sách lớn: SQL Server có giới hạn **2.100 tham số**, nên `ids` quá lớn sẽ ném lỗi. EF Core 8 dùng `OPENJSON` nên hết giới hạn này, nhưng vẫn nên chia lô với danh sách rất lớn.
 
-### 13.7.4 — Phát hiện tự động
+### 13.6.4 — Phát hiện tự động
 
 **Cảnh báo tích hợp của EF Core:**
 
@@ -208,7 +208,7 @@ options.LogTo(
 
 Cộng một middleware ghi cảnh báo khi một request vượt ngưỡng truy vấn — ví dụ 10 — là cách rẻ tiền để thấy vấn đề sớm.
 
-### 13.7.5 — N+1 ngược: nạp quá nhiều
+### 13.6.5 — N+1 ngược: nạp quá nhiều
 
 Sửa N+1 quá tay dẫn tới vấn đề ngược:
 
@@ -221,13 +221,13 @@ var customers = await db.Customers
     .ToListAsync(ct);
 ```
 
-Đây là cartesian explosion ở quy mô lớn ([bài 13.6](13.5-query-patterns.mdx)) — có thể hàng trăm nghìn dòng cho vài chục khách hàng.
+Đây là cartesian explosion ở quy mô lớn ([bài 13.5](13.5-query-patterns.mdx)) — có thể hàng trăm nghìn dòng cho vài chục khách hàng.
 
 Nguyên tắc cân bằng: **nạp đúng những gì màn hình cần, không hơn**. Và cách đạt được điều đó gần như luôn là **projection** — nó tự nhiên chỉ lấy những trường bạn khai trong DTO.
 
 Với dữ liệu ít khi cần, **nạp theo yêu cầu**: danh sách trả về tóm tắt, và một endpoint riêng trả chi tiết khi người dùng mở một bản ghi.
 
-### 13.7.6 — Rà lại code của bạn
+### 13.6.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát N+1"

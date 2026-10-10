@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 13.6.1 — Projection là mặc định
+### 13.5.1 — Projection là mặc định
 
 ```csharp
 // KEM — nap toan bo entity roi map
@@ -78,7 +78,7 @@ var dto = await db.Customers
     .FirstOrDefaultAsync(ct);
 ```
 
-### 13.6.2 — Cartesian explosion
+### 13.5.2 — Cartesian explosion
 
 ```csharp
 var customer = await db.Customers
@@ -131,7 +131,7 @@ options.UseSqlServer(conn, sql => sql.UseQuerySplittingBehavior(QuerySplittingBe
 
 **Nhưng cách tốt nhất thường là projection** — nó tránh được cả hai vấn đề vì chỉ lấy đúng cột cần.
 
-### 13.6.3 — Filtered include
+### 13.5.3 — Filtered include
 
 ```csharp
 // EF Core 5+: loc ngay trong Include
@@ -149,7 +149,7 @@ Ba ràng buộc: chỉ dùng được `Where`, `OrderBy`, `Skip`, `Take`; **cùn
 
 Ràng buộc cuối gây ra hành vi khó hiểu: cùng một đoạn code cho kết quả khác nhau tuỳ vào context đã nạp gì. Với `AsNoTracking` thì không có vấn đề này.
 
-### 13.6.4 — Explicit loading
+### 13.5.4 — Explicit loading
 
 ```csharp
 var customer = await db.Customers.FindAsync([id], ct);
@@ -168,7 +168,7 @@ var leadCount = await db.Entry(customer!).Collection(c => c.Leads)
                         .Query().CountAsync(ct);
 ```
 
-Hữu ích khi bạn **không biết trước** có cần dữ liệu liên quan hay không. Nhưng cẩn thận: gọi nó trong vòng lặp là tạo ra N+1 ([bài 13.7](13.6-n-plus-1-problem.mdx)).
+Hữu ích khi bạn **không biết trước** có cần dữ liệu liên quan hay không. Nhưng cẩn thận: gọi nó trong vòng lặp là tạo ra N+1 ([bài 13.6](13.6-n-plus-1-problem.mdx)).
 
 `.Query()` đặc biệt hữu ích cho việc đếm — nó sinh `COUNT(*)` thay vì nạp toàn bộ collection để gọi `.Count`.
 
@@ -181,7 +181,7 @@ options.UseLazyLoadingProxies();
 
 Nó khiến mọi truy cập navigation property **âm thầm** sinh truy vấn. Một `foreach` vô hại trong tầng trình bày biến thành 500 lần đi về database, và không có gì trong code báo hiệu điều đó.
 
-### 13.6.5 — `FindAsync` so với `FirstOrDefaultAsync`
+### 13.5.5 — `FindAsync` so với `FirstOrDefaultAsync`
 
 ```csharp
 var a = await db.Customers.FindAsync([id], ct);
@@ -196,7 +196,7 @@ var b = await db.Customers.FirstOrDefaultAsync(c => c.Id == id, ct);
 | Dùng được `Include` | **Không** | Có |
 | Áp global query filter | **Không** | **Có** |
 
-Hai hàng cuối quan trọng. `FindAsync` **bỏ qua global query filter** — nghĩa là nó **tìm thấy cả bản ghi đã xoá mềm** ([bài 13.11](13.10-global-query-filters.mdx)). Đây là nguồn của lỗi "tại sao tôi lấy được khách hàng đã xoá".
+Hai hàng cuối quan trọng. `FindAsync` **bỏ qua global query filter** — nghĩa là nó **tìm thấy cả bản ghi đã xoá mềm** ([bài 13.10](13.10-global-query-filters.mdx)). Đây là nguồn của lỗi "tại sao tôi lấy được khách hàng đã xoá".
 
 `FindAsync` nhanh hơn khi entity đã nằm trong change tracker (không sinh truy vấn nào), nên nó tốt cho luồng cập nhật. Với truy vấn đọc có filter, dùng `FirstOrDefaultAsync`.
 
@@ -211,7 +211,7 @@ flowchart TD
     B -->|"FirstOrDefaultAsync"| F["Luôn truy vấn database, nhận mọi điều kiện và Include"]
 ```
 
-### 13.6.6 — Compiled query
+### 13.5.6 — Compiled query
 
 ```csharp
 private static readonly Func<CrmDbContext, int, CancellationToken, Task<CustomerDto?>>
@@ -234,7 +234,7 @@ Ba ràng buộc: phải là `static readonly`; **không** thay đổi cấu trú
 
 Chỉ dùng sau khi **đã đo** và thấy chi phí biên dịch truy vấn là đáng kể — với hầu hết ứng dụng, nó không phải nút thắt.
 
-### 13.6.7 — Rà lại code của bạn
+### 13.5.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát mẫu truy vấn"

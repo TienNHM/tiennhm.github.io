@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 12.6.1 — Đo trước
+### 12.5.1 — Đo trước
 
 ```sql
 -- SQL Server
@@ -53,7 +53,7 @@ Một truy vấn đọc 500.000 trang để trả về 20 dòng là sai ở đâ
 
 Trong PostgreSQL, `EXPLAIN` chỉ ước lượng; **`EXPLAIN ANALYZE` thật sự chạy** truy vấn. Với `UPDATE` hay `DELETE`, bọc trong transaction rồi rollback.
 
-### 12.6.2 — Đọc execution plan
+### 12.5.2 — Đọc execution plan
 
 Theo thứ tự ưu tiên:
 
@@ -66,7 +66,7 @@ ANALYZE leads;                             -- PostgreSQL
 
 Statistics cũ là nguyên nhân số một của "truy vấn này hôm qua nhanh, hôm nay chậm". Auto-update statistics của SQL Server chỉ kích hoạt sau khi khoảng 20% số dòng thay đổi — với bảng 50 triệu dòng, đó là 10 triệu thay đổi.
 
-**2. Toán tử quét trên bảng lớn.** `Table Scan` hoặc `Clustered Index Scan` với hàng triệu dòng để trả về ít dòng → thiếu index hoặc truy vấn không SARGable ([bài 12.5](12.4-indexing.mdx)).
+**2. Toán tử quét trên bảng lớn.** `Table Scan` hoặc `Clustered Index Scan` với hàng triệu dòng để trả về ít dòng → thiếu index hoặc truy vấn không SARGable ([bài 12.4](12.4-indexing.mdx)).
 
 **3. Key Lookup** với số dòng lớn → cần covering index.
 
@@ -86,7 +86,7 @@ Trong .NET, `SqlParameter` mặc định gửi chuỗi dưới dạng `NVARCHAR`
 
 Đây là một trong những nguyên nhân khó tìm nhất, vì truy vấn **trông** hoàn toàn đúng.
 
-### 12.6.3 — Parameter sniffing
+### 12.5.3 — Parameter sniffing
 
 SQL Server cache execution plan theo **tham số lần đầu tiên** chạy.
 
@@ -124,7 +124,7 @@ SQL Server 2022 có **Parameter Sensitive Plan optimization** tự cache nhiều
 
 PostgreSQL xử lý khác: nó dùng plan chung sau 5 lần thực thi prepared statement, và có `plan_cache_mode` để điều khiển.
 
-### 12.6.4 — Catch-all query
+### 12.5.4 — Catch-all query
 
 ```sql
 -- Mau rat pho bien — va rat te
@@ -175,7 +175,7 @@ Cách 3 là mẫu được dùng nhiều nhất trong thực tế, và nó tự 
 
 Còn `LIKE '%' + @Company + '%'` thì **không có cách nào** làm nó SARGable — cần full-text search nếu tìm kiếm văn bản là yêu cầu thật.
 
-### 12.6.5 — N+1 ở tầng SQL
+### 12.5.5 — N+1 ở tầng SQL
 
 N+1 không chỉ là vấn đề của ORM:
 
@@ -200,7 +200,7 @@ Chi tiết trong bài [Vì sao EF Core bắn 201 query cho 1 màn hình danh sá
 
 Dấu hiệu nhận biết trong log SQL: **nhiều truy vấn giống hệt nhau, chỉ khác tham số**.
 
-### 12.6.6 — Quy trình tối ưu
+### 12.5.6 — Quy trình tối ưu
 
 1. **Tìm truy vấn tệ nhất**, đừng đoán:
 
@@ -248,7 +248,7 @@ flowchart TD
     G -->|"Đạt"| A
 ```
 
-### 12.6.7 — Rà lại code của bạn
+### 12.5.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát tối ưu truy vấn"

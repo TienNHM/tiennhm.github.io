@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 10.11.1 — Bí mật
+### 10.10.1 — Bí mật
 
 ```csharp
 // SAI — nam trong Git, trong image Docker, trong moi ban sao repo
@@ -73,9 +73,9 @@ builder.Services.AddOptions<JwtOptions>()
     .ValidateOnStart();
 ```
 
-`ValidateOnStart()` ([bài 7.8](../../stage-02-csharp-professional/module-07-dependency-injection/7.7-options-pattern.mdx)) khiến ứng dụng **không khởi động được** với cấu hình sai — tốt hơn nhiều so với chạy bình thường bằng khoá mẫu.
+`ValidateOnStart()` ([bài 7.7](../../stage-02-csharp-professional/module-07-dependency-injection/7.7-options-pattern.mdx)) khiến ứng dụng **không khởi động được** với cấu hình sai — tốt hơn nhiều so với chạy bình thường bằng khoá mẫu.
 
-### 10.11.2 — HTTPS và HSTS
+### 10.10.2 — HTTPS và HSTS
 
 ```csharp
 if (!app.Environment.IsDevelopment())
@@ -113,9 +113,9 @@ Hai cảnh báo:
 - **`Preload` là một chiều.** Đưa tên miền vào danh sách preload của trình duyệt thì gỡ ra mất **nhiều tháng**. Chỉ bật khi chắc chắn mọi subdomain đều có HTTPS.
 - **`IncludeSubDomains` áp cho mọi subdomain**, kể cả những cái bạn quên. Một `legacy.company.com` chỉ có HTTP sẽ ngừng truy cập được.
 
-Sau reverse proxy, phải bật `UseForwardedHeaders()` **trước** ([bài 8.2](../module-08-aspnet-core-fundamentals/8.1-aspnet-core-architecture.mdx)) — nếu không, ứng dụng thấy mọi request là HTTP và `UseHttpsRedirection` tạo **vòng lặp chuyển hướng vô tận**.
+Sau reverse proxy, phải bật `UseForwardedHeaders()` **trước** ([bài 8.1](../module-08-aspnet-core-fundamentals/8.1-aspnet-core-architecture.mdx)) — nếu không, ứng dụng thấy mọi request là HTTP và `UseHttpsRedirection` tạo **vòng lặp chuyển hướng vô tận**.
 
-### 10.11.3 — Security header
+### 10.10.3 — Security header
 
 ```csharp
 app.Use(async (context, next) =>
@@ -151,7 +151,7 @@ Gỡ `Server` giảm thông tin trinh sát. Kestrel gỡ được tại nguồn:
 builder.WebHost.ConfigureKestrel(o => o.AddServerHeader = false);
 ```
 
-### 10.11.4 — CORS
+### 10.10.4 — CORS
 
 ```csharp
 // SAI — không thể chạy, và cách "sửa" nó còn tệ hơn
@@ -184,11 +184,11 @@ builder.Services.AddCors(options =>
 app.UseCors("app");     // TRƯỚC UseAuthorization
 ```
 
-Nhớ cái bẫy mảng cấu hình ở [bài 8.7](../module-08-aspnet-core-fundamentals/8.6-configuration-system.mdx): khai `Cors:Origins` ở cả `appsettings.json` lẫn file môi trường sẽ **hợp nhất theo chỉ số**, nên một origin lẽ ra đã bị xoá vẫn được chấp nhận trên production.
+Nhớ cái bẫy mảng cấu hình ở [bài 8.6](../module-08-aspnet-core-fundamentals/8.6-configuration-system.mdx): khai `Cors:Origins` ở cả `appsettings.json` lẫn file môi trường sẽ **hợp nhất theo chỉ số**, nên một origin lẽ ra đã bị xoá vẫn được chấp nhận trên production.
 
 Nếu API chỉ được gọi từ server khác (không từ trình duyệt), **đừng bật CORS**. Nó không bảo vệ gì cả — nó chỉ nới lỏng một hạn chế của trình duyệt.
 
-### 10.11.5 — Không bao giờ ghi hay trả về
+### 10.10.5 — Không bao giờ ghi hay trả về
 
 ```csharp
 // SAI
@@ -207,11 +207,11 @@ return Problem(detail: exception.ToString());
 
 Log được giữ **hàng tháng**, gửi sang hệ thống bên thứ ba, và **nhiều người đọc được hơn** database. Rất nhiều sự cố rò rỉ dữ liệu bắt đầu từ log, không phải từ database.
 
-Cẩn thận với destructuring: `logger.LogInformation("{@Request}", loginRequest)` ghi **toàn bộ** thuộc tính, gồm cả mật khẩu ([bài 8.8](../module-08-aspnet-core-fundamentals/8.7-logging-with-serilog.mdx)).
+Cẩn thận với destructuring: `logger.LogInformation("{@Request}", loginRequest)` ghi **toàn bộ** thuộc tính, gồm cả mật khẩu ([bài 8.7](../module-08-aspnet-core-fundamentals/8.7-logging-with-serilog.mdx)).
 
 Và URL cũng vào log — đừng bao giờ đặt token trong query string.
 
-### 10.11.6 — Audit log
+### 10.10.6 — Audit log
 
 Audit log khác log kỹ thuật: nó trả lời **"ai đã làm gì, lúc nào"** và phải dùng được khi điều tra.
 
@@ -239,7 +239,7 @@ Những sự kiện **phải** có:
 - **Gán và gỡ vai trò, cấp và gỡ quyền**
 - Xoá hoặc sửa dữ liệu nhạy cảm
 - Xuất dữ liệu hàng loạt
-- Phát hiện tái sử dụng refresh token ([bài 10.4](10.3-refresh-token.mdx))
+- Phát hiện tái sử dụng refresh token ([bài 10.3](10.3-refresh-token.mdx))
 
 Bốn nguyên tắc:
 
@@ -250,7 +250,7 @@ Bốn nguyên tắc:
 
 Điểm 1 thường bị bỏ qua: nếu audit log nằm cùng database và cùng quyền với dữ liệu nghiệp vụ, nó không bảo vệ được gì trước người có quyền admin.
 
-### 10.11.7 — Rà lại trước khi lên production
+### 10.10.7 — Rà lại trước khi lên production
 
 <Checklist
   title="Danh sách rà soát bảo mật"
@@ -350,7 +350,7 @@ builder.Services.AddCors(o => o.AddPolicy("app", p => p
 
 1. **`WithOrigins` khớp chính xác chuỗi**, kể cả scheme và cổng. `https://crm.company.com` **không** khớp `http://crm.company.com` hay `https://crm.company.com:8443`.
 2. **Không để dấu `/` ở cuối.** `https://crm.company.com/` không bao giờ khớp — header `Origin` không có dấu gạch chéo cuối.
-3. **`app.UseCors()` phải đứng sau `UseRouting` và trước `UseAuthorization`.** Sai thứ tự thì preflight `OPTIONS` không mang token sẽ bị `UseAuthorization` chặn trước khi CORS kịp trả lời — xem [bài 8.12](../module-08-aspnet-core-fundamentals/8.11-mini-case-study.mdx).
+3. **`app.UseCors()` phải đứng sau `UseRouting` và trước `UseAuthorization`.** Sai thứ tự thì preflight `OPTIONS` không mang token sẽ bị `UseAuthorization` chặn trước khi CORS kịp trả lời — xem [bài 8.11](../module-08-aspnet-core-fundamentals/8.11-mini-case-study.mdx).
 
 **Và một điều đáng nhớ:** CORS **không phải cơ chế bảo mật cho server**. Nó là quy tắc trình duyệt thực thi. `curl`, Postman hay một script server-side gọi API của bạn hoàn toàn không quan tâm tới CORS. Bảo vệ thật sự vẫn là xác thực và phân quyền.
 

@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 8.2.1 — Khác biệt so với ASP.NET (.NET Framework)
+### 8.1.1 — Khác biệt so với ASP.NET (.NET Framework)
 
 | | ASP.NET (.NET Framework) | ASP.NET Core |
 |---|---|---|
@@ -35,9 +35,9 @@ Sau bài này bạn có thể:
 | Khởi động | `Global.asax` + `Startup.cs` | Chỉ `Program.cs` |
 | Hiệu năng | Trung bình | Hàng đầu trong TechEmpower |
 
-Hai dòng đáng chú ý nhất: **DI** và **pipeline**. Trong ASP.NET cũ, `HttpContext.Current` là `static` và có thể gọi từ bất cứ đâu; điều đó làm code không test được và tạo ra chính những ambient context mà [bài 7.10](../../stage-02-csharp-professional/module-07-dependency-injection/7.9-anti-patterns.mdx) cảnh báo. ASP.NET Core bỏ nó: muốn `HttpContext` thì phải tiêm `IHttpContextAccessor`.
+Hai dòng đáng chú ý nhất: **DI** và **pipeline**. Trong ASP.NET cũ, `HttpContext.Current` là `static` và có thể gọi từ bất cứ đâu; điều đó làm code không test được và tạo ra chính những ambient context mà [bài 7.9](../../stage-02-csharp-professional/module-07-dependency-injection/7.9-anti-patterns.mdx) cảnh báo. ASP.NET Core bỏ nó: muốn `HttpContext` thì phải tiêm `IHttpContextAccessor`.
 
-### 8.2.2 — Kestrel và reverse proxy
+### 8.1.2 — Kestrel và reverse proxy
 
 ```mermaid
 flowchart LR
@@ -71,7 +71,7 @@ Và phải đặt **trước** mọi middleware đọc IP hoặc scheme. Quên b
 Chỉ tin `X-Forwarded-*` khi request thật sự đến từ proxy của bạn — cấu hình `KnownProxies` hoặc `KnownNetworks`. Bài [Forward header trong ASP.NET Core: vì sao "forward hết" là một lỗi kiến trúc](/blog/forward-http-header-an-toan-aspnet-core) nói rõ vì sao chuyển tiếp bừa là lỗ hổng.
 :::
 
-### 8.2.3 — Minimal hosting model
+### 8.1.3 — Minimal hosting model
 
 ```csharp
 var builder = WebApplication.CreateBuilder(args);
@@ -100,9 +100,9 @@ app.Run();
 4. Biến môi trường
 5. Tham số dòng lệnh
 
-Nguồn sau **đè** nguồn trước — nên biến môi trường luôn thắng file. Đây là cách container truyền cấu hình vào ([bài 8.7](8.6-configuration-system.mdx)).
+Nguồn sau **đè** nguồn trước — nên biến môi trường luôn thắng file. Đây là cách container truyền cấu hình vào ([bài 8.6](8.6-configuration-system.mdx)).
 
-Nó cũng cấu hình logging (Console, Debug, EventSource), thiết lập Kestrel và IIS integration, đăng ký `IConfiguration`, `IWebHostEnvironment`, `ILogger<T>`, và bật `ValidateScopes` **chỉ khi** môi trường là Development ([bài 7.5](../../stage-02-csharp-professional/module-07-dependency-injection/7.4-service-lifetimes.mdx)).
+Nó cũng cấu hình logging (Console, Debug, EventSource), thiết lập Kestrel và IIS integration, đăng ký `IConfiguration`, `IWebHostEnvironment`, `ILogger<T>`, và bật `ValidateScopes` **chỉ khi** môi trường là Development ([bài 7.4](../../stage-02-csharp-professional/module-07-dependency-injection/7.4-service-lifetimes.mdx)).
 
 Lớp `WebApplication` cài đồng thời ba interface: `IHost` (vòng đời), `IApplicationBuilder` (pipeline) và `IEndpointRouteBuilder` (định tuyến). Đó là lý do bạn gọi được cả `app.Use...`, `app.Map...` và `app.Run()` trên cùng một đối tượng — và cũng là lý do `app.Run()` có **hai nghĩa hoàn toàn khác nhau**:
 
@@ -111,15 +111,15 @@ app.Run(async ctx => await ctx.Response.WriteAsync("hi"));   // terminal middlew
 app.Run();                                                    // khởi động và chặn luồng
 ```
 
-### 8.2.4 — Generic Host
+### 8.1.4 — Generic Host
 
 `WebApplication` dựng trên **Generic Host** (`Microsoft.Extensions.Hosting`) — chính là thứ mà Worker Service dùng. Nó lo vòng đời: khởi động mọi `IHostedService`, lắng nghe tín hiệu dừng (SIGTERM, Ctrl+C), và shutdown gọn gàng.
 
-Ý nghĩa thực tế: `BackgroundService` bạn viết ở [bài 6.9](../../stage-02-csharp-professional/module-06-async-programming/6.8-channels-and-producer-consumer.mdx) chạy **bên trong cùng tiến trình** với web app, dùng chung DI container, chung cấu hình, chung logger.
+Ý nghĩa thực tế: `BackgroundService` bạn viết ở [bài 6.8](../../stage-02-csharp-professional/module-06-async-programming/6.8-channels-and-producer-consumer.mdx) chạy **bên trong cùng tiến trình** với web app, dùng chung DI container, chung cấu hình, chung logger.
 
 Khi Kubernetes gửi SIGTERM, host ngừng nhận request mới, chờ request đang chạy xong, gọi `StopAsync` của mọi hosted service, rồi thoát — mặc định chờ **5 giây**, đổi bằng `HostOptions.ShutdownTimeout`.
 
-### 8.2.5 — Môi trường
+### 8.1.5 — Môi trường
 
 ```csharp
 if (app.Environment.IsDevelopment())
@@ -134,7 +134,7 @@ Tên tuỳ ý cũng được (`QA`, `Demo`) với `IsEnvironment("QA")`, nhưng 
 
 Đừng bao giờ để `UseDeveloperExceptionPage()` chạy ở Production: nó in stack trace, đường dẫn file nguồn và giá trị biến ra cho người dùng.
 
-### 8.2.6 — Rà lại code của bạn
+### 8.1.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát kiến trúc"
@@ -251,7 +251,7 @@ Ba dòng cuối là phần bảo mật:
 <details>
 <summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
 
-**Gợi ý.** Bài này trùng ý với [bài 8.7](8.6-configuration-system.mdx) nhưng ở đây trọng tâm là cách `CreateBuilder` thiết lập sẵn thứ tự — bạn không phải cấu hình gì.
+**Gợi ý.** Bài này trùng ý với [bài 8.6](8.6-configuration-system.mdx) nhưng ở đây trọng tâm là cách `CreateBuilder` thiết lập sẵn thứ tự — bạn không phải cấu hình gì.
 
 **Lời giải.**
 
@@ -324,7 +324,7 @@ else
     app.UseExceptionHandler();
 ```
 
-Triển khai mà quên đặt biến môi trường thì bạn nhận nhánh `else` — an toàn. Nếu mặc định là Development thì ngược lại, và mọi lỗi sẽ phơi bày dấu vết ngăn xếp ra ngoài như [bài 8.9](8.8-global-exception-handling.mdx) phân tích.
+Triển khai mà quên đặt biến môi trường thì bạn nhận nhánh `else` — an toàn. Nếu mặc định là Development thì ngược lại, và mọi lỗi sẽ phơi bày dấu vết ngăn xếp ra ngoài như [bài 8.8](8.8-global-exception-handling.mdx) phân tích.
 
 **Thêm môi trường riêng.** Không bị giới hạn ở ba tên có sẵn:
 

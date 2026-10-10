@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 5.9.1 — Thay thế `out`
+### 5.8.1 — Thay thế `out`
 
 ```csharp
 // CŨ — người gọi phải khai báo biến trước, không nối chuỗi được
@@ -52,7 +52,7 @@ var (total, count) = GetStats(orders);
 
 Dạng thứ hai gọi là **deconstruction** — tách một giá trị phức hợp thành nhiều biến.
 
-### 5.9.2 — `ValueTuple` và `Tuple` cũ
+### 5.8.2 — `ValueTuple` và `Tuple` cũ
 
 | | `Tuple<T1,T2>` (.NET 4.0) | `ValueTuple` / `(T1, T2)` (C# 7) |
 |---|---|---|
@@ -65,7 +65,7 @@ Dạng thứ hai gọi là **deconstruction** — tách một giá trị phức 
 
 Trong code mới, gần như không còn lý do dùng `Tuple` cũ.
 
-### 5.9.3 — Tên trường chỉ tồn tại lúc biên dịch
+### 5.8.3 — Tên trường chỉ tồn tại lúc biên dịch
 
 Đây là chi tiết quan trọng nhất của bài.
 
@@ -103,7 +103,7 @@ Vì vậy:
 
 Với hợp đồng công khai, `record` là lựa chọn đúng — nó có tên trường thật, tồn tại trong IL, và serialize ra đúng tên.
 
-### 5.9.4 — Deconstruction cho kiểu của bạn
+### 5.8.4 — Deconstruction cho kiểu của bạn
 
 ```csharp
 public class Customer
@@ -136,7 +136,7 @@ var message = customer switch
 };
 ```
 
-### 5.9.5 — Vài cách dùng hữu ích
+### 5.8.5 — Vài cách dùng hữu ích
 
 ```csharp
 // Hoán đổi không cần biến tạm
@@ -159,7 +159,7 @@ public (bool Success, string? Error) Validate(Order o)
 
 Dòng thứ ba đáng chú ý: `ValueTuple` cài đặt sẵn `Equals` và `GetHashCode` theo giá trị, nên nó dùng làm khoá `Dictionary` được ngay — không gặp vấn đề đã nêu ở [bài 1.6](/docs/dotnet-backend-zero-to-senior/stage-01-foundation/module-01-programming-logic/1.5-arrays-and-lists).
 
-### 5.9.6 — Tuple hay `record`?
+### 5.8.6 — Tuple hay `record`?
 
 | Tiêu chí | Tuple | `record` |
 |---|---|---|
@@ -177,7 +177,7 @@ Quy tắc thực dụng:
 
 Dấu hiệu nên chuyển từ tuple sang `record`: bạn thấy mình lặp lại cùng một hình dạng tuple ở ba chỗ, hoặc phải viết comment giải thích các phần tử là gì. Lúc đó nhóm giá trị này đã có một khái niệm nghiệp vụ, và nó xứng đáng có tên.
 
-### 5.9.7 — Rà lại code của bạn
+### 5.8.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát tuple"
@@ -292,7 +292,7 @@ Tìm một hàm dùng từ hai tham số `out` trở lên. Viết lại bằng t
 <details>
 <summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
 
-**Gợi ý.** Bài này nối tiếp bài tập ở [bài 1.5](../../stage-01-foundation/module-01-programming-logic/1.4-functions-methods.mdx). Điểm mới ở đây là tìm ra **ngoại lệ chính đáng** cho quy tắc "đừng dùng `out`".
+**Gợi ý.** Bài này nối tiếp bài tập ở [bài 1.4](../../stage-01-foundation/module-01-programming-logic/1.4-functions-methods.mdx). Điểm mới ở đây là tìm ra **ngoại lệ chính đáng** cho quy tắc "đừng dùng `out`".
 
 **Lời giải — ba phiên bản:**
 
@@ -356,7 +356,7 @@ public bool TryLayKhachHang(int id, [NotNullWhen(true)] out Customer? kh)
 }
 ```
 
-Thuộc tính `[NotNullWhen(true)]` nói với trình biên dịch rằng khi hàm trả `true` thì `kh` chắc chắn khác `null` — nhờ vậy bạn dùng `kh` ngay sau `if` mà không bị cảnh báo. Đây chính là kỹ thuật ở [bài 5.7](5.6-nullable-reference-types.mdx).
+Thuộc tính `[NotNullWhen(true)]` nói với trình biên dịch rằng khi hàm trả `true` thì `kh` chắc chắn khác `null` — nhờ vậy bạn dùng `kh` ngay sau `if` mà không bị cảnh báo. Đây chính là kỹ thuật ở [bài 5.6](5.6-nullable-reference-types.mdx).
 
 **Tiêu chí chọn, tóm gọn:**
 
@@ -440,9 +440,9 @@ public readonly record struct CustomerKey(int TenantId, int CustomerId);
 var cache = new Dictionary<CustomerKey, Customer>();
 ```
 
-Cách này cho phép đặt tên kiểu, thêm phương thức kiểm tra, và tránh nhầm với một tuple `(int, int)` khác mang ý nghĩa khác — đúng tinh thần value object ở [bài 4.8](../module-04-csharp-core/4.7-records-and-value-objects.mdx).
+Cách này cho phép đặt tên kiểu, thêm phương thức kiểm tra, và tránh nhầm với một tuple `(int, int)` khác mang ý nghĩa khác — đúng tinh thần value object ở [bài 4.7](../module-04-csharp-core/4.7-records-and-value-objects.mdx).
 
-**Lưu ý về tuple làm khoá.** Cả `ValueTuple` lẫn `record struct` đều đã có `Equals` và `GetHashCode` theo giá trị sẵn, nên chúng hoạt động đúng làm khoá ngay mà không cần viết thêm gì — khác hẳn với `class` thường, như [bài 1.6](../../stage-01-foundation/module-01-programming-logic/1.5-arrays-and-lists.mdx) đã chứng minh.
+**Lưu ý về tuple làm khoá.** Cả `ValueTuple` lẫn `record struct` đều đã có `Equals` và `GetHashCode` theo giá trị sẵn, nên chúng hoạt động đúng làm khoá ngay mà không cần viết thêm gì — khác hẳn với `class` thường, như [bài 1.5](../../stage-01-foundation/module-01-programming-logic/1.5-arrays-and-lists.mdx) đã chứng minh.
 
 </details>
 

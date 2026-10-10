@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 14.2.1 — Khi nào cache đáng giá
+### 14.1.1 — Khi nào cache đáng giá
 
 Bốn điều kiện, và cần **cả bốn**:
 
@@ -50,7 +50,7 @@ Ty le trung = so lan hit / (so lan hit + so lan miss)
 
 **Luôn đo trước khi giữ lại một cache.** Nhiều cache tồn tại trong code mà không ai biết nó có tác dụng hay không.
 
-### 14.2.2 — Cache aside
+### 14.1.2 — Cache aside
 
 Mẫu phổ biến nhất, và là mặc định:
 
@@ -95,7 +95,7 @@ Ba mẫu khác, và vì sao chúng hiếm dùng trong .NET:
 
 Write-behind nghe hấp dẫn về hiệu năng nhưng đánh đổi độ bền — chỉ hợp cho dữ liệu chấp nhận mất, như bộ đếm lượt xem.
 
-### 14.2.3 — Cache stampede
+### 14.1.3 — Cache stampede
 
 Đây là cách mà **thêm cache làm hệ thống sập**:
 
@@ -148,7 +148,7 @@ public Task<T> GetAsync(string key, Func<Task<T>> factory)
     });
 ```
 
-Mẫu này đã nói ở [bài 6.7](../../stage-02-csharp-professional/module-06-async-programming/6.6-async-patterns.mdx): request đầu đặt `Task` đang chạy vào, các request sau cùng `await` nó.
+Mẫu này đã nói ở [bài 6.6](../../stage-02-csharp-professional/module-06-async-programming/6.6-async-patterns.mdx): request đầu đặt `Task` đang chạy vào, các request sau cùng `await` nó.
 
 ```csharp
 // 3. TTL ngau nhien — trai deu thoi diem het han
@@ -158,9 +158,9 @@ _cache.Set(key, value, TimeSpan.FromMinutes(5).Add(TimeSpan.FromSeconds(jitter))
 
 Cách 3 không chống được stampede cho **một** khoá, nhưng nó ngăn **hàng nghìn khoá** cùng hết hạn một lúc — điều xảy ra khi bạn nạp cache hàng loạt lúc khởi động.
 
-`HybridCache` của .NET 9 làm sẵn cách 1 ([bài 14.6](14.5-hybridcache-dotnet-9.mdx)).
+`HybridCache` của .NET 9 làm sẵn cách 1 ([bài 14.5](14.5-hybridcache-dotnet-9.mdx)).
 
-### 14.2.4 — Bốn tầng cache
+### 14.1.4 — Bốn tầng cache
 
 | Tầng | Ví dụ | Phạm vi | Độ trễ | Dùng cho |
 |---|---|---|---|---|
@@ -169,17 +169,17 @@ Cách 3 không chống được stampede cho **một** khoá, nhưng nó ngăn *
 | **HTTP** | `Cache-Control`, ETag | Client, CDN | 0 (không gọi) | Response công khai |
 | **CDN** | Cloudflare | Toàn cầu | ~10ms | File tĩnh, API công khai |
 
-Tầng HTTP đáng chú ý vì nó là tầng **rẻ nhất**: request **không bao giờ tới server**. Một `Cache-Control: max-age=3600` trên endpoint danh sách quốc gia tiết kiệm nhiều hơn bất kỳ cache phía server nào ([bài 9.8](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.7-response-caching-and-output-caching.mdx)).
+Tầng HTTP đáng chú ý vì nó là tầng **rẻ nhất**: request **không bao giờ tới server**. Một `Cache-Control: max-age=3600` trên endpoint danh sách quốc gia tiết kiệm nhiều hơn bất kỳ cache phía server nào ([bài 9.7](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.7-response-caching-and-output-caching.mdx)).
 
 **Kết hợp nhiều tầng** là mẫu mạnh nhất: bộ nhớ trong tiến trình cho tốc độ, Redis cho chia sẻ giữa instance. Đó chính là `HybridCache`.
 
-### 14.2.5 — Vấn đề khó nhất: xoá cache
+### 14.1.5 — Vấn đề khó nhất: xoá cache
 
 > *"Trong khoa học máy tính chỉ có hai việc khó: xoá cache và đặt tên biến."* — Phil Karlton
 
 Khó vì **cache sai không báo lỗi**. Truy vấn sai thì ném exception; cache cũ thì chỉ là người dùng thấy dữ liệu không đúng, và có thể hàng tuần không ai phát hiện.
 
-Ba chiến lược, chi tiết ở [bài 14.5](14.4-cache-invalidation-strategies.mdx):
+Ba chiến lược, chi tiết ở [bài 14.4](14.4-cache-invalidation-strategies.mdx):
 
 1. **TTL** — để nó tự hết hạn. Đơn giản nhất, và **trần rủi ro** là chính TTL đó.
 2. **Xoá chủ động** — khi dữ liệu đổi. Chính xác nhưng dễ sót một đường ghi.
@@ -187,7 +187,7 @@ Ba chiến lược, chi tiết ở [bài 14.5](14.4-cache-invalidation-strategie
 
 **TTL ngắn là lưới an toàn cho cả hai chiến lược kia.** Kể cả khi bạn quên xoá ở một chỗ, dữ liệu sai chỉ sống tối đa bằng TTL. Đây là lý do TTL 5 phút thường tốt hơn TTL 1 giờ, dù tỷ lệ trúng thấp hơn.
 
-### 14.2.6 — Không bao giờ cache
+### 14.1.6 — Không bao giờ cache
 
 | Không cache | Vì sao |
 |---|---|
@@ -209,7 +209,7 @@ var key = "customer-list";
 var key = $"customers:t{tenantId}:u{userId}:p{page}:s{pageSize}:q{search}";
 ```
 
-### 14.2.7 — Rà lại code của bạn
+### 14.1.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát caching"

@@ -38,7 +38,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 12.7.1 — ACID
+### 12.6.1 — ACID
 
 | | Ý nghĩa | Ai đảm bảo |
 |---|---|---|
@@ -71,7 +71,7 @@ END CATCH;
 
 `XACT_STATE()` thay cho `@@TRANCOUNT`: một số lỗi làm transaction **không thể commit** nhưng vẫn mở, và chỉ `XACT_STATE()` phân biệt được ba trạng thái đó.
 
-### 12.7.2 — Bốn isolation level
+### 12.6.2 — Bốn isolation level
 
 | Mức | Dirty read | Non-repeatable read | Phantom read |
 |---|---|---|---|
@@ -90,7 +90,7 @@ END CATCH;
 
 **`SERIALIZABLE`** đảm bảo đúng tuyệt đối bằng cách khoá cả **khoảng giá trị** — chi phí rất cao và dễ gây deadlock. Chỉ dùng cho đoạn code thật sự cần.
 
-### 12.7.3 — RCSI: thay đổi một dòng, tác động lớn
+### 12.6.3 — RCSI: thay đổi một dòng, tác động lớn
 
 ```sql
 ALTER DATABASE CrmDb SET READ_COMMITTED_SNAPSHOT ON;
@@ -105,7 +105,7 @@ Sau lệnh này, `READ COMMITTED` trên SQL Server hoạt động bằng **ảnh
 | Dữ liệu đọc được | Bản mới nhất đã commit | Ảnh chụp lúc câu lệnh bắt đầu |
 | Chi phí | Khoá | `tempdb` (version store) |
 
-Đây là hành vi mà PostgreSQL có **sẵn** ([bài 12.3](12.2-sql-server-vs-postgresql.mdx)), và nó xoá bỏ phần lớn timeout kiểu "báo cáo chạy 30 giây làm treo mọi người dùng".
+Đây là hành vi mà PostgreSQL có **sẵn** ([bài 12.2](12.2-sql-server-vs-postgresql.mdx)), và nó xoá bỏ phần lớn timeout kiểu "báo cáo chạy 30 giây làm treo mọi người dùng".
 
 Ba lưu ý trước khi bật:
 
@@ -115,7 +115,7 @@ Ba lưu ý trước khi bật:
 
 Bài [Isolation level trong SQL: chọn sai thì dữ liệu sai ở đâu](/blog/sql-isolation-level-lost-update-phantom-read) đi sâu vào từng hiện tượng.
 
-### 12.7.4 — Deadlock
+### 12.6.4 — Deadlock
 
 ```
 Transaction A:  khoa Customers(42)  ->  doi Leads(7)
@@ -166,7 +166,7 @@ SET deadlock_timeout = '1s';
 
 **Đừng sửa deadlock bằng cách tăng timeout.** Nó chỉ làm transaction chờ lâu hơn trước khi thất bại.
 
-### 12.7.5 — Optimistic hay pessimistic
+### 12.6.5 — Optimistic hay pessimistic
 
 **Optimistic** — giả định xung đột hiếm, phát hiện khi ghi:
 
@@ -227,7 +227,7 @@ IF @@ROWCOUNT = 0 THROW 50001, 'Không đủ hàng', 1;
 
 Một câu lệnh duy nhất là **nguyên tử** — không có khoảng trống giữa đọc và ghi để ai chen vào. Nhanh hơn và đơn giản hơn cả hai cách trên.
 
-### 12.7.6 — Transaction phải ngắn
+### 12.6.6 — Transaction phải ngắn
 
 ```csharp
 // RAT TE
@@ -257,11 +257,11 @@ Ba thứ **không bao giờ** được nằm trong transaction:
 
 - **Lời gọi HTTP** tới bên thứ ba.
 - **Chờ người dùng** — "bấm OK để xác nhận".
-- **Gửi email, push notification** ([bài 11.8](../../stage-03-aspnet-core-backend/module-11-signalr/11.7-ihubcontext-server-push-outside-hub.mdx)).
+- **Gửi email, push notification** ([bài 11.7](../../stage-03-aspnet-core-backend/module-11-signalr/11.7-ihubcontext-server-push-outside-hub.mdx)).
 
 Nếu bắt buộc phải phối hợp giữa database và hệ thống ngoài, dùng mẫu **outbox** — ghi ý định trong transaction, thực thi sau ([Module 17](../../stage-05-senior-engineering/module-17-distributed-systems/)).
 
-### 12.7.7 — Retry
+### 12.6.7 — Retry
 
 Deadlock và timeout là lỗi **tạm thời** — thử lại thường thành công:
 
@@ -278,12 +278,12 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 Hai điều kiện để retry an toàn:
 
-1. **Thao tác phải idempotent**, hoặc transaction bao trọn để rollback sạch ([bài 9.2](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.1-rest-api-design-principles.mdx)).
+1. **Thao tác phải idempotent**, hoặc transaction bao trọn để rollback sạch ([bài 9.1](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.1-rest-api-design-principles.mdx)).
 2. **Phải có backoff và giới hạn số lần.** Retry ngay lập tức chỉ làm deadlock lặp lại.
 
 Và luôn **log mỗi lần retry**. Tỷ lệ retry tăng là tín hiệu sớm của vấn đề tranh chấp — nếu retry im lặng, bạn chỉ biết khi nó đã đủ tệ để vượt quá số lần thử.
 
-### 12.7.8 — Rà lại code của bạn
+### 12.6.8 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát transaction"
@@ -417,7 +417,7 @@ Giao dịch B (Y -> X): khoá theo thứ tự ID -> khoá X rồi Y   <- CÙNG t
 
 **Thứ tự nhất quán biến deadlock thành chờ đợi** — chậm hơn một chút nhưng không thất bại.
 
-**Và gộp thành một `SaveChangesAsync`** rút ngắn thời gian giữ khoá, giảm cả xác suất tranh chấp lẫn thời gian chờ của giao dịch khác. Chi tiết ở [bài 12.11](12.10-mini-case-study.mdx).
+**Và gộp thành một `SaveChangesAsync`** rút ngắn thời gian giữ khoá, giảm cả xác suất tranh chấp lẫn thời gian chờ của giao dịch khác. Chi tiết ở [bài 12.10](12.10-mini-case-study.mdx).
 
 **Ba nguyên tắc chống deadlock, theo thứ tự hiệu quả:**
 
@@ -520,7 +520,7 @@ Sau RCSI:    không ai chờ ai, nhưng tempdb phải giữ phiên bản cũ
 
 Dòng cuối là một khác biệt về **ngữ nghĩa**, không chỉ về hiệu năng: báo cáo chạy 30 giây sẽ không thấy những thay đổi commit trong 30 giây đó. Với báo cáo thì đúng và tốt; với logic nghiệp vụ dựa vào "đọc giá trị mới nhất" thì phải xem lại.
 
-**PostgreSQL luôn hoạt động theo mô hình này** — đó chính là MVCC ở [bài 12.3](12.2-sql-server-vs-postgresql.mdx), và cái giá tương ứng là table bloat thay vì `tempdb`.
+**PostgreSQL luôn hoạt động theo mô hình này** — đó chính là MVCC ở [bài 12.2](12.2-sql-server-vs-postgresql.mdx), và cái giá tương ứng là table bloat thay vì `tempdb`.
 
 **Khuyến nghị:** bật RCSI cho gần như mọi hệ thống OLTP mới. Nó loại bỏ phần lớn tình huống chặn nhau mà chỉ đổi lấy dung lượng `tempdb` — một đánh đổi gần như luôn đúng. Nhưng hãy bật ở môi trường thử trước và theo dõi version store một thời gian.
 

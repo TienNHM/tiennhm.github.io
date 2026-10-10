@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 4.13.1 — Bug
+### 4.12.1 — Bug
 
 ```csharp
 public class Address
@@ -53,7 +53,7 @@ if (!customer.Addresses.Contains(newAddress))
 // Kết quả: danh sách đầy địa chỉ TRÙNG NHAU
 ```
 
-### 4.13.2 — Vì sao
+### 4.12.2 — Vì sao
 
 Với `class`, C# so sánh **tham chiếu** — tức hai biến có trỏ vào **cùng một ô nhớ** hay không.
 
@@ -69,7 +69,7 @@ a1 == a3      // True
 
 Mặc định này **đúng** cho phần lớn trường hợp: hai khách hàng cùng tên không phải cùng một người. Nhưng với những thứ chỉ **mang giá trị** — địa chỉ, số tiền, khoảng thời gian — thì so sánh theo nội dung mới đúng.
 
-### 4.13.3 — Sửa bằng record
+### 4.12.3 — Sửa bằng record
 
 ```csharp
 public record Address(string HouseNumber, string Street, string District);
@@ -81,7 +81,7 @@ Console.WriteLine(a1 == a2);               // True
 Console.WriteLine(danhSach.Contains(a2));   // True
 ```
 
-Một từ khoá. Trình biên dịch tự sinh `Equals`, `GetHashCode`, `ToString`, toán tử `==` và `!=`, cùng phương thức `with` để tạo bản sao có sửa đổi ([bài 4.8](4.7-records-and-value-objects.mdx)).
+Một từ khoá. Trình biên dịch tự sinh `Equals`, `GetHashCode`, `ToString`, toán tử `==` và `!=`, cùng phương thức `with` để tạo bản sao có sửa đổi ([bài 4.7](4.7-records-and-value-objects.mdx)).
 
 ```csharp
 var dcMoi = a1 with { District = "3" };    // ban sao, chi doi District
@@ -89,7 +89,7 @@ var dcMoi = a1 with { District = "3" };    // ban sao, chi doi District
 
 `record` cũng **bất biến** mặc định — sau khi tạo không đổi được thuộc tính. Đây là điều bạn muốn với value object: nếu địa chỉ thay đổi thì đó là một địa chỉ **khác**, không phải cùng địa chỉ đã bị sửa.
 
-### 4.13.4 — Cái bẫy: quên GetHashCode
+### 4.12.4 — Cái bẫy: quên GetHashCode
 
 Nếu vì lý do nào đó bạn không dùng được `record` và phải tự ghi đè:
 
@@ -129,7 +129,7 @@ public override int GetHashCode() => HashCode.Combine(HouseNumber, Street);
 
 Trình biên dịch **có** cảnh báo về việc này (CS0659), nên đừng bỏ qua cảnh báo.
 
-### 4.13.5 — Cái bẫy thứ hai: thuộc tính thay đổi được
+### 4.12.5 — Cái bẫy thứ hai: thuộc tính thay đổi được
 
 ```csharp
 // NGUY HIỂM — thuộc tính dùng để băm lại đổi được
@@ -149,7 +149,7 @@ set.Contains(a);         // False — dù a ĐANG nằm trong tập!
 
 Đây là lý do value object **phải bất biến**, và cũng là lý do `record` mặc định bất biến. Nếu dùng `class` với `Equals` tự viết, hãy đặt mọi thuộc tính là `init` hoặc `private set`.
 
-### 4.13.6 — Chọn class, record hay struct
+### 4.12.6 — Chọn class, record hay struct
 
 | | `class` | `record` | `struct` |
 |---|---|---|---|
@@ -175,9 +175,9 @@ public record Money(decimal Amount, string Currency);
 public readonly record struct LeadId(Guid Value);
 ```
 
-Dòng cuối là mẫu **strongly-typed ID**: nó vừa cho so sánh theo giá trị, vừa không cấp phát trên heap, vừa khiến trình biên dịch bắt lỗi truyền nhầm id ([bài 16.14](../../stage-05-senior-engineering/module-16-clean-architecture/16.13-advanced-notes.mdx)).
+Dòng cuối là mẫu **strongly-typed ID**: nó vừa cho so sánh theo giá trị, vừa không cấp phát trên heap, vừa khiến trình biên dịch bắt lỗi truyền nhầm id ([bài 16.13](../../stage-05-senior-engineering/module-16-clean-architecture/16.13-advanced-notes.mdx)).
 
-### 4.13.7 — Rà lại code của bạn
+### 4.12.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát so sánh đối tượng"
@@ -635,7 +635,7 @@ suốt thời gian nó nằm trong cấu trúc đó.
 Cách chắc chắn nhất để đảm bảo điều đó: làm cho nó không thể đổi được.
 ```
 
-Nối lại ba bài: bài 1 cho thấy `record` sinh sẵn so sánh theo giá trị, bài 2 cho thấy tự viết dễ sai chỗ nào, bài 3 cho thấy ngay cả khi viết đúng, dữ liệu đổi được vẫn phá vỡ mọi thứ. Cả ba đều dẫn về cùng một kết luận của mục 4.13.6: với kiểu mang **giá trị**, `record` với thuộc tính `init` là mặc định đúng.
+Nối lại ba bài: bài 1 cho thấy `record` sinh sẵn so sánh theo giá trị, bài 2 cho thấy tự viết dễ sai chỗ nào, bài 3 cho thấy ngay cả khi viết đúng, dữ liệu đổi được vẫn phá vỡ mọi thứ. Cả ba đều dẫn về cùng một kết luận của mục 4.12.6: với kiểu mang **giá trị**, `record` với thuộc tính `init` là mặc định đúng.
 
 </details>
 

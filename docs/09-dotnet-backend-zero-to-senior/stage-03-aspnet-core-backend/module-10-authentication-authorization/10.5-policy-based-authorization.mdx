@@ -25,7 +25,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 10.6.1 — Policy đơn giản
+### 10.5.1 — Policy đơn giản
 
 ```csharp
 builder.Services.AddAuthorization(options =>
@@ -61,7 +61,7 @@ Chú ý cách các `Require*` kết hợp: chúng là **AND**. `NorthernManager`
 
 `RequireAssertion` tiện cho quy tắc một dòng, nhưng nó **không tiêm được dependency** — cần service thì phải dùng handler.
 
-### 10.6.2 — Requirement và handler
+### 10.5.2 — Requirement và handler
 
 ```csharp
 // 1. Requirement — mang THAM SỐ, không mang logic
@@ -105,7 +105,7 @@ builder.Services.AddAuthorization(options =>
 
 **Chi tiết quan trọng nhất: không gọi gì cũng là từ chối.** Requirement chưa được `Succeed` thì mặc định là thất bại. Nên với trường hợp "không đủ thông tin để quyết định", bạn **không** cần làm gì — và **không nên** gọi `Fail()`, vì lý do ở mục sau.
 
-**Handler được đăng ký `Singleton`.** Nghĩa là nó không được tiêm `DbContext` hay bất kỳ service scoped nào vào constructor ([bài 7.5](../../stage-02-csharp-professional/module-07-dependency-injection/7.4-service-lifetimes.mdx)).
+**Handler được đăng ký `Singleton`.** Nghĩa là nó không được tiêm `DbContext` hay bất kỳ service scoped nào vào constructor ([bài 7.4](../../stage-02-csharp-professional/module-07-dependency-injection/7.4-service-lifetimes.mdx)).
 
 Cần truy cập database trong handler thì đăng ký handler là `Scoped`:
 
@@ -113,9 +113,9 @@ Cần truy cập database trong handler thì đăng ký handler là `Scoped`:
 builder.Services.AddScoped<IAuthorizationHandler, PermissionHandler>();
 ```
 
-Nhưng hãy cân nhắc: handler chạy trên **mọi** request tới endpoint đó. Một truy vấn database ở đây là một truy vấn thêm cho mỗi request — nên cache là gần như bắt buộc ([bài 10.8](10.7-permission-system.mdx)).
+Nhưng hãy cân nhắc: handler chạy trên **mọi** request tới endpoint đó. Một truy vấn database ở đây là một truy vấn thêm cho mỗi request — nên cache là gần như bắt buộc ([bài 10.7](10.7-permission-system.mdx)).
 
-### 10.6.3 — Ba quy tắc kết hợp
+### 10.5.3 — Ba quy tắc kết hợp
 
 **Quy tắc 1: nhiều requirement trong một policy là AND.**
 
@@ -175,7 +175,7 @@ Ba quy tắc gộp lại trong một policy ví dụ:
 
 <small>File gốc: [nền sáng](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-03-aspnet-core-backend-module-10-authentication-authorization-policy-based-authorization/vi/policy-evaluation.html) · [nền tối](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-03-aspnet-core-backend-module-10-authentication-authorization-policy-based-authorization/vi/policy-evaluation-dark.html)</small>
 
-### 10.6.4 — Policy động
+### 10.5.4 — Policy động
 
 Với quyền có tham số, khai từng policy một là không khả thi:
 
@@ -235,7 +235,7 @@ Giờ gõ sai tên quyền là **lỗi biên dịch**, không phải 403 lúc ch
 
 **Lưu ý hiệu năng:** `GetPolicyAsync` được gọi cho **mỗi request**, nên đừng làm gì nặng trong đó. `DefaultAuthorizationPolicyProvider` có cache sẵn; provider tự viết thì nên thêm một `ConcurrentDictionary` làm cache.
 
-### 10.6.5 — Rà lại code của bạn
+### 10.5.5 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát policy"

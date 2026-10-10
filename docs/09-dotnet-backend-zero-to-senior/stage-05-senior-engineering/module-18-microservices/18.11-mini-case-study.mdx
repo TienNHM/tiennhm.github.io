@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 18.12.1 — Đề bài
+### 18.11.1 — Đề bài
 
 **Hiện trạng:** monolith ASP.NET Core, SQL Server, 4 instance, đội 9 người.
 
@@ -39,7 +39,7 @@ Gio cao diem (9h va 14h):
 
 **Ràng buộc:** không được mất thông báo nào, không downtime, và phải quay lại được nếu hỏng.
 
-### 18.12.2 — Vì sao chọn Notification trước
+### 18.11.2 — Vì sao chọn Notification trước
 
 Bốn tiêu chí, và Notification đạt cả bốn:
 
@@ -52,7 +52,7 @@ Bốn tiêu chí, và Notification đạt cả bốn:
 
 Tiêu chí cuối đáng chú ý: tách service đầu tiên **nên chọn chỗ chịu được rủi ro**. Đây là lần đầu đội làm việc này, và sẽ có sai sót. Tách Billing hay Order trước là đặt cược vào lần đầu.
 
-### 18.12.3 — Kế hoạch năm bước
+### 18.11.3 — Kế hoạch năm bước
 
 ```mermaid
 flowchart TD
@@ -62,7 +62,7 @@ flowchart TD
     D --> E[B5: Xoá code cũ]
 ```
 
-**Bước 1 — Gateway.** Đặt YARP trước monolith, mọi route vẫn về monolith. Tự nó không đổi gì nhưng tạo **điểm chuyển đổi** cho các bước sau ([bài 18.4](18.3-api-gateway-yarp-dotnet.mdx)).
+**Bước 1 — Gateway.** Đặt YARP trước monolith, mọi route vẫn về monolith. Tự nó không đổi gì nhưng tạo **điểm chuyển đổi** cho các bước sau ([bài 18.3](18.3-api-gateway-yarp-dotnet.mdx)).
 
 **Bước 2 — Tách module trong monolith.** Trước khi tách ra tiến trình riêng, tách thành module có ranh giới rõ **bên trong** monolith:
 
@@ -74,7 +74,7 @@ Modules/Notification/
   Notification.Contracts/        <- chỉ project này được module khác dùng
 ```
 
-Bước này phát hiện ra 14 chỗ code khác gọi thẳng vào nội bộ Notification — con số mà không ai ngờ. Sửa chúng **trong monolith** rẻ hơn rất nhiều so với sửa sau khi đã tách ra mạng ([bài 18.2](18.1-when-not-to-use-microservices.mdx)).
+Bước này phát hiện ra 14 chỗ code khác gọi thẳng vào nội bộ Notification — con số mà không ai ngờ. Sửa chúng **trong monolith** rẻ hơn rất nhiều so với sửa sau khi đã tách ra mạng ([bài 18.1](18.1-when-not-to-use-microservices.mdx)).
 
 **Bước 3 — Service mới chạy song song.** Notification Service mới nhận message từ broker, xử lý, nhưng **không gửi email thật** — chỉ ghi log. So sánh log với monolith để xác nhận hành vi giống nhau.
 
@@ -82,7 +82,7 @@ Bước này phát hiện ra 14 chỗ code khác gọi thẳng vào nội bộ N
 
 **Bước 5 — Xoá code cũ** sau hai tuần ổn định.
 
-### 18.12.4 — Sự cố 1: mất thông báo
+### 18.11.4 — Sự cố 1: mất thông báo
 
 **Xảy ra ở bước 3.** Monolith ghi database rồi publish message cho service mới:
 
@@ -94,7 +94,7 @@ await _bus.Publish(new SendNotificationCommand(...), ct);   // có thể thất 
 
 Trong một đợt deploy, tiến trình bị dừng giữa hai lệnh. 340 thông báo **không bao giờ** được gửi, và không có dấu vết nào trong log — vì về mặt monolith, mọi thứ đã thành công.
 
-Đây chính là dual write problem ([bài 17.3](../module-17-distributed-systems/17.2-messaging-fears-lost-duplicates.mdx)).
+Đây chính là dual write problem ([bài 17.2](../module-17-distributed-systems/17.2-messaging-fears-lost-duplicates.mdx)).
 
 **Sửa:** đưa message vào outbox trong cùng transaction.
 
@@ -103,9 +103,9 @@ _db.OutboxMessages.Add(OutboxMessage.From(new SendNotificationCommand(...)));
 await _db.SaveChangesAsync(ct);        // MỘT transaction cho cả hai
 ```
 
-**Bài học:** outbox phải có **trước** khi bắt đầu tách, không phải thêm vào khi đã mất dữ liệu ([bài 17.4](../module-17-distributed-systems/17.3-outbox-pattern-applied.mdx)).
+**Bài học:** outbox phải có **trước** khi bắt đầu tách, không phải thêm vào khi đã mất dữ liệu ([bài 17.3](../module-17-distributed-systems/17.3-outbox-pattern-applied.mdx)).
 
-### 18.12.5 — Sự cố 2: email trùng
+### 18.11.5 — Sự cố 2: email trùng
 
 **Xảy ra ở bước 4.** Khi bật gửi thật cho 5%, một số người dùng nhận **hai email giống hệt**.
 
@@ -129,7 +129,7 @@ await _emailSender.SendAsync(notification, ct);
 
 **Bài học:** trong giai đoạn chạy song song, **luôn** có cơ chế chống trùng dùng chung, kể cả khi bạn tin rằng việc chia lưu lượng đã đúng. Niềm tin đó chính là thứ sai.
 
-### 18.12.6 — Sự cố 3: độ trễ tăng
+### 18.11.6 — Sự cố 3: độ trễ tăng
 
 **Xảy ra ở bước 4, mức 50%.** Thời gian xử lý một thông báo tăng từ 40ms lên 380ms.
 
@@ -160,9 +160,9 @@ public sealed record SendNotificationCommand(
 Tải lên monolith: giảm về 0
 ```
 
-**Bài học:** integration event phải **tự chứa** ([bài 17.2](../module-17-distributed-systems/17.1-event-driven-architecture-when-to-use.mdx)). Nếu consumer phải gọi ngược về producer để hiểu message, bạn chưa thật sự tách — chỉ thêm một chặng mạng.
+**Bài học:** integration event phải **tự chứa** ([bài 17.1](../module-17-distributed-systems/17.1-event-driven-architecture-when-to-use.mdx)). Nếu consumer phải gọi ngược về producer để hiểu message, bạn chưa thật sự tách — chỉ thêm một chặng mạng.
 
-### 18.12.7 — Kết quả
+### 18.11.7 — Kết quả
 
 | Chỉ số | Trước | Sau |
 |---|---|---|
@@ -174,7 +174,7 @@ Tải lên monolith: giảm về 0
 
 Hàng cuối trung thực: kế hoạch 4 tuần, thực tế 7 tuần, và ba sự cố ở trên chiếm phần lớn phần chênh. Đó là con số nên dùng khi ước lượng lần tách tiếp theo.
 
-### 18.12.8 — Rà lại code của bạn
+### 18.11.8 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát khi tách service đầu tiên"
@@ -195,7 +195,7 @@ Hàng cuối trung thực: kế hoạch 4 tuần, thực tế 7 tuần, và ba s
 
 #### Bài 1 — Chọn module tách trước
 
-Với hệ thống của bạn, chấm điểm ba module theo bốn tiêu chí ở mục 18.12.2 và chọn một.
+Với hệ thống của bạn, chấm điểm ba module theo bốn tiêu chí ở mục 18.11.2 và chọn một.
 
 **Tiêu chí hoàn thành:** bạn chọn được một module, và nêu rõ vì sao **tiêu chí thứ tư** — hỏng thì ít nghiêm trọng — lại quan trọng hơn ba tiêu chí kia ở lần tách đầu tiên.
 

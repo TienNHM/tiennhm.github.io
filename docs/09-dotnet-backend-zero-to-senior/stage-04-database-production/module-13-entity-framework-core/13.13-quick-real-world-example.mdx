@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 13.14.1 — Vấn đề
+### 13.13.1 — Vấn đề
 
 ```
 10:00  An mở lead #123: { Name: "Công ty ABC", Value: 5tr, Note: "" }
@@ -53,7 +53,7 @@ UPDATE Leads SET Name = @p0, Value = @p1, Note = @p2 WHERE Id = @p3;
 
 Không có exception. Không có log. An chỉ phát hiện khi mở lại và thấy ghi chú biến mất — và có thể nghĩ mình quên bấm lưu.
 
-### 13.14.2 — Sửa: row version
+### 13.13.2 — Sửa: row version
 
 ```csharp
 public class Lead
@@ -100,7 +100,7 @@ catch (DbUpdateConcurrencyException)
 
 Giờ Bình nhận thông báo thay vì âm thầm ghi đè.
 
-### 13.14.3 — Ba cách xử lý xung đột
+### 13.13.3 — Ba cách xử lý xung đột
 
 **Cách 1 — báo người dùng tải lại (đơn giản nhất):**
 
@@ -162,7 +162,7 @@ return Conflict(new
 
 Frontend hiện hai cột cạnh nhau cho người dùng quyết định. Tốt nhất về mặt trải nghiệm nhưng tốn công làm giao diện.
 
-### 13.14.4 — Optimistic hay pessimistic
+### 13.13.4 — Optimistic hay pessimistic
 
 | | Optimistic (row version) | Pessimistic (khoá) |
 |---|---|---|
@@ -183,7 +183,7 @@ var lead = await _db.Leads
 
 Pessimistic chỉ hợp lý cho thao tác **ngắn và tranh chấp cao**: trừ tồn kho lúc đặt hàng, cấp số thứ tự, xử lý hàng đợi.
 
-### 13.14.5 — Cái bẫy: ExecuteUpdate bỏ qua row version
+### 13.13.5 — Cái bẫy: ExecuteUpdate bỏ qua row version
 
 ```csharp
 // KHÔNG kiểm tra row version — bỏ qua cả cơ chế concurrency
@@ -196,9 +196,9 @@ await _db.Leads
 
 Điều đó **đúng với ý định** khi bạn cập nhật hàng loạt theo điều kiện: bạn muốn ghi đè, không quan tâm phiên bản.
 
-Nhưng nó **sai** khi dùng để cập nhật một bản ghi cụ thể mà người dùng đang sửa. Quy tắc: `ExecuteUpdate` cho thao tác hàng loạt của hệ thống, `SaveChanges` cho thao tác của người dùng ([bài 13.8](13.7-performance.mdx)).
+Nhưng nó **sai** khi dùng để cập nhật một bản ghi cụ thể mà người dùng đang sửa. Quy tắc: `ExecuteUpdate` cho thao tác hàng loạt của hệ thống, `SaveChanges` cho thao tác của người dùng ([bài 13.7](13.7-performance.mdx)).
 
-### 13.14.6 — Kiểm chứng bằng test
+### 13.13.6 — Kiểm chứng bằng test
 
 ```csharp
 [Fact]
@@ -223,11 +223,11 @@ public async Task Update_NemConcurrencyException_KhiCoNguoiSuaTruoc()
 }
 ```
 
-Test này chạy trên database thật vì `ROWVERSION` là tính năng của database — provider InMemory không có nó, nên test sẽ xanh một cách vô nghĩa ([bài 16.10](../../stage-05-senior-engineering/module-16-clean-architecture/16.9-testing-strategy-overview.mdx)).
+Test này chạy trên database thật vì `ROWVERSION` là tính năng của database — provider InMemory không có nó, nên test sẽ xanh một cách vô nghĩa ([bài 16.9](../../stage-05-senior-engineering/module-16-clean-architecture/16.9-testing-strategy-overview.mdx)).
 
 Viết test kiểu này cho mỗi entity mà nhiều người có thể cùng sửa.
 
-### 13.14.7 — Rà lại code của bạn
+### 13.13.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát lost update"

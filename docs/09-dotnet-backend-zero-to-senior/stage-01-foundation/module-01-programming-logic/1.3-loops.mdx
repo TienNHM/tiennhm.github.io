@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 1.4.1 — Chọn dạng nào?
+### 1.3.1 — Chọn dạng nào?
 
 ```mermaid
 flowchart TD
@@ -59,7 +59,7 @@ do
 
 Quy tắc thực dụng: **mặc định dùng `foreach`**. Chỉ chuyển sang `for` khi thật sự cần chỉ số, hoặc cần sửa phần tử theo vị trí.
 
-### 1.4.2 — `foreach` thực chất làm gì
+### 1.3.2 — `foreach` thực chất làm gì
 
 `foreach` không phải phép màu. Trình biên dịch dịch nó thành:
 
@@ -85,7 +85,7 @@ Hiểu điều này giải thích luôn hai chuyện:
 1. Vì sao bất cứ thứ gì có phương thức `GetEnumerator()` đều `foreach` được, kể cả khi không cài đặt `IEnumerable`.
 2. Vì sao **sửa collection khi đang duyệt** lại nổ — enumerator giữ một số phiên bản nội bộ, mọi thao tác thêm/xoá làm số đó đổi, và `MoveNext()` phát hiện ra.
 
-### 1.4.3 — Lỗi 1: sửa collection khi đang duyệt
+### 1.3.3 — Lỗi 1: sửa collection khi đang duyệt
 
 ```csharp
 // SAI — InvalidOperationException: Collection was modified
@@ -115,7 +115,7 @@ for (int i = customers.Count - 1; i >= 0; i--)
 
 Cách 3 duyệt ngược vì xoá phần tử thứ `i` làm mọi phần tử sau nó dịch lên một chỗ — đi xuôi sẽ **bỏ sót** phần tử ngay sau phần tử vừa xoá.
 
-### 1.4.4 — Lỗi 2: lệch một đơn vị (off-by-one)
+### 1.3.4 — Lỗi 2: lệch một đơn vị (off-by-one)
 
 ```csharp
 // SAI — IndexOutOfRangeException ở vòng cuối
@@ -135,7 +135,7 @@ var lastThree = items[^3..];    // ba phần tử cuối
 var middle    = items[1..^1];   // bỏ đầu và cuối
 ```
 
-### 1.4.5 — Lỗi 3: gọi I/O bên trong vòng lặp
+### 1.3.5 — Lỗi 3: gọi I/O bên trong vòng lặp
 
 Đây là lỗi tốn kém nhất trong cả bài, và nó không ném exception nào — chỉ làm mọi thứ chậm đi.
 
@@ -166,7 +166,7 @@ Nguyên tắc: **vòng lặp để xử lý dữ liệu đã có trong bộ nh�
 
 Bài [Vì sao EF Core bắn 201 query cho 1 màn hình danh sách?](/blog/ef-core-n-plus-1-query) đo cụ thể chi phí của lỗi này và chỉ cách phát hiện bằng log. Phần lý thuyết bên phía SQL nằm ở bài [hiệu năng truy vấn](/docs/database/learn-sql-in-30-days/20-query-performance).
 
-### 1.4.6 — `break` và `continue`
+### 1.3.6 — `break` và `continue`
 
 ```csharp
 foreach (var order in orders)
@@ -182,7 +182,7 @@ Dùng vừa phải thì chúng làm code phẳng hơn. Dùng quá tay — ba, b�
 
 Với vòng lặp lồng nhau, `break` chỉ thoát **vòng trong cùng**. Cần thoát cả hai thì tách thành hàm rồi `return`, đừng dùng `goto`.
 
-### 1.4.7 — `yield return`: trả dữ liệu dần
+### 1.3.7 — `yield return`: trả dữ liệu dần
 
 ```csharp
 public IEnumerable<Order> GetLargeOrders(IEnumerable<Order> orders, decimal min)
@@ -215,7 +215,7 @@ foreach (var line in ReadLines("huge.csv").Take(10))
 
 Mặt trái: vì chạy trễ, mọi ngoại lệ cũng xảy ra **lúc duyệt** chứ không phải lúc gọi hàm. Phần kiểm tra tham số đầu vào nên đặt trong một hàm bọc ngoài không có `yield`.
 
-### 1.4.8 — Vòng lặp hay LINQ?
+### 1.3.8 — Vòng lặp hay LINQ?
 
 ```csharp
 // Vòng lặp
@@ -239,7 +239,7 @@ var first = expensive.First();                     // chạy LẠI lần 2
 var materialized = expensive.ToList();             // chạy đúng 1 lần
 ```
 
-### 1.4.9 — Rà lại code của bạn
+### 1.3.9 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát vòng lặp"
@@ -257,7 +257,7 @@ var materialized = expensive.ToList();             // chạy đúng 1 lần
 
 #### Bài 1 — Tự gây ra lỗi sửa collection khi đang duyệt
 
-Tạo một `List<int>` mười phần tử, dùng `foreach` duyệt và `Remove` các phần tử chẵn. Chạy, ghi lại thông báo lỗi đầy đủ. Sau đó sửa bằng cả ba cách ở mục 1.4.3 và so sánh.
+Tạo một `List<int>` mười phần tử, dùng `foreach` duyệt và `Remove` các phần tử chẵn. Chạy, ghi lại thông báo lỗi đầy đủ. Sau đó sửa bằng cả ba cách ở mục 1.3.3 và so sánh.
 
 **Tiêu chí hoàn thành:** cả ba cách sửa cho ra cùng một danh sách kết quả, và bạn nêu được vì sao cách 3 phải duyệt ngược.
 
@@ -310,7 +310,7 @@ Cả ba cho `[1, 3, 5, 7, 9]`.
 
 #### Bài 2 — Đếm số truy vấn của lỗi N+1
 
-Dựng một `DbContext` với logging ở mức `Information`, viết vòng lặp N+1 như mục 1.4.5 với 50 bản ghi, đếm số dòng log `Executed DbCommand`. Sửa lại theo cách đúng và đếm lần nữa.
+Dựng một `DbContext` với logging ở mức `Information`, viết vòng lặp N+1 như mục 1.3.5 với 50 bản ghi, đếm số dòng log `Executed DbCommand`. Sửa lại theo cách đúng và đếm lần nữa.
 
 **Tiêu chí hoàn thành:** bạn có hai con số cụ thể và giải thích được tỉ lệ giữa chúng.
 
@@ -428,7 +428,7 @@ Bản `yield` giữ đúng **một** dòng trong bộ nhớ tại mỗi thời �
 
 **Cái giá của `yield`.** Nó không miễn phí. Mỗi lần duyệt là một lần đọc file mới, nên duyệt hai lần là đọc file hai lần. Bạn cũng không biết trước số phần tử, và không truy cập được theo chỉ số. Quy tắc chọn: **dùng `yield` khi dữ liệu lớn hoặc chỉ duyệt một lần; dùng `List` khi dữ liệu nhỏ hoặc cần duyệt nhiều lần.**
 
-**Liên hệ về sau.** Đây chính là ý tưởng nền của `IAsyncEnumerable` mà [Module 6 bài 6.7](../../stage-02-csharp-professional/module-06-async-programming/6.6-async-patterns.mdx) dùng để stream dữ liệu lớn qua API mà không làm phình bộ nhớ máy chủ.
+**Liên hệ về sau.** Đây chính là ý tưởng nền của `IAsyncEnumerable` mà [Module 6 bài 6.6](../../stage-02-csharp-professional/module-06-async-programming/6.6-async-patterns.mdx) dùng để stream dữ liệu lớn qua API mà không làm phình bộ nhớ máy chủ.
 
 </details>
 

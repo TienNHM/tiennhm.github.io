@@ -25,17 +25,17 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 9.10.1 — Ba loại việc nền
+### 9.9.1 — Ba loại việc nền
 
 | Loại | Công cụ |
 |---|---|
 | **Định kỳ** (dọn dẹp, gửi báo cáo hằng ngày) | `BackgroundService` + `PeriodicTimer` |
-| **Theo sự kiện** (gửi email sau khi tạo đơn) | `Channel` + `BackgroundService` — [bài 6.9](../../stage-02-csharp-professional/module-06-async-programming/6.8-channels-and-producer-consumer.mdx) |
+| **Theo sự kiện** (gửi email sau khi tạo đơn) | `Channel` + `BackgroundService` — [bài 6.8](../../stage-02-csharp-professional/module-06-async-programming/6.8-channels-and-producer-consumer.mdx) |
 | **Việc dài, cần theo dõi và retry** | Hangfire, Quartz, hoặc message broker |
 
-Bài này tập trung loại thứ nhất; loại thứ hai đã nói ở Module 6; loại thứ ba ở mục 9.10.6.
+Bài này tập trung loại thứ nhất; loại thứ hai đã nói ở Module 6; loại thứ ba ở mục 9.9.6.
 
-### 9.10.2 — `PeriodicTimer` thay cho `Task.Delay`
+### 9.9.2 — `PeriodicTimer` thay cho `Task.Delay`
 
 ```csharp
 // CÁCH CŨ — trôi dần theo thời gian
@@ -83,9 +83,9 @@ protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 
 Cách này có hai vấn đề mà bạn phải biết: **múi giờ** (dùng UTC thì "7 giờ sáng" ở Việt Nam là 0 giờ UTC, và giờ mùa hè ở nơi khác sẽ lệch), và **`Task.Delay` không sống qua restart** — deploy lúc 6 giờ 59 nghĩa là bỏ lỡ lần chạy hôm đó. Nếu lịch quan trọng, dùng Quartz với trigger cron và kho lưu trữ bền vững.
 
-Tiêm `TimeProvider` thay vì gọi `DateTime.UtcNow` để test được — xem [bài 7.2](../../stage-02-csharp-professional/module-07-dependency-injection/7.1-di-problem-scope.mdx).
+Tiêm `TimeProvider` thay vì gọi `DateTime.UtcNow` để test được — xem [bài 7.1](../../stage-02-csharp-professional/module-07-dependency-injection/7.1-di-problem-scope.mdx).
 
-### 9.10.3 — Scope và xử lý lỗi
+### 9.9.3 — Scope và xử lý lỗi
 
 ```csharp
 public sealed class DailyDigestWorker(
@@ -143,7 +143,7 @@ public sealed class DailyDigestWorker(
 
 **Hai điểm sống còn:**
 
-**1. `IServiceScopeFactory`, không tiêm thẳng `DbContext`.** `BackgroundService` được đăng ký **singleton**; tiêm một service scoped vào constructor là captive dependency ([bài 7.5](../../stage-02-csharp-professional/module-07-dependency-injection/7.4-service-lifetimes.mdx)). Quan trọng không kém: scope mới cho **mỗi lần chạy** nghĩa là `DbContext` mới, change tracker sạch — không thì nó tích luỹ entity qua hàng tháng.
+**1. `IServiceScopeFactory`, không tiêm thẳng `DbContext`.** `BackgroundService` được đăng ký **singleton**; tiêm một service scoped vào constructor là captive dependency ([bài 7.4](../../stage-02-csharp-professional/module-07-dependency-injection/7.4-service-lifetimes.mdx)). Quan trọng không kém: scope mới cho **mỗi lần chạy** nghĩa là `DbContext` mới, change tracker sạch — không thì nó tích luỹ entity qua hàng tháng.
 
 **2. `try/catch` bao quanh, và không `throw` lại.** Exception thoát khỏi `ExecuteAsync` khiến worker **dừng vĩnh viễn**. Ứng dụng web vẫn chạy, health check vẫn xanh, và không ai biết job đã chết — cho tới khi có người hỏi vì sao một tháng nay không nhận được báo cáo.
 
@@ -156,7 +156,7 @@ Ghép hai điểm trên lại, vòng đời của worker trông như sau:
 
 <small>File gốc: [nền sáng](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-03-aspnet-core-backend-module-09-web-api-professional-hosted-service-background-jobs/vi/worker-loop.html) · [nền tối](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-03-aspnet-core-backend-module-09-web-api-professional-hosted-service-background-jobs/vi/worker-loop-dark.html)</small>
 
-### 9.10.4 — Nhiều instance: job chạy trùng
+### 9.9.4 — Nhiều instance: job chạy trùng
 
 ```
 3 pod, moi pod chay DailyDigestWorker
@@ -199,7 +199,7 @@ private async Task<bool> TryAcquireLockAsync(string jobName, CancellationToken c
 
 Cách 2 đáng cân nhắc hơn nhiều người nghĩ. Chạy job nền trong tiến trình API còn có những vấn đề khác: một job ngốn CPU làm chậm mọi request, và bạn không thể scale API lên 10 pod mà không scale job lên 10 lần.
 
-### 9.10.5 — Shutdown
+### 9.9.5 — Shutdown
 
 ```csharp
 public override async Task StopAsync(CancellationToken ct)
@@ -238,7 +238,7 @@ foreach (var batch in batches)
 
 Điều này đòi hỏi job phải **tiếp tục được từ giữa chừng** — tức lưu tiến độ, không giả định luôn chạy từ đầu tới cuối.
 
-### 9.10.6 — Khi nào `BackgroundService` không đủ
+### 9.9.6 — Khi nào `BackgroundService` không đủ
 
 | Bạn cần | `BackgroundService` | Hangfire / Quartz |
 |---|---|---|
@@ -262,7 +262,7 @@ RecurringJob.AddOrUpdate<IDigestService>(
 
 Chi tiết ở [Module 14 — Caching và Background Jobs](../../stage-04-database-production/module-14-caching-background-jobs/).
 
-### 9.10.7 — Rà lại code của bạn
+### 9.9.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát background service"

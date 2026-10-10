@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 9.6.1 — Những gì client kiểm soát
+### 9.5.1 — Những gì client kiểm soát
 
 | Thứ | Client sửa được | Hệ quả nếu tin |
 |---|---|---|
@@ -36,7 +36,7 @@ Sau bài này bạn có thể:
 
 `ContentType` chỉ là một dòng trong phần multipart — client tự ghi vào. Kiểm tra nó không phải bảo mật, chỉ là lọc lỗi vô tình.
 
-### 9.6.2 — Upload an toàn
+### 9.5.2 — Upload an toàn
 
 ```csharp
 private static readonly Dictionary<string, byte[][]> Signatures = new()
@@ -105,7 +105,7 @@ Với file cho người dùng tải về, thêm `Content-Disposition: attachment
 return PhysicalFile(path, "application/octet-stream", fileDownloadName: originalName);
 ```
 
-### 9.6.3 — Giới hạn kích thước ở nhiều tầng
+### 9.5.3 — Giới hạn kích thước ở nhiều tầng
 
 ```csharp
 // 1. Tren action
@@ -131,7 +131,7 @@ Và nhớ reverse proxy có giới hạn riêng: Nginx mặc định `client_max
 
 `[DisableRequestSizeLimit]` là thứ **không bao giờ** nên dùng trên endpoint công khai: nó cho phép bất kỳ ai gửi một request vô hạn.
 
-### 9.6.4 — File lớn: `IFormFile` không đủ
+### 9.5.4 — File lớn: `IFormFile` không đủ
 
 `IFormFile` **đệm toàn bộ** file trước khi action chạy: dưới 64KB thì trong bộ nhớ, lớn hơn thì ghi ra file tạm trên đĩa. Với 10 người cùng upload 500MB, đó là 5GB I/O đĩa trước khi code của bạn chạy dòng đầu tiên.
 
@@ -166,9 +166,9 @@ public async Task<IActionResult> Import(CancellationToken ct)
 
 Bộ nhớ dùng là **hằng số** bất kể file lớn cỡ nào.
 
-Chú ý `Accepted()`: một import 500MB không nên xử lý đồng bộ trong request. Nhận file, đẩy vào hàng đợi, trả 202 kèm một URL để theo dõi tiến độ — xem [bài 9.10](9.9-hosted-service-background-jobs.mdx).
+Chú ý `Accepted()`: một import 500MB không nên xử lý đồng bộ trong request. Nhận file, đẩy vào hàng đợi, trả 202 kèm một URL để theo dõi tiến độ — xem [bài 9.9](9.9-hosted-service-background-jobs.mdx).
 
-### 9.6.5 — Download theo luồng
+### 9.5.5 — Download theo luồng
 
 Mẫu sai hay gặp:
 
@@ -204,11 +204,11 @@ public async Task Export([FromQuery] CustomerFilterRequest request, Cancellation
 }
 ```
 
-Bộ nhớ hằng số, byte đầu tiên ra ngay. Đánh đổi đã nói ở [bài 6.7](../../stage-02-csharp-professional/module-06-async-programming/6.6-async-patterns.mdx): status 200 **đã gửi** trước khi bạn biết có lỗi hay không, nên lỗi giữa chừng cho client một file CSV cụt.
+Bộ nhớ hằng số, byte đầu tiên ra ngay. Đánh đổi đã nói ở [bài 6.6](../../stage-02-csharp-professional/module-06-async-programming/6.6-async-patterns.mdx): status 200 **đã gửi** trước khi bạn biết có lỗi hay không, nên lỗi giữa chừng cho client một file CSV cụt.
 
 Hàm `Escape` là bắt buộc: một tên chứa dấu phẩy sẽ phá cấu trúc CSV. Và cẩn thận **CSV injection** — giá trị bắt đầu bằng `=`, `+`, `-` hay `@` sẽ được Excel thực thi như công thức.
 
-### 9.6.6 — Tốt nhất: đừng cho file đi qua API
+### 9.5.6 — Tốt nhất: đừng cho file đi qua API
 
 Với file lớn hoặc lưu lượng cao, mẫu tốt nhất là **presigned URL**:
 
@@ -244,7 +244,7 @@ Lợi ích: file **không đi qua** server của bạn, nên không tốn băng 
 
 Cái giá: client phức tạp hơn, và bạn phải xác thực nội dung **sau** khi upload xong (thường bằng một background job kiểm tra magic number và quét virus).
 
-### 9.6.7 — Rà lại code của bạn
+### 9.5.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát upload và download"
@@ -382,7 +382,7 @@ và **chạy script**. Hộp thoại `alert` hiện ra với cookie phiên của
 - đọc `localStorage` — nơi rất nhiều ứng dụng cất JWT,
 - gọi API của bạn kèm cookie phiên của nạn nhân, vì cùng origin nên CORS không chặn.
 
-Kẻ tấn công chỉ cần gửi link cho một người có quyền cao hơn. Đây chính là lý do [bài 10.11](../module-10-authentication-authorization/10.10-security-best-practices.mdx) khuyên giữ token ngoài `localStorage`.
+Kẻ tấn công chỉ cần gửi link cho một người có quyền cao hơn. Đây chính là lý do [bài 10.10](../module-10-authentication-authorization/10.10-security-best-practices.mdx) khuyên giữ token ngoài `localStorage`.
 
 **Bản đã sửa — lưu ngoài `wwwroot`, phục vụ qua action:**
 
@@ -450,7 +450,7 @@ Nền 55 MB là bản thân 200.000 đối tượng trong bộ nhớ — phần 
 
 **Vì sao `+34 MB` cho một file chỉ 17 MB.** `MemoryStream` tăng dung lượng bằng cách **nhân đôi mảng nội bộ**: khi đầy 16 MB nó cấp phát mảng 32 MB rồi chép sang. Trong khoảnh khắc đó cả mảng cũ và mảng mới cùng tồn tại. Tệ hơn, mảng trên 85.000 byte đi thẳng vào **Large Object Heap**, nơi không được nén và chỉ dọn ở Gen 2 — nên bộ nhớ không trả lại hệ điều hành ngay.
 
-**Nhân con số đó với số request đồng thời.** Mười người cùng export là mười lần `+34 MB` cộng thêm phần LOH chưa kịp dọn — đủ để container 512 MB bị OOM killer giết, đúng như ca ở [bài 19.13](../../stage-05-senior-engineering/module-19-performance-engineering/19.12-quick-real-world-example.mdx).
+**Nhân con số đó với số request đồng thời.** Mười người cùng export là mười lần `+34 MB` cộng thêm phần LOH chưa kịp dọn — đủ để container 512 MB bị OOM killer giết, đúng như ca ở [bài 19.12](../../stage-05-senior-engineering/module-19-performance-engineering/19.12-quick-real-world-example.mdx).
 
 **Khác biệt thứ hai, và nó quan trọng với người dùng hơn:**
 
@@ -486,8 +486,8 @@ public async Task Export(CancellationToken ct)
 Ba chi tiết trong đoạn này:
 
 1. **Kiểu trả về là `Task`, không phải `IActionResult`.** Bạn ghi thẳng vào `Response.Body`, nên không còn gì để trả.
-2. **`AsAsyncEnumerable` chứ không phải `ToListAsync`.** `ToListAsync` nạp hết vào bộ nhớ trước — mất sạch lợi ích, như [bài 5.10](../../stage-02-csharp-professional/module-05-advanced-csharp/5.9-advanced-notes.mdx) trình bày.
-3. **Không đặt được header sau dòng ghi đầu tiên.** Response đã bắt đầu, nên nếu có lỗi giữa chừng bạn **không** trả 500 được nữa — client nhận một file CSV cụt. Với dữ liệu quan trọng, hãy ghi ra file tạm rồi trả về, hoặc chuyển hẳn sang job nền trả 202 như [bài 9.10](9.9-hosted-service-background-jobs.mdx).
+2. **`AsAsyncEnumerable` chứ không phải `ToListAsync`.** `ToListAsync` nạp hết vào bộ nhớ trước — mất sạch lợi ích, như [bài 5.9](../../stage-02-csharp-professional/module-05-advanced-csharp/5.9-advanced-notes.mdx) trình bày.
+3. **Không đặt được header sau dòng ghi đầu tiên.** Response đã bắt đầu, nên nếu có lỗi giữa chừng bạn **không** trả 500 được nữa — client nhận một file CSV cụt. Với dữ liệu quan trọng, hãy ghi ra file tạm rồi trả về, hoặc chuyển hẳn sang job nền trả 202 như [bài 9.9](9.9-hosted-service-background-jobs.mdx).
 
 **Quy tắc rút ra.** Kích thước phản hồi **tỉ lệ với dữ liệu** thì phải ghi theo luồng. `MemoryStream` chỉ hợp lý khi bạn biết chắc kết quả nhỏ và có giới hạn trên.
 

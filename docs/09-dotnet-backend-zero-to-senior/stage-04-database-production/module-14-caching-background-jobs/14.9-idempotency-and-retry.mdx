@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 14.10.1 — Vì sao exactly-once không tồn tại
+### 14.9.1 — Vì sao exactly-once không tồn tại
 
 ```
 Client -----request----> Server
@@ -42,7 +42,7 @@ Không có cách nào biết chắc, vì thông tin đó nằm trong response đ
 
 Hệ quả: **chọn at-least-once và làm mọi thứ idempotent**. Đó là lý do bài này tồn tại.
 
-### 14.10.2 — Idempotency là gì
+### 14.9.2 — Idempotency là gì
 
 > Thực hiện **một lần** hay **nhiều lần** đều cho **cùng một trạng thái cuối**.
 
@@ -85,7 +85,7 @@ public async Task<Result<Order>> CreateAsync(
 
 Hai chi tiết: `UNIQUE` trên cột `Key` là hàng rào cuối cùng chống race condition, và bản ghi **phải hết hạn** để bảng không lớn vô hạn.
 
-Mẫu này đã nói ở [bài 9.2](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.1-rest-api-design-principles.mdx).
+Mẫu này đã nói ở [bài 9.1](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.1-rest-api-design-principles.mdx).
 
 **2. Kiểm tra trạng thái** — cho thao tác chuyển trạng thái:
 
@@ -120,7 +120,7 @@ await db.Customers.Upsert(customer).On(c => c.ExternalId).RunAsync(ct);
 
 Thiết kế để thao tác tự nhiên idempotent luôn tốt hơn thêm một lớp kiểm tra.
 
-### 14.10.3 — Chỉ retry lỗi tạm thời
+### 14.9.3 — Chỉ retry lỗi tạm thời
 
 ```csharp
 // Loi TAM THOI — retry co nghia
@@ -163,7 +163,7 @@ builder.Services.AddHttpClient<IPaymentGateway, PaymentGateway>()
 
 `TotalRequestTimeout` là chi tiết quan trọng: không có nó, 3 lần retry × 10 giây timeout cộng thời gian chờ có thể thành **45 giây** — và request gốc đã timeout từ lâu.
 
-### 14.10.4 — Jitter là bắt buộc
+### 14.9.4 — Jitter là bắt buộc
 
 ```
 1.000 client cùng gọi một API.
@@ -186,7 +186,7 @@ Backoff mũ một mình **không đủ** — nó chỉ giãn khoảng cách ch�
 
 Với hàng đợi và background job cũng vậy: `DelaysInSeconds` cố định của Hangfire khiến mọi job thất bại cùng lúc retry cùng lúc.
 
-### 14.10.5 — Circuit breaker
+### 14.9.5 — Circuit breaker
 
 ```
 Dich vu thanh toan chet.
@@ -239,7 +239,7 @@ catch (BrokenCircuitException)
 
 Trả `Pending` và xử lý sau tốt hơn nhiều so với báo lỗi — và nó đúng vì thao tác đã idempotent.
 
-### 14.10.6 — Retry làm hệ thống tệ hơn
+### 14.9.6 — Retry làm hệ thống tệ hơn
 
 Ba tình huống cần biết:
 
@@ -268,7 +268,7 @@ await _http.GetAsync(url);
 await _http.GetAsync(url, ct);
 ```
 
-Không truyền `CancellationToken`, bạn retry 3 lần cho một request mà **không còn ai chờ** ([bài 6.5](../../stage-02-csharp-professional/module-06-async-programming/6.4-cancellationtoken.mdx)).
+Không truyền `CancellationToken`, bạn retry 3 lần cho một request mà **không còn ai chờ** ([bài 6.4](../../stage-02-csharp-professional/module-06-async-programming/6.4-cancellationtoken.mdx)).
 
 **Luôn log mỗi lần retry** — tỷ lệ retry tăng là tín hiệu sớm nhất của vấn đề:
 
@@ -284,7 +284,7 @@ options.Retry.OnRetry = args =>
 
 Retry im lặng là retry bạn chỉ biết khi nó đã vượt giới hạn.
 
-### 14.10.7 — Rà lại code của bạn
+### 14.9.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát idempotency và retry"

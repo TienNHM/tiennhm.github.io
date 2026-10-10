@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 17.3.1 — Mất tin: dual write problem
+### 17.2.1 — Mất tin: dual write problem
 
 ```csharp
 // SAI — hai hệ thống, không có transaction chung
@@ -74,9 +74,9 @@ Có đúng **hai** cách giải:
 | Cách | Cơ chế | Thực tế |
 |---|---|---|
 | Distributed transaction (2PC) | Coordinator khoá cả hai bên tới khi commit xong | Hầu như không dùng: chậm, coordinator là điểm chết đơn, phần lớn broker hiện đại không hỗ trợ |
-| **Outbox pattern** | Ghi message vào **cùng database** trong **cùng transaction**, worker đọc ra và publish sau | **Cách chuẩn** — xem [bài 17.4](17.3-outbox-pattern-applied.mdx) |
+| **Outbox pattern** | Ghi message vào **cùng database** trong **cùng transaction**, worker đọc ra và publish sau | **Cách chuẩn** — xem [bài 17.3](17.3-outbox-pattern-applied.mdx) |
 
-### 17.3.2 — Gửi trùng: vì sao exactly-once không tồn tại
+### 17.2.2 — Gửi trùng: vì sao exactly-once không tồn tại
 
 Tình huống làm sinh ra message trùng, đơn giản đến mức khó tin:
 
@@ -100,7 +100,7 @@ Phần lớn hệ thống chọn at-least-once, vì **mất dữ liệu tệ hơ
 
 > **Còn "exactly-once semantics" của Kafka?** Nó có thật nhưng phạm vi hẹp: chỉ trong luồng Kafka-to-Kafka với transaction và idempotent producer. Ngay khi consumer ghi ra database ngoài, đảm bảo đó **không còn áp dụng**. Bạn vẫn cần idempotency.
 
-### 17.3.3 — Làm consumer idempotent
+### 17.2.3 — Làm consumer idempotent
 
 **Cách 1 — khoá nghiệp vụ tự nhiên (tốt nhất khi có).**
 
@@ -177,7 +177,7 @@ flowchart TD
     C --> ACK["ACK về broker"]
 ```
 
-### 17.3.4 — Cái bẫy: kiểm tra trước rồi mới ghi
+### 17.2.4 — Cái bẫy: kiểm tra trước rồi mới ghi
 
 ```csharp
 // SAI — race condition kinh dien
@@ -211,7 +211,7 @@ public static bool IsUniqueViolation(this DbUpdateException ex) => ex.InnerExcep
 };
 ```
 
-### 17.3.5 — Dọn bảng inbox
+### 17.2.5 — Dọn bảng inbox
 
 Bảng inbox lớn vô hạn nếu không dọn. Giữ dữ liệu đủ lâu để phủ hết mọi lần retry có thể xảy ra — thường 7 ngày là dư:
 
@@ -220,9 +220,9 @@ DELETE TOP (5000) FROM InboxMessages
 WHERE ProcessedUtc < DATEADD(day, -7, SYSUTCDATETIME());
 ```
 
-Xoá theo lô để không khoá bảng lâu, và chạy định kỳ bằng job nền ([bài 14.7](../../stage-04-database-production/module-14-caching-background-jobs/14.6-hangfire-background-jobs.mdx)).
+Xoá theo lô để không khoá bảng lâu, và chạy định kỳ bằng job nền ([bài 14.6](../../stage-04-database-production/module-14-caching-background-jobs/14.6-hangfire-background-jobs.mdx)).
 
-### 17.3.6 — Rà lại code của bạn
+### 17.2.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát chống mất tin và trùng tin"

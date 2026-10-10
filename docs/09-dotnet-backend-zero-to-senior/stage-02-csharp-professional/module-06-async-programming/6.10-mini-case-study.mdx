@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 6.11.1 — Code ban đầu
+### 6.10.1 — Code ban đầu
 
 ```csharp
 public async Task<SyncResult> SyncCustomersAsync(CancellationToken ct)
@@ -48,9 +48,9 @@ Timeout của gateway: 300 giây  -> thất bại trước khi xong
 
 Code này dùng `async/await` **đúng cú pháp**. Vấn đề không phải ở cú pháp mà ở **cấu trúc**: `await` bên trong `foreach` nghĩa là mỗi vòng lặp **chờ xong** rồi mới bắt đầu vòng sau.
 
-`async` giúp thread được trả về pool trong lúc chờ I/O — nên server không bị chiếm thread. Nhưng nó **không** tự làm các lời gọi chạy song song ([bài 6.3](6.2-task-and-async-await.mdx)).
+`async` giúp thread được trả về pool trong lúc chờ I/O — nên server không bị chiếm thread. Nhưng nó **không** tự làm các lời gọi chạy song song ([bài 6.2](6.2-task-and-async-await.mdx)).
 
-### 6.11.2 — Thử 1: song song tối đa
+### 6.10.2 — Thử 1: song song tối đa
 
 ```csharp
 var tasks = customers.Select(c => _accountingClient.SyncAsync(c, ct));
@@ -80,7 +80,7 @@ InvalidOperationException: A second operation was started on this context
 instance before a previous operation completed.
 ```
 
-`DbContext` được thiết kế cho **một luồng tại một thời điểm**. Dùng chung cho 500 task song song là lỗi chắc chắn ([bài 13.10](../../stage-04-database-production/module-13-entity-framework-core/13.9-unit-of-work-and-repository-pattern.mdx)).
+`DbContext` được thiết kế cho **một luồng tại một thời điểm**. Dùng chung cho 500 task song song là lỗi chắc chắn ([bài 13.9](../../stage-04-database-production/module-13-entity-framework-core/13.9-unit-of-work-and-repository-pattern.mdx)).
 
 **Bẫy 3 — một lỗi làm hỏng tất cả:**
 
@@ -92,7 +92,7 @@ await Task.WhenAll(tasks);
 
 Tệ hơn: `Task.WhenAll` chỉ ném **exception đầu tiên** trong `AggregateException`, nên bạn còn không biết có bao nhiêu cái thất bại.
 
-### 6.11.3 — Giải pháp: song song có giới hạn
+### 6.10.3 — Giải pháp: song song có giới hạn
 
 ```csharp
 public async Task<SyncResult> SyncCustomersAsync(CancellationToken ct)
@@ -149,7 +149,7 @@ Bốn thay đổi giải quyết cả ba cái bẫy:
 
 `ConcurrentBag` là chi tiết dễ bỏ sót: `List<T>` **không** an toàn đa luồng, và ghi vào nó từ nhiều task song song có thể làm hỏng cấu trúc nội bộ — không phải lúc nào cũng ném exception, đôi khi chỉ mất dữ liệu im lặng.
 
-### 6.11.4 — Cách khác: SemaphoreSlim
+### 6.10.4 — Cách khác: SemaphoreSlim
 
 Khi cần kiểm soát chi tiết hơn `Parallel.ForEachAsync`:
 
@@ -183,7 +183,7 @@ var results = await Task.WhenAll(tasks);
 
 Dùng `Parallel.ForEachAsync` làm mặc định.
 
-### 6.11.5 — Chọn mức song song
+### 6.10.5 — Chọn mức song song
 
 Không có con số đúng cho mọi trường hợp. Cách tìm:
 
@@ -204,7 +204,7 @@ Ba giới hạn cần cân nhắc cùng lúc:
 
 Với công việc **thiên về I/O** như ca này, mức song song có thể cao hơn số core rất nhiều — vì thread đang chờ mạng không dùng CPU. Với công việc **thiên về CPU**, đặt bằng `Environment.ProcessorCount` là hợp lý.
 
-### 6.11.6 — Và có lẽ nó không nên là endpoint HTTP
+### 6.10.6 — Và có lẽ nó không nên là endpoint HTTP
 
 Sau khi tối ưu, 48 giây vẫn là quá lâu cho một request HTTP: người dùng chờ, gateway có timeout riêng, và nếu kết nối đứt thì không biết đã xong tới đâu.
 
@@ -222,11 +222,11 @@ public async Task<IActionResult> GetStatus(string jobId)
     => Ok(await _jobs.GetStatusAsync(jobId));
 ```
 
-Người dùng nhận phản hồi tức thì kèm mã theo dõi, và công việc dài chạy trong job nền với retry sẵn có ([bài 14.7](../../stage-04-database-production/module-14-caching-background-jobs/14.6-hangfire-background-jobs.mdx)).
+Người dùng nhận phản hồi tức thì kèm mã theo dõi, và công việc dài chạy trong job nền với retry sẵn có ([bài 14.6](../../stage-04-database-production/module-14-caching-background-jobs/14.6-hangfire-background-jobs.mdx)).
 
 **Quy tắc:** bất kỳ thao tác nào vượt quá vài giây đều nên là job nền, không phải request đồng bộ.
 
-### 6.11.7 — Rà lại code của bạn
+### 6.10.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát async song song"
@@ -306,7 +306,7 @@ Kết quả đo trên .NET 9.0.203, 200 mục, mỗi mục 50 ms:
     - chính hệ thống của bạn: 200 luồng hoặc 200 kết nối bị chiếm
 ```
 
-Đây là điều mục 6.11.2 nói: nhanh nhất trên máy đo không có nghĩa là dùng được.
+Đây là điều mục 6.10.2 nói: nhanh nhất trên máy đo không có nghĩa là dùng được.
 
 **Và đây là phần quan trọng hơn — vì sao bài thử này CHƯA ĐỦ:**
 

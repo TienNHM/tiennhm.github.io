@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 17.14.1 — Tình huống
+### 17.13.1 — Tình huống
 
 ```
 14:00  Queue "lead-converted": 0 message (binh thuong)
@@ -35,7 +35,7 @@ Sau bài này bạn có thể:
 
 Bộ nhớ RabbitMQ tăng dần, và nếu chạm ngưỡng cao thì broker sẽ **chặn publisher** — nghĩa là API nghiệp vụ cũng dừng theo.
 
-### 17.14.2 — Ba chỉ số cần xem
+### 17.13.2 — Ba chỉ số cần xem
 
 ```bash
 rabbitmqctl list_queues name messages messages_unacknowledged consumers
@@ -56,7 +56,7 @@ lead-converted   400123    1                        1
 
 Hai con số cuối cho câu trả lời ngay: một consumer, xử lý tuần tự từng message một. Với 400.000 message và mỗi message tốn 50ms, cần **5,5 giờ** để rút hết.
 
-### 17.14.3 — Bảng chẩn đoán
+### 17.13.3 — Bảng chẩn đoán
 
 | `messages` | `unacked` | `consumers` | Nguyên nhân |
 |---|---|---|---|
@@ -68,7 +68,7 @@ Hai con số cuối cho câu trả lời ngay: một consumer, xử lý tuần t
 
 Ca này khớp hàng thứ hai. Hàng thứ tư đáng cảnh giác nhất: nhìn qua trông như consumer đang làm việc, nhưng thực ra nó xử lý **cùng một** message mãi mãi ([bài 17.6](17.6-retry-and-backoff.mdx)).
 
-### 17.14.4 — Nguyên nhân gốc
+### 17.13.4 — Nguyên nhân gốc
 
 ```csharp
 // Cấu hình hiện tại
@@ -88,7 +88,7 @@ Cấu hình này giới hạn thông lượng ở **một message tại một th
 
 Vì sao `PrefetchCount = 1`? Vì ai đó từng gặp vấn đề phân bổ tải không đều và đặt nó xuống 1 để "cho chắc" — một cách sửa quá tay ([bài 17.4](17.4-kafka-vs-rabbitmq-pragmatic.mdx)).
 
-### 17.14.5 — Xử lý ngay
+### 17.13.5 — Xử lý ngay
 
 ```csharp
 cfg.ReceiveEndpoint("lead-converted", e =>
@@ -110,9 +110,9 @@ Thời gian rút hết 400.000 message: 5,5 giờ -> ~7 phút
 
 **Điều kiện tiên quyết** trước khi tăng song song: consumer **phải** idempotent. Xử lý song song làm tăng khả năng hai message liên quan chạy đồng thời và va vào nhau ([bài 17.2](17.2-messaging-fears-lost-duplicates.mdx)).
 
-Và phải kiểm tra **database chịu được không**: 6 instance × 8 luồng = 48 truy vấn song song. Nếu connection pool hoặc database không chịu nổi, bạn chỉ chuyển nghẽn từ queue sang database ([bài 19.7](../module-19-performance-engineering/19.6-scaling-strategy.mdx)).
+Và phải kiểm tra **database chịu được không**: 6 instance × 8 luồng = 48 truy vấn song song. Nếu connection pool hoặc database không chịu nổi, bạn chỉ chuyển nghẽn từ queue sang database ([bài 19.6](../module-19-performance-engineering/19.6-scaling-strategy.mdx)).
 
-### 17.14.6 — Phòng ngừa
+### 17.13.6 — Phòng ngừa
 
 **1. Cảnh báo theo xu hướng, không theo giá trị tuyệt đối:**
 
@@ -124,7 +124,7 @@ CẢNH BÁO khi: số consumer = 0
 
 Ngưỡng tuyệt đối như "queue > 10.000" gây báo động giả vào lúc cao điểm bình thường và im lặng khi một consumer duy nhất chết trong lúc lưu lượng thấp.
 
-Chỉ số **tuổi message cũ nhất** tốt hơn số lượng: 400.000 message vừa được publish trong một giây là bình thường; **một** message kẹt 10 phút là sự cố ([bài 17.8](17.7-outbox-idempotency-demo.mdx)).
+Chỉ số **tuổi message cũ nhất** tốt hơn số lượng: 400.000 message vừa được publish trong một giây là bình thường; **một** message kẹt 10 phút là sự cố ([bài 17.7](17.7-outbox-idempotency-demo.mdx)).
 
 **2. Tự co giãn theo độ sâu queue**, không theo CPU:
 
@@ -137,11 +137,11 @@ triggers:
       queueLength: "50"        # moi 50 message them mot pod
 ```
 
-CPU là chỉ số sai ở đây: consumer chờ I/O có CPU rất thấp ngay cả khi queue dồn 400.000 message ([bài 19.4](../module-19-performance-engineering/19.3-dotnet-server-profiling.mdx)).
+CPU là chỉ số sai ở đây: consumer chờ I/O có CPU rất thấp ngay cả khi queue dồn 400.000 message ([bài 19.3](../module-19-performance-engineering/19.3-dotnet-server-profiling.mdx)).
 
 **3. Test tải cho consumer.** Đẩy 100.000 message vào staging và đo thông lượng thật. Con số đó cho biết hệ thống chịu được đỉnh tải cỡ nào **trước khi** đỉnh tải xảy ra.
 
-### 17.14.7 — Rà lại code của bạn
+### 17.13.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát queue dồn"
@@ -162,7 +162,7 @@ CPU là chỉ số sai ở đây: consumer chờ I/O có CPU rất thấp ngay c
 
 #### Bài 1 — Đọc ba chỉ số
 
-Chạy `rabbitmqctl list_queues` trên môi trường của bạn và đối chiếu với bảng chẩn đoán ở mục 17.14.3.
+Chạy `rabbitmqctl list_queues` trên môi trường của bạn và đối chiếu với bảng chẩn đoán ở mục 17.13.3.
 
 **Tiêu chí hoàn thành:** bạn đọc được ba chỉ số cho mọi queue, và phân biệt được **tình trạng bình thường** với **tình trạng cần hành động** cho từng loại consumer.
 

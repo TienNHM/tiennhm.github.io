@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 15.11.1 — Vấn đề nó giải
+### 15.10.1 — Vấn đề nó giải
 
 Chạy một stack .NET lúc phát triển thường cần: SQL Server, Redis, RabbitMQ, API, worker — cộng cấu hình để chúng tìm thấy nhau.
 
@@ -71,9 +71,9 @@ builder.AddSqlServerDbContext<CrmDbContext>("crmdb");
 
 Không có chuỗi kết nối nào trong `appsettings.json`, không có biến môi trường nào phải đặt tay.
 
-**`WaitFor(sql)`** giải quyết đúng vấn đề `depends_on` của Compose ([bài 15.4](15.3-docker-compose.mdx)) — nhưng ở đây nó là một dòng, không cần viết healthcheck.
+**`WaitFor(sql)`** giải quyết đúng vấn đề `depends_on` của Compose ([bài 15.3](15.3-docker-compose.mdx)) — nhưng ở đây nó là một dòng, không cần viết healthcheck.
 
-**`WithReplicas(2)`** chạy hai bản API lúc dev — hữu ích để phát hiện sớm những vấn đề chỉ xuất hiện khi nhiều instance: cache trong tiến trình lệch nhau ([bài 14.5](../module-14-caching-background-jobs/14.4-cache-invalidation-strategies.mdx)), job chạy trùng ([bài 14.7](../module-14-caching-background-jobs/14.6-hangfire-background-jobs.mdx)), SignalR thiếu backplane ([bài 11.11](../../stage-03-aspnet-core-backend/module-11-signalr/11.10-scale-out-and-production.mdx)).
+**`WithReplicas(2)`** chạy hai bản API lúc dev — hữu ích để phát hiện sớm những vấn đề chỉ xuất hiện khi nhiều instance: cache trong tiến trình lệch nhau ([bài 14.4](../module-14-caching-background-jobs/14.4-cache-invalidation-strategies.mdx)), job chạy trùng ([bài 14.6](../module-14-caching-background-jobs/14.6-hangfire-background-jobs.mdx)), SignalR thiếu backplane ([bài 11.10](../../stage-03-aspnet-core-backend/module-11-signalr/11.10-scale-out-and-production.mdx)).
 
 Đây là giá trị bị đánh giá thấp nhất: những lỗi đó thường chỉ lộ ra trên staging, và Aspire đưa chúng về máy dev.
 
@@ -89,7 +89,7 @@ flowchart LR
     W -->|"WithReference, WaitFor"| MQ
 ```
 
-### 15.11.2 — ServiceDefaults
+### 15.10.2 — ServiceDefaults
 
 Aspire sinh một project `ServiceDefaults` chứa cấu hình chung:
 
@@ -117,7 +117,7 @@ public static IHostApplicationBuilder AddServiceDefaults(this IHostApplicationBu
 builder.AddServiceDefaults();
 ```
 
-Một dòng đó cho bạn: OpenTelemetry đầy đủ ([bài 15.9](15.8-production-monitoring.mdx)), health check ([bài 8.10](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.9-health-checks.mdx)), và resilience handler cho mọi `HttpClient` ([bài 14.10](../module-14-caching-background-jobs/14.9-idempotency-and-retry.mdx)).
+Một dòng đó cho bạn: OpenTelemetry đầy đủ ([bài 15.8](15.8-production-monitoring.mdx)), health check ([bài 8.9](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.9-health-checks.mdx)), và resilience handler cho mọi `HttpClient` ([bài 14.9](../module-14-caching-background-jobs/14.9-idempotency-and-retry.mdx)).
 
 **ServiceDefaults dùng được ở production**, kể cả khi bạn không dùng Aspire để chạy. Đó là một project bình thường trong solution — nhiều đội lấy riêng phần này.
 
@@ -132,7 +132,7 @@ builder.Services.AddHttpClient<PaymentClient>(c =>
 
 Ở production, cùng cơ chế đó đọc từ cấu hình — nên code **không đổi** giữa dev và production.
 
-### 15.11.3 — Dashboard
+### 15.10.3 — Dashboard
 
 Chạy AppHost và mở dashboard (mặc định `http://localhost:15888`):
 
@@ -155,7 +155,7 @@ docker run -p 18888:18888 -p 4317:18889 \
 
 Trỏ `OTEL_EXPORTER_OTLP_ENDPOINT` vào nó và bạn có một công cụ xem trace nhẹ cho bất kỳ ứng dụng nào — kể cả khi không dùng Aspire.
 
-### 15.11.4 — Aspire không phải công cụ triển khai
+### 15.10.4 — Aspire không phải công cụ triển khai
 
 Đây là hiểu lầm phổ biến nhất.
 
@@ -178,7 +178,7 @@ Nếu bạn triển khai lên VPS bằng Docker Compose, Aspire **không giúp g
 
 **Cái giá:** mô tả stack tồn tại ở hai nơi và có thể lệch nhau. Giảm rủi ro bằng cách giữ **cùng danh sách dịch vụ và cùng tên biến cấu hình** ở cả hai.
 
-### 15.11.5 — Aspire hay Compose
+### 15.10.5 — Aspire hay Compose
 
 | | Aspire | Docker Compose |
 |---|---|---|
@@ -199,7 +199,7 @@ Hai hàng cuối là giới hạn thật. Nếu đội có người làm fronten
 
 Nhiều đội dùng **cả hai**: Aspire cho vòng lặp phát triển hằng ngày, Compose cho CI và staging. Không có xung đột kỹ thuật nào giữa chúng.
 
-### 15.11.6 — Rà lại code của bạn
+### 15.10.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát Aspire"

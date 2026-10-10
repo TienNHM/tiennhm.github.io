@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 6.8.1 — Bẫy 1: sync-over-async (`.Result`, `.Wait()`)
+### 6.7.1 — Bẫy 1: sync-over-async (`.Result`, `.Wait()`)
 
 ```csharp
 public string GetName(int id) => GetCustomerAsync(id).Result;   // SAI
@@ -32,9 +32,9 @@ public string GetName(int id) => GetCustomerAsync(id).Result;   // SAI
 
 Deadlock trong ASP.NET Framework và WPF; trong ASP.NET Core thì không deadlock nhưng vẫn **chiếm một thread pool thread để ngồi không** — đúng thứ async sinh ra để tránh.
 
-Cách chữa là `async` lên tới tận trên cùng. Cơ chế deadlock đã mổ xẻ ở [bài 6.4](6.3-configureawait.mdx) và trong bài [Gọi `.Result` khi nào thì deadlock](/blog/deadlock-result-wait-csharp).
+Cách chữa là `async` lên tới tận trên cùng. Cơ chế deadlock đã mổ xẻ ở [bài 6.3](6.3-configureawait.mdx) và trong bài [Gọi `.Result` khi nào thì deadlock](/blog/deadlock-result-wait-csharp).
 
-### 6.8.2 — Bẫy 2: async-over-sync (`Task.Run` bọc I/O đồng bộ)
+### 6.7.2 — Bẫy 2: async-over-sync (`Task.Run` bọc I/O đồng bộ)
 
 ```csharp
 // SAI — vẫn chiếm một thread, chỉ là thread khác
@@ -50,7 +50,7 @@ public Task<string> ReadAsync(string path, CancellationToken ct = default)
 
 `Task.Run` **đúng** cho một việc duy nhất: đẩy công việc **CPU-bound** ra khỏi thread đang cần giải phóng — UI thread, hoặc một vòng lặp đang giữ khoá.
 
-### 6.8.3 — Bẫy 3: `Task.Run` trong ASP.NET Core không tăng throughput
+### 6.7.3 — Bẫy 3: `Task.Run` trong ASP.NET Core không tăng throughput
 
 ```csharp
 [HttpGet]
@@ -65,7 +65,7 @@ Trong ứng dụng web, request **đã** chạy trên thread pool. `Task.Run` l�
 
 Với công việc CPU nặng trong web, câu trả lời không phải `Task.Run` mà là: đẩy ra background job, hoặc chấp nhận nó và scale theo chiều ngang.
 
-### 6.8.4 — Bẫy 4: `async void` ở nơi không thấy chữ `void`
+### 6.7.4 — Bẫy 4: `async void` ở nơi không thấy chữ `void`
 
 Chữ ký `async void` hiếm khi được viết ra một cách có ý thức. Nó **lẻn vào** qua lambda:
 
@@ -76,11 +76,11 @@ timer.Elapsed += async (s, e) => await TickAsync();       // EventHandler  -> as
 _ = new Timer(async _ => await TickAsync(), null, 0, 1000); // TimerCallback -> async void
 ```
 
-Quy tắc nhận biết: **nếu tham số nhận `Action`, `Action<T>` hay một delegate trả `void`, thì lambda `async` bạn truyền vào là `async void`.** Hậu quả đã nói ở [bài 6.3](6.2-task-and-async-await.mdx): vòng lặp kết thúc trước khi việc xong, và exception làm sập tiến trình.
+Quy tắc nhận biết: **nếu tham số nhận `Action`, `Action<T>` hay một delegate trả `void`, thì lambda `async` bạn truyền vào là `async void`.** Hậu quả đã nói ở [bài 6.2](6.2-task-and-async-await.mdx): vòng lặp kết thúc trước khi việc xong, và exception làm sập tiến trình.
 
 Cách chữa: dùng overload nhận `Func<T, Task>` (`Parallel.ForEachAsync`), hoặc `foreach` + `await`, hoặc với event handler thì bọc toàn bộ thân trong `try/catch`.
 
-### 6.8.5 — Bẫy 5: LINQ `Select(async ...)` lười biếng
+### 6.7.5 — Bẫy 5: LINQ `Select(async ...)` lười biếng
 
 ```csharp
 var tasks = customers.Select(async c => await ProcessAsync(c));   // IEnumerable<Task>
@@ -100,7 +100,7 @@ await Task.WhenAll(tasks);
 
 Và `Where(async c => await IsValidAsync(c))` thì **không biên dịch được**, vì `Where` cần `bool` chứ không phải `Task<bool>`.
 
-### 6.8.6 — Bẫy 6: `List<T>` không thread-safe
+### 6.7.6 — Bẫy 6: `List<T>` không thread-safe
 
 ```csharp
 // SAI — List<T> không thread-safe
@@ -124,7 +124,7 @@ var results = await Task.WhenAll(ids.Select(id => LoadAsync(id, ct)));
 
 Cách 2 tốt hơn: không có trạng thái chia sẻ thì không có vấn đề đồng bộ hoá.
 
-### 6.8.7 — Bẫy 7: cần khoá quanh một thao tác async
+### 6.7.7 — Bẫy 7: cần khoá quanh một thao tác async
 
 ```csharp
 lock (_gate)
@@ -147,7 +147,7 @@ finally { _gate.Release(); }        // finally la bat buoc
 
 Từ .NET 9, `System.Threading.Lock` là kiểu khoá mới nhưng vẫn **không** dùng được quanh `await`.
 
-### 6.8.8 — Bẫy 8: exception không được quan sát
+### 6.7.8 — Bẫy 8: exception không được quan sát
 
 ```csharp
 var task = ProcessAsync();   // ném exception
@@ -168,7 +168,7 @@ TaskScheduler.UnobservedTaskException += (_, e) =>
 
 Đây là lưới an toàn, không phải giải pháp. Giải pháp là `await` mọi `Task` bạn tạo ra.
 
-### 6.8.9 — Bẫy 9: coi `OperationCanceledException` là lỗi
+### 6.7.9 — Bẫy 9: coi `OperationCanceledException` là lỗi
 
 ```csharp
 catch (Exception ex)
@@ -189,9 +189,9 @@ catch (OperationCanceledException) when (ct.IsCancellationRequested)
 catch (Exception ex) { ... }
 ```
 
-Mệnh đề `when` quan trọng: nó phân biệt **client huỷ** với **timeout nội bộ** — cái sau mới là sự cố thật. Chi tiết ở [bài 6.5](6.4-cancellationtoken.mdx).
+Mệnh đề `when` quan trọng: nó phân biệt **client huỷ** với **timeout nội bộ** — cái sau mới là sự cố thật. Chi tiết ở [bài 6.4](6.4-cancellationtoken.mdx).
 
-### 6.8.10 — Rà lại code của bạn
+### 6.7.10 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát trước khi merge code async"
@@ -220,7 +220,7 @@ Viết hai endpoint đọc cùng một file, một dùng `Task.Run(() => File.Re
 <details>
 <summary><strong>Gợi ý và lời giải — Bài 1</strong></summary>
 
-**Gợi ý.** Bài này bổ sung cho bài 2 ở [bài 6.2](6.1-why-async-matters.mdx). Điểm mới: trong ASP.NET Core, luồng mà `Task.Run` mượn đến **từ đâu**?
+**Gợi ý.** Bài này bổ sung cho bài 2 ở [bài 6.1](6.1-why-async-matters.mdx). Điểm mới: trong ASP.NET Core, luồng mà `Task.Run` mượn đến **từ đâu**?
 
 **Lời giải.**
 
@@ -458,7 +458,7 @@ public class ReportService
 
 Cộng thêm gói `Microsoft.VisualStudio.Threading.Analyzers` để có `VSTHRD100` và một loạt quy tắc khác về async.
 
-**Nguyên tắc chung, lặp lại từ [bài 4.7](../module-04-csharp-core/4.6-access-modifiers.mdx).** Cái gì công cụ kiểm được thì để công cụ kiểm; sức chú ý của người review là tài nguyên khan hiếm, hãy dành nó cho bốn bẫy còn lại.
+**Nguyên tắc chung, lặp lại từ [bài 4.6](../module-04-csharp-core/4.6-access-modifiers.mdx).** Cái gì công cụ kiểm được thì để công cụ kiểm; sức chú ý của người review là tài nguyên khan hiếm, hãy dành nó cho bốn bẫy còn lại.
 
 </details>
 

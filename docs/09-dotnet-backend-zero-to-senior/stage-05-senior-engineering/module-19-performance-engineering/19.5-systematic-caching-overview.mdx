@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 19.6.1 — Chọn tầng cache
+### 19.5.1 — Chọn tầng cache
 
 | Tầng | Dùng cho | Không dùng cho |
 |---|---|---|
@@ -46,7 +46,7 @@ Instance B: KHÔNG biết gì -> tiếp tục trả giá cũ cho tới khi hết
 
 Người dùng thấy giá khác nhau tuỳ request rơi vào instance nào. Đây là loại bug cực khó tái hiện vì nó phụ thuộc load balancer. Với hệ nhiều instance, hoặc dùng Redis, hoặc chấp nhận TTL rất ngắn.
 
-### 19.6.2 — Ba chiến lược vô hiệu hoá
+### 19.5.2 — Ba chiến lược vô hiệu hoá
 
 **1. TTL — đơn giản nhất, đủ cho phần lớn trường hợp.**
 
@@ -102,7 +102,7 @@ await _cache.SetAsync("products:version", version + 1);
 
 Không cần biết có bao nhiêu key — tất cả key phiên bản cũ trở thành không dùng tới và tự hết hạn. Hữu ích khi số key nhiều hoặc không liệt kê được.
 
-### 19.6.3 — Cache stampede
+### 19.5.3 — Cache stampede
 
 ```
 10:00:00  Key "products:featured" hết hạn
@@ -164,7 +164,7 @@ var products = await _hybridCache.GetOrCreateAsync(
     cancellationToken: ct);
 ```
 
-[HybridCache](https://learn.microsoft.com/en-us/aspnet/core/performance/caching/hybrid) gộp L1 (bộ nhớ) và L2 (Redis), và **chống stampede sẵn** — nhiều request cùng key chỉ gọi factory một lần. Đây là lựa chọn mặc định đúng cho ứng dụng .NET hiện đại ([bài 14.6](../../stage-04-database-production/module-14-caching-background-jobs/14.5-hybridcache-dotnet-9.mdx)).
+[HybridCache](https://learn.microsoft.com/en-us/aspnet/core/performance/caching/hybrid) gộp L1 (bộ nhớ) và L2 (Redis), và **chống stampede sẵn** — nhiều request cùng key chỉ gọi factory một lần. Đây là lựa chọn mặc định đúng cho ứng dụng .NET hiện đại ([bài 14.5](../../stage-04-database-production/module-14-caching-background-jobs/14.5-hybridcache-dotnet-9.mdx)).
 
 **Cách 3 — TTL có jitter**, để các key không hết hạn cùng lúc:
 
@@ -173,9 +173,9 @@ var jitter = Random.Shared.Next(0, 60);
 var ttl = TimeSpan.FromMinutes(5) + TimeSpan.FromSeconds(jitter);
 ```
 
-Cùng một nguyên tắc với jitter trong retry ([bài 17.7](../module-17-distributed-systems/17.6-retry-and-backoff.mdx)): tránh mọi thứ xảy ra đồng loạt.
+Cùng một nguyên tắc với jitter trong retry ([bài 17.6](../module-17-distributed-systems/17.6-retry-and-backoff.mdx)): tránh mọi thứ xảy ra đồng loạt.
 
-### 19.6.4 — IMemoryCache phải có giới hạn
+### 19.5.4 — IMemoryCache phải có giới hạn
 
 ```csharp
 // SAI — không giới hạn -> cache lớn dần tới khi OOM
@@ -199,9 +199,9 @@ _cache.Set(key, value, new MemoryCacheEntryOptions
 });
 ```
 
-Không có giới hạn, `IMemoryCache` tăng cho tới khi container chạm memory limit và bị OOM kill — và trong Kubernetes, việc đó xảy ra **không báo trước**, không có exception nào trong log ([bài 15.10](../../stage-04-database-production/module-15-docker-deployment/15.9-awareness-level.mdx)).
+Không có giới hạn, `IMemoryCache` tăng cho tới khi container chạm memory limit và bị OOM kill — và trong Kubernetes, việc đó xảy ra **không báo trước**, không có exception nào trong log ([bài 15.9](../../stage-04-database-production/module-15-docker-deployment/15.9-awareness-level.mdx)).
 
-### 19.6.5 — Khi nào KHÔNG nên cache
+### 19.5.5 — Khi nào KHÔNG nên cache
 
 | Tình huống | Vì sao không |
 |---|---|
@@ -217,9 +217,9 @@ Và điều quan trọng nhất:
 // Người dùng đầu tiên sau mỗi lần hết hạn vẫn đợi 3 giây
 ```
 
-**Cache không sửa được truy vấn chậm.** Sửa truy vấn trước ([bài 19.5](19.4-database-first-bottleneck.mdx)), rồi mới cache nếu vẫn cần. Cache một truy vấn chậm chỉ chuyển vấn đề từ "mọi người đều chậm" sang "một số người rất chậm còn lại thì nhanh" — và nhóm "một số người" đó không hề nhỏ dưới tải cao.
+**Cache không sửa được truy vấn chậm.** Sửa truy vấn trước ([bài 19.4](19.4-database-first-bottleneck.mdx)), rồi mới cache nếu vẫn cần. Cache một truy vấn chậm chỉ chuyển vấn đề từ "mọi người đều chậm" sang "một số người rất chậm còn lại thì nhanh" — và nhóm "một số người" đó không hề nhỏ dưới tải cao.
 
-### 19.6.6 — Rà lại code của bạn
+### 19.5.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát caching"

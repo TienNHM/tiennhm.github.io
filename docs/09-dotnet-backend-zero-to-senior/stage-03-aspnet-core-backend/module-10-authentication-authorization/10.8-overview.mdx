@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 10.9.1 — `AddIdentityCore` cho API JWT
+### 10.8.1 — `AddIdentityCore` cho API JWT
 
 ```csharp
 builder.Services
@@ -70,7 +70,7 @@ public sealed class AppUser : IdentityUser
 }
 ```
 
-### 10.9.2 — Băm mật khẩu: đừng tự viết
+### 10.8.2 — Băm mật khẩu: đừng tự viết
 
 ```csharp
 // SAI — SHA-256 KHÔNG phải hàm băm mật khẩu
@@ -95,7 +95,7 @@ Salt riêng cho mỗi người dùng nghĩa là hai người cùng mật khẩu 
 
 Muốn chặt hơn nữa (Argon2id, bcrypt) thì cài `IPasswordHasher<AppUser>` riêng. Nhưng mặc định của Identity **đủ tốt** cho gần như mọi hệ thống.
 
-### 10.9.3 — Lockout
+### 10.8.3 — Lockout
 
 ```csharp
 public async Task<Result<TokenPair>> LoginAsync(
@@ -142,11 +142,11 @@ Ba chi tiết:
 
 **`AccessFailedAsync` phải được gọi thủ công** khi bạn tự viết luồng đăng nhập. `CheckPasswordAsync` **không** tự tăng bộ đếm — nhiều người tưởng có và kết quả là lockout không bao giờ kích hoạt. (`SignInManager.PasswordSignInAsync` thì có, nhưng nó gắn với cookie.)
 
-**Thông báo giống nhau** cho email không tồn tại và mật khẩu sai — [bài 10.3](10.2-jwt-authentication.mdx).
+**Thông báo giống nhau** cho email không tồn tại và mật khẩu sai — [bài 10.2](10.2-jwt-authentication.mdx).
 
-**Lockout không thay thế rate limit.** Lockout bảo vệ **một tài khoản** khỏi bị dò mật khẩu; rate limit bảo vệ **hệ thống** khỏi tấn công thử một mật khẩu phổ biến trên hàng nghìn tài khoản (password spraying) — kiểu tấn công mà lockout không thấy gì vì mỗi tài khoản chỉ sai một lần. Cần cả hai ([bài 9.7](../module-09-web-api-professional/9.6-rate-limiting.mdx)).
+**Lockout không thay thế rate limit.** Lockout bảo vệ **một tài khoản** khỏi bị dò mật khẩu; rate limit bảo vệ **hệ thống** khỏi tấn công thử một mật khẩu phổ biến trên hàng nghìn tài khoản (password spraying) — kiểu tấn công mà lockout không thấy gì vì mỗi tài khoản chỉ sai một lần. Cần cả hai ([bài 9.6](../module-09-web-api-professional/9.6-rate-limiting.mdx)).
 
-### 10.9.4 — `SecurityStamp`: vô hiệu hoá mọi phiên
+### 10.8.4 — `SecurityStamp`: vô hiệu hoá mọi phiên
 
 `IdentityUser` có cột `SecurityStamp` — một GUID **đổi mỗi khi có thay đổi ảnh hưởng bảo mật**: đổi mật khẩu, gỡ vai trò, bật/tắt 2FA, gỡ external login.
 
@@ -154,7 +154,7 @@ Ba chi tiết:
 await _userManager.UpdateSecurityStampAsync(user);
 ```
 
-Đây là công cụ giải quyết đúng giới hạn lớn nhất của JWT ([bài 10.3](10.2-jwt-authentication.mdx)) — thu hồi tức thì:
+Đây là công cụ giải quyết đúng giới hạn lớn nhất của JWT ([bài 10.2](10.2-jwt-authentication.mdx)) — thu hồi tức thì:
 
 ```csharp
 // 1. Nhet stamp vao token luc phat
@@ -194,9 +194,9 @@ sequenceDiagram
     A-->>D: ctx.Fail, 401
 ```
 
-Cái giá: **một truy vấn database cho mỗi request**. Thực tế nên cache stamp trong Redis với TTL ngắn (30–60 giây) và xoá khi stamp đổi — giống cách cache quyền ở [bài 10.8](10.7-permission-system.mdx). Khi đó cửa sổ rủi ro là 60 giây thay vì 15 phút.
+Cái giá: **một truy vấn database cho mỗi request**. Thực tế nên cache stamp trong Redis với TTL ngắn (30–60 giây) và xoá khi stamp đổi — giống cách cache quyền ở [bài 10.7](10.7-permission-system.mdx). Khi đó cửa sổ rủi ro là 60 giây thay vì 15 phút.
 
-### 10.9.5 — Token cho email và đặt lại mật khẩu
+### 10.8.5 — Token cho email và đặt lại mật khẩu
 
 ```csharp
 // Xác nhận email
@@ -249,7 +249,7 @@ builder.Services.Configure<DataProtectionTokenProviderOptions>(o =>
     o.TokenLifespan = TimeSpan.FromHours(2));
 ```
 
-### 10.9.6 — Rà lại code của bạn
+### 10.8.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát Identity"
@@ -370,7 +370,7 @@ builder.Services.Configure<IdentityOptions>(o =>
 });
 ```
 
-**Một đánh đổi phải biết.** Lockout theo tài khoản mở ra hướng tấn công từ chối dịch vụ: kẻ xấu cố tình nhập sai để khoá tài khoản người khác. Vì vậy nên kết hợp **thêm** giới hạn tần suất theo IP ([bài 9.7](../module-09-web-api-professional/9.6-rate-limiting.mdx)), và dùng khoá tạm thời có thời hạn thay vì khoá vĩnh viễn.
+**Một đánh đổi phải biết.** Lockout theo tài khoản mở ra hướng tấn công từ chối dịch vụ: kẻ xấu cố tình nhập sai để khoá tài khoản người khác. Vì vậy nên kết hợp **thêm** giới hạn tần suất theo IP ([bài 9.6](../module-09-web-api-professional/9.6-rate-limiting.mdx)), và dùng khoá tạm thời có thời hạn thay vì khoá vĩnh viễn.
 
 </details>
 

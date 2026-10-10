@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 14.13.1 — Sự cố
+### 14.12.1 — Sự cố
 
 ```
 14:20  Cảnh báo: Redis memory usage 98%
@@ -50,7 +50,7 @@ public async Task<Lead?> GetAsync(LeadId id, CancellationToken ct)
 
 Điểm nghịch lý: dữ liệu **đã được lấy thành công** từ database. Chỉ có bước ghi cache thất bại — một thao tác hoàn toàn **không bắt buộc** — nhưng nó làm hỏng cả request.
 
-### 14.13.2 — Nguyên nhân: khoá không TTL
+### 14.12.2 — Nguyên nhân: khoá không TTL
 
 ```bash
 redis-cli INFO memory
@@ -78,7 +78,7 @@ Khoá không TTL **không bao giờ** biến mất. Redis đầy dần suốt nh
 
 `TTL` trả về `-1` nghĩa là khoá tồn tại nhưng không có hạn; `-2` nghĩa là khoá không tồn tại.
 
-### 14.13.3 — Sửa 1: đặt maxmemory-policy
+### 14.12.3 — Sửa 1: đặt maxmemory-policy
 
 ```bash
 redis-cli CONFIG SET maxmemory-policy allkeys-lru
@@ -101,7 +101,7 @@ Trường hợp thứ hai cần cẩn thận: nếu mọi khoá đều có TTL t
 
 **Khuyến nghị mạnh:** tách Redis làm cache và Redis chứa dữ liệu bền thành **hai instance riêng**. Chúng có yêu cầu hoàn toàn khác nhau.
 
-### 14.13.4 — Sửa 2: luôn đặt TTL
+### 14.12.4 — Sửa 2: luôn đặt TTL
 
 ```csharp
 // LUON co thoi han
@@ -123,9 +123,9 @@ public interface IAppCache
 
 Không có tham số tuỳ chọn, không có giá trị mặc định — trình biên dịch buộc mọi lời gọi phải quyết định thời hạn.
 
-Nếu dùng `HybridCache`, nó có `Expiration` bắt buộc trong `DefaultEntryOptions` nên vấn đề này ít xảy ra hơn ([bài 14.6](14.5-hybridcache-dotnet-9.mdx)).
+Nếu dùng `HybridCache`, nó có `Expiration` bắt buộc trong `DefaultEntryOptions` nên vấn đề này ít xảy ra hơn ([bài 14.5](14.5-hybridcache-dotnet-9.mdx)).
 
-### 14.13.5 — Sửa 3: cache lỗi không được làm hỏng request
+### 14.12.5 — Sửa 3: cache lỗi không được làm hỏng request
 
 Đây là nguyên tắc quan trọng nhất trong bài:
 
@@ -180,7 +180,7 @@ options.ConfigurationOptions = new ConfigurationOptions
 
 Ngoại lệ hợp lý: nếu Redis lưu **session bắt buộc** hoặc trạng thái rate limit, mất nó **là** lỗi thật và nên để exception thoát ra. Phân biệt rõ hai loại dữ liệu này.
 
-### 14.13.6 — Ba lệnh kiểm tra
+### 14.12.6 — Ba lệnh kiểm tra
 
 ```bash
 # 1. Bộ nhớ và chính sách
@@ -205,11 +205,11 @@ hit_rate = keyspace_hits / (keyspace_hits + keyspace_misses)
 | 50–90% | Xem lại TTL hoặc chiến lược khoá |
 | Dưới 50% | Cache có thể đang **gây hại** nhiều hơn giúp |
 
-Hàng cuối đáng chú ý: tỷ lệ hit thấp nghĩa là phần lớn lần đọc cache đều miss, nên bạn trả chi phí của một lượt đi về Redis mà vẫn phải truy vấn database. Khi đó nên xem lại xem dữ liệu đó có đáng cache không ([bài 19.6](../../stage-05-senior-engineering/module-19-performance-engineering/19.5-systematic-caching-overview.mdx)).
+Hàng cuối đáng chú ý: tỷ lệ hit thấp nghĩa là phần lớn lần đọc cache đều miss, nên bạn trả chi phí của một lượt đi về Redis mà vẫn phải truy vấn database. Khi đó nên xem lại xem dữ liệu đó có đáng cache không ([bài 19.5](../../stage-05-senior-engineering/module-19-performance-engineering/19.5-systematic-caching-overview.mdx)).
 
 **`--bigkeys` cảnh báo:** nó quét toàn bộ keyspace nên tốn tài nguyên. Trên production, chạy nó vào giờ thấp điểm.
 
-### 14.13.7 — Rà lại code của bạn
+### 14.12.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát Redis"

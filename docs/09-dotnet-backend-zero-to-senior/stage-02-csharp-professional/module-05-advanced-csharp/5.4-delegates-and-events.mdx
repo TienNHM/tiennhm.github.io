@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 5.5.1 — Delegate là con trỏ hàm có kiểu
+### 5.4.1 — Delegate là con trỏ hàm có kiểu
 
 ```csharp
 // Khai báo một kiểu delegate
@@ -48,7 +48,7 @@ Predicate<Order>       isPaid = o => o.IsPaid;          // trả về bool
 
 Mọi lambda truyền cho LINQ đều là delegate. `orders.Where(o => o.IsPaid)` chính là truyền một `Func<Order, bool>`.
 
-### 5.5.2 — Multicast: một delegate giữ nhiều phương thức
+### 5.4.2 — Multicast: một delegate giữ nhiều phương thức
 
 ```csharp
 Action<Order> handlers = o => Console.WriteLine("Ghi log");
@@ -71,7 +71,7 @@ Console.WriteLine(f());   // 2 — giá trị 1 biến mất
 
 Vì hai điều này, multicast hợp với thông báo (`Action`) và **không** hợp với tính toán (`Func`).
 
-### 5.5.3 — `event`: delegate bị giới hạn quyền
+### 5.4.3 — `event`: delegate bị giới hạn quyền
 
 ```csharp
 public class OrderService
@@ -112,7 +112,7 @@ public class OrderEventArgs(Order order) : EventArgs
 
 Dùng `EventHandler<T>` thay vì `Action<T>` để theo quy ước: tham số đầu là nguồn phát, tham số sau là dữ liệu. Nhờ vậy handler biết ai đã phát sự kiện.
 
-### 5.5.4 — Gọi event an toàn
+### 5.4.4 — Gọi event an toàn
 
 ```csharp
 // KHÔNG an toàn — handler có thể bị gỡ giữa hai dòng
@@ -125,7 +125,7 @@ OrderConfirmed?.Invoke(this, args);
 
 Toán tử `?.` đọc giá trị delegate **một lần** vào biến tạm rồi mới kiểm tra và gọi, nên không có khe hở giữa kiểm tra và gọi. Đây là cách viết chuẩn kể từ C# 6.
 
-### 5.5.5 — Rò rỉ bộ nhớ do quên gỡ đăng ký
+### 5.4.5 — Rò rỉ bộ nhớ do quên gỡ đăng ký
 
 Đây là phần quan trọng nhất của bài.
 
@@ -191,7 +191,7 @@ Lưu ý quan trọng ở cách 2: `service.OrderConfirmed -= (s, e) => { };` **k
 // Dùng MediatR notification, hoặc một IEventBus có vòng đời rõ ràng
 ```
 
-### 5.5.6 — Event và bất đồng bộ không hợp nhau
+### 5.4.6 — Event và bất đồng bộ không hợp nhau
 
 ```csharp
 // TRÔNG như đúng, nhưng không đợi được
@@ -217,7 +217,7 @@ foreach (var handler in _handlers)
 
 Đây là hướng mà MediatR và các thư viện tương tự đi, và là lý do event kiểu .NET cổ điển hiếm gặp trong code ASP.NET Core mới.
 
-### 5.5.7 — Rà lại code của bạn
+### 5.4.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát delegate và event"
@@ -347,7 +347,7 @@ Mở file bằng Visual Studio hoặc PerfView và nhìn cột "đường tới 
 <details>
 <summary><strong>Gợi ý và lời giải — Bài 2</strong></summary>
 
-**Gợi ý.** Trình biên dịch làm gì với một biểu thức lambda? Nhớ lại [bài 2.10](../../stage-01-foundation/module-02-computer-science-basics/2.9-dotnet-runtime-and-ecosystem.mdx): lambda không tồn tại trong IL, nó được biến đổi thành thứ khác.
+**Gợi ý.** Trình biên dịch làm gì với một biểu thức lambda? Nhớ lại [bài 2.9](../../stage-01-foundation/module-02-computer-science-basics/2.9-dotnet-runtime-and-ecosystem.mdx): lambda không tồn tại trong IL, nó được biến đổi thành thứ khác.
 
 **Lời giải.**
 

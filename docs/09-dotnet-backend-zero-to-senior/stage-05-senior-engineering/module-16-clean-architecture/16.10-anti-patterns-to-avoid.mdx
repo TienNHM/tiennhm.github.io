@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 16.11.1 — God Service
+### 16.10.1 — God Service
 
 Dấu hiệu: một lớp `CrmService` hoặc `CustomerService` dài hàng nghìn dòng, nhận mười mấy dependency trong constructor, và mọi controller đều gọi nó.
 
@@ -55,7 +55,7 @@ public sealed class CrmService(
 | Không rõ ranh giới | Không ai biết đổi `CreateLead` có ảnh hưởng `ExportToExcel` không |
 | Tải dependency vô ích | Mỗi request khởi tạo cả 13 dependency (nếu scoped) |
 
-**Cách gỡ — không viết lại:** tách dần theo use case. Mỗi lần chạm vào một phương thức, kéo nó ra thành một handler riêng ([bài 16.7](16.6-mediatr-use-case-pipeline.mdx)), rồi để `CrmService` gọi handler đó. Sau vài tháng `CrmService` rỗng và xoá được.
+**Cách gỡ — không viết lại:** tách dần theo use case. Mỗi lần chạm vào một phương thức, kéo nó ra thành một handler riêng ([bài 16.6](16.6-mediatr-use-case-pipeline.mdx)), rồi để `CrmService` gọi handler đó. Sau vài tháng `CrmService` rỗng và xoá được.
 
 ```csharp
 // Bước trung gian — CrmService uỷ quyền, không còn logic
@@ -68,7 +68,7 @@ public sealed class CrmService(ISender sender)
 
 Đây là **Strangler Fig**: thứ mới mọc quanh thứ cũ cho tới khi thứ cũ không còn gì.
 
-### 16.11.2 — Anemic Domain Model
+### 16.10.2 — Anemic Domain Model
 
 Đây là anti-pattern nguy hiểm nhất vì nó **giả dạng** kiến trúc tốt.
 
@@ -140,7 +140,7 @@ Giờ quy tắc **chỉ có một chỗ**, và không đường nào lách đư�
 
 **Lưu ý công bằng:** anemic model **không sai** với CRUD thuần — một bảng `Country` chỉ có mã và tên thì không cần hành vi. Nó sai khi bạn **đã trả chi phí** của kiến trúc phân tầng mà vẫn để quy tắc ở ngoài.
 
-### 16.11.3 — Domain phụ thuộc EF Core
+### 16.10.3 — Domain phụ thuộc EF Core
 
 ```csharp
 // ANTI-PATTERN — trong Crm.Domain
@@ -156,7 +156,7 @@ public class Lead
 }
 ```
 
-Vi phạm trực tiếp dependency rule ([bài 16.4](16.3-uncle-bob.mdx)). Hậu quả cụ thể:
+Vi phạm trực tiếp dependency rule ([bài 16.3](16.3-uncle-bob.mdx)). Hậu quả cụ thể:
 
 - Không unit test được Domain mà không dựng `DbContext`.
 - Đổi ORM phải sửa Domain.
@@ -194,7 +194,7 @@ public void Domain_ShouldNotDependOn_EntityFrameworkCore()
 
 Gói `NetArchTest.Rules`. Test này chạy trong CI và **chặn PR** vi phạm ranh giới.
 
-### 16.11.4 — Controller điều phối nghiệp vụ
+### 16.10.4 — Controller điều phối nghiệp vụ
 
 ```csharp
 // ANTI-PATTERN — controller làm việc của use case
@@ -237,9 +237,9 @@ public async Task<IActionResult> Convert(Guid id, CancellationToken ct)
 }
 ```
 
-Transaction nằm trong pipeline behavior ([bài 16.7](16.6-mediatr-use-case-pipeline.mdx)), email đi qua domain event và chạy **sau khi** commit ([bài 16.9](16.8-in-process.mdx)).
+Transaction nằm trong pipeline behavior ([bài 16.6](16.6-mediatr-use-case-pipeline.mdx)), email đi qua domain event và chạy **sau khi** commit ([bài 16.8](16.8-in-process.mdx)).
 
-### 16.11.5 — MediatR cho mọi thứ
+### 16.10.5 — MediatR cho mọi thứ
 
 ```csharp
 // ANTI-PATTERN — một lớp query chỉ để gọi một dòng EF
@@ -269,7 +269,7 @@ public async Task<IReadOnlyList<CountryDto>> GetCountries(CancellationToken ct)
 
 Ranh giới thực dụng: **ghi thì qua MediatR** (cần transaction và validation), **đọc đơn giản thì gọi thẳng**, **đọc phức tạp có phân quyền theo dữ liệu thì qua MediatR**.
 
-### 16.11.6 — Kiến trúc lớn hơn bài toán
+### 16.10.6 — Kiến trúc lớn hơn bài toán
 
 Anti-pattern cuối cùng ít được nói tới nhưng tốn kém thật:
 
@@ -302,7 +302,7 @@ Câu hỏi quyết định: **"chi phí của ranh giới này có nhỏ hơn ch
 
 Kiến trúc là **đầu tư**, và như mọi đầu tư, nó có thể lỗ khi bài toán không đủ lớn. Bắt đầu đơn giản và tách khi thấy đau — cách này rẻ hơn tách sẵn cho một tương lai có thể không đến.
 
-### 16.11.7 — Rà lại code của bạn
+### 16.10.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát anti-pattern"

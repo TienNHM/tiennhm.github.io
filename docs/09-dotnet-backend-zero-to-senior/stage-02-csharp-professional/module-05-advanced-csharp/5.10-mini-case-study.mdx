@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 5.11.1 — Code ban đầu
+### 5.10.1 — Code ban đầu
 
 ```csharp
 public decimal CalculateDiscount(Order order, PromotionType type)
@@ -68,7 +68,7 @@ Ba vấn đề đo được:
 
 Vấn đề lớn nhất không phải độ dài mà là **mỗi thay đổi đều chạm vào code đang chạy đúng**. Thêm một khuyến mãi mới có thể làm hỏng bảy cái cũ.
 
-### 5.11.2 — Áp dụng nguyên tắc mở/đóng
+### 5.10.2 — Áp dụng nguyên tắc mở/đóng
 
 **Mở cho mở rộng, đóng cho sửa đổi:** thêm hành vi mới bằng cách **thêm code**, không phải sửa code cũ.
 
@@ -106,7 +106,7 @@ public sealed class LoyaltyDiscount(ICustomerTierTable tierTable) : IDiscountStr
 
 Mỗi lớp **chỉ có một lý do để thay đổi** — đúng nguyên tắc trách nhiệm đơn nhất. `PercentageDiscount` chỉ đổi khi quy tắc phần trăm đổi, và nó chỉ cần đúng một dependency thay vì bảy.
 
-### 5.11.3 — Chọn chiến lược
+### 5.10.3 — Chọn chiến lược
 
 ```csharp
 public sealed class DiscountService(IEnumerable<IDiscountStrategy> strategies)
@@ -138,11 +138,11 @@ builder.Services.AddScoped<IDiscountStrategy, FixedAmountDiscount>();
 builder.Services.AddScoped<IDiscountStrategy, LoyaltyDiscount>();
 ```
 
-.NET DI tự gom mọi đăng ký cùng interface thành `IEnumerable<T>` khi bạn yêu cầu ([bài 7.6](../module-07-dependency-injection/7.5-registering-services.mdx)).
+.NET DI tự gom mọi đăng ký cùng interface thành `IEnumerable<T>` khi bạn yêu cầu ([bài 7.5](../module-07-dependency-injection/7.5-registering-services.mdx)).
 
 Phương thức `CalculateBestDiscount` đáng chú ý: với `switch` cũ, viết được nó nghĩa là phải lặp qua mọi giá trị enum và gọi lại hàm 8 lần. Với thiết kế mới, nó là ba dòng LINQ — một khả năng **mới** xuất hiện nhờ cấu trúc, không phải nhờ viết thêm logic.
 
-### 5.11.4 — Kết quả
+### 5.10.4 — Kết quả
 
 | Chỉ số | Trước | Sau |
 |---|---|---|
@@ -154,7 +154,7 @@ Phương thức `CalculateBestDiscount` đáng chú ý: với `switch` cũ, vi�
 
 Hàng thứ tư là lợi ích lớn nhất trong thực tế: test của `PercentageDiscount` không còn quan tâm tới bảng hạng khách hàng hay phí vận chuyển.
 
-### 5.11.5 — Khi SOLID bị lạm dụng
+### 5.10.5 — Khi SOLID bị lạm dụng
 
 Cùng bài toán, áp dụng máy móc có thể ra thế này:
 
@@ -194,9 +194,9 @@ public class DefaultDateFormatter : IDateFormatter { }
 
 Ngoại lệ hợp lệ: bạn cần interface để **test** thay thế được, ví dụ `IEmailSender`. Đó là cài đặt thứ hai thật (fake dùng trong test).
 
-**Quy tắc thực dụng:** viết code đơn giản nhất chạy được, và tách ra khi bạn **chạm vào nó lần thứ ba** ([bài 16.15](../../stage-05-senior-engineering/module-16-clean-architecture/16.14-mini-case-study.mdx)).
+**Quy tắc thực dụng:** viết code đơn giản nhất chạy được, và tách ra khi bạn **chạm vào nó lần thứ ba** ([bài 16.14](../../stage-05-senior-engineering/module-16-clean-architecture/16.14-mini-case-study.mdx)).
 
-### 5.11.6 — Rà lại code của bạn
+### 5.10.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát áp dụng SOLID"
@@ -610,7 +610,7 @@ Không tạo interface vì:
     - "vì mọi service khác đều có"
 ```
 
-Đây là điều mục 5.11.5 nói về việc lạm dụng SOLID: nguyên tắc đảo ngược phụ thuộc nói *phụ thuộc vào trừu tượng ở ranh giới*, không nói *mọi lớp phải có một interface*. Ba interface bị xoá ở trên không vi phạm nguyên tắc nào — chúng chỉ đang trả chi phí cho một lợi ích không tồn tại.
+Đây là điều mục 5.10.5 nói về việc lạm dụng SOLID: nguyên tắc đảo ngược phụ thuộc nói *phụ thuộc vào trừu tượng ở ranh giới*, không nói *mọi lớp phải có một interface*. Ba interface bị xoá ở trên không vi phạm nguyên tắc nào — chúng chỉ đang trả chi phí cho một lợi ích không tồn tại.
 
 </details>
 

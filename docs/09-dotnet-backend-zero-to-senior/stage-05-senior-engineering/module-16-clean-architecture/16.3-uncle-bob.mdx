@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 16.4.1 — Dependency rule
+### 16.3.1 — Dependency rule
 
 ```
      ┌──────────────────────────────┐
@@ -55,7 +55,7 @@ Chú ý `ILogger`: `Microsoft.Extensions.Logging.ILogger<T>` là **abstraction**
 
 Ranh giới không phải "có phải thư viện bên thứ ba không" mà là **"nó có phải chi tiết có thể thay thế không"**.
 
-### 16.4.2 — Dependency inversion làm nó khả thi
+### 16.3.2 — Dependency inversion làm nó khả thi
 
 Nếu Application cần lưu dữ liệu, mà nó **không được biết** về database — làm sao gọi được?
 
@@ -107,9 +107,9 @@ public interface IPaymentGateway  { Task<PaymentResult> ChargeAsync(PaymentReque
 public interface IDateTimeProvider { DateTime UtcNow { get; } }
 ```
 
-Interface cuối đáng chú ý: `DateTime.UtcNow` cũng là **phụ thuộc vào thế giới bên ngoài**, và nó khiến test không lặp lại được ([bài 7.2](../../stage-02-csharp-professional/module-07-dependency-injection/7.1-di-problem-scope.mdx)). .NET 8 có `TimeProvider` sẵn, nên không cần tự định nghĩa nữa.
+Interface cuối đáng chú ý: `DateTime.UtcNow` cũng là **phụ thuộc vào thế giới bên ngoài**, và nó khiến test không lặp lại được ([bài 7.1](../../stage-02-csharp-professional/module-07-dependency-injection/7.1-di-problem-scope.mdx)). .NET 8 có `TimeProvider` sẵn, nên không cần tự định nghĩa nữa.
 
-### 16.4.3 — Composition root
+### 16.3.3 — Composition root
 
 ```csharp
 // Api/Program.cs — nơi DUY NHẤT nối dây
@@ -120,7 +120,7 @@ builder.Services.AddSingleton(TimeProvider.System);
 
 Đây là chỗ duy nhất trong hệ thống biết **cả** interface **lẫn** implementation. Mọi nơi khác chỉ biết interface.
 
-Tổ chức theo layer, đúng mẫu ở [bài 7.7](../../stage-02-csharp-professional/module-07-dependency-injection/7.6-program-cs-and-webapplicationbuilder.mdx):
+Tổ chức theo layer, đúng mẫu ở [bài 7.6](../../stage-02-csharp-professional/module-07-dependency-injection/7.6-program-cs-and-webapplicationbuilder.mdx):
 
 ```csharp
 builder.Services
@@ -148,7 +148,7 @@ Chú ý `AddApplication()` **không nhận `IConfiguration`** — nếu một ng
 
 Đây là loại tín hiệu kiến trúc mà một chữ ký hàm phát ra rõ hơn bất kỳ tài liệu nào.
 
-### 16.4.4 — Ba cái giá thật
+### 16.3.4 — Ba cái giá thật
 
 Phần này là thứ các bài giới thiệu Clean Architecture thường bỏ qua.
 
@@ -164,7 +164,7 @@ var leads = await _db.Leads
     .ToListAsync(ct);
 ```
 
-Bạn mất projection, `Include`, `AsNoTracking`, phân trang hiệu quả — toàn bộ nội dung [bài 13.6](../../stage-04-database-production/module-13-entity-framework-core/13.5-query-patterns.mdx) và [13.8](../../stage-04-database-production/module-13-entity-framework-core/13.7-performance.mdx).
+Bạn mất projection, `Include`, `AsNoTracking`, phân trang hiệu quả — toàn bộ nội dung [bài 13.5](../../stage-04-database-production/module-13-entity-framework-core/13.5-query-patterns.mdx) và [13.8](../../stage-04-database-production/module-13-entity-framework-core/13.7-performance.mdx).
 
 Cách giữ thuần khiết là cho repository trả về **kết quả hoàn chỉnh**, nghĩa là **mỗi truy vấn mới cần một phương thức mới**:
 
@@ -179,13 +179,13 @@ public interface ILeadRepository
 
 **2. Thao tác hàng loạt trở nên vụng về.**
 
-`ExecuteUpdateAsync` không diễn đạt được qua một repository thuần khiết, nên cập nhật 50.000 dòng phải nạp entity — chậm gấp hàng chục lần ([bài 13.8](../../stage-04-database-production/module-13-entity-framework-core/13.7-performance.mdx)).
+`ExecuteUpdateAsync` không diễn đạt được qua một repository thuần khiết, nên cập nhật 50.000 dòng phải nạp entity — chậm gấp hàng chục lần ([bài 13.7](../../stage-04-database-production/module-13-entity-framework-core/13.7-performance.mdx)).
 
 **3. Rất nhiều file cho một thay đổi nhỏ.**
 
 Thêm một trường vào response: sửa entity, sửa DTO, sửa mapping, sửa interface nếu cần, sửa implementation, sửa handler, sửa test. Bảy file cho một cột.
 
-### 16.4.5 — Thoả hiệp hợp lý
+### 16.3.5 — Thoả hiệp hợp lý
 
 Nhận ra rằng **ba cái giá trên hầu như chỉ ảnh hưởng đường ĐỌC**, còn giá trị của dependency rule hầu như chỉ ở đường **GHI** (nơi có quy tắc nghiệp vụ).
 
@@ -210,15 +210,15 @@ public sealed class LeadQueryService(CrmDbContext db)
 }
 ```
 
-Đường ghi cần trừu tượng vì nó chứa quy tắc; đường đọc cần tự do vì nó chỉ cần nhanh. Đây cũng là kết luận ở [bài 13.10](../../stage-04-database-production/module-13-entity-framework-core/13.9-unit-of-work-and-repository-pattern.mdx).
+Đường ghi cần trừu tượng vì nó chứa quy tắc; đường đọc cần tự do vì nó chỉ cần nhanh. Đây cũng là kết luận ở [bài 13.9](../../stage-04-database-production/module-13-entity-framework-core/13.9-unit-of-work-and-repository-pattern.mdx).
 
 **Mức 3 — chỉ giữ Domain thuần.** Application tham chiếu EF Core thoải mái; chỉ `Crm.Domain` là không reference gì. Đơn giản nhất, và vẫn giữ được lợi ích lớn nhất: **bất biến nghiệp vụ test được mà không cần database**.
 
 Với phần lớn dự án, **mức 2 hoặc 3 là lựa chọn đúng**. Mức 1 đáng khi bạn thật sự cần thay hạ tầng, hoặc khi domain phức tạp tới mức lợi ích vượt chi phí.
 
-Và nhớ lý do gốc ở [bài 16.2](16.1-when-growth-exposes-architecture.mdx): mục tiêu là **chi phí thay đổi thấp**. Nếu thuần khiết làm chi phí tăng, nó đang đi ngược mục tiêu — dù nó "đúng chuẩn".
+Và nhớ lý do gốc ở [bài 16.1](16.1-when-growth-exposes-architecture.mdx): mục tiêu là **chi phí thay đổi thấp**. Nếu thuần khiết làm chi phí tăng, nó đang đi ngược mục tiêu — dù nó "đúng chuẩn".
 
-### 16.4.6 — Câu hỏi kiểm tra bạn có đang làm đúng
+### 16.3.6 — Câu hỏi kiểm tra bạn có đang làm đúng
 
 Ba câu, trả lời được cả ba nghĩa là dependency rule đang làm việc của nó:
 
@@ -228,7 +228,7 @@ Ba câu, trả lời được cả ba nghĩa là dependency rule đang làm vi�
 
 Nếu cả ba đều "có", cấu trúc project cụ thể **ít quan trọng hơn** bạn nghĩ. Nếu một trong ba là "không", cấu trúc dù đẹp tới đâu cũng chưa giải quyết được vấn đề.
 
-### 16.4.7 — Rà lại code của bạn
+### 16.3.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát dependency rule"
@@ -241,7 +241,7 @@ Nếu cả ba đều "có", cấu trúc project cụ thể **ít quan trọng h�
     { text: "AddApplication() không nhận IConfiguration." },
     { text: "Đã chọn có ý thức mức thoả hiệp 1, 2 hay 3 — không mặc định làm theo hình vẽ." },
     { text: "Đường đọc không bị ép qua repository nếu nó cần tối ưu." },
-    { text: "Trả lời được cả ba câu hỏi kiểm tra ở mục 16.4.6." },
+    { text: "Trả lời được cả ba câu hỏi kiểm tra ở mục 16.3.6." },
   ]}
 />
 

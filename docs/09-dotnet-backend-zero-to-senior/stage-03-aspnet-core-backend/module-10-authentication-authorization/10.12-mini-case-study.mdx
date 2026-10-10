@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 10.13.1 — Sự cố
+### 10.12.1 — Sự cố
 
 ```
 Ngày 1, 09:00  Nhân viên nghỉ việc
@@ -53,7 +53,7 @@ public async Task<TokenPair> RefreshAsync(string refreshToken, CancellationToken
 
 Vô hiệu hoá tài khoản chỉ ảnh hưởng luồng **đăng nhập**. Luồng **refresh** không kiểm tra gì về trạng thái tài khoản, nên nó tiếp tục cấp token mới mỗi 15 phút suốt 30 ngày.
 
-### 10.13.2 — Sửa: kiểm tra lại khi refresh
+### 10.12.2 — Sửa: kiểm tra lại khi refresh
 
 ```csharp
 public async Task<TokenPair> RefreshAsync(string refreshToken, CancellationToken ct)
@@ -92,7 +92,7 @@ await _db.SaveChangesAsync(ct);
 // Mọi refresh token cũ giờ đều không dùng được
 ```
 
-### 10.13.3 — Refresh token rotation
+### 10.12.3 — Refresh token rotation
 
 Mỗi lần refresh, cấp refresh token **mới** và vô hiệu cái cũ:
 
@@ -151,7 +151,7 @@ Cơ chế phát hiện:
 
 Đây là điểm mạnh nhất của rotation: không chỉ giới hạn thiệt hại mà còn **biến việc đánh cắp thành một sự kiện quan sát được**.
 
-Gộp cả bản sửa ở mục 10.13.2 và rotation, luồng refresh kiểm tra theo thứ tự:
+Gộp cả bản sửa ở mục 10.12.2 và rotation, luồng refresh kiểm tra theo thứ tự:
 
 ```mermaid
 flowchart TB
@@ -167,7 +167,7 @@ flowchart TB
     ALL --> X
 ```
 
-### 10.13.4 — Vòng đời token
+### 10.12.4 — Vòng đời token
 
 | Token | Thời hạn khuyến nghị | Lưu ở đâu |
 |---|---|---|
@@ -195,9 +195,9 @@ Và `ClockSkew` mặc định 5 phút nên giảm xuống:
 options.TokenValidationParameters.ClockSkew = TimeSpan.FromSeconds(30);
 ```
 
-Với access token 15 phút, dung sai 5 phút nghĩa là token dùng được tới 20 phút — một phần ba thời gian thừa ([bài 10.3](10.2-jwt-authentication.mdx)).
+Với access token 15 phút, dung sai 5 phút nghĩa là token dùng được tới 20 phút — một phần ba thời gian thừa ([bài 10.2](10.2-jwt-authentication.mdx)).
 
-### 10.13.5 — Thu hồi tức thì
+### 10.12.5 — Thu hồi tức thì
 
 Access token vẫn còn hạn tối đa 15 phút sau khi thu hồi. Nếu nghiệp vụ không chấp nhận được, thêm danh sách chặn:
 
@@ -225,9 +225,9 @@ await _cache.SetStringAsync($"revoked:{jti}", "1",
     new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = conLai });
 ```
 
-Cái giá: mỗi request thêm một lần đọc Redis. Với hầu hết hệ thống nội bộ, access token 15 phút là đủ và không cần lớp này ([bài 18.7](../../stage-05-senior-engineering/module-18-microservices/18.6-distributed-identity-overview.mdx)).
+Cái giá: mỗi request thêm một lần đọc Redis. Với hầu hết hệ thống nội bộ, access token 15 phút là đủ và không cần lớp này ([bài 18.6](../../stage-05-senior-engineering/module-18-microservices/18.6-distributed-identity-overview.mdx)).
 
-### 10.13.6 — Rà lại code của bạn
+### 10.12.6 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát vòng đời token"

@@ -23,7 +23,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 12.10.1 — Window function: học ngay
+### 12.9.1 — Window function: học ngay
 
 **Điều kiện kích hoạt:** ngay khi viết báo cáo hoặc xếp hạng.
 
@@ -70,9 +70,9 @@ FROM DoanhThuThang;
 
 `ROWS UNBOUNDED PRECEDING` chỉ định khung cửa sổ là "từ hàng đầu tiên tới hàng hiện tại". Không có nó, mặc định là `RANGE`, cho kết quả khác khi có giá trị trùng trong cột sắp xếp — một khác biệt tinh vi và dễ gây sai.
 
-`RANK()` và `DENSE_RANK()` khác nhau khi có đồng hạng: `RANK` cho 1, 2, 2, **4**; `DENSE_RANK` cho 1, 2, 2, **3** ([bài 12.4](12.3-advanced-queries.mdx)).
+`RANK()` và `DENSE_RANK()` khác nhau khi có đồng hạng: `RANK` cho 1, 2, 2, **4**; `DENSE_RANK` cho 1, 2, 2, **3** ([bài 12.3](12.3-advanced-queries.mdx)).
 
-### 12.10.2 — Temporal table
+### 12.9.2 — Temporal table
 
 **Điều kiện kích hoạt:** nghiệp vụ cần lịch sử thay đổi để kiểm toán.
 
@@ -104,7 +104,7 @@ WHERE Id = '8f3a...'
 ORDER BY ValidFrom;
 ```
 
-Nó giải quyết đúng nhu cầu mà nhiều đội tính tới **event sourcing** để đáp ứng, nhưng **không** đổi mô hình lập trình: code vẫn `UPDATE` bình thường ([bài 17.12](../../stage-05-senior-engineering/module-17-distributed-systems/17.11-advanced-notes.mdx)).
+Nó giải quyết đúng nhu cầu mà nhiều đội tính tới **event sourcing** để đáp ứng, nhưng **không** đổi mô hình lập trình: code vẫn `UPDATE` bình thường ([bài 17.11](../../stage-05-senior-engineering/module-17-distributed-systems/17.11-advanced-notes.mdx)).
 
 **Hai điều cần biết:**
 
@@ -120,7 +120,7 @@ b.ToTable("Leads", t => t.IsTemporal());
 var luc = await _db.Leads.TemporalAsOf(thoiDiem).ToListAsync(ct);
 ```
 
-### 12.10.3 — Columnstore index
+### 12.9.3 — Columnstore index
 
 **Điều kiện kích hoạt:** bảng hàng chục triệu dòng và truy vấn chủ yếu là tổng hợp.
 
@@ -148,7 +148,7 @@ Kết quả điển hình: truy vấn tổng hợp trên bảng lớn nhanh **h�
 
 Mô hình thực dụng: **rowstore cho bảng giao dịch, columnstore cho bảng lịch sử và báo cáo**.
 
-### 12.10.4 — Partition: kỳ vọng đúng
+### 12.9.4 — Partition: kỳ vọng đúng
 
 **Điều kiện kích hoạt:** bảng rất lớn cần xoá hoặc lưu trữ dữ liệu cũ theo lô.
 
@@ -175,7 +175,7 @@ ALTER TABLE NhatKy SWITCH PARTITION 1 TO NhatKyLuuTru PARTITION 1;
 
 **Kết luận:** partition là công cụ **quản lý dữ liệu**, không phải công cụ tăng tốc truy vấn. Muốn truy vấn nhanh thì thêm index.
 
-### 12.10.5 — JSON trong SQL
+### 12.9.5 — JSON trong SQL
 
 **Điều kiện kích hoạt:** dữ liệu có cấu trúc thay đổi theo từng bản ghi.
 
@@ -193,7 +193,7 @@ FROM Leads
 WHERE JSON_VALUE(CustomFields, '$.employeeCount') > 100;
 ```
 
-Truy vấn trên **quét toàn bảng** vì `JSON_VALUE` là hàm áp lên cột ([bài 12.12](12.11-quick-real-world-example.mdx)). Sửa bằng computed column có index:
+Truy vấn trên **quét toàn bảng** vì `JSON_VALUE` là hàm áp lên cột ([bài 12.11](12.11-quick-real-world-example.mdx)). Sửa bằng computed column có index:
 
 ```sql
 ALTER TABLE Leads ADD NganhNghe AS JSON_VALUE(CustomFields, '$.industry') PERSISTED;
@@ -214,7 +214,7 @@ CREATE INDEX IX_Leads_NganhNghe ON Leads (NganhNghe);
 
 Ranh giới thực dụng: nếu bạn thấy mình tạo computed column có index cho **nhiều** trường trong JSON, những trường đó nên là cột thật.
 
-### 12.10.6 — Thứ tự nên học
+### 12.9.6 — Thứ tự nên học
 
 | Ưu tiên | Chủ đề | Vì sao |
 |---|---|---|
@@ -227,7 +227,7 @@ Ranh giới thực dụng: nếu bạn thấy mình tạo computed column có in
 
 Sau Module 12, bước tiếp theo là [Module 13 — Entity Framework Core](../module-13-entity-framework-core/).
 
-### 12.10.7 — Rà lại code của bạn
+### 12.9.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát SQL nâng cao"

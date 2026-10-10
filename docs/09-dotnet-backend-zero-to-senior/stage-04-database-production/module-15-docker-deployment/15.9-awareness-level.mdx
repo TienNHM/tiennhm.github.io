@@ -25,7 +25,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 15.10.1 — Khái niệm cốt lõi
+### 15.9.1 — Khái niệm cốt lõi
 
 | Khái niệm | Là gì |
 |---|---|
@@ -37,7 +37,7 @@ Sau bài này bạn có thể:
 | **Secret** | Cấu hình nhạy cảm (mã hoá base64, **không phải** mã hoá thật) |
 | **Namespace** | Cô lập logic giữa các môi trường hoặc đội |
 
-**Pod là thứ tạm thời.** Nó bị thay bất cứ lúc nào: khi deploy, khi node cần bảo trì, khi scheduler cân bằng lại, khi bạn sửa một biến môi trường. Mọi thiết kế ứng dụng phải giả định điều đó — đúng như [bài 15.2](15.1-docker-fundamentals.mdx).
+**Pod là thứ tạm thời.** Nó bị thay bất cứ lúc nào: khi deploy, khi node cần bảo trì, khi scheduler cân bằng lại, khi bạn sửa một biến môi trường. Mọi thiết kế ứng dụng phải giả định điều đó — đúng như [bài 15.1](15.1-docker-fundamentals.mdx).
 
 **Secret của Kubernetes chỉ là base64**, không mã hoá. Ai đọc được etcd hoặc có quyền `get secret` đều đọc được nội dung. Production thật cần mã hoá at-rest cộng External Secrets Operator kéo từ Key Vault.
 
@@ -48,7 +48,7 @@ Các khái niệm trên ghép lại thành đường đi của một request t�
 
 <small>File gốc: [nền sáng](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-04-database-production-module-15-docker-deployment-awareness-level/vi/kubernetes-crm-api.html) · [nền tối](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-04-database-production-module-15-docker-deployment-awareness-level/vi/kubernetes-crm-api-dark.html)</small>
 
-### 15.10.2 — Manifest cho .NET
+### 15.9.2 — Manifest cho .NET
 
 ```yaml
 apiVersion: apps/v1
@@ -106,7 +106,7 @@ spec:
             failureThreshold: 2
 ```
 
-### 15.10.3 — `requests` và `limits`
+### 15.9.3 — `requests` và `limits`
 
 Đây là phần ảnh hưởng trực tiếp nhất tới ứng dụng .NET.
 
@@ -123,7 +123,7 @@ Khác biệt này rất quan trọng. Đặt `cpu limit` thấp không làm ch�
 
 Với .NET, thêm hai điều:
 
-**1. `memory limit` điều khiển GC.** .NET đọc giới hạn cgroup và đặt heap khoảng 75% của nó ([bài 15.2](15.1-docker-fundamentals.mdx)). Đặt 512Mi nghĩa là heap khoảng 384Mi; phần còn lại cho runtime, thread stack và bộ nhớ native.
+**1. `memory limit` điều khiển GC.** .NET đọc giới hạn cgroup và đặt heap khoảng 75% của nó ([bài 15.1](15.1-docker-fundamentals.mdx)). Đặt 512Mi nghĩa là heap khoảng 384Mi; phần còn lại cho runtime, thread stack và bộ nhớ native.
 
 **2. `cpu limit` ảnh hưởng thread pool.** Với `cpu: "500m"` (nửa core), thread pool của .NET vẫn có thể được cấu hình theo số core của node nếu runtime không đọc đúng quota — kiểm tra bằng cách log `Environment.ProcessorCount` lúc khởi động.
 
@@ -139,9 +139,9 @@ Bỏ `cpu limit` là lựa chọn có chủ đích được nhiều đội dùng
 
 **`maxUnavailable: 0`** trong chiến lược rolling update: pod mới phải `Ready` **trước khi** pod cũ bị gỡ, nên không có lúc nào số pod khoẻ giảm xuống.
 
-### 15.10.4 — Ba probe
+### 15.9.4 — Ba probe
 
-Đã nói ở [bài 8.10](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.9-health-checks.mdx), nhưng đây là nơi nó thành cấu hình thật:
+Đã nói ở [bài 8.9](../../stage-03-aspnet-core-backend/module-08-aspnet-core-fundamentals/8.9-health-checks.mdx), nhưng đây là nơi nó thành cấu hình thật:
 
 | Probe | Thất bại thì | Kiểm tra gì |
 |---|---|---|
@@ -153,7 +153,7 @@ Bỏ `cpu limit` là lựa chọn có chủ đích được nhiều đội dùng
 
 `startupProbe` giải quyết vấn đề "ứng dụng khởi động chậm": khi nó còn chạy, **liveness và readiness bị tạm dừng**. Không có nó, bạn buộc phải đặt `initialDelaySeconds` lớn cho liveness — và như vậy suốt vòng đời pod, mọi sự cố thật đều được phát hiện chậm hơn.
 
-### 15.10.5 — Shutdown gọn gàng
+### 15.9.5 — Shutdown gọn gàng
 
 ```yaml
 terminationGracePeriodSeconds: 60
@@ -181,7 +181,7 @@ Và chuỗi timeout phải nhất quán:
 preStop (5s) + ShutdownTimeout cua ung dung (25s) < terminationGracePeriodSeconds (60s)
 ```
 
-Nếu `ShutdownTimeout` lớn hơn `terminationGracePeriodSeconds`, Kubernetes gửi **SIGKILL** trước khi ứng dụng dọn xong — và mọi cấu hình shutdown gọn gàng trở thành vô nghĩa ([bài 15.3](15.2-dockerfile-for-aspnet-core.mdx)).
+Nếu `ShutdownTimeout` lớn hơn `terminationGracePeriodSeconds`, Kubernetes gửi **SIGKILL** trước khi ứng dụng dọn xong — và mọi cấu hình shutdown gọn gàng trở thành vô nghĩa ([bài 15.2](15.2-dockerfile-for-aspnet-core.mdx)).
 
 Trình tự khi một pod bị xoá, với `preStop` và các mốc thời gian ở trên:
 
@@ -204,7 +204,7 @@ sequenceDiagram
 
 Nhớ cả `ENTRYPOINT` dạng exec, nếu không SIGTERM không bao giờ tới `dotnet`.
 
-### 15.10.6 — Khi nào Kubernetes là thừa
+### 15.9.6 — Khi nào Kubernetes là thừa
 
 | Tình huống | Nên |
 |---|---|
@@ -235,7 +235,7 @@ kubectl rollout undo deployment/crm-api -n production
 
 Và `kubectl describe pod` cho biết pod bị `OOMKilled`, bị `Evicted`, hay probe nào thất bại — thường trả lời câu hỏi ngay lập tức.
 
-### 15.10.7 — Rà lại code của bạn
+### 15.9.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát Kubernetes"

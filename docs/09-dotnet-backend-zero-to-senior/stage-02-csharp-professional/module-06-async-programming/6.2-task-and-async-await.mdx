@@ -25,7 +25,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 6.3.1 — `Task` là lời hứa, không phải thread
+### 6.2.1 — `Task` là lời hứa, không phải thread
 
 ```csharp
 Task task    = DoSomethingAsync();   // lời hứa: "sẽ xong"
@@ -46,9 +46,9 @@ Khi bạn `await` một truy vấn database:
 2. Phương thức **trả về ngay**; thread quay lại thread pool và phục vụ việc khác.
 3. Khi dữ liệu về, hệ điều hành thông báo, và **một thread bất kỳ** từ pool chạy tiếp phần còn lại.
 
-Không có "thread chờ" nào tồn tại giữa bước 2 và 3. Đó là toàn bộ lý do async giúp được ở [bài 6.2](6.1-why-async-matters.mdx).
+Không có "thread chờ" nào tồn tại giữa bước 2 và 3. Đó là toàn bộ lý do async giúp được ở [bài 6.1](6.1-why-async-matters.mdx).
 
-### 6.3.2 — `async`/`await` là máy trạng thái
+### 6.2.2 — `async`/`await` là máy trạng thái
 
 ```csharp
 public async Task<Order?> GetOrderAsync(int id, CancellationToken ct)
@@ -73,7 +73,7 @@ Hai hệ quả thực tế:
 - **Biến cục bộ sống qua `await`** được nâng thành field của máy trạng thái, nên chúng nằm trên heap. Đây chính là chi phí cấp phát của async.
 - **Code sau `await` có thể chạy trên thread khác.** Đừng giả định thread không đổi, và đừng dùng `ThreadLocal` hay `[ThreadStatic]` qua ranh giới `await`.
 
-### 6.3.3 — `async void`: thứ duy nhất nên tránh tuyệt đối
+### 6.2.3 — `async void`: thứ duy nhất nên tránh tuyệt đối
 
 ```csharp
 // NGUY HIỂM
@@ -114,7 +114,7 @@ private async void Button_Click(object sender, EventArgs e)
 
 Trong backend, **không có trường hợp nào cần `async void`**. Thấy nó là thấy lỗi.
 
-### 6.3.4 — `Task` hay `ValueTask`
+### 6.2.4 — `Task` hay `ValueTask`
 
 ```csharp
 // Task — luôn cấp phát một object trên heap
@@ -149,7 +149,7 @@ var t = vt.AsTask();       // cần dùng nhiều lần thì chuyển sang Task 
 
 Quy tắc mặc định: **dùng `Task`**. Chỉ chuyển sang `ValueTask` khi đã đo và thấy cấp phát là nút cổ chai thật.
 
-### 6.3.5 — Khi nào bỏ được `async`/`await`
+### 6.2.5 — Khi nào bỏ được `async`/`await`
 
 ```csharp
 // Có async/await — sinh máy trạng thái
@@ -190,7 +190,7 @@ Trường hợp 1 là cái bẫy thật sự: bỏ `await` thì `using` giải p
 
 Trừ khi đang tối ưu một đường chạy rất nóng, **cứ để `async`/`await`**. An toàn hơn, và stack trace khi lỗi cũng đọc được hơn.
 
-### 6.3.6 — Quy ước chữ ký
+### 6.2.6 — Quy ước chữ ký
 
 ```csharp
 public Task<Order?> GetOrderAsync(int id, CancellationToken ct = default)
@@ -199,10 +199,10 @@ public Task<Order?> GetOrderAsync(int id, CancellationToken ct = default)
 Ba quy ước nên theo:
 
 - **Hậu tố `Async`** cho phương thức trả `Task`, để phân biệt ngay khi đọc.
-- **`CancellationToken` là tham số cuối**. Chi tiết ở [bài 6.5](6.4-cancellationtoken.mdx).
+- **`CancellationToken` là tham số cuối**. Chi tiết ở [bài 6.4](6.4-cancellationtoken.mdx).
 - **Trả `Task<T>`**, không trả `void`.
 
-### 6.3.7 — Rà lại code của bạn
+### 6.2.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát Task và async/await"
@@ -481,7 +481,7 @@ static Task<string> Sai()
 
 Phương thức trả về ngay, ngoại lệ xảy ra sau đó và nằm trong `Task` — nhưng khối `try` đã kết thúc từ lâu.
 
-**Lợi ích của việc bỏ `await` có đáng không.** Nó tiết kiệm đúng một máy trạng thái, tức khoảng **48 nano-giây** theo số đo ở [bài 6.2](6.1-why-async-matters.mdx). Đổi lại là một lớp lỗi khó tìm. Khuyến nghị: **giữ `await` cho tới khi đo được rằng nó là nút thắt** — và với code backend thông thường, nó sẽ không bao giờ là nút thắt.
+**Lợi ích của việc bỏ `await` có đáng không.** Nó tiết kiệm đúng một máy trạng thái, tức khoảng **48 nano-giây** theo số đo ở [bài 6.1](6.1-why-async-matters.mdx). Đổi lại là một lớp lỗi khó tìm. Khuyến nghị: **giữ `await` cho tới khi đo được rằng nó là nút thắt** — và với code backend thông thường, nó sẽ không bao giờ là nút thắt.
 
 Một đánh đổi nữa ít người để ý: bỏ `await` làm **dấu vết ngăn xếp mất một khung**, khiến việc chẩn đoán lỗi khó hơn.
 

@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 9.8.1 — Hai cơ chế, hai nơi
+### 9.7.1 — Hai cơ chế, hai nơi
 
 ```mermaid
 flowchart LR
@@ -51,7 +51,7 @@ Cache-Control: public, max-age=60
 
 Rồi hy vọng ai đó ở giữa tôn trọng nó. Và nó **tự vô hiệu** khi request có header `Authorization` — vì cache dùng chung một response của người đã đăng nhập là lỗ hổng bảo mật. Đây là lý do nhiều người thấy `[ResponseCache]` "không hoạt động": API của họ có xác thực.
 
-### 9.8.2 — Response caching
+### 9.7.2 — Response caching
 
 ```csharp
 builder.Services.AddResponseCaching();
@@ -89,7 +89,7 @@ public ActionResult<CustomerDto> GetMyCustomer();
 
 `[ResponseCache]` vẫn hữu ích ngay cả khi bạn không bật middleware: nó gửi header cho trình duyệt và CDN. Middleware chỉ thêm một tầng cache **trong tiến trình** cho request không xác thực.
 
-### 9.8.3 — Output caching
+### 9.7.3 — Output caching
 
 ```csharp
 builder.Services.AddOutputCache(options =>
@@ -121,7 +121,7 @@ public Task<ActionResult<PagedResponse<CustomerDto>>> GetAll(
 
 Và phải liệt kê **đủ** tham số. Thiếu `status` nghĩa là bộ lọc "active" và "inactive" dùng chung cache.
 
-### 9.8.4 — Xoá cache theo tag
+### 9.7.4 — Xoá cache theo tag
 
 Đây là lý do chính để chọn output caching:
 
@@ -144,9 +144,9 @@ Không có cơ chế này, bạn phải chọn giữa "TTL ngắn, cache gần n
 
 Nhớ xoá trong **mọi** đường ghi: `Create`, `Update`, `Delete`, import hàng loạt, và cả background job sửa dữ liệu. Sót một chỗ là sinh ra bug "thỉnh thoảng dữ liệu không cập nhật".
 
-Một hạn chế quan trọng: kho output cache mặc định **nằm trong bộ nhớ một tiến trình**. Với nhiều instance, `EvictByTagAsync` chỉ xoá cache của **pod đang xử lý request đó** — các pod khác vẫn trả dữ liệu cũ. Đây là cùng một hạn chế với rate limiter ở [bài 9.7](9.6-rate-limiting.mdx). Giải pháp là cài `IOutputCacheStore` dùng Redis.
+Một hạn chế quan trọng: kho output cache mặc định **nằm trong bộ nhớ một tiến trình**. Với nhiều instance, `EvictByTagAsync` chỉ xoá cache của **pod đang xử lý request đó** — các pod khác vẫn trả dữ liệu cũ. Đây là cùng một hạn chế với rate limiter ở [bài 9.6](9.6-rate-limiting.mdx). Giải pháp là cài `IOutputCacheStore` dùng Redis.
 
-### 9.8.5 — ETag: tiết kiệm băng thông
+### 9.7.5 — ETag: tiết kiệm băng thông
 
 Cache trả lời "có cần chạy lại không". ETag trả lời "có cần **gửi lại** không":
 
@@ -173,7 +173,7 @@ Lưu ý: bạn vẫn phải **truy vấn database** để biết dữ liệu có
 
 `RowVersion` của EF Core là nguồn ETag lý tưởng vì nó đổi mỗi lần bản ghi được cập nhật. Cùng giá trị đó còn dùng cho optimistic concurrency — xem [Module 13](../../stage-04-database-production/module-13-entity-framework-core/).
 
-### 9.8.6 — Khi nào không cache
+### 9.7.6 — Khi nào không cache
 
 | Tình huống | Vì sao |
 |---|---|
@@ -197,7 +197,7 @@ builder.Services.AddOutputCache(options =>
 
 Không có `SizeLimit`, một endpoint có nhiều biến thể sẽ ăn hết bộ nhớ tiến trình.
 
-### 9.8.7 — Rà lại code của bạn
+### 9.7.7 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát caching"

@@ -24,7 +24,7 @@ Sau bài này bạn có thể:
 
 ## Nội dung bài học
 
-### 14.7.1 — Hangfire hay `BackgroundService`
+### 14.6.1 — Hangfire hay `BackgroundService`
 
 | | `BackgroundService` | Hangfire |
 |---|---|---|
@@ -37,11 +37,11 @@ Sau bài này bạn có thể:
 | Phụ thuộc | Không | **Database** |
 | Độ phức tạp | Thấp | Trung bình |
 
-Câu hỏi quyết định đã nêu ở [bài 9.10](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.9-hosted-service-background-jobs.mdx): **"nếu job này không chạy một lần, có ai biết không?"**
+Câu hỏi quyết định đã nêu ở [bài 9.9](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.9-hosted-service-background-jobs.mdx): **"nếu job này không chạy một lần, có ai biết không?"**
 
 Không ai biết → cần Hangfire. Với `BackgroundService`, một job im lặng thất bại là một job không ai phát hiện.
 
-### 14.7.2 — Cấu hình
+### 14.6.2 — Cấu hình
 
 ```csharp
 builder.Services.AddHangfire(config => config
@@ -76,9 +76,9 @@ if (builder.Configuration.GetValue<bool>("Hangfire:RunServer"))
     builder.Services.AddHangfireServer(...);
 ```
 
-API chỉ đưa job vào hàng đợi; một tiến trình worker riêng xử lý. Nhờ đó job nặng không làm chậm request, và bạn scale hai thứ độc lập — cùng lý do ở [bài 9.10](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.9-hosted-service-background-jobs.mdx).
+API chỉ đưa job vào hàng đợi; một tiến trình worker riêng xử lý. Nhờ đó job nặng không làm chậm request, và bạn scale hai thứ độc lập — cùng lý do ở [bài 9.9](../../stage-03-aspnet-core-backend/module-09-web-api-professional/9.9-hosted-service-background-jobs.mdx).
 
-### 14.7.3 — Tham số phải nhỏ
+### 14.6.3 — Tham số phải nhỏ
 
 ```csharp
 // SAI — serialize CẢ đối tượng vào database
@@ -100,7 +100,7 @@ Job tự nạp dữ liệu mới nhất khi chạy. Đơn giản hơn, an toàn 
 
 Quy tắc: **chỉ truyền kiểu nguyên thuỷ và id**. Không entity, không DTO lớn, không `CancellationToken` (Hangfire cung cấp `IJobCancellationToken` riêng).
 
-### 14.7.4 — Job phải idempotent
+### 14.6.4 — Job phải idempotent
 
 Hangfire đảm bảo **at-least-once**. Job chạy hai lần khi: worker chết giữa chừng và job được giao lại, retry sau lỗi tạm thời, hoặc ai đó bấm "Requeue" trên dashboard.
 
@@ -133,11 +133,11 @@ public async Task SendWelcomeAsync(int customerId)
 }
 ```
 
-Vẫn còn một khoảng trống: tiến trình chết **giữa** gửi email và lưu cờ. Đó là bản chất của at-least-once — bạn giảm xác suất chứ không loại bỏ được. Với thao tác thật sự không được lặp, cần idempotency key ở phía dịch vụ nhận ([bài 14.10](14.9-idempotency-and-retry.mdx)).
+Vẫn còn một khoảng trống: tiến trình chết **giữa** gửi email và lưu cờ. Đó là bản chất của at-least-once — bạn giảm xác suất chứ không loại bỏ được. Với thao tác thật sự không được lặp, cần idempotency key ở phía dịch vụ nhận ([bài 14.9](14.9-idempotency-and-retry.mdx)).
 
 **Kiểm tra `null` ở đầu** cũng quan trọng: job xếp hàng cho một bản ghi đã bị xoá phải kết thúc êm, không ném exception rồi retry ba lần.
 
-### 14.7.5 — Retry
+### 14.6.5 — Retry
 
 ```csharp
 [AutomaticRetry(Attempts = 3, DelaysInSeconds = [60, 300, 900])]
@@ -202,7 +202,7 @@ stateDiagram-v2
     note right of Failed: Ở lại mãi, Hangfire không tự xoá
 ```
 
-### 14.7.6 — Bốn loại job
+### 14.6.6 — Bốn loại job
 
 ```csharp
 // 1. Fire-and-forget — chay ngay
@@ -235,7 +235,7 @@ jobClient.ContinueJobWith<ILeadService>(
     JobContinuationOptions.OnlyOnSucceededState);
 ```
 
-### 14.7.7 — Dashboard và giới hạn
+### 14.6.7 — Dashboard và giới hạn
 
 ```csharp
 app.UseHangfireDashboard("/hangfire", new DashboardOptions
@@ -263,9 +263,9 @@ Dashboard cho phép **xem tham số job** — nếu bạn truyền dữ liệu n
 1. **Phụ thuộc database.** Mọi thao tác job đều chạm database; hàng nghìn job mỗi giây tạo tải đáng kể.
 2. **Không dành cho thông lượng rất cao.** Trên vài trăm job mỗi giây, dùng message broker.
 3. **Bảng job lớn dần.** Job thành công được dọn sau `ExpirationCheckInterval`, nhưng Failed thì không.
-4. **Không phải message bus.** Không có publish/subscribe, không có định tuyến — đó là việc của [bài 14.9](14.8-message-bus-intro.mdx).
+4. **Không phải message bus.** Không có publish/subscribe, không có định tuyến — đó là việc của [bài 14.8](14.8-message-bus-intro.mdx).
 
-### 14.7.8 — Rà lại code của bạn
+### 14.6.8 — Rà lại code của bạn
 
 <Checklist
   title="Danh sách rà soát Hangfire"
