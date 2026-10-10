@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Why the first row's running total is 300</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Display:wdth,wght@62.5..100,400&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #1b1b1d;
+      --color-ink:    #e3e3e3;
+      --color-muted:  #b4b9c0;
+      --font-sans:    'Geist', system-ui, sans-serif;
+      /* Instrument Serif has no Vietnamese subset; a per-glyph fallback mixes two faces
+         inside one word, so Vietnamese titles swap the whole face instead. */
+      --font-serif:   'Noto Serif Display', serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-stretch: 75%; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 960px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Window frame · RANGE vs ROWS</p>
+    <h1>Why the first row's running total is 300</h1>
+    <div class="diagram-container">
+<svg viewBox="0 0 960 448" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="range-vs-rows-frame-dark-title range-vs-rows-frame-dark-desc">
+  <title id="range-vs-rows-frame-dark-title">Why the first row's running total is 300</title>
+  <desc id="range-vs-rows-frame-dark-desc">Three rows: 2026-01-01 100, 2026-01-01 200, 2026-01-02 300. With the default RANGE frame, row 1's frame covers both peer rows on the same date, so the sum is 300. With ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW, row 1's frame is just itself, so the sum is 100.</desc>
+  <defs>
+    <marker id="range-vs-rows-frame-dark-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#b4b9c0"/></marker>
+    <marker id="range-vs-rows-frame-dark-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#25c19f"/></marker>
+  </defs>
+  <rect width="100%" height="100%" fill="#1b1b1d"/>
+  <rect x="40" y="24" width="420" height="320" rx="8" fill="rgba(227,227,227,0.04)" stroke="rgba(227,227,227,0.1)" stroke-width="1"/>
+  <text x="52" y="44" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em" text-anchor="start">DEFAULT · RANGE</text>
+  <text x="56" y="66" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', monospace" text-anchor="start">sum(tien) OVER (ORDER BY ngay)</text>
+  <rect x="88" y="120" width="216" height="104" rx="4" fill="rgba(37,193,159,0.10)" stroke="#25c19f" stroke-width="1.2" stroke-dasharray="4,3"/>
+  <path d="M304 172.0 L336 172.0" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#range-vs-rows-frame-dark-arrow)"/>
+  <rect x="336" y="144.0" width="108" height="56" rx="6" fill="#1b1b1d"/>
+  <rect x="336" y="144.0" width="108" height="56" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="390" y="169" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">sum = 300</text><text x="390" y="184" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">for row 1</text>
+  <text x="72" y="152" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">1</text>
+  <rect x="96" y="128" width="200" height="40" rx="4" fill="#1b1b1d"/>
+  <rect x="96" y="128" width="200" height="40" rx="4" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="112" y="152" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', monospace" text-anchor="start">2026-01-01</text>
+  <text x="280" y="152" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">100</text>
+  <text x="72" y="200" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">2</text>
+  <rect x="96" y="176" width="200" height="40" rx="4" fill="#1b1b1d"/>
+  <rect x="96" y="176" width="200" height="40" rx="4" fill="#242526" stroke="rgba(227,227,227,0.3)" stroke-width="1"/>
+  <text x="112" y="200" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', monospace" text-anchor="start">2026-01-01</text>
+  <text x="280" y="200" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">200</text>
+  <text x="72" y="248" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">3</text>
+  <rect x="96" y="224" width="200" height="40" rx="4" fill="#1b1b1d"/>
+  <rect x="96" y="224" width="200" height="40" rx="4" fill="#242526" stroke="rgba(227,227,227,0.3)" stroke-width="1"/>
+  <text x="112" y="248" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', monospace" text-anchor="start">2026-01-02</text>
+  <text x="280" y="248" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">300</text>
+  <text x="112" y="116" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="start">ngay</text>
+  <text x="280" y="116" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="end">tien</text>
+  <text x="56" y="300" fill="#b4b9c0" font-size="10" font-family="'Geist', sans-serif" text-anchor="start">Both 2026-01-01 rows are peers,</text>
+  <text x="56" y="316" fill="#b4b9c0" font-size="10" font-family="'Geist', sans-serif" text-anchor="start">so RANGE puts both in row 1's frame.</text>
+  <rect x="500" y="24" width="420" height="320" rx="8" fill="rgba(227,227,227,0.04)" stroke="rgba(227,227,227,0.1)" stroke-width="1"/>
+  <text x="512" y="44" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em" text-anchor="start">EXPLICIT · ROWS</text>
+  <text x="516" y="66" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', monospace" text-anchor="start">sum(tien) OVER (ORDER BY ngay</text>
+  <text x="516" y="80" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', monospace" text-anchor="start">ROWS BETWEEN UNBOUNDED PRECEDING</text>
+  <text x="516" y="94" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', monospace" text-anchor="start">AND CURRENT ROW)</text>
+  <rect x="548" y="120" width="216" height="56" rx="4" fill="rgba(37,193,159,0.10)" stroke="#25c19f" stroke-width="1.2" stroke-dasharray="4,3"/>
+  <path d="M764 148.0 L796 148.0" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#range-vs-rows-frame-dark-arrow)"/>
+  <rect x="796" y="120.0" width="108" height="56" rx="6" fill="#1b1b1d"/>
+  <rect x="796" y="120.0" width="108" height="56" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="850" y="145" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">sum = 100</text><text x="850" y="160" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">for row 1</text>
+  <text x="532" y="152" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">1</text>
+  <rect x="556" y="128" width="200" height="40" rx="4" fill="#1b1b1d"/>
+  <rect x="556" y="128" width="200" height="40" rx="4" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="572" y="152" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', monospace" text-anchor="start">2026-01-01</text>
+  <text x="740" y="152" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">100</text>
+  <text x="532" y="200" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">2</text>
+  <rect x="556" y="176" width="200" height="40" rx="4" fill="#1b1b1d"/>
+  <rect x="556" y="176" width="200" height="40" rx="4" fill="#242526" stroke="rgba(227,227,227,0.3)" stroke-width="1"/>
+  <text x="572" y="200" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', monospace" text-anchor="start">2026-01-01</text>
+  <text x="740" y="200" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">200</text>
+  <text x="532" y="248" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">3</text>
+  <rect x="556" y="224" width="200" height="40" rx="4" fill="#1b1b1d"/>
+  <rect x="556" y="224" width="200" height="40" rx="4" fill="#242526" stroke="rgba(227,227,227,0.3)" stroke-width="1"/>
+  <text x="572" y="248" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', monospace" text-anchor="start">2026-01-02</text>
+  <text x="740" y="248" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">300</text>
+  <text x="572" y="116" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="start">ngay</text>
+  <text x="740" y="116" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="end">tien</text>
+  <text x="516" y="300" fill="#b4b9c0" font-size="10" font-family="'Geist', sans-serif" text-anchor="start">ROWS counts physical positions,</text>
+  <text x="516" y="316" fill="#b4b9c0" font-size="10" font-family="'Geist', sans-serif" text-anchor="start">so row 1's frame is just itself.</text>
+  <line x1="40" y1="364" x2="920" y2="364" stroke="rgba(227,227,227,0.1)" stroke-width="0.8"/>
+  <text x="40" y="384" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">LEGEND</text>
+  <rect x="40" y="400" width="24" height="12" rx="2" fill="rgba(37,193,159,0.10)" stroke="#25c19f" stroke-width="1.2" stroke-dasharray="4,3"/>
+  <text x="72" y="410" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif">Row 1's window frame</text>
+  <rect x="210" y="400" width="24" height="12" rx="2" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="242" y="410" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif">Current row</text>
+<text id="tiennhm-copyright" x="936" y="436" text-anchor="end" fill="#b4b9c0" opacity="0.75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.08em">© tiennhm</text>
+</svg>
+    </div>
+  </div>
+</body>
+</html>

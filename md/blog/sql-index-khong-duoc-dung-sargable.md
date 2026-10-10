@@ -65,6 +65,13 @@ Execution Time: 5.453 ms
 
 `Bitmap Index Scan`. **5,4 ms thay vì 29,6 ms**, cùng kết quả 37.518 dòng.
 
+Hai kế hoạch đặt cạnh nhau:
+
+![Sơ đồ so sánh hai kế hoạch thực thi. Điều kiện date_part('year', tao_luc) = 2026 dẫn tới Seq Scan on don, tính date_part cho cả 200.000 dòng và Filter bỏ 162.482 dòng, mất 29,6 ms, planner ước 1.000 dòng trong khi thực tế 37.518. Điều kiện khoảng trên cột trần tao_luc dẫn tới Bitmap Index Scan trên idx_don_tao_luc rồi Bitmap Heap Scan chỉ đọc trang khớp, mất 5,4 ms, ước 38.225 dòng, thực tế 37.518.](./sargable-seq-vs-index.png#gh-light-mode-only)
+![Sơ đồ so sánh hai kế hoạch thực thi. Điều kiện date_part('year', tao_luc) = 2026 dẫn tới Seq Scan on don, tính date_part cho cả 200.000 dòng và Filter bỏ 162.482 dòng, mất 29,6 ms, planner ước 1.000 dòng trong khi thực tế 37.518. Điều kiện khoảng trên cột trần tao_luc dẫn tới Bitmap Index Scan trên idx_don_tao_luc rồi Bitmap Heap Scan chỉ đọc trang khớp, mất 5,4 ms, ước 38.225 dòng, thực tế 37.518.](./sargable-seq-vs-index-dark.png#gh-dark-mode-only)
+
+File gốc: [nền sáng](pathname:///files/diagrams/2026-09-26-sql-index-khong-duoc-dung/vi/sargable-seq-vs-index.html) · [nền tối](pathname:///files/diagrams/2026-09-26-sql-index-khong-duoc-dung/vi/sargable-seq-vs-index-dark.html)
+
 ---
 
 ## Vì sao index bị bỏ qua

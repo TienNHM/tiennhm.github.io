@@ -89,6 +89,13 @@ EXPLAIN ANALYZE SELECT * FROM orders WHERE order_date > '2024-01-01';
 - **Trước khi có Index:** SQL phải quét toàn bộ bảng (**Sequential Scan**).
 - **Sau khi có Index:** SQL sử dụng **Index Scan**, nhanh hơn nhiều.
 
+Khác biệt giữa hai cách đọc này:
+
+![So sánh hai cách chạy câu SELECT * FROM orders WHERE order_date > '2024-01-01'. Không có index (Sequential Scan): database đọc mọi dòng của bảng orders và kiểm tra order_date ở từng dòng. Có index idx_order_date (Index Scan qua B-Tree): đi từ nút gốc, bỏ qua cả nhánh chứa khoá cũ hơn hoặc bằng 2024-01-01, đi xuống nhánh khoá mới hơn, tới nút lá chứa order_date đã sắp xếp kèm vị trí dòng, rồi chỉ đọc các dòng khớp trong bảng orders.](./img/seq-scan-va-index-scan.png#gh-light-mode-only)
+![So sánh hai cách chạy câu SELECT * FROM orders WHERE order_date > '2024-01-01'. Không có index (Sequential Scan): database đọc mọi dòng của bảng orders và kiểm tra order_date ở từng dòng. Có index idx_order_date (Index Scan qua B-Tree): đi từ nút gốc, bỏ qua cả nhánh chứa khoá cũ hơn hoặc bằng 2024-01-01, đi xuống nhánh khoá mới hơn, tới nút lá chứa order_date đã sắp xếp kèm vị trí dòng, rồi chỉ đọc các dòng khớp trong bảng orders.](./img/seq-scan-va-index-scan-dark.png#gh-dark-mode-only)
+
+File gốc: [nền sáng](pathname:///files/diagrams/database-learn-sql-in-30-days-index/vi/seq-scan-va-index-scan.html) · [nền tối](pathname:///files/diagrams/database-learn-sql-in-30-days-index/vi/seq-scan-va-index-scan-dark.html)
+
 ---
 
 ## **6️⃣ Bài tập thực hành** 🎯

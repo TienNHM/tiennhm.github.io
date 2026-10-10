@@ -30,6 +30,15 @@ Câu hỏi quan trọng là: continuation đó sẽ chạy **trên thread nào**
 
 Mặc định, tại thời điểm `await` tạm dừng, awaiter đọc `SynchronizationContext.Current`. Nếu khác `null`, nó ghi nhớ context này và sau đó `Post` continuation vào đúng context ấy. Nếu `SynchronizationContext.Current` là `null`, nó lùi sang `TaskScheduler.Current`; và nếu cái đó cũng là scheduler mặc định, continuation chạy thẳng trên thread pool.
 
+```mermaid
+flowchart TD
+    A["await tạm dừng"] --> B{"SynchronizationContext.Current khác null?"}
+    B -->|"Có"| C["Post continuation về context đó"]
+    B -->|"Không"| D{"TaskScheduler.Current là scheduler mặc định?"}
+    D -->|"Có"| E["Chạy continuation trên thread pool"]
+    D -->|"Không"| F["Lên lịch qua TaskScheduler.Current"]
+```
+
 Đây là hành vi **mong muốn** chứ không phải bug. Trong WPF, nó cho phép bạn viết `await` rồi gán thẳng vào control ở dòng sau mà không cần `Dispatcher.Invoke`, vì continuation được đảm bảo quay về UI thread.
 
 ## Vì sao "quay về context" cộng với "block" thành deadlock
@@ -48,6 +57,11 @@ Ghép hai mảnh lại, trình tự deadlock như sau:
 5. Context cần thread đang bị block ở bước 3 — hoặc chờ nó rời khỏi context. Nhưng thread đó chỉ rời đi khi `Task` hoàn thành, mà `Task` chỉ hoàn thành khi continuation chạy xong.
 
 Hai bên chờ nhau. Không ai nhường. Đây là deadlock theo đúng nghĩa đen, không phải "chậm".
+
+![Sequence diagram deadlock khi gọi .Result trên WPF hoặc ASP.NET Framework, với ba bên: UI hoặc request thread, SynchronizationContext chỉ cho một thread chạy tại một thời điểm, và thread pool. Bước 1, thread gọi GetCustomerAsync(id). Bước 2, await bắt context. Bước 3, .Result block chính thread đó. Thread pool xong HTTP call, bước 4 Post continuation về context, continuation nằm chờ. Bước 5, context cần đúng thread đang bị block, trong khi thread đó lại chờ Task hoàn thành. Thread chờ Task, Task chờ continuation, continuation chờ thread: không ai nhường](./result-deadlock-sequence.png#gh-light-mode-only)
+![Sequence diagram deadlock khi gọi .Result trên WPF hoặc ASP.NET Framework, với ba bên: UI hoặc request thread, SynchronizationContext chỉ cho một thread chạy tại một thời điểm, và thread pool. Bước 1, thread gọi GetCustomerAsync(id). Bước 2, await bắt context. Bước 3, .Result block chính thread đó. Thread pool xong HTTP call, bước 4 Post continuation về context, continuation nằm chờ. Bước 5, context cần đúng thread đang bị block, trong khi thread đó lại chờ Task hoàn thành. Thread chờ Task, Task chờ continuation, continuation chờ thread: không ai nhường](./result-deadlock-sequence-dark.png#gh-dark-mode-only)
+
+File gốc: [nền sáng](pathname:///files/diagrams/2026-09-21-deadlock-result-wait-csharp/vi/result-deadlock-sequence.html) · [nền tối](pathname:///files/diagrams/2026-09-21-deadlock-result-wait-csharp/vi/result-deadlock-sequence-dark.html)
 
 Chú ý là nó **không phụ thuộc vào việc I/O có nhanh hay không**. Nếu Task tình cờ đã hoàn thành trước khi tới `await` — cache hit chẳng hạn — `await` chạy đồng bộ, không tạm dừng, không có continuation nào cần post, và code chạy trót lọt. Chính điều này làm bug trở nên ác: nó xuất hiện không đều, phụ thuộc vào timing, và thường chỉ nổ trên môi trường thật.
 

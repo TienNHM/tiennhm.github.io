@@ -187,6 +187,13 @@ Ref: comments.user_id > users.id
 Ref: comments.parent_id > comments.id
 ```
 
+Vẽ ra thành sơ đồ, sáu bảng và tám `Ref` ở trên trông như sau (chỉ giữ khoá và vài cột chính):
+
+![Sơ đồ quan hệ sáu bảng của hệ thống blog. posts là bảng trung tâm: nhiều posts thuộc một users qua author_id và một categories qua category_id. comments trỏ tới posts qua post_id, tới users qua user_id và tới chính comments qua parent_id. post_tags có khoá chính ghép post_id và tag_id, nối posts với tags thành quan hệ nhiều-nhiều. categories tự trỏ tới chính nó qua parent_id.](./dbml-blog-schema.png#gh-light-mode-only)
+![Sơ đồ quan hệ sáu bảng của hệ thống blog. posts là bảng trung tâm: nhiều posts thuộc một users qua author_id và một categories qua category_id. comments trỏ tới posts qua post_id, tới users qua user_id và tới chính comments qua parent_id. post_tags có khoá chính ghép post_id và tag_id, nối posts với tags thành quan hệ nhiều-nhiều. categories tự trỏ tới chính nó qua parent_id.](./dbml-blog-schema-dark.png#gh-dark-mode-only)
+
+File gốc: [nền sáng](pathname:///files/diagrams/2025-10-11-gioi-thieu-dbml-database-markup-language/vi/dbml-blog-schema.html) · [nền tối](pathname:///files/diagrams/2025-10-11-gioi-thieu-dbml-database-markup-language/vi/dbml-blog-schema-dark.html)
+
 ## Ví dụ nâng cao: E-commerce System
 
 ```dbml

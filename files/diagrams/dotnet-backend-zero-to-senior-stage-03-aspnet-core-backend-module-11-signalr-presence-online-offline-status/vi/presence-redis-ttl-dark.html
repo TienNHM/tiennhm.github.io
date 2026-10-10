@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Presence bằng Redis TTL và heartbeat</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Display:ital,wdth,wght@0,62.5..100,400;1,62.5..100,400&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #1b1b1d;
+      --color-ink:    #e3e3e3;
+      --color-muted:  #b4b9c0;
+      --font-sans:    'Geist', system-ui, sans-serif;
+      /* Instrument Serif has no Vietnamese subset; a per-glyph fallback mixes two faces
+         inside one word, so Vietnamese titles swap the whole face instead. */
+      --font-serif:   'Noto Serif Display', serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-stretch: 75%; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 960px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Architecture · SignalR presence</p>
+    <h1>Presence bằng Redis TTL và heartbeat</h1>
+    <div class="diagram-container">
+<svg viewBox="0 0 960 600" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="presence-redis-ttl-dark-title presence-redis-ttl-dark-desc">
+  <title id="presence-redis-ttl-dark-title">Presence bằng Redis TTL và heartbeat</title>
+  <desc id="presence-redis-ttl-dark-desc">Mỗi kết nối là một khoá Redis tự hết hạn sau 90 giây, được instance đang giữ kết nối gia hạn mỗi 30 giây; instance bị kill không gia hạn nên khoá tự biến mất, IsOnlineAsync chỉ coi người dùng online khi còn ít nhất một khoá sống và chỉ phát UserPresenceChanged khi trạng thái đổi.</desc>
+  <defs><marker id="presence-redis-ttl-dark-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#b4b9c0"/></marker><marker id="presence-redis-ttl-dark-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#25c19f"/></marker></defs>
+  <rect width="100%" height="100%" fill="#1b1b1d"/>
+  <!-- zones -->
+  <rect x="24" y="64" width="232" height="400" rx="8" fill="rgba(227,227,227,0.02)" stroke="rgba(227,227,227,0.12)" stroke-width="0.8"/><rect x="36" y="68" width="124" height="12" rx="2" fill="#1b1b1d"/><text x="98" y="77" fill="#b4b9c0" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">INSTANCE ỨNG DỤNG</text>
+  <rect x="344" y="64" width="272" height="280" rx="8" fill="rgba(227,227,227,0.02)" stroke="rgba(227,227,227,0.12)" stroke-width="0.8"/><rect x="356" y="68" width="48" height="12" rx="2" fill="#1b1b1d"/><text x="380" y="77" fill="#b4b9c0" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">REDIS</text>
+  <!-- arrows (before nodes) -->
+  <path d="M240,120 H360" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#presence-redis-ttl-dark-arrow)"/>
+  <path d="M240,152 H292 Q300,152 300,160 V240 Q300,248 308,248 H360" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#presence-redis-ttl-dark-arrow)"/>
+  <path d="M240,280 H360" stroke="#25c19f" stroke-width="1.2" fill="none" marker-end="url(#presence-redis-ttl-dark-arrow-accent)"/>
+  <path d="M240,408 H316 Q324,408 324,400 V320 Q324,312 332,312 H360" stroke="#b4b9c0" stroke-width="1" stroke-dasharray="4,3" fill="none"/>
+  <path d="M600,136 H804 Q812,136 812,144 V232" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#presence-redis-ttl-dark-arrow)"/>
+  <path d="M600,280 H712" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#presence-redis-ttl-dark-arrow)"/>
+  <path d="M812,328 V376" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#presence-redis-ttl-dark-arrow)"/>
+  <!-- arrow labels -->
+  <rect x="270" y="100" width="60" height="12" rx="2" fill="#1b1b1d"/><text x="300" y="109" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">SADD</text>
+  <rect x="252" y="260" width="104" height="12" rx="2" fill="#1b1b1d"/><text x="304" y="269" fill="#25c19f" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">EXPIRE MỖI 30S</text>
+  <rect x="332" y="352" width="88" height="12" rx="2" fill="#1b1b1d"/><text x="376" y="361" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">KHÔNG GIA HẠN</text>
+  <rect x="664" y="116" width="76" height="12" rx="2" fill="#1b1b1d"/><text x="702" y="125" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">SMEMBERS</text>
+  <rect x="624" y="260" width="64" height="12" rx="2" fill="#1b1b1d"/><text x="656" y="269" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">EXISTS</text>
+  <rect x="822" y="346" width="104" height="12" rx="2" fill="#1b1b1d"/><text x="874" y="355" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">ĐỔI TRẠNG THÁI</text>
+  <!-- nodes -->
+  <rect x="40" y="96" width="200" height="80" rx="6" fill="#1b1b1d"/><rect x="40" y="96" width="200" height="80" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/><text x="140" y="130" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Instance A</text><text x="140" y="146" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">OnConnected · OnDisconnected</text>
+  <rect x="40" y="248" width="200" height="64" rx="6" fill="#1b1b1d"/><rect x="40" y="248" width="200" height="64" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/><text x="140" y="276" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">PresenceHeartbeatWorker</text><text x="140" y="292" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">PeriodicTimer · 30 giây</text>
+  <rect x="40" y="376" width="200" height="64" rx="6" fill="#1b1b1d"/><rect x="40" y="376" width="200" height="64" rx="6" fill="rgba(227,227,227,0.03)" stroke="rgba(227,227,227,0.3)" stroke-width="1" stroke-dasharray="4,3"/><text x="140" y="404" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Instance B bị kill</text><text x="140" y="420" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">OnDisconnected không chạy</text>
+  <rect x="360" y="104" width="240" height="64" rx="6" fill="#1b1b1d"/><rect x="360" y="104" width="240" height="64" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/><text x="480" y="130" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Tập kết nối của user</text><text x="480" y="146" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">presence:user:{userId}</text><text x="480" y="158" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">Set · TTL 90 giây</text>
+  <rect x="360" y="232" width="240" height="96" rx="6" fill="#1b1b1d"/><rect x="360" y="232" width="240" height="96" rx="6" fill="rgba(37,193,159,0.10)" stroke="#25c19f" stroke-width="1"/><text x="480" y="270" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Khoá mỗi kết nối</text><text x="480" y="286" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">presence:{userId}:{connId}</text><text x="480" y="300" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">String · TTL 90 giây</text>
+  <rect x="712" y="232" width="200" height="96" rx="6" fill="#1b1b1d"/><rect x="712" y="232" width="200" height="96" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/><text x="812" y="268" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">IsOnlineAsync</text><text x="812" y="284" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">còn ≥ 1 khoá sống = online</text><text x="812" y="298" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">khoá hết hạn: SREM (lazy)</text>
+  <rect x="712" y="376" width="200" height="64" rx="6" fill="#1b1b1d"/><rect x="712" y="376" width="200" height="64" rx="6" fill="rgba(37,193,159,0.10)" stroke="#25c19f" stroke-width="1"/><text x="812" y="404" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">UserPresenceChanged</text><text x="812" y="420" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">tới nhóm tenant</text>
+  <!-- callouts -->
+  <text x="360" y="396" fill="#e3e3e3" font-size="14" font-style="italic" font-stretch="75%" font-family="'Noto Serif Display', serif">Không ai gia hạn thì khoá</text><text x="360" y="413" fill="#e3e3e3" font-size="14" font-style="italic" font-stretch="75%" font-family="'Noto Serif Display', serif">tự biến mất sau tối đa 90 giây,</text><text x="360" y="430" fill="#e3e3e3" font-size="14" font-style="italic" font-stretch="75%" font-family="'Noto Serif Display', serif">không cần bước dọn dẹp nào</text>
+  <text x="712" y="464" fill="#e3e3e3" font-size="14" font-style="italic" font-stretch="75%" font-family="'Noto Serif Display', serif">Ba tab vẫn chỉ một sự kiện online</text>
+  <!-- legend -->
+  <line x1="40" y1="500" x2="920" y2="500" stroke="rgba(227,227,227,0.1)" stroke-width="0.8"/><text x="40" y="520" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">CHÚ GIẢI</text><rect x="40" y="536" width="24" height="12" rx="2" fill="#242526" stroke="#e3e3e3" stroke-width="1"/><text x="72" y="546" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif">Thành phần</text><rect x="170" y="536" width="24" height="12" rx="2" fill="rgba(37,193,159,0.10)" stroke="#25c19f" stroke-width="1"/><text x="202" y="546" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif">Điểm mấu chốt</text><rect x="320" y="536" width="24" height="12" rx="2" fill="rgba(227,227,227,0.03)" stroke="rgba(227,227,227,0.3)" stroke-width="1" stroke-dasharray="4,3"/><text x="352" y="546" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif">Instance đã chết</text><line x1="470" y1="542" x2="502" y2="542" stroke="#25c19f" stroke-width="1.2"/><text x="510" y="546" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif">Gia hạn TTL</text><line x1="610" y1="542" x2="642" y2="542" stroke="#b4b9c0" stroke-width="1" stroke-dasharray="4,3"/><text x="650" y="546" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif">Không còn gia hạn</text>
+<text id="tiennhm-copyright" x="936" y="588" text-anchor="end" fill="#b4b9c0" opacity="0.75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.08em">© tiennhm</text>
+</svg>
+    </div>
+  </div>
+</body>
+</html>

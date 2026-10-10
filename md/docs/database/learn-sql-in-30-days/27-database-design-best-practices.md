@@ -55,6 +55,13 @@ CREATE TABLE OrderDetails (
 ```
 🚀 **Lợi ích:** Dữ liệu có **tính toàn vẹn cao hơn**, dễ mở rộng và quản lý hơn.
 
+Quan hệ giữa các bảng sau khi tách:
+
+![Chuẩn hóa bảng Orders. Trước: một bảng Orders gồm OrderID, CustomerName, ProductList (TEXT, chứa nhiều sản phẩm trong một ô) và TotalAmount. Sau chuẩn hóa thành ba bảng: Customers (khoá chính CustomerID, CustomerName); Orders (khoá chính OrderID, khoá ngoại CustomerID, TotalAmount); OrderDetails (khoá chính OrderDetailID, khoá ngoại OrderID, ProductID, Quantity). Một khách hàng có nhiều đơn, một đơn có nhiều dòng OrderDetails, mỗi sản phẩm của đơn thành một dòng riêng.](./img/chuan-hoa-orders.png#gh-light-mode-only)
+![Chuẩn hóa bảng Orders. Trước: một bảng Orders gồm OrderID, CustomerName, ProductList (TEXT, chứa nhiều sản phẩm trong một ô) và TotalAmount. Sau chuẩn hóa thành ba bảng: Customers (khoá chính CustomerID, CustomerName); Orders (khoá chính OrderID, khoá ngoại CustomerID, TotalAmount); OrderDetails (khoá chính OrderDetailID, khoá ngoại OrderID, ProductID, Quantity). Một khách hàng có nhiều đơn, một đơn có nhiều dòng OrderDetails, mỗi sản phẩm của đơn thành một dòng riêng.](./img/chuan-hoa-orders-dark.png#gh-dark-mode-only)
+
+File gốc: [nền sáng](pathname:///files/diagrams/database-learn-sql-in-30-days-database-design-best-practices/vi/chuan-hoa-orders.html) · [nền tối](pathname:///files/diagrams/database-learn-sql-in-30-days-database-design-best-practices/vi/chuan-hoa-orders-dark.html)
+
 ---
 
 ## **3️⃣ Khi Nào Nên Phi Chuẩn Hóa? (Denormalization)**

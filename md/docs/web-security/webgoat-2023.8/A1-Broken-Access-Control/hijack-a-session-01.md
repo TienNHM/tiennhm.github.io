@@ -11,6 +11,18 @@ Khi một ứng dụng web tạo ra **Session ID** không đủ phức tạp ho�
 - **Session Fixation**: Kẻ tấn công gán một Session ID có sẵn cho nạn nhân trước khi họ đăng nhập, từ đó chiếm quyền điều khiển phiên.
 - **Session Theft**: Nếu ứng dụng không bảo vệ Session ID tốt (ví dụ: lưu trên URL thay vì Cookie, không có cơ chế bảo mật như `HttpOnly`, `Secure`...), hacker có thể đánh cắp Session ID bằng cách sử dụng XSS hoặc MITM.
 
+Ba hướng tấn công phổ biến đều dẫn tới cùng một đích: chiếm phiên của người dùng hợp lệ.
+
+```mermaid
+flowchart TD
+    G["Session ID yếu hoặc quản lý phiên kém"] --> A["Brute-force Session ID số tuần tự dễ đoán"]
+    G --> B["Session Fixation: gán sẵn ID cho nạn nhân"]
+    G --> C["Session Theft: đánh cắp qua XSS hoặc MITM"]
+    A --> H["Chiếm phiên người dùng hợp lệ"]
+    B --> H
+    C --> H
+```
+
 ---
 
 ## **2. Mục tiêu bài tập**

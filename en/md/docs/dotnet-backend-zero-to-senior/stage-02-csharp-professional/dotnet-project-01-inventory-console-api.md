@@ -182,6 +182,13 @@ Console → Application (IInventoryService)
 
 > **Nguyên tắc:** Domain không phụ thuộc ai. Application phụ thuộc Domain. Infrastructure implement Domain interfaces. Console phụ thuộc Application interface.
 
+Cùng sơ đồ đó, thêm tham chiếu Console → Infrastructure dùng để đăng ký DI ở Step 1 và project Api của phần bonus:
+
+![Sơ đồ chiều phụ thuộc của Inventory System: Console gọi Application, Application phụ thuộc Domain, Infrastructure implement interface của Domain và đọc ghi file JSON trong Data; Console tham chiếu Infrastructure chỉ để đăng ký DI; project Api Minimal API ở phần bonus cũng gọi Application; Domain không tham chiếu project nào](./img/inventory-dependency-flow.png#gh-light-mode-only)
+![Sơ đồ chiều phụ thuộc của Inventory System: Console gọi Application, Application phụ thuộc Domain, Infrastructure implement interface của Domain và đọc ghi file JSON trong Data; Console tham chiếu Infrastructure chỉ để đăng ký DI; project Api Minimal API ở phần bonus cũng gọi Application; Domain không tham chiếu project nào](./img/inventory-dependency-flow-dark.png#gh-dark-mode-only)
+
+File gốc: [nền sáng](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-02-csharp-professional-project-01-inventory-console-api/vi/inventory-dependency-flow.html) · [nền tối](pathname:///files/diagrams/dotnet-backend-zero-to-senior-stage-02-csharp-professional-project-01-inventory-console-api/vi/inventory-dependency-flow-dark.html)
+
 ---
 
 ## 5. Domain Models

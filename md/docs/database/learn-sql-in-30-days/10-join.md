@@ -20,6 +20,13 @@ Các loại `JOIN` phổ biến:
 3. **`RIGHT JOIN`** - Ngược lại với `LEFT JOIN`.
 4. **`FULL JOIN`** - Lấy tất cả dữ liệu từ cả hai bảng, kể cả dữ liệu không khớp.
 
+Hình dưới đây cho thấy mỗi kiểu JOIN giữ lại phần nào của hai bảng:
+
+![Bốn kiểu JOIN giữa Customers và Orders, vẽ bằng hai vòng tròn giao nhau, phần tô đậm là dòng có trong kết quả. INNER JOIN chỉ tô phần giao: dòng khớp ở cả hai bảng. LEFT JOIN tô cả vòng Customers: mọi khách hàng, kể cả người chưa có đơn, cột Orders là NULL. RIGHT JOIN tô cả vòng Orders: mọi đơn hàng, cột Customers là NULL khi không khớp. FULL JOIN tô cả hai vòng: mọi dòng của hai bảng; MySQL không hỗ trợ, thay bằng UNION.](./img/cac-loai-join.png#gh-light-mode-only)
+![Bốn kiểu JOIN giữa Customers và Orders, vẽ bằng hai vòng tròn giao nhau, phần tô đậm là dòng có trong kết quả. INNER JOIN chỉ tô phần giao: dòng khớp ở cả hai bảng. LEFT JOIN tô cả vòng Customers: mọi khách hàng, kể cả người chưa có đơn, cột Orders là NULL. RIGHT JOIN tô cả vòng Orders: mọi đơn hàng, cột Customers là NULL khi không khớp. FULL JOIN tô cả hai vòng: mọi dòng của hai bảng; MySQL không hỗ trợ, thay bằng UNION.](./img/cac-loai-join-dark.png#gh-dark-mode-only)
+
+File gốc: [nền sáng](pathname:///files/diagrams/database-learn-sql-in-30-days-join/vi/cac-loai-join.html) · [nền tối](pathname:///files/diagrams/database-learn-sql-in-30-days-join/vi/cac-loai-join-dark.html)
+
 📌 **Dữ liệu mẫu:**
 Tạo database đơn giản nếu bạn chưa có:
 ```sql

@@ -82,6 +82,17 @@ GRANT SalesRole TO 'sales_user'@'localhost';
 🔹 **SQL Injection** là kỹ thuật tấn công bằng cách chèn mã SQL vào các input đầu vào.
 🔹 Kẻ tấn công có thể **truy vấn, xóa, sửa dữ liệu** nếu không kiểm tra input chặt chẽ.
 
+Khác biệt cốt lõi giữa nối chuỗi và prepared statement: cách truy vấn xử lý input của người dùng.
+
+```mermaid
+flowchart TD
+    I["Input người dùng: ' OR '1'='1"] --> M{"Cách xử lý truy vấn"}
+    M -->|"Nối chuỗi trực tiếp vào SQL"| V["Input đổi logic: WHERE ... OR '1'='1' luôn đúng"]
+    V --> VX["Đăng nhập không cần mật khẩu - SQL Injection"]
+    M -->|"Prepared Statement với tham số ?"| S["Input chỉ là dữ liệu, không phải mã SQL"]
+    S --> SX["Truy vấn an toàn"]
+```
+
 💡 **Ví dụ:** Một truy vấn bị lỗi bảo mật
 ```sql
 SELECT * FROM Users WHERE username = 'admin' AND password = '1234' OR '1'='1';

@@ -9,6 +9,17 @@
 - Timestamp Unix tương ứng với thời gian tạo session.
 - Bằng cách quan sát nhiều cookie, có thể dự đoán một giá trị hợp lệ.
 
+```mermaid
+flowchart TD
+    A["Thu thập nhiều cookie hijack_cookie"] --> B["Tách thành: số tuần tự - timestamp"]
+    B --> C["Số tuần tự tăng đều (+1 / +2)"]
+    B --> D["Timestamp Unix = thời điểm tạo session"]
+    C --> E["Dự đoán giá trị xen giữa"]
+    D --> E
+    E --> F["Brute-force timestamp quanh phiên hợp lệ"]
+    F --> G["Mạo danh người dùng"]
+```
+
 Bài này tập trung vào dự đoán giá trị của cookie `hijack_cookie`, một kỹ thuật tấn công kiểu **Session Prediction** (Dự đoán phiên đăng nhập). Mục tiêu là xác định cách hệ thống tạo cookie này và dự đoán một giá trị hợp lệ để mạo danh người dùng hợp lệ.
 
 ## 💡 **2. Hints**

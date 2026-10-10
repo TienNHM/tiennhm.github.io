@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>XXE: parser đọc file hệ thống qua external entity</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Display:wdth,wght@62.5..100,400&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #1b1b1d;
+      --color-ink:    #e3e3e3;
+      --color-muted:  #b4b9c0;
+      --font-sans:    'Geist', system-ui, sans-serif;
+      --font-serif:   'Noto Serif Display', serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-stretch: 75%; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 960px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Data flow · XML External Entity</p>
+    <h1>XXE: parser đọc file hệ thống qua external entity</h1>
+    <div class="diagram-container">
+<svg viewBox="0 0 960 464" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="xxe-doc-file-dark-title xxe-doc-file-dark-desc">
+  <title id="xxe-doc-file-dark-title">XXE: parser đọc file hệ thống qua external entity</title>
+  <desc id="xxe-doc-file-dark-desc">Attacker gửi XML khai báo external entity trỏ tới file:///etc/passwd; XML parser bật DTD sẽ đọc file trên server, thay thế entity bằng nội dung file rồi trả về trong phản hồi, làm rò rỉ dữ liệu.</desc>
+  <defs>
+    <marker id="xxe-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#b4b9c0"/></marker>
+    <marker id="xxe-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#25c19f"/></marker>
+  </defs>
+  <rect width="100%" height="100%" fill="#1b1b1d"/>
+
+  <!-- zone: server -->
+  <rect x="360" y="52" width="560" height="248" rx="8" fill="rgba(227,227,227,0.02)" stroke="rgba(227,227,227,0.10)" stroke-width="0.8"/>
+  <rect x="376" y="56" width="128" height="12" rx="2" fill="#1b1b1d"/>
+  <text x="440" y="65" fill="#b4b9c0" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">SERVER MỤC TIÊU</text>
+
+  <!-- Arrows -->
+  <line x1="260" y1="120" x2="396" y2="120" stroke="#b4b9c0" stroke-width="1.2" marker-end="url(#xxe-arrow)"/>
+  <line x1="520" y1="120" x2="656" y2="120" stroke="#b4b9c0" stroke-width="1.2" marker-end="url(#xxe-arrow)"/>
+  <line x1="440" y1="148" x2="440" y2="216" stroke="#b4b9c0" stroke-width="1.2" marker-end="url(#xxe-arrow)"/>
+  <line x1="496" y1="216" x2="496" y2="148" stroke="#25c19f" stroke-width="1.4" marker-end="url(#xxe-arrow-accent)"/>
+
+  <!-- Labels -->
+  <rect x="280" y="100" width="92" height="12" rx="2" fill="#1b1b1d"/><text x="326" y="109" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">XML + DOCTYPE</text>
+  <rect x="556" y="100" width="64" height="12" rx="2" fill="#1b1b1d"/><text x="588" y="109" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">THAY &amp;xxe;</text>
+  <rect x="332" y="176" width="64" height="12" rx="2" fill="#1b1b1d"/><text x="364" y="185" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">ĐỌC FILE</text>
+  <rect x="512" y="176" width="92" height="12" rx="2" fill="#1b1b1d"/><text x="558" y="185" fill="#25c19f" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">NỘI DUNG FILE</text>
+
+  <!-- Attacker -->
+  <rect x="60" y="92" width="200" height="56" rx="6" fill="rgba(227,227,227,0.03)" stroke="rgba(227,227,227,0.30)" stroke-width="1"/>
+  <text x="160" y="117" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Attacker</text>
+  <text x="160" y="133" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">&amp;xxe; = SYSTEM file://</text>
+
+  <!-- Parser (focal) -->
+  <rect x="396" y="92" width="124" height="56" rx="6" fill="rgba(37,193,159,0.10)" stroke="#25c19f" stroke-width="1"/>
+  <text x="458" y="113" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">XML Parser</text>
+  <text x="458" y="129" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">DTD bật</text>
+
+  <!-- Response -->
+  <rect x="656" y="92" width="200" height="56" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="756" y="113" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Phản hồi trả về</text>
+  <text x="756" y="129" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">rò rỉ dữ liệu</text>
+
+  <!-- File store -->
+  <rect x="396" y="216" width="200" height="56" rx="6" fill="rgba(227,227,227,0.05)" stroke="#b4b9c0" stroke-width="1"/>
+  <text x="496" y="241" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">File hệ thống</text>
+  <text x="496" y="257" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">/etc/passwd</text>
+
+  <!-- Legend -->
+  <line x1="40" y1="360" x2="920" y2="360" stroke="rgba(227,227,227,0.10)" stroke-width="0.8"/>
+  <text x="40" y="380" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">CHÚ GIẢI</text>
+  <line x1="40" y1="400" x2="68" y2="400" stroke="#b4b9c0" stroke-width="1.2" marker-end="url(#xxe-arrow)"/>
+  <text x="76" y="403" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif">Yêu cầu từ attacker</text>
+  <line x1="260" y1="400" x2="288" y2="400" stroke="#25c19f" stroke-width="1.4" marker-end="url(#xxe-arrow-accent)"/>
+  <text x="296" y="403" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif">Nội dung file bị rò rỉ ra ngoài</text>
+<text id="tiennhm-copyright" x="936" y="452" text-anchor="end" fill="#b4b9c0" opacity="0.75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.08em">© tiennhm</text>
+</svg>
+    </div>
+  </div>
+</body>
+</html>

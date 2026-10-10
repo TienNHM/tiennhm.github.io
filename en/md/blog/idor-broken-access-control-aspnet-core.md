@@ -78,6 +78,13 @@ public async Task<IActionResult> GetOrder(Guid id)
 
 Two details are worth noting. First, `OwnerId` is in the `WHERE`, so forgetting it means the query returns nothing rather than returning the wrong thing — it fails safe. Second, returning `NotFound` rather than `Forbid` to a non-owner: a `403` inadvertently confirms that the record exists, and with sensitive data mere existence can be enough to infer something.
 
+Put the two versions side by side and it is clear where `[Authorize]` stops and where the ownership condition takes over:
+
+![Flowchart of user A sending GET /api/orders/1044, where order 1044 belongs to B. [Authorize] only checks the token: an invalid token gets 401. With a valid token there are two branches. Buggy code uses Find(id) with no owner filter and returns 200 with B's order, which is IDOR. Correct code runs a query with o.Id == id && o.OwnerId == userId: a matching row returns 200 with A's own order, no row returns 404 NotFound, which does not reveal that B's order exists.](./idor-ownership-check.png#gh-light-mode-only)
+![Flowchart of user A sending GET /api/orders/1044, where order 1044 belongs to B. [Authorize] only checks the token: an invalid token gets 401. With a valid token there are two branches. Buggy code uses Find(id) with no owner filter and returns 200 with B's order, which is IDOR. Correct code runs a query with o.Id == id && o.OwnerId == userId: a matching row returns 200 with A's own order, no row returns 404 NotFound, which does not reveal that B's order exists.](./idor-ownership-check-dark.png#gh-dark-mode-only)
+
+Source files: [light](pathname:///files/diagrams/2026-09-21-idor-broken-access-control-aspnet-core/en/idor-ownership-check.html) · [dark](pathname:///files/diagrams/2026-09-21-idor-broken-access-control-aspnet-core/en/idor-ownership-check-dark.html)
+
 The drawback is that it depends on every developer remembering to add the condition. On a large team with a few hundred endpoints, that is a weak assumption. So the second layer pushes the constraint down into the `DbContext` as a global query filter, so every query is filtered whether the author remembered or not:
 
 ```csharp

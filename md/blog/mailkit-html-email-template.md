@@ -213,6 +213,13 @@ builder.HtmlBody = $"<img src=\"cid:{logo.ContentId}\" alt=\"Utop\" width=\"120\
 
 Ảnh nhúng theo kiểu CID đi kèm trong thư nên hiện được cả khi offline, nhưng làm thư nặng lên và một số client vẫn chặn. Ảnh đặt trên CDN thì thư nhẹ, sửa được sau khi gửi, đổi lại phụ thuộc việc người nhận cho phép tải ảnh. Với email giao dịch, logo nhúng CID còn ảnh sản phẩm để hosted là cách chia hợp lý.
 
+Ghép các bước ở trên lại, đường đi của một lá thư như sau:
+
+![Sơ đồ đường đi của một lá thư HTML qua ba vùng. Ứng dụng: file template HTML, Scriban điền dữ liệu, PreMailer.Net đẩy CSS vào inline. MimeKit: BodyBuilder ghép HtmlBody, TextBody và ảnh CID thành MimeMessage dạng multipart/alternative. MailKit: SmtpClient kết nối cổng 587 với StartTls, xác thực, SendAsync tới máy chủ SMTP hoặc relay.](./mailkit-pipeline.png#gh-light-mode-only)
+![Sơ đồ đường đi của một lá thư HTML qua ba vùng. Ứng dụng: file template HTML, Scriban điền dữ liệu, PreMailer.Net đẩy CSS vào inline. MimeKit: BodyBuilder ghép HtmlBody, TextBody và ảnh CID thành MimeMessage dạng multipart/alternative. MailKit: SmtpClient kết nối cổng 587 với StartTls, xác thực, SendAsync tới máy chủ SMTP hoặc relay.](./mailkit-pipeline-dark.png#gh-dark-mode-only)
+
+File gốc: [nền sáng](pathname:///files/diagrams/2026-09-27-mailkit-html-email-template/vi/mailkit-pipeline.html) · [nền tối](pathname:///files/diagrams/2026-09-27-mailkit-html-email-template/vi/mailkit-pipeline-dark.html)
+
 ## Tích hợp vào ASP.NET Core
 
 ```csharp

@@ -24,6 +24,17 @@
 
 📌 **Cả hai loại kiểm soát này cần được thực thi!**
 
+Một yêu cầu an toàn phải qua cả hai lớp kiểm soát: dọc (đúng cấp quyền) và ngang (đúng chủ sở hữu).
+
+```mermaid
+flowchart TD
+    R["Yêu cầu truy cập tài nguyên"] --> V{"Kiểm soát dọc VAC: đúng cấp quyền?"}
+    V -->|"Không, user thường gọi trang admin"| D1["Từ chối - 403"]
+    V -->|"Có"| H{"Kiểm soát ngang HAC: đúng chủ sở hữu?"}
+    H -->|"Không, xem dữ liệu người khác"| D2["Từ chối - 403"]
+    H -->|"Có"| OK["Cho phép truy cập"]
+```
+
 ## **3️⃣ Ví dụ về Ma trận Kiểm soát Truy cập**
 
 | **Endpoint**      | **Phương thức** | **Mô tả** | **Quyền hạn & Quy tắc** | **Lưu ý** |

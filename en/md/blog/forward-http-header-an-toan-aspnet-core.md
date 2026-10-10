@@ -92,6 +92,11 @@ The difference is not the line count but the **direction of the default**. With 
 ## Where to put it: `DelegatingHandler`
 Scattering the forwarding loop across call sites means every new call site has to remember. Putting it in a `DelegatingHandler` places the rule in exactly one spot and applies it to every call automatically.
 
+![Header filtering flow: the incoming request carries eight headers, Authorization, cf-ipcity: Hồ Chí Minh, X-Correlation-ID, Cookie, X-Request-ID, X-Forwarded-For, Accept-Language and X-Tenant-Id. HeaderPropagationHandler, a DelegatingHandler that holds an allowlist of four names and reads HttpContext through IHttpContextAccessor at call time, copies only Authorization, X-Correlation-ID, X-Request-ID and Accept-Language to the outgoing HttpClient request. The other four go nowhere.](./header-allowlist.png#gh-light-mode-only)
+![Header filtering flow: the incoming request carries eight headers, Authorization, cf-ipcity: Hồ Chí Minh, X-Correlation-ID, Cookie, X-Request-ID, X-Forwarded-For, Accept-Language and X-Tenant-Id. HeaderPropagationHandler, a DelegatingHandler that holds an allowlist of four names and reads HttpContext through IHttpContextAccessor at call time, copies only Authorization, X-Correlation-ID, X-Request-ID and Accept-Language to the outgoing HttpClient request. The other four go nowhere.](./header-allowlist-dark.png#gh-dark-mode-only)
+
+Source files: [light](pathname:///files/diagrams/2026-09-23-forward-http-header-an-toan/en/header-allowlist.html) · [dark](pathname:///files/diagrams/2026-09-23-forward-http-header-an-toan/en/header-allowlist-dark.html)
+
 ```csharp
 public sealed class HeaderPropagationHandler : DelegatingHandler
 {

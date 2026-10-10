@@ -102,6 +102,13 @@ GLIBC_2.27
 
 Nghĩa là kể cả khi có loader, nó vẫn cần một libc cung cấp đúng những symbol đã được gắn version như vậy. musl không làm thế, vì musl không dùng cơ chế symbol versioning của glibc.
 
+Gom cả chuỗi lại, từ package bạn cài tới file mà loader đi tìm:
+
+![Chuỗi phụ thuộc bắc cầu: transformers.js (@huggingface/transformers) kéo onnxruntime-node 1.24.3, binding onnxruntime_binding.node 376 KB nạp libonnxruntime.so.1 34 MB dựng cho glibc, file này có DT_NEEDED ld-linux-x86-64.so.2. Trên node:22-alpine dùng musl với /lib/ld-musl-x86_64.so.1, file đó không có nên lỗi Error loading shared library; thêm libc6-compat hay gcompat chỉ đổi sang lỗi Error relocating __vsnprintf_chk. Trên node:22-bookworm-slim có glibc 2.36 và /lib64/ld-linux-x86-64.so.2 nên dlopen chạy, đổi lại image lớn hơn 89 MB.](./onnx-alpine-dt-needed.png#gh-light-mode-only)
+![Chuỗi phụ thuộc bắc cầu: transformers.js (@huggingface/transformers) kéo onnxruntime-node 1.24.3, binding onnxruntime_binding.node 376 KB nạp libonnxruntime.so.1 34 MB dựng cho glibc, file này có DT_NEEDED ld-linux-x86-64.so.2. Trên node:22-alpine dùng musl với /lib/ld-musl-x86_64.so.1, file đó không có nên lỗi Error loading shared library; thêm libc6-compat hay gcompat chỉ đổi sang lỗi Error relocating __vsnprintf_chk. Trên node:22-bookworm-slim có glibc 2.36 và /lib64/ld-linux-x86-64.so.2 nên dlopen chạy, đổi lại image lớn hơn 89 MB.](./onnx-alpine-dt-needed-dark.png#gh-dark-mode-only)
+
+File gốc: [nền sáng](pathname:///files/diagrams/2026-09-22-onnx-runtime-alpine-ld-linux/vi/onnx-alpine-dt-needed.html) · [nền tối](pathname:///files/diagrams/2026-09-22-onnx-runtime-alpine-ld-linux/vi/onnx-alpine-dt-needed-dark.html)
+
 ---
 
 ## Vì sao `libc6-compat` và `gcompat` không cứu được

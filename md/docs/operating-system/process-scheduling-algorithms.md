@@ -9,6 +9,19 @@ Trong bài viết này, mình sẽ giới thiệu các thuật toán lập lịc
 
 ## Các thuật toán lập lịch tiến trình
 
+Các thuật toán dưới đây khác nhau ở hai câu hỏi: có giành CPU từ tiến trình đang chạy hay không, và chọn tiến trình nào chạy tiếp.
+
+```mermaid
+flowchart TD
+    Q{"Giành CPU từ tiến trình đang chạy?"}
+    Q -->|"Không (non-preemptive)"| N{"Chọn tiến trình kế tiếp theo"}
+    Q -->|"Có (preemptive)"| P{"Giành khi nào?"}
+    N -->|"Thứ tự đến"| FCFS["FCFS"]
+    N -->|"Thời gian chạy ngắn nhất"| SJFN["SJF Non-preemptive"]
+    P -->|"Có tiến trình mới ngắn hơn phần còn lại"| SJFP["SJF Preemptive"]
+    P -->|"Hết time quantum"| RR["RR (Round Robin)"]
+```
+
 ### FCFS
 
 Thuật toán FCFS (First Come First Served) sẽ lập lịch các tiến trình theo thứ tự đến trước thì được lập lịch trước. Thuật toán này dễ hiểu và dễ cài đặt, nhưng nó không phải là thuật toán tối ưu.

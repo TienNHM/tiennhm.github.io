@@ -57,6 +57,14 @@ Rò rỉ bộ nhớ thì phải *tăng*. Một ứng dụng rảnh mà giữ 822
 
 Phân biệt được hai thứ này quyết định toàn bộ hướng xử lý. Nếu đi theo hướng "rò rỉ", bạn sẽ mất hàng giờ soi memory dump, tìm sự kiện chưa hủy đăng ký, tìm `IDisposable` chưa dispose — trong khi vấn đề nằm ở một dòng cấu hình.
 
+```mermaid
+flowchart TD
+    A["docker stats báo 96%"] --> B["Đọc anon trong memory.stat"]
+    B --> C{"Đo nhiều lần cách quãng"}
+    C -->|"Tăng dần"| D["Rò rỉ thật: dotnet-counters, dotnet-dump"]
+    C -->|"Đứng yên"| E["Heap bị giữ lại: kiểm tra cấu hình GC"]
+```
+
 ## Nguyên nhân: Server GC là mặc định của ASP.NET Core
 
 Kiểm tra biến môi trường trong container:
@@ -90,6 +98,13 @@ Với một API lưu lượng thấp nằm trong container 1 GiB, Server GC là 
 Khi phát hiện đang chạy trong container có giới hạn bộ nhớ, .NET tự đặt **GC heap hard limit bằng 75% giới hạn cgroup**. Với trần 1 GiB, heap được phép dùng tới khoảng **768 MB**.
 
 Server GC thoải mái phình tới sát ngưỡng đó rồi giữ nguyên. Con số 822 MB anon — gồm GC heap cộng bộ nhớ native, stack các luồng, JIT code — khớp chính xác với hành vi này. Runtime không hề sai; nó đang làm đúng thứ nó được thiết kế để làm.
+
+Đặt hai chế độ cạnh nhau, cùng một thang đo bộ nhớ:
+
+![So sánh Server GC và Workstation GC trên VPS 4 core. Server GC tạo bốn heap, mỗi heap kèm một GC thread, cho heap phình to và rất ít trả bộ nhớ về hệ điều hành: trong trần cgroup 1 GiB, bộ nhớ anon là 822 MB cộng 161 MB page cache, mốc GC heap hard limit 768 MB (75%) nằm bên trong phần anon, docker stats báo 987.6 MiB, 96%. Workstation GC dùng một heap chung với DOTNET_GCConserveMemory=5, GC thường xuyên hơn và trả bộ nhớ sớm hơn: anon còn khoảng 288 MB sau 30 phút, giảm 65%, docker stats 469.5 MiB trên trần 1.5 GiB, 31%](./server-vs-workstation-gc.png#gh-light-mode-only)
+![So sánh Server GC và Workstation GC trên VPS 4 core. Server GC tạo bốn heap, mỗi heap kèm một GC thread, cho heap phình to và rất ít trả bộ nhớ về hệ điều hành: trong trần cgroup 1 GiB, bộ nhớ anon là 822 MB cộng 161 MB page cache, mốc GC heap hard limit 768 MB (75%) nằm bên trong phần anon, docker stats báo 987.6 MiB, 96%. Workstation GC dùng một heap chung với DOTNET_GCConserveMemory=5, GC thường xuyên hơn và trả bộ nhớ sớm hơn: anon còn khoảng 288 MB sau 30 phút, giảm 65%, docker stats 469.5 MiB trên trần 1.5 GiB, 31%](./server-vs-workstation-gc-dark.png#gh-dark-mode-only)
+
+File gốc: [nền sáng](pathname:///files/diagrams/2026-09-12-dotnet-workstation-gc-giam-ram-container/vi/server-vs-workstation-gc.html) · [nền tối](pathname:///files/diagrams/2026-09-12-dotnet-workstation-gc-giam-ram-container/vi/server-vs-workstation-gc-dark.html)
 
 ## Cách sửa
 

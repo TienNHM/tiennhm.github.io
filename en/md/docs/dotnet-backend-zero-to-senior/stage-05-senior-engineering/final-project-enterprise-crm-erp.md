@@ -123,6 +123,15 @@ Bạn không bắt buộc implement toàn bộ danh sách dưới đây — hãy
 - Ví dụ: **Sales**: create lead → qualify → convert to customer.
 - **Billing**: tạo subscription draft khi convert; **Support**: auto ticket onboarding.
 
+```mermaid
+flowchart LR
+    subgraph SALES["Sales"]
+        A["Create lead"] --> B["Qualify"] --> C["Convert to customer"]
+    end
+    C -->|"event qua outbox"| D["Billing: subscription draft"]
+    C -->|"event qua outbox"| E["Support: ticket onboarding"]
+```
+
 **Tuần 5+: Độ tin cậy & vận hành**
 
 - Health ready/live, migration strategy, seed data, feature flag đơn giản nếu cần.

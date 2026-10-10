@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Một khoá ký token, cùng khoá đó kiểm token</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Display:ital,wdth,wght@0,62.5..100,400;1,62.5..100,400&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #fafaf7;
+      --color-ink:    #1c1e21;
+      --color-muted:  #525860;
+      --font-sans:    'Geist', system-ui, sans-serif;
+      /* Instrument Serif has no Vietnamese subset; a per-glyph fallback mixes two faces
+         inside one word, so Vietnamese titles swap the whole face instead. */
+      --font-serif:   'Noto Serif Display', serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-stretch: 75%; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 960px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Architecture · JWT</p>
+    <h1>Một khoá ký token, cùng khoá đó kiểm token</h1>
+    <div class="diagram-container">
+<svg viewBox="0 0 960 652" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="jwt-issue-validate-title jwt-issue-validate-desc">
+  <title id="jwt-issue-validate-title">Phát hành và xác thực JWT</title>
+  <desc id="jwt-issue-validate-desc">Endpoint đăng nhập gọi TokenService ký access token bằng khoá bí mật; ở mỗi request JwtBearer handler dùng cùng khoá kiểm chữ ký, thuật toán, issuer, audience và hạn, hợp lệ thì gán HttpContext.User, sai thì trả 401.</desc>
+  <defs><marker id="jwt-issue-validate-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#525860"/></marker><marker id="jwt-issue-validate-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#18816a"/></marker></defs>
+  <rect width="100%" height="100%" fill="#fafaf7"/>
+  <!-- zones -->
+  <!-- arrows (before nodes) -->
+  <path d="M152,120 H232" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#jwt-issue-validate-arrow)"/>
+  <path d="M432,120 H512" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#jwt-issue-validate-arrow)"/>
+  <path d="M332,92 V64 Q332,56 324,56 H96 Q88,56 88,64 V88" stroke="#525860" stroke-width="1.2" fill="none" stroke-dasharray="5,4" marker-end="url(#jwt-issue-validate-arrow)"/>
+  <path d="M612,228 V148" stroke="#18816a" stroke-width="1.4" fill="none" marker-end="url(#jwt-issue-validate-arrow-accent)"/>
+  <path d="M612,292 V356" stroke="#18816a" stroke-width="1.4" fill="none" marker-end="url(#jwt-issue-validate-arrow-accent)"/>
+  <path d="M152,396 H512" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#jwt-issue-validate-arrow)"/>
+  <path d="M712,396 H768" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#jwt-issue-validate-arrow)"/>
+  <path d="M612,436 V488" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#jwt-issue-validate-arrow)"/>
+  <!-- arrow labels -->
+  <rect x="159.5" y="100" width="65" height="12" rx="2" fill="#fafaf7"/><text x="192" y="109" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">ĐĂNG NHẬP</text>
+  <rect x="448.5" y="100" width="47" height="12" rx="2" fill="#fafaf7"/><text x="472" y="109" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">CLAIMS</text>
+  <rect x="168.5" y="36" width="83" height="12" rx="2" fill="#fafaf7"/><text x="210" y="45" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">ACCESS TOKEN</text>
+  <rect x="620" y="182" width="24" height="12" rx="2" fill="#fafaf7"/><text x="632" y="191" fill="#18816a" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">KÝ</text>
+  <rect x="620" y="318" width="36" height="12" rx="2" fill="#fafaf7"/><text x="638" y="327" fill="#18816a" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">KIỂM</text>
+  <rect x="290.5" y="376" width="83" height="12" rx="2" fill="#fafaf7"/><text x="332" y="385" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">BEARER TOKEN</text>
+  <rect x="716.5" y="376" width="47" height="12" rx="2" fill="#fafaf7"/><text x="740" y="385" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">HỢP LỆ</text>
+  <rect x="620" y="456" width="30" height="12" rx="2" fill="#fafaf7"/><text x="635" y="465" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">SAI</text>
+  <!-- nodes -->
+  <rect x="24" y="88" width="128" height="360" rx="6" fill="#fafaf7"/><rect x="24" y="88" width="128" height="360" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/><text x="88" y="265" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Client</text><text x="88" y="281" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">SPA · mobile</text>
+  <rect x="232" y="92" width="200" height="56" rx="6" fill="#fafaf7"/><rect x="232" y="92" width="200" height="56" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/><text x="332" y="117" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Endpoint đăng nhập</text><text x="332" y="133" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">[AllowAnonymous] · rate limit</text>
+  <rect x="512" y="92" width="200" height="56" rx="6" fill="#fafaf7"/><rect x="512" y="92" width="200" height="56" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/><text x="612" y="117" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">TokenService</text><text x="612" y="133" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">HS256 · sub, jti, iat, role</text>
+  <rect x="512" y="228" width="200" height="64" rx="6" fill="#fafaf7"/><rect x="512" y="228" width="200" height="64" rx="6" fill="rgba(24,129,106,0.08)" stroke="#18816a" stroke-width="1"/><text x="612" y="251" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Khoá ký bí mật</text><text x="612" y="267" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">SymmetricSecurityKey</text><text x="612" y="280" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">biến môi trường / Key Vault</text>
+  <rect x="512" y="356" width="200" height="80" rx="6" fill="#fafaf7"/><rect x="512" y="356" width="200" height="80" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/><text x="612" y="387" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">JwtBearer handler</text><text x="612" y="403" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">chữ ký · alg · iss · aud</text><text x="612" y="416" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">exp ± ClockSkew 30s</text>
+  <rect x="768" y="368" width="168" height="56" rx="6" fill="#fafaf7"/><rect x="768" y="368" width="168" height="56" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/><text x="852" y="393" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">[Authorize] action</text><text x="852" y="409" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">HttpContext.User</text>
+  <rect x="532" y="488" width="160" height="48" rx="20" fill="#fafaf7"/><rect x="532" y="488" width="160" height="48" rx="20" fill="rgba(28,30,33,0.03)" stroke="rgba(28,30,33,0.3)" stroke-width="1"/><text x="612" y="509" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">401 Unauthorized</text><text x="612" y="525" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">token sai / hết hạn</text>
+  <!-- callouts, legend -->
+  <text x="232" y="232" fill="#1c1e21" font-size="14" font-style="italic" font-stretch="75%" font-family="'Noto Serif Display', serif" text-anchor="start">Server không lưu token:</text><text x="232" y="249" fill="#1c1e21" font-size="14" font-style="italic" font-stretch="75%" font-family="'Noto Serif Display', serif" text-anchor="start">hợp lệ tới khi hết exp,</text><text x="232" y="266" fill="#1c1e21" font-size="14" font-style="italic" font-stretch="75%" font-family="'Noto Serif Display', serif" text-anchor="start">không thu hồi được.</text>
+  <line x1="40" y1="568" x2="920" y2="568" stroke="rgba(28,30,33,0.1)" stroke-width="0.8"/><text x="40" y="588" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">CHÚ GIẢI</text><rect x="40" y="604" width="24" height="12" rx="2" fill="rgba(24,129,106,0.08)" stroke="#18816a" stroke-width="1"/><text x="72" y="614" fill="#525860" font-size="8.5" font-family="'Geist', sans-serif">Khoá dùng chung</text><rect x="186" y="604" width="24" height="12" rx="2" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/><text x="218" y="614" fill="#525860" font-size="8.5" font-family="'Geist', sans-serif">Thành phần</text><rect x="306" y="604" width="24" height="12" rx="6" fill="rgba(28,30,33,0.03)" stroke="rgba(28,30,33,0.3)" stroke-width="1"/><text x="338" y="614" fill="#525860" font-size="8.5" font-family="'Geist', sans-serif">Kết quả</text><line x1="410" y1="610" x2="432" y2="610" stroke="#525860" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#jwt-issue-validate-arrow)"/><text x="442" y="614" fill="#525860" font-size="8.5" font-family="'Geist', sans-serif">Trả token về client</text>
+<text id="tiennhm-copyright" x="936" y="640" text-anchor="end" fill="#525860" opacity="0.75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.08em">© tiennhm</text>
+</svg>
+    </div>
+  </div>
+</body>
+</html>

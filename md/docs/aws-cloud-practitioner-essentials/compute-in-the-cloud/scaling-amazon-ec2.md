@@ -86,6 +86,16 @@ EC2 Auto Scaling thêm instances dựa trên demand và các key scaling metrics
 
 Cách hoạt động kỹ thuật này liên quan đến một số AWS services khác để làm cho tất cả xảy ra. Bạn cần thu thập dữ liệu về performance của các instances, hoặc có thể dữ liệu về latency và các application metrics khác. Bạn sẽ sử dụng **Amazon CloudWatch** service để thu thập và monitor các metrics này. Dữ liệu này sau đó được sử dụng để xác định khi nào scaling cần xảy ra. Và, nó xảy ra tự động, đúng lúc bạn cần.
 
+```mermaid
+flowchart LR
+    I["EC2 instances trong Auto Scaling group"] -->|"metrics: performance, latency"| CW["Amazon CloudWatch"]
+    CW --> D{"EC2 Auto Scaling: demand tăng hay giảm?"}
+    D -->|"tăng"| OUT["Scale out: thêm instance, không vượt Maximum"]
+    D -->|"giảm"| IN["Scale in: bớt instance, không dưới Minimum"]
+    OUT --> I
+    IN --> I
+```
+
 ### Ví dụ: Amazon EC2 Auto Scaling
 
 Với EC2 Auto Scaling, bạn duy trì lượng compute capacity mong muốn cho application của mình bằng cách điều chỉnh động số lượng EC2 instances dựa trên demand. Bạn có thể tạo **Auto Scaling groups**, là các collections của EC2 instances có thể scale in hoặc out để đáp ứng nhu cầu của application.

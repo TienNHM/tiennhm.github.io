@@ -39,6 +39,11 @@ Inserting the same 200,000 rows into each:
 
 The reason is plain enough: every `INSERT` does not merely write one row into the table. It must also insert an entry into **each** B-tree, keep every one of those trees balanced, and write each of those changes to the write-ahead log. Four indexes means **five structures change instead of one**.
 
+![One INSERT of a single row into table w4 fans out to five structures: the table heap and four B-tree indexes on a, b, c and d; each change also adds a record to the WAL. Below, the measurements on 200,000 rows: no index 287.8 ms and 10.2 MB, four indexes 1,722.3 ms and 27 MB, 6 times slower and 2.6 times larger.](./insert-fan-out.png#gh-light-mode-only)
+![One INSERT of a single row into table w4 fans out to five structures: the table heap and four B-tree indexes on a, b, c and d; each change also adds a record to the WAL. Below, the measurements on 200,000 rows: no index 287.8 ms and 10.2 MB, four indexes 1,722.3 ms and 27 MB, 6 times slower and 2.6 times larger.](./insert-fan-out-dark.png#gh-dark-mode-only)
+
+Source: [light](pathname:///files/diagrams/2026-09-29-chi-phi-ghi-cua-index/en/insert-fan-out.html) · [dark](pathname:///files/diagrams/2026-09-29-chi-phi-ghi-cua-index/en/insert-fan-out-dark.html)
+
 Here is the part worth sitting with: you pay that cost **even when no query ever uses those four indexes**. An unused index is still updated in full on every write.
 
 `UPDATE` is worse than `INSERT` in one specific way. If you modify an indexed column, the database must delete the old entry and insert a new one in the tree. Modifying an unindexed column is far cheaper — which is why indexing a frequently updated column (status, last-modified timestamp) costs more than indexing a static one.

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Splitting roles between human and AI in the TDD loop</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Display:wdth,wght@62.5..100,400&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #1b1b1d;
+      --color-ink:    #e3e3e3;
+      --color-muted:  #b4b9c0;
+      --font-sans:    'Geist', system-ui, sans-serif;
+      /* Instrument Serif has no Vietnamese subset; a per-glyph fallback mixes two faces
+         inside one word, so Vietnamese titles swap the whole face instead. */
+      --font-serif:   'Noto Serif Display', serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-stretch: 75%; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 960px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Swimlane · The author's proposal</p>
+    <h1>Splitting roles between human and AI in the TDD loop</h1>
+    <div class="diagram-container">
+<svg viewBox="0 0 960 488" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="tdd-ai-dlc-roles-dark-title tdd-ai-dlc-roles-dark-desc">
+  <title id="tdd-ai-dlc-roles-dark-title">Splitting roles between human and AI in the TDD loop</title>
+  <desc id="tdd-ai-dlc-roles-dark-desc">In Inception, AI drafts behavior tests from acceptance criteria and a human validates them. In Red, the human writes or approves each test and hands the failing test to AI. In Green, AI writes the minimal implementation that makes the test pass. In Refactor, AI proposes a refactor and the human reviews it, then the loop returns to Red for the next behavior.</desc>
+  <defs>
+    <marker id="tdd-ai-dlc-roles-dark-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#b4b9c0"/></marker>
+    <marker id="tdd-ai-dlc-roles-dark-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#25c19f"/></marker>
+  </defs>
+  <rect width="100%" height="100%" fill="#1b1b1d"/>
+  <rect x="24" y="64" width="920" height="320" rx="8" fill="rgba(227,227,227,0.04)" stroke="rgba(227,227,227,0.1)" stroke-width="1"/>
+  <line x1="24" y1="224" x2="944" y2="224" stroke="rgba(227,227,227,0.1)" stroke-width="1"/>
+  <line x1="120" y1="64" x2="120" y2="384" stroke="rgba(227,227,227,0.1)" stroke-width="1"/>
+  <text x="36" y="152" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em" text-anchor="start">HUMAN</text>
+  <text x="36" y="168" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="start">authority</text>
+  <text x="36" y="304" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em" text-anchor="start">AI</text>
+  <text x="36" y="320" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="start">execution</text>
+  <text x="224" y="48" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em" text-anchor="middle">INCEPTION</text>
+  <text x="432" y="48" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em" text-anchor="middle">CONSTRUCTION · RED</text>
+  <text x="640" y="48" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em" text-anchor="middle">CONSTRUCTION · GREEN</text>
+  <text x="848" y="48" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em" text-anchor="middle">CONSTRUCTION · REFACTOR</text>
+  <path d="M224 280 L224 192" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#tdd-ai-dlc-roles-dark-arrow)"/>
+  <path d="M312 160 L344 160" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#tdd-ai-dlc-roles-dark-arrow)"/>
+  <path d="M520 160 H632 Q640 160 640 168 V280" stroke="#25c19f" stroke-width="1.4" fill="none" marker-end="url(#tdd-ai-dlc-roles-dark-arrow-accent)"/>
+  <path d="M728 312 L760 312" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#tdd-ai-dlc-roles-dark-arrow)"/>
+  <path d="M848 280 L848 192" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#tdd-ai-dlc-roles-dark-arrow)"/>
+  <path d="M848 128 V104 Q848 96 840 96 H440 Q432 96 432 104 V128" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#tdd-ai-dlc-roles-dark-arrow)"/>
+  <rect x="648" y="238" width="82" height="12" rx="2" fill="#1b1b1d"/><text x="689" y="247" fill="#25c19f" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">FAILING TEST</text>
+  <rect x="596" y="78" width="88" height="12" rx="2" fill="#1b1b1d"/><text x="640" y="87" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">NEXT BEHAVIOR</text>
+  <rect x="136" y="128" width="176" height="64" rx="6" fill="#1b1b1d"/>
+  <rect x="136" y="128" width="176" height="64" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="224" y="157" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Validate</text><text x="224" y="172" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">pins down business intent</text>
+  <rect x="344" y="128" width="176" height="64" rx="6" fill="#1b1b1d"/>
+  <rect x="344" y="128" width="176" height="64" rx="6" fill="rgba(37,193,159,0.10)" stroke="#25c19f" stroke-width="1"/>
+  <text x="432" y="157" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Write / approve a test</text><text x="432" y="172" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">one test at a time</text>
+  <rect x="760" y="128" width="176" height="64" rx="6" fill="#1b1b1d"/>
+  <rect x="760" y="128" width="176" height="64" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="848" y="157" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Review</text><text x="848" y="172" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">tests are the safety net</text>
+  <rect x="136" y="280" width="176" height="64" rx="6" fill="#1b1b1d"/>
+  <rect x="136" y="280" width="176" height="64" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="224" y="309" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Draft behavior tests</text><text x="224" y="324" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">from acceptance criteria</text>
+  <rect x="552" y="280" width="176" height="64" rx="6" fill="#1b1b1d"/>
+  <rect x="552" y="280" width="176" height="64" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="640" y="309" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Minimal implementation</text><text x="640" y="324" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">until the test passes</text>
+  <rect x="760" y="280" width="176" height="64" rx="6" fill="#1b1b1d"/>
+  <rect x="760" y="280" width="176" height="64" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="848" y="309" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Propose a refactor</text><text x="848" y="324" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">once all tests pass</text>
+  <line x1="24" y1="404" x2="944" y2="404" stroke="rgba(227,227,227,0.1)" stroke-width="0.8"/>
+  <text x="24" y="424" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">LEGEND</text>
+  <rect x="24" y="440" width="24" height="12" rx="2" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="56" y="450" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif">Activity</text>
+  <rect x="135" y="440" width="24" height="12" rx="2" fill="rgba(37,193,159,0.10)" stroke="#25c19f" stroke-width="1"/>
+  <text x="167" y="450" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif">Where correctness is defined</text>
+  <line x1="344" y1="446" x2="366" y2="446" stroke="#25c19f" stroke-width="1.4" marker-end="url(#tdd-ai-dlc-roles-dark-arrow-accent)"/>
+  <text x="376" y="450" fill="#b4b9c0" font-size="8.5" font-family="'Geist', sans-serif">Handoff to AI</text>
+<text id="tiennhm-copyright" x="936" y="476" text-anchor="end" fill="#b4b9c0" opacity="0.75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.08em">© tiennhm</text>
+</svg>
+    </div>
+  </div>
+</body>
+</html>

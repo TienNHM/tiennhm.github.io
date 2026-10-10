@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chỉ header có tên trong allowlist mới đi tiếp</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Display:wdth,wght@62.5..100,400&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #1b1b1d;
+      --color-ink:    #e3e3e3;
+      --color-muted:  #b4b9c0;
+      --font-sans:    'Geist', system-ui, sans-serif;
+      /* Instrument Serif has no Vietnamese subset; a per-glyph fallback mixes two faces
+         inside one word, so Vietnamese titles swap the whole face instead. */
+      --font-serif:   'Noto Serif Display', serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-stretch: 75%; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 960px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Data flow · allowlist header</p>
+    <h1>Chỉ header có tên trong allowlist mới đi tiếp</h1>
+    <div class="diagram-container">
+<svg viewBox="0 0 960 484" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="header-allowlist-dark-title header-allowlist-dark-desc">
+  <title id="header-allowlist-dark-title">Allowlist header trong một DelegatingHandler</title>
+  <desc id="header-allowlist-dark-desc">Request đi vào mang tám header, HeaderPropagationHandler chỉ chép bốn header trong allowlist (Authorization, X-Correlation-ID, X-Request-ID, Accept-Language) sang request đi ra, còn cf-ipcity, Cookie, X-Forwarded-For và X-Tenant-Id bị bỏ qua theo mặc định.</desc>
+  <defs>
+    <marker id="header-allowlist-dark-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#b4b9c0"/></marker>
+    <marker id="header-allowlist-dark-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#25c19f"/></marker>
+  </defs>
+  <rect width="100%" height="100%" fill="#1b1b1d"/>
+
+  <g transform="translate(0,-60)">
+  <line x1="280" y1="212" x2="360" y2="212" stroke="#b4b9c0" stroke-width="1.2" fill="none" marker-end="url(#header-allowlist-dark-arrow)"/>
+  <line x1="600" y1="212" x2="680" y2="212" stroke="#25c19f" stroke-width="1.4" fill="none" marker-end="url(#header-allowlist-dark-arrow-accent)"/>
+  <line x1="480" y1="284" x2="480" y2="360" stroke="#b4b9c0" stroke-width="1.2" stroke-dasharray="5,4" fill="none" marker-end="url(#header-allowlist-dark-arrow)"/>
+  <rect x="292.0" y="192" width="56" height="12" rx="2" fill="#1b1b1d"/>
+  <text x="320.0" y="201" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">8 HEADER</text>
+  <rect x="612.0" y="192" width="56" height="12" rx="2" fill="#1b1b1d"/>
+  <text x="640.0" y="201" fill="#25c19f" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">4 HEADER</text>
+  <rect x="488" y="316" width="52" height="12" rx="2" fill="#1b1b1d"/>
+  <text x="514.0" y="325" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">CÒN LẠI</text>
+  <rect x="40" y="96" width="240" height="236" rx="6" fill="#1b1b1d"/>
+  <rect x="40" y="96" width="240" height="236" rx="6" fill="rgba(227,227,227,0.03)" stroke="rgba(227,227,227,0.3)" stroke-width="1"/>
+  <text x="56" y="120" fill="#e3e3e3" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="start" font-weight="600">Request đi vào</text>
+  <text x="56" y="136" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">HttpContext.Request.Headers</text>
+  <line x1="56" y1="146" x2="264" y2="146" stroke="rgba(227,227,227,0.12)" stroke-width="0.8"/>
+  <circle cx="62" cy="162.5" r="3.5" fill="#e3e3e3"/>
+  <text x="74" y="166" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">Authorization</text>
+  <circle cx="62" cy="183.5" r="3.5" fill="none" stroke="#b4b9c0" stroke-width="1"/>
+  <text x="74" y="187" fill="#b4b9c0" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">cf-ipcity: Hồ Chí Minh</text>
+  <circle cx="62" cy="204.5" r="3.5" fill="#e3e3e3"/>
+  <text x="74" y="208" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">X-Correlation-ID</text>
+  <circle cx="62" cy="225.5" r="3.5" fill="none" stroke="#b4b9c0" stroke-width="1"/>
+  <text x="74" y="229" fill="#b4b9c0" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">Cookie</text>
+  <circle cx="62" cy="246.5" r="3.5" fill="#e3e3e3"/>
+  <text x="74" y="250" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">X-Request-ID</text>
+  <circle cx="62" cy="267.5" r="3.5" fill="none" stroke="#b4b9c0" stroke-width="1"/>
+  <text x="74" y="271" fill="#b4b9c0" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">X-Forwarded-For</text>
+  <circle cx="62" cy="288.5" r="3.5" fill="#e3e3e3"/>
+  <text x="74" y="292" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">Accept-Language</text>
+  <circle cx="62" cy="309.5" r="3.5" fill="none" stroke="#b4b9c0" stroke-width="1"/>
+  <text x="74" y="313" fill="#b4b9c0" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">X-Tenant-Id</text>
+  <rect x="360" y="140" width="240" height="144" rx="6" fill="#1b1b1d"/>
+  <rect x="360" y="140" width="240" height="144" rx="6" fill="rgba(37,193,159,0.08)" stroke="#25c19f" stroke-width="1"/>
+  <text x="480" y="168" fill="#e3e3e3" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="middle" font-weight="600">HeaderPropagationHandler</text>
+  <text x="480" y="184" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">DelegatingHandler</text>
+  <line x1="376" y1="196" x2="584" y2="196" stroke="rgba(37,193,159,0.3)" stroke-width="0.8"/>
+  <text x="480" y="218" fill="#e3e3e3" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">allowlist 4 tên header</text>
+  <text x="480" y="235" fill="#e3e3e3" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">mặc định: không forward</text>
+  <text x="480" y="252" fill="#b4b9c0" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">đọc HttpContext lúc gọi</text>
+  <text x="480" y="269" fill="#b4b9c0" font-size="9.5" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">qua IHttpContextAccessor</text>
+  <rect x="680" y="140" width="240" height="144" rx="6" fill="#1b1b1d"/>
+  <rect x="680" y="140" width="240" height="144" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="696" y="164" fill="#e3e3e3" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="start" font-weight="600">Request đi ra</text>
+  <text x="696" y="180" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">HttpClient → downstream</text>
+  <line x1="696" y1="190" x2="904" y2="190" stroke="rgba(227,227,227,0.12)" stroke-width="0.8"/>
+  <circle cx="702" cy="208.5" r="3.5" fill="#e3e3e3"/>
+  <text x="714" y="212" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">Authorization</text>
+  <circle cx="702" cy="229.5" r="3.5" fill="#e3e3e3"/>
+  <text x="714" y="233" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">X-Correlation-ID</text>
+  <circle cx="702" cy="250.5" r="3.5" fill="#e3e3e3"/>
+  <text x="714" y="254" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">X-Request-ID</text>
+  <circle cx="702" cy="271.5" r="3.5" fill="#e3e3e3"/>
+  <text x="714" y="275" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">Accept-Language</text>
+  <rect x="360" y="360" width="240" height="72" rx="6" fill="#1b1b1d"/>
+  <rect x="360" y="360" width="240" height="72" rx="6" fill="rgba(227,227,227,0.02)" stroke="rgba(227,227,227,0.35)" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="480.0" y="386.0" fill="#e3e3e3" font-size="12" font-family="'Geist', system-ui, sans-serif" text-anchor="middle" font-weight="600">Không đi đâu cả</text>
+  <text x="480.0" y="402.0" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">cf-ipcity · Cookie</text>
+  <text x="480.0" y="416.0" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">X-Forwarded-For · X-Tenant-Id</text>
+  <line x1="40" y1="456" x2="920" y2="456" stroke="rgba(227,227,227,0.1)" stroke-width="0.8"/>
+  <text x="40" y="476" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start" letter-spacing="0.18em">CHÚ GIẢI</text>
+  <circle cx="46" cy="492" r="3.5" fill="#e3e3e3"/>
+  <text x="58" y="496" fill="#b4b9c0" font-size="9" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Có trong allowlist, được chuyển tiếp</text>
+  <circle cx="294.4" cy="492" r="3.5" fill="none" stroke="#b4b9c0" stroke-width="1"/>
+  <text x="306.4" y="496" fill="#b4b9c0" font-size="9" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Bị bỏ qua theo mặc định</text>
+  <rect x="466.59999999999997" y="486" width="24" height="12" rx="2" fill="rgba(37,193,159,0.08)" stroke="#25c19f" stroke-width="1"/>
+  <text x="498.59999999999997" y="496" fill="#b4b9c0" font-size="9" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Quy tắc nằm ở đúng một nơi</text>
+  </g>
+<text id="tiennhm-copyright" x="936" y="472" text-anchor="end" fill="#b4b9c0" opacity="0.75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.08em">© tiennhm</text>
+</svg>
+    </div>
+  </div>
+</body>
+</html>

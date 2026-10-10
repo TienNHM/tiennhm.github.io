@@ -100,6 +100,13 @@ GLIBC_2.27
 
 So even with a loader present, it would still need a libc providing exactly those versioned symbols. musl does not, because musl does not use glibc's symbol versioning scheme at all.
 
+Here is the whole chain, from the package you installed to the file the loader goes looking for:
+
+![Transitive dependency chain: transformers.js (@huggingface/transformers) pulls in onnxruntime-node 1.24.3, whose 376 KB onnxruntime_binding.node loads the 34 MB libonnxruntime.so.1 built for glibc, which has DT_NEEDED ld-linux-x86-64.so.2. On node:22-alpine, which uses musl with /lib/ld-musl-x86_64.so.1, that file is missing and loading fails with Error loading shared library; adding libc6-compat or gcompat only turns it into Error relocating __vsnprintf_chk. On node:22-bookworm-slim, with glibc 2.36 and /lib64/ld-linux-x86-64.so.2, dlopen works at the cost of an 89 MB larger image.](./onnx-alpine-dt-needed.png#gh-light-mode-only)
+![Transitive dependency chain: transformers.js (@huggingface/transformers) pulls in onnxruntime-node 1.24.3, whose 376 KB onnxruntime_binding.node loads the 34 MB libonnxruntime.so.1 built for glibc, which has DT_NEEDED ld-linux-x86-64.so.2. On node:22-alpine, which uses musl with /lib/ld-musl-x86_64.so.1, that file is missing and loading fails with Error loading shared library; adding libc6-compat or gcompat only turns it into Error relocating __vsnprintf_chk. On node:22-bookworm-slim, with glibc 2.36 and /lib64/ld-linux-x86-64.so.2, dlopen works at the cost of an 89 MB larger image.](./onnx-alpine-dt-needed-dark.png#gh-dark-mode-only)
+
+Source files: [light](pathname:///files/diagrams/2026-09-22-onnx-runtime-alpine-ld-linux/en/onnx-alpine-dt-needed.html) · [dark](pathname:///files/diagrams/2026-09-22-onnx-runtime-alpine-ld-linux/en/onnx-alpine-dt-needed-dark.html)
+
 ---
 
 ## Why `libc6-compat` and `gcompat` do not save you

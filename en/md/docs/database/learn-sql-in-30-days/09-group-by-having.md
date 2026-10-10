@@ -125,6 +125,13 @@ HAVING AggregateFunction(column2) condition;
 | Lọc dựa trên Aggregate Functions | ❌ Không hỗ trợ  | ✅ Hỗ trợ  |
 | Sử dụng với `GROUP BY` | ❌ Không được  | ✅ Hỗ trợ  |
 
+Lý do nằm ở thứ tự database xử lý các mệnh đề, khác với thứ tự bạn viết chúng:
+
+![Thứ tự thực thi logic của câu SELECT. Câu lệnh viết theo thứ tự SELECT, FROM, WHERE, GROUP BY, HAVING, ORDER BY, nhưng database xử lý: 1 FROM lấy bảng Orders (6 dòng), 2 WHERE lọc từng dòng, cả hai chạy trước khi nhóm; sau đó 3 GROUP BY gom theo CustomerID, 4 HAVING lọc từng nhóm (COUNT(*) >= 2), 5 SELECT tính cột và đặt tên TotalSpent, 6 ORDER BY sắp xếp theo TotalSpent DESC. WHERE chạy khi chưa có nhóm nên không lọc được SUM(), COUNT(); HAVING chạy sau GROUP BY nên lọc được theo hàm tổng hợp.](./img/thu-tu-thuc-thi.png#gh-light-mode-only)
+![Thứ tự thực thi logic của câu SELECT. Câu lệnh viết theo thứ tự SELECT, FROM, WHERE, GROUP BY, HAVING, ORDER BY, nhưng database xử lý: 1 FROM lấy bảng Orders (6 dòng), 2 WHERE lọc từng dòng, cả hai chạy trước khi nhóm; sau đó 3 GROUP BY gom theo CustomerID, 4 HAVING lọc từng nhóm (COUNT(*) >= 2), 5 SELECT tính cột và đặt tên TotalSpent, 6 ORDER BY sắp xếp theo TotalSpent DESC. WHERE chạy khi chưa có nhóm nên không lọc được SUM(), COUNT(); HAVING chạy sau GROUP BY nên lọc được theo hàm tổng hợp.](./img/thu-tu-thuc-thi-dark.png#gh-dark-mode-only)
+
+File gốc: [nền sáng](pathname:///files/diagrams/database-learn-sql-in-30-days-group-by-having/vi/thu-tu-thuc-thi.html) · [nền tối](pathname:///files/diagrams/database-learn-sql-in-30-days-group-by-having/vi/thu-tu-thuc-thi-dark.html)
+
 ### 🔹 **Ví dụ minh họa**
 
 📌 **Chỉ lấy khách hàng có tổng chi tiêu > 2000**

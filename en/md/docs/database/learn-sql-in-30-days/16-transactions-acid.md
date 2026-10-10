@@ -10,6 +10,20 @@
 - **Nếu tất cả lệnh thành công**, thay đổi sẽ được lưu (**COMMIT**).
 - **Nếu có lỗi xảy ra**, tất cả thay đổi sẽ bị hủy (**ROLLBACK**).
 
+Vòng đời của một transaction:
+
+```mermaid
+stateDiagram-v2
+    [*] --> DangChay: BEGIN
+    DangChay: Đang chạy (UPDATE, INSERT...)
+    DangChay --> DaLuu: tất cả thành công → COMMIT
+    DangChay --> DaHuy: có lỗi → ROLLBACK
+    DaLuu: Đã lưu vĩnh viễn
+    DaHuy: Quay về trạng thái ban đầu
+    DaLuu --> [*]
+    DaHuy --> [*]
+```
+
 💡 **Ví dụ thực tế:**
 - Chuyển tiền giữa 2 tài khoản (**rút tiền từ A, cộng tiền vào B**).
 - Đặt vé máy bay (**trừ chỗ trống, tạo booking, cập nhật lịch trình**).

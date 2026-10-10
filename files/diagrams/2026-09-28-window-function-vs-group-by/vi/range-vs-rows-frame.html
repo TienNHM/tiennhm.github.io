@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vì sao luỹ kế của dòng đầu ra 300</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Display:wdth,wght@62.5..100,400&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #fafaf7;
+      --color-ink:    #1c1e21;
+      --color-muted:  #525860;
+      --font-sans:    'Geist', system-ui, sans-serif;
+      /* Instrument Serif has no Vietnamese subset; a per-glyph fallback mixes two faces
+         inside one word, so Vietnamese titles swap the whole face instead. */
+      --font-serif:   'Noto Serif Display', serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-stretch: 75%; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 960px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Window frame · RANGE và ROWS</p>
+    <h1>Vì sao luỹ kế của dòng đầu ra 300</h1>
+    <div class="diagram-container">
+<svg viewBox="0 0 960 448" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="range-vs-rows-frame-title range-vs-rows-frame-desc">
+  <title id="range-vs-rows-frame-title">Vì sao luỹ kế của dòng đầu ra 300</title>
+  <desc id="range-vs-rows-frame-desc">Bảng ba dòng: 2026-01-01 100, 2026-01-01 200, 2026-01-02 300. Với khung mặc định RANGE, khung của dòng 1 gồm cả hai dòng cùng ngày đồng hạng nên sum là 300. Với ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW, khung của dòng 1 chỉ có chính nó nên sum là 100.</desc>
+  <defs>
+    <marker id="range-vs-rows-frame-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#525860"/></marker>
+    <marker id="range-vs-rows-frame-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#18816a"/></marker>
+  </defs>
+  <rect width="100%" height="100%" fill="#fafaf7"/>
+  <rect x="40" y="24" width="420" height="320" rx="8" fill="rgba(28,30,33,0.02)" stroke="rgba(28,30,33,0.1)" stroke-width="1"/>
+  <text x="52" y="44" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em" text-anchor="start">MẶC ĐỊNH · RANGE</text>
+  <text x="56" y="66" fill="#1c1e21" font-size="10" font-family="'Geist Mono', monospace" text-anchor="start">sum(tien) OVER (ORDER BY ngay)</text>
+  <rect x="88" y="120" width="216" height="104" rx="4" fill="rgba(24,129,106,0.08)" stroke="#18816a" stroke-width="1.2" stroke-dasharray="4,3"/>
+  <path d="M304 172.0 L336 172.0" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#range-vs-rows-frame-arrow)"/>
+  <rect x="336" y="144.0" width="108" height="56" rx="6" fill="#fafaf7"/>
+  <rect x="336" y="144.0" width="108" height="56" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="390" y="169" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">sum = 300</text><text x="390" y="184" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">cho dòng 1</text>
+  <text x="72" y="152" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">1</text>
+  <rect x="96" y="128" width="200" height="40" rx="4" fill="#fafaf7"/>
+  <rect x="96" y="128" width="200" height="40" rx="4" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="112" y="152" fill="#1c1e21" font-size="10" font-family="'Geist Mono', monospace" text-anchor="start">2026-01-01</text>
+  <text x="280" y="152" fill="#1c1e21" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">100</text>
+  <text x="72" y="200" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">2</text>
+  <rect x="96" y="176" width="200" height="40" rx="4" fill="#fafaf7"/>
+  <rect x="96" y="176" width="200" height="40" rx="4" fill="#ffffff" stroke="rgba(28,30,33,0.3)" stroke-width="1"/>
+  <text x="112" y="200" fill="#1c1e21" font-size="10" font-family="'Geist Mono', monospace" text-anchor="start">2026-01-01</text>
+  <text x="280" y="200" fill="#1c1e21" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">200</text>
+  <text x="72" y="248" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">3</text>
+  <rect x="96" y="224" width="200" height="40" rx="4" fill="#fafaf7"/>
+  <rect x="96" y="224" width="200" height="40" rx="4" fill="#ffffff" stroke="rgba(28,30,33,0.3)" stroke-width="1"/>
+  <text x="112" y="248" fill="#1c1e21" font-size="10" font-family="'Geist Mono', monospace" text-anchor="start">2026-01-02</text>
+  <text x="280" y="248" fill="#1c1e21" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">300</text>
+  <text x="112" y="116" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" text-anchor="start">ngay</text>
+  <text x="280" y="116" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" text-anchor="end">tien</text>
+  <text x="56" y="300" fill="#525860" font-size="10" font-family="'Geist', sans-serif" text-anchor="start">Hai dòng cùng ngày 2026-01-01 là đồng hạng,</text>
+  <text x="56" y="316" fill="#525860" font-size="10" font-family="'Geist', sans-serif" text-anchor="start">RANGE đưa cả hai vào khung của dòng 1.</text>
+  <rect x="500" y="24" width="420" height="320" rx="8" fill="rgba(28,30,33,0.02)" stroke="rgba(28,30,33,0.1)" stroke-width="1"/>
+  <text x="512" y="44" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em" text-anchor="start">GHI RÕ · ROWS</text>
+  <text x="516" y="66" fill="#1c1e21" font-size="10" font-family="'Geist Mono', monospace" text-anchor="start">sum(tien) OVER (ORDER BY ngay</text>
+  <text x="516" y="80" fill="#1c1e21" font-size="10" font-family="'Geist Mono', monospace" text-anchor="start">ROWS BETWEEN UNBOUNDED PRECEDING</text>
+  <text x="516" y="94" fill="#1c1e21" font-size="10" font-family="'Geist Mono', monospace" text-anchor="start">AND CURRENT ROW)</text>
+  <rect x="548" y="120" width="216" height="56" rx="4" fill="rgba(24,129,106,0.08)" stroke="#18816a" stroke-width="1.2" stroke-dasharray="4,3"/>
+  <path d="M764 148.0 L796 148.0" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#range-vs-rows-frame-arrow)"/>
+  <rect x="796" y="120.0" width="108" height="56" rx="6" fill="#fafaf7"/>
+  <rect x="796" y="120.0" width="108" height="56" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="850" y="145" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">sum = 100</text><text x="850" y="160" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">cho dòng 1</text>
+  <text x="532" y="152" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">1</text>
+  <rect x="556" y="128" width="200" height="40" rx="4" fill="#fafaf7"/>
+  <rect x="556" y="128" width="200" height="40" rx="4" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="572" y="152" fill="#1c1e21" font-size="10" font-family="'Geist Mono', monospace" text-anchor="start">2026-01-01</text>
+  <text x="740" y="152" fill="#1c1e21" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">100</text>
+  <text x="532" y="200" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">2</text>
+  <rect x="556" y="176" width="200" height="40" rx="4" fill="#fafaf7"/>
+  <rect x="556" y="176" width="200" height="40" rx="4" fill="#ffffff" stroke="rgba(28,30,33,0.3)" stroke-width="1"/>
+  <text x="572" y="200" fill="#1c1e21" font-size="10" font-family="'Geist Mono', monospace" text-anchor="start">2026-01-01</text>
+  <text x="740" y="200" fill="#1c1e21" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">200</text>
+  <text x="532" y="248" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">3</text>
+  <rect x="556" y="224" width="200" height="40" rx="4" fill="#fafaf7"/>
+  <rect x="556" y="224" width="200" height="40" rx="4" fill="#ffffff" stroke="rgba(28,30,33,0.3)" stroke-width="1"/>
+  <text x="572" y="248" fill="#1c1e21" font-size="10" font-family="'Geist Mono', monospace" text-anchor="start">2026-01-02</text>
+  <text x="740" y="248" fill="#1c1e21" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">300</text>
+  <text x="572" y="116" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" text-anchor="start">ngay</text>
+  <text x="740" y="116" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" text-anchor="end">tien</text>
+  <text x="516" y="300" fill="#525860" font-size="10" font-family="'Geist', sans-serif" text-anchor="start">ROWS đếm theo vị trí vật lý,</text>
+  <text x="516" y="316" fill="#525860" font-size="10" font-family="'Geist', sans-serif" text-anchor="start">khung của dòng 1 chỉ có chính nó.</text>
+  <line x1="40" y1="364" x2="920" y2="364" stroke="rgba(28,30,33,0.1)" stroke-width="0.8"/>
+  <text x="40" y="384" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">CHÚ GIẢI</text>
+  <rect x="40" y="400" width="24" height="12" rx="2" fill="rgba(24,129,106,0.08)" stroke="#18816a" stroke-width="1.2" stroke-dasharray="4,3"/>
+  <text x="72" y="410" fill="#525860" font-size="8.5" font-family="'Geist', sans-serif">Khung cửa sổ của dòng 1</text>
+  <rect x="224" y="400" width="24" height="12" rx="2" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="256" y="410" fill="#525860" font-size="8.5" font-family="'Geist', sans-serif">Dòng đang tính</text>
+<text id="tiennhm-copyright" x="936" y="436" text-anchor="end" fill="#525860" opacity="0.75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.08em">© tiennhm</text>
+</svg>
+    </div>
+  </div>
+</body>
+</html>

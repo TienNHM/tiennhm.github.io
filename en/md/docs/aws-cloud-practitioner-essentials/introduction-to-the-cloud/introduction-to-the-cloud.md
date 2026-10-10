@@ -54,6 +54,15 @@ Hãy để Morgan là **server**, barista. Và tôi (Alan) sẽ là **client**, 
 
 Vì vậy, từ góc độ cloud computing architectural, coffee shop transaction khá đơn giản. Tôi, user, đã đưa ra request đến Morgan, server. Morgan đã validate rằng request là hợp lệ. Trong trường hợp này, tôi có đưa tiền cho cô ấy không? Item mà tôi đặt có phải là thứ họ có thể làm không? Sau đó cô ấy trả về response, trong ví dụ này, là một triple mocha với extra caramel shots.
 
+```mermaid
+sequenceDiagram
+    participant C as Client - Alan
+    participant S as Server - Morgan
+    C->>S: Request - gọi một ly cà phê
+    S->>S: Validate - đã trả tiền chưa, quán có làm món này không
+    S-->>C: Response - triple mocha thêm caramel
+```
+
 ### Client-Server Model trong Real World
 
 Bây giờ, trong real world, applications thường phức tạp hơn chỉ một single transaction với một single server. Trong một business solution trưởng thành hơn, nó có thể trở nên beautifully complex. Nhưng một lần nữa, chúng ta sẽ bắt đầu với basics. Khi curriculum tiến triển, các basic concepts này sẽ tiếp tục build on each other. Và hy vọng, đến cuối, những beautifully complex concepts đó sẽ có ý nghĩa hơn nhiều.

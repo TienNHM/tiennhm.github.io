@@ -27,6 +27,13 @@ Ví dụ, một ứng dụng nhận XML từ user:
 ```
 Nếu server xử lý XML mà không tắt external entity, nó sẽ thay `&xxe;` bằng nội dung file `/etc/passwd`.
 
+Luồng dữ liệu của một lần khai thác cơ bản như sau:
+
+![Attacker gửi XML khai báo external entity trỏ tới file:///etc/passwd. XML parser bật DTD đọc file trên server, thay thế entity bằng nội dung file rồi trả về trong phản hồi, làm rò rỉ dữ liệu ra ngoài.](./img/xxe-doc-file.png#gh-light-mode-only)
+![Attacker gửi XML khai báo external entity trỏ tới file:///etc/passwd. XML parser bật DTD đọc file trên server, thay thế entity bằng nội dung file rồi trả về trong phản hồi, làm rò rỉ dữ liệu ra ngoài.](./img/xxe-doc-file-dark.png#gh-dark-mode-only)
+
+File gốc: [nền sáng](pathname:///files/diagrams/web-security-webgoat-2023.8-A5-Security-Misconfiguration-XXE-01/vi/xxe-doc-file.html) · [nền tối](pathname:///files/diagrams/web-security-webgoat-2023.8-A5-Security-Misconfiguration-XXE-01/vi/xxe-doc-file-dark.html)
+
 ## 🚀 **3. Tấn công XXE**
 ### **(1) Đọc file từ server**
 Gửi XML với entity trỏ đến file hệ thống:

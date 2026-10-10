@@ -89,6 +89,18 @@ On a bare VPS that is perfect. Behind Cloudflare with Full (strict) it breaks, i
 4. Traefik's challenge handler lives only on the `web` entrypoint, which is port 80
 5. Port 443 returns 404 for that path → the challenge fails
 
+```mermaid
+sequenceDiagram
+    participant LE as Let's Encrypt
+    participant CF as Cloudflare (orange cloud)
+    participant T as Traefik
+    LE->>CF: GET /.well-known/acme-challenge/abc on port 80
+    CF->>T: calls the origin back over HTTPS :443 (Full strict)
+    Note over T: the challenge handler lives only on the web entrypoint :80
+    T-->>CF: 404
+    CF-->>LE: 404, challenge fails
+```
+
 In short: **you need a certificate to get through Cloudflare, and you need to get through Cloudflare to obtain a certificate.**
 
 You can break the cycle. Switch the record to **DNS only (grey cloud)**, let Let's Encrypt reach the VPS directly, obtain the certificate, then turn the orange cloud back on. I did exactly that, and it worked.
@@ -105,6 +117,13 @@ This is the worst class of bug: it does not appear while you are paying attentio
 
 ## The way out: DNS-01
 **DNS-01** validates by creating a TXT record at `_acme-challenge.` instead of serving a file over HTTP. The crucial part: **no request ever touches the origin**, so whether the cloud is orange or grey makes no difference.
+
+The two paths are now fully separate: visitor requests still go through Cloudflare to Traefik, while certificate issuance only talks to the DNS API and Let's Encrypt.
+
+![Traefik behind Cloudflare: visitor requests go from the browser through the Cloudflare proxy (orange cloud, Full strict) over HTTPS to Traefik v3 on port 443 on the VPS edge network, then on to 10 WordPress sites, the .NET API and Angular app, and the event web app. Certificates take a separate path: Traefik creates the _acme-challenge TXT record through the Cloudflare DNS API and orders the certificate from Let's Encrypt, which checks that TXT record, so no request touches the origin. The event web app lives in another zone that the token cannot see, so it gets no certificate.](./traefik-cloudflare-dns01.png#gh-light-mode-only)
+![Traefik behind Cloudflare: visitor requests go from the browser through the Cloudflare proxy (orange cloud, Full strict) over HTTPS to Traefik v3 on port 443 on the VPS edge network, then on to 10 WordPress sites, the .NET API and Angular app, and the event web app. Certificates take a separate path: Traefik creates the _acme-challenge TXT record through the Cloudflare DNS API and orders the certificate from Let's Encrypt, which checks that TXT record, so no request touches the origin. The event web app lives in another zone that the token cannot see, so it gets no certificate.](./traefik-cloudflare-dns01-dark.png#gh-dark-mode-only)
+
+Source files: [light](pathname:///files/diagrams/2026-09-22-traefik-cloudflare-vps/en/traefik-cloudflare-dns01.html) · [dark](pathname:///files/diagrams/2026-09-22-traefik-cloudflare-vps/en/traefik-cloudflare-dns01-dark.html)
 
 The Traefik configuration:
 

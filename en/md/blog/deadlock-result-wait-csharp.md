@@ -30,6 +30,15 @@ The important question is: **which thread** does that continuation run on?
 
 By default, at the moment `await` suspends, the awaiter reads `SynchronizationContext.Current`. If it is not `null`, the awaiter remembers that context and later `Post`s the continuation back to it. If `SynchronizationContext.Current` is `null`, it falls back to `TaskScheduler.Current`; and if that too is the default scheduler, the continuation runs straight on the thread pool.
 
+```mermaid
+flowchart TD
+    A["await suspends"] --> B{"SynchronizationContext.Current not null?"}
+    B -->|"Yes"| C["Post the continuation to that context"]
+    B -->|"No"| D{"TaskScheduler.Current is the default scheduler?"}
+    D -->|"Yes"| E["Run the continuation on the thread pool"]
+    D -->|"No"| F["Schedule it on TaskScheduler.Current"]
+```
+
 This is **desired behaviour**, not a bug. In WPF it is what lets you write `await` and then assign to a control on the very next line without `Dispatcher.Invoke`, because the continuation is guaranteed to come back to the UI thread.
 
 ## Why "return to the context" plus "block" equals deadlock
@@ -48,6 +57,11 @@ Put the pieces together and the deadlock sequence looks like this:
 5. The context needs the thread that is blocked at step 3 — or needs it to leave the context. But that thread only leaves once the `Task` completes, and the `Task` only completes once the continuation has run.
 
 Each side waits for the other. Nobody yields. This is a deadlock in the literal sense, not merely "slow".
+
+![Sequence diagram of the .Result deadlock on WPF or ASP.NET Framework, with three parties: the UI or request thread, a SynchronizationContext that allows one thread at a time, and the thread pool. Step 1, the thread calls GetCustomerAsync(id). Step 2, await captures the context. Step 3, .Result blocks that same thread. The thread pool finishes the HTTP call and in step 4 posts the continuation to the context, where it sits queued. Step 5, the context needs the blocked thread, while that thread waits for the Task to complete. The thread waits for the Task, the Task for the continuation, the continuation for the thread](./result-deadlock-sequence.png#gh-light-mode-only)
+![Sequence diagram of the .Result deadlock on WPF or ASP.NET Framework, with three parties: the UI or request thread, a SynchronizationContext that allows one thread at a time, and the thread pool. Step 1, the thread calls GetCustomerAsync(id). Step 2, await captures the context. Step 3, .Result blocks that same thread. The thread pool finishes the HTTP call and in step 4 posts the continuation to the context, where it sits queued. Step 5, the context needs the blocked thread, while that thread waits for the Task to complete. The thread waits for the Task, the Task for the continuation, the continuation for the thread](./result-deadlock-sequence-dark.png#gh-dark-mode-only)
+
+Source: [light](pathname:///files/diagrams/2026-09-21-deadlock-result-wait-csharp/en/result-deadlock-sequence.html) · [dark](pathname:///files/diagrams/2026-09-21-deadlock-result-wait-csharp/en/result-deadlock-sequence-dark.html)
 
 Note that it **does not depend on how fast the I/O is**. If the Task happens to be already complete by the time the `await` is reached — a cache hit, say — then `await` runs synchronously, never suspends, has no continuation to post, and the code sails right through. That is what makes this bug so nasty: it appears intermittently, depends on timing, and usually only blows up in a real environment.
 

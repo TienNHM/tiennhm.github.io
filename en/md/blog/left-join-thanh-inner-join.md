@@ -120,6 +120,13 @@ Put `d.tong > 400` in `ON` and it participates in **step 1**, meaning it decides
 
 Chi has no matching order → Chi is still there with `NULL`. Intent preserved.
 
+Both cases in one picture, in logical processing order:
+
+![Two paths for the same condition d.tong > 400. In WHERE: step 1 LEFT JOIN yields 4 rows with Chi's row holding NULL; step 2 WHERE evaluates NULL > 400 as UNKNOWN and drops Chi, leaving 2 rows, An 500 and Binh 700. In ON: LEFT JOIN keeps Chi with NULL, no WHERE filters it, and the result is 3 rows, An 500, Binh 700 and Chi NULL.](./left-join-on-vs-where.png#gh-light-mode-only)
+![Two paths for the same condition d.tong > 400. In WHERE: step 1 LEFT JOIN yields 4 rows with Chi's row holding NULL; step 2 WHERE evaluates NULL > 400 as UNKNOWN and drops Chi, leaving 2 rows, An 500 and Binh 700. In ON: LEFT JOIN keeps Chi with NULL, no WHERE filters it, and the result is 3 rows, An 500, Binh 700 and Chi NULL.](./left-join-on-vs-where-dark.png#gh-dark-mode-only)
+
+Source: [light](pathname:///files/diagrams/2026-09-25-left-join-thanh-inner-join/en/left-join-on-vs-where.html) · [dark](pathname:///files/diagrams/2026-09-25-left-join-thanh-inner-join/en/left-join-on-vs-where-dark.html)
+
 ---
 
 ## The decision rule

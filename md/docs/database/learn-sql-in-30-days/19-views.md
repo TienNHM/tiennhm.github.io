@@ -16,6 +16,15 @@
 
 💡 **Ví dụ:** Tạo một View hiển thị danh sách đơn hàng kèm thông tin khách hàng thay vì phải JOIN nhiều bảng.
 
+Khi truy vấn một View, DBMS thay tên View bằng chính truy vấn định nghĩa nó rồi mới thực thi:
+
+```mermaid
+flowchart TD
+    A["SELECT * FROM customer_orders"] --> B["DBMS thay View bằng truy vấn định nghĩa"]
+    B --> C["JOIN orders với customers ON customer_id"]
+    C --> D["Trả kết quả như một bảng ảo"]
+```
+
 ---
 
 ## 🛠 **2. Cách tạo View trong SQL**

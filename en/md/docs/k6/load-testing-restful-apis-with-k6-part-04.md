@@ -90,6 +90,13 @@ Tên chỉ số | Đơn vị | Ý nghĩa
 | `vus` | `VU` | Số lượng virtual users.
 | `vus_max` | `VU` | Số lượng virtual users tối đa.
 
+Các chỉ số thời gian `http_req_*` là những pha nối tiếp nhau của cùng một request, với số liệu trung bình lấy từ kết quả ở trên:
+
+![Các pha thời gian của một HTTP request trong k6, theo thứ tự: kết nối TCP (http_req_connecting, avg 10.94ms), bắt tay TLS (http_req_tls_handshaking, avg 11.95ms), gửi request (http_req_sending, avg 35.59µs), chờ phản hồi (http_req_waiting, avg 263.62ms, chiếm phần lớn thời gian) và nhận phản hồi (http_req_receiving, avg 13.12ms). http_req_blocked (avg 24.59ms) là thời gian chờ có kết nối, bao gồm cả kết nối TCP và bắt tay TLS. http_req_duration (avg 276.78ms) bằng sending + waiting + receiving. iteration_duration (avg 1.3s) là một lần chạy default function, gồm request và sleep(1). Vì kết nối được tái sử dụng giữa các vòng lặp nên med của blocked, connecting và TLS đều bằng 0s; chỉ request mở kết nối mới mới tốn các pha này.](./img/http-req-timing.png#gh-light-mode-only)
+![Các pha thời gian của một HTTP request trong k6, theo thứ tự: kết nối TCP (http_req_connecting, avg 10.94ms), bắt tay TLS (http_req_tls_handshaking, avg 11.95ms), gửi request (http_req_sending, avg 35.59µs), chờ phản hồi (http_req_waiting, avg 263.62ms, chiếm phần lớn thời gian) và nhận phản hồi (http_req_receiving, avg 13.12ms). http_req_blocked (avg 24.59ms) là thời gian chờ có kết nối, bao gồm cả kết nối TCP và bắt tay TLS. http_req_duration (avg 276.78ms) bằng sending + waiting + receiving. iteration_duration (avg 1.3s) là một lần chạy default function, gồm request và sleep(1). Vì kết nối được tái sử dụng giữa các vòng lặp nên med của blocked, connecting và TLS đều bằng 0s; chỉ request mở kết nối mới mới tốn các pha này.](./img/http-req-timing-dark.png#gh-dark-mode-only)
+
+File gốc: [nền sáng](pathname:///files/diagrams/k6-part-04/vi/http-req-timing.html) · [nền tối](pathname:///files/diagrams/k6-part-04/vi/http-req-timing-dark.html)
+
 #### 3.2. Thông tin về quá trình chạy kịch bản test
 
 - `running`: quá trình chạy kịch bản test, bao gồm:

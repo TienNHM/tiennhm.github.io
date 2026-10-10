@@ -114,6 +114,23 @@ export default function () {
 
 Hàm này sẽ gọi lần lượt các hàm đã viết ở trên để tạo, đọc, cập nhật và xóa một người dùng. Để đảm bảo rằng mỗi request được gửi cách nhau 1 giây, chúng ta sẽ sử dụng hàm `sleep` để dừng chương trình trong 1 giây.
 
+Một lần chạy hàm `default` (một iteration) diễn ra như sau:
+
+```mermaid
+sequenceDiagram
+    participant VU as VU (default function)
+    participant API as reqres.in
+    VU->>API: POST /api/users
+    API-->>VU: response có id
+    Note over VU: sleep(1)
+    VU->>API: GET /api/users/{id}
+    Note over VU: sleep(1)
+    VU->>API: PUT /api/users/{id}
+    Note over VU: sleep(1)
+    VU->>API: DELETE /api/users/{id}
+    Note over VU: sleep(1)
+```
+
 ### Kịch bản test hoàn chỉnh
 
 Sau khi viết xong kịch bản test, chúng ta sẽ có một file `script.js` như sau:

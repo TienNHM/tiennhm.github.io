@@ -110,6 +110,13 @@ And `RANGE` decides what "the current row" covers by **the value of the `ORDER B
 
 `ROWS` counts by **physical position** instead: the first row contains only itself, so it reads 100.
 
+The first row's window frame in each case:
+
+![Two window frames over the same three rows (2026-01-01 100, 2026-01-01 200, 2026-01-02 300). Left: OVER (ORDER BY ngay) uses the default RANGE, so row 1's frame covers both peer rows dated 2026-01-01 and the sum is 300. Right: ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW, so row 1's frame is just itself and the sum is 100.](./range-vs-rows-frame.png#gh-light-mode-only)
+![Two window frames over the same three rows (2026-01-01 100, 2026-01-01 200, 2026-01-02 300). Left: OVER (ORDER BY ngay) uses the default RANGE, so row 1's frame covers both peer rows dated 2026-01-01 and the sum is 300. Right: ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW, so row 1's frame is just itself and the sum is 100.](./range-vs-rows-frame-dark.png#gh-dark-mode-only)
+
+Source: [light](pathname:///files/diagrams/2026-09-28-window-function-vs-group-by/en/range-vs-rows-frame.html) · [dark](pathname:///files/diagrams/2026-09-28-window-function-vs-group-by/en/range-vs-rows-frame-dark.html)
+
 ### Which to pick
 
 | What you want | Use |

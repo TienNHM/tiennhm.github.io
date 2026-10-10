@@ -92,6 +92,11 @@ Khác biệt không nằm ở số dòng code mà ở **hướng của mặc đ�
 ## Đặt nó ở đâu: `DelegatingHandler`
 Rải vòng lặp forward ở từng call site nghĩa là mỗi chỗ mới lại phải nhớ. Đặt nó vào một `DelegatingHandler` thì quy tắc nằm ở đúng một nơi và tự áp cho mọi lời gọi.
 
+![Luồng lọc header: request đi vào mang tám header gồm Authorization, cf-ipcity: Hồ Chí Minh, X-Correlation-ID, Cookie, X-Request-ID, X-Forwarded-For, Accept-Language và X-Tenant-Id. HeaderPropagationHandler, một DelegatingHandler giữ allowlist bốn tên và đọc HttpContext qua IHttpContextAccessor lúc gọi, chỉ chép Authorization, X-Correlation-ID, X-Request-ID và Accept-Language sang request đi ra của HttpClient. Bốn header còn lại không đi đâu cả.](./header-allowlist.png#gh-light-mode-only)
+![Luồng lọc header: request đi vào mang tám header gồm Authorization, cf-ipcity: Hồ Chí Minh, X-Correlation-ID, Cookie, X-Request-ID, X-Forwarded-For, Accept-Language và X-Tenant-Id. HeaderPropagationHandler, một DelegatingHandler giữ allowlist bốn tên và đọc HttpContext qua IHttpContextAccessor lúc gọi, chỉ chép Authorization, X-Correlation-ID, X-Request-ID và Accept-Language sang request đi ra của HttpClient. Bốn header còn lại không đi đâu cả.](./header-allowlist-dark.png#gh-dark-mode-only)
+
+File gốc: [nền sáng](pathname:///files/diagrams/2026-09-23-forward-http-header-an-toan/vi/header-allowlist.html) · [nền tối](pathname:///files/diagrams/2026-09-23-forward-http-header-an-toan/vi/header-allowlist-dark.html)
+
 ```csharp
 public sealed class HeaderPropagationHandler : DelegatingHandler
 {

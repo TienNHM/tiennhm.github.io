@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mọi nguồn cấu hình bind vào cùng một lớp</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Display:wdth,wght@62.5..100,400&family=Geist:ital,wght@0,400;0,500;0,600;1,400&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #fafaf7;
+      --color-ink:    #1c1e21;
+      --color-muted:  #525860;
+      --font-sans:    'Geist', system-ui, sans-serif;
+      /* Instrument Serif has no Vietnamese subset; Vietnamese titles swap the whole face instead. */
+      --font-serif:   'Noto Serif Display', serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-stretch: 75%; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 1056px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Data flow · Options pattern</p>
+    <h1>Mọi nguồn cấu hình bind vào cùng một lớp</h1>
+    <div class="diagram-container">
+<svg viewBox="0 0 1056 504" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="options-pattern-flow-title options-pattern-flow-desc">
+  <title id="options-pattern-flow-title">Options pattern: từ nguồn cấu hình tới service</title>
+  <desc id="options-pattern-flow-desc">appsettings.json, user-secrets và biến môi trường cùng bind vào lớp EmailSettings; ValidateOnStart kiểm tra cấu hình lúc khởi động và dừng ứng dụng nếu thiếu hoặc sai; service đọc cấu hình qua IOptions (Singleton, không đọc lại), IOptionsSnapshot (Scoped, đọc lại mỗi request) hoặc IOptionsMonitor (Singleton, CurrentValue luôn mới).</desc>
+  <defs><marker id="options-pattern-flow-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#525860"/></marker><marker id="options-pattern-flow-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#18816a"/></marker></defs>
+  <rect width="100%" height="100%" fill="#fafaf7"/>
+    <rect x="24" y="60" width="212" height="296" rx="8" fill="rgba(28,30,33,0.02)" stroke="rgba(28,30,33,0.10)" stroke-width="0.8"/>
+    <rect x="82.0" y="64" width="96" height="12" rx="2" fill="#fafaf7"/>
+    <text x="130.0" y="73" fill="#525860" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">NGUỒN CẤU HÌNH</text>
+    <rect x="820" y="60" width="212" height="296" rx="8" fill="rgba(28,30,33,0.02)" stroke="rgba(28,30,33,0.10)" stroke-width="0.8"/>
+    <rect x="874.0" y="64" width="104" height="12" rx="2" fill="#fafaf7"/>
+    <text x="926.0" y="73" fill="#525860" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">SERVICE ĐỌC QUA</text>
+    <path d="M232,124 H252 Q260,124 260,132 V190 Q260,198 268,198 H300" fill="none" stroke="#525860" stroke-width="1.2" marker-end="url(#options-pattern-flow-arrow)"/>
+    <path d="M232,216 H300" fill="none" stroke="#525860" stroke-width="1.2" marker-end="url(#options-pattern-flow-arrow)"/>
+    <path d="M232,308 H252 Q260,308 260,300 V242 Q260,234 268,234 H300" fill="none" stroke="#525860" stroke-width="1.2" marker-end="url(#options-pattern-flow-arrow)"/>
+    <path d="M492,216 H556" fill="none" stroke="#18816a" stroke-width="1.4" marker-end="url(#options-pattern-flow-arrow-accent)"/>
+    <path d="M748,198 H784 Q792,198 792,190 V132 Q792,124 800,124 H836" fill="none" stroke="#525860" stroke-width="1.2" marker-end="url(#options-pattern-flow-arrow)"/>
+    <path d="M748,216 H836" fill="none" stroke="#525860" stroke-width="1.2" marker-end="url(#options-pattern-flow-arrow)"/>
+    <path d="M748,234 H784 Q792,234 792,242 V300 Q792,308 800,308 H836" fill="none" stroke="#525860" stroke-width="1.2" marker-end="url(#options-pattern-flow-arrow)"/>
+    <path d="M652,252 V336" fill="none" stroke="#525860" stroke-width="1.1" stroke-dasharray="5,4" marker-end="url(#options-pattern-flow-arrow)"/>
+    <rect x="662" y="288" width="80" height="12" rx="2" fill="#fafaf7"/>
+    <text x="666" y="297" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" text-anchor="start" letter-spacing="0.08em">THIẾU HOẶC SAI</text>
+    <rect x="40" y="92" width="192" height="64" rx="6" fill="#fafaf7"/>
+    <rect x="40" y="92" width="192" height="64" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+    <text x="136.0" y="120.5" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">appsettings.json</text>
+    <text x="136.0" y="136.5" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">nằm trong Git</text>
+    <rect x="40" y="184" width="192" height="64" rx="6" fill="#fafaf7"/>
+    <rect x="40" y="184" width="192" height="64" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+    <text x="136.0" y="212.5" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">user-secrets</text>
+    <text x="136.0" y="228.5" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">development, ngoài repo</text>
+    <rect x="40" y="276" width="192" height="64" rx="6" fill="#fafaf7"/>
+    <rect x="40" y="276" width="192" height="64" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+    <text x="136.0" y="304.5" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Biến môi trường</text>
+    <text x="136.0" y="320.5" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">EmailSettings__Password</text>
+    <rect x="300" y="172" width="192" height="88" rx="6" fill="#fafaf7"/>
+    <rect x="300" y="172" width="192" height="88" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+    <text x="396.0" y="199.5" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">EmailSettings</text>
+    <text x="396.0" y="215.5" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">.Bind(GetSection(...))</text>
+    <text x="396.0" y="228.5" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">[Required] · [Range]</text>
+    <text x="396.0" y="241.5" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">ValidateDataAnnotations</text>
+    <rect x="556" y="180" width="192" height="72" rx="6" fill="#fafaf7"/>
+    <rect x="556" y="180" width="192" height="72" rx="6" fill="rgba(24,129,106,0.08)" stroke="#18816a" stroke-width="1"/>
+    <text x="652.0" y="212.5" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">ValidateOnStart()</text>
+    <text x="652.0" y="228.5" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">kiểm tra lúc khởi động</text>
+    <rect x="556" y="336" width="192" height="64" rx="6" fill="#fafaf7"/>
+    <rect x="556" y="336" width="192" height="64" rx="6" fill="rgba(28,30,33,0.02)" stroke="rgba(28,30,33,0.30)" stroke-width="1" stroke-dasharray="4,3"/>
+    <text x="652.0" y="364.5" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Ứng dụng không chạy</text>
+    <text x="652.0" y="380.5" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">lỗi lộ ra ngay lúc start</text>
+    <rect x="836" y="92" width="180" height="64" rx="6" fill="#fafaf7"/>
+    <rect x="836" y="92" width="180" height="64" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+    <text x="926.0" y="120.5" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">IOptions&lt;T&gt;</text>
+    <text x="926.0" y="136.5" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">Singleton · không đọc lại</text>
+    <rect x="836" y="184" width="180" height="64" rx="6" fill="#fafaf7"/>
+    <rect x="836" y="184" width="180" height="64" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+    <text x="926.0" y="212.5" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">IOptionsSnapshot&lt;T&gt;</text>
+    <text x="926.0" y="228.5" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">Scoped · mỗi request</text>
+    <rect x="836" y="276" width="180" height="64" rx="6" fill="#fafaf7"/>
+    <rect x="836" y="276" width="180" height="64" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+    <text x="926.0" y="304.5" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">IOptionsMonitor&lt;T&gt;</text>
+    <text x="926.0" y="320.5" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">Singleton · CurrentValue</text>
+    <line x1="40" y1="428" x2="1016" y2="428" stroke="rgba(28,30,33,0.10)" stroke-width="0.8"/>
+    <text x="40" y="448" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">CHÚ GIẢI</text>
+    <line x1="40" y1="464" x2="68" y2="464" stroke="#18816a" stroke-width="1.3" marker-end="url(#options-pattern-flow-arrow-accent)"/>
+    <text x="76" y="467.5" fill="#525860" font-size="9" font-family="'Geist', sans-serif">Validation chạy lúc khởi động</text>
+    <line x1="300" y1="464" x2="328" y2="464" stroke="#525860" stroke-width="1.3" marker-end="url(#options-pattern-flow-arrow)"/>
+    <text x="336" y="467.5" fill="#525860" font-size="9" font-family="'Geist', sans-serif">Cấu hình đi tiếp</text>
+    <line x1="520" y1="464" x2="548" y2="464" stroke="#525860" stroke-width="1.3" stroke-dasharray="5,4" marker-end="url(#options-pattern-flow-arrow)"/>
+    <text x="556" y="467.5" fill="#525860" font-size="9" font-family="'Geist', sans-serif">Cấu hình thiếu hoặc sai: dừng ngay</text>
+<text id="tiennhm-copyright" x="1032" y="492" text-anchor="end" fill="#525860" opacity="0.75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.08em">© tiennhm</text>
+</svg>
+    </div>
+  </div>
+</body>
+</html>

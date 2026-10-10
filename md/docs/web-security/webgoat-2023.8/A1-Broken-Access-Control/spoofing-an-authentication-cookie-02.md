@@ -15,6 +15,19 @@
 4. **Mã hóa lại thành Base64 hoặc HEX** và gửi lại request.
 5. **Hệ thống không kiểm tra chữ ký của cookie** ➝ Cho phép hacker đăng nhập vào tài khoản Tom!
 
+```mermaid
+sequenceDiagram
+    participant A as Attacker
+    participant S as Server
+    A->>S: Đăng nhập hợp lệ (webgoat)
+    S-->>A: Set-Cookie (Base64 / HEX)
+    A->>A: Giải mã, đổi username webgoat → tom
+    A->>A: Mã hóa lại cookie
+    A->>S: Gửi request với cookie giả mạo
+    Note over S: Không kiểm tra chữ ký cookie
+    S-->>A: Đăng nhập vào tài khoản Tom
+```
+
 💀 **Nguyên nhân lỗ hổng:**
 ❌ Cookie không được ký hoặc mã hóa đúng cách.
 ❌ Không có kiểm tra tính toàn vẹn của cookie.

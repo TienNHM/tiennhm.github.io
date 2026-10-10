@@ -57,6 +57,14 @@ A memory leak has to *grow*. An idle application holding 822 MB stock still is n
 
 Telling those two apart determines everything that follows. Chase the "leak" theory and you will spend hours in memory dumps hunting for unsubscribed events and undisposed `IDisposable`s — when the problem is one line of configuration.
 
+```mermaid
+flowchart TD
+    A["docker stats says 96%"] --> B["Read anon in memory.stat"]
+    B --> C{"Measure several times, spaced out"}
+    C -->|"Climbing"| D["Real leak: dotnet-counters, dotnet-dump"]
+    C -->|"Flat"| E["Retained heap: check the GC configuration"]
+```
+
 ## The cause: Server GC is the ASP.NET Core default
 
 Check the environment variables inside the container:
@@ -90,6 +98,13 @@ For a low-traffic API inside a 1 GiB container, Server GC is pure waste: you are
 When it detects that it is running inside a container with a memory limit, .NET automatically sets the **GC heap hard limit to 75% of the cgroup limit**. With a 1 GiB ceiling, the heap is allowed roughly **768 MB**.
 
 Server GC happily grows to just under that line and then stays there. The 822 MB of anonymous memory — GC heap plus native memory, thread stacks, and JIT code — matches this behaviour exactly. The runtime is not misbehaving; it is doing precisely what it was designed to do.
+
+Here are the two modes side by side, on the same memory scale:
+
+![Server GC versus Workstation GC on a 4-core VPS. Server GC creates four heaps, each with its own GC thread, lets the heap grow and rarely returns memory to the OS: under a 1 GiB cgroup limit, anon memory is 822 MB plus 161 MB of page cache, the 768 MB GC heap hard limit (75%) falls inside the anon portion, and docker stats reports 987.6 MiB, 96%. Workstation GC uses one shared heap with DOTNET_GCConserveMemory=5, collects more often and returns memory sooner: anon drops to about 288 MB after 30 minutes, down 65%, and docker stats shows 469.5 MiB of a 1.5 GiB limit, 31%](./server-vs-workstation-gc.png#gh-light-mode-only)
+![Server GC versus Workstation GC on a 4-core VPS. Server GC creates four heaps, each with its own GC thread, lets the heap grow and rarely returns memory to the OS: under a 1 GiB cgroup limit, anon memory is 822 MB plus 161 MB of page cache, the 768 MB GC heap hard limit (75%) falls inside the anon portion, and docker stats reports 987.6 MiB, 96%. Workstation GC uses one shared heap with DOTNET_GCConserveMemory=5, collects more often and returns memory sooner: anon drops to about 288 MB after 30 minutes, down 65%, and docker stats shows 469.5 MiB of a 1.5 GiB limit, 31%](./server-vs-workstation-gc-dark.png#gh-dark-mode-only)
+
+Source: [light](pathname:///files/diagrams/2026-09-12-dotnet-workstation-gc-giam-ram-container/en/server-vs-workstation-gc.html) · [dark](pathname:///files/diagrams/2026-09-12-dotnet-workstation-gc-giam-ram-container/en/server-vs-workstation-gc-dark.html)
 
 ## The fix
 

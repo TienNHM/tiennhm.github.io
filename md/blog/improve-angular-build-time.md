@@ -214,6 +214,15 @@ Application Builder không phải là "nâng cấp" Browser Builder - nó là m�
 
 **Ví dụ thực tế:** Bạn sửa 1 file component nhỏ → Browser Builder build lại 1000+ files, Application Builder chỉ build lại file đó + dependencies liên quan!
 
+```mermaid
+flowchart LR
+    F["Sửa 1 file component"] --> BB["Browser Builder"]
+    F --> AB["Application Builder"]
+    BB --> R1["Build lại 1000+ files"]
+    AB --> C["Đọc persistent cache trên disk"]
+    C --> R2["Chỉ build lại file đó + dependencies liên quan"]
+```
+
 ### 3. Tree-shaking và Code Splitting siêu hiệu quả
 
 - ✂️ **Better tree-shaking**: Loại bỏ dead code chính xác hơn, bundle nhẹ hơn

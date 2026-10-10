@@ -8,6 +8,16 @@
 - Xuất dữ liệu từ SQL ra file CSV, Excel.
 - Sử dụng các lệnh **LOAD DATA INFILE**, **COPY**, **SELECT INTO OUTFILE** để xử lý dữ liệu.
 
+Cùng một luồng nhập/xuất, mỗi hệ quản trị dùng lệnh riêng để đưa dữ liệu vào và lấy dữ liệu ra:
+
+```mermaid
+flowchart LR
+    CSV["File CSV / Excel"] -->|"LOAD DATA INFILE · MySQL"| T[("Bảng SQL")]
+    CSV -->|"COPY · PostgreSQL"| T
+    CSV -->|"BULK INSERT · SQL Server"| T
+    T -->|"SELECT INTO OUTFILE / COPY TO"| OUT["File CSV / Excel xuất ra"]
+```
+
 ---
 
 ## 📝 **1. Nhập dữ liệu từ CSV vào SQL**

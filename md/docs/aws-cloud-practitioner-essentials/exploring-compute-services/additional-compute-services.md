@@ -28,6 +28,19 @@ AWS cung cấp purpose-built services cho specific needs, chẳng hạn như str
 
 Thay vì build out infrastructure cần thiết, như network, EC2 instances, scaling, và elastic load balancers bằng chính bạn, bạn có thể cung cấp application code và desired configurations cho Elastic Beanstalk service. Elastic Beanstalk sau đó lấy thông tin đó và build out environment cho bạn.
 
+```mermaid
+flowchart LR
+    U["Application code + desired configuration"] --> EB["AWS Elastic Beanstalk"]
+    EB -->|"tự build"| ENV
+    subgraph ENV["Environment"]
+        N["Network"]
+        EC2["EC2 instances"]
+        AS["Scaling"]
+        LB["Elastic Load Balancer"]
+        HM["Health monitoring"]
+    end
+```
+
 **Key Features:**
 - ✅ **Automatic Infrastructure Provisioning**: Tự động tạo network, EC2 instances, load balancers
 - ✅ **Auto Scaling**: Tự động scale dựa trên demand

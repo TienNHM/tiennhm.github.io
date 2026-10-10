@@ -126,6 +126,13 @@ byte (hex)      : (không thấy header)
 
 Hệ quả thực tế của chi tiết này lớn hơn vẻ ngoài của nó: mọi công cụ bạn quen dùng để gỡ lỗi mạng đều **vô dụng**. Bắt gói tin không thấy gì. Access log của downstream trống trơn. Trace phía nhận không có span nào. Từ mọi góc nhìn bên ngoài tiến trình, request đó **chưa từng tồn tại**.
 
+Ghép lại toàn bộ đường đi của request, chỗ hỏng nằm gọn bên trong một tiến trình:
+
+![Sơ đồ tuần tự của sự cố: trình duyệt của khách ở Việt Nam gửi request tới Cloudflare, Cloudflare chèn header cf-ipcity: Hồ Chí Minh rồi chuyển tới API Gateway, gateway chuyển mọi header tới .NET Service. Trong service, TryAddWithoutValidation trả về true, nhưng SendAsync ném HttpRequestException, nên lời gọi tới downstream không có byte nào lên dây và downstream không nhận được gì.](./cf-ipcity-sendasync.png#gh-light-mode-only)
+![Sơ đồ tuần tự của sự cố: trình duyệt của khách ở Việt Nam gửi request tới Cloudflare, Cloudflare chèn header cf-ipcity: Hồ Chí Minh rồi chuyển tới API Gateway, gateway chuyển mọi header tới .NET Service. Trong service, TryAddWithoutValidation trả về true, nhưng SendAsync ném HttpRequestException, nên lời gọi tới downstream không có byte nào lên dây và downstream không nhận được gì.](./cf-ipcity-sendasync-dark.png#gh-dark-mode-only)
+
+File gốc: [nền sáng](pathname:///files/diagrams/2026-09-23-cloudflare-header-dotnet-httpclient/vi/cf-ipcity-sendasync.html) · [nền tối](pathname:///files/diagrams/2026-09-23-cloudflare-header-dotnet-httpclient/vi/cf-ipcity-sendasync-dark.html)
+
 `Hồ` thậm chí không biểu diễn được bằng Latin-1, nên kể cả con đường khoan dung nhất mà đặc tả HTTP từng cho phép cũng không tải nổi giá trị này — phần đó tôi tách riêng sang [bài 2](https://tiennhm.io.vn/blog/http-header-unicode-ascii-dotnet).
 
 ---

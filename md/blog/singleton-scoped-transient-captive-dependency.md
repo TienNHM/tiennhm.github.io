@@ -58,6 +58,13 @@ public sealed class CustomerCacheRefresher
 
 Container resolve `CustomerCacheRefresher` đúng một lần, vào lần đầu có ai đó cần tới nó. Tại đúng khoảnh khắc ấy nó dựng luôn một `EfCustomerRepository` kèm một `CrmDbContext` và nhét vào field. Instance `Singleton` sống tới lúc app tắt, nên cái `DbContext` bên trong cũng vậy. Nói cách khác, **lifetime hiệu dụng của một dependency bằng lifetime của consumer sống lâu nhất giữ nó**. Service `Scoped` đã bị "bắt giữ" — tên gọi captive dependency đến từ đó.
 
+Vẽ theo trục thời gian thì thấy rõ cái `DbContext` bị bắt giữ sống dài hơn mọi thứ khác bao nhiêu:
+
+![Biểu đồ vòng đời theo thời gian, từ lúc app khởi động tới lúc app tắt. Singleton CustomerCacheRefresher được resolve đúng một lần và sống tới lúc app tắt; CrmDbContext nằm trong field của nó bị bắt giữ và sống cùng thời gian đó, kéo theo change tracker phình, dữ liệu cũ và race condition. Ngược lại, mỗi request A, B, C có DbContext riêng và được container dispose khi request xong; bản sửa dùng CreateAsyncScope mỗi lần gọi, mỗi scope ngắn và dispose ngay sau khi đọc xong](./captive-dependency-lifetime.png#gh-light-mode-only)
+![Biểu đồ vòng đời theo thời gian, từ lúc app khởi động tới lúc app tắt. Singleton CustomerCacheRefresher được resolve đúng một lần và sống tới lúc app tắt; CrmDbContext nằm trong field của nó bị bắt giữ và sống cùng thời gian đó, kéo theo change tracker phình, dữ liệu cũ và race condition. Ngược lại, mỗi request A, B, C có DbContext riêng và được container dispose khi request xong; bản sửa dùng CreateAsyncScope mỗi lần gọi, mỗi scope ngắn và dispose ngay sau khi đọc xong](./captive-dependency-lifetime-dark.png#gh-dark-mode-only)
+
+File gốc: [nền sáng](pathname:///files/diagrams/2026-09-21-singleton-scoped-transient-captive-dependency/vi/captive-dependency-lifetime.html) · [nền tối](pathname:///files/diagrams/2026-09-21-singleton-scoped-transient-captive-dependency/vi/captive-dependency-lifetime-dark.html)
+
 Bốn hậu quả xảy ra theo thứ tự này:
 
 - **Change tracker phình vô hạn.** Mỗi entity từng được đọc lên vẫn nằm trong bộ nhớ của `DbContext` đó. Đây là rò rỉ bộ nhớ trông y hệt một memory leak bình thường và rất khó truy nguyên.

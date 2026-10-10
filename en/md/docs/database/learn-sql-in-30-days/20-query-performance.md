@@ -28,6 +28,19 @@ EXPLAIN ANALYZE <query>;
 🔹 **EXPLAIN**: Hiển thị cách SQL lập kế hoạch thực thi truy vấn.
 🔹 **ANALYZE**: Thực thi truy vấn thực tế và hiển thị thời gian thực thi.
 
+Vòng lặp tối ưu dựa trên EXPLAIN ANALYZE: phát hiện Seq Scan, thêm index, rồi kiểm tra lại:
+
+```mermaid
+flowchart TD
+    A["Chạy EXPLAIN ANALYZE truy vấn"] --> B{"Thấy Seq Scan?"}
+    B -->|"Có"| C["Tạo index cho cột trong WHERE"]
+    C --> D["Chạy lại EXPLAIN ANALYZE"]
+    D --> E{"Đã thành Index Scan?"}
+    E -->|"Chưa"| C
+    E -->|"Rồi"| F["Thời gian giảm từ hàng trăm ms xuống vài ms"]
+    B -->|"Không"| F
+```
+
 ### **Ví dụ kiểm tra hiệu suất**
 Giả sử chúng ta có bảng `orders` chứa **1 triệu bản ghi**:
 ```sql

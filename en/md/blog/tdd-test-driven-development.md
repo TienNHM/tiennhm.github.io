@@ -101,6 +101,11 @@ From these two observations, the article proposes a division of roles mapped ont
 | Construction, Green | Minimal implementation to pass the test | **AI performs it**; the result is verified by the tests, not by skimming |
 | Construction, Refactor | Restructure while all tests pass | AI proposes, humans review; tests are the safety net |
 
+![Two lanes, human and AI, across four phases. Inception: AI drafts behavior tests from acceptance criteria and the human validates them to pin down business intent. Red: the human writes or approves each test and hands the failing test to AI. Green: AI writes the minimal implementation that makes the test pass. Refactor: AI proposes a refactor once all tests pass, the human reviews it, and the loop returns to Red for the next behavior.](./tdd-ai-dlc-roles.png#gh-light-mode-only)
+![Two lanes, human and AI, across four phases. Inception: AI drafts behavior tests from acceptance criteria and the human validates them to pin down business intent. Red: the human writes or approves each test and hands the failing test to AI. Green: AI writes the minimal implementation that makes the test pass. Refactor: AI proposes a refactor once all tests pass, the human reviews it, and the loop returns to Red for the next behavior.](./tdd-ai-dlc-roles-dark.png#gh-dark-mode-only)
+
+Source: [light](pathname:///files/diagrams/2026-10-08-tdd-test-driven-development/en/tdd-ai-dlc-roles.html) · [dark](pathname:///files/diagrams/2026-10-08-tdd-test-driven-development/en/tdd-ai-dlc-roles-dark.html)
+
 The rationale for placing authority in the Red phase is that it is where correctness is defined, which matches AI-DLC's principle that decision authority rests with humans. The rationale for assigning Green to AI is that it has the clearest automated feedback, exactly the kind of task that the studies in 4.1 show models handle better when guided by tests.
 
 The rhythm is also compatible. Fucci et al. tie good outcomes to small, steady steps, and AI-DLC uses the Bolt (hours or days) in place of the sprint. Each Red-Green-Refactor cycle can be seen as a finer unit nested within a Bolt.

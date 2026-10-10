@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Đổi tên cột bằng expand-contract</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Display:wdth,wght@62.5..100,400&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #1b1b1d;
+      --color-ink:    #e3e3e3;
+      --color-muted:  #b4b9c0;
+      --font-sans:    'Geist', system-ui, sans-serif;
+      /* Instrument Serif has no Vietnamese subset; a per-glyph fallback mixes two faces
+         inside one word, so Vietnamese titles swap the whole face instead. */
+      --font-serif:   'Noto Serif Display', serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-stretch: 75%; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 960px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Process · Migration</p>
+    <h1>Đổi tên cột bằng expand-contract</h1>
+    <div class="diagram-container">
+<svg viewBox="0 0 960 540" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="expand-contract-dark-title expand-contract-dark-desc">
+  <title id="expand-contract-dark-title">Expand-contract qua bốn lần deploy</title>
+  <desc id="expand-contract-dark-desc">Đổi tên cột Email thành ContactEmail không downtime: thêm cột mới, backfill và chuyển đọc sang cột mới, bỏ ghi cột cũ, rồi sau ít nhất một chu kỳ phát hành mới xoá cột Email.</desc>
+  <defs>
+    <marker id="expand-contract-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#b4b9c0"/></marker>
+    <marker id="expand-contract-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#25c19f"/></marker>
+  </defs>
+  <rect x="0" y="0" width="960" height="516" fill="#1b1b1d"/>
+  <!-- zones -->
+  <line x1="40" y1="124" x2="916" y2="124" stroke="rgba(227,227,227,0.1)" stroke-width="0.8"/>
+  <line x1="40" y1="212" x2="916" y2="212" stroke="rgba(227,227,227,0.1)" stroke-width="0.8"/>
+  <line x1="40" y1="276" x2="916" y2="276" stroke="rgba(227,227,227,0.1)" stroke-width="0.8"/>
+  <line x1="40" y1="340" x2="916" y2="340" stroke="rgba(227,227,227,0.1)" stroke-width="0.8"/>
+  <!-- arrows -->
+  <path d="M340,68 H360" fill="none" stroke="#b4b9c0" stroke-width="1.2" marker-end="url(#expand-contract-arrow)"/>
+  <path d="M532,68 H552" fill="none" stroke="#b4b9c0" stroke-width="1.2" marker-end="url(#expand-contract-arrow)"/>
+  <path d="M724,68 H744" fill="none" stroke="#b4b9c0" stroke-width="1.2" marker-end="url(#expand-contract-arrow)"/>
+  <path d="M168,388 H912" fill="none" stroke="#b4b9c0" stroke-width="1.2" marker-end="url(#expand-contract-arrow)"/>
+  <!-- labels -->
+  <rect x="669" y="368" width="130" height="12" rx="2" fill="#1b1b1d"/><text x="734" y="377" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">≥ 1 CHU KỲ PHÁT HÀNH</text>
+  <!-- nodes -->
+  <rect x="168" y="32" width="172" height="72" rx="6" fill="#1b1b1d"/>
+  <rect x="168" y="32" width="172" height="72" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <rect x="176" y="38" width="52" height="12" rx="2" fill="none" stroke="#b4b9c0" stroke-opacity="0.5" stroke-width="0.8"/>
+  <text x="202.0" y="47" fill="#b4b9c0" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">DEPLOY 1</text>
+  <text x="254.0" y="70.0" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Expand</text>
+  <text x="254.0" y="85.0" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">ADD ContactEmail NULL</text>
+  <rect x="360" y="32" width="172" height="72" rx="6" fill="#1b1b1d"/>
+  <rect x="360" y="32" width="172" height="72" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <rect x="368" y="38" width="52" height="12" rx="2" fill="none" stroke="#b4b9c0" stroke-opacity="0.5" stroke-width="0.8"/>
+  <text x="394.0" y="47" fill="#b4b9c0" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">DEPLOY 2</text>
+  <text x="446.0" y="70.0" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Backfill</text>
+  <text x="446.0" y="85.0" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">UPDATE theo lô</text>
+  <rect x="552" y="32" width="172" height="72" rx="6" fill="#1b1b1d"/>
+  <rect x="552" y="32" width="172" height="72" rx="6" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <rect x="560" y="38" width="52" height="12" rx="2" fill="none" stroke="#b4b9c0" stroke-opacity="0.5" stroke-width="0.8"/>
+  <text x="586.0" y="47" fill="#b4b9c0" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">DEPLOY 3</text>
+  <text x="638.0" y="70.0" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Bỏ cột cũ khỏi code</text>
+  <text x="638.0" y="85.0" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">chỉ dùng cột mới</text>
+  <rect x="744" y="32" width="172" height="72" rx="6" fill="#1b1b1d"/>
+  <rect x="744" y="32" width="172" height="72" rx="6" fill="rgba(37,193,159,0.10)" stroke="#25c19f" stroke-width="1"/>
+  <rect x="752" y="38" width="52" height="12" rx="2" fill="none" stroke="#25c19f" stroke-opacity="0.5" stroke-width="0.8"/>
+  <text x="778.0" y="47" fill="#25c19f" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">DEPLOY 4</text>
+  <text x="830.0" y="70.0" fill="#e3e3e3" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Contract</text>
+  <text x="830.0" y="85.0" fill="#b4b9c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">DROP COLUMN Email</text>
+  <rect x="180" y="140" width="48" height="22" rx="3" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="204.0" y="155" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle">Email</text>
+  <rect x="236" y="140" width="92" height="22" rx="3" fill="rgba(227,227,227,0.08)" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="282.0" y="155" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle">ContactEmail</text>
+  <rect x="180" y="233" width="48" height="22" rx="3" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="204.0" y="248" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle">Email</text>
+  <rect x="236" y="233" width="92" height="22" rx="3" fill="rgba(227,227,227,0.08)" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="282.0" y="248" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle">ContactEmail</text>
+  <rect x="230" y="297" width="48" height="22" rx="3" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="254.0" y="312" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle">Email</text>
+  <rect x="372" y="140" width="48" height="22" rx="3" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="396.0" y="155" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle">Email</text>
+  <rect x="428" y="140" width="92" height="22" rx="3" fill="rgba(227,227,227,0.08)" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="474.0" y="155" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle">ContactEmail</text>
+  <rect x="372" y="233" width="48" height="22" rx="3" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="396.0" y="248" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle">Email</text>
+  <rect x="428" y="233" width="92" height="22" rx="3" fill="rgba(227,227,227,0.08)" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="474.0" y="248" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle">ContactEmail</text>
+  <rect x="400" y="297" width="92" height="22" rx="3" fill="rgba(227,227,227,0.08)" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="446.0" y="312" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle">ContactEmail</text>
+  <rect x="564" y="140" width="48" height="22" rx="3" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="588.0" y="155" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle">Email</text>
+  <rect x="620" y="140" width="92" height="22" rx="3" fill="rgba(227,227,227,0.08)" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="666.0" y="155" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle">ContactEmail</text>
+  <rect x="592" y="233" width="92" height="22" rx="3" fill="rgba(227,227,227,0.08)" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="638.0" y="248" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle">ContactEmail</text>
+  <rect x="592" y="297" width="92" height="22" rx="3" fill="rgba(227,227,227,0.08)" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="638.0" y="312" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle">ContactEmail</text>
+  <rect x="756" y="140" width="48" height="22" rx="3" fill="none" stroke="rgba(227,227,227,0.35)" stroke-width="1" stroke-dasharray="3,2"/>
+  <text x="780.0" y="155" fill="rgba(227,227,227,0.45)" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle">Email</text>
+  <rect x="812" y="140" width="92" height="22" rx="3" fill="rgba(227,227,227,0.08)" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="858.0" y="155" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle">ContactEmail</text>
+  <rect x="784" y="233" width="92" height="22" rx="3" fill="rgba(227,227,227,0.08)" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="830.0" y="248" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle">ContactEmail</text>
+  <rect x="784" y="297" width="92" height="22" rx="3" fill="rgba(227,227,227,0.08)" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="830.0" y="312" fill="#e3e3e3" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle">ContactEmail</text>
+  <circle cx="254" cy="388" r="3" fill="#b4b9c0"/>
+  <circle cx="446" cy="388" r="3" fill="#b4b9c0"/>
+  <circle cx="638" cy="388" r="3" fill="#b4b9c0"/>
+  <circle cx="830" cy="388" r="3" fill="#b4b9c0"/>
+  <!-- top -->
+  <text x="40" y="160" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="start" letter-spacing="0.14em">SCHEMA</text>
+  <text x="40" y="174" fill="#b4b9c0" font-size="10" font-family="'Geist', sans-serif" text-anchor="start">cột trong bảng</text>
+  <text x="40" y="240" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="start" letter-spacing="0.14em">CODE GHI</text>
+  <text x="40" y="254" fill="#b4b9c0" font-size="10" font-family="'Geist', sans-serif" text-anchor="start">cột được ghi</text>
+  <text x="40" y="304" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="start" letter-spacing="0.14em">CODE ĐỌC</text>
+  <text x="40" y="318" fill="#b4b9c0" font-size="10" font-family="'Geist', sans-serif" text-anchor="start">cột được đọc</text>
+  <text x="254.0" y="186" fill="#b4b9c0" font-size="10" font-family="'Geist', sans-serif" text-anchor="middle">ContactEmail còn rỗng</text>
+  <text x="446.0" y="186" fill="#b4b9c0" font-size="10" font-family="'Geist', sans-serif" text-anchor="middle">đã chép dữ liệu sang</text>
+  <text x="638.0" y="186" fill="#b4b9c0" font-size="10" font-family="'Geist', sans-serif" text-anchor="middle">Email vẫn còn trong bảng</text>
+  <text x="830.0" y="186" fill="#b4b9c0" font-size="10" font-family="'Geist', sans-serif" text-anchor="middle">Email đã bị xoá</text>
+  <text x="40" y="392" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="start" letter-spacing="0.14em">THỜI GIAN</text>
+  <text x="168" y="420" fill="#b4b9c0" font-size="11" font-family="'Geist', sans-serif" text-anchor="start">Mỗi lần deploy đều rollback được độc lập: schema luôn chạy được với cả code cũ lẫn code mới.</text>
+  <line x1="40" y1="444" x2="920" y2="444" stroke="rgba(227,227,227,0.1)" stroke-width="0.8"/>
+  <text x="40" y="464" fill="#b4b9c0" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">CHÚ GIẢI</text>
+  <rect x="40" y="474" width="24" height="12" rx="3" fill="#242526" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="74" y="483" fill="#b4b9c0" font-size="9" font-family="'Geist', sans-serif">Cột cũ Email</text>
+  <rect x="177.2" y="474" width="24" height="12" rx="3" fill="rgba(227,227,227,0.08)" stroke="#e3e3e3" stroke-width="1"/>
+  <text x="211.2" y="483" fill="#b4b9c0" font-size="9" font-family="'Geist', sans-serif">Cột mới ContactEmail</text>
+  <rect x="359.2" y="474" width="24" height="12" rx="3" fill="none" stroke="rgba(227,227,227,0.35)" stroke-width="1" stroke-dasharray="3,2"/>
+  <text x="393.2" y="483" fill="#b4b9c0" font-size="9" font-family="'Geist', sans-serif">Cột đã xoá</text>
+  <rect x="485.2" y="474" width="24" height="12" rx="2" fill="rgba(37,193,159,0.10)" stroke="#25c19f" stroke-width="1"/>
+  <text x="519.2" y="483" fill="#b4b9c0" font-size="9" font-family="'Geist', sans-serif">Bước phá huỷ: sao lưu trước</text>
+<text id="tiennhm-copyright" x="936" y="528" text-anchor="end" fill="#b4b9c0" opacity="0.75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.08em">© tiennhm</text>
+</svg>
+    </div>
+  </div>
+</body>
+</html>

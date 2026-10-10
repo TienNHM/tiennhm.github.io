@@ -142,6 +142,13 @@ export default function () {
 
 Trong đó, `stages` là một mảng các đối tượng, mỗi đối tượng đại diện cho một giai đoạn. Mỗi giai đoạn sẽ có hai thuộc tính là `duration` và `target`. Thuộc tính `duration` sẽ chỉ định thời gian chạy của giai đoạn, còn thuộc tính `target` sẽ chỉ định số lượng Virtual User cần chạy trong giai đoạn đó.
 
+So với cách dùng `--vus 10 --duration 30s` ở trên, số VU với `stages` thay đổi theo thời gian như sau:
+
+![Biểu đồ số VU theo thời gian. Với options.stages: số VU tăng tuyến tính từ 0 lên 20 trong 30 giây đầu, giảm dần về 10 trong 1 phút 30 giây tiếp theo (tới mốc 2 phút), rồi giảm về 0 trong 20 giây cuối, tổng cộng 2 phút 20 giây. Với --vus 10 --duration 30s: số VU giữ cố định 10 trong 30 giây.](./img/k6-stages.png#gh-light-mode-only)
+![Biểu đồ số VU theo thời gian. Với options.stages: số VU tăng tuyến tính từ 0 lên 20 trong 30 giây đầu, giảm dần về 10 trong 1 phút 30 giây tiếp theo (tới mốc 2 phút), rồi giảm về 0 trong 20 giây cuối, tổng cộng 2 phút 20 giây. Với --vus 10 --duration 30s: số VU giữ cố định 10 trong 30 giây.](./img/k6-stages-dark.png#gh-dark-mode-only)
+
+File gốc: [nền sáng](pathname:///files/diagrams/k6-part-03/vi/k6-stages.html) · [nền tối](pathname:///files/diagrams/k6-part-03/vi/k6-stages-dark.html)
+
 Ta chạy lệnh sau để chạy kịch bản test:
 
 ```sh

@@ -85,6 +85,11 @@ public class LeadAppService : ApplicationService, ILeadAppService
 
 Hệ quả thực tế: gọi `SaveChangesAsync` xong mà đâu đó phía sau ném exception thì toàn bộ, bao gồm cả phần vừa "save", đều bị rollback. Đúng như thiết kế — nhưng nếu bạn tưởng `SaveChangesAsync` là điểm không quay lại thì hành vi này trông y hệt một bug ma.
 
+![Flowchart vòng đời một Unit of Work ambient trong ABP. Bên trong vùng transaction đang mở: interceptor tự mở UoW cho type implement IUnitOfWorkEnabled, InsertAsync ghi vào change tracker, SaveChangesAsync ghi xuống database nhưng chưa commit, rồi tới câu hỏi có exception phía sau không. Có thì rollback toàn bộ, kể cả phần đã SaveChanges. Không thì CompleteAsync save lần cuối và commit, và chỉ sau commit mới chạy callback OnCompleted như gửi email hay notification](./abp-uow-savechanges-complete.png#gh-light-mode-only)
+![Flowchart vòng đời một Unit of Work ambient trong ABP. Bên trong vùng transaction đang mở: interceptor tự mở UoW cho type implement IUnitOfWorkEnabled, InsertAsync ghi vào change tracker, SaveChangesAsync ghi xuống database nhưng chưa commit, rồi tới câu hỏi có exception phía sau không. Có thì rollback toàn bộ, kể cả phần đã SaveChanges. Không thì CompleteAsync save lần cuối và commit, và chỉ sau commit mới chạy callback OnCompleted như gửi email hay notification](./abp-uow-savechanges-complete-dark.png#gh-dark-mode-only)
+
+File gốc: [nền sáng](pathname:///files/diagrams/2026-09-22-unit-of-work-dotnet-abp/vi/abp-uow-savechanges-complete.html) · [nền tối](pathname:///files/diagrams/2026-09-22-unit-of-work-dotnet-abp/vi/abp-uow-savechanges-complete-dark.html)
+
 ```csharp
 public class ImportAppService : ApplicationService
 {
@@ -119,6 +124,15 @@ Chữ ký thật của extension method này là `Begin(bool requiresNew = false
 Mặc định `requiresNew` là `false`. Khi đó `Begin` **không** tạo UoW mới mà nhập vào UoW đang hiện hành — ABP trả về một child UoW có tham chiếu `Outer` trỏ tới UoW cha, và `CompleteAsync` trên child đó không commit gì cả. Chỉ UoW ngoài cùng mới commit thật.
 
 Đây là hành vi đúng cho phần lớn trường hợp, nhưng nó phá vỡ kỳ vọng khi bạn muốn một thao tác tồn tại độc lập — ví dụ ghi audit log phải còn lại kể cả khi nghiệp vụ chính rollback. Muốn vậy thì phải `requiresNew: true`.
+
+```mermaid
+flowchart TD
+    A["Begin() khi đang có UoW hiện hành"] --> B{"requiresNew?"}
+    B -->|"false, mặc định"| C["Child UoW, Outer trỏ về UoW cha"]
+    C --> D["CompleteAsync không commit, chỉ UoW ngoài cùng commit"]
+    B -->|"true"| E["UoW mới, transaction riêng"]
+    E --> F["CompleteAsync commit độc lập, ví dụ audit log"]
+```
 
 ### Điều khiển transaction
 

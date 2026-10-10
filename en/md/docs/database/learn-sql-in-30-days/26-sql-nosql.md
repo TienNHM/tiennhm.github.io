@@ -38,6 +38,16 @@
 ✔️ Xử lý dữ liệu lớn hoặc dữ liệu thời gian thực.
 📌 **Ví dụ:** Ứng dụng mạng xã hội, game online, IoT, phân tích log.
 
+Sơ đồ quyết định nhanh giữa SQL và NoSQL dựa trên tính chất dữ liệu và yêu cầu hệ thống:
+
+```mermaid
+flowchart TD
+    A{"Dữ liệu có cấu trúc rõ ràng, ít thay đổi?"} -->|"Không, schema linh hoạt"| D["NoSQL: MongoDB, Firebase, Cassandra"]
+    A -->|"Có"| B{"Cần ACID và truy vấn phức tạp (JOIN, transaction)?"}
+    B -->|"Có"| C["SQL: MySQL, PostgreSQL, SQL Server"]
+    B -->|"Ưu tiên mở rộng ngang, thời gian thực"| D
+```
+
 ---
 
 ## 📝 **3. Các hệ quản trị CSDL phổ biến**

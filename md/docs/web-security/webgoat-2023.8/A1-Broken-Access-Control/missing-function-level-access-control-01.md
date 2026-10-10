@@ -29,6 +29,17 @@ Một ứng dụng có giao diện quản trị viên để xóa người dùng:
   ```
 - Nếu attacker biết API này, họ có thể gửi request xóa tài khoản **mà không cần quyền admin**.
 
+MFAC xảy ra khi giao diện ẩn chức năng nhưng backend không kiểm tra quyền khi gọi API trực tiếp:
+
+```mermaid
+flowchart TD
+    U["Người dùng thường"] --> UI["Giao diện ẩn nút Xóa người dùng"]
+    U --> API["Gọi trực tiếp POST /admin/deleteUser"]
+    API --> C{"Backend kiểm tra quyền admin?"}
+    C -->|"Không - lỗ hổng MFAC"| X["Xóa được user dù không phải admin"]
+    C -->|"Có - Authorize Roles Admin"| F["403 Forbidden"]
+```
+
 ## ✅ **3️⃣ Giải pháp bảo mật**
 ### 🔒 **1. Kiểm tra quyền trên Backend**
 **❌ Sai cách (Dễ bị tấn công)**

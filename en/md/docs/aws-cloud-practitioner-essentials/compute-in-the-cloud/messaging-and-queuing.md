@@ -44,6 +44,11 @@ Giống như cashier và barista của chúng ta, chúng ta đã giới thiệu 
 
 Đây là **loosely coupled**. Đây là những gì chúng ta phấn đấu đạt được với architectures trên AWS.
 
+![So sánh hai kiến trúc: ở tightly coupled, Application A gọi trực tiếp Application B nên khi B lỗi thì A lỗi theo; ở loosely coupled, Application A đẩy message vào Message Queue và Application B lấy ra xử lý, khi B lỗi message vẫn nằm chờ trong queue và A không bị ảnh hưởng.](./img/coupling-queue.png#gh-light-mode-only)
+![So sánh hai kiến trúc: ở tightly coupled, Application A gọi trực tiếp Application B nên khi B lỗi thì A lỗi theo; ở loosely coupled, Application A đẩy message vào Message Queue và Application B lấy ra xử lý, khi B lỗi message vẫn nằm chờ trong queue và A không bị ảnh hưởng.](./img/coupling-queue-dark.png#gh-dark-mode-only)
+
+File gốc: [nền sáng](pathname:///files/diagrams/aws-messaging-and-queuing/vi/coupling-queue.html) · [nền tối](pathname:///files/diagrams/aws-messaging-and-queuing/vi/coupling-queue-dark.html)
+
 ## Key Takeaways: Decoupling Services
 
 Trong modern application development, reliability và resilience là quan trọng. Một cách hiệu quả để đạt được điều này là bằng cách áp dụng một service-oriented approach.

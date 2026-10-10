@@ -68,6 +68,13 @@ ERROR: could not serialize access due to concurrent update
 số dư cuối cùng: 1100        ← B bị huỷ, ứng dụng phải thử lại
 ```
 
+Trình tự hai phiên, và chỗ hai mức isolation rẽ nhánh:
+
+![Sơ đồ tuần tự giữa phiên A, bảng tk và phiên B. A đọc so_du được 1000, B cũng đọc được 1000. A ghi 1100 rồi commit, sau đó B ghi 1100. Ở READ COMMITTED, lệnh của B thành công và ghi đè: số dư cuối 1100, mất một lần cộng, không có lỗi. Ở REPEATABLE READ, B nhận ERROR 40001 và bị huỷ: số dư vẫn 1100, ứng dụng phải thử lại.](./lost-update.png#gh-light-mode-only)
+![Sơ đồ tuần tự giữa phiên A, bảng tk và phiên B. A đọc so_du được 1000, B cũng đọc được 1000. A ghi 1100 rồi commit, sau đó B ghi 1100. Ở READ COMMITTED, lệnh của B thành công và ghi đè: số dư cuối 1100, mất một lần cộng, không có lỗi. Ở REPEATABLE READ, B nhận ERROR 40001 và bị huỷ: số dư vẫn 1100, ứng dụng phải thử lại.](./lost-update-dark.png#gh-dark-mode-only)
+
+File gốc: [nền sáng](pathname:///files/diagrams/2026-09-27-sql-isolation-level/vi/lost-update.html) · [nền tối](pathname:///files/diagrams/2026-09-27-sql-isolation-level/vi/lost-update-dark.html)
+
 Hai kết quả này **cùng một con số nhưng khác nhau hoàn toàn về bản chất**.
 
 Ở `READ COMMITTED`, database làm đúng những gì được yêu cầu: B ghi đè giá trị của A. Không ai sai luật, và cũng không ai biết một giao dịch vừa bốc hơi. Nếu đây là số dư ví hay tồn kho thì bạn vừa mất tiền hoặc bán quá số lượng.

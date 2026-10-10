@@ -101,6 +101,11 @@ Từ hai nhận xét trên, bài viết đề xuất một nguyên tắc phân v
 | Construction, pha Green | Cài đặt tối thiểu để kiểm thử đạt | **AI thực hiện**; kết quả được kiểm chứng bằng kiểm thử, không bằng việc đọc lướt |
 | Construction, pha Refactor | Tái cấu trúc khi toàn bộ kiểm thử đạt | AI đề xuất, con người xét duyệt; kiểm thử là lưới an toàn |
 
+![Sơ đồ hai làn con người và AI qua bốn pha. Inception: AI soạn kiểm thử hành vi từ tiêu chí chấp nhận, con người thẩm định để cố định ý định nghiệp vụ. Red: con người viết hoặc duyệt từng kiểm thử rồi bàn giao kiểm thử đỏ cho AI. Green: AI cài đặt tối thiểu cho kiểm thử đạt. Refactor: AI đề xuất tái cấu trúc khi mọi kiểm thử đạt, con người xét duyệt, rồi vòng lặp quay lại pha Red cho hành vi tiếp theo.](./tdd-ai-dlc-roles.png#gh-light-mode-only)
+![Sơ đồ hai làn con người và AI qua bốn pha. Inception: AI soạn kiểm thử hành vi từ tiêu chí chấp nhận, con người thẩm định để cố định ý định nghiệp vụ. Red: con người viết hoặc duyệt từng kiểm thử rồi bàn giao kiểm thử đỏ cho AI. Green: AI cài đặt tối thiểu cho kiểm thử đạt. Refactor: AI đề xuất tái cấu trúc khi mọi kiểm thử đạt, con người xét duyệt, rồi vòng lặp quay lại pha Red cho hành vi tiếp theo.](./tdd-ai-dlc-roles-dark.png#gh-dark-mode-only)
+
+File gốc: [nền sáng](pathname:///files/diagrams/2026-10-08-tdd-test-driven-development/vi/tdd-ai-dlc-roles.html) · [nền tối](pathname:///files/diagrams/2026-10-08-tdd-test-driven-development/vi/tdd-ai-dlc-roles-dark.html)
+
 Cơ sở của việc đặt thẩm quyền ở pha Red: đó là nơi định nghĩa sự đúng đắn, tương ứng với nguyên lý thẩm quyền quyết định thuộc về con người của AI-DLC. Cơ sở của việc giao pha Green cho AI: đây là phần có phản hồi tự động rõ ràng nhất, đúng loại tác vụ mà các nghiên cứu ở 4.1 cho thấy mô hình xử lý tốt hơn khi có kiểm thử dẫn dắt.
 
 Nhịp làm việc cũng tương thích. Fucci và cộng sự gắn kết quả tốt với bước nhỏ và đều, còn AI-DLC dùng Bolt (giờ hoặc ngày) thay cho sprint. Mỗi vòng Red-Green-Refactor có thể xem là đơn vị mịn hơn nằm trong một Bolt.

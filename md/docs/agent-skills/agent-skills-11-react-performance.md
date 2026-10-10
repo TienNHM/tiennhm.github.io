@@ -61,6 +61,21 @@ Trong mỗi mục:
 - const posts = await fetchPosts();
 ```
 
+Hai request độc lập, chạy tuần tự thì tổng thời gian là tổng hai request; chạy song song thì chỉ bằng request lâu nhất:
+
+```mermaid
+gantt
+    title Hai request độc lập (thời gian minh hoạ)
+    dateFormat x
+    axisFormat %L ms
+    section Tuần tự
+    fetchUser()  :s1, 0, 300ms
+    fetchPosts() :s2, after s1, 300ms
+    section Promise.all
+    fetchUser()  :p1, 0, 300ms
+    fetchPosts() :p2, 0, 300ms
+```
+
 ---
 
 ### 1.3 🔴 Tối ưu API Route – start promises early, await late

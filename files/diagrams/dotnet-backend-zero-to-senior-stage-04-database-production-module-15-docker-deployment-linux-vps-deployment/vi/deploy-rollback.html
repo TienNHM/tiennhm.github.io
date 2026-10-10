@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>deploy.sh: triển khai có rollback</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Display:wdth,wght@62.5..100,400&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #fafaf7;
+      --color-ink:    #1c1e21;
+      --color-muted:  #525860;
+      --font-sans:    'Geist', system-ui, sans-serif;
+      /* Instrument Serif has no Vietnamese subset; a per-glyph fallback mixes two faces
+         inside one word, so Vietnamese titles swap the whole face instead. */
+      --font-serif:   'Noto Serif Display', serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-stretch: 75%; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 960px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Flowchart · Deploy</p>
+    <h1>deploy.sh: triển khai có rollback</h1>
+    <div class="diagram-container">
+<svg viewBox="0 0 960 524" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="deploy-rollback-title deploy-rollback-desc">
+  <title id="deploy-rollback-title">Luồng deploy.sh có rollback tự động</title>
+  <desc id="deploy-rollback-desc">Sau migration, deploy.sh lưu tag đang chạy, kéo image mới, đổi tag và khởi động lại; nếu /health/ready không khoẻ sau 30 lần thử thì đổi về tag cũ và thoát với mã 1.</desc>
+  <defs>
+    <marker id="deploy-rollback-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#525860"/></marker>
+    <marker id="deploy-rollback-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#18816a"/></marker>
+  </defs>
+  <rect x="0" y="0" width="960" height="500" fill="#fafaf7"/>
+  <!-- zones -->
+  <!-- arrows -->
+  <path d="M224,80 H264" fill="none" stroke="#525860" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#deploy-rollback-arrow)"/>
+  <path d="M448,80 H488" fill="none" stroke="#525860" stroke-width="1.2" marker-end="url(#deploy-rollback-arrow)"/>
+  <path d="M672,80 H712" fill="none" stroke="#525860" stroke-width="1.2" marker-end="url(#deploy-rollback-arrow)"/>
+  <path d="M804,112 V176" fill="none" stroke="#525860" stroke-width="1.2" marker-end="url(#deploy-rollback-arrow)"/>
+  <path d="M696,232 H656" fill="none" stroke="#18816a" stroke-width="1.4" marker-end="url(#deploy-rollback-arrow-accent)"/>
+  <path d="M804,288 V344" fill="none" stroke="#525860" stroke-width="1.2" marker-end="url(#deploy-rollback-arrow)"/>
+  <path d="M712,372 H656" fill="none" stroke="#525860" stroke-width="1.2" marker-end="url(#deploy-rollback-arrow)"/>
+  <!-- labels -->
+  <rect x="664" y="214" width="24" height="12" rx="2" fill="#fafaf7"/><text x="676" y="223" fill="#18816a" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">CÓ</text>
+  <rect x="812" y="310" width="42" height="12" rx="2" fill="#fafaf7"/><text x="833" y="319" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">KHÔNG</text>
+  <!-- nodes -->
+  <rect x="40" y="48" width="184" height="64" rx="6" fill="#fafaf7"/>
+  <rect x="40" y="48" width="184" height="64" rx="6" fill="rgba(28,30,33,0.02)" stroke="rgba(28,30,33,0.3)" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="132.0" y="77.0" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Chạy migration</text>
+  <text x="132.0" y="92.0" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">--migrate · bước riêng</text>
+  <rect x="264" y="48" width="184" height="64" rx="6" fill="#fafaf7"/>
+  <rect x="264" y="48" width="184" height="64" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="356.0" y="77.0" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Lưu tag hiện tại</text>
+  <text x="356.0" y="92.0" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">CURRENT=… từ .env</text>
+  <rect x="488" y="48" width="184" height="64" rx="6" fill="#fafaf7"/>
+  <rect x="488" y="48" width="184" height="64" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="580.0" y="77.0" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Kéo image trước</text>
+  <text x="580.0" y="92.0" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">docker compose pull</text>
+  <rect x="712" y="48" width="184" height="64" rx="6" fill="#fafaf7"/>
+  <rect x="712" y="48" width="184" height="64" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="804.0" y="77.0" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Đổi TAG, khởi động</text>
+  <text x="804.0" y="92.0" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">compose up -d</text>
+  <polygon points="804,176 912,232 804,288 696,232" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="804" y="222" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Healthy?</text>
+  <text x="804" y="236" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">/health/ready</text>
+  <text x="804" y="250" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">30 lần · cách 2s</text>
+  <rect x="456" y="204" width="200" height="56" rx="20" fill="#fafaf7"/>
+  <rect x="456" y="204" width="200" height="56" rx="20" fill="rgba(24,129,106,0.08)" stroke="#18816a" stroke-width="1"/>
+  <text x="556.0" y="229.0" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Triển khai xong</text>
+  <text x="556.0" y="244.0" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">image prune · exit 0</text>
+  <rect x="712" y="344" width="184" height="56" rx="6" fill="#fafaf7"/>
+  <rect x="712" y="344" width="184" height="56" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="804.0" y="369.0" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Rollback</text>
+  <text x="804.0" y="384.0" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">TAG=$CURRENT · up -d</text>
+  <rect x="456" y="344" width="200" height="56" rx="20" fill="#fafaf7"/>
+  <rect x="456" y="344" width="200" height="56" rx="20" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="556.0" y="369.0" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Dừng với exit 1</text>
+  <text x="556.0" y="384.0" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">bản cũ đang chạy lại</text>
+  <!-- top -->
+  <text x="40" y="176" fill="#525860" font-size="11" font-family="'Geist', sans-serif" text-anchor="start">Migration chạy trước, như</text>
+  <text x="40" y="191" fill="#525860" font-size="11" font-family="'Geist', sans-serif" text-anchor="start">một bước riêng: chỉ đúng vì</text>
+  <text x="40" y="206" fill="#525860" font-size="11" font-family="'Geist', sans-serif" text-anchor="start">schema mới tương thích</text>
+  <text x="40" y="221" fill="#525860" font-size="11" font-family="'Geist', sans-serif" text-anchor="start">ngược với code cũ.</text>
+  <line x1="40" y1="436" x2="920" y2="436" stroke="rgba(28,30,33,0.1)" stroke-width="0.8"/>
+  <text x="40" y="456" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">CHÚ GIẢI</text>
+  <rect x="40" y="466" width="24" height="12" rx="2" fill="rgba(28,30,33,0.02)" stroke="rgba(28,30,33,0.3)" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="74" y="475" fill="#525860" font-size="9" font-family="'Geist', sans-serif">Bước riêng, chạy trước</text>
+  <rect x="233.2" y="466" width="24" height="12" rx="2" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="267.2" y="475" fill="#525860" font-size="9" font-family="'Geist', sans-serif">Bước trong deploy.sh</text>
+  <polygon points="415.2,472 427.2,466 439.2,472 427.2,478" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="449.2" y="475" fill="#525860" font-size="9" font-family="'Geist', sans-serif">Chờ healthy</text>
+  <rect x="546.8" y="466" width="24" height="12" rx="2" fill="rgba(24,129,106,0.08)" stroke="#18816a" stroke-width="1"/>
+  <text x="580.8" y="475" fill="#525860" font-size="9" font-family="'Geist', sans-serif">Thành công</text>
+<text id="tiennhm-copyright" x="936" y="512" text-anchor="end" fill="#525860" opacity="0.75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.08em">© tiennhm</text>
+</svg>
+    </div>
+  </div>
+</body>
+</html>

@@ -92,6 +92,15 @@ Sau khi hoàn thành bài học này, bạn sẽ có thể:
 
 **Instead, bạn control specific API endpoints, sites, services, và resources** mà are reachable từ VPC của bạn.
 
+```mermaid
+flowchart LR
+    subgraph VPC["VPC của bạn"]
+        C["Client trong private subnet"]
+    end
+    C -->|"AWS PrivateLink"| S["AWS service, VPC khác, service của cloud provider khác"]
+    C -.- N["Không cần: internet gateway, NAT, public IP, Direct Connect, Site-to-Site VPN"]
+```
+
 #### Benefits của AWS PrivateLink
 
 - 🔒 **Secure traffic** - Bảo mật lưu lượng

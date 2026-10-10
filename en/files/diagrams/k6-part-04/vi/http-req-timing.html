@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Các pha thời gian của một request trong k6</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Display:wdth,wght@62.5..100,400&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #fafaf7;
+      --color-ink:    #1c1e21;
+      --color-muted:  #525860;
+      --font-sans:    'Geist', system-ui, sans-serif;
+      /* Instrument Serif has no Vietnamese subset; a per-glyph fallback mixes two faces
+         inside one word, so Vietnamese titles swap the whole face instead. */
+      --font-serif:   'Noto Serif Display', serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-stretch: 75%; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 960px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Timeline · Chỉ số HTTP của k6</p>
+    <h1>Các pha thời gian của một request trong k6</h1>
+    <div class="diagram-container">
+<svg viewBox="0 0 960 436" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="http-req-timing-title http-req-timing-desc">
+  <title id="http-req-timing-title">Các pha thời gian của một HTTP request trong k6</title>
+  <desc id="http-req-timing-desc">Một request đi qua kết nối TCP, bắt tay TLS (cùng nằm trong http_req_blocked), rồi gửi, chờ và nhận phản hồi; http_req_duration bằng tổng sending, waiting và receiving, còn iteration_duration gồm cả request lẫn sleep(1).</desc>
+  <defs>
+    <marker id="http-req-timing-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#525860"/></marker>
+    <marker id="http-req-timing-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#18816a"/></marker>
+  </defs>
+  <rect width="100%" height="100%" fill="#fafaf7"/>
+  <!-- Brackets -->
+  <path d="M40 96 V84 H320 V96" fill="none" stroke="#525860" stroke-width="1"/>
+  <text x="180" y="60" fill="#1c1e21" font-size="10" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="middle">http_req_blocked</text>
+  <text x="180" y="74" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">avg 24.59ms · chờ có kết nối, gồm cả TCP + TLS</text>
+  <path d="M336 96 V84 H796 V96" fill="none" stroke="#18816a" stroke-width="1.4"/>
+  <text x="566" y="60" fill="#18816a" font-size="10" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="middle">http_req_duration = sending + waiting + receiving</text>
+  <text x="566" y="74" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">avg 276.78ms</text>
+  <path d="M40 212 V224 H920 V212" fill="none" stroke="#525860" stroke-width="1"/>
+  <text x="480" y="246" fill="#1c1e21" font-size="10" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="middle">iteration_duration · avg 1.3s = một lần chạy default function</text>
+  <!-- Segments -->
+  <rect x="40" y="112" width="124" height="84" rx="4" fill="#fafaf7"/>
+  <rect x="40" y="112" width="124" height="84" rx="4" fill="rgba(28,30,33,0.03)" stroke="rgba(28,30,33,0.3)" stroke-width="1"/>
+  <text x="102.0" y="140" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Kết nối TCP</text>
+  <text x="102.0" y="160" fill="#1c1e21" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">http_req_connecting</text>
+  <text x="102.0" y="176" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">avg 10.94ms</text>
+  <rect x="168" y="112" width="152" height="84" rx="4" fill="#fafaf7"/>
+  <rect x="168" y="112" width="152" height="84" rx="4" fill="rgba(28,30,33,0.03)" stroke="rgba(28,30,33,0.3)" stroke-width="1"/>
+  <text x="244.0" y="140" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Bắt tay TLS</text>
+  <text x="244.0" y="160" fill="#1c1e21" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">http_req_tls_handshaking</text>
+  <text x="244.0" y="176" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">avg 11.95ms</text>
+  <rect x="336" y="112" width="112" height="84" rx="4" fill="#fafaf7"/>
+  <rect x="336" y="112" width="112" height="84" rx="4" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="392.0" y="140" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Gửi request</text>
+  <text x="392.0" y="160" fill="#1c1e21" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">http_req_sending</text>
+  <text x="392.0" y="176" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">avg 35.59µs</text>
+  <rect x="452" y="112" width="216" height="84" rx="4" fill="#fafaf7"/>
+  <rect x="452" y="112" width="216" height="84" rx="4" fill="rgba(24,129,106,0.08)" stroke="#18816a" stroke-width="1"/>
+  <text x="560.0" y="140" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Chờ phản hồi</text>
+  <text x="560.0" y="160" fill="#1c1e21" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">http_req_waiting</text>
+  <text x="560.0" y="176" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">avg 263.62ms</text>
+  <rect x="672" y="112" width="124" height="84" rx="4" fill="#fafaf7"/>
+  <rect x="672" y="112" width="124" height="84" rx="4" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="734.0" y="140" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Nhận phản hồi</text>
+  <text x="734.0" y="160" fill="#1c1e21" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">http_req_receiving</text>
+  <text x="734.0" y="176" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">avg 13.12ms</text>
+  <rect x="812" y="112" width="108" height="84" rx="4" fill="#fafaf7"/>
+  <rect x="812" y="112" width="108" height="84" rx="4" fill="rgba(28,30,33,0.02)" stroke="rgba(28,30,33,0.3)" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="866.0" y="140" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">sleep(1)</text>
+  <text x="866.0" y="160" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">trong script</text>
+  <text x="866.0" y="176" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">1s</text>
+  <!-- Note -->
+  <text x="40" y="290" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" text-anchor="start" letter-spacing="0.18em">KHI NÀO TỐN THỜI GIAN KẾT NỐI</text>
+  <text x="40" y="310" fill="#1c1e21" font-size="11" font-family="'Geist', sans-serif" text-anchor="start">Kết nối được tái sử dụng giữa các vòng lặp nên med của blocked, connecting, TLS đều bằng 0s;</text>
+  <text x="40" y="326" fill="#1c1e21" font-size="11" font-family="'Geist', sans-serif" text-anchor="start">chỉ request mở kết nối mới (đầu mỗi VU) mới trả các pha này, nên max lên tới vài trăm ms.</text>
+  <!-- Legend -->
+  <line x1="40" y1="352" x2="920" y2="352" stroke="rgba(28,30,33,0.1)" stroke-width="0.8"/>
+  <text x="40" y="372" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" text-anchor="start" letter-spacing="0.18em">CHÚ GIẢI · ĐỘ RỘNG KHÔNG THEO TỈ LỆ THỜI GIAN</text>
+  <rect x="40" y="384" width="24" height="12" rx="2" fill="rgba(28,30,33,0.03)" stroke="rgba(28,30,33,0.3)" stroke-width="1"/>
+  <text x="72" y="394" fill="#525860" font-size="8.5" font-family="'Geist', sans-serif" text-anchor="start">Mở kết nối</text>
+  <rect x="180" y="384" width="24" height="12" rx="2" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="212" y="394" fill="#525860" font-size="8.5" font-family="'Geist', sans-serif" text-anchor="start">Trao đổi request / response</text>
+  <rect x="420" y="384" width="24" height="12" rx="2" fill="rgba(24,129,106,0.08)" stroke="#18816a" stroke-width="1"/>
+  <text x="452" y="394" fill="#525860" font-size="8.5" font-family="'Geist', sans-serif" text-anchor="start">Pha chiếm phần lớn thời gian</text>
+  <rect x="660" y="384" width="24" height="12" rx="2" fill="rgba(28,30,33,0.02)" stroke="rgba(28,30,33,0.3)" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="692" y="394" fill="#525860" font-size="8.5" font-family="'Geist', sans-serif" text-anchor="start">Không phải pha HTTP</text>
+<text id="tiennhm-copyright" x="936" y="424" text-anchor="end" fill="#525860" opacity="0.75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.08em">© tiennhm</text>
+</svg>
+    </div>
+  </div>
+</body>
+</html>

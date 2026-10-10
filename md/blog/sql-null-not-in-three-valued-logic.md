@@ -125,6 +125,13 @@ Chuyện tương tự xảy ra với mọi dòng, kể cả dòng có `thanh_pho
 
 Bên trong subquery, phép `x.thanh_pho = k.thanh_pho` vẫn cho `UNKNOWN` khi gặp `NULL`, nên dòng đó không được chọn, nên subquery rỗng, nên `NOT EXISTS` là `TRUE`. Cái không biết dừng lại ở ranh giới subquery thay vì lan ra ngoài.
 
+Đặt hai cách viết cạnh nhau, theo đúng một dòng của khách An:
+
+![Sơ đồ đi theo một dòng có thanh_pho = 'HCM' qua hai nhánh. Nhánh NOT IN khai triển thành phép so sánh 'HCM' khác NULL, ra UNKNOWN, WHERE không thấy TRUE nên loại dòng, cả câu trả về 0 dòng. Nhánh NOT EXISTS chạy subquery, NULL = 'HCM' không khớp nên subquery rỗng, NOT EXISTS ra TRUE, WHERE giữ dòng, cả câu trả về 3 dòng.](./not-in-vs-not-exists.png#gh-light-mode-only)
+![Sơ đồ đi theo một dòng có thanh_pho = 'HCM' qua hai nhánh. Nhánh NOT IN khai triển thành phép so sánh 'HCM' khác NULL, ra UNKNOWN, WHERE không thấy TRUE nên loại dòng, cả câu trả về 0 dòng. Nhánh NOT EXISTS chạy subquery, NULL = 'HCM' không khớp nên subquery rỗng, NOT EXISTS ra TRUE, WHERE giữ dòng, cả câu trả về 3 dòng.](./not-in-vs-not-exists-dark.png#gh-dark-mode-only)
+
+File gốc: [nền sáng](pathname:///files/diagrams/2026-09-24-sql-null-not-in/vi/not-in-vs-not-exists.html) · [nền tối](pathname:///files/diagrams/2026-09-24-sql-null-not-in/vi/not-in-vs-not-exists-dark.html)
+
 ---
 
 ## Bốn chỗ khác NULL âm thầm đổi kết quả

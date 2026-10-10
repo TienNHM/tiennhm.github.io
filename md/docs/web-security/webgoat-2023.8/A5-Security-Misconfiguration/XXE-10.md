@@ -20,6 +20,22 @@
 - Gửi một request **ping đến WebWolf**.
 - Gửi nội dung file **ra ngoài** qua HTTP/DNS request.
 
+Toàn bộ quá trình out-of-band diễn ra như sau:
+
+```mermaid
+sequenceDiagram
+    participant A as Attacker
+    participant S as Server WebGoat
+    participant W as WebWolf
+    A->>S: Gửi XML có %remote trỏ tới attack.dtd
+    S->>W: Tải attack.dtd từ xa
+    W-->>S: DTD (đọc file + gửi ra ngoài)
+    S->>S: Đọc file bí mật trên server
+    S->>W: GET /landing?text=noi-dung-file
+    A->>W: Xem Incoming requests
+    W-->>A: Nội dung file bị rò rỉ
+```
+
 ## **2. Cách thực hiện Blind XXE**
 
 ### **1️⃣ Chuẩn bị máy chủ nhận dữ liệu**

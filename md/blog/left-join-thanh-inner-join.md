@@ -120,6 +120,13 @@ Kết quả: mọi dòng do `LEFT JOIN` sinh ra đều bị xoá sạch, và b�
 
 Chi không có đơn nào khớp → Chi vẫn ở đó với `NULL`. Đúng ý định.
 
+Gộp hai trường hợp vào cùng một hình, theo thứ tự xử lý logic:
+
+![Sơ đồ hai đường đi của cùng điều kiện d.tong > 400. Đặt ở WHERE: bước 1 LEFT JOIN ra 4 dòng, dòng Chi mang NULL; bước 2 WHERE tính NULL > 400 thành UNKNOWN và loại dòng Chi, còn 2 dòng là An 500 và Binh 700. Đặt trong ON: LEFT JOIN giữ Chi với NULL, không có WHERE lọc thêm, ra 3 dòng là An 500, Binh 700 và Chi NULL.](./left-join-on-vs-where.png#gh-light-mode-only)
+![Sơ đồ hai đường đi của cùng điều kiện d.tong > 400. Đặt ở WHERE: bước 1 LEFT JOIN ra 4 dòng, dòng Chi mang NULL; bước 2 WHERE tính NULL > 400 thành UNKNOWN và loại dòng Chi, còn 2 dòng là An 500 và Binh 700. Đặt trong ON: LEFT JOIN giữ Chi với NULL, không có WHERE lọc thêm, ra 3 dòng là An 500, Binh 700 và Chi NULL.](./left-join-on-vs-where-dark.png#gh-dark-mode-only)
+
+File gốc: [nền sáng](pathname:///files/diagrams/2026-09-25-left-join-thanh-inner-join/vi/left-join-on-vs-where.html) · [nền tối](pathname:///files/diagrams/2026-09-25-left-join-thanh-inner-join/vi/left-join-on-vs-where-dark.html)
+
 ---
 
 ## Quy tắc quyết định

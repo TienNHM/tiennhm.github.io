@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HybridCache.GetOrCreateAsync làm gì</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Display:wdth,wght@62.5..100,400&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #fafaf7;
+      --color-ink:    #1c1e21;
+      --color-muted:  #525860;
+      --font-sans:    'Geist', system-ui, sans-serif;
+      /* Instrument Serif has no Vietnamese subset; a per-glyph fallback mixes two faces
+         inside one word, so Vietnamese titles swap the whole face instead. */
+      --font-serif:   'Noto Serif Display', serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-stretch: 75%; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 960px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Flowchart · HybridCache</p>
+    <h1>HybridCache.GetOrCreateAsync làm gì</h1>
+    <div class="diagram-container">
+<svg viewBox="0 0 960 708" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="hybridcache-title hybridcache-desc">
+  <title id="hybridcache-title">Luồng HybridCache.GetOrCreateAsync</title>
+  <desc id="hybridcache-desc">GetOrCreateAsync kiểm tra L1 trong tiến trình, rồi L2 Redis; chỉ khi cả hai miss mới gọi factory một lần cho mọi request cùng khoá, ghi kết quả vào cả hai tầng rồi trả về.</desc>
+  <defs>
+    <marker id="hybridcache-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#525860"/></marker>
+    <marker id="hybridcache-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#18816a"/></marker>
+  </defs>
+  <rect x="0" y="0" width="960" height="684" fill="#fafaf7"/>
+  <!-- zones -->
+  <!-- arrows -->
+  <path d="M336,72 V104" fill="none" stroke="#525860" stroke-width="1.2" marker-end="url(#hybridcache-arrow)"/>
+  <path d="M336,192 V232" fill="none" stroke="#525860" stroke-width="1.2" marker-end="url(#hybridcache-arrow)"/>
+  <path d="M440,148 H536" fill="none" stroke="#525860" stroke-width="1.2" marker-end="url(#hybridcache-arrow)"/>
+  <path d="M440,276 H536" fill="none" stroke="#525860" stroke-width="1.2" marker-end="url(#hybridcache-arrow)"/>
+  <path d="M336,320 V368" fill="none" stroke="#525860" stroke-width="1.2" marker-end="url(#hybridcache-arrow)"/>
+  <path d="M336,424 V464" fill="none" stroke="#18816a" stroke-width="1.4" marker-end="url(#hybridcache-arrow-accent)"/>
+  <path d="M336,520 V560" fill="none" stroke="#525860" stroke-width="1.2" marker-end="url(#hybridcache-arrow)"/>
+  <!-- labels -->
+  <rect x="344" y="206" width="42" height="12" rx="2" fill="#fafaf7"/><text x="365" y="215" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">KHÔNG</text>
+  <rect x="476" y="130" width="24" height="12" rx="2" fill="#fafaf7"/><text x="488" y="139" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">CÓ</text>
+  <rect x="476" y="258" width="24" height="12" rx="2" fill="#fafaf7"/><text x="488" y="267" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">CÓ</text>
+  <rect x="344" y="338" width="42" height="12" rx="2" fill="#fafaf7"/><text x="365" y="347" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">KHÔNG</text>
+  <!-- nodes -->
+  <rect x="236" y="24" width="200" height="48" rx="20" fill="#fafaf7"/>
+  <rect x="236" y="24" width="200" height="48" rx="20" fill="rgba(28,30,33,0.03)" stroke="rgba(28,30,33,0.3)" stroke-width="1"/>
+  <text x="336.0" y="45.0" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Request</text>
+  <text x="336.0" y="60.0" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">GetOrCreateAsync(key)</text>
+  <polygon points="336,104 440,148 336,192 232,148" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="336" y="145" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Có trong L1?</text>
+  <text x="336" y="159" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">IMemoryCache</text>
+  <rect x="536" y="120" width="232" height="56" rx="20" fill="#fafaf7"/>
+  <rect x="536" y="120" width="232" height="56" rx="20" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="652.0" y="145.0" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Trả ngay từ L1</text>
+  <text x="652.0" y="160.0" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">trong tiến trình</text>
+  <polygon points="336,232 440,276 336,320 232,276" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="336" y="273" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Có trong L2?</text>
+  <text x="336" y="287" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">Redis</text>
+  <rect x="536" y="248" width="232" height="56" rx="20" fill="#fafaf7"/>
+  <rect x="536" y="248" width="232" height="56" rx="20" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="652.0" y="273.0" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Nạp lên L1 rồi trả</text>
+  <text x="652.0" y="288.0" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">deserialize từ Redis</text>
+  <rect x="236" y="368" width="200" height="56" rx="6" fill="#fafaf7"/>
+  <rect x="236" y="368" width="200" height="56" rx="6" fill="rgba(24,129,106,0.08)" stroke="#18816a" stroke-width="1"/>
+  <text x="336.0" y="393.0" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Gọi factory một lần</text>
+  <text x="336.0" y="408.0" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">truy vấn database</text>
+  <rect x="216" y="464" width="240" height="56" rx="6" fill="#fafaf7"/>
+  <rect x="216" y="464" width="240" height="56" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="336.0" y="489.0" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Ghi cả L2 và L1</text>
+  <text x="336.0" y="504.0" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">Expiration · LocalCacheExpiration</text>
+  <rect x="236" y="560" width="200" height="48" rx="20" fill="#fafaf7"/>
+  <rect x="236" y="560" width="200" height="48" rx="20" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="336.0" y="581.0" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Trả kết quả</text>
+  <text x="336.0" y="596.0" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">cho mọi request đang chờ</text>
+  <!-- top -->
+  <text x="488" y="386" fill="#525860" font-size="11" font-family="'Geist', sans-serif" text-anchor="start">100 request cùng khoá, cùng miss: chỉ một</text>
+  <text x="488" y="401" fill="#525860" font-size="11" font-family="'Geist', sans-serif" text-anchor="start">request chạy factory, 99 request còn lại chờ kết quả đó.</text>
+  <text x="488" y="482" fill="#525860" font-size="11" font-family="'Geist', sans-serif" text-anchor="start">TTL của L1 ngắn hơn L2 (L2 5 phút thì L1 1 phút):</text>
+  <text x="488" y="497" fill="#525860" font-size="11" font-family="'Geist', sans-serif" text-anchor="start">lưới an toàn khi L1 các pod lệch nhau.</text>
+  <line x1="40" y1="632" x2="920" y2="632" stroke="rgba(28,30,33,0.1)" stroke-width="0.8"/>
+  <text x="40" y="652" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">CHÚ GIẢI</text>
+  <rect x="40" y="662" width="24" height="12" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="74" y="671" fill="#525860" font-size="9" font-family="'Geist', sans-serif">Vào / trả về</text>
+  <polygon points="177.2,668 189.2,662 201.2,668 189.2,674" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="211.2" y="671" fill="#525860" font-size="9" font-family="'Geist', sans-serif">Kiểm tra tầng cache</text>
+  <rect x="353.59999999999997" y="662" width="24" height="12" rx="2" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="387.59999999999997" y="671" fill="#525860" font-size="9" font-family="'Geist', sans-serif">Bước xử lý</text>
+  <rect x="479.59999999999997" y="662" width="24" height="12" rx="2" fill="rgba(24,129,106,0.08)" stroke="#18816a" stroke-width="1"/>
+  <text x="513.5999999999999" y="671" fill="#525860" font-size="9" font-family="'Geist', sans-serif">Chống stampede</text>
+<text id="tiennhm-copyright" x="936" y="696" text-anchor="end" fill="#525860" opacity="0.75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.08em">© tiennhm</text>
+</svg>
+    </div>
+  </div>
+</body>
+</html>

@@ -89,6 +89,11 @@ Danh sách khách hàng xuất hiện **cả ở USA và Europe**.
 | Hiển thị tất cả dòng | ❌ Không     | ✅ Có         | ❌ Không       |
 | Lấy dữ liệu chung    | ❌ Không     | ❌ Không      | ✅ Có          |
 
+![Ba biểu đồ Venn giữa hai bảng Customers_USA và Customers_Europe. UNION tô đậm cả hai hình tròn và loại bỏ dòng trùng. UNION ALL tô đậm cả hai và đánh dấu phần giao nhân hai vì giữ lại dòng trùng. INTERSECT chỉ tô đậm phần giao, là các dòng có ở cả hai truy vấn.](./img/union-intersect.png#gh-light-mode-only)
+![Ba biểu đồ Venn giữa hai bảng Customers_USA và Customers_Europe. UNION tô đậm cả hai hình tròn và loại bỏ dòng trùng. UNION ALL tô đậm cả hai và đánh dấu phần giao nhân hai vì giữ lại dòng trùng. INTERSECT chỉ tô đậm phần giao, là các dòng có ở cả hai truy vấn.](./img/union-intersect-dark.png#gh-dark-mode-only)
+
+File gốc: [nền sáng](pathname:///files/diagrams/database-learn-sql-in-30-days-union-intersect/vi/union-intersect.html) · [nền tối](pathname:///files/diagrams/database-learn-sql-in-30-days-union-intersect/vi/union-intersect-dark.html)
+
 ---
 
 ## **4️⃣ Bài tập thử thách 🚀**

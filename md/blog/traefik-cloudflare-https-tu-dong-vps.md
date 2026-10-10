@@ -89,6 +89,18 @@ Trên một VPS trần thì hoàn hảo. Sau Cloudflare với Full (strict) thì
 4. Bộ xử lý challenge của Traefik chỉ nằm trên entrypoint `web`, tức cổng 80
 5. Cổng 443 trả 404 cho đường dẫn đó → challenge trượt
 
+```mermaid
+sequenceDiagram
+    participant LE as Let's Encrypt
+    participant CF as Cloudflare (mây cam)
+    participant T as Traefik
+    LE->>CF: GET /.well-known/acme-challenge/abc qua cổng 80
+    CF->>T: gọi lại origin bằng HTTPS :443 (Full strict)
+    Note over T: bộ xử lý challenge chỉ nằm ở entrypoint web :80
+    T-->>CF: 404
+    CF-->>LE: 404, challenge trượt
+```
+
 Nói gọn: **cần cert để qua được Cloudflare, cần qua Cloudflare mới lấy được cert.**
 
 Vòng này lách được. Tắt mây cam cho record về **DNS only (mây xám)**, để Let's Encrypt gọi thẳng VPS, lấy cert xong rồi bật mây cam lại. Tôi từng làm đúng vậy và nó chạy.
@@ -105,6 +117,13 @@ Vì sau khi bật lại mây cam, mọi thứ trông hoàn hảo: site chạy HT
 
 ## Lối ra: DNS-01
 **DNS-01** xác thực bằng cách tạo một bản ghi TXT tại `_acme-challenge.` thay vì phục vụ một file qua HTTP. Điểm mấu chốt: **không request nào chạm tới origin**, nên mây cam bật hay tắt đều không ảnh hưởng.
+
+Hai đường đi giờ tách hẳn nhau: request của khách vẫn qua Cloudflare tới Traefik, còn việc xin cert chỉ nói chuyện với API DNS và Let's Encrypt.
+
+![Kiến trúc Traefik sau Cloudflare: request của khách đi từ trình duyệt qua Cloudflare proxy (mây cam, Full strict) bằng HTTPS tới Traefik v3 cổng 443 trên network edge của VPS, rồi tới 10 site WordPress, API .NET với app Angular, và web app sự kiện. Đường xin cert tách riêng: Traefik tạo bản ghi TXT _acme-challenge qua Cloudflare DNS API và xin cert từ Let's Encrypt, Let's Encrypt kiểm bản ghi TXT đó, không request nào chạm origin. Web app sự kiện thuộc zone khác nên token không thấy và không có cert.](./traefik-cloudflare-dns01.png#gh-light-mode-only)
+![Kiến trúc Traefik sau Cloudflare: request của khách đi từ trình duyệt qua Cloudflare proxy (mây cam, Full strict) bằng HTTPS tới Traefik v3 cổng 443 trên network edge của VPS, rồi tới 10 site WordPress, API .NET với app Angular, và web app sự kiện. Đường xin cert tách riêng: Traefik tạo bản ghi TXT _acme-challenge qua Cloudflare DNS API và xin cert từ Let's Encrypt, Let's Encrypt kiểm bản ghi TXT đó, không request nào chạm origin. Web app sự kiện thuộc zone khác nên token không thấy và không có cert.](./traefik-cloudflare-dns01-dark.png#gh-dark-mode-only)
+
+File gốc: [nền sáng](pathname:///files/diagrams/2026-09-22-traefik-cloudflare-vps/vi/traefik-cloudflare-dns01.html) · [nền tối](pathname:///files/diagrams/2026-09-22-traefik-cloudflare-vps/vi/traefik-cloudflare-dns01-dark.html)
 
 Cấu hình trong Traefik:
 

@@ -60,6 +60,17 @@ SELECT * FROM EmployeeHierarchy ORDER BY Level;
 ✔ Bước 3: Tiếp tục tìm nhân viên cấp dưới.
 ✔ Kết quả hiển thị thứ bậc nhân viên.
 
+Cách database chạy một CTE đệ quy như `EmployeeHierarchy`:
+
+```mermaid
+flowchart TD
+    A["Truy vấn gốc: CEO (ManagerID IS NULL)"] --> R["Thêm vào kết quả"]
+    R --> Q["Truy vấn đệ quy: JOIN Employees với các dòng vừa thêm"]
+    Q --> C{"Có dòng mới?"}
+    C -- "có" --> R
+    C -- "không" --> E["Dừng, trả toàn bộ kết quả (UNION ALL)"]
+```
+
 ---
 
 ### ✅ **2.3. Bài Toán Đường Đi Ngắn Nhất (Shortest Path Problem)**

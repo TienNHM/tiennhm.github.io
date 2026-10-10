@@ -16,6 +16,18 @@
 - Bảo mật tốt hơn, hạn chế SQL Injection.
 - Cho phép thực hiện nhiều truy vấn cùng lúc.
 
+Khi ứng dụng gọi một thủ tục, DBMS dùng lại kế hoạch đã biên dịch sẵn thay vì phân tích lại từng câu lệnh:
+
+```mermaid
+sequenceDiagram
+    participant App as Ứng dụng
+    participant DB as DBMS
+    App->>DB: EXEC GetCustomerById 1
+    Note over DB: Dùng kế hoạch đã biên dịch sẵn
+    DB->>DB: Chạy các câu lệnh SQL trong thủ tục
+    DB-->>App: Tập kết quả
+```
+
 💡 **Ví dụ thực tế:**
 - Tạo báo cáo doanh thu hàng tháng.
 - Xử lý đặt hàng trong hệ thống e-commerce.

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>One INSERT, five structures to change</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Display:wdth,wght@62.5..100,400&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #fafaf7;
+      --color-ink:    #1c1e21;
+      --color-muted:  #525860;
+      --font-sans:    'Geist', system-ui, sans-serif;
+      /* Instrument Serif has no Vietnamese subset; a per-glyph fallback mixes two faces
+         inside one word, so Vietnamese titles swap the whole face instead. */
+      --font-serif:   'Noto Serif Display', serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-stretch: 75%; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 960px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Fan-out · The write cost of indexes</p>
+    <h1>One INSERT, five structures to change</h1>
+    <div class="diagram-container">
+<svg viewBox="0 0 960 536" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="insert-fan-out-title insert-fan-out-desc">
+  <title id="insert-fan-out-title">One INSERT, five structures to change</title>
+  <desc id="insert-fan-out-desc">One INSERT into table w4 writes the table heap and inserts an entry into four B-tree indexes on a, b, c and d, and every change adds a WAL record. Measured on 200,000 rows: no index takes 287.8 ms and 10.2 MB, four indexes take 1,722.3 ms and 27 MB, 6 times slower and 2.6 times larger.</desc>
+  <defs>
+    <marker id="insert-fan-out-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#525860"/></marker>
+    <marker id="insert-fan-out-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#18816a"/></marker>
+  </defs>
+  <rect width="100%" height="100%" fill="#fafaf7"/>
+  <g transform="translate(0,-64)">
+  <rect x="344" y="156" width="272" height="280" rx="8" fill="rgba(28,30,33,0.02)" stroke="rgba(28,30,33,0.1)" stroke-width="1"/>
+  <text x="356" y="428" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em" text-anchor="start">4 INDEXES · WRITTEN EVEN IF UNUSED</text>
+  <path d="M220 224 H252 Q260 224 260 216 V136 Q260 128 268 128 H360" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#insert-fan-out-arrow)"/>
+  <path d="M220 240 H276 Q284 240 284 232 V200 Q284 192 292 192 H360" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#insert-fan-out-arrow)"/>
+  <path d="M220 256 L360 256" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#insert-fan-out-arrow)"/>
+  <path d="M220 272 H276 Q284 272 284 280 V312 Q284 320 292 320 H360" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#insert-fan-out-arrow)"/>
+  <path d="M220 288 H252 Q260 288 260 296 V376 Q260 384 268 384 H360" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#insert-fan-out-arrow)"/>
+  <path d="M600 128 H672 Q680 128 680 136 V216 Q680 224 688 224 H720" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#insert-fan-out-arrow)"/>
+  <path d="M600 192 H648 Q656 192 656 200 V232 Q656 240 664 240 H720" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#insert-fan-out-arrow)"/>
+  <path d="M600 256 L720 256" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#insert-fan-out-arrow)"/>
+  <path d="M600 320 H648 Q656 320 656 312 V280 Q656 272 664 272 H720" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#insert-fan-out-arrow)"/>
+  <path d="M600 384 H672 Q680 384 680 376 V296 Q680 288 688 288 H720" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#insert-fan-out-arrow)"/>
+  <rect x="40" y="208" width="180" height="96" rx="20" fill="#fafaf7"/>
+  <rect x="40" y="208" width="180" height="96" rx="20" fill="rgba(28,30,33,0.03)" stroke="rgba(28,30,33,0.3)" stroke-width="1"/>
+  <text x="130" y="253" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">INSERT 1 row</text><text x="130" y="268" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">into table w4</text>
+  <rect x="360" y="104" width="240" height="48" rx="6" fill="#fafaf7"/>
+  <rect x="360" y="104" width="240" height="48" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="480" y="125" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Table heap</text><text x="480" y="140" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">the row itself</text>
+  <rect x="360" y="168" width="240" height="48" rx="6" fill="#fafaf7"/>
+  <rect x="360" y="168" width="240" height="48" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="480" y="189" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Index on a</text><text x="480" y="204" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">B-tree: insert entry, rebalance</text>
+  <rect x="360" y="232" width="240" height="48" rx="6" fill="#fafaf7"/>
+  <rect x="360" y="232" width="240" height="48" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="480" y="253" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Index on b</text><text x="480" y="268" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">B-tree</text>
+  <rect x="360" y="296" width="240" height="48" rx="6" fill="#fafaf7"/>
+  <rect x="360" y="296" width="240" height="48" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="480" y="317" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Index on c</text><text x="480" y="332" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">B-tree</text>
+  <rect x="360" y="360" width="240" height="48" rx="6" fill="#fafaf7"/>
+  <rect x="360" y="360" width="240" height="48" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="480" y="381" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Index on d</text><text x="480" y="396" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">B-tree</text>
+  <rect x="720" y="208" width="192" height="96" rx="6" fill="#fafaf7"/>
+  <rect x="720" y="208" width="192" height="96" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="816" y="246" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">WAL</text><text x="816" y="261" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">write-ahead log</text><text x="816" y="275" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">one record per change</text>
+  <text x="40" y="476" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em" text-anchor="start">MEASURED ON 200,000 ROWS, POSTGRESQL 16</text>
+  <rect x="40" y="488" width="400" height="56" rx="6" fill="#fafaf7"/>
+  <rect x="40" y="488" width="400" height="56" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="240" y="513" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">No index (w0)</text><text x="240" y="528" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">287.8 ms · 10.2 MB</text>
+  <rect x="480" y="488" width="432" height="56" rx="6" fill="#fafaf7"/>
+  <rect x="480" y="488" width="432" height="56" rx="6" fill="rgba(24,129,106,0.08)" stroke="#18816a" stroke-width="1"/>
+  <text x="696" y="513" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">4 indexes (w4)</text><text x="696" y="528" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">1,722.3 ms · 27 MB · 6x slower, 2.6x larger</text>
+  </g>
+<text id="tiennhm-copyright" x="936" y="524" text-anchor="end" fill="#525860" opacity="0.75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.08em">© tiennhm</text>
+</svg>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Điều kiện ở WHERE hay ở ON</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Display:wdth,wght@62.5..100,400&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #fafaf7;
+      --color-ink:    #1c1e21;
+      --color-muted:  #525860;
+      --font-sans:    'Geist', system-ui, sans-serif;
+      /* Instrument Serif has no Vietnamese subset; a per-glyph fallback mixes two faces
+         inside one word, so Vietnamese titles swap the whole face instead. */
+      --font-serif:   'Noto Serif Display', serif;
+      --font-mono:    'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-stretch: 75%; font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 960px; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Data flow · Thứ tự xử lý mệnh đề</p>
+    <h1>Điều kiện ở WHERE hay ở ON</h1>
+    <div class="diagram-container">
+<svg viewBox="0 0 960 536" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="left-join-on-vs-where-title left-join-on-vs-where-desc">
+  <title id="left-join-on-vs-where-title">Điều kiện ở WHERE hay ở ON</title>
+  <desc id="left-join-on-vs-where-desc">kh và dh đi qua hai đường. Đặt d.tong &gt; 400 ở WHERE: LEFT JOIN ra 4 dòng với dòng Chi mang NULL, rồi WHERE tính NULL &gt; 400 thành UNKNOWN và loại dòng Chi, còn 2 dòng. Đặt điều kiện trong ON: LEFT JOIN giữ Chi với NULL, không có WHERE nào lọc thêm, ra 3 dòng.</desc>
+  <defs>
+    <marker id="left-join-on-vs-where-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#525860"/></marker>
+    <marker id="left-join-on-vs-where-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#18816a"/></marker>
+  </defs>
+  <rect width="100%" height="100%" fill="#fafaf7"/>
+  <rect x="216" y="40" width="272" height="384" rx="8" fill="rgba(28,30,33,0.02)" stroke="rgba(28,30,33,0.1)" stroke-width="1"/>
+  <text x="228" y="60" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em" text-anchor="start">BƯỚC 1 · FROM + JOIN … ON</text>
+  <rect x="504" y="40" width="208" height="384" rx="8" fill="rgba(28,30,33,0.02)" stroke="rgba(28,30,33,0.1)" stroke-width="1"/>
+  <text x="516" y="60" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em" text-anchor="start">BƯỚC 2 · WHERE</text>
+  <rect x="728" y="40" width="200" height="384" rx="8" fill="rgba(28,30,33,0.02)" stroke="rgba(28,30,33,0.1)" stroke-width="1"/>
+  <text x="740" y="60" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em" text-anchor="start">KẾT QUẢ</text>
+  <text x="232" y="100" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em" text-anchor="start">ĐIỀU KIỆN ĐẶT Ở WHERE</text>
+  <text x="232" y="300" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em" text-anchor="start">ĐIỀU KIỆN ĐẶT Ở ON</text>
+  <path d="M176 236 H188 Q196 236 196 228 V156 Q196 148 204 148 H232" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#left-join-on-vs-where-arrow)"/>
+  <path d="M176 260 H188 Q196 260 196 268 V340 Q196 348 204 348 H232" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#left-join-on-vs-where-arrow)"/>
+  <path d="M472 148 L520 148" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#left-join-on-vs-where-arrow)"/>
+  <path d="M696 148 L744 148" stroke="#525860" stroke-width="1.2" fill="none" marker-end="url(#left-join-on-vs-where-arrow)"/>
+  <path d="M472 348 L744 348" stroke="#18816a" stroke-width="1.4" fill="none" marker-end="url(#left-join-on-vs-where-arrow-accent)"/>
+  <rect x="561" y="330" width="94" height="12" rx="2" fill="#fafaf7"/><text x="608" y="339" fill="#18816a" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">KHÔNG CÓ WHERE</text>
+  <rect x="32" y="220" width="144" height="56" rx="6" fill="#fafaf7"/>
+  <rect x="32" y="220" width="144" height="56" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="104" y="245" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">kh + dh</text><text x="104" y="260" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">3 khách · 3 đơn</text>
+  <rect x="232" y="112" width="240" height="72" rx="6" fill="#fafaf7"/>
+  <rect x="232" y="112" width="240" height="72" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="352" y="138" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">LEFT JOIN</text><text x="352" y="153" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">ON d.kh_id = k.id</text><text x="352" y="167" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">ra 4 dòng · Chi: d.* = NULL</text>
+  <rect x="520" y="112" width="176" height="72" rx="6" fill="#fafaf7"/>
+  <rect x="520" y="112" width="176" height="72" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="608" y="138" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">WHERE d.tong &gt; 400</text><text x="608" y="153" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">NULL &gt; 400 → UNKNOWN</text><text x="608" y="167" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">dòng của Chi bị loại</text>
+  <rect x="744" y="112" width="168" height="72" rx="6" fill="#fafaf7"/>
+  <rect x="744" y="112" width="168" height="72" rx="6" fill="rgba(28,30,33,0.02)" stroke="rgba(28,30,33,0.3)" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="828" y="138" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">2 dòng</text><text x="828" y="153" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">An 500 · Binh 700</text><text x="828" y="167" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">Chi biến mất</text>
+  <rect x="232" y="312" width="240" height="72" rx="6" fill="#fafaf7"/>
+  <rect x="232" y="312" width="240" height="72" rx="6" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="352" y="338" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">LEFT JOIN</text><text x="352" y="353" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">ON d.kh_id = k.id</text><text x="352" y="367" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">AND d.tong &gt; 400</text>
+  <rect x="744" y="312" width="168" height="72" rx="6" fill="#fafaf7"/>
+  <rect x="744" y="312" width="168" height="72" rx="6" fill="rgba(24,129,106,0.08)" stroke="#18816a" stroke-width="1"/>
+  <text x="828" y="338" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">3 dòng</text><text x="828" y="353" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">An 500 · Binh 700</text><text x="828" y="367" fill="#525860" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">Chi · NULL</text>
+  <line x1="40" y1="448" x2="920" y2="448" stroke="rgba(28,30,33,0.1)" stroke-width="0.8"/>
+  <text x="40" y="468" fill="#525860" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">CHÚ GIẢI</text>
+  <rect x="40" y="484" width="24" height="12" rx="3" fill="rgba(28,30,33,0.02)" stroke="rgba(28,30,33,0.1)" stroke-width="1"/>
+  <text x="72" y="494" fill="#525860" font-size="8.5" font-family="'Geist', sans-serif">Thứ tự xử lý logic</text>
+  <rect x="200" y="484" width="24" height="12" rx="2" fill="#ffffff" stroke="#1c1e21" stroke-width="1"/>
+  <text x="232" y="494" fill="#525860" font-size="8.5" font-family="'Geist', sans-serif">Mệnh đề</text>
+  <rect x="306" y="484" width="24" height="12" rx="2" fill="rgba(28,30,33,0.02)" stroke="rgba(28,30,33,0.3)" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="338" y="494" fill="#525860" font-size="8.5" font-family="'Geist', sans-serif">Kết quả mất dòng</text>
+  <rect x="456" y="484" width="24" height="12" rx="2" fill="rgba(24,129,106,0.08)" stroke="#18816a" stroke-width="1"/>
+  <text x="488" y="494" fill="#525860" font-size="8.5" font-family="'Geist', sans-serif">Kết quả đúng ý định</text>
+<text id="tiennhm-copyright" x="936" y="524" text-anchor="end" fill="#525860" opacity="0.75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.08em">© tiennhm</text>
+</svg>
+    </div>
+  </div>
+</body>
+</html>

@@ -39,6 +39,16 @@ Swashbuckle.AspNetCore là package của cộng đồng, không phải của Mic
 ## Scalar là gì?
 **Scalar** là open-source API Reference UI, đọc OpenAPI 3.1 và render thành giao diện tài liệu API tương tác. Scalar được tích hợp vào ASP.NET Core qua NuGet package `Scalar.AspNetCore`.
 
+Scalar chỉ đọc file JSON; phần sinh document là việc của ASP.NET Core:
+
+```mermaid
+flowchart LR
+    E["Endpoint<br/>Minimal API hoặc Controller"] --> G["AddOpenApi + MapOpenApi<br/>Microsoft.AspNetCore.OpenApi"]
+    G --> J["/openapi/v1.json<br/>OpenAPI 3.1"]
+    J --> S["MapScalarApiReference<br/>/scalar/v1"]
+    J -.-> W["Swagger UI<br/>tuỳ chọn, chạy song song"]
+```
+
 Scalar không chỉ là "Swagger UI đẹp hơn" mà có thêm nhiều tính năng nổi bật:
 
 - **Dark mode tích hợp sẵn** - không cần theme tùy chỉnh

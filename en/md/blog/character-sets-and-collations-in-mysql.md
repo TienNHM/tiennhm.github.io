@@ -312,6 +312,13 @@ Ba collation hay gặp của `utf8mb4`:
 
 Charset và collation được quyết định ở bốn cấp, cấp nhỏ hơn ghi đè cấp lớn hơn: **server → database → bảng → cột**.
 
+```mermaid
+flowchart LR
+    S["Server: character_set_server, collation_server"] -->|"mặc định cho"| D["Database"]
+    D -->|"mặc định cho"| T["Bảng"]
+    T -->|"mặc định cho"| C["Cột"]
+```
+
 **Xem server đang dùng gì:**
 
 ```sql

@@ -58,6 +58,13 @@ public sealed class CustomerCacheRefresher
 
 The container resolves `CustomerCacheRefresher` exactly once, the first time anything needs it. At that very moment it also builds an `EfCustomerRepository` along with a `CrmDbContext` and stuffs it into the field. The `Singleton` instance lives until the app shuts down, and so does the `DbContext` inside it. In other words, **a dependency's effective lifetime equals that of the longest-lived consumer holding it**. The `Scoped` service has been taken captive — hence the name captive dependency.
 
+On a time axis it is obvious how much longer the captured `DbContext` lives than everything else:
+
+![Lifetime chart along a time axis from app start to app shutdown. The CustomerCacheRefresher singleton is resolved exactly once and lives until shutdown; the CrmDbContext held in its field is captured and lives just as long, with a growing change tracker, stale data and race conditions. By contrast, requests A, B and C each get their own DbContext, disposed by the container when the request ends; the fix uses CreateAsyncScope per call, so each scope is short and disposed right after the read](./captive-dependency-lifetime.png#gh-light-mode-only)
+![Lifetime chart along a time axis from app start to app shutdown. The CustomerCacheRefresher singleton is resolved exactly once and lives until shutdown; the CrmDbContext held in its field is captured and lives just as long, with a growing change tracker, stale data and race conditions. By contrast, requests A, B and C each get their own DbContext, disposed by the container when the request ends; the fix uses CreateAsyncScope per call, so each scope is short and disposed right after the read](./captive-dependency-lifetime-dark.png#gh-dark-mode-only)
+
+Source: [light](pathname:///files/diagrams/2026-09-21-singleton-scoped-transient-captive-dependency/en/captive-dependency-lifetime.html) · [dark](pathname:///files/diagrams/2026-09-21-singleton-scoped-transient-captive-dependency/en/captive-dependency-lifetime-dark.html)
+
 Four consequences follow, in this order:
 
 - **The change tracker grows without bound.** Every entity ever read stays in that `DbContext`'s memory. This is a leak that looks exactly like an ordinary memory leak and is very hard to trace.

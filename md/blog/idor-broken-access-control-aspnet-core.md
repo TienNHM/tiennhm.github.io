@@ -78,6 +78,13 @@ public async Task<IActionResult> GetOrder(Guid id)
 
 Hai chi tiết đáng chú ý. Một là `OwnerId` nằm trong `WHERE`, nên nếu bạn quên thì query không trả về gì chứ không trả về nhầm; đây là kiểu sai an toàn. Hai là trả `NotFound` thay vì `Forbid` cho người không sở hữu: `403` vô tình xác nhận bản ghi đó có tồn tại, và với dữ liệu nhạy cảm thì chỉ riêng thông tin tồn tại cũng đã đủ để suy ra điều gì đó.
 
+Đặt hai cách viết cạnh nhau thì thấy rõ `[Authorize]` dừng ở đâu và điều kiện sở hữu bắt đầu ở đâu:
+
+![Lưu đồ xử lý request GET /api/orders/1044 của user A, trong khi đơn 1044 thuộc về B. [Authorize] chỉ kiểm token: token sai trả 401. Token hợp lệ thì có hai nhánh. Code lỗi dùng Find(id) không lọc chủ sở hữu nên trả 200 kèm đơn của B, đó là IDOR. Code đúng chạy query với điều kiện o.Id == id && o.OwnerId == userId: có dòng thì trả 200 với đơn của chính A, không có dòng thì trả 404 NotFound, không lộ việc đơn của B có tồn tại.](./idor-ownership-check.png#gh-light-mode-only)
+![Lưu đồ xử lý request GET /api/orders/1044 của user A, trong khi đơn 1044 thuộc về B. [Authorize] chỉ kiểm token: token sai trả 401. Token hợp lệ thì có hai nhánh. Code lỗi dùng Find(id) không lọc chủ sở hữu nên trả 200 kèm đơn của B, đó là IDOR. Code đúng chạy query với điều kiện o.Id == id && o.OwnerId == userId: có dòng thì trả 200 với đơn của chính A, không có dòng thì trả 404 NotFound, không lộ việc đơn của B có tồn tại.](./idor-ownership-check-dark.png#gh-dark-mode-only)
+
+File gốc: [nền sáng](pathname:///files/diagrams/2026-09-21-idor-broken-access-control-aspnet-core/vi/idor-ownership-check.html) · [nền tối](pathname:///files/diagrams/2026-09-21-idor-broken-access-control-aspnet-core/vi/idor-ownership-check-dark.html)
+
 Nhược điểm là nó phụ thuộc vào việc mọi developer đều nhớ viết thêm điều kiện. Với một team đông người và vài trăm endpoint, đó là một giả định yếu. Nên tầng thứ hai là kéo ràng buộc xuống dưới `DbContext` bằng global query filter, để mọi truy vấn đều bị lọc dù người viết có nhớ hay không:
 
 ```csharp

@@ -111,6 +111,27 @@ END;
 ```
 👉 Nếu số lượng đặt hàng lớn hơn `stock`, **Trigger sẽ báo lỗi** và không cho đặt hàng.
 
+Khi cả hai trigger ở trên cùng tồn tại, một lệnh `INSERT INTO orders` đi qua chúng theo thứ tự này:
+
+```mermaid
+sequenceDiagram
+    participant App as Ứng dụng
+    participant O as Bảng orders
+    participant B as check_stock_before_order
+    participant A as update_stock_after_order
+    participant P as Bảng products
+    App->>O: INSERT INTO orders
+    O->>B: BEFORE INSERT (NEW)
+    B->>P: đọc stock
+    alt stock < NEW.quantity
+        B-->>App: SIGNAL lỗi, dòng không được chèn
+    else đủ hàng
+        B->>O: cho phép chèn dòng
+        O->>A: AFTER INSERT (NEW)
+        A->>P: stock = stock - NEW.quantity
+    end
+```
+
 ---
 
 ## 📜 **6. Ghi log thay đổi dữ liệu với AFTER UPDATE**

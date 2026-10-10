@@ -97,6 +97,16 @@ Trong [bài về sự cố](https://tiennhm.io.vn/blog/cloudflare-header-broke-d
 
 **Thứ hai, .NET từ chối tham gia canh bạc obs-text.** Nó có thể đã chọn ghi Latin-1 và để `ồ` thành `?`, hoặc ghi UTF-8 và để bên kia đoán. Cả hai đều dẫn tới hỏng dữ liệu âm thầm. Ném exception là lựa chọn ồn ào hơn nhưng trung thực hơn.
 
+Ba khả năng .NET có thể chọn, đặt cạnh nhau:
+
+```mermaid
+flowchart LR
+    S["Hồ Chí Minh"] --> W{"Bên gửi làm gì?"}
+    W -->|"ghi Latin-1"| L["H? Chí Minh<br/>mất chữ ồ, không báo lỗi"]
+    W -->|"ghi UTF-8, bên nhận đọc Latin-1"| M["Há»“…<br/>mojibake, không báo lỗi"]
+    W -->|"HttpClient của .NET"| E["HttpRequestException<br/>ồn ào nhưng trung thực"]
+```
+
 Nếu bạn đang bực vì .NET khó tính ở chỗ này, hãy nhớ phương án thay thế không phải "nó chạy đúng", mà là "nó chạy sai mà không báo".
 
 ---

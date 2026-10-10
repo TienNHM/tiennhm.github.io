@@ -39,6 +39,18 @@ SELECT COUNT(*) FROM [Contacts] AS [c] WHERE [c].[CustomerId] = 2;
 
 Điểm chết người là chi phí không nằm ở việc database làm việc nặng, mà ở số lần đi lại. Mỗi câu lệnh là một round trip: gửi lệnh, chờ, nhận kết quả. Nếu mỗi round trip tốn 1 mili-giây thì 200 dòng đã là 200 mili-giây chỉ để đi lại; database nằm ở mạng khác với độ trễ 5 mili-giây thì con số đó thành một giây, trong khi mọi biểu đồ đo tải database vẫn xanh.
 
+```mermaid
+sequenceDiagram
+    participant API
+    participant DB as Database
+    API->>DB: SELECT Customers (1 query)
+    DB-->>API: N dòng
+    loop Mỗi khách hàng, N lần
+        API->>DB: SELECT COUNT(*) FROM Contacts WHERE CustomerId = @id
+        DB-->>API: 1 con số
+    end
+```
+
 ## Ba nơi N+1 hay trốn
 
 **Vòng lặp lộ thiên** như ví dụ trên là dạng dễ nhất, code review bắt được.
@@ -166,6 +178,11 @@ Giả sử một khách hàng có 10 contact và 20 lead. Khi bạn `Include` c�
 Nhân lên 100 khách hàng là 20.000 dòng chạy qua dây mạng, trong khi lượng dữ liệu thật chỉ là 100 + 1.000 + 2.000 = 3.100 dòng. Số truy vấn giảm từ 201 xuống 1, nhưng lượng byte truyền tăng gấp bội, và phần ghép lại trong bộ nhớ cũng không miễn phí.
 
 `AsSplitQuery()` tách đúng chỗ đó: EF Core bắn ba câu lệnh riêng, một cho customers, một cho contacts, một cho leads, rồi tự ghép quan hệ ở phía client. Ba round trip thay vì một, đổi lại không dòng nào bị nhân bản.
+
+![So sánh Include hai collection và AsSplitQuery cho một khách hàng có 10 contact và 20 lead. Bên trái, Include(Contacts).Include(Leads) dịch thành một câu JOIN trả về lưới 10 nhân 20 bằng 200 dòng, mỗi dòng lặp đủ cột Customer, Contact và Lead; nhân 100 khách là 20.000 dòng qua mạng. Bên phải, AsSplitQuery bắn ba câu lệnh trả 1, 10 và 20 dòng, EF Core ghép quan hệ ở client theo khoá: 31 dòng cho một khách, 3.100 dòng cho 100 khách, đổi lấy 3 round trip](./include-vs-split-query.png#gh-light-mode-only)
+![So sánh Include hai collection và AsSplitQuery cho một khách hàng có 10 contact và 20 lead. Bên trái, Include(Contacts).Include(Leads) dịch thành một câu JOIN trả về lưới 10 nhân 20 bằng 200 dòng, mỗi dòng lặp đủ cột Customer, Contact và Lead; nhân 100 khách là 20.000 dòng qua mạng. Bên phải, AsSplitQuery bắn ba câu lệnh trả 1, 10 và 20 dòng, EF Core ghép quan hệ ở client theo khoá: 31 dòng cho một khách, 3.100 dòng cho 100 khách, đổi lấy 3 round trip](./include-vs-split-query-dark.png#gh-dark-mode-only)
+
+File gốc: [nền sáng](pathname:///files/diagrams/2026-09-21-ef-core-n-plus-1-query/vi/include-vs-split-query.html) · [nền tối](pathname:///files/diagrams/2026-09-21-ef-core-n-plus-1-query/vi/include-vs-split-query-dark.html)
 
 Cái giá của split query thì cần nói rõ:
 

@@ -22,6 +22,17 @@ Dữ liệu lớn (Big Data) đề cập đến tập dữ liệu có dung lư�
 ## 📝 **2. Partitioning (Phân vùng bảng)**
 **Partitioning** giúp chia nhỏ bảng lớn thành nhiều phần nhỏ hơn, giúp tăng tốc truy vấn. Có 3 loại phân vùng phổ biến:
 
+Lợi ích chính của phân vùng là partition pruning: truy vấn chỉ quét phân vùng khớp điều kiện, bỏ qua phần còn lại.
+
+```mermaid
+flowchart TD
+    Q["Truy vấn: WHERE sale_date trong năm 2024"] --> T[("Bảng sales phân vùng theo RANGE")]
+    T --> P1["sales_2023"]
+    T --> P2["sales_2024"]
+    P2 -->|"Chỉ quét phân vùng khớp"| R["Kết quả nhanh hơn"]
+    P1 -.->|"Bỏ qua, không quét"| X["Tiết kiệm I/O"]
+```
+
 ### **🔹 2.1. Range Partitioning (Phân vùng theo khoảng)**
 Chia dữ liệu thành các vùng dựa trên giá trị của một cột, ví dụ: phân vùng dữ liệu theo năm.
 

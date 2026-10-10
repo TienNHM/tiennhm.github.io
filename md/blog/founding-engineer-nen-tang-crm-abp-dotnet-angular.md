@@ -196,6 +196,11 @@ Lần này thì làm theo kiểu [Strangler Fig](https://martinfowler.com/bliki/
 3. Cutover từng caller một theo slice, Ticket trước rồi tới Campaign rồi service còn lại, mỗi slice là một PR nhỏ review được và rollback được trong vài giây bằng cách tắt cờ.
 4. Verify trên QA sau từng slice rồi mới đi slice kế tiếp.
 
+![Sơ đồ migration MessageTemplate theo kiểu Strangler Fig: ba service đang gọi mỗi ngày là Ticket (slice 1), Campaign (slice 2) và service còn lại (slice 3), mỗi slice là một PR nhỏ verify trên QA, đều đi qua một feature toggle dual-read đổi bằng cấu hình. Cờ bật thì đọc nguồn mới ở service thông báo, đúng bounded context; cờ tắt thì quay về nguồn cũ, MessageTemplate trong 2 service với dữ liệu để nguyên tại chỗ. Rollback chỉ là tắt cờ, mất vài giây](./strangler-fig-message-template.png#gh-light-mode-only)
+![Sơ đồ migration MessageTemplate theo kiểu Strangler Fig: ba service đang gọi mỗi ngày là Ticket (slice 1), Campaign (slice 2) và service còn lại (slice 3), mỗi slice là một PR nhỏ verify trên QA, đều đi qua một feature toggle dual-read đổi bằng cấu hình. Cờ bật thì đọc nguồn mới ở service thông báo, đúng bounded context; cờ tắt thì quay về nguồn cũ, MessageTemplate trong 2 service với dữ liệu để nguyên tại chỗ. Rollback chỉ là tắt cờ, mất vài giây](./strangler-fig-message-template-dark.png#gh-dark-mode-only)
+
+File gốc: [nền sáng](pathname:///files/diagrams/2026-09-15-founding-engineer-nen-tang-crm-abp-dotnet-angular/vi/strangler-fig-message-template.html) · [nền tối](pathname:///files/diagrams/2026-09-15-founding-engineer-nen-tang-crm-abp-dotnet-angular/vi/strangler-fig-message-template-dark.html)
+
 Kết quả là không downtime, không big-bang deploy, và cũng không ai phải trực đêm.
 
 Chẳng ai để ý là nó đã xảy ra, mà đó mới là chỗ mình thích. Sau vụ Angular tháng 11 thì mình hiểu ra thứ mình cần không phải làm nhanh hơn, mà là lúc nào cũng còn một nút để quay lại. Kiểu migration này khó khoe vì nhìn vào chẳng có gì ly kỳ, nhưng mình vẫn nghĩ nó là việc làm tử tế nhất trong hai mươi tháng.

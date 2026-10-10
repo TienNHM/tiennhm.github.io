@@ -97,6 +97,16 @@ This tells us two things.
 
 **Second, .NET refuses to play the obs-text lottery.** It could have chosen to write Latin-1 and let `ồ` become `?`, or to write UTF-8 and let the other side guess. Both lead to silent data corruption. Throwing an exception is the louder choice, but the more honest one.
 
+The three options .NET could have picked, side by side:
+
+```mermaid
+flowchart LR
+    S["Hồ Chí Minh"] --> W{"What does the sender do?"}
+    W -->|"write Latin-1"| L["H? Chí Minh<br/>ồ is lost, no error"]
+    W -->|"write UTF-8, receiver reads Latin-1"| M["Há»“…<br/>mojibake, no error"]
+    W -->|".NET HttpClient"| E["HttpRequestException<br/>loud but honest"]
+```
+
 If .NET's strictness here annoys you, remember that the alternative is not "it works correctly" but "it works incorrectly without telling you".
 
 ---
