@@ -25,7 +25,12 @@ const { mdxToMarkdown, SITE_URL } = require('./mdx-to-markdown');
  * cũng dùng trực tiếp được cho crawler hay agent.
  */
 module.exports = function pluginPageMarkdown(context) {
-    /** @type {{permalink: string, source: string}[]} */
+    /**
+     * `title`, `description`, `type`, `date`, `tags` không cần cho file .md
+     * (header lấy từ frontmatter) mà để ghi `md/index.json` — danh mục cho
+     * MCP server ở workers/mcp tìm kiếm.
+     * @type {{permalink: string, source: string, title?: string, description?: string, type: 'docs'|'blog', date?: string, tags: string[]}[]}
+     */
     let entries = [];
 
     return {
@@ -39,7 +44,14 @@ module.exports = function pluginPageMarkdown(context) {
                 for (const version of instance?.loadedVersions ?? []) {
                     for (const doc of version.docs ?? []) {
                         if (doc.permalink && doc.source) {
-                            entries.push({ permalink: doc.permalink, source: doc.source });
+                            entries.push({
+                                permalink: doc.permalink,
+                                source: doc.source,
+                                title: doc.title,
+                                description: doc.description,
+                                type: 'docs',
+                                tags: (doc.tags ?? []).map((t) => t.label),
+                            });
                         }
                     }
                 }
@@ -50,7 +62,15 @@ module.exports = function pluginPageMarkdown(context) {
                 for (const post of instance?.blogPosts ?? []) {
                     const md = post?.metadata;
                     if (md?.permalink && md?.source) {
-                        entries.push({ permalink: md.permalink, source: md.source });
+                        entries.push({
+                            permalink: md.permalink,
+                            source: md.source,
+                            title: md.title,
+                            description: md.description,
+                            type: 'blog',
+                            date: md.date ? new Date(md.date).toISOString().slice(0, 10) : undefined,
+                            tags: (md.tags ?? []).map((t) => t.label),
+                        });
                     }
                 }
             }
@@ -59,8 +79,9 @@ module.exports = function pluginPageMarkdown(context) {
         async postBuild({ outDir, baseUrl }) {
             const { siteDir } = context;
             let written = 0;
+            const index = [];
 
-            for (const { permalink, source } of entries) {
+            for (const { permalink, source, title, description, type, date, tags } of entries) {
                 // `source` ở dạng alias của Docusaurus: `@site/blog/....md`
                 const absFile = source.startsWith('@site/')
                     ? path.join(siteDir, source.slice('@site/'.length))
@@ -103,7 +124,22 @@ module.exports = function pluginPageMarkdown(context) {
                 fs.mkdirSync(path.dirname(outFile), { recursive: true });
                 fs.writeFileSync(outFile, `${header}\n${bodyMarkdown}\n`, 'utf8');
                 written++;
+
+                index.push({
+                    title: title || data.title || routePath,
+                    description: description || data.description || '',
+                    url: `${SITE_URL}${permalink}`,
+                    markdown: `${SITE_URL}${baseUrl}md/${routePath || 'index'}.md`,
+                    type,
+                    ...(date ? { date } : {}),
+                    ...(tags.length ? { tags } : {}),
+                });
             }
+
+            // Một file JSON phẳng thay vì để worker tự crawl sitemap: sitemap
+            // không có tiêu đề hay mô tả, mà tìm kiếm cần đúng hai thứ đó.
+            fs.mkdirSync(path.join(outDir, 'md'), { recursive: true });
+            fs.writeFileSync(path.join(outDir, 'md', 'index.json'), JSON.stringify(index), 'utf8');
 
             console.log(`[page-markdown] đã sinh ${written} file .md trong ${path.basename(outDir)}/md/`);
         },
