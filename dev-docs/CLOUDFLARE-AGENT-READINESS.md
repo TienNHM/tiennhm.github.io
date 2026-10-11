@@ -2,14 +2,15 @@
 
 Ghi chú cấu hình cho trang **Cloudflare → tiennhm.io.vn → Agent Readiness → Diagnostics**.
 
-## Trạng thái (2026-10-08)
+## Trạng thái (2026-10-11)
 
 | Hạng mục | Trạng thái | Làm ở đâu |
 |---|---|---|
 | robots.txt, Sitemap, AI Crawler Rules | Đạt | `static/robots.txt` |
 | Content Signals | Đã thêm `search=yes, ai-input=yes, ai-train=no` vào từng nhóm | `static/robots.txt` |
-| Markdown Negotiation | Chưa: cần quy tắc ở edge, xem bước 2 | Cloudflare dashboard |
-| Link Headers | Chưa: cần quy tắc ở edge, xem bước 3 | Cloudflare dashboard |
+| Markdown Negotiation | Blog/docs đã chạy. Trang chủ cần thêm rule ở bước 2b | Cloudflare dashboard |
+| Link Headers | Đã làm (bước 3) | Cloudflare dashboard |
+| DNS-AID | Cần bản ghi SVCB thật và DNSSEC, xem bước 5 | Cloudflare dashboard + nhà đăng ký tên miền |
 | MCP Server Card | Card ở `static/.well-known/mcp/server-card.json`, server ở `workers/mcp`. Đạt sau khi làm bước 1 và bước 4 | Repo + Cloudflare |
 | Level 2–3 còn lại, Commerce | Bỏ qua: dành cho site có API, đăng nhập, thanh toán | — |
 
@@ -90,6 +91,32 @@ curl -s https://tiennhm.io.vn/blog/markdown-cheat-sheet | head -c 100
 # Không có header Accept: vẫn là HTML
 ```
 
+### Bước 2b: trang chủ
+
+isitagentready.com chấm Markdown negotiation đúng trên URL gốc `https://tiennhm.io.vn`, mà rule
+ở trên cố ý bỏ qua đường dẫn kết thúc bằng `/`. Trang chủ là React page, không có file nguồn,
+nên `plugins/page-markdown` chép `llms.txt` (vốn đã là Markdown giới thiệu site) thành
+`md/index.md` và `en/md/index.md`.
+
+Tạo thêm hai URL Rewrite Rule, đều dùng đường dẫn đích **Static** (không cần hàm nào):
+
+| Tên | Expression | Path → Rewrite to → Static |
+|---|---|---|
+| `Markdown negotiation (home vi)` | `any(http.request.headers["accept"][*] contains "text/markdown") and http.request.uri.path eq "/"` | `/md/index.md` |
+| `Markdown negotiation (home en)` | `any(http.request.headers["accept"][*] contains "text/markdown") and http.request.uri.path in {"/en" "/en/"}` | `/en/md/index.md` |
+
+Query để *Preserve*. Tổng cộng 5 trên 10 Rewrite Rule của gói Free.
+
+Kiểm tra:
+
+```bash
+curl -sI -H "Accept: text/markdown" https://tiennhm.io.vn/ | grep -i content-type
+# Mong đợi: content-type: text/markdown; charset=utf-8
+```
+
+Markdown for Agents của Cloudflare (tự chuyển mọi trang HTML sang Markdown, kèm
+`x-markdown-tokens`) chỉ có từ gói Pro, nên gói Free dùng cách rewrite này.
+
 ## Bước 3: Link Headers và Vary
 
 **Rules → Transform Rules → Modify Response Header → Create rule**
@@ -153,6 +180,34 @@ proxy **trước** khi merge, kẻo card trỏ tới một endpoint 404.
 
 Khi thêm hay đổi tool: tăng `version` (và `serverInfo.version`) trong `server-card.json` — worker
 import chính file này nên tên và phiên bản luôn khớp nhau. Đổi `capabilities` nếu thêm prompt.
+
+## Bước 5: DNS-AID và DNSSEC
+
+Zone có bản ghi wildcard `*` bật proxy, nên mọi tên con, kể cả `_index._agents`, `_a2a._agents`,
+`_mcp._agents`, đều trả về bản ghi HTTPS Cloudflare tự sinh cho web proxy. Scanner đếm đó là
+"bản ghi DNS-AID", nhưng chúng không mô tả agent nào cả. Bản ghi đặt tường minh sẽ thắng wildcard
+cho đúng tên đó.
+
+1. **DNS → Records → Add record**, Type **SVCB**:
+   - Name: `_mcp._agents`
+   - Priority: `1`
+   - Target: `tiennhm.io.vn.`
+   - Value: `alpn="mcp" port=443 mandatory=alpn,port`
+   - TTL: Auto
+2. **DNS → Settings → DNSSEC → Enable DNSSEC**. Cloudflare hiện bản ghi DS (Key Tag, Algorithm 13,
+   Digest Type 2, Digest).
+3. Vào trang quản lý tên miền ở nhà đăng ký `.io.vn`, mục DNSSEC / DS record, nhập đúng các giá trị
+   trên. `io.vn` đã ký DNSSEC nên chuỗi tin cậy nối được. Nếu bảng điều khiển không có mục này thì
+   mở ticket gửi nhà đăng ký kèm bản ghi DS.
+4. Chờ Cloudflare báo DNSSEC **Active** (vài giờ, có khi tới 1–2 ngày). Kiểm tra:
+   ```bash
+   curl -s -H 'accept: application/dns-json'      'https://cloudflare-dns.com/dns-query?name=_mcp._agents.tiennhm.io.vn&type=SVCB' | jq '.AD, .Answer'
+   # Mong đợi: true và bản ghi SVCB ở bước 1
+   ```
+
+DS nhập sai ở nhà đăng ký thì resolver có kiểm tra DNSSEC (1.1.1.1, 8.8.8.8…) sẽ trả SERVFAIL cho
+**toàn bộ** tên miền. Chép giá trị thay vì gõ tay. Muốn tắt DNSSEC thì xoá DS ở nhà đăng ký trước,
+chờ hết TTL rồi mới tắt ở Cloudflare.
 
 ## Sau khi làm xong
 
