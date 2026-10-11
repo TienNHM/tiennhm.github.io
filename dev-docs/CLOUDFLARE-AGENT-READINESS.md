@@ -10,6 +10,7 @@ Ghi chú cấu hình cho trang **Cloudflare → tiennhm.io.vn → Agent Readines
 | Content Signals | Đã thêm `search=yes, ai-input=yes, ai-train=no` vào từng nhóm | `static/robots.txt` |
 | Markdown Negotiation | Chưa: cần quy tắc ở edge, xem bước 2 | Cloudflare dashboard |
 | Link Headers | Chưa: cần quy tắc ở edge, xem bước 3 | Cloudflare dashboard |
+| MCP Server Card | Card ở `static/.well-known/mcp/server-card.json`, server ở `workers/mcp`. Đạt sau khi làm bước 1 và bước 4 | Repo + Cloudflare |
 | Level 2–3 còn lại, Commerce | Bỏ qua: dành cho site có API, đăng nhập, thanh toán | — |
 
 Trong repo đã có sẵn những thứ các quy tắc bên dưới dựa vào:
@@ -108,6 +109,50 @@ người dùng bình thường có thể nhận nhầm bản Markdown đã đư�
 
 Giá trị `rel` mà công cụ chấm điểm của Cloudflare mong đợi có thể khác ví dụ trên. Bấm mở mục
 *Link Headers* trong Diagnostics để xem gợi ý cụ thể, rồi chỉnh giá trị cho khớp.
+
+## Bước 4: MCP server và Server Card
+
+Site tĩnh không chạy được MCP, nên `workers/mcp` là một Cloudflare Worker nằm ở route
+`tiennhm.io.vn/mcp*`. Nó chỉ đọc những thứ site đã build sẵn — `md/index.json` (danh mục trang)
+và `md/<route>.md` — rồi trả qua MCP Streamable HTTP, không trạng thái, không đăng nhập:
+
+| Tool | Làm gì |
+|---|---|
+| `search_content` | Tìm trang theo từ khoá trong tiêu đề, tag, mô tả, URL; không phân biệt dấu |
+| `get_page` | Trả bản Markdown của một trang (chỉ nhận URL trên tiennhm.io.vn) |
+| `list_recent_posts` | Bài blog mới nhất |
+
+Ngoài ra có resource `llms.txt`. Server Card (SEP-2127) nằm ở hai chỗ, cùng một file:
+`/.well-known/mcp/server-card.json` do GitHub Pages phục vụ, và `/mcp/server-card` do worker
+phục vụ. Card gồm cả các trường của schema v1 (`name`, `version`, `remotes`…) lẫn `serverInfo`,
+`endpoint`, `capabilities` mà isitagentready.com kiểm tra.
+
+**Thứ tự deploy quan trọng**: card lên mạng cùng lần deploy site, nên phải deploy worker và bật
+proxy **trước** khi merge, kẻo card trỏ tới một endpoint 404.
+
+1. Làm bước 1 (bật proxy). Route của worker chỉ chạy khi traffic đi qua Cloudflare.
+2. Deploy worker:
+   ```bash
+   cd workers/mcp
+   npm install
+   npx wrangler login
+   npm run deploy
+   ```
+3. Kiểm tra:
+   ```bash
+   curl -s https://tiennhm.io.vn/mcp/server-card | head -c 200
+   curl -s https://tiennhm.io.vn/mcp -H 'Content-Type: application/json'      -H 'Accept: application/json, text/event-stream'      -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+   ```
+   Hoặc mở MCP Inspector (`npx @modelcontextprotocol/inspector`) và kết nối tới
+   `https://tiennhm.io.vn/mcp`.
+4. Merge vào master để GitHub Pages phục vụ `/.well-known/mcp/server-card.json` và
+   `md/index.json`, rồi quét lại:
+   ```bash
+   curl -s -X POST https://isitagentready.com/api/scan -H 'Content-Type: application/json'      -d '{"url":"https://tiennhm.io.vn"}' | jq '.checks.discovery.mcpServerCard'
+   ```
+
+Khi thêm hay đổi tool: tăng `version` (và `serverInfo.version`) trong `server-card.json` — worker
+import chính file này nên tên và phiên bản luôn khớp nhau. Đổi `capabilities` nếu thêm prompt.
 
 ## Sau khi làm xong
 
