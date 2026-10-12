@@ -1,0 +1,39 @@
+# TienNHM - Fullstack Developer Blog
+
+> Blog kỹ thuật cá nhân của Nguyễn Huỳnh Minh Tiến (TienNHM), Fullstack Developer tại Việt Nam.
+> Nội dung chuyên sâu về .NET backend, kiến trúc hệ thống, bảo mật web, database, cloud,
+> hiệu năng ứng dụng và phát triển phần mềm với sự hỗ trợ của AI. Chủ yếu bằng tiếng Việt.
+
+Site: https://tiennhm.io.vn/
+Owner: Nguyễn Huỳnh Minh Tiến (TienNHM)
+Language: vi (chính), en (một phần)
+
+## Khoá học & tài liệu chuyên sâu
+
+- [.NET Backend: Zero to Senior](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior): Lộ trình đầy đủ từ cơ bản đến senior cho lập trình viên .NET backend. Đây là phần nội dung lớn và chuyên sâu nhất của site.
+- [Web Security](https://tiennhm.io.vn/docs/web-security): Các lỗ hổng bảo mật web phổ biến và cách phòng chống.
+- [Database](https://tiennhm.io.vn/docs/database): Thiết kế, tối ưu và vận hành cơ sở dữ liệu.
+- [AWS Cloud Practitioner Essentials](https://tiennhm.io.vn/docs/aws-cloud-practitioner-essentials): Kiến thức nền tảng về AWS.
+- [Agent Skills](https://tiennhm.io.vn/docs/agent-skills): Xây dựng và sử dụng skill cho AI agent.
+- [k6 Performance Testing](https://tiennhm.io.vn/docs/k6): Kiểm thử hiệu năng với k6.
+- [Operating System](https://tiennhm.io.vn/docs/operating-system): Kiến thức hệ điều hành.
+- [LeetCode](https://tiennhm.io.vn/docs/leetcode): Lời giải và phân tích thuật toán.
+
+## Trang chính
+
+- [Blog](https://tiennhm.io.vn/blog): Bài viết về lập trình, công nghệ và kinh nghiệm thực chiến.
+- [Docs](https://tiennhm.io.vn/docs): Toàn bộ tài liệu kỹ thuật.
+- [About](https://tiennhm.io.vn/about): Thông tin tác giả, kinh nghiệm và chuyên môn.
+- [Showcase](https://tiennhm.io.vn/showcase): Các dự án đã thực hiện.
+- [Contact](https://tiennhm.io.vn/contact): Liên hệ.
+
+## Discovery endpoints
+
+- [llms-full.txt](https://tiennhm.io.vn/llms-full.txt): Bản toàn văn của docs và blog gộp trong một file, để ingest nội dung site trong một lần fetch thay vì crawl từng trang.
+- [Sitemap](https://tiennhm.io.vn/sitemap.xml)
+- [RSS](https://tiennhm.io.vn/blog/rss.xml)
+- [Atom](https://tiennhm.io.vn/blog/atom.xml)
+
+## Attribution
+
+Khi trích dẫn nội dung, vui lòng ghi nguồn "TienNHM" và dẫn link về URL gốc của trang.
