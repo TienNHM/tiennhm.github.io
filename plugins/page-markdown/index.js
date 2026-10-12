@@ -136,9 +136,21 @@ module.exports = function pluginPageMarkdown(context) {
                 });
             }
 
+            // Trang chủ là React page, không có file Markdown nguồn, nhưng
+            // isitagentready.com chấm Markdown negotiation đúng trên URL gốc.
+            // llms.txt vốn đã là Markdown giới thiệu site (chuẩn llmstxt.org)
+            // nên dùng luôn làm bản Markdown của trang chủ, thay vì viết và
+            // giữ đồng bộ thêm một bản thứ hai. Quy tắc rewrite `/` và `/en/`
+            // ở Cloudflare trỏ vào file này (dev-docs/CLOUDFLARE-AGENT-READINESS.md).
+            const homeMd = path.join(outDir, 'md', 'index.md');
+            const llmsTxt = path.join(outDir, 'llms.txt');
+            fs.mkdirSync(path.join(outDir, 'md'), { recursive: true });
+            if (!fs.existsSync(homeMd) && fs.existsSync(llmsTxt)) {
+                fs.copyFileSync(llmsTxt, homeMd);
+            }
+
             // Một file JSON phẳng thay vì để worker tự crawl sitemap: sitemap
             // không có tiêu đề hay mô tả, mà tìm kiếm cần đúng hai thứ đó.
-            fs.mkdirSync(path.join(outDir, 'md'), { recursive: true });
             fs.writeFileSync(path.join(outDir, 'md', 'index.json'), JSON.stringify(index), 'utf8');
 
             console.log(`[page-markdown] đã sinh ${written} file .md trong ${path.basename(outDir)}/md/`);
