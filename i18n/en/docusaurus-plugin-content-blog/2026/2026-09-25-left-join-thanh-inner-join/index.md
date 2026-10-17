@@ -19,7 +19,7 @@ import { SummaryBox, FAQSection } from '@site/src/components/SEO';
 
 This is the bug I see most often in reporting queries. It is not a syntax error, it is not slow, it throws nothing. It simply returns **too few rows**, and usually it is precisely the important ones that go missing: customers with no orders yet, products that have never sold, salespeople who have not closed anything.
 
-This post drills into [the JOIN lesson from my 30-day SQL series](/docs/database/learn-sql-in-30-days/10-join). Every number below is real output from PostgreSQL 16.11.
+This post drills into [the JOIN lesson from my 30-day SQL series](https://sql-challenge.tiennhm.io.vn/lessons/10-join). Every number below is real output from PostgreSQL 16.11.
 
 <!-- truncate -->
 
@@ -193,7 +193,7 @@ You do not need to reread every query. Three signals are fairly reliable.
 
 **The row count equals the `INNER JOIN` count.** Change `LEFT JOIN` to `INNER JOIN` and compare. If both numbers are identical, the word `LEFT` in your query is doing nothing.
 
-**`COUNT` comes out lower than expected.** Especially when counting per group — a group that should read zero disappears from the result entirely instead of showing 0. See [the GROUP BY and HAVING lesson](/docs/database/learn-sql-in-30-days/09-group-by-having) on how empty groups are handled.
+**`COUNT` comes out lower than expected.** Especially when counting per group — a group that should read zero disappears from the result entirely instead of showing 0. See [the GROUP BY and HAVING lesson](https://sql-challenge.tiennhm.io.vn/lessons/09-group-by-having) on how empty groups are handled.
 
 A quick audit trick: find every query containing `LEFT JOIN`, then check whether the `WHERE` clause mentions the right-hand table's alias. If it does and it is not an `IS NULL` test, it is almost certainly a bug.
 
@@ -201,15 +201,15 @@ A quick audit trick: find every query containing `LEFT JOIN`, then check whether
 
 ## Learn more {#hoc-tiep}
 
-This post drills into one point from my [30-day SQL series](/docs/database/learn-sql-in-30-days):
+This post drills into one point from my [30-day SQL series](https://sql-challenge.tiennhm.io.vn/):
 
 | Lesson in the series | How it relates |
 |---|---|
-| [JOIN](/docs/database/learn-sql-in-30-days/10-join) | Join types and `ON` syntax |
-| [SELECT and WHERE](/docs/database/learn-sql-in-30-days/03-select-where) | Why `WHERE` keeps only `TRUE` |
-| [Subqueries](/docs/database/learn-sql-in-30-days/11-subquery) | `NOT EXISTS` in place of an anti-join |
-| [GROUP BY and HAVING](/docs/database/learn-sql-in-30-days/09-group-by-having) | Empty groups and clause processing order |
-| [Query performance](/docs/database/learn-sql-in-30-days/20-query-performance) | Reading an execution plan to see how the join really runs |
+| [JOIN](https://sql-challenge.tiennhm.io.vn/lessons/10-join) | Join types and `ON` syntax |
+| [SELECT and WHERE](https://sql-challenge.tiennhm.io.vn/lessons/03-select-where) | Why `WHERE` keeps only `TRUE` |
+| [Subqueries](https://sql-challenge.tiennhm.io.vn/lessons/11-subquery) | `NOT EXISTS` in place of an anti-join |
+| [GROUP BY and HAVING](https://sql-challenge.tiennhm.io.vn/lessons/09-group-by-having) | Empty groups and clause processing order |
+| [Query performance](https://sql-challenge.tiennhm.io.vn/lessons/20-query-performance) | Reading an execution plan to see how the join really runs |
 
 ---
 

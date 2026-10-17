@@ -19,7 +19,7 @@ An index is a structure sorted by **the column's values**. Wrap a function aroun
 
 A familiar situation: the query is slow, you add an index on exactly the column being filtered, you run it again — still just as slow. The index is right there, `\d` shows it, but the execution plan never mentions it.
 
-This post drills into [the Index lesson](/docs/database/learn-sql-in-30-days/15-index) and [the query optimization lesson](/docs/database/learn-sql-in-30-days/28-sql-query-optimization) from my 30-day SQL series. Every number is real output from PostgreSQL 16.11.
+This post drills into [the Index lesson](https://sql-challenge.tiennhm.io.vn/lessons/15-index) and [the query optimization lesson](https://sql-challenge.tiennhm.io.vn/lessons/28-sql-query-optimization) from my 30-day SQL series. Every number is real output from PostgreSQL 16.11.
 
 <!-- truncate -->
 
@@ -116,7 +116,7 @@ Three rows deserve extra words.
 
 **`LIKE` with a leading `%`** cannot use a B-tree, because the index is ordered left to right and you have not told it the first character. `LIKE 'an%'` works fine. To search for a substring in the middle you need a different tool — a trigram index or full-text search.
 
-**Implicit `CAST`** is the hardest form to spot, because you never wrote it. Comparing a numeric column against a string, or `varchar` against `nvarchar`, can make the database insert a conversion around **the column** and kill the index. This is a classic source of trouble in systems with inconsistent column types — data type choices are covered in [the table structure lesson](/docs/database/learn-sql-in-30-days/02-table-structure-and-data-types).
+**Implicit `CAST`** is the hardest form to spot, because you never wrote it. Comparing a numeric column against a string, or `varchar` against `nvarchar`, can make the database insert a conversion around **the column** and kill the index. This is a classic source of trouble in systems with inconsistent column types — data type choices are covered in [the table structure lesson](https://sql-challenge.tiennhm.io.vn/lessons/02-table-structure-and-data-types).
 
 **`OR` across two different columns** also tends to break the plan. `WHERE a = 1 OR b = 2` is far harder to serve with an index than `WHERE a = 1` combined with `UNION` and `WHERE b = 2`.
 
@@ -162,7 +162,7 @@ Guessed 38,225, actual 37,518 — off by under 2%.
 
 The reason: the database keeps **statistics** about each column's value distribution. When you compare directly on the column, it consults those statistics and estimates fairly accurately. When you wrap a function, it **has no idea what that function does** to the distribution, so it falls back to a default guess.
 
-The consequence is far more serious than scanning one table unnecessarily: in a query spanning several tables, **a bad row estimate leads to the wrong join algorithm and the wrong join order**. A number that is 37× off at the first step can turn into a plan hundreds of times slower at a later one. Reading execution plans to catch this is covered in [the query performance lesson](/docs/database/learn-sql-in-30-days/20-query-performance).
+The consequence is far more serious than scanning one table unnecessarily: in a query spanning several tables, **a bad row estimate leads to the wrong join algorithm and the wrong join order**. A number that is 37× off at the first step can turn into a plan hundreds of times slower at a later one. Reading execution plans to catch this is covered in [the query performance lesson](https://sql-challenge.tiennhm.io.vn/lessons/20-query-performance).
 
 Put another way: **losing sargability does not just slow down one scan, it makes the database take poor decisions across the whole query.**
 
@@ -198,15 +198,15 @@ A few practical rules:
 
 ## Learn more {#hoc-tiep}
 
-This post drills into two points from my [30-day SQL series](/docs/database/learn-sql-in-30-days):
+This post drills into two points from my [30-day SQL series](https://sql-challenge.tiennhm.io.vn/):
 
 | Lesson in the series | How it relates |
 |---|---|
-| [Index](/docs/database/learn-sql-in-30-days/15-index) | Index structure, how to create one and when |
-| [Query performance](/docs/database/learn-sql-in-30-days/20-query-performance) | Reading execution plans, identifying bottlenecks |
-| [SQL query optimization](/docs/database/learn-sql-in-30-days/28-sql-query-optimization) | Techniques for rewriting queries |
-| [Table structure and data types](/docs/database/learn-sql-in-30-days/02-table-structure-and-data-types) | Consistent types to avoid implicit casts |
-| [Database design](/docs/database/learn-sql-in-30-days/27-database-design-best-practices) | Balancing reads against writes when placing indexes |
+| [Index](https://sql-challenge.tiennhm.io.vn/lessons/15-index) | Index structure, how to create one and when |
+| [Query performance](https://sql-challenge.tiennhm.io.vn/lessons/20-query-performance) | Reading execution plans, identifying bottlenecks |
+| [SQL query optimization](https://sql-challenge.tiennhm.io.vn/lessons/28-sql-query-optimization) | Techniques for rewriting queries |
+| [Table structure and data types](https://sql-challenge.tiennhm.io.vn/lessons/02-table-structure-and-data-types) | Consistent types to avoid implicit casts |
+| [Database design](https://sql-challenge.tiennhm.io.vn/lessons/27-database-design-best-practices) | Balancing reads against writes when placing indexes |
 
 On the application side, a different kind of slowness often confused with this one is [the N+1 query problem in EF Core](/blog/ef-core-n-plus-1-query): there every individual statement is fast, and the cost lies in **how many round trips** happen rather than in the execution plan.
 

@@ -19,7 +19,7 @@ import { SummaryBox, FAQSection } from '@site/src/components/SEO';
 
 Đây là lỗi tôi thấy nhiều nhất trong các câu truy vấn báo cáo. Nó không sai cú pháp, không chậm, không ném lỗi. Nó chỉ trả về **thiếu dòng**, và thường là thiếu đúng những dòng quan trọng nhất: khách chưa có đơn nào, sản phẩm chưa bán được cái nào, nhân viên chưa chốt được hợp đồng nào.
 
-Bài này đào sâu [bài JOIN trong series học SQL 30 ngày](/docs/database/learn-sql-in-30-days/10-join). Mọi con số bên dưới là kết quả chạy thật trên PostgreSQL 16.11.
+Bài này đào sâu [bài JOIN trong series học SQL 30 ngày](https://sql-challenge.tiennhm.io.vn/lessons/10-join). Mọi con số bên dưới là kết quả chạy thật trên PostgreSQL 16.11.
 
 <!-- truncate -->
 
@@ -193,7 +193,7 @@ Không cần đọc lại từng câu truy vấn. Có ba dấu hiệu khá đán
 
 **Tổng số dòng bằng đúng `INNER JOIN`.** Thử đổi `LEFT JOIN` thành `INNER JOIN` rồi so số dòng. Nếu hai con số giống hệt nhau thì chữ `LEFT` của bạn không có tác dụng gì.
 
-**`COUNT` ra số nhỏ hơn dự kiến.** Đặc biệt khi đếm theo nhóm — nhóm đáng lẽ ra 0 thì lại biến mất khỏi kết quả thay vì hiện số 0. Xem thêm [bài GROUP BY và HAVING](/docs/database/learn-sql-in-30-days/09-group-by-having) về cách nhóm rỗng bị xử lý.
+**`COUNT` ra số nhỏ hơn dự kiến.** Đặc biệt khi đếm theo nhóm — nhóm đáng lẽ ra 0 thì lại biến mất khỏi kết quả thay vì hiện số 0. Xem thêm [bài GROUP BY và HAVING](https://sql-challenge.tiennhm.io.vn/lessons/09-group-by-having) về cách nhóm rỗng bị xử lý.
 
 Một mẹo rà soát nhanh: tìm mọi câu có chữ `LEFT JOIN`, rồi kiểm xem trong `WHERE` có nhắc tới alias của bảng bên phải không. Nếu có mà không phải dạng `IS NULL` thì gần như chắc chắn là bug.
 
@@ -201,15 +201,15 @@ Một mẹo rà soát nhanh: tìm mọi câu có chữ `LEFT JOIN`, rồi kiểm
 
 ## Học tiếp {#hoc-tiep}
 
-Bài này đào sâu một điểm trong [series học SQL trong 30 ngày](/docs/database/learn-sql-in-30-days):
+Bài này đào sâu một điểm trong [series học SQL trong 30 ngày](https://sql-challenge.tiennhm.io.vn/):
 
 | Bài trong series | Liên quan thế nào |
 |---|---|
-| [JOIN](/docs/database/learn-sql-in-30-days/10-join) | Các loại join và cú pháp `ON` |
-| [SELECT và WHERE](/docs/database/learn-sql-in-30-days/03-select-where) | Vì sao `WHERE` chỉ giữ `TRUE` |
-| [Subquery](/docs/database/learn-sql-in-30-days/11-subquery) | `NOT EXISTS` thay cho anti-join |
-| [GROUP BY và HAVING](/docs/database/learn-sql-in-30-days/09-group-by-having) | Nhóm rỗng và thứ tự xử lý mệnh đề |
-| [Hiệu năng truy vấn](/docs/database/learn-sql-in-30-days/20-query-performance) | Đọc execution plan để thấy join thật sự chạy ra sao |
+| [JOIN](https://sql-challenge.tiennhm.io.vn/lessons/10-join) | Các loại join và cú pháp `ON` |
+| [SELECT và WHERE](https://sql-challenge.tiennhm.io.vn/lessons/03-select-where) | Vì sao `WHERE` chỉ giữ `TRUE` |
+| [Subquery](https://sql-challenge.tiennhm.io.vn/lessons/11-subquery) | `NOT EXISTS` thay cho anti-join |
+| [GROUP BY và HAVING](https://sql-challenge.tiennhm.io.vn/lessons/09-group-by-having) | Nhóm rỗng và thứ tự xử lý mệnh đề |
+| [Hiệu năng truy vấn](https://sql-challenge.tiennhm.io.vn/lessons/20-query-performance) | Đọc execution plan để thấy join thật sự chạy ra sao |
 
 ---
 
@@ -254,6 +254,6 @@ Hai điều đáng nhớ:
 
 ## Bài liên quan
 
-- [03. SELECT, WHERE](/docs/database/learn-sql-in-30-days/03-select-where) — Giới thiệu cách sử dụng SELECT và WHERE trong SQL.
-- [10. JOIN](/docs/database/learn-sql-in-30-days/10-join) — Giới thiệu về các loại JOIN trong SQL, cách sử dụng và ví dụ minh họa.
-- [11. Truy vấn con (Subquery)](/docs/database/learn-sql-in-30-days/11-subquery) — Giới thiệu về truy vấn con (Subquery) trong SQL, cách sử dụng và ví dụ minh họa.
+- [03. SELECT, WHERE](https://sql-challenge.tiennhm.io.vn/lessons/03-select-where) — Giới thiệu cách sử dụng SELECT và WHERE trong SQL.
+- [10. JOIN](https://sql-challenge.tiennhm.io.vn/lessons/10-join) — Giới thiệu về các loại JOIN trong SQL, cách sử dụng và ví dụ minh họa.
+- [11. Truy vấn con (Subquery)](https://sql-challenge.tiennhm.io.vn/lessons/11-subquery) — Giới thiệu về truy vấn con (Subquery) trong SQL, cách sử dụng và ví dụ minh họa.

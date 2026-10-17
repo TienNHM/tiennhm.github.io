@@ -19,7 +19,7 @@ Isolation level quyết định **một giao dịch nhìn thấy gì khi có gia
 
 Đây là loại lỗi gần như không thể tái hiện trên máy dev, vì ở đó bạn chỉ có một người dùng. Nó chỉ xuất hiện khi hai request thật chạm vào cùng một dòng trong cùng một khoảnh khắc — và lúc đó nó không sập, không log, chỉ làm sai số liệu.
 
-Bài này đào sâu [bài Transactions và ACID](/docs/database/learn-sql-in-30-days/16-transactions-acid) trong series học SQL 30 ngày.
+Bài này đào sâu [bài Transactions và ACID](https://sql-challenge.tiennhm.io.vn/lessons/16-transactions-acid) trong series học SQL 30 ngày.
 
 <!-- truncate -->
 
@@ -203,14 +203,14 @@ Mã lỗi `40001` là `serialization_failure` theo chuẩn SQL. **Không có vò
 
 ## Học tiếp {#hoc-tiep}
 
-Bài này đào sâu một điểm trong [series học SQL trong 30 ngày](/docs/database/learn-sql-in-30-days):
+Bài này đào sâu một điểm trong [series học SQL trong 30 ngày](https://sql-challenge.tiennhm.io.vn/):
 
 | Bài trong series | Liên quan thế nào |
 |---|---|
-| [Transactions và ACID](/docs/database/learn-sql-in-30-days/16-transactions-acid) | Bốn tính chất ACID và cú pháp transaction |
-| [Thiết kế database](/docs/database/learn-sql-in-30-days/27-database-design-best-practices) | Ràng buộc ở tầng schema để không phụ thuộc hoàn toàn vào transaction |
-| [Bảo mật database](/docs/database/learn-sql-in-30-days/30-database-security) | Quyền hạn và ranh giới giao dịch |
-| [Hiệu năng truy vấn](/docs/database/learn-sql-in-30-days/20-query-performance) | Transaction dài giữ khoá lâu và ảnh hưởng thông lượng |
+| [Transactions và ACID](https://sql-challenge.tiennhm.io.vn/lessons/16-transactions-acid) | Bốn tính chất ACID và cú pháp transaction |
+| [Thiết kế database](https://sql-challenge.tiennhm.io.vn/lessons/27-database-design-best-practices) | Ràng buộc ở tầng schema để không phụ thuộc hoàn toàn vào transaction |
+| [Bảo mật database](https://sql-challenge.tiennhm.io.vn/lessons/30-database-security) | Quyền hạn và ranh giới giao dịch |
+| [Hiệu năng truy vấn](https://sql-challenge.tiennhm.io.vn/lessons/20-query-performance) | Transaction dài giữ khoá lâu và ảnh hưởng thông lượng |
 
 Ở phía .NET, ranh giới transaction thường không nằm ở chỗ bạn nghĩ — [Unit of Work trong ABP](/blog/unit-of-work-dotnet-abp) là một ví dụ: `SaveChangesAsync` **không** commit, chỉ `CompleteAsync` mới commit. Hiểu sai chỗ đó thì mọi lập luận về isolation level ở trên đều áp sai chỗ.
 
@@ -264,4 +264,4 @@ Ba điều đáng nhớ:
 
 - [12.6 — 6. Transactions và Locking](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-12-sql-deep-dive/12.6-transactions-and-locking) — ACID, bốn isolation level và hiện tượng mỗi mức cho phép, RCSI, deadlock và thứ tự khoá, optimistic vs pessimistic concurrency, và retry.
 - [Module 12 — SQL Deep Dive](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-12-sql-deep-dive) — SQL chuyên sâu: indexing, execution plans, transaction isolation, locking — hiệu năng truy vấn cho workload CRM.
-- [30. Database security](/docs/database/learn-sql-in-30-days/30-database-security) — Học cách quản trị & bảo mật database, phân quyền, ngăn chặn SQL Injection, sao lưu & khôi phục dữ liệu đúng cách.
+- [30. Database security](https://sql-challenge.tiennhm.io.vn/lessons/30-database-security) — Học cách quản trị & bảo mật database, phân quyền, ngăn chặn SQL Injection, sao lưu & khôi phục dữ liệu đúng cách.
