@@ -12,7 +12,4 @@ module.exports = [
         from: '/docs/dotnet-backend-zero-to-senior/dotnet-optional-client-dotnet',
         to: '/docs/dotnet-backend-zero-to-senior/dotnet-backend-zero-to-senior-roadmap',
     },
-    // Khoá SQL 30 ngày (/docs/database/...) đã chuyển sang site riêng. Plugin
-    // này chỉ chuyển hướng nội bộ, nên các URL đó dùng trang chuyển hướng tĩnh
-    // trong static/docs/database/ (meta refresh + canonical sang site mới).
 ];

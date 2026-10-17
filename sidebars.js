@@ -41,9 +41,7 @@ const sidebars = {
     dotnetSidebar: [fromDir('09-dotnet-backend-zero-to-senior')],
 
     // Khoá SQL 30 ngày đã chuyển sang https://sql-challenge.tiennhm.io.vn/
-    // (repo TienNHM/sql-challenge); navbar trỏ thẳng sang đó. URL cũ
-    // /docs/database/... được giữ bằng trang chuyển hướng tĩnh trong
-    // static/docs/database/.
+    // (repo TienNHM/sql-challenge); navbar trỏ thẳng sang đó.
 
     // Liệt kê tường minh chứ không autogenerate cả `.`: thêm một mảng docs mới
     // phải là quyết định có ý thức, không tự lọt vào.
