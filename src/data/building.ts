@@ -36,7 +36,7 @@ export const BUILDING: BuildingItem[] = [
         summary:
             'Giáo trình 19 module xoay quanh một bài toán CRM lớn dần qua từng giai đoạn. Đang viết tiếp các chương cuối.',
         status: 'building',
-        href: '/docs/dotnet-backend-zero-to-senior',
+        href: 'https://dotnet-course.tiennhm.io.vn/',
         tech: ['.NET', 'ASP.NET Core', 'EF Core'],
     },
     {

@@ -11,14 +11,15 @@ module.exports = {
         }
     },
     items: [
+        // Khoá .NET và khoá SQL 30 ngày đã chuyển sang site riêng (repo
+        // TienNHM/dotnet-course, TienNHM/sql-challenge).
+        // target _self: mở thẳng trong tab hiện tại như các mục khác của navbar.
         {
-            type: 'docSidebar',
-            sidebarId: 'dotnetSidebar',
+            href: 'https://dotnet-course.tiennhm.io.vn/',
+            target: '_self',
             position: 'left',
             label: 'Khoá .NET',
         },
-        // Khoá SQL 30 ngày đã chuyển sang site riêng (repo TienNHM/sql-challenge).
-        // target _self: mở thẳng trong tab hiện tại như các mục khác của navbar.
         {
             href: 'https://sql-challenge.tiennhm.io.vn/',
             target: '_self',

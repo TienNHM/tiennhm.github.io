@@ -78,7 +78,7 @@ Bỏ qua nhóm thứ ba là lỗi hay gặp nhất: API trả 200 kèm body rỗ
 
 Ghép nhiều lời gọi API hoặc nhiều thành phần lại với nhau để kiểm tra chúng phối hợp đúng: API gọi database, gọi cache, gọi service khác, và dữ liệu đi qua các ranh giới đó có còn nguyên không.
 
-Đây là nơi lộ ra những lỗi mà unit test không bao giờ thấy, vì unit test đã mock hết mọi thứ xung quanh. Với ASP.NET Core, chi tiết cách dựng loại test này — `WebApplicationFactory`, vì sao `UseInMemoryDatabase` cho kết quả sai lệch, và cách chạy trên database thật bằng Testcontainers — tôi viết riêng trong bài [API Testing trong ASP.NET Core](/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-09-web-api-professional/9.8-api-testing).
+Đây là nơi lộ ra những lỗi mà unit test không bao giờ thấy, vì unit test đã mock hết mọi thứ xung quanh. Với ASP.NET Core, chi tiết cách dựng loại test này — `WebApplicationFactory`, vì sao `UseInMemoryDatabase` cho kết quả sai lệch, và cách chạy trên database thật bằng Testcontainers — tôi viết riêng trong bài [API Testing trong ASP.NET Core](https://dotnet-course.tiennhm.io.vn/lessons/stage-03-aspnet-core-backend/module-09-web-api-professional/9.8-api-testing).
 
 ### 4. Regression Testing (Kiểm thử hồi quy)
 

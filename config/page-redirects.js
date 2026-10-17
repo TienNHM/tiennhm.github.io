@@ -6,10 +6,8 @@
 // Đích phải là route CÓ THẬT, nếu không plugin-client-redirects ném lỗi lúc
 // build.
 module.exports = [
-    // Phụ lục Client .NET gỡ ngày 2026-10-01; trang lộ trình vẫn nói rõ vì sao
-    // Blazor và .NET MAUI nằm ngoài phạm vi backend-first.
-    {
-        from: '/docs/dotnet-backend-zero-to-senior/dotnet-optional-client-dotnet',
-        to: '/docs/dotnet-backend-zero-to-senior/dotnet-backend-zero-to-senior-roadmap',
-    },
+    // Khoá .NET (/docs/dotnet-backend-zero-to-senior/...) và khoá SQL 30 ngày
+    // (/docs/database/...) đã chuyển sang site riêng. Plugin này chỉ chuyển
+    // hướng nội bộ nên không giữ các URL đó; link trong blog đã trỏ thẳng sang
+    // site mới.
 ];

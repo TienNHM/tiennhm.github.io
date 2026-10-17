@@ -367,4 +367,4 @@ Trong **Phần 2**, chúng ta sẽ khám phá chi tiết các công cụ AI như
 
 ## Bài liên quan
 
-- [Module 3 — Git + Developer Workflow](/docs/dotnet-backend-zero-to-senior/stage-01-foundation/module-03-git-developer-workflow) — Quy trình kỹ sư phần mềm với Git: branching, merge/rebase, code review, CI hooks — chuẩn hóa cộng tác cho dự án .NET đa module.
+- [Module 3 — Git + Developer Workflow](https://dotnet-course.tiennhm.io.vn/lessons/stage-01-foundation/module-03-git-developer-workflow/README) — Quy trình kỹ sư phần mềm với Git: branching, merge/rebase, code review, CI hooks — chuẩn hóa cộng tác cho dự án .NET đa module.

@@ -18,7 +18,7 @@ Bài viết giới thiệu tổng quan về các kiểu lập trình (programmin
 
 Trong bài viết này, mình sẽ giới thiệu tổng quan về các kiểu lập trình phổ biến trong phát triển phần mềm.
 
-Nếu bạn đang ở giai đoạn dựng nền, phần [Programming Logic](/docs/dotnet-backend-zero-to-senior/stage-01-foundation/module-01-programming-logic) trong lộ trình .NET backend đi qua biến, điều kiện, vòng lặp và hàm — những thứ mọi paradigm bên dưới đều dựa lên.
+Nếu bạn đang ở giai đoạn dựng nền, phần [Programming Logic](https://dotnet-course.tiennhm.io.vn/lessons/stage-01-foundation/module-01-programming-logic/README) trong lộ trình .NET backend đi qua biến, điều kiện, vòng lặp và hàm — những thứ mọi paradigm bên dưới đều dựa lên.
 
 <!-- truncate -->
 
@@ -256,4 +256,4 @@ Nếu mới bắt đầu, bạn có thể:
 
 ## Bài liên quan
 
-- [Module 1 — Programming Logic](/docs/dotnet-backend-zero-to-senior/stage-01-foundation/module-01-programming-logic) — Nền tảng tư duy thuật toán và cấu trúc điều khiển trong C#: kiểu dữ liệu, hàm, tập hợp, độ phức tạp tiệm cận — chuẩn bị cho backend CRM.
+- [Module 1 — Programming Logic](https://dotnet-course.tiennhm.io.vn/lessons/stage-01-foundation/module-01-programming-logic/README) — Nền tảng tư duy thuật toán và cấu trúc điều khiển trong C#: kiểu dữ liệu, hàm, tập hợp, độ phức tạp tiệm cận — chuẩn bị cho backend CRM.

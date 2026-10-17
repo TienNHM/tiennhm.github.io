@@ -351,6 +351,6 @@ Nếu bạn đang đặt Traefik phía sau Cloudflare và HTTP-01 vẫn đang ch
 
 ## Bài liên quan
 
-- [Module 15 — Docker + Deployment](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-15-docker-deployment) — Container hóa và triển khai: Dockerfile multi-stage, compose, health checks, reverse proxy — pipeline production-like cho .NET.
-- [Module 2 — Computer Science Basics](/docs/dotnet-backend-zero-to-senior/stage-01-foundation/module-02-computer-science-basics) — CS foundation cho backend: mô hình bộ nhớ, HTTP/TCP khái quát, JSON, REST semantics, phân tích độ phức tạp — liên hệ pipeline request trong ASP.NET…
-- [2.2 — 1. Internet hoạt động như thế nào](/docs/dotnet-backend-zero-to-senior/stage-01-foundation/module-02-computer-science-basics/2.2-how-the-internet-works) — Theo chân một request từ lúc gõ URL tới lúc pixel hiện lên: DNS, TCP, TLS, HTTP.
+- [Module 15 — Docker + Deployment](https://dotnet-course.tiennhm.io.vn/lessons/stage-04-database-production/module-15-docker-deployment/README) — Container hóa và triển khai: Dockerfile multi-stage, compose, health checks, reverse proxy — pipeline production-like cho .NET.
+- [Module 2 — Computer Science Basics](https://dotnet-course.tiennhm.io.vn/lessons/stage-01-foundation/module-02-computer-science-basics/README) — CS foundation cho backend: mô hình bộ nhớ, HTTP/TCP khái quát, JSON, REST semantics, phân tích độ phức tạp — liên hệ pipeline request trong ASP.NET…
+- [2.2 — 1. Internet hoạt động như thế nào](https://dotnet-course.tiennhm.io.vn/lessons/stage-01-foundation/module-02-computer-science-basics/2.2-how-the-internet-works) — Theo chân một request từ lúc gõ URL tới lúc pixel hiện lên: DNS, TCP, TLS, HTTP.
