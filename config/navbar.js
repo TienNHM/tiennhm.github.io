@@ -17,9 +17,11 @@ module.exports = {
             position: 'left',
             label: 'Khoá .NET',
         },
+        // Khoá SQL 30 ngày đã chuyển sang site riêng (repo TienNHM/sql-challenge).
+        // target _self: mở thẳng trong tab hiện tại như các mục khác của navbar.
         {
-            type: 'docSidebar',
-            sidebarId: 'sqlSidebar',
+            href: 'https://sql-challenge.tiennhm.io.vn/',
+            target: '_self',
             position: 'left',
             label: 'Khoá SQL',
         },

@@ -19,7 +19,7 @@ import { SummaryBox, FAQSection } from '@site/src/components/SEO';
 
 Đây là loại lỗi không làm ứng dụng sập. Nó chỉ làm báo cáo thiếu số, làm màn hình danh sách trống, làm một chiến dịch gửi thiếu khách hàng — và không để lại dấu vết nào trong log.
 
-Bài này đào sâu một chi tiết trong [series học SQL 30 ngày](/docs/database/learn-sql-in-30-days), cụ thể là phần [toán tử và biểu thức](/docs/database/learn-sql-in-30-days/05-operators-and-expressions) cùng [subquery](/docs/database/learn-sql-in-30-days/11-subquery). Mọi con số dưới đây là kết quả chạy thật trên PostgreSQL 16.11.
+Bài này đào sâu một chi tiết trong [series học SQL 30 ngày](https://sql-challenge.tiennhm.io.vn/), cụ thể là phần [toán tử và biểu thức](https://sql-challenge.tiennhm.io.vn/lessons/05-operators-expressions) cùng [subquery](https://sql-challenge.tiennhm.io.vn/lessons/11-subquery). Mọi con số dưới đây là kết quả chạy thật trên PostgreSQL 16.11.
 
 <!-- truncate -->
 
@@ -162,7 +162,7 @@ SELECT count(*), count(thanh_pho) FROM kh;
 -- 3, 2
 ```
 
-`COUNT(*)` đếm **dòng**. `COUNT(cột)` đếm **giá trị không NULL**. Chênh lệch giữa hai con số chính là số dòng thiếu dữ liệu — đôi khi đó là thứ bạn cần, đôi khi đó là bug trong báo cáo. Chi tiết về các hàm tổng hợp nằm ở [bài hàm tổng hợp](/docs/database/learn-sql-in-30-days/08-aggregate-functions).
+`COUNT(*)` đếm **dòng**. `COUNT(cột)` đếm **giá trị không NULL**. Chênh lệch giữa hai con số chính là số dòng thiếu dữ liệu — đôi khi đó là thứ bạn cần, đôi khi đó là bug trong báo cáo. Chi tiết về các hàm tổng hợp nằm ở [bài hàm tổng hợp](https://sql-challenge.tiennhm.io.vn/lessons/08-aggregate-functions).
 
 Cùng logic ấy, `AVG(cột)` bỏ qua `NULL` chứ không coi chúng là 0. Trung bình của `(10, NULL, 20)` là `15`, không phải `10`.
 
@@ -172,11 +172,11 @@ Cùng logic ấy, `AVG(cột)` bỏ qua `NULL` chứ không coi chúng là 0. Tr
 SELECT thanh_pho, count(*) FROM kh GROUP BY thanh_pho;
 ```
 
-Tất cả dòng có `thanh_pho` là `NULL` rơi vào **cùng một nhóm**, dù về mặt logic chúng là "không biết" chứ không phải "giống nhau". Đây là một ngoại lệ có chủ ý của chuẩn SQL, và nó mâu thuẫn với chính quy tắc `NULL <> NULL` ở trên. Xem thêm [bài GROUP BY và HAVING](/docs/database/learn-sql-in-30-days/09-group-by-having).
+Tất cả dòng có `thanh_pho` là `NULL` rơi vào **cùng một nhóm**, dù về mặt logic chúng là "không biết" chứ không phải "giống nhau". Đây là một ngoại lệ có chủ ý của chuẩn SQL, và nó mâu thuẫn với chính quy tắc `NULL <> NULL` ở trên. Xem thêm [bài GROUP BY và HAVING](https://sql-challenge.tiennhm.io.vn/lessons/09-group-by-having).
 
 ### 3. `UNIQUE` không chặn nhiều `NULL`
 
-Một ràng buộc `UNIQUE` trên cột cho phép `NULL` sẽ chấp nhận **nhiều dòng cùng NULL**, vì hai cái "không biết" không được coi là trùng nhau. Rất nhiều người dựa vào `UNIQUE` để đảm bảo "mỗi khách một mã số thuế" rồi ngạc nhiên khi có hàng trăm dòng `NULL`. Nếu cột đó thật sự bắt buộc, hãy khai `NOT NULL` — phần thiết kế bảng nằm ở [bài cấu trúc bảng và kiểu dữ liệu](/docs/database/learn-sql-in-30-days/02-table-structure-and-data-types).
+Một ràng buộc `UNIQUE` trên cột cho phép `NULL` sẽ chấp nhận **nhiều dòng cùng NULL**, vì hai cái "không biết" không được coi là trùng nhau. Rất nhiều người dựa vào `UNIQUE` để đảm bảo "mỗi khách một mã số thuế" rồi ngạc nhiên khi có hàng trăm dòng `NULL`. Nếu cột đó thật sự bắt buộc, hãy khai `NOT NULL` — phần thiết kế bảng nằm ở [bài cấu trúc bảng và kiểu dữ liệu](https://sql-challenge.tiennhm.io.vn/lessons/02-table-structure-and-data-types).
 
 ### 4. `LEFT JOIN` sinh ra `NULL` rồi bạn lọc mất chúng
 
@@ -204,15 +204,15 @@ Còn dòng cuối là cách chữa gốc rễ: **phần lớn bẫy NULL biến 
 
 ## Học tiếp {#hoc-tiep}
 
-Bài này đào sâu một điểm trong [series học SQL trong 30 ngày](/docs/database/learn-sql-in-30-days). Những bài liên quan trực tiếp:
+Bài này đào sâu một điểm trong [series học SQL trong 30 ngày](https://sql-challenge.tiennhm.io.vn/). Những bài liên quan trực tiếp:
 
 | Bài trong series | Liên quan thế nào |
 |---|---|
-| [Toán tử và biểu thức](/docs/database/learn-sql-in-30-days/05-operators-and-expressions) | Nơi `IS NULL`, `IN`, `NOT IN` được giới thiệu |
-| [Subquery](/docs/database/learn-sql-in-30-days/11-subquery) | `EXISTS`, `NOT EXISTS` và subquery tương quan |
-| [Hàm tổng hợp](/docs/database/learn-sql-in-30-days/08-aggregate-functions) | `COUNT`, `AVG` và cách chúng bỏ qua `NULL` |
-| [GROUP BY và HAVING](/docs/database/learn-sql-in-30-days/09-group-by-having) | Cách `NULL` được gom nhóm |
-| [SELECT và WHERE](/docs/database/learn-sql-in-30-days/03-select-where) | Vì sao `WHERE` chỉ giữ `TRUE` |
+| [Toán tử và biểu thức](https://sql-challenge.tiennhm.io.vn/lessons/05-operators-expressions) | Nơi `IS NULL`, `IN`, `NOT IN` được giới thiệu |
+| [Subquery](https://sql-challenge.tiennhm.io.vn/lessons/11-subquery) | `EXISTS`, `NOT EXISTS` và subquery tương quan |
+| [Hàm tổng hợp](https://sql-challenge.tiennhm.io.vn/lessons/08-aggregate-functions) | `COUNT`, `AVG` và cách chúng bỏ qua `NULL` |
+| [GROUP BY và HAVING](https://sql-challenge.tiennhm.io.vn/lessons/09-group-by-having) | Cách `NULL` được gom nhóm |
+| [SELECT và WHERE](https://sql-challenge.tiennhm.io.vn/lessons/03-select-where) | Vì sao `WHERE` chỉ giữ `TRUE` |
 
 ---
 
@@ -262,6 +262,6 @@ Ba điều đáng nhớ:
 
 ## Bài liên quan
 
-- [11. Truy vấn con (Subquery)](/docs/database/learn-sql-in-30-days/11-subquery) — Giới thiệu về truy vấn con (Subquery) trong SQL, cách sử dụng và ví dụ minh họa.
-- [09. GROUP BY - HAVING](/docs/database/learn-sql-in-30-days/09-group-by-having) — Giới thiệu về GROUP BY và HAVING trong SQL, cách sử dụng và ví dụ minh họa.
-- [03. SELECT, WHERE](/docs/database/learn-sql-in-30-days/03-select-where) — Giới thiệu cách sử dụng SELECT và WHERE trong SQL.
+- [11. Truy vấn con (Subquery)](https://sql-challenge.tiennhm.io.vn/lessons/11-subquery) — Giới thiệu về truy vấn con (Subquery) trong SQL, cách sử dụng và ví dụ minh họa.
+- [09. GROUP BY - HAVING](https://sql-challenge.tiennhm.io.vn/lessons/09-group-by-having) — Giới thiệu về GROUP BY và HAVING trong SQL, cách sử dụng và ví dụ minh họa.
+- [03. SELECT, WHERE](https://sql-challenge.tiennhm.io.vn/lessons/03-select-where) — Giới thiệu cách sử dụng SELECT và WHERE trong SQL.

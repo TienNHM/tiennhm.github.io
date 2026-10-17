@@ -40,22 +40,8 @@ function fromDir(dirName) {
 const sidebars = {
     dotnetSidebar: [fromDir('09-dotnet-backend-zero-to-senior')],
 
-    // Khoá SQL 30 ngày tách riêng, cùng lý do với khoá .NET: người đang học
-    // theo ngày không nên phải cuộn qua LeetCode và WebGoat mới tới bài kế.
-    //
-    // Trỏ THẲNG vào thư mục khoá, không bọc `06-database` bên ngoài: mục navbar
-    // kiểu docSidebar dẫn tới link đầu tiên của sidebar, nên bọc thêm một lớp
-    // là bấm vào phải dừng ở trang tổng quan /docs/database rồi mới đi tiếp.
-    //
-    // Hệ quả: `06-database` không còn thuộc sidebar nào nên route /docs/database
-    // biến mất. Đó là chủ ý — trang đó và trang index của khoá mô tả CÙNG 32
-    // file, để cả hai là tự cạnh tranh nhau trên kết quả tìm kiếm. Đã thêm
-    // chuyển hướng trong config/page-redirects.js.
-    //
-    // Khi có tài liệu database KHÔNG thuộc khoá: đặt vào một thư mục gốc mới
-    // (ví dụ `docs/10-database/`) rồi thêm fromDir của nó vào tutorialSidebar.
-    // Đừng đặt vào `06-database` — thư mục đó giờ chỉ còn là vỏ chứa khoá học.
-    sqlSidebar: [fromDir('06-database/learn-sql-in-30-days')],
+    // Khoá SQL 30 ngày đã chuyển sang https://sql-challenge.tiennhm.io.vn/
+    // (repo TienNHM/sql-challenge); navbar trỏ thẳng sang đó.
 
     // Liệt kê tường minh chứ không autogenerate cả `.`: thêm một mảng docs mới
     // phải là quyết định có ý thức, không tự lọt vào.

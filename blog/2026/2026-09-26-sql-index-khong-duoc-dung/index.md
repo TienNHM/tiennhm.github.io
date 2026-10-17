@@ -19,7 +19,7 @@ Index là một cấu trúc sắp xếp theo **giá trị của cột**. Khi b�
 
 Tình huống quen thuộc: truy vấn chậm, bạn tạo index lên đúng cột đang lọc, chạy lại — vẫn chậm y như cũ. Index nằm đó, `\d` thấy rõ, nhưng execution plan không hề nhắc tới nó.
 
-Bài này đào sâu [bài Index](/docs/database/learn-sql-in-30-days/15-index) và [bài tối ưu truy vấn](/docs/database/learn-sql-in-30-days/28-sql-query-optimization) trong series học SQL 30 ngày. Mọi con số là kết quả chạy thật trên PostgreSQL 16.11.
+Bài này đào sâu [bài Index](https://sql-challenge.tiennhm.io.vn/lessons/15-index) và [bài tối ưu truy vấn](https://sql-challenge.tiennhm.io.vn/lessons/28-sql-query-optimization) trong series học SQL 30 ngày. Mọi con số là kết quả chạy thật trên PostgreSQL 16.11.
 
 <!-- truncate -->
 
@@ -116,7 +116,7 @@ Ba dòng đáng nói thêm.
 
 **`LIKE` với `%` ở đầu** không dùng được B-tree, vì index sắp theo thứ tự từ trái sang và bạn không cho nó biết ký tự đầu. `LIKE 'an%'` thì dùng được. Muốn tìm chuỗi con ở giữa thì cần công cụ khác — trigram index hoặc full-text search.
 
-**`CAST` ngầm** là dạng khó thấy nhất, vì bạn không tự viết ra nó. So sánh một cột số với một chuỗi, hoặc so `varchar` với `nvarchar`, có thể khiến database tự chèn phép chuyển kiểu lên **cột** và giết index. Đây là nguồn lỗi kinh điển trong các hệ thống có cột kiểu không nhất quán — phần chọn kiểu dữ liệu nằm ở [bài cấu trúc bảng](/docs/database/learn-sql-in-30-days/02-table-structure-and-data-types).
+**`CAST` ngầm** là dạng khó thấy nhất, vì bạn không tự viết ra nó. So sánh một cột số với một chuỗi, hoặc so `varchar` với `nvarchar`, có thể khiến database tự chèn phép chuyển kiểu lên **cột** và giết index. Đây là nguồn lỗi kinh điển trong các hệ thống có cột kiểu không nhất quán — phần chọn kiểu dữ liệu nằm ở [bài cấu trúc bảng](https://sql-challenge.tiennhm.io.vn/lessons/02-table-structure-and-data-types).
 
 **`OR` giữa hai cột khác nhau** cũng thường phá kế hoạch. `WHERE a = 1 OR b = 2` khó dùng index hơn hẳn `WHERE a = 1` rồi `UNION` với `WHERE b = 2`.
 
@@ -162,7 +162,7 @@ Bitmap Index Scan  (rows=38225)  (actual rows=37518)
 
 Lý do: database giữ **thống kê** về phân bố giá trị của từng cột. Khi bạn so sánh trực tiếp trên cột, nó tra thống kê và ước lượng khá chính xác. Khi bạn bọc hàm, nó **không biết hàm đó làm gì** với phân bố ấy, nên rơi về một con số phỏng đoán mặc định.
 
-Hậu quả nghiêm trọng hơn nhiều so với việc quét thừa một bảng: trong một truy vấn có nhiều bảng, **ước lượng sai số dòng dẫn tới chọn sai thuật toán join và sai thứ tự join**. Một con số sai 37 lần ở bước đầu có thể biến thành kế hoạch chậm hàng trăm lần ở bước sau. Cách đọc execution plan để phát hiện chuyện này nằm ở [bài hiệu năng truy vấn](/docs/database/learn-sql-in-30-days/20-query-performance).
+Hậu quả nghiêm trọng hơn nhiều so với việc quét thừa một bảng: trong một truy vấn có nhiều bảng, **ước lượng sai số dòng dẫn tới chọn sai thuật toán join và sai thứ tự join**. Một con số sai 37 lần ở bước đầu có thể biến thành kế hoạch chậm hàng trăm lần ở bước sau. Cách đọc execution plan để phát hiện chuyện này nằm ở [bài hiệu năng truy vấn](https://sql-challenge.tiennhm.io.vn/lessons/20-query-performance).
 
 Nói cách khác: **mất sargability không chỉ làm chậm một phép quét, nó làm database đưa ra quyết định tồi trên toàn bộ câu truy vấn.**
 
@@ -198,15 +198,15 @@ Vài nguyên tắc thực dụng:
 
 ## Học tiếp {#hoc-tiep}
 
-Bài này đào sâu hai điểm trong [series học SQL trong 30 ngày](/docs/database/learn-sql-in-30-days):
+Bài này đào sâu hai điểm trong [series học SQL trong 30 ngày](https://sql-challenge.tiennhm.io.vn/):
 
 | Bài trong series | Liên quan thế nào |
 |---|---|
-| [Index](/docs/database/learn-sql-in-30-days/15-index) | Cấu trúc index, cách tạo và khi nào nên tạo |
-| [Hiệu năng truy vấn](/docs/database/learn-sql-in-30-days/20-query-performance) | Đọc execution plan, nhận biết điểm nghẽn |
-| [Tối ưu truy vấn SQL](/docs/database/learn-sql-in-30-days/28-sql-query-optimization) | Các kỹ thuật viết lại truy vấn |
-| [Cấu trúc bảng và kiểu dữ liệu](/docs/database/learn-sql-in-30-days/02-table-structure-and-data-types) | Kiểu dữ liệu nhất quán để tránh CAST ngầm |
-| [Thiết kế database](/docs/database/learn-sql-in-30-days/27-database-design-best-practices) | Cân bằng giữa đọc và ghi khi đặt index |
+| [Index](https://sql-challenge.tiennhm.io.vn/lessons/15-index) | Cấu trúc index, cách tạo và khi nào nên tạo |
+| [Hiệu năng truy vấn](https://sql-challenge.tiennhm.io.vn/lessons/20-query-performance) | Đọc execution plan, nhận biết điểm nghẽn |
+| [Tối ưu truy vấn SQL](https://sql-challenge.tiennhm.io.vn/lessons/28-sql-query-optimization) | Các kỹ thuật viết lại truy vấn |
+| [Cấu trúc bảng và kiểu dữ liệu](https://sql-challenge.tiennhm.io.vn/lessons/02-table-structure-and-data-types) | Kiểu dữ liệu nhất quán để tránh CAST ngầm |
+| [Thiết kế database](https://sql-challenge.tiennhm.io.vn/lessons/27-database-design-best-practices) | Cân bằng giữa đọc và ghi khi đặt index |
 
 Ở phía ứng dụng, một dạng chậm khác hẳn nhưng hay bị nhầm với chuyện này là [vấn đề N+1 query trong EF Core](/blog/ef-core-n-plus-1-query): ở đó mỗi câu lệnh đều nhanh, cái chậm nằm ở **số lần** đi lại chứ không ở kế hoạch thực thi.
 
@@ -262,6 +262,6 @@ Ba điều đáng nhớ:
 
 ## Bài liên quan
 
-- [28. SQL query optimization](/docs/database/learn-sql-in-30-days/28-sql-query-optimization) — Hướng dẫn tối ưu hóa truy vấn SQL, phân tích truy vấn với EXPLAIN ANALYZE, tránh lỗi phổ biến khi viết SQL, tận dụng Index, Partition, Caching để…
-- [20. Query Performance](/docs/database/learn-sql-in-30-days/20-query-performance) — Tìm hiểu cách phân tích và tối ưu hiệu suất truy vấn SQL bằng EXPLAIN ANALYZE.
-- [15. Index](/docs/database/learn-sql-in-30-days/15-index) — Giới thiệu về Index trong SQL, cách tạo và sử dụng Index, cách tối ưu truy vấn SQL với Index.
+- [28. SQL query optimization](https://sql-challenge.tiennhm.io.vn/lessons/28-sql-query-optimization) — Hướng dẫn tối ưu hóa truy vấn SQL, phân tích truy vấn với EXPLAIN ANALYZE, tránh lỗi phổ biến khi viết SQL, tận dụng Index, Partition, Caching để…
+- [20. Query Performance](https://sql-challenge.tiennhm.io.vn/lessons/20-query-performance) — Tìm hiểu cách phân tích và tối ưu hiệu suất truy vấn SQL bằng EXPLAIN ANALYZE.
+- [15. Index](https://sql-challenge.tiennhm.io.vn/lessons/15-index) — Giới thiệu về Index trong SQL, cách tạo và sử dụng Index, cách tối ưu truy vấn SQL với Index.
