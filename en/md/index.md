@@ -10,7 +10,7 @@ Language: vi (chính), en (một phần)
 
 ## Khoá học & tài liệu chuyên sâu
 
-- [.NET Backend: Zero to Senior](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior): Lộ trình đầy đủ từ cơ bản đến senior cho lập trình viên .NET backend. Đây là phần nội dung lớn và chuyên sâu nhất của site.
+- [.NET Backend: Zero to Senior](https://dotnet-course.tiennhm.io.vn/): Lộ trình đầy đủ từ cơ bản đến senior cho lập trình viên .NET backend. Đây là phần nội dung lớn và chuyên sâu nhất của site.
 - [Web Security](https://tiennhm.io.vn/docs/web-security): Các lỗ hổng bảo mật web phổ biến và cách phòng chống.
 - [Database](https://tiennhm.io.vn/docs/database): Thiết kế, tối ưu và vận hành cơ sở dữ liệu.
 - [AWS Cloud Practitioner Essentials](https://tiennhm.io.vn/docs/aws-cloud-practitioner-essentials): Kiến thức nền tảng về AWS.

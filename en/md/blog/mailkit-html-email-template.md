@@ -406,5 +406,5 @@ Gmail không chấp nhận mật khẩu đăng nhập thường cho kết nối 
 
 ## Bài liên quan
 
-- [Module 7 — Dependency Injection](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-02-csharp-professional/module-07-dependency-injection) — Dependency injection trong .NET: service lifetime, composition root, options pattern — khớp với container ASP.NET Core và kiểm thử đơn vị.
+- [Module 7 — Dependency Injection](https://dotnet-course.tiennhm.io.vn/lessons/stage-02-csharp-professional/module-07-dependency-injection/README) — Dependency injection trong .NET: service lifetime, composition root, options pattern — khớp với container ASP.NET Core và kiểm thử đơn vị.
 - [Phần 4 - HTML + Tailwind Best Practices](https://tiennhm.io.vn/docs/agent-skills/agent-skills-03-html-tailwind-best-practices) — Tổng hợp guideline HTML + Tailwind CSS best practices cho Agent Skills – Animation, Layout, Images, Typography, Colors, Spacing, Forms, Responsive…

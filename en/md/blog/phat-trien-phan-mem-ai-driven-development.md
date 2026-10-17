@@ -165,5 +165,5 @@ Có câu hỏi hoặc muốn thảo luận? Hãy:
 
 ## Bài liên quan
 
-- [Module 3 — Git + Developer Workflow](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-01-foundation/module-03-git-developer-workflow) — Quy trình kỹ sư phần mềm với Git: branching, merge/rebase, code review, CI hooks — chuẩn hóa cộng tác cho dự án .NET đa module.
+- [Module 3 — Git + Developer Workflow](https://dotnet-course.tiennhm.io.vn/lessons/stage-01-foundation/module-03-git-developer-workflow/README) — Quy trình kỹ sư phần mềm với Git: branching, merge/rebase, code review, CI hooks — chuẩn hóa cộng tác cho dự án .NET đa module.
 - [Phần 1 - React Best Practices](https://tiennhm.io.vn/docs/agent-skills/agent-skills-01-react-best-practices) — Tổng hợp 53 guideline React best practices cho Agent Skills - State, Effects, Rendering, Components, Props, Events, Forms, Hooks, Context…

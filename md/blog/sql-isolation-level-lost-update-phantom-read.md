@@ -234,6 +234,6 @@ Ba điều đáng nhớ:
 
 ## Bài liên quan
 
-- [12.6 — 6. Transactions và Locking](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-12-sql-deep-dive/12.6-transactions-and-locking) — ACID, bốn isolation level và hiện tượng mỗi mức cho phép, RCSI, deadlock và thứ tự khoá, optimistic vs pessimistic concurrency, và retry.
-- [Module 12 — SQL Deep Dive](https://tiennhm.io.vn/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-12-sql-deep-dive) — SQL chuyên sâu: indexing, execution plans, transaction isolation, locking — hiệu năng truy vấn cho workload CRM.
+- [12.6 — 6. Transactions và Locking](https://dotnet-course.tiennhm.io.vn/lessons/stage-04-database-production/module-12-sql-deep-dive/12.6-transactions-and-locking) — ACID, bốn isolation level và hiện tượng mỗi mức cho phép, RCSI, deadlock và thứ tự khoá, optimistic vs pessimistic concurrency, và retry.
+- [Module 12 — SQL Deep Dive](https://dotnet-course.tiennhm.io.vn/lessons/stage-04-database-production/module-12-sql-deep-dive/README) — SQL chuyên sâu: indexing, execution plans, transaction isolation, locking — hiệu năng truy vấn cho workload CRM.
 - [30. Database security](https://sql-challenge.tiennhm.io.vn/lessons/30-database-security) — Học cách quản trị & bảo mật database, phân quyền, ngăn chặn SQL Injection, sao lưu & khôi phục dữ liệu đúng cách.
