@@ -6,3 +6,8 @@
 > Trang tổng hợp các tutorials, solutions và best practices về lập trình, bao gồm LeetCode solutions, database tutorials, Git/GitHub guides, web security, algorithms và nhiều chủ đề khác. Tài liệu được tổ chức theo categories để dễ dàng tìm kiếm và tham khảo, giúp developers học tập và giải quyết các vấn đề thực tế trong phát triển phần mềm.
 
 Tổng hợp các tutorials, solutions cho các problems...
+
+## Khoá học
+
+- [Học lập trình game với Oggy](https://oggy-adventure.tiennhm.io.vn/learn/) — 14 bài, 42 bài tập có lời giải, học lập trình game bằng JavaScript thuần qua mã nguồn của game trình duyệt [Oggy Adventure](https://oggy-adventure.tiennhm.io.vn/): game loop, va chạm AABB, state machine, camera, Web Audio, kiểm thử và CI.
+- [Học SQL trong 30 ngày](https://sql-challenge.tiennhm.io.vn/) — từ `SELECT` tới tối ưu truy vấn trên PostgreSQL 16.
