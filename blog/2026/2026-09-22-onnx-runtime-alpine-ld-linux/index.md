@@ -19,7 +19,7 @@ import { SummaryBox, FAQSection, Checklist } from '@site/src/components/SEO';
 
 21 giờ 30, tôi thêm `Dockerfile` cho ClubDay — một web app sự kiện có trò vẽ hình được chấm điểm bằng model ONNX chạy ngay trên máy chủ. Base image chọn theo phản xạ: `node:22-alpine`, vì nhẹ.
 
-Chọn base image là bước đầu tiên của [Docker và deployment](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-15-docker-deployment), và cũng là bước dễ chọn sai nhất — như bên dưới.
+Chọn base image là bước đầu tiên của [Docker và deployment](https://dotnet-course.tiennhm.io.vn/lessons/stage-04-database-production/module-15-docker-deployment/README), và cũng là bước dễ chọn sai nhất — như bên dưới.
 
 Image build sạch. Container lên. `docker ps` xanh. Rồi đến lúc server nạp model thì mọi thứ đổ, với một dòng lỗi không nhắc gì tới ONNX:
 
@@ -293,5 +293,5 @@ Bản sửa cuối cùng là một dòng. Phần đáng giá không phải dòng
 
 ## Bài liên quan
 
-- [2.8 — 7. Hosting và Cloud cơ bản](/docs/dotnet-backend-zero-to-senior/stage-01-foundation/module-02-computer-science-basics/2.8-hosting-and-cloud-basics) — Từ máy chủ vật lý tới serverless: bạn đang đổi quyền kiểm soát lấy sự tiện lợi.
-- [Module 15 — Docker + Deployment](/docs/dotnet-backend-zero-to-senior/stage-04-database-production/module-15-docker-deployment) — Container hóa và triển khai: Dockerfile multi-stage, compose, health checks, reverse proxy — pipeline production-like cho .NET.
+- [2.8 — 7. Hosting và Cloud cơ bản](https://dotnet-course.tiennhm.io.vn/lessons/stage-01-foundation/module-02-computer-science-basics/2.8-hosting-and-cloud-basics) — Từ máy chủ vật lý tới serverless: bạn đang đổi quyền kiểm soát lấy sự tiện lợi.
+- [Module 15 — Docker + Deployment](https://dotnet-course.tiennhm.io.vn/lessons/stage-04-database-production/module-15-docker-deployment/README) — Container hóa và triển khai: Dockerfile multi-stage, compose, health checks, reverse proxy — pipeline production-like cho .NET.

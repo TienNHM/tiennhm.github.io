@@ -19,7 +19,7 @@
 /**
  * Danh sách chủ đề chuyên môn, mỗi mục đều truy vết được về nội dung có thật:
  *
- * - .NET / C# / ASP.NET Core / EF Core  -> docs/09-dotnet-backend-zero-to-senior
+ * - .NET / C# / ASP.NET Core / EF Core  -> dotnet-course.tiennhm.io.vn (repo TienNHM/dotnet-course)
  * - ABP Framework / Microservices /
  *   Multi-tenancy / Software architecture -> blog 2026-09-15 (nền tảng CRM multi-tenant)
  * - Angular                              -> blog 2025-08-23, 2025-11-01, 2026-09-15

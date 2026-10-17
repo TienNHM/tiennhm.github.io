@@ -80,7 +80,7 @@ export default function HomepageWriting(): JSX.Element | null {
           </div>
           <Link
             className="button button--primary"
-            to="/docs/dotnet-backend-zero-to-senior"
+            to="https://dotnet-course.tiennhm.io.vn/"
           >
             <Translate id="home.course.cta" description="Nút vào khoá .NET">
               Vào khoá học

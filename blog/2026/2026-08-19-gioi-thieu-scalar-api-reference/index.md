@@ -365,4 +365,4 @@ Nếu bạn bắt đầu project mới với .NET 10, hãy dùng Scalar ngay t�
 
 ## Bài liên quan
 
-- [Module 9 — Web API Professional](/docs/dotnet-backend-zero-to-senior/stage-03-aspnet-core-backend/module-09-web-api-professional) — Web API chuyên nghiệp: versioning, validation, Problem Details, OpenAPI, filtering/paging — hợp đồng HTTP ổn định cho client và tích hợp.
+- [Module 9 — Web API Professional](https://dotnet-course.tiennhm.io.vn/lessons/stage-03-aspnet-core-backend/module-09-web-api-professional/README) — Web API chuyên nghiệp: versioning, validation, Problem Details, OpenAPI, filtering/paging — hợp đồng HTTP ổn định cho client và tích hợp.

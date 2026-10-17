@@ -6,7 +6,7 @@ module.exports = [
         items: [
             {
                 label: 'Khoá .NET Backend',
-                to: '/docs/dotnet-backend-zero-to-senior',
+                href: 'https://dotnet-course.tiennhm.io.vn/',
             },
             {
                 label: 'Tài liệu tra cứu',

@@ -38,10 +38,10 @@ function fromDir(dirName) {
 
 /** @type {import('@docusaurus/plugin-content-docs').SidebarsConfig} */
 const sidebars = {
-    dotnetSidebar: [fromDir('09-dotnet-backend-zero-to-senior')],
-
-    // Khoá SQL 30 ngày đã chuyển sang https://sql-challenge.tiennhm.io.vn/
-    // (repo TienNHM/sql-challenge); navbar trỏ thẳng sang đó.
+    // Khoá .NET đã chuyển sang https://dotnet-course.tiennhm.io.vn/ (repo
+    // TienNHM/dotnet-course), khoá SQL 30 ngày sang
+    // https://sql-challenge.tiennhm.io.vn/ (repo TienNHM/sql-challenge);
+    // navbar trỏ thẳng sang đó.
 
     // Liệt kê tường minh chứ không autogenerate cả `.`: thêm một mảng docs mới
     // phải là quyết định có ý thức, không tự lọt vào.

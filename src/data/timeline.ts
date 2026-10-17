@@ -51,7 +51,7 @@ export const TIMELINE: TimelineYear[] = [
                 kind: 'site',
                 description:
                     '19 module, 5 giai đoạn, 4 dự án — xoay quanh một bài toán CRM lớn dần. 277 trang tài liệu.',
-                links: [{ label: 'Xem khoá học', to: '/docs/dotnet-backend-zero-to-senior' }],
+                links: [{ label: 'Xem khoá học', to: 'https://dotnet-course.tiennhm.io.vn/' }],
             },
             {
                 period: '2026',
