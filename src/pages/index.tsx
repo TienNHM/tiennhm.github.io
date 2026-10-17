@@ -116,11 +116,12 @@ function HomepageHeader() {
 export default function Home(): JSX.Element {
   const { siteConfig } = useDocusaurusContext();
   const siteUrl = siteConfig.url?.replace(/\/$/, '') ?? 'https://TienNHM.github.io';
-  const ogImage = `${siteUrl}/img/copyright-tiennhm.webp`;
+  const ogImage = `${siteUrl}/img/og-tiennhm.jpg`;
 
   return (
     <Layout
-      title={siteConfig.title}
+      // Thành "Fullstack Developer Blog | TienNHM" (site title tự nối vào).
+      title="Fullstack Developer Blog"
       // Câu branding lấy qua translate() chứ không qua siteConfig.tagline —
       // xem src/utils/siteDescription.ts để biết vì sao config không dùng được.
       description={getSiteDescription()}

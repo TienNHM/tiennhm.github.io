@@ -6,7 +6,7 @@ const footerLinks = require('./footer-links');
 /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
 module.exports = {
     // Replace with your project's social card
-    image: 'img/copyright-tiennhm.webp',
+    image: 'img/og-tiennhm.jpg',
     navbar: require('./navbar'),
     docs: {
         sidebar: {

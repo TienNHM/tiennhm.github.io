@@ -54,6 +54,12 @@ const sidebars = {
         fromDir('07-aws-cloud-practitioner-essentials'),
         fromDir('08-agent-skills'),
         'seo-geo-guide',
+        // Khoá học nằm trên site của game (repo TienNHM/oggy-adventure).
+        {
+            type: 'link',
+            label: 'Khoá học lập trình game với Oggy',
+            href: 'https://oggy-adventure.tiennhm.io.vn/learn/',
+        },
     ],
 };
 
