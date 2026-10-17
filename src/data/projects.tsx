@@ -142,6 +142,15 @@ const PROJECTS: Project[] = [
     tags: ['courseproject'],
   },
   {
+    title: 'Oggy Adventure',
+    description: 'A browser-based 2D side-scroller that teaches kids aged 5–10 while they play: guide Oggy through four learning journeys, collect book pages that unlock knowledge cards, solve quizzes to open gates, and beat Joey, Marky, Dee Dee and a boss in each area. Plain JavaScript on HTML5 Canvas with Web Audio synthesized sound — no build step, no libraries. Fan-made, non-commercial.',
+    preview: null,
+    website: 'https://oggy-adventure.tiennhm.io.vn',
+    source: 'https://github.com/TienNHM/oggy-adventure',
+    tags: ['favorite', 'opensource', 'personal'],
+    highlight: true,
+  },
+  {
     title: "Artist Style Transfer CycleGAN",
     description: 'An implementation of artist style transfer using CycleGAN.',
     preview: 'https://res.cloudinary.com/tiennhm/image/upload/v1725682738/blog/images/test_pretrain_cvdmkn.webp',
