@@ -7,7 +7,7 @@
 
 Window function là thứ biến những câu truy vấn báo cáo dài dòng thành vài dòng đọc được. Nhưng nó cũng có đúng một cái bẫy đủ tinh vi để lọt qua review: bảng luỹ kế trông hợp lý ở giữa và sai ở chỗ có giá trị trùng nhau.
 
-Bài này đào sâu [bài Recursive Queries và Window Functions](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/29-recursive-queries-window-functions) trong series học SQL 30 ngày. Mọi con số là kết quả chạy thật trên PostgreSQL 16.11.
+Bài này đào sâu [bài Recursive Queries và Window Functions](https://sql-challenge.tiennhm.io.vn/lessons/29-recursive-queries-window-functions) trong series học SQL 30 ngày. Mọi con số là kết quả chạy thật trên PostgreSQL 16.11.
 
 ## Tóm tắt nhanh (TL;DR)
 - `GROUP BY` **gom** dòng; window function **giữ** dòng và thêm giá trị tổng hợp bên cạnh.
@@ -177,15 +177,15 @@ Viết bằng `GROUP BY` thuần thì phải tìm `MAX(tao_luc)` rồi join ngư
 ---
 
 ## Học tiếp
-Bài này đào sâu một điểm trong [series học SQL trong 30 ngày](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days):
+Bài này đào sâu một điểm trong [series học SQL trong 30 ngày](https://sql-challenge.tiennhm.io.vn/):
 
 | Bài trong series | Liên quan thế nào |
 |---|---|
-| [Recursive Queries và Window Functions](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/29-recursive-queries-window-functions) | Cú pháp `OVER`, `PARTITION BY` và recursive CTE |
-| [GROUP BY và HAVING](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/09-group-by-having) | Cách gom nhóm truyền thống |
-| [Hàm tổng hợp](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/08-aggregate-functions) | `SUM`, `AVG`, `COUNT` dùng chung cho cả hai cách |
-| [Subquery](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/11-subquery) | Bảng dẫn xuất cần thiết khi lọc theo kết quả window |
-| [Hiệu năng truy vấn](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/20-query-performance) | Đọc plan để so window với self-join |
+| [Recursive Queries và Window Functions](https://sql-challenge.tiennhm.io.vn/lessons/29-recursive-queries-window-functions) | Cú pháp `OVER`, `PARTITION BY` và recursive CTE |
+| [GROUP BY và HAVING](https://sql-challenge.tiennhm.io.vn/lessons/09-group-by-having) | Cách gom nhóm truyền thống |
+| [Hàm tổng hợp](https://sql-challenge.tiennhm.io.vn/lessons/08-aggregate-functions) | `SUM`, `AVG`, `COUNT` dùng chung cho cả hai cách |
+| [Subquery](https://sql-challenge.tiennhm.io.vn/lessons/11-subquery) | Bảng dẫn xuất cần thiết khi lọc theo kết quả window |
+| [Hiệu năng truy vấn](https://sql-challenge.tiennhm.io.vn/lessons/20-query-performance) | Đọc plan để so window với self-join |
 
 Một lưu ý về thứ tự xử lý: window function chạy **sau** `WHERE` và `GROUP BY`, nên bạn **không lọc được** trực tiếp theo kết quả của nó trong `WHERE`. Phải bọc vào một bảng dẫn xuất rồi lọc ở ngoài, như ví dụ `rn = 1` ở trên. Thứ tự các mệnh đề này tôi có nói kỹ hơn trong [bài LEFT JOIN thành INNER JOIN](https://tiennhm.io.vn/blog/left-join-thanh-inner-join).
 
@@ -232,6 +232,6 @@ Ba điều đáng nhớ:
 
 ## Bài liên quan
 
-- [29. Recursive Queries & Window Functions](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/29-recursive-queries-window-functions) — Giới thiệu về Recursive Queries và Window Functions trong SQL, cách viết truy vấn đệ quy, ứng dụng thực tế, cách sử dụng Window Functions để phân…
-- [09. GROUP BY - HAVING](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/09-group-by-having) — Giới thiệu về GROUP BY và HAVING trong SQL, cách sử dụng và ví dụ minh họa.
-- [08. Aggregate Functions](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/08-aggregate-functions) — Giới thiệu về các hàm tổng hợp trong SQL.
+- [29. Recursive Queries & Window Functions](https://sql-challenge.tiennhm.io.vn/lessons/29-recursive-queries-window-functions) — Giới thiệu về Recursive Queries và Window Functions trong SQL, cách viết truy vấn đệ quy, ứng dụng thực tế, cách sử dụng Window Functions để phân…
+- [09. GROUP BY - HAVING](https://sql-challenge.tiennhm.io.vn/lessons/09-group-by-having) — Giới thiệu về GROUP BY và HAVING trong SQL, cách sử dụng và ví dụ minh họa.
+- [08. Aggregate Functions](https://sql-challenge.tiennhm.io.vn/lessons/08-aggregate-functions) — Giới thiệu về các hàm tổng hợp trong SQL.

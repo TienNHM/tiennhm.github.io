@@ -7,7 +7,7 @@
 
 This is not the kind of bug that crashes an application. It just makes a report short by a few numbers, makes a list screen empty, makes a campaign miss some customers — and leaves nothing behind in the logs.
 
-This post drills into one detail from my [30-day SQL series](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days), specifically the lessons on [operators and expressions](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/05-operators-and-expressions) and [subqueries](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/11-subquery). Every number below is real output from PostgreSQL 16.11.
+This post drills into one detail from my [30-day SQL series](https://sql-challenge.tiennhm.io.vn/), specifically the lessons on [operators and expressions](https://sql-challenge.tiennhm.io.vn/lessons/05-operators-expressions) and [subqueries](https://sql-challenge.tiennhm.io.vn/lessons/11-subquery). Every number below is real output from PostgreSQL 16.11.
 
 ## TL;DR
 - `NULL` is not a value, it is **the absence of one**.
@@ -144,7 +144,7 @@ SELECT count(*), count(thanh_pho) FROM kh;
 -- 3, 2
 ```
 
-`COUNT(*)` counts **rows**. `COUNT(column)` counts **non-NULL values**. The gap between the two numbers is exactly the number of rows missing that data — sometimes that is what you want, sometimes it is a bug in a report. The aggregate functions are covered in [the aggregate functions lesson](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/08-aggregate-functions).
+`COUNT(*)` counts **rows**. `COUNT(column)` counts **non-NULL values**. The gap between the two numbers is exactly the number of rows missing that data — sometimes that is what you want, sometimes it is a bug in a report. The aggregate functions are covered in [the aggregate functions lesson](https://sql-challenge.tiennhm.io.vn/lessons/08-aggregate-functions).
 
 By the same logic, `AVG(column)` skips `NULL` rather than treating it as zero. The average of `(10, NULL, 20)` is `15`, not `10`.
 
@@ -154,11 +154,11 @@ By the same logic, `AVG(column)` skips `NULL` rather than treating it as zero. T
 SELECT thanh_pho, count(*) FROM kh GROUP BY thanh_pho;
 ```
 
-Every row whose `thanh_pho` is `NULL` falls into **the same group**, even though logically they are "unknown" rather than "identical". This is a deliberate exception in the SQL standard, and it contradicts the very `NULL <> NULL` rule above. See [the GROUP BY and HAVING lesson](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/09-group-by-having).
+Every row whose `thanh_pho` is `NULL` falls into **the same group**, even though logically they are "unknown" rather than "identical". This is a deliberate exception in the SQL standard, and it contradicts the very `NULL <> NULL` rule above. See [the GROUP BY and HAVING lesson](https://sql-challenge.tiennhm.io.vn/lessons/09-group-by-having).
 
 ### 3. `UNIQUE` does not prevent multiple `NULL`s
 
-A `UNIQUE` constraint on a nullable column accepts **many rows all holding NULL**, because two unknowns are not considered duplicates of each other. Plenty of people rely on `UNIQUE` to guarantee "one tax ID per customer" and are then surprised by hundreds of `NULL` rows. If the column really is mandatory, declare it `NOT NULL` — table design is covered in [the table structure and data types lesson](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/02-table-structure-and-data-types).
+A `UNIQUE` constraint on a nullable column accepts **many rows all holding NULL**, because two unknowns are not considered duplicates of each other. Plenty of people rely on `UNIQUE` to guarantee "one tax ID per customer" and are then surprised by hundreds of `NULL` rows. If the column really is mandatory, declare it `NOT NULL` — table design is covered in [the table structure and data types lesson](https://sql-challenge.tiennhm.io.vn/lessons/02-table-structure-and-data-types).
 
 ### 4. `LEFT JOIN` creates `NULL`s and then you filter them away
 
@@ -184,15 +184,15 @@ And the last row is the root-cause fix: **most NULL traps disappear if the colum
 ---
 
 ## Learn more
-This post drills into one point from my [30-day SQL series](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days). The directly related lessons:
+This post drills into one point from my [30-day SQL series](https://sql-challenge.tiennhm.io.vn/). The directly related lessons:
 
 | Lesson in the series | How it relates |
 |---|---|
-| [Operators and expressions](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/05-operators-and-expressions) | Where `IS NULL`, `IN` and `NOT IN` are introduced |
-| [Subqueries](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/11-subquery) | `EXISTS`, `NOT EXISTS` and correlated subqueries |
-| [Aggregate functions](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/08-aggregate-functions) | `COUNT`, `AVG` and how they skip `NULL` |
-| [GROUP BY and HAVING](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/09-group-by-having) | How `NULL`s are grouped |
-| [SELECT and WHERE](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/03-select-where) | Why `WHERE` keeps only `TRUE` |
+| [Operators and expressions](https://sql-challenge.tiennhm.io.vn/lessons/05-operators-expressions) | Where `IS NULL`, `IN` and `NOT IN` are introduced |
+| [Subqueries](https://sql-challenge.tiennhm.io.vn/lessons/11-subquery) | `EXISTS`, `NOT EXISTS` and correlated subqueries |
+| [Aggregate functions](https://sql-challenge.tiennhm.io.vn/lessons/08-aggregate-functions) | `COUNT`, `AVG` and how they skip `NULL` |
+| [GROUP BY and HAVING](https://sql-challenge.tiennhm.io.vn/lessons/09-group-by-having) | How `NULL`s are grouped |
+| [SELECT and WHERE](https://sql-challenge.tiennhm.io.vn/lessons/03-select-where) | Why `WHERE` keeps only `TRUE` |
 
 ---
 

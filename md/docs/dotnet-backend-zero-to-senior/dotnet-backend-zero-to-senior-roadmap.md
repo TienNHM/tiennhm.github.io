@@ -149,7 +149,7 @@ Mốc thời gian là tham chiếu, không phải chỉ tiêu. Người đã đi
 
 **Ra khỏi giai đoạn này bạn sẽ**: hiểu tầng dữ liệu quan hệ và ORM, tối ưu được đường đọc/ghi, vận hành tác vụ nền và đóng gói triển khai gần với production.
 
-- [Module 12 — SQL Deep Dive](stage-04-database-production/module-12-sql-deep-dive) — có thể học song song với [Learn SQL in 30 days](<../06-database/learn-sql-in-30-days/00. 30-Day SQL Learning Roadmap.md>)
+- [Module 12 — SQL Deep Dive](stage-04-database-production/module-12-sql-deep-dive) — có thể học song song với [Learn SQL in 30 days](https://sql-challenge.tiennhm.io.vn/lessons/00-30-day-sql-learning-roadmap)
 - [Module 13 — Entity Framework Core](stage-04-database-production/module-13-entity-framework-core)
 - [Module 14 — Caching + Background Jobs](stage-04-database-production/module-14-caching-background-jobs)
 - [Module 15 — Docker + Deployment](stage-04-database-production/module-15-docker-deployment)

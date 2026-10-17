@@ -7,7 +7,7 @@
 
 Window functions turn long-winded reporting queries into a few readable lines. They also carry exactly one trap subtle enough to pass code review: a running total that looks plausible in the middle and is wrong wherever values tie.
 
-This post goes deeper into [Recursive Queries and Window Functions](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/29-recursive-queries-window-functions) from the 30-day SQL series. Every number here was measured on PostgreSQL 16.11.
+This post goes deeper into [Recursive Queries and Window Functions](https://sql-challenge.tiennhm.io.vn/lessons/29-recursive-queries-window-functions) from the 30-day SQL series. Every number here was measured on PostgreSQL 16.11.
 
 ## TL;DR
 - `GROUP BY` **collapses** rows; a window function **keeps** them and adds the aggregate alongside.
@@ -177,15 +177,15 @@ Writing that with plain `GROUP BY` means finding `MAX(tao_luc)` and joining back
 ---
 
 ## Keep reading
-This post expands on one lesson from the [30-day SQL series](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days):
+This post expands on one lesson from the [30-day SQL series](https://sql-challenge.tiennhm.io.vn/):
 
 | Lesson in the series | How it connects |
 |---|---|
-| [Recursive Queries and Window Functions](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/29-recursive-queries-window-functions) | `OVER` and `PARTITION BY` syntax, plus recursive CTEs |
-| [GROUP BY and HAVING](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/09-group-by-having) | The traditional way to aggregate |
-| [Aggregate functions](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/08-aggregate-functions) | `SUM`, `AVG`, `COUNT` — shared by both approaches |
-| [Subqueries](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/11-subquery) | The derived table you need in order to filter on a window result |
-| [Query performance](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/20-query-performance) | Reading the plan to compare a window against a self-join |
+| [Recursive Queries and Window Functions](https://sql-challenge.tiennhm.io.vn/lessons/29-recursive-queries-window-functions) | `OVER` and `PARTITION BY` syntax, plus recursive CTEs |
+| [GROUP BY and HAVING](https://sql-challenge.tiennhm.io.vn/lessons/09-group-by-having) | The traditional way to aggregate |
+| [Aggregate functions](https://sql-challenge.tiennhm.io.vn/lessons/08-aggregate-functions) | `SUM`, `AVG`, `COUNT` — shared by both approaches |
+| [Subqueries](https://sql-challenge.tiennhm.io.vn/lessons/11-subquery) | The derived table you need in order to filter on a window result |
+| [Query performance](https://sql-challenge.tiennhm.io.vn/lessons/20-query-performance) | Reading the plan to compare a window against a self-join |
 
 A note on processing order: window functions run **after** `WHERE` and `GROUP BY`, so you **cannot filter** on their output directly in `WHERE`. You have to wrap the query in a derived table and filter outside it, as in the `rn = 1` example above. I covered that clause ordering in more depth in [the post on LEFT JOIN becoming INNER JOIN](https://tiennhm.io.vn/blog/left-join-thanh-inner-join).
 
@@ -232,6 +232,6 @@ Three things worth remembering:
 
 ## Related posts
 
-- [29. Recursive Queries & Window Functions](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/29-recursive-queries-window-functions) — An introduction to recursive queries and window functions in SQL, how to write recursive queries, real-world uses, and how to use window functions for analysis.
-- [09. GROUP BY - HAVING](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/09-group-by-having) — An introduction to GROUP BY and HAVING in SQL, with usage and worked examples.
-- [08. Aggregate Functions](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/08-aggregate-functions) — An introduction to aggregate functions in SQL.
+- [29. Recursive Queries & Window Functions](https://sql-challenge.tiennhm.io.vn/lessons/29-recursive-queries-window-functions) — An introduction to recursive queries and window functions in SQL, how to write recursive queries, real-world uses, and how to use window functions for analysis.
+- [09. GROUP BY - HAVING](https://sql-challenge.tiennhm.io.vn/lessons/09-group-by-having) — An introduction to GROUP BY and HAVING in SQL, with usage and worked examples.
+- [08. Aggregate Functions](https://sql-challenge.tiennhm.io.vn/lessons/08-aggregate-functions) — An introduction to aggregate functions in SQL.

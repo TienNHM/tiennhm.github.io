@@ -7,7 +7,7 @@
 
 Mọi bài viết về tối ưu database đều kết thúc bằng lời khuyên thêm index. Rất ít bài nói về hoá đơn đi kèm, và càng ít bài đưa con số.
 
-Bài này đào sâu [bài Thiết kế database](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/27-database-design-best-practices) và [bài Index](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/15-index) trong series học SQL 30 ngày. Mọi số liệu đo thật trên PostgreSQL 16.11.
+Bài này đào sâu [bài Thiết kế database](https://sql-challenge.tiennhm.io.vn/lessons/27-database-design-best-practices) và [bài Index](https://sql-challenge.tiennhm.io.vn/lessons/15-index) trong series học SQL 30 ngày. Mọi số liệu đo thật trên PostgreSQL 16.11.
 
 ## Tóm tắt nhanh (TL;DR)
 - 4 index làm cùng một lệnh `INSERT` 200.000 dòng đi từ **287,8 ms → 1.722,3 ms** (chậm 6 lần).
@@ -137,15 +137,15 @@ Không có con số vàng, nhưng có vài câu hỏi cho ra quyết định kh�
 ---
 
 ## Học tiếp
-Bài này đào sâu hai điểm trong [series học SQL trong 30 ngày](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days):
+Bài này đào sâu hai điểm trong [series học SQL trong 30 ngày](https://sql-challenge.tiennhm.io.vn/):
 
 | Bài trong series | Liên quan thế nào |
 |---|---|
-| [Thiết kế database](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/27-database-design-best-practices) | Cân bằng đọc và ghi khi thiết kế schema |
-| [Index](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/15-index) | Cấu trúc B-tree và cú pháp tạo index |
-| [Tối ưu truy vấn SQL](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/28-sql-query-optimization) | Viết lại truy vấn trước khi nghĩ tới index mới |
-| [Hiệu năng truy vấn](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/20-query-performance) | Đọc execution plan để biết index có được dùng không |
-| [Transactions và ACID](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/16-transactions-acid) | Index làm transaction ghi dài hơn và giữ khoá lâu hơn |
+| [Thiết kế database](https://sql-challenge.tiennhm.io.vn/lessons/27-database-design-best-practices) | Cân bằng đọc và ghi khi thiết kế schema |
+| [Index](https://sql-challenge.tiennhm.io.vn/lessons/15-index) | Cấu trúc B-tree và cú pháp tạo index |
+| [Tối ưu truy vấn SQL](https://sql-challenge.tiennhm.io.vn/lessons/28-sql-query-optimization) | Viết lại truy vấn trước khi nghĩ tới index mới |
+| [Hiệu năng truy vấn](https://sql-challenge.tiennhm.io.vn/lessons/20-query-performance) | Đọc execution plan để biết index có được dùng không |
+| [Transactions và ACID](https://sql-challenge.tiennhm.io.vn/lessons/16-transactions-acid) | Index làm transaction ghi dài hơn và giữ khoá lâu hơn |
 
 Mặt kia của câu chuyện — index **có** nhưng **không được dùng** — nằm ở [bài về sargability](https://tiennhm.io.vn/blog/sql-index-khong-duoc-dung-sargable). Hai bài đó là hai nửa của cùng một câu hỏi: bạn đang trả chi phí ghi cho những index nào, và trong số đó cái nào thật sự phục vụ được truy vấn của bạn.
 
@@ -192,6 +192,6 @@ Ba điều đáng nhớ:
 
 ## Bài liên quan
 
-- [27. Database design best practices](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/27-database-design-best-practices) — Thiết kế cơ sở dữ liệu (Database Design) - Nguyên tắc chuẩn hóa CSDL, khi nào nên phi chuẩn hóa, best practices thiết kế CSDL hiệu quả.
-- [28. SQL query optimization](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/28-sql-query-optimization) — Hướng dẫn tối ưu hóa truy vấn SQL, phân tích truy vấn với EXPLAIN ANALYZE, tránh lỗi phổ biến khi viết SQL, tận dụng Index, Partition, Caching để…
-- [15. Index](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/15-index) — Giới thiệu về Index trong SQL, cách tạo và sử dụng Index, cách tối ưu truy vấn SQL với Index.
+- [27. Database design best practices](https://sql-challenge.tiennhm.io.vn/lessons/27-database-design-best-practices) — Thiết kế cơ sở dữ liệu (Database Design) - Nguyên tắc chuẩn hóa CSDL, khi nào nên phi chuẩn hóa, best practices thiết kế CSDL hiệu quả.
+- [28. SQL query optimization](https://sql-challenge.tiennhm.io.vn/lessons/28-sql-query-optimization) — Hướng dẫn tối ưu hóa truy vấn SQL, phân tích truy vấn với EXPLAIN ANALYZE, tránh lỗi phổ biến khi viết SQL, tận dụng Index, Partition, Caching để…
+- [15. Index](https://sql-challenge.tiennhm.io.vn/lessons/15-index) — Giới thiệu về Index trong SQL, cách tạo và sử dụng Index, cách tối ưu truy vấn SQL với Index.

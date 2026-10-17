@@ -7,7 +7,7 @@
 
 Every post about database optimization ends with advice to add an index. Very few mention the bill that comes with it, and fewer still put a number on it.
 
-This post goes deeper into two lessons from the 30-day SQL series: [Database design](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/27-database-design-best-practices) and [Index](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/15-index). Every figure below was measured on PostgreSQL 16.11.
+This post goes deeper into two lessons from the 30-day SQL series: [Database design](https://sql-challenge.tiennhm.io.vn/lessons/27-database-design-best-practices) and [Index](https://sql-challenge.tiennhm.io.vn/lessons/15-index). Every figure below was measured on PostgreSQL 16.11.
 
 ## TL;DR
 - Four indexes took the same `INSERT` of 200,000 rows from **287.8 ms → 1,722.3 ms** (6× slower).
@@ -137,15 +137,15 @@ There is no magic number, but a few questions get you to a decision quickly.
 ---
 
 ## Keep reading
-This post expands on two points from the [30-day SQL series](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days):
+This post expands on two points from the [30-day SQL series](https://sql-challenge.tiennhm.io.vn/):
 
 | Lesson in the series | How it connects |
 |---|---|
-| [Database design](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/27-database-design-best-practices) | Balancing reads against writes when designing a schema |
-| [Index](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/15-index) | B-tree structure and index creation syntax |
-| [SQL query optimization](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/28-sql-query-optimization) | Rewrite the query before reaching for a new index |
-| [Query performance](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/20-query-performance) | Reading an execution plan to see whether an index is used |
-| [Transactions and ACID](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/16-transactions-acid) | Indexes make write transactions longer and hold locks for longer |
+| [Database design](https://sql-challenge.tiennhm.io.vn/lessons/27-database-design-best-practices) | Balancing reads against writes when designing a schema |
+| [Index](https://sql-challenge.tiennhm.io.vn/lessons/15-index) | B-tree structure and index creation syntax |
+| [SQL query optimization](https://sql-challenge.tiennhm.io.vn/lessons/28-sql-query-optimization) | Rewrite the query before reaching for a new index |
+| [Query performance](https://sql-challenge.tiennhm.io.vn/lessons/20-query-performance) | Reading an execution plan to see whether an index is used |
+| [Transactions and ACID](https://sql-challenge.tiennhm.io.vn/lessons/16-transactions-acid) | Indexes make write transactions longer and hold locks for longer |
 
 The other half of the story — an index that **exists** but **never gets used** — is in [the post on sargability](https://tiennhm.io.vn/blog/sql-index-khong-duoc-dung-sargable). The two are two halves of the same question: which indexes are you paying write cost for, and which of those actually serve your queries.
 
@@ -192,6 +192,6 @@ Three things worth remembering:
 
 ## Related posts
 
-- [27. Database design best practices](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/27-database-design-best-practices) — Normalization principles, when to denormalize, and best practices for designing an effective schema.
-- [28. SQL query optimization](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/28-sql-query-optimization) — Optimizing SQL queries, analyzing them with EXPLAIN ANALYZE, avoiding common mistakes, and using indexes, partitions and caching.
-- [15. Index](https://tiennhm.io.vn/docs/database/learn-sql-in-30-days/15-index) — An introduction to indexes in SQL, how to create and use them, and how to optimize queries with them.
+- [27. Database design best practices](https://sql-challenge.tiennhm.io.vn/lessons/27-database-design-best-practices) — Normalization principles, when to denormalize, and best practices for designing an effective schema.
+- [28. SQL query optimization](https://sql-challenge.tiennhm.io.vn/lessons/28-sql-query-optimization) — Optimizing SQL queries, analyzing them with EXPLAIN ANALYZE, avoiding common mistakes, and using indexes, partitions and caching.
+- [15. Index](https://sql-challenge.tiennhm.io.vn/lessons/15-index) — An introduction to indexes in SQL, how to create and use them, and how to optimize queries with them.
