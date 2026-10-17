@@ -90,7 +90,7 @@ module.exports = [
     tagName: 'meta',
     attributes: {
         property: 'og:image',
-        content: `${siteUrl}/img/copyright-tiennhm.webp`,
+        content: `${siteUrl}/img/og-tiennhm.jpg`,
     }
 },
 {
@@ -111,7 +111,7 @@ module.exports = [
     tagName: 'meta',
     attributes: {
         name: 'twitter:image',
-        content: `${siteUrl}/img/copyright-tiennhm.webp`,
+        content: `${siteUrl}/img/og-tiennhm.jpg`,
     }
 },
 */
