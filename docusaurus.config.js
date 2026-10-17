@@ -8,7 +8,10 @@ const { organizationName, projectName, siteUrl, siteDescription } = require('./c
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-    title: 'TienNHM - Fullstack Developer Blog',
+    // Ngắn có chủ ý: Docusaurus nối " | <title>" vào MỌI trang. Để đủ cụm
+    // "TienNHM - Fullstack Developer Blog" thì hậu tố dài 37 ký tự và 330/458
+    // trang vượt 60 ký tự (lỗi "Title too long"). Trang chủ tự đặt title riêng.
+    title: 'TienNHM',
     tagline: siteDescription,
     favicon: 'img/tiennhm-avatar.jpg',
 
