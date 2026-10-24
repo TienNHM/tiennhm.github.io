@@ -5,9 +5,34 @@
 
 > Dùng vài MCP server cho Claude Code, Cursor, Codex… thì sớm muộn bạn cũng phải khai báo lặp lại cùng một danh sách ở từng client, và mỗi server lại đổ toàn bộ schema tool vào context ngay khi phiên bắt đầu. **1MCP Agent** (`@1mcp/agent`) là một proxy đứng giữa: bạn đăng ký các MCP server một lần, chạy `1mcp serve`, rồi client nào cũng chỉ cần trỏ về một địa chỉ. Ngoài ra nó có chế độ CLI cho phép agent khám phá và gọi tool theo từng bước (`instructions` → `inspect` → `run`) để không phải nạp hết schema từ đầu.
 
-Bài này là giới thiệu công cụ dựa trên [README của repo](https://github.com/1mcp-app/agent) và tài liệu tại [docs.1mcp.app](https://docs.1mcp.app), không phải đánh giá sau thời gian dài dùng. Chỗ nào tài liệu không nói rõ thì tôi ghi là chưa rõ, không đoán.
+Bài bắt đầu từ một vấn đề tôi gặp thật (máy nặng vì mỗi session Claude Code tự khởi động bản sao MCP server của riêng nó), rồi chuyển sang giới thiệu 1MCP dựa trên [README của repo](https://github.com/1mcp-app/agent) và tài liệu tại [docs.1mcp.app](https://docs.1mcp.app). Phần giới thiệu công cụ chưa phải đánh giá sau thời gian dài dùng. Chỗ nào tài liệu không nói rõ thì tôi ghi là chưa rõ, không đoán.
 
-## Vấn đề: MCP server mọc nhanh hơn cách ta quản lý chúng
+## Câu chuyện: máy ngốn RAM vì mỗi session một bộ MCP riêng
+
+Tôi mở nhiều session Claude Code cùng lúc, và máy bắt đầu nặng. Khi hỏi Claude xem có cách nào để các session dùng chung MCP server không, câu trả lời làm rõ nguyên nhân: **mặc định Claude khởi động MCP server qua stdio, nên mỗi session có một bản sao riêng của từng server.** Mở năm session với mười server là năm mươi tiến trình, dù phần lớn làm đúng một việc giống nhau.
+
+Muốn dùng chung thì server phải chạy **một lần** dưới dạng HTTP, rồi mọi session nối vào bằng URL. Từ đó có ba hướng, theo thứ tự từ dễ đến khó:
+
+1. **Bỏ bản trùng.** Cấu hình của tôi khai cùng một server hai lần: Azure DevOps vừa là `ado` vừa là `azure-devops`, GitKraken vừa khai tay vừa đến từ plugin. Bỏ một bản là giảm bộ nhớ ở mọi session mà không cần công cụ mới.
+2. **Dùng chung một tiến trình.** Bọc server stdio bằng một proxy như `supergateway` hay `mcp-proxy`, chạy một lần, rồi khai `"type": "http"` cùng URL `http://localhost:<cổng>/mcp`. Hợp với server không giữ trạng thái (Azure DevOps, GitKraken). **Không hợp** với server giữ trạng thái: `chrome-devtools` chỉ có một trạng thái trình duyệt, còn một server lưu bằng chứng theo từng tác vụ thì dùng chung sẽ làm dữ liệu giữa các session lẫn vào nhau.
+3. **Nạp ít server hơn.** Tắt những cái ít dùng (Datadog, Docker, hàng loạt plugin) ở cấp dự án.
+
+Một con số đáng nhớ để không kỳ vọng sai: chính `claude.exe` đã chiếm khoảng 3 GB, và dùng chung MCP không đụng tới phần đó. Mở ít session hơn vẫn là cách hiệu quả nhất.
+
+### Tự dựng một hub, rồi gặp bài toán vận hành
+
+Tôi đi theo hướng 2 và gom các server vào một "hub" chạy nền (`node hub.mjs start`, tách khỏi terminal, kiểm tra bằng `node hub.mjs status`). Chạy được rồi thì đến phần chán hơn: **giữ nó sống.** Tôi muốn hub tự bật sau mỗi lần khởi động lại máy, và gặp ngay những chi tiết vặt:
+
+- Task Scheduler với trigger lúc đăng nhập thường bị Windows từ chối ("Access is denied") nếu không có quyền admin. Lối thoát là một shortcut trong thư mục Startup (`shell:startup`), không cần admin.
+- Hub cần khoảng 30 giây để mở cổng. Mở Claude ngay sau khi đăng nhập thì server báo lỗi, phải chờ khoảng một phút rồi mới mở session mới.
+- Đường dẫn `node.exe` bị ghi cứng; đổi phiên bản Node bằng `nvm` là phải tạo lại.
+- Hub sập thì không có gì khởi động lại nó.
+
+Mỗi mục trong số này nhỏ, nhưng cộng lại là một dịch vụ nền tôi phải tự bảo trì, chỉ để các MCP server khỏi nhân bản. Đó là lúc tôi quay sang nhìn xem đã có công cụ nào làm đúng việc này chưa, và 1MCP là một trong số đó.
+
+> **Ghi chú của tác giả:** Phần dưới là những gì README của 1MCP nói, không phải kết quả tôi đã đo khi thay hub tự dựng bằng nó. Tôi chưa thử khởi động lại Windows thật để kiểm chứng việc tự bật, nên không khẳng định gì hơn về điều đó.
+
+## Vấn đề chung: MCP server mọc nhanh hơn cách ta quản lý chúng
 
 [Model Context Protocol](https://modelcontextprotocol.io/) giúp agent gọi công cụ bên ngoài theo một chuẩn chung. Nhưng khi số server tăng lên, hai cái đau xuất hiện:
 
