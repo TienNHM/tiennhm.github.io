@@ -331,6 +331,14 @@ const PROJECTS: Project[] = [
     tags: ['personal'],
   },
   {
+    title: 'English Notebook',
+    description: 'An installable PWA for learning English from what you actually write at work. Save words, phrases and sentences with their Vietnamese meaning, review them with Leitner spaced repetition, and keep a daily streak with XP and badges. Works offline, syncs through Firebase, and an MCP server plus coaching skill let Claude Code correct your English and save new sentences for you. Plain HTML, CSS and JavaScript — no build step.',
+    preview: '/img/showcase/english-notebook.webp',
+    website: 'https://english-notebook.tiennhm.io.vn',
+    source: 'https://github.com/TienNHM/english-notebook',
+    tags: ['opensource', 'personal'],
+  },
+  {
     title: 'UI/UX Design Guide',
     description: 'Trang web tổng hợp kiến thức và kỹ năng UI/UX Design nổi bật trong năm 2025.',
     preview: '/img/blogs/ux-design-principles.webp',
