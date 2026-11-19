@@ -1,8 +1,8 @@
 ---
-title: "Học tiếng Anh khi đi làm mà không tốn thêm giờ nào"
+title: "English Notebook, app học từ vựng tiếng Anh khi đi làm"
 slug: english-notebook-hoc-tieng-anh-khi-lam-viec
-description: "Mỗi câu bạn nhờ AI giúp việc có thể thành một bài học tiếng Anh, rồi tối đi metro về mở điện thoại ôn lại. Mình kể cách làm và chia sẻ English Notebook, app mã nguồn mở mình tự viết, dùng được cả khi mất sóng."
-keywords: [hoc tieng anh khi di lam, hoc tieng anh cho dan cong so, hoc tieng anh cho lap trinh vien, cach hoc tu vung tieng anh nho lau, on tu vung tren dien thoai, hoc tieng anh offline, app hoc tieng anh ma nguon mo, english notebook, the leitner, spaced repetition, claude code, english coach skill, mcp server, pwa, streak hoc tieng anh]
+description: "English Notebook là app học từ vựng tiếng Anh từ chính câu bạn gõ lúc đi làm: AI tự lưu vào sổ, tối ôn trên điện thoại, mất sóng vẫn dùng được."
+keywords: [app hoc tu vung tieng anh, hoc tu vung tieng anh khi di lam, hoc tieng anh khi di lam, hoc tieng anh cho dan cong so, hoc tieng anh cho lap trinh vien, cach hoc tu vung tieng anh nho lau, on tu vung tren dien thoai, hoc tieng anh offline, app hoc tieng anh ma nguon mo, english notebook, the leitner, spaced repetition, claude code, english coach skill, mcp server, pwa, streak hoc tieng anh]
 tags: [learning, ai-tools, tools]
 authors: [tiennhm]
 date: 2026-11-19
