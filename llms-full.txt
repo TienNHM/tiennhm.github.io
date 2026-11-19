@@ -29,7 +29,7 @@ của trang — mỗi mục bên dưới có dòng `URL:` là canonical URL củ
 
 ### Tài liệu bị rút gọn (95) — fetch URL để lấy bản đầy đủ
 
-- English Notebook: vừa làm việc vừa học tiếng Anh, tối đi metro về mở điện thoại ôn lại — https://tiennhm.io.vn/blog/english-notebook-hoc-tieng-anh-khi-lam-viec
+- Học tiếng Anh khi đi làm mà không tốn thêm giờ nào — https://tiennhm.io.vn/blog/english-notebook-hoc-tieng-anh-khi-lam-viec
 - 1MCP Agent: gom mọi MCP server về một cửa, và bớt ngốn context — https://tiennhm.io.vn/blog/1mcp-agent-mcp-gateway
 - Diagram Design: dạy AI agent vẽ sơ đồ kỹ thuật gọn, đẹp và đúng màu thương hiệu — https://tiennhm.io.vn/blog/diagram-design-skill-ve-so-do-cho-ai-agent
 - Phát triển hướng kiểm thử (TDD) trong vòng đời phát triển hướng AI (AI-DLC): tổng quan bằng chứng và đề xuất thực hành — https://tiennhm.io.vn/blog/tdd-test-driven-development
@@ -12671,38 +12671,40 @@ Nội dung chi tiết...
 
 ============================================================================
 
-# English Notebook: vừa làm việc vừa học tiếng Anh, tối đi metro về mở điện thoại ôn lại
+# Học tiếng Anh khi đi làm mà không tốn thêm giờ nào
 
 URL: https://tiennhm.io.vn/blog/english-notebook-hoc-tieng-anh-khi-lam-viec
 Source: blog/2026/2026-11-19-english-notebook-hoc-tieng-anh-khi-lam-viec/index.md
 Date: 2026-11-19
-Description: English Notebook là app mã nguồn mở để học tiếng Anh từ chính những câu bạn gõ lúc làm việc. Hỏi AI agent bằng tiếng Việt, nhận câu tiếng Anh tự nhiên, từ vựng được lưu thẳng vào sổ, rồi ôn bằng thẻ Leitner trên điện thoại, kể cả khi không có mạng. Bài này kể vì sao tôi làm nó, cách nó hoạt động, cách cài với Claude Code và những điều cần cẩn thận.
+Description: Mỗi câu bạn nhờ AI giúp việc có thể thành một bài học tiếng Anh, rồi tối đi metro về mở điện thoại ôn lại. Mình kể cách làm và chia sẻ English Notebook, app mã nguồn mở mình tự viết, dùng được cả khi mất sóng.
 Tags: learning, ai-tools, tools
 Note: Nội dung dưới đây đã được rút gọn để giữ dung lượng file. Bản đầy đủ tại https://tiennhm.io.vn/blog/english-notebook-hoc-tieng-anh-khi-lam-viec
 
 # English Notebook
 
-English Notebook là một PWA nhỏ để học tiếng Anh từ những gì bạn thật sự viết ở chỗ làm. Mỗi khi bạn nhờ AI agent bằng tiếng Việt, skill English Coach đưa lại câu tiếng Anh tự nhiên kèm vài cụm từ đáng nhớ, rồi tự lưu vào sổ qua một MCP server. Tối đi metro về, bạn mở app trên điện thoại và ôn bằng thẻ Leitner (Quên / Nhớ / Dễ). App chạy được khi không có mạng, có streak, XP và huy hiệu để giữ thói quen, và mã nguồn mở ở TienNHM/english-notebook (https://github.com/TienNHM/english-notebook).
+Mình hay nhờ AI giúp việc bằng tiếng Việt, và nhận ra những câu đó chính là thứ mình cần nói bằng tiếng Anh ở công ty. Nên mình làm English Notebook: mỗi khi mình nhắn tiếng Việt cho Claude Code, nó đưa lại câu tiếng Anh tự nhiên và tự lưu vào sổ. Tối đi metro về, mình mở điện thoại ôn lại bằng thẻ Quên / Nhớ / Dễ. App chạy được cả khi mất sóng, mã nguồn mở, ai cũng cài thử được.
 
-Bài này kể lại vì sao tôi làm app, nó hoạt động thế nào, và cách cài nếu bạn muốn thử. Đây là dự án cá nhân đang dùng hằng ngày, không phải một nghiên cứu về hiệu quả học tập: tôi chưa có số liệu nào chứng minh tiếng Anh của mình tốt lên bao nhiêu nhờ nó, nên bài chỉ nói về cách làm, không hứa kết quả.
+Bài này kể lại chuyện mình làm app, cách nó chạy, và cách bạn cài nếu muốn thử. Nói trước cho khỏi hiểu lầm: đây là đồ chơi cá nhân mình dùng hằng ngày, chưa phải nghiên cứu khoa học. Mình chưa có con số nào chứng minh tiếng Anh của mình lên trình bao nhiêu, nên sẽ không hứa "giỏi tiếng Anh sau 30 ngày" đâu.
 
-## Mục tiêu: học tiếng Anh mà không phải dành thêm một khoảng thời gian riêng
+## Chuyện là thế này
 
-Cả ngày tôi làm việc với AI agent, phần lớn bằng tiếng Việt: "giúp tôi xem tại sao API trả lỗi 500 khi gọi", "check lại giúp tôi đoạn deploy này". Đó là những câu tôi thật sự cần nói ở chỗ làm, và cũng là những câu tôi muốn biết nói bằng tiếng Anh. Còn app từ vựng thông thường thì cho tôi danh sách từ không dính gì đến công việc, học xong vài hôm là quên.
+Ai từng học từ vựng cũng biết cảm giác này: hôm nay thuộc 20 từ, tuần sau gặp lại, cả 20 đều quay lưng với mình. Mà những từ đó thường chẳng liên quan gì đến chuyện mình làm mỗi ngày.
 
-Nên tôi đặt ra một mục tiêu đơn giản:
+Trong khi đó, cả ngày mình nói chuyện với AI. Toàn kiểu: "giúp tôi xem tại sao API trả lỗi 500", "check lại đoạn deploy này giùm". Đó đều là những câu mình thật sự sẽ cần nói trong họp, trong Slack, trong code review. Và mình cứ gõ chúng bằng tiếng Việt rồi... để chúng trôi đi.
 
-1. Lúc làm việc, mỗi lần nhắn bằng tiếng Việt thì nhận lại luôn câu tiếng Anh tương ứng, không phải mở thêm cửa sổ hay tra từ điển.
-2. Câu đó và vài cụm từ trong đó tự được lưu lại, tôi không phải chép tay.
-3. Tối đi metro về, mở điện thoại là ôn được những câu của mấy ngày trước, kể cả khi đoạn hầm mất sóng.
+Phí quá. Thế là mình đặt ra ba yêu cầu cho một cái app lý tưởng:
 
-English Notebook là phần còn thiếu để nối ba bước này lại với nhau.
+1. Đang làm việc thì không phải dừng lại mở từ điển hay một app khác.
+2. Câu nào đáng học thì tự nằm vào sổ, mình lười chép tay lắm.
+3. Tối đi metro về, mở điện thoại ra là ôn được ngay, kể cả đoạn hầm mất sóng.
 
-## Luồng dùng hằng ngày
+Không có app nào có sẵn cả ba, nên mình tự viết. Đó là English Notebook.
 
-### Buổi làm việc: hỏi bằng tiếng Việt, nhận câu tiếng Anh
+## Một ngày của mình với nó
 
-Sau khi cài skill (phần bên dưới), mỗi câu tôi nhắn bằng tiếng Việt được trả lời kèm một khối "English Coach". Ví dụ với câu `giúp tôi xem tại sao api trả lỗi 500 khi gọi`:
+### Buổi làm: cứ nhắn tiếng Việt như bình thường
+
+Mình nhắn: `giúp tôi xem tại sao api trả lỗi 500 khi gọi`. Claude Code vẫn đi xem log giúp mình, nhưng phía trên câu trả lời có thêm một khối nhỏ:
 
 [code text]
 🇬🇧 In English: "Can you help me find out why the API returns a 500 error when I call it?"
@@ -12713,56 +12715,72 @@ Sau khi cài skill (phần bên dưới), mỗi câu tôi nhắn bằng tiếng 
 • when I call it = khi tôi gọi nó
 [/code]
 
-Phần trả lời chính của agent sau đó cũng là tiếng Anh đơn giản kèm tiếng Việt, nên việc thật vẫn làm tiếp bình thường. Khối coach chỉ thêm vài giây đọc.
+Vậy là mình vừa biết cách nói câu đó bằng tiếng Anh, mất thêm đúng vài giây đọc. Phần còn lại của câu trả lời cũng viết bằng tiếng Anh đơn giản kèm tiếng Việt, nên mình đọc luôn cả tiếng Anh lẫn nghĩa.
 
-Nếu tôi viết bằng tiếng Anh, skill sửa lỗi ngữ pháp, từ dùng chưa tự nhiên hoặc giới từ, tối đa ba lỗi mỗi lần, và bỏ qua lỗi chính tả hay viết hoa để không làm tôi chán. Cần tắt thì gõ `skip coach` cho riêng tin nhắn đó.
+Còn nếu mình gõ tiếng Anh thì nó sửa lỗi giúp (tối đa ba lỗi một lần, để mình không bị ngợp), và lờ đi lỗi chính tả hay quên viết hoa. Hôm nào cần yên tĩnh thì gõ `skip coach`, nó tắt coach cho đúng tin nhắn đó.
 
-### Tự lưu vào sổ
+### Câu hay thì tự vào sổ
 
-Sau khi xong việc chính, skill gọi MCP server để lưu một câu kèm 2–3 cụm từ rút ra từ nó. Trong app, câu gốc tiếng Việt vẫn nằm cạnh câu tiếng Anh, và mỗi cụm từ thành một thẻ riêng nhưng vẫn liên kết với câu chứa nó. Mỗi thẻ có nhãn `claude` để tôi biết thẻ nào do agent lưu. Từ kỹ thuật thuần như deploy, merge, PR thì skill được dặn là không lưu, vì tôi đã biết.
+Xong việc chính, nó lưu một câu kèm 2–3 cụm từ rút ra từ câu đó. Câu tiếng Việt gốc của mình nằm ngay cạnh, và mỗi cụm từ thành một thẻ riêng nhưng vẫn dính với câu mẹ. Thẻ nào do agent lưu thì có nhãn `claude` cho dễ nhận. Mấy từ kỹ thuật như deploy, merge, PR thì nó được dặn là khỏi lưu, vì dân dev ai chẳng biết.
 
-### Buổi tối: ôn trên điện thoại
+### Buổi tối: ôn trên metro
 
-Phần ôn dùng hộp Leitner: thẻ nằm trong sáu hộp (box 0 đến 5) và khoảng cách ôn lần lượt là 0, 1, 3, 7, 14 và 30 ngày. Mỗi thẻ hiện mặt trước, tôi tự nhớ, lật lên xem rồi chọn:
+Đây là lúc mình lấy điện thoại ra thay vì lướt mạng xã hội (ít nhất là cố gắng như thế). Thẻ hiện mặt trước, mình tự nhớ thử, lật lên xem rồi bấm:
 
-- Quên: thẻ về hộp 0 và gặp lại sau khoảng 10 phút.
+- Quên: không sao, app không phán xét. Thẻ về hộp 0 và gặp lại sau khoảng 10 phút.
 - Nhớ: thẻ lên một hộp.
-- Dễ: thẻ lên hai hộp.
+- Dễ: những lúc bạn thấy mình là thiên tài. Thẻ nhảy lên hai hộp.
 
-Để giữ thói quen, app có mục tiêu hằng ngày (chọn 5, 10, 15, 20 hoặc 30 thẻ), streak đếm số ngày liền đạt mục tiêu, XP và cấp độ, và 35 huy hiệu. Có thêm băng cứu streak 🧊: cứ mỗi mốc streak là bội số của 7 ngày thì nhận một băng (tối đa hai), dùng để bù một ngày lỡ. Đây là phần "gamification" nhẹ, mục đích duy nhất là có lý do để mở app khi tàu đang chạy.
+Đằng sau là cách ôn Leitner kinh điển: sáu hộp (từ 0 đến 5), thẻ càng lên cao càng lâu mới gặp lại, theo các mốc 0, 1, 3, 7, 14 và 30 ngày. Thẻ nào dễ thì thưa dần, thẻ nào hay quên thì về gặp bạn thường xuyên.
 
-## Chạy trên điện thoại, kể cả khi mất sóng
+Để có động lực mở app, mình thêm vài thứ vui vui:
 
-App là một PWA: thuần HTML, CSS và JavaScript, không có bước build, nên cài lên điện thoại như một app thật:
+- Mục tiêu mỗi ngày: chọn 5, 10, 15, 20 hoặc 30 thẻ.
+- Streak 🔥: số ngày liền bạn đạt mục tiêu.
+- XP, cấp độ và 35 huy hiệu để sưu tầm.
+- Băng cứu streak 🧊: cứ mỗi lần streak chạm bội số của 7 ngày thì nhận một băng (tối đa hai). Lỡ quên một hôm, băng sẽ đỡ cho bạn. Coi như bảo hiểm streak.
 
-- Android (Chrome, Edge): mở Profile, bấm 📲 Cài app hoặc dùng menu trình duyệt chọn Install app.
-- iPhone, iPad: phải dùng Safari. Bấm nút Chia sẻ, chọn Thêm vào Màn hình chính.
+## Hầm metro mất sóng? Không sao
 
-Sau khi cài, app mở toàn màn hình, nhấn giữ biểu tượng ra các lối tắt (Ôn tập hôm nay, Thêm từ mới, Thành tích và streak) và mở được khi không có mạng. Thẻ bạn ôn hoặc thêm lúc offline được lưu trên máy rồi đồng bộ khi có mạng lại. Tạo token, chia sẻ kho từ và gọi agent thì cần có mạng.
+English Notebook là một PWA, tức là một trang web biết cư xử như app thật. Cài lên điện thoại xong, nó có biểu tượng riêng, mở toàn màn hình, nhấn giữ biểu tượng ra các lối tắt như Ôn tập hôm nay, và quan trọng nhất là mở được khi không có mạng. Cách cài mình hướng dẫn từng bước ở phần Cài đặt bên dưới.
 
-Đồng bộ giữa máy tính và điện thoại dựa trên đăng nhập Google và Firestore. Nếu hai thiết bị có tiến độ khác nhau thì app gộp lại chứ không ghi đè: với mỗi ngày, số lớn hơn thắng, nên không mất dữ liệu.
+Thẻ bạn ôn hay thêm lúc offline được lưu trên máy, có mạng lại thì tự đồng bộ. (Chỉ có tạo token, chia sẻ kho từ và việc agent lưu thẻ là cần mạng.)
 
-## Cài để dùng với Claude Code
+Nếu bạn đăng nhập Google, dữ liệu đồng bộ giữa máy tính và điện thoại. Lỡ hai máy có tiến độ khác nhau thì app gộp lại chứ không ghi đè: mỗi ngày lấy số lớn hơn, nên không bị mất gì.
 
-Có hai nửa: app (nơi lưu và ôn) và MCP server cùng skill (nơi agent lưu thẻ vào app).
+## Cài đặt từng bước
+Có hai nửa: app (nơi lưu và ôn) và MCP server cùng skill (nơi Claude Code lưu thẻ vào app). Làm lần lượt từ trên xuống. Chỉ muốn dùng app thôi, không cần agent, thì làm Phần A bước 1 và Phần C là đủ.
 
-Bước 1: dùng app. Mở english-notebook.tiennhm.io.vn (https://english-notebook.tiennhm.io.vn), đăng nhập Google nếu muốn đồng bộ. Không đăng nhập thì dữ liệu chỉ nằm trong trình duyệt, và bạn sao lưu bằng nút Xuất JSON trong Thư viện.
+### Cần chuẩn bị
 
-Bước 2: lấy token cho agent. Vào Profile → 🤖 Kết nối AI agent → Tạo token. Token chỉ hiện một lần, hãy chép ngay. Mất hoặc lộ thì thu hồi ở cùng màn hình rồi tạo cái mới.
+- Một tài khoản Google (để đăng nhập và đồng bộ).
+- Node.js 18 trở lên và Claude Code đã cài (chỉ cần cho Phần B). Kiểm tra Node bằng cách mở terminal và gõ:
 
-Bước 3: cài MCP server và skill. Cần Node.js 18 trở lên:
+[code bash]
+node -v
+[/code]
+
+Ra `v18.x.x` hoặc cao hơn là ổn. Báo lỗi "not found" thì cài Node.js từ nodejs.org (https://nodejs.org) rồi thử lại.
+
+### Phần A: Mở app và lấy token
+
+Token giống như một chiếc chìa khoá nhỏ: Claude Code cầm nó để bỏ thẻ vào sổ của bạn, ngoài ra không đọc được gì khác.
+
+Bước 1. Mở app và đăng nhập Google. Vào english-notebook.tiennhm.io.vn (https://english-notebook.tiennhm.io.vn), chọn tab Profile, bấm nút Google ở khung Tài khoản.
+
+Bước 2. Mở màn hình kết nối AI agent. Vẫn ở tab Profile, kéo xuống khung AI agent và bấm Kết nối AI agent. (Chưa đăng nhập thì bấm vào chỉ thấy nút đăng nhập, nên nhớ làm bước 1 trước.)
+
+Bước 3. Đặt tên rồi bấm Tạo token. Tên nào cũng được, miễn bạn nhớ nó là của máy nào, ví dụ `laptop công ty`.
+
+Bước 4. Sao chép lệnh cài. Token mới hiện ra kèm một dòng lệnh đã điền sẵn token cho bạn. Bấm Sao chép lệnh cài. Nhớ làm ngay lúc này: token chỉ hiện một lần, đóng hộp thoại là không xem lại được (mất thì thu hồi rồi tạo cái mới, không sao cả).
+
+### Phần B: Cài cho Claude Code
+
+Bước 5. Dán lệnh vào terminal. Mở terminal, dán lệnh vừa sao chép rồi nhấn Enter. Lệnh có dạng này (token của bạn nằm ở chỗ `enb_YOUR_TOKEN`):
 
 [code bash]
 npx github:TienNHM/english-notebook-mcp --token enb_YOUR_TOKEN --always-on
 [/code]
-
-Lệnh này thêm MCP server `english-notebook` vào Claude Code, cài skill `english-coach` vào `~/.claude/skills`, và với `--always-on` thì thêm một quy tắc ngắn vào `~/.claude/CLAUDE.md` để coach chạy trên mọi câu trả lời. Khởi động lại Claude Code sau đó. Muốn gỡ thì chạy `npx github:TienNHM/english-notebook-mcp uninstall --agent all`; lệnh này gỡ MCP server và quy tắc always-on, còn thư mục skill `~/.claude/skills/english-coach` được giữ lại, bạn tự xoá nếu muốn.
-
-Dùng Cursor thì thêm `--agent cursor` (hoặc `all`). Dùng Claude Code dạng plugin cũng được: `claude plugin marketplace add TienNHM/english-notebook-mcp`, rồi `claude plugin install english-notebook@tiennhm`. Chi tiết nằm ở README của MCP server (https://github.com/TienNHM/english-notebook-mcp).
-
-Để thử: nhắn `lưu từ rollback (quay lại bản cũ)` và xem từ đó có hiện trong app không.
-
-## Phía sau: ba mảnh ghép nhỏ
 
 [… phần còn lại đã lược bớt]
 
