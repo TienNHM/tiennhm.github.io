@@ -1,7 +1,7 @@
-# Học tiếng Anh khi đi làm mà không tốn thêm giờ nào
+# English Notebook, app học từ vựng tiếng Anh khi đi làm
 
 > Nguồn: https://tiennhm.io.vn/en/blog/english-notebook-hoc-tieng-anh-khi-lam-viec
-> Mỗi câu bạn nhờ AI giúp việc có thể thành một bài học tiếng Anh, rồi tối đi metro về mở điện thoại ôn lại. Mình kể cách làm và chia sẻ English Notebook, app mã nguồn mở mình tự viết, dùng được cả khi mất sóng.
+> English Notebook là app học từ vựng tiếng Anh từ chính câu bạn gõ lúc đi làm: AI tự lưu vào sổ, tối ôn trên điện thoại, mất sóng vẫn dùng được.
 
 > Mình hay nhờ AI giúp việc bằng tiếng Việt, và nhận ra những câu đó chính là thứ mình cần nói bằng tiếng Anh ở công ty. Nên mình làm **English Notebook**: mỗi khi mình nhắn tiếng Việt cho Claude Code, nó đưa lại câu tiếng Anh tự nhiên và **tự lưu vào sổ**. Tối đi metro về, mình mở điện thoại ôn lại bằng thẻ **Quên / Nhớ / Dễ**. App chạy được cả khi mất sóng, mã nguồn mở, ai cũng cài thử được.
 
