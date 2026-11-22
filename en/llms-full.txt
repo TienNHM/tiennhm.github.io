@@ -9,7 +9,7 @@ Index: https://tiennhm.io.vn/llms.txt
 Sitemap: https://tiennhm.io.vn/sitemap.xml
 Owner: Nguyễn Huỳnh Minh Tiến (TienNHM)
 Language: vi (chính), en (một phần)
-Generated: 2026-11-19 (scripts/generate-llms-full.js)
+Generated: 2026-11-22 (scripts/generate-llms-full.js)
 
 ## Attribution
 
@@ -18,8 +18,8 @@ của trang — mỗi mục bên dưới có dòng `URL:` là canonical URL củ
 
 ## Phạm vi & giới hạn
 
-- Tổng số tài liệu quét được: 164 (docs: 114, blog: 50).
-- Số tài liệu có mặt trong file này: 164.
+- Tổng số tài liệu quét được: 165 (docs: 114, blog: 51).
+- Số tài liệu có mặt trong file này: 165.
 - Ngân sách dung lượng: 2.0 MB. Trần nội dung mỗi tài liệu: 6 KB.
 - Khi thiếu chỗ: blog giữ 30% ngân sách (ưu tiên bài mới nhất), phần còn lại dành cho docs/.
 - Nội dung đã được strip khỏi MDX/JSX và frontmatter; chữ bên trong các
@@ -27,8 +27,9 @@ của trang — mỗi mục bên dưới có dòng `URL:` là canonical URL củ
 - Khối code dài bị rút gọn; mọi chỗ rút gọn đều được đánh dấu tại chỗ.
 - Mỗi tài liệu bắt đầu bằng một dòng `========…` rồi tới `# <tiêu đề>` và `URL: …`.
 
-### Tài liệu bị rút gọn (95) — fetch URL để lấy bản đầy đủ
+### Tài liệu bị rút gọn (96) — fetch URL để lấy bản đầy đủ
 
+- security-audit-skill của Cloudflare: cho coding agent đi săn lỗ hổng mà không tự lừa mình — https://tiennhm.io.vn/blog/security-audit-skill-cloudflare
 - English Notebook, app học từ vựng tiếng Anh khi đi làm — https://tiennhm.io.vn/blog/english-notebook-hoc-tieng-anh-khi-lam-viec
 - 1MCP Agent: gom mọi MCP server về một cửa, và bớt ngốn context — https://tiennhm.io.vn/blog/1mcp-agent-mcp-gateway
 - Diagram Design: dạy AI agent vẽ sơ đồ kỹ thuật gọn, đẹp và đúng màu thương hiệu — https://tiennhm.io.vn/blog/diagram-design-skill-ve-so-do-cho-ai-agent
@@ -12666,6 +12667,71 @@ Nội dung chi tiết...
 />
 
 ## Câu hỏi thường gặp
+
+[… phần còn lại đã lược bớt]
+
+============================================================================
+
+# security-audit-skill của Cloudflare: cho coding agent đi săn lỗ hổng mà không tự lừa mình
+
+URL: https://tiennhm.io.vn/blog/security-audit-skill-cloudflare
+Source: blog/2026/2026-11-22-security-audit-skill-cloudflare/index.md
+Date: 2026-11-22
+Description: security-audit-skill là skill mã nguồn mở của Cloudflare biến coding agent thành người kiểm tra bảo mật: sáu giai đoạn, agent kiểm chứng độc lập, kết quả dạng JSON có schema. Bài này kể lại một lần tôi dùng nó trên một dự án WinForms cũ, những gì nó tìm ra, cách sửa, rồi giới thiệu cách skill hoạt động và cách cài.
+Tags: security, ai-tools, ai-driven-development
+Note: Nội dung dưới đây đã được rút gọn để giữ dung lượng file. Bản đầy đủ tại https://tiennhm.io.vn/blog/security-audit-skill-cloudflare
+
+# security-audit-skill của Cloudflare
+
+security-audit-skill là một skill mã nguồn mở (MIT) của Cloudflare dành cho coding agent như Claude Code. Skill chia việc kiểm tra bảo mật thành sáu giai đoạn: dựng bản đồ hệ thống, săn lỗi theo một sổ theo dõi độ phủ (coverage ledger), rồi giao từng nghi vấn cho một agent khác cố bác bỏ nó. Kết quả cuối cùng là file `findings.json` có schema, chia làm ba loại `confirmed`, `needs_validation` và `rejected`. Điều tôi thích nhất là nó không cho agent khẳng định khi chưa đủ bằng chứng: lỗi chỉ được coi là thật khi chỉ ra được ai vượt qua ranh giới tin cậy nào và gây ra hậu quả cụ thể gì.
+
+Bài bắt đầu bằng một lần dùng thật: tôi chạy skill trên một đồ án WinForms cũ của mình, nó tìm ra lỗi gì, rồi tôi sửa ra sao. Sau đó mới đến phần giới thiệu skill, dựa trên README của repo (https://github.com/cloudflare/security-audit-skill) và nội dung file `SKILL.md`. Tôi mới dùng chế độ hướng dẫn (guidance mode) một lần, chưa chạy full audit đủ sáu giai đoạn, nên phần nói về full audit là theo tài liệu chứ chưa phải trải nghiệm của tôi.
+
+## Câu chuyện: soi lại đồ án quản lý ký túc xá
+
+QLKTX (https://github.com/tiennhm-edu/QLKTX-ADO.NET) là đồ án môn học của tôi: một ứng dụng WinForms C# dùng ADO.NET, có đăng nhập, quản lý sinh viên, nhân viên, phòng, hóa đơn và báo cáo. Code nhỏ, khoảng 200 file, viết từ thời sinh viên. Tôi muốn xem một agent có skill bảo mật sẽ nhìn nó thế nào.
+
+### Agent hỏi trước khi làm
+
+Tôi chỉ gõ `/security-audit`, không nói thêm gì. Agent không lao vào chạy ngay. Nó lướt qua cấu trúc repo rồi hỏi tôi muốn kiểu nào:
+
+- Focused review: đọc những phần quan trọng nhất (câu SQL, đăng nhập, mật khẩu, chuỗi kết nối, phân quyền) rồi báo kết quả ngay trong chat. Không tạo file.
+- Full audit: chạy đủ sáu giai đoạn với nhiều agent, ghi báo cáo ra một thư mục bên ngoài repo. Chậm hơn và tốn nhiều token hơn hẳn.
+
+Câu hỏi này đến từ chính `SKILL.md`: skill mặc định ở chế độ hướng dẫn, và chỉ chạy full audit khi người dùng yêu cầu rõ. Với một app cỡ này, agent đề xuất focused review và tôi đồng ý.
+
+### Kết quả: không có SQL injection, nhưng phân quyền thì thủng
+
+Điều đầu tiên agent ghi nhận lại là một tin tốt: mọi câu SQL đều dùng tham số. Những chỗ ghép chuỗi kiểu `$"SELECT * FROM {strTableName}"` chỉ lấy tên bảng từ `enum` chứ không lấy từ ô nhập liệu, nên không phải SQL injection. Nếu chỉ grep theo mẫu, rất dễ báo nhầm chỗ này.
+
+Rồi đến những lỗi thật:
+
+1. Nhân viên tự nâng mình lên admin (High). Ứng dụng coi một người là admin khi cột `MaNQL` (mã người quản lý) của họ để trống. Quyền chỉ được chặn ở giao diện: form chính tắt hai ô "DS Nhân viên" và "Báo cáo" với nhân viên. Nhưng ô Tìm kiếm vẫn mở. Từ đó chọn Nhân viên, nhấp đúp vào một dòng, bấm Sửa rồi Lưu là sửa được lương và `MaNQL` của bất kỳ ai. Xóa trống `MaNQL` của chính mình thì lần đăng nhập sau thành admin.
+
+Agent trình bày lỗi này đúng theo khung mà skill yêu cầu: ai (nhân viên đã đăng nhập), làm gì (sửa bản ghi nhân viên qua form tìm kiếm), vượt qua kiểm soát nào (ranh giới admin/nhân viên), hậu quả (đổi lương người khác, chiếm quyền admin). Kèm theo là đường dẫn file và số dòng cụ thể cho từng bước.
+
+2. Mật khẩu lưu dạng chữ thường (Medium). Câu đăng nhập là `WHERE TenDN = @TenDN AND MatKhau = @MatKhau`. Ai đọc được CSDL hay bản sao lưu là đọc được mọi mật khẩu.
+
+3. File backup CSDL bị commit lên Git (Medium nếu dữ liệu là thật). Repo có file `QUANLYKTX.bak`, trong đó có bảng đăng nhập. Agent xác nhận bảng có trong file nhưng không in giá trị nào ra.
+
+Cần kiểm chứng thêm: ứng dụng kết nối bằng `Integrated Security=True`, tức mỗi người dùng Windows nói chuyện thẳng với SQL Server bằng danh tính của họ. Nếu tài khoản nhân viên có quyền đọc/ghi trên CSDL thì họ có thể bỏ qua ứng dụng hoàn toàn (ví dụ dùng SSMS). Nhưng quyền đó nằm ở cấu hình SQL Server chứ không nằm trong mã nguồn. Vì vậy agent không gán mức độ nghiêm trọng, chỉ ghi là "cần kiểm tra" kèm đúng sự thật còn thiếu. Đây chính là loại `needs_validation` của skill.
+
+### Sửa lỗi
+
+Skill chỉ mô tả cách sửa chứ không tự sửa code. Phần sửa tôi làm tiếp trong cùng phiên, cũng với agent:
+
+- Phân quyền: thêm một lớp `Session` chỉ được gán khi đăng nhập. Tầng nghiệp vụ (`BS_layer`) tự kiểm tra lại quyền: chỉ admin được thêm, xóa hay sửa hồ sơ người khác; nhân viên chỉ được sửa thông tin liên hệ của chính mình, đổi lương hay `MaNQL` là bị từ chối. Form chỉ khóa nút cho tiện, quyết định nằm ở tầng dưới.
+- Một lỗi phụ lòi ra khi sửa: cả form lẫn phần đăng nhập đều tìm nhân viên bằng `LIKE '%NV1%'`. Câu này có thể trả về `NV10` trước `NV1`, tức có thể lấy nhầm `MaNQL` và tính sai quyền. Tôi đổi sang so khớp chính xác.
+- Mật khẩu: băm bằng PBKDF2-HMAC-SHA256, salt ngẫu nhiên 16 byte, 600.000 vòng, so sánh thời gian hằng. Có một chi tiết thú vị: trên .NET Framework 4.6.1, `Rfc2898DeriveBytes` chỉ hỗ trợ SHA-1 và mất 5,8 giây cho 600.000 vòng. Gọi thẳng PBKDF2 của Windows CNG (`bcrypt.dll`) qua P/Invoke thì chỉ khoảng 125 ms, lại dùng được SHA-256. Mã băm được kiểm tra với hai bộ test vector chuẩn trong RFC 7914.
+- Không bắt mọi người đổi mật khẩu: mật khẩu cũ dạng chữ thường vẫn đăng nhập được. Sau lần đăng nhập thành công đầu tiên, mật khẩu đó được tự đổi sang dạng băm. Cột `MatKhau` cũ chỉ có `VARCHAR(50)`, trong khi chuỗi băm dài 91 ký tự, nên cần một script migration để nới cột.
+
+Hai lỗi được ghi thành issue, sửa trong một PR (https://github.com/tiennhm-edu/QLKTX-ADO.NET/pull/4), và README có thêm mục hướng dẫn chạy migration trước khi triển khai.
+
+> Ghi chú của tác giả: phần băm mật khẩu đã được test riêng, nhưng toàn bộ luồng đăng nhập và phân quyền chưa được chạy với một CSDL thật lúc viết bài. Agent cũng nói rõ điều này thay vì báo "xong".
+
+## security-audit-skill là gì
+
+Theo README, đây là skill "biến agent của bạn thành người kiểm tra bảo mật". Nó cũng là điểm khởi đầu của hệ thống săn lỗ hổng nội bộ mà Cloudflare kể trong bài Build your own vulnerability harness (https://blog.cloudflare.com/build-your-own-vulnerability-harness). Hệ thống đó sau này chạy trên toàn bộ các repo của họ; skill này là phiên bản cho một repo.
 
 [… phần còn lại đã lược bớt]
 
